@@ -80,6 +80,7 @@ export default function FilterSelect({
       sx={{
         minWidth: 180,
         maxWidth: 320,
+        alignSelf: "flex-start",
         "& .MuiAutocomplete-inputRoot": {
           flexWrap: "wrap",
           gap: 0.5,
