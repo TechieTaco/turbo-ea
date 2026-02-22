@@ -5,6 +5,15 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.7.3] - 2026-02-22
+
+### Added
+- Report filter dropdowns now include an "(empty)" option to filter cards with missing field values or no relations
+- Extracted shared FilterSelect component used across Portfolio, Capability Map, and Process Map reports
+
+### Fixed
+- Filter dropdown chevron no longer overlaps selected tag text
+
 ## [0.7.2] - 2026-02-22
 
 ### Fixed
