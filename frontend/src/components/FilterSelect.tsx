@@ -65,7 +65,7 @@ export default function FilterSelect({
                 fontStyle: isEmpty ? "italic" : undefined,
                 fontSize: "0.7rem",
                 height: 22,
-                maxWidth: 110,
+                maxWidth: 90,
               }}
             />
           );
