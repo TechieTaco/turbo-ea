@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 - Matrix report dark mode: heatmap cells, dots, highlights, depth controls, and count text now use theme-aware colors instead of hardcoded light-mode values
+- Time travel date from a saved report no longer leaks into the regular report view
 
 ## [0.8.0] - 2026-02-23
 
