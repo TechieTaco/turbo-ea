@@ -147,7 +147,7 @@ export default function FieldEditorDialog({ open, field: initial, typeKey, field
           >
             {FIELD_TYPE_OPTIONS.map((o) => (
               <MenuItem key={o.value} value={o.value}>
-                {o.label}
+                {t(o.tKey)}
               </MenuItem>
             ))}
           </Select>
@@ -178,7 +178,7 @@ export default function FieldEditorDialog({ open, field: initial, typeKey, field
         {isSelect && (
           <>
             <Typography variant="subtitle2" sx={{ mb: 1 }}>
-              Options
+              {t("metamodel.fieldEditor.options")}
             </Typography>
             {(field.options || []).map((opt, idx) => (
               <Box key={idx}>
@@ -187,16 +187,16 @@ export default function FieldEditorDialog({ open, field: initial, typeKey, field
                 >
                   <KeyInput
                     size="small"
-                    label="Key"
+                    label={t("metamodel.fieldEditor.optionKeyLabel")}
                     value={opt.key}
                     onChange={(v) => updateOption(idx, { key: v })}
                     sx={{ flex: 1 }}
                     locked={originalOptionKeys.has(opt.key)}
-                    lockedReason="Key is locked"
+                    lockedReason={t("metamodel.fieldEditor.optionKeyLocked")}
                   />
                   <TextField
                     size="small"
-                    label="Label"
+                    label={t("metamodel.fieldEditor.optionLabelLabel")}
                     value={opt.label}
                     onChange={(e) => updateOption(idx, { label: e.target.value })}
                     sx={{ flex: 1 }}
@@ -218,7 +218,7 @@ export default function FieldEditorDialog({ open, field: initial, typeKey, field
                     action={
                       <Box sx={{ display: "flex", gap: 0.5 }}>
                         <Button size="small" color="inherit" onClick={() => setDeleteOptConfirm(null)}>
-                          Cancel
+                          {t("common:actions.cancel")}
                         </Button>
                         <Button
                           size="small"
@@ -226,16 +226,16 @@ export default function FieldEditorDialog({ open, field: initial, typeKey, field
                           disabled={deleteOptConfirm.cardCount === null}
                           onClick={() => removeOption(idx)}
                         >
-                          Remove
+                          {t("common:actions.remove")}
                         </Button>
                       </Box>
                     }
                   >
                     {deleteOptConfirm.cardCount === null
-                      ? "Checking usage..."
+                      ? t("metamodel.fieldEditor.checkingUsage")
                       : deleteOptConfirm.cardCount > 0
-                        ? `"${deleteOptConfirm.optionLabel}" is used by ${deleteOptConfirm.cardCount} card(s). Their value will be cleared on save.`
-                        : `No cards use "${deleteOptConfirm.optionLabel}". Safe to remove.`}
+                        ? t("metamodel.fieldEditor.optionUsedByCards", { label: deleteOptConfirm.optionLabel, count: deleteOptConfirm.cardCount })
+                        : t("metamodel.fieldEditor.optionSafeToRemove", { label: deleteOptConfirm.optionLabel })}
                   </Alert>
                 )}
               </Box>
@@ -245,19 +245,19 @@ export default function FieldEditorDialog({ open, field: initial, typeKey, field
               startIcon={<MaterialSymbol icon="add" size={16} />}
               onClick={addOption}
             >
-              Add Option
+              {t("metamodel.fieldEditor.addOption")}
             </Button>
           </>
         )}
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>Cancel</Button>
+        <Button onClick={onClose}>{t("common:actions.cancel")}</Button>
         <Button
           variant="contained"
           onClick={() => onSave(field)}
           disabled={!field.key || !field.label || (!initial.key && !isValidKey(field.key)) || (isSelect && (field.options || []).some((o) => o.key && !isValidKey(o.key) && !originalOptionKeys.has(o.key)))}
         >
-          Save
+          {t("common:actions.save")}
         </Button>
       </DialogActions>
     </Dialog>

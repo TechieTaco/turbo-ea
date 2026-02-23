@@ -649,20 +649,17 @@ function GeneralTab() {
         <Box sx={{ display: "flex", alignItems: "center", mb: 2, gap: 1 }}>
           <MaterialSymbol icon="person_add" size={22} color="#555" />
           <Typography variant="h6" fontWeight={600}>
-            Self-Registration
+            {t("settings.registration.title")}
           </Typography>
           <Chip
-            label={registrationEnabled ? "Enabled" : "Disabled"}
+            label={registrationEnabled ? t("settings.enabled") : t("settings.disabled")}
             size="small"
             color={registrationEnabled ? "success" : "default"}
             sx={{ ml: 1 }}
           />
         </Box>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          Allow new users to create accounts themselves from the login page.
-          When disabled, users can only be added by an administrator (or via
-          SSO if configured). The first user can always register to bootstrap
-          the admin account.
+          {t("settings.registration.description")}
         </Typography>
         <FormControlLabel
           control={
@@ -674,10 +671,10 @@ function GeneralTab() {
           }
           label={
             ssoEnabled
-              ? "Registration is managed by SSO"
+              ? t("settings.registration.managedBySso")
               : registrationEnabled
-                ? "Users can self-register"
-                : "Only admins can create users"
+                ? t("settings.registration.selfRegister")
+                : t("settings.registration.adminOnly")
           }
         />
       </Paper>
@@ -687,20 +684,17 @@ function GeneralTab() {
         <Box sx={{ display: "flex", alignItems: "center", mb: 2, gap: 1 }}>
           <MaterialSymbol icon="shield_person" size={22} color="#555" />
           <Typography variant="h6" fontWeight={600}>
-            SSO / Microsoft Entra ID
+            {t("settings.sso.title")}
           </Typography>
           <Chip
-            label={ssoEnabled ? "Enabled" : "Disabled"}
+            label={ssoEnabled ? t("settings.enabled") : t("settings.disabled")}
             size="small"
             color={ssoEnabled ? "success" : "default"}
             sx={{ ml: 1 }}
           />
         </Box>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-          Enable Single Sign-On with Microsoft Entra ID (Azure AD). When enabled,
-          users can sign in with their Microsoft account. New SSO users are
-          automatically assigned the Viewer role unless pre-invited with a
-          specific role. Manual registration is disabled when SSO is active.
+          {t("settings.sso.description")}
         </Typography>
 
         <FormControlLabel
@@ -710,45 +704,42 @@ function GeneralTab() {
               onChange={(e) => setSsoEnabled(e.target.checked)}
             />
           }
-          label={ssoEnabled ? "SSO is enabled" : "SSO is disabled"}
+          label={ssoEnabled ? t("settings.sso.enabledLabel") : t("settings.sso.disabledLabel")}
           sx={{ mb: 2 }}
         />
 
         {ssoEnabled && (
           <>
             <TextField
-              label="Client ID (Application ID)"
+              label={t("settings.sso.clientId")}
               fullWidth
               value={ssoClientId}
               onChange={(e) => setSsoClientId(e.target.value)}
               placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
-              helperText="From your Azure App Registration"
+              helperText={t("settings.sso.clientIdHelper")}
               sx={{ mb: 2 }}
             />
             <TextField
-              label="Client Secret"
+              label={t("settings.sso.clientSecret")}
               fullWidth
               type="password"
               value={ssoClientSecret}
               onChange={(e) => setSsoClientSecret(e.target.value)}
-              helperText="From your Azure App Registration > Certificates & secrets"
+              helperText={t("settings.sso.clientSecretHelper")}
               sx={{ mb: 2 }}
             />
             <TextField
-              label="Tenant ID"
+              label={t("settings.sso.tenantId")}
               fullWidth
               value={ssoTenantId}
               onChange={(e) => setSsoTenantId(e.target.value)}
               placeholder="organizations"
-              helperText={
-                'Use "organizations" for multi-tenant (any Azure AD), or a specific tenant ID to restrict access.'
-              }
+              helperText={t("settings.sso.tenantIdHelper")}
               sx={{ mb: 2 }}
             />
             <Alert severity="info" sx={{ mb: 2 }}>
               <Typography variant="body2">
-                <strong>Redirect URI</strong>: Configure this in your Azure App
-                Registration under Authentication:{" "}
+                <strong>{t("settings.sso.redirectUri")}</strong>: {t("settings.sso.redirectUriHelper")}{" "}
                 <code>{window.location.origin}/auth/callback</code>
               </Typography>
             </Alert>
@@ -764,45 +755,44 @@ function GeneralTab() {
             onClick={handleSsoSave}
             disabled={savingSso}
           >
-            {savingSso ? "Saving..." : "Save"}
+            {savingSso ? t("settings.saving") : t("common:actions.save")}
           </Button>
         </Box>
       </Paper>
 
       {/* ── Email ─────────────────────────────────────────────────── */}
-      <SectionHeader>Email</SectionHeader>
+      <SectionHeader>{t("settings.sections.email")}</SectionHeader>
 
       {/* Email / SMTP Settings */}
       <Paper sx={{ p: 3, mb: 3 }}>
         <Box sx={{ display: "flex", alignItems: "center", mb: 2, gap: 1 }}>
           <MaterialSymbol icon="mail" size={22} color="#555" />
           <Typography variant="h6" fontWeight={600}>
-            SMTP Configuration
+            {t("settings.smtp.title")}
           </Typography>
           <Chip
-            label={configured ? "Configured" : "Not configured"}
+            label={configured ? t("settings.smtp.configured") : t("settings.smtp.notConfigured")}
             size="small"
             color={configured ? "success" : "default"}
             sx={{ ml: 1 }}
           />
         </Box>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-          Configure SMTP settings to enable email notifications. If left empty,
-          only in-app notifications will be delivered.
+          {t("settings.smtp.description")}
         </Typography>
 
         <Box
           sx={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 2, mb: 2 }}
         >
           <TextField
-            label="SMTP Host"
+            label={t("settings.smtp.host")}
             fullWidth
             value={smtpHost}
             onChange={(e) => setSmtpHost(e.target.value)}
             placeholder="e.g. smtp.gmail.com"
           />
           <TextField
-            label="SMTP Port"
+            label={t("settings.smtp.port")}
             fullWidth
             type="number"
             value={smtpPort}
