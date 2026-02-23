@@ -378,9 +378,11 @@ export default function TypeDetailDrawer({
             icon={<MaterialSymbol icon="translate" size={16} />}
             label={t("metamodel.translationDialog.manage")}
             size="small"
+            color="primary"
             variant="outlined"
             onClick={() => setTranslationDialogOpen(true)}
-            sx={{ ml: 1, cursor: "pointer" }}
+            clickable
+            sx={{ ml: 1 }}
           />
         </Box>
         <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>

@@ -377,8 +377,8 @@ export default function StakeholderRolePanel({ typeKey, onError }: StakeholderRo
                           sx={{ minHeight: 32, "& .MuiAccordionSummary-content": { my: 0.25 } }}
                         >
                           <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-                            <MaterialSymbol icon="translate" size={14} color="#999" />
-                            <Typography variant="caption" color="text.secondary">
+                            <MaterialSymbol icon="translate" size={16} color="inherit" />
+                            <Typography variant="caption" fontWeight={600}>
                               {t("metamodel.translations.roleTranslations")}
                             </Typography>
                           </Box>
@@ -506,8 +506,8 @@ export default function StakeholderRolePanel({ typeKey, onError }: StakeholderRo
                   sx={{ minHeight: 32, "& .MuiAccordionSummary-content": { my: 0.25 } }}
                 >
                   <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-                    <MaterialSymbol icon="translate" size={14} color="#999" />
-                    <Typography variant="caption" color="text.secondary">
+                    <MaterialSymbol icon="translate" size={16} color="inherit" />
+                    <Typography variant="caption" fontWeight={600}>
                       {t("metamodel.translations.roleTranslations")}
                     </Typography>
                   </Box>
