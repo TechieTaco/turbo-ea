@@ -47,6 +47,28 @@ When working on this codebase, follow these conventions:
 - Icons use Google Material Symbols via the `MaterialSymbol` component.
 - When nesting MUI Dialogs, use `disableRestoreFocus` on inner dialogs.
 
+### Internationalization (i18n)
+- **All user-facing strings must use translation keys**, never hardcoded English text. Use `useTranslation()` from `react-i18next` with the appropriate namespace.
+- **12 namespaces**: `common`, `auth`, `nav`, `inventory`, `cards`, `reports`, `admin`, `bpm`, `diagrams`, `delivery`, `notifications`, `validation`. Use the namespace that matches the feature area.
+- **7 supported locales**: `en` (English, baseline), `de` (German), `fr` (French), `es` (Spanish), `it` (Italian), `pt` (Portuguese), `zh` (Chinese Simplified).
+- **English is the source of truth**. All keys must exist in `frontend/src/i18n/locales/en/{namespace}.json` first. The i18n config uses `fallbackLng: "en"` and `returnEmptyString: false`, so missing or empty translations gracefully fall back to English.
+- **Interpolation**: Use `{{variable}}` syntax for dynamic values (e.g., `"Selected {{count}} cards"`). Preserve these placeholders exactly when translating.
+- **Plurals**: i18next uses `_one` / `_other` suffixes (e.g., `"count_one": "{{count}} item"`, `"count_other": "{{count}} items"`). All locales need both forms.
+- **JSON safety**: Never use unescaped ASCII double quotes `"` inside JSON string values. For Chinese use corner brackets `「」`, for other languages use `«»` or escaped `\"`.
+- **Metamodel labels** (card type names, field labels, relation labels) are translated separately via the `translations` JSONB column on `card_types` and `relation_types`. Use `useResolveLabel()` / `useResolveMetaLabel()` from `src/hooks/useResolveLabel.ts` to resolve these at render time.
+
+#### Adding a New Language
+
+1. **Create locale files**: Copy `frontend/src/i18n/locales/en/` to `frontend/src/i18n/locales/{code}/` (use ISO 639-1 code). Translate all values; leave keys unchanged.
+2. **Register in i18n config** (`frontend/src/i18n/index.ts`):
+   - Add imports for all 12 namespace files
+   - Add the locale to the `resources` object in `i18n.init()`
+   - Add the code to `SUPPORTED_LOCALES` array
+   - Add a display label to `LOCALE_LABELS`
+3. **Add metamodel translations**: In `backend/app/services/seed.py`, add entries for the new locale in the `translations` dict of each card type and relation type definition.
+4. **Backend locale column** (`users.locale`): The Alembic migration already stores locale as a free-form string, so no migration is needed.
+5. **Validate**: Run `python3 -c "import json, glob; [json.load(open(f)) for f in glob.glob('src/i18n/locales/{code}/*.json')]"` to check JSON validity. Then run `npm run build` and `npm run test:run`.
+
 ### Security Requirements
 - Never store plaintext secrets in the database — use `encrypt_value()`.
 - Never expose sensitive fields (password hashes, encrypted secrets) in API responses.
