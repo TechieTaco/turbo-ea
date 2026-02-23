@@ -119,13 +119,14 @@ function countdownLabel(days: number | null): string {
 
 /** Source badge for manual vs API items */
 function SourceBadge({ source }: { source: "api" | "manual" }) {
+  const { t } = useTranslation(["reports"]);
   const theme = useTheme();
   if (source === "api") return null;
   return (
-    <Tooltip title="End-of-Life date was manually maintained in the Lifecycle section, not from endoflife.date API">
+    <Tooltip title={t("eol.manualTooltip")}>
       <Chip
         size="small"
-        label="Manual"
+        label={t("eol.manual")}
         icon={<MaterialSymbol icon="edit_note" size={14} />}
         sx={{
           height: 18,
@@ -186,6 +187,7 @@ function KpiCard({
 /* ------------------------------------------------------------------ */
 
 export default function EolReport() {
+  const { t } = useTranslation(["reports", "common"]);
   const { getType } = useMetamodel();
   const saved = useSavedReport("eol");
   const { chartRef, thumbnail, captureAndSave } = useThumbnailCapture(() => saved.setSaveDialogOpen(true));
@@ -321,14 +323,15 @@ export default function EolReport() {
   const printParams = useMemo(() => {
     const params: { label: string; value: string }[] = [];
     if (filterStatus) {
-      const statusLabel = STATUS_CONFIG[filterStatus as keyof typeof STATUS_CONFIG]?.label || filterStatus;
-      params.push({ label: "Status", value: statusLabel });
+      const cfg = STATUS_CONFIG[filterStatus as keyof typeof STATUS_CONFIG];
+      const statusLabel = cfg ? t(cfg.labelKey) : filterStatus;
+      params.push({ label: t("eol.status"), value: statusLabel });
     }
-    if (filterType) params.push({ label: "Type", value: filterType === "ITComponent" ? "IT Component" : filterType });
-    if (filterSource) params.push({ label: "Source", value: filterSource === "api" ? "endoflife.date" : "Manual" });
-    if (view === "table") params.push({ label: "View", value: "Table" });
+    if (filterType) params.push({ label: t("common:labels.type"), value: filterType === "ITComponent" ? "IT Component" : filterType });
+    if (filterSource) params.push({ label: t("eol.source"), value: filterSource === "api" ? "endoflife.date" : t("eol.manual") });
+    if (view === "table") params.push({ label: t("common.view"), value: t("common.table") });
     return params;
-  }, [filterStatus, filterType, filterSource, view]);
+  }, [filterStatus, filterType, filterSource, view, t]);
 
   if (!data)
     return (
@@ -344,7 +347,7 @@ export default function EolReport() {
 
   return (
     <ReportShell
-      title="End-of-Life & Impact"
+      title={t("eol.title")}
       icon="update"
       iconColor="#d32f2f"
       view={view}
@@ -360,17 +363,17 @@ export default function EolReport() {
           <TextField
             select
             size="small"
-            label="Status"
+            label={t("eol.status")}
             value={filterStatus}
             onChange={(e) => setFilterStatus(e.target.value)}
             sx={{ minWidth: 160 }}
           >
-            <MenuItem value="">All Statuses</MenuItem>
+            <MenuItem value="">{t("eol.allStatuses")}</MenuItem>
             {Object.entries(STATUS_CONFIG).map(([key, cfg]) => (
               <MenuItem key={key} value={key}>
                 <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                   <MaterialSymbol icon={cfg.icon} size={16} color={cfg.color} />
-                  {cfg.label}
+                  {t(cfg.labelKey)}
                 </Box>
               </MenuItem>
             ))}
@@ -378,24 +381,24 @@ export default function EolReport() {
           <TextField
             select
             size="small"
-            label="Type"
+            label={t("common:labels.type")}
             value={filterType}
             onChange={(e) => setFilterType(e.target.value)}
             sx={{ minWidth: 160 }}
           >
-            <MenuItem value="">All Types</MenuItem>
+            <MenuItem value="">{t("eol.allTypes")}</MenuItem>
             <MenuItem value="Application">Application</MenuItem>
             <MenuItem value="ITComponent">IT Component</MenuItem>
           </TextField>
           <TextField
             select
             size="small"
-            label="Source"
+            label={t("eol.source")}
             value={filterSource}
             onChange={(e) => setFilterSource(e.target.value)}
             sx={{ minWidth: 140 }}
           >
-            <MenuItem value="">All Sources</MenuItem>
+            <MenuItem value="">{t("eol.allSources")}</MenuItem>
             <MenuItem value="api">
               <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                 <MaterialSymbol icon="cloud" size={16} color="#1976d2" />
@@ -405,7 +408,7 @@ export default function EolReport() {
             <MenuItem value="manual">
               <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                 <MaterialSymbol icon="edit_note" size={16} color="#3949ab" />
-                Manual
+                {t("eol.manual")}
               </Box>
             </MenuItem>
           </TextField>
@@ -415,10 +418,10 @@ export default function EolReport() {
         <ReportLegend
           items={[
             ...Object.values(STATUS_CONFIG).map((s) => ({
-              label: s.label,
+              label: t(s.labelKey),
               color: s.color,
             })),
-            { label: "Manually Maintained", color: "#3949ab" },
+            { label: t("eol.manuallyMaintained"), color: "#3949ab" },
           ]}
         />
       }

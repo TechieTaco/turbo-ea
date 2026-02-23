@@ -239,7 +239,7 @@ export default function SurveyBuilder() {
       const data = await api.post<SurveyPreviewResult>(`/surveys/${sid}/preview`, {});
       setPreview(data);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to preview");
+      setError(e instanceof Error ? e.message : t("common:errors.generic"));
     } finally {
       setPreviewing(false);
     }
@@ -254,7 +254,7 @@ export default function SurveyBuilder() {
       await api.post(`/surveys/${surveyId}/send`, {});
       navigate(`/admin/surveys/${surveyId}/results`);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to send survey");
+      setError(e instanceof Error ? e.message : t("common:errors.generic"));
     } finally {
       setSending(false);
     }
@@ -280,19 +280,19 @@ export default function SurveyBuilder() {
 
   const handleNext = async () => {
     if (activeStep === 0 && !name.trim()) {
-      setError("Survey name is required");
+      setError(t("surveyBuilder.validation.nameRequired"));
       return;
     }
     if (activeStep === 1 && !targetTypeKey) {
-      setError("Please select a target card type");
+      setError(t("surveyBuilder.validation.typeRequired"));
       return;
     }
     if (activeStep === 1 && targetRoles.length === 0) {
-      setError("Please select at least one stakeholder role");
+      setError(t("surveyBuilder.validation.rolesRequired"));
       return;
     }
     if (activeStep === 2 && selectedFields.length === 0) {
-      setError("Please select at least one field");
+      setError(t("surveyBuilder.validation.fieldsRequired"));
       return;
     }
 
@@ -332,17 +332,17 @@ export default function SurveyBuilder() {
     <Box>
       {/* Header */}
       <Box sx={{ display: "flex", alignItems: "center", mb: 3, gap: 1 }}>
-        <Tooltip title="Back to Surveys">
+        <Tooltip title={t("surveyBuilder.backTooltip")}>
           <IconButton onClick={() => navigate("/admin/surveys")}>
             <MaterialSymbol icon="arrow_back" size={22} />
           </IconButton>
         </Tooltip>
         <MaterialSymbol icon="assignment" size={28} color="#1976d2" />
         <Typography variant="h5" sx={{ fontWeight: 700, flex: 1 }}>
-          {id ? "Edit Survey" : "New Survey"}
+          {id ? t("surveyBuilder.editSurvey") : t("surveyBuilder.newSurvey")}
         </Typography>
         {surveyId && (
-          <Chip label="Draft" size="small" color="default" />
+          <Chip label={t("common:status.draft")} size="small" color="default" />
         )}
       </Box>
 
@@ -364,10 +364,10 @@ export default function SurveyBuilder() {
       {activeStep === 0 && (
         <MuiCard sx={{ p: 3 }}>
           <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
-            Survey Details
+            {t("surveyBuilder.basics.title")}
           </Typography>
           <TextField
-            label="Survey Name"
+            label={t("surveyBuilder.basics.name")}
             fullWidth
             value={name}
             onChange={(e) => setName(e.target.value)}
@@ -375,23 +375,23 @@ export default function SurveyBuilder() {
             required
           />
           <TextField
-            label="Description"
+            label={t("surveyBuilder.basics.description")}
             fullWidth
             multiline
             rows={2}
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             sx={{ mb: 2 }}
-            helperText="Optional internal description (not shown to respondents)"
+            helperText={t("surveyBuilder.basics.descriptionHelper")}
           />
           <TextField
-            label="Message to Respondents"
+            label={t("surveyBuilder.basics.message")}
             fullWidth
             multiline
             rows={4}
             value={message}
             onChange={(e) => setMessage(e.target.value)}
-            helperText="This message will be shown to targeted users when they open the survey"
+            helperText={t("surveyBuilder.basics.messageHelper")}
           />
         </MuiCard>
       )}

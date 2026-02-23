@@ -507,6 +507,7 @@ function ProcessCard({
               onProcClick={onProcClick}
               onItemClick={onItemClick}
               fmtCost={fmtCost}
+              tr={tr}
             />
           </Box>
         ))}
@@ -520,6 +521,7 @@ function ProcessCard({
 /* ------------------------------------------------------------------ */
 
 export default function ProcessMapReport() {
+  const { t } = useTranslation(["reports", "common"]);
   const { fmtShort } = useCurrency();
   const saved = useSavedReport("process-map");
 
@@ -649,11 +651,11 @@ export default function ProcessMapReport() {
   const levelOptions = useMemo(() => {
     const opts = [];
     for (let i = 1; i <= Math.max(maxLvl, 2); i++) {
-      opts.push({ value: i, label: `Level ${i}` });
+      opts.push({ value: i, label: t("processMap.levelN", { n: i }) });
     }
-    opts.push({ value: 99, label: "All levels" });
+    opts.push({ value: 99, label: t("processMap.allLevels") });
     return opts;
-  }, [maxLvl]);
+  }, [maxLvl, t]);
 
   const hasActiveFilters = filterOrgs.length > 0 || filterCtxs.length > 0;
 
@@ -665,24 +667,25 @@ export default function ProcessMapReport() {
     return null;
   }, [metric]);
 
-  const showRelatedLabel = showRelated === "none" ? "" : showRelated === "apps" ? "Applications" : "Data Objects";
+  const showRelatedLabel = showRelated === "none" ? "" : showRelated === "apps" ? t("processMap.showApplications") : t("processMap.showDataObjects");
   const printParams = useMemo(() => {
     const params: { label: string; value: string }[] = [];
-    const metricLabel = METRIC_OPTIONS.find((o) => o.key === metric)?.label || metric;
-    params.push({ label: "Metric", value: metricLabel });
+    const mOpt = METRIC_OPTIONS.find((o) => o.key === metric);
+    const mLabel = mOpt ? t(mOpt.tKey) : metric;
+    params.push({ label: t("common.metric"), value: mLabel });
     const depthLabel = levelOptions.find((o) => o.value === displayLevel)?.label || "";
-    params.push({ label: "Depth", value: depthLabel });
-    if (showRelated !== "none") params.push({ label: "Show Related", value: showRelatedLabel });
+    params.push({ label: t("common.depth"), value: depthLabel });
+    if (showRelated !== "none") params.push({ label: t("processMap.showRelated"), value: showRelatedLabel });
     if (filterOrgs.length > 0) {
       const orgNames = filterOrgs.map((id) => orgOptions.find((o) => o.key === id)?.label || id).join(", ");
-      params.push({ label: "Organization", value: orgNames });
+      params.push({ label: t("processMap.organization"), value: orgNames });
     }
     if (filterCtxs.length > 0) {
       const ctxNames = filterCtxs.map((id) => ctxOptions.find((o) => o.key === id)?.label || id).join(", ");
-      params.push({ label: "Business Context", value: ctxNames });
+      params.push({ label: t("processMap.businessContext"), value: ctxNames });
     }
     return params;
-  }, [metric, displayLevel, showRelated, showRelatedLabel, filterOrgs, orgOptions, filterCtxs, ctxOptions, levelOptions]);
+  }, [metric, displayLevel, showRelated, showRelatedLabel, filterOrgs, orgOptions, filterCtxs, ctxOptions, levelOptions, t]);
 
   if (data === null)
     return (
