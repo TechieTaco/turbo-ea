@@ -51,7 +51,7 @@ describe("ErrorBoundary", () => {
     );
 
     expect(
-      screen.getByText('Something went wrong in "Description Section"')
+      screen.getByText("Something went wrong — Description Section")
     ).toBeInTheDocument();
   });
 

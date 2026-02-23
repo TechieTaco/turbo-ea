@@ -5,6 +5,19 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.12.0] - 2026-02-23
+
+### Added
+- Full internationalization (i18n) support: all UI strings across the entire frontend are now translatable via react-i18next
+- 2,014 translation keys across 12 namespaces covering every page, component, dialog, and error message
+- 7 supported locales: English (complete), German, French, Spanish, Italian, Portuguese, Chinese (skeleton files ready for translation)
+- Language selector in user menu with server-side locale persistence
+- User locale preference stored in the database and synced on login
+- All locale skeleton files synchronized with the complete English key set
+
+### Changed
+- ErrorBoundary, CardDetailContent, CardDetailSidePanel, EditableTable, FilterSelect, and IconPicker now use translation keys instead of hardcoded strings
+
 ## [0.11.0] - 2026-02-23
 
 ### Added

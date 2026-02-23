@@ -35,6 +35,7 @@
   "actions.logout": "Logout",
   "actions.change": "Change",
   "actions.link": "Link",
+  "actions.retry": "Retry",
 
   "status.active": "Active",
   "status.inactive": "Inactive",
@@ -77,6 +78,7 @@
   "labels.system": "System",
   "labels.count": "Count",
   "labels.cards": "Cards",
+  "labels.empty": "(empty)",
 
   "emptyStates.noCards": "No cards found.",
   "emptyStates.noData": "No data available.",
@@ -87,12 +89,7 @@
   "errors.unauthorized": "Unauthorized",
   "errors.forbidden": "You don't have permission to perform this action",
   "errors.occurred": "An error occurred",
-
-  "status.draft": "Draft",
-  "status.active": "Active",
-  "status.published": "Published",
-  "status.completed": "Completed",
-  "status.pending": "Pending",
+  "errors.failedToRender": "Failed to render",
 
   "time.justNow": "just now",
   "time.minutesAgo": "{{count}}m ago",
@@ -172,5 +169,24 @@
   "portal.roles.responsible": "Responsible",
   "portal.roles.observer": "Observer",
   "portal.roles.technical_application_owner": "Technical Owner",
-  "portal.roles.business_application_owner": "Business Owner"
+  "portal.roles.business_application_owner": "Business Owner",
+
+  "iconPicker.searchPlaceholder": "Search icons...",
+  "iconPicker.resultCount_one": "{{count}} result",
+  "iconPicker.resultCount_other": "{{count}} results",
+  "iconPicker.noMatch": "No icons match \"{{search}}\"",
+  "iconPicker.noMatchHint": "Try typing the icon name directly — any valid Material Symbols name will work.",
+  "iconPicker.categories.common": "Common",
+  "iconPicker.categories.businessStrategy": "Business & Strategy",
+  "iconPicker.categories.organizationPeople": "Organization & People",
+  "iconPicker.categories.architectureStructure": "Architecture & Structure",
+  "iconPicker.categories.technologyCloud": "Technology & Cloud",
+  "iconPicker.categories.dataAnalytics": "Data & Analytics",
+  "iconPicker.categories.securityCompliance": "Security & Compliance",
+  "iconPicker.categories.communication": "Communication",
+  "iconPicker.categories.filesDocuments": "Files & Documents",
+  "iconPicker.categories.navigationMaps": "Navigation & Maps",
+  "iconPicker.categories.processesWorkflow": "Processes & Workflow",
+  "iconPicker.categories.statusIndicators": "Status & Indicators",
+  "iconPicker.categories.miscellaneous": "Miscellaneous"
 }
