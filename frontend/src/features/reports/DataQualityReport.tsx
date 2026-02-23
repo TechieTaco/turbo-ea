@@ -69,6 +69,7 @@ function dataQualityLabelKey(v: number): string {
 }
 
 export default function DataQualityReport() {
+  const { t } = useTranslation(["reports", "common"]);
   const theme = useTheme();
   const { types } = useMetamodel();
   const saved = useSavedReport("data-quality");
@@ -110,21 +111,24 @@ export default function DataQualityReport() {
   const stalePct = data.total_items > 0 ? ((data.stale / data.total_items) * 100).toFixed(0) : "0";
 
   // Chart data for stacked bar
-  const chartData = data.by_type.map((t) => ({
-    name: types.find((tp) => tp.key === t.type)?.label || t.type,
-    type: t.type,
-    Complete: t.complete,
-    Partial: t.partial,
-    Minimal: t.minimal,
-    avg: t.avg_data_quality,
-    total: t.total,
+  const completeLabel = t("dataQuality.complete");
+  const partialLabel = t("dataQuality.partial");
+  const minimalLabel = t("dataQuality.minimal");
+  const chartData = data.by_type.map((bt) => ({
+    name: types.find((tp) => tp.key === bt.type)?.label || bt.type,
+    type: bt.type,
+    [completeLabel]: bt.complete,
+    [partialLabel]: bt.partial,
+    [minimalLabel]: bt.minimal,
+    avg: bt.avg_data_quality,
+    total: bt.total,
   }));
 
   // Alerts
   const alerts: { severity: "error" | "warning" | "info"; msg: string }[] = [];
-  if (data.orphaned > 5) alerts.push({ severity: "warning", msg: `${data.orphaned} cards have no relations (orphaned). Consider linking them to related items.` });
-  if (data.stale > 5) alerts.push({ severity: "warning", msg: `${data.stale} cards haven't been updated in 90+ days. Review for accuracy.` });
-  if (data.overall_data_quality < 50) alerts.push({ severity: "error", msg: `Overall data quality is ${data.overall_data_quality}%. Focus on improving completeness.` });
+  if (data.orphaned > 5) alerts.push({ severity: "warning", msg: t("dataQuality.orphanedAlert", { count: data.orphaned }) });
+  if (data.stale > 5) alerts.push({ severity: "warning", msg: t("dataQuality.staleAlert", { count: data.stale }) });
+  if (data.overall_data_quality < 50) alerts.push({ severity: "error", msg: t("dataQuality.overallAlert", { pct: data.overall_data_quality }) });
 
   const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?: { name: string; value: number; color: string }[]; label?: string }) => {
     if (!active || !payload) return null;
@@ -132,7 +136,7 @@ export default function DataQualityReport() {
     return (
       <Paper sx={{ p: 1.5 }} elevation={3}>
         <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>{label}</Typography>
-        <Typography variant="caption" display="block" color="text.secondary">{total} total items</Typography>
+        <Typography variant="caption" display="block" color="text.secondary">{t("dataQuality.totalItemsLabel", { count: total })}</Typography>
         {payload.map((p) => (
           <Box key={p.name} sx={{ display: "flex", alignItems: "center", gap: 0.5, mt: 0.5 }}>
             <Box sx={{ width: 8, height: 8, borderRadius: "50%", bgcolor: p.color }} />
@@ -145,7 +149,7 @@ export default function DataQualityReport() {
 
   return (
     <ReportShell
-      title="Data Quality"
+      title={t("dataQuality.title")}
       icon="verified"
       iconColor="#2e7d32"
       view={view}
@@ -170,35 +174,35 @@ export default function DataQualityReport() {
       {/* KPI strip */}
       <Box sx={{ display: "flex", gap: 2, mb: 3, flexWrap: "wrap" }}>
         <MetricCard
-          label="Overall Quality"
+          label={t("dataQuality.overallQuality")}
           value={`${data.overall_data_quality}%`}
           icon="speed"
           iconColor={dataQualityColor(data.overall_data_quality)}
           color={dataQualityColor(data.overall_data_quality)}
         />
         <MetricCard
-          label="Total Items"
+          label={t("dataQuality.totalItems")}
           value={data.total_items}
           icon="inventory_2"
         />
         <MetricCard
-          label="With Lifecycle"
+          label={t("dataQuality.withLifecycle")}
           value={`${lifecyclePct}%`}
           subtitle={`${data.with_lifecycle} of ${data.total_items}`}
           icon="schedule"
           iconColor="#1976d2"
         />
         <MetricCard
-          label="Orphaned"
+          label={t("dataQuality.orphaned")}
           value={data.orphaned}
-          subtitle={`${orphanedPct}% of total`}
+          subtitle={t("dataQuality.percentOfTotal", { pct: orphanedPct })}
           icon="link_off"
           iconColor={data.orphaned > 5 ? "#e65100" : theme.palette.text.secondary}
         />
         <MetricCard
-          label="Stale (90+ days)"
+          label={t("dataQuality.stale")}
           value={data.stale}
-          subtitle={`${stalePct}% of total`}
+          subtitle={t("dataQuality.percentOfTotal", { pct: stalePct })}
           icon="update_disabled"
           iconColor={data.stale > 5 ? "#e65100" : theme.palette.text.secondary}
         />
@@ -209,7 +213,7 @@ export default function DataQualityReport() {
           {/* Stacked bar chart by type */}
           <Paper variant="outlined" sx={{ p: 2 }}>
             <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 2 }}>
-              Completeness by Type
+              {t("dataQuality.completenessByType")}
             </Typography>
             <ResponsiveContainer width="100%" height={Math.max(250, chartData.length * 50)}>
               <BarChart data={chartData} layout="vertical" margin={{ left: 120, right: 20, top: 5, bottom: 5 }}>
@@ -218,9 +222,9 @@ export default function DataQualityReport() {
                 <YAxis type="category" dataKey="name" width={110} tick={{ fontSize: 12, fill: theme.palette.text.secondary }} />
                 <RTooltip cursor={{ fill: theme.palette.action.hover }} content={<CustomTooltip />} />
                 <Legend formatter={(value: string) => <span style={{ color: theme.palette.text.primary }}>{value}</span>} />
-                <Bar dataKey="Complete" stackId="a" fill={QUALITY_COLORS.complete} radius={[0, 0, 0, 0]} />
-                <Bar dataKey="Partial" stackId="a" fill={QUALITY_COLORS.partial} />
-                <Bar dataKey="Minimal" stackId="a" fill={QUALITY_COLORS.minimal} radius={[0, 4, 4, 0]} />
+                <Bar dataKey={completeLabel} stackId="a" fill={QUALITY_COLORS.complete} radius={[0, 0, 0, 0]} />
+                <Bar dataKey={partialLabel} stackId="a" fill={QUALITY_COLORS.partial} />
+                <Bar dataKey={minimalLabel} stackId="a" fill={QUALITY_COLORS.minimal} radius={[0, 4, 4, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </Paper>
@@ -228,7 +232,7 @@ export default function DataQualityReport() {
           {/* Per-type data quality bars */}
           <Paper variant="outlined" sx={{ p: 2 }}>
             <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 2 }}>
-              Average Completion by Type
+              {t("dataQuality.avgCompletionByType")}
             </Typography>
             <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
               {data.by_type.map((t) => {
@@ -238,7 +242,7 @@ export default function DataQualityReport() {
                     <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 0.5 }}>
                       <Typography variant="body2" sx={{ fontWeight: 500, fontSize: 13 }}>{label}</Typography>
                       <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                        <Chip size="small" label={`${t.total} items`} variant="outlined" sx={{ height: 20, fontSize: 10 }} />
+                        <Chip size="small" label={t("dataQuality.items", { count: bt.total })} variant="outlined" sx={{ height: 20, fontSize: 10 }} />
                         <Typography
                           variant="caption"
                           sx={{ fontWeight: 700, color: dataQualityColor(t.avg_data_quality), minWidth: 36, textAlign: "right" }}
