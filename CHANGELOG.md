@@ -5,10 +5,18 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.10.0] - 2026-02-23
+
+### Added
+- i18n Phase 2: all core UI components now use translation keys (auth pages, dashboard, shared components)
+- German (DE) added as the 7th supported locale
+- English translation files populated with ~200 keys across 5 namespaces (common, auth, cards, notifications, validation)
+- All hardcoded strings in LoginPage, SetPasswordPage, SsoCallback, Dashboard, CreateCardDialog, NotificationBell, NotificationPreferencesDialog, LifecycleBadge, ApprovalStatusBadge, EolLinkSection, VendorField, ColorPicker, KeyInput, and TimelineSlider now use `t()` calls
+
 ## [0.9.0] - 2026-02-23
 
 ### Added
-- Internationalization (i18n) infrastructure: react-i18next with 12 translation namespaces and 6 supported locales (EN, FR, ES, IT, PT, ZH)
+- Internationalization (i18n) infrastructure: react-i18next with 12 translation namespaces and 7 supported locales (EN, DE, FR, ES, IT, PT, ZH)
 - Language switcher in the user menu to change the UI language
 - User locale preference stored on the backend and synced on login
 - Navigation bar labels, search placeholder, and action buttons now use translation keys

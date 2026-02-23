@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import Box from "@mui/material/Box";
 import Card from "@mui/material/Card";
@@ -40,13 +41,6 @@ const APPROVAL_STATUS_COLORS: Record<string, string> = {
   BROKEN: "#ff9800",
 };
 
-const APPROVAL_STATUS_LABELS: Record<string, string> = {
-  DRAFT: "Draft",
-  APPROVED: "Approved",
-  REJECTED: "Rejected",
-  BROKEN: "Broken",
-};
-
 const DATA_QUALITY_COLORS: Record<string, string> = {
   "0-25": "#f44336",
   "25-50": "#ff9800",
@@ -61,15 +55,6 @@ const DATA_QUALITY_LABELS: Record<string, string> = {
   "75-100": "75 - 100%",
 };
 
-const LIFECYCLE_PHASES = [
-  { key: "plan", label: "Plan", color: "#9e9e9e" },
-  { key: "phaseIn", label: "Phase In", color: "#2196f3" },
-  { key: "active", label: "Active", color: "#4caf50" },
-  { key: "phaseOut", label: "Phase Out", color: "#ff9800" },
-  { key: "endOfLife", label: "End of Life", color: "#f44336" },
-  { key: "none", label: "Not Set", color: "#9e9e9e" },
-];
-
 /* ------------------------------------------------------------------ */
 /*  Component                                                          */
 /* ------------------------------------------------------------------ */
@@ -77,6 +62,7 @@ const LIFECYCLE_PHASES = [
 export default function Dashboard() {
   const navigate = useNavigate();
   const theme = useTheme();
+  const { t } = useTranslation("common");
   const { types } = useMetamodel();
   const [data, setData] = useState<DashboardData | null>(null);
 
@@ -98,8 +84,8 @@ export default function Dashboard() {
     if (!data) return [];
     return Object.entries(data.approval_statuses)
       .filter(([, v]) => v > 0)
-      .map(([k, v]) => ({ name: APPROVAL_STATUS_LABELS[k] || k, value: v, color: APPROVAL_STATUS_COLORS[k] || "#999", key: k }));
-  }, [data]);
+      .map(([k, v]) => ({ name: t(`status.${k.toLowerCase()}`) || k, value: v, color: APPROVAL_STATUS_COLORS[k] || "#999", key: k }));
+  }, [data, t]);
 
   const dataQualityChartData = useMemo(() => {
     if (!data) return [];
@@ -110,14 +96,23 @@ export default function Dashboard() {
     }));
   }, [data]);
 
+  const lifecyclePhases = useMemo(() => [
+    { key: "plan", label: t("lifecycle.plan"), color: "#9e9e9e" },
+    { key: "phaseIn", label: t("lifecycle.phaseIn"), color: "#2196f3" },
+    { key: "active", label: t("lifecycle.active"), color: "#4caf50" },
+    { key: "phaseOut", label: t("lifecycle.phaseOut"), color: "#ff9800" },
+    { key: "endOfLife", label: t("lifecycle.endOfLife"), color: "#f44336" },
+    { key: "none", label: t("lifecycle.notSet"), color: "#9e9e9e" },
+  ], [t]);
+
   const lifecycleChartData = useMemo(() => {
     if (!data) return [];
-    return LIFECYCLE_PHASES.map((p) => ({
+    return lifecyclePhases.map((p) => ({
       name: p.label,
       count: data.lifecycle_distribution[p.key] || 0,
       color: p.color,
     }));
-  }, [data]);
+  }, [data, lifecyclePhases]);
 
   if (!data) return <LinearProgress />;
 
@@ -128,7 +123,7 @@ export default function Dashboard() {
   return (
     <Box>
       <Typography variant="h5" fontWeight={600} sx={{ mb: 3 }}>
-        Dashboard
+        {t("dashboard.title")}
       </Typography>
 
       {/* -------- KPI summary cards -------- */}
@@ -138,7 +133,7 @@ export default function Dashboard() {
             <CardContent>
               <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
                 <MaterialSymbol icon="inventory_2" size={24} color="#1976d2" />
-                <Typography variant="subtitle2" color="text.secondary">Total Cards</Typography>
+                <Typography variant="subtitle2" color="text.secondary">{t("dashboard.totalCards")}</Typography>
               </Box>
               <Typography variant="h4" fontWeight={700}>{data.total_cards}</Typography>
             </CardContent>
@@ -149,7 +144,7 @@ export default function Dashboard() {
             <CardContent>
               <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
                 <MaterialSymbol icon="pie_chart" size={24} color="#4caf50" />
-                <Typography variant="subtitle2" color="text.secondary">Avg Completion</Typography>
+                <Typography variant="subtitle2" color="text.secondary">{t("dashboard.avgCompletion")}</Typography>
               </Box>
               <Typography variant="h4" fontWeight={700}>{data.avg_data_quality}%</Typography>
             </CardContent>
@@ -160,7 +155,7 @@ export default function Dashboard() {
             <CardContent>
               <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
                 <MaterialSymbol icon="verified" size={24} color="#2e7d32" />
-                <Typography variant="subtitle2" color="text.secondary">Approved</Typography>
+                <Typography variant="subtitle2" color="text.secondary">{t("status.approved")}</Typography>
               </Box>
               <Typography variant="h4" fontWeight={700}>{data.approval_statuses["APPROVED"] || 0}</Typography>
             </CardContent>
@@ -171,7 +166,7 @@ export default function Dashboard() {
             <CardContent>
               <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
                 <MaterialSymbol icon="warning" size={24} color="#f57c00" />
-                <Typography variant="subtitle2" color="text.secondary">Broken</Typography>
+                <Typography variant="subtitle2" color="text.secondary">{t("status.broken")}</Typography>
               </Box>
               <Typography variant="h4" fontWeight={700}>{data.approval_statuses["BROKEN"] || 0}</Typography>
             </CardContent>
@@ -185,7 +180,7 @@ export default function Dashboard() {
           <Card sx={{ height: "100%" }}>
             <CardContent>
               <Typography variant="subtitle1" fontWeight={600} gutterBottom>
-                Cards by Type
+                {t("dashboard.cardsByType")}
               </Typography>
               {typeChartData.length > 0 ? (
                 <ResponsiveContainer width="100%" height={Math.max(typeChartData.length * 38, 200)}>
@@ -202,7 +197,7 @@ export default function Dashboard() {
                     <RTooltip cursor={{ fill: theme.palette.action.hover }} contentStyle={{ backgroundColor: theme.palette.background.paper, borderColor: theme.palette.divider, color: theme.palette.text.primary }} />
                     <Bar
                       dataKey="count"
-                      name="Count"
+                      name={t("labels.count")}
                       radius={[0, 4, 4, 0]}
                       cursor="pointer"
                       onClick={(_data, _idx) => {
@@ -217,7 +212,7 @@ export default function Dashboard() {
                   </BarChart>
                 </ResponsiveContainer>
               ) : (
-                <Typography variant="body2" color="text.secondary">No cards yet</Typography>
+                <Typography variant="body2" color="text.secondary">{t("dashboard.noCardsYet")}</Typography>
               )}
             </CardContent>
           </Card>
@@ -227,7 +222,7 @@ export default function Dashboard() {
           <Card sx={{ height: "100%" }}>
             <CardContent>
               <Typography variant="subtitle1" fontWeight={600} gutterBottom>
-                Approval Status Distribution
+                {t("dashboard.approvalStatusDistribution")}
               </Typography>
               {approvalChartData.length > 0 ? (
                 <ResponsiveContainer width="100%" height={260}>
@@ -257,7 +252,7 @@ export default function Dashboard() {
                   </PieChart>
                 </ResponsiveContainer>
               ) : (
-                <Typography variant="body2" color="text.secondary">No data</Typography>
+                <Typography variant="body2" color="text.secondary">{t("emptyStates.noData")}</Typography>
               )}
             </CardContent>
           </Card>
@@ -270,7 +265,7 @@ export default function Dashboard() {
           <Card sx={{ height: "100%" }}>
             <CardContent>
               <Typography variant="subtitle1" fontWeight={600} gutterBottom>
-                Completion Distribution
+                {t("dashboard.completionDistribution")}
               </Typography>
               <ResponsiveContainer width="100%" height={240}>
                 <BarChart data={dataQualityChartData} margin={{ left: 0, right: 16, top: 8, bottom: 4 }}>
@@ -280,7 +275,7 @@ export default function Dashboard() {
                   <RTooltip cursor={{ fill: theme.palette.action.hover }} contentStyle={{ backgroundColor: theme.palette.background.paper, borderColor: theme.palette.divider, color: theme.palette.text.primary }} />
                   <Bar
                     dataKey="count"
-                    name="Cards"
+                    name={t("labels.cards")}
                     radius={[4, 4, 0, 0]}
                     cursor="pointer"
                     onClick={() => navigate("/reports/data-quality")}
@@ -299,7 +294,7 @@ export default function Dashboard() {
           <Card sx={{ height: "100%" }}>
             <CardContent>
               <Typography variant="subtitle1" fontWeight={600} gutterBottom>
-                Lifecycle Overview
+                {t("dashboard.lifecycleOverview")}
               </Typography>
               <ResponsiveContainer width="100%" height={240}>
                 <BarChart data={lifecycleChartData} margin={{ left: 0, right: 16, top: 8, bottom: 4 }}>
@@ -309,7 +304,7 @@ export default function Dashboard() {
                   <RTooltip cursor={{ fill: theme.palette.action.hover }} contentStyle={{ backgroundColor: theme.palette.background.paper, borderColor: theme.palette.divider, color: theme.palette.text.primary }} />
                   <Bar
                     dataKey="count"
-                    name="Cards"
+                    name={t("labels.cards")}
                     radius={[4, 4, 0, 0]}
                     cursor="pointer"
                     onClick={() => navigate("/reports/lifecycle")}
@@ -331,7 +326,7 @@ export default function Dashboard() {
           <Card>
             <CardContent>
               <Typography variant="subtitle1" fontWeight={600} gutterBottom>
-                Browse by Type
+                {t("dashboard.browseByType")}
               </Typography>
               {typeCards.map((t) => (
                 <Box
@@ -355,7 +350,7 @@ export default function Dashboard() {
           <Card>
             <CardContent>
               <Typography variant="subtitle1" fontWeight={600} gutterBottom>
-                Recent Activity
+                {t("dashboard.recentActivity")}
               </Typography>
               <List dense>
                 {data.recent_events.slice(0, 10).map((e) => (
@@ -364,7 +359,7 @@ export default function Dashboard() {
                       primary={
                         <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
                           <Chip size="small" label={e.event_type.replace(".", " ")} sx={{ fontSize: 11 }} />
-                          <Typography variant="body2">{e.user_display_name || "System"}</Typography>
+                          <Typography variant="body2">{e.user_display_name || t("labels.system")}</Typography>
                         </Box>
                       }
                       secondary={e.created_at ? new Date(e.created_at).toLocaleString() : ""}
@@ -372,7 +367,7 @@ export default function Dashboard() {
                   </ListItem>
                 ))}
                 {data.recent_events.length === 0 && (
-                  <Typography variant="body2" color="text.secondary">No recent activity</Typography>
+                  <Typography variant="body2" color="text.secondary">{t("dashboard.noRecentActivity")}</Typography>
                 )}
               </List>
             </CardContent>

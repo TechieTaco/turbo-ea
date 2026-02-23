@@ -3,7 +3,7 @@
 > **Version**: 1.0
 > **Date**: 2026-02-23
 > **Status**: Draft — awaiting approval
-> **Target locales**: English (base), French, Spanish, Italian, Portuguese, Chinese
+> **Target locales**: English (base), German, French, Spanish, Italian, Portuguese, Chinese
 
 ---
 
@@ -46,7 +46,7 @@ These decisions were made during the assessment phase and guide all implementati
 |---|----------|--------|-----------|
 | 1 | **Metamodel labels** | Translate the seed data + allow admin to provide translations when creating new types/fields/lists/groups | Users in non-English markets need localized type names, field labels, and option labels. Admin-configurable translations future-proof the system. |
 | 2 | **Notification rendering** | Client-side (structured codes) | Store structured data in DB (`{type, actor_id, card_id, ...}`), render translated text in frontend. Old notifications update when user switches language. |
-| 3 | **Target locales** | EN, FR, ES, IT, PT, ZH | Initial set covers major European markets and Chinese. |
+| 3 | **Target locales** | EN, DE, FR, ES, IT, PT, ZH | Initial set covers major European markets, German-speaking markets, and Chinese. |
 | 4 | **RTL support** | Not included | No Arabic/Hebrew support needed currently. Eliminates layout complexity. |
 | 5 | **URL structure** | User preference only | No locale in URL path (e.g., no `/fr/inventory`). Language is stored on the user profile and applied globally. |
 | 6 | **Translation workflow** | Manual JSON files | No external platform (Crowdin/Lokalise). Translation files live in the repo under `frontend/src/i18n/locales/`. |
@@ -137,6 +137,8 @@ frontend/src/i18n/locales/
 │   ├── delivery.json
 │   ├── notifications.json
 │   └── validation.json
+├── de/
+│   └── (same structure)
 ├── fr/
 │   └── (same structure)
 ├── es/
@@ -323,6 +325,7 @@ With a submenu showing:
 | Code | Label |
 |------|-------|
 | `en` | English |
+| `de` | Deutsch |
 | `fr` | Français |
 | `es` | Español |
 | `it` | Italiano |
@@ -681,6 +684,7 @@ Add an optional `translations` object at each translatable level:
 {
   "section": "Technical Details",
   "translations": {
+    "de": "Technische Details",
     "fr": "Détails Techniques",
     "es": "Detalles Técnicos"
   },
@@ -689,6 +693,7 @@ Add an optional `translations` object at each translatable level:
       "key": "riskLevel",
       "label": "Risk Level",
       "translations": {
+        "de": "Risikostufe",
         "fr": "Niveau de Risque",
         "es": "Nivel de Riesgo"
       },
@@ -696,7 +701,7 @@ Add an optional `translations` object at each translatable level:
       "options": [
         {
           "key": "low", "label": "Low", "color": "#4caf50",
-          "translations": { "fr": "Faible", "es": "Bajo" }
+          "translations": { "de": "Niedrig", "fr": "Faible", "es": "Bajo" }
         }
       ]
     }
@@ -750,6 +755,7 @@ Update `seed.py` to include translations for all 14 built-in card types. Example
     "label": "Application",
     "translations": {
         "label": {
+            "de": "Anwendung",
             "fr": "Application",
             "es": "Aplicación",
             "it": "Applicazione",
@@ -783,6 +789,7 @@ Every dialog or drawer that creates or edits a metamodel entity must include a *
 │                                  │
 │  Field: "Risk Level"             │
 │                                  │
+│  German (de):     [Risikostufe ] │
 │  French (fr):     [Niveau de…  ] │
 │  Spanish (es):    [Nivel de …  ] │
 │  Italian (it):    [Livello di…]  │
@@ -835,10 +842,11 @@ const typeLabel = resolveLabel(type.label, type.translations?.label, i18n.langua
 MUI provides locale packs for component text (date pickers, pagination, data grid, etc.).
 
 ```typescript
-import { zhCN, frFR, esES, itIT, ptBR } from "@mui/material/locale";
+import { deDE, zhCN, frFR, esES, itIT, ptBR } from "@mui/material/locale";
 
 const MUI_LOCALES: Record<string, object> = {
   en: {},  // MUI defaults to English
+  de: deDE,
   fr: frFR,
   es: esES,
   it: itIT,
@@ -874,7 +882,7 @@ const AG_GRID_LOCALES: Record<string, object> = {
 />
 ```
 
-AG Grid provides official locale packs for French. For other languages, we'll need to create custom `localeText` objects (~50 keys for pagination, filtering, column menu).
+AG Grid provides official locale packs for French and German. For other languages, we'll need to create custom `localeText` objects (~50 keys for pagination, filtering, column menu).
 
 ### 11.3 Date Formatting
 
@@ -947,38 +955,38 @@ const navItems = useMemo(() => getNavItems(t), [t]);
 
 This is the complete list of files requiring migration, grouped by priority.
 
-### Priority 1: Infrastructure (must be done first)
+### Priority 1: Infrastructure (must be done first) ✅
 
-- [ ] `src/i18n/index.ts` — i18n configuration
-- [ ] `src/i18n/locales/en/*.json` — all 12 English namespace files
-- [ ] `src/main.tsx` — import i18n
-- [ ] `src/types/index.ts` — add `locale` to User type
-- [ ] `src/hooks/useAuth.ts` — sync locale with i18next on login
+- [x] `src/i18n/index.ts` — i18n configuration
+- [x] `src/i18n/locales/en/*.json` — all 12 English namespace files
+- [x] `src/main.tsx` — import i18n
+- [x] `src/types/index.ts` — add `locale` to User type
+- [x] `src/hooks/useAuth.ts` — sync locale with i18next on login
 
-### Priority 2: Layout & Navigation (high visibility)
+### Priority 2: Layout & Navigation (high visibility) ✅
 
-- [ ] `src/layouts/AppLayout.tsx` — nav items, admin menu, user menu, search, language switcher
-- [ ] `src/App.tsx` — loading fallback text (if any)
+- [x] `src/layouts/AppLayout.tsx` — nav items, admin menu, user menu, search, language switcher
+- [x] `src/App.tsx` — loading fallback text (if any)
 
-### Priority 3: Auth Pages
+### Priority 3: Auth Pages ✅
 
-- [ ] `src/features/auth/LoginPage.tsx`
-- [ ] `src/features/auth/SetPasswordPage.tsx`
-- [ ] `src/features/auth/SsoCallback.tsx`
+- [x] `src/features/auth/LoginPage.tsx`
+- [x] `src/features/auth/SetPasswordPage.tsx`
+- [x] `src/features/auth/SsoCallback.tsx`
 
-### Priority 4: Dashboard & Core
+### Priority 4: Dashboard & Core ✅
 
-- [ ] `src/features/dashboard/Dashboard.tsx`
-- [ ] `src/components/CreateCardDialog.tsx`
-- [ ] `src/components/LifecycleBadge.tsx`
-- [ ] `src/components/ApprovalStatusBadge.tsx`
-- [ ] `src/components/NotificationBell.tsx`
-- [ ] `src/components/NotificationPreferencesDialog.tsx`
-- [ ] `src/components/EolLinkSection.tsx`
-- [ ] `src/components/VendorField.tsx`
-- [ ] `src/components/ColorPicker.tsx`
-- [ ] `src/components/KeyInput.tsx`
-- [ ] `src/components/TimelineSlider.tsx`
+- [x] `src/features/dashboard/Dashboard.tsx`
+- [x] `src/components/CreateCardDialog.tsx`
+- [x] `src/components/LifecycleBadge.tsx`
+- [x] `src/components/ApprovalStatusBadge.tsx`
+- [x] `src/components/NotificationBell.tsx`
+- [x] `src/components/NotificationPreferencesDialog.tsx`
+- [x] `src/components/EolLinkSection.tsx`
+- [x] `src/components/VendorField.tsx`
+- [x] `src/components/ColorPicker.tsx`
+- [x] `src/components/KeyInput.tsx`
+- [x] `src/components/TimelineSlider.tsx`
 
 ### Priority 5: Inventory
 
@@ -1081,7 +1089,7 @@ This is the complete list of files requiring migration, grouped by priority.
 
 - [ ] `src/App.tsx` — MUI locale injection
 - [ ] `src/features/inventory/InventoryPage.tsx` — AG Grid `localeText`
-- [ ] Create AG Grid locale files for es, it, pt, zh (FR is provided by AG Grid)
+- [ ] Create AG Grid locale files for es, it, pt, zh (DE and FR are provided by AG Grid)
 
 ---
 
@@ -1159,46 +1167,54 @@ For each locale:
 
 | Language | Text Length vs English | Key Risk |
 |----------|-----------------------|----------|
+| German | +20–35% longer | Button overflow, column width, compound words |
 | French | +15–30% longer | Button overflow, column width |
 | Spanish | +15–25% longer | Button overflow |
 | Italian | +10–20% longer | Minor overflow |
 | Portuguese | +15–25% longer | Button overflow |
 | Chinese | ~20–40% shorter | Empty space, character rendering |
 
-Test with French (longest) and Chinese (shortest) to cover both extremes.
+Test with German (longest) and Chinese (shortest) to cover both extremes.
 
 ---
 
 ## 16. Phase Plan & Milestones
 
-### Phase 1: Infrastructure
+### Phase 1: Infrastructure ✅
 
 **Scope**: Backend locale field + frontend i18n setup
 
 **Backend**:
-- [ ] User model: `locale` column
-- [ ] Migration `036_add_user_locale.py`
-- [ ] Auth schema: `locale` in `UserResponse`
-- [ ] Auth API: `/auth/me` returns `locale`
-- [ ] Users API: `locale` in `UserUpdate`, validation, self-update
+- [x] User model: `locale` column
+- [x] Migration `036_add_user_locale.py`
+- [x] Auth schema: `locale` in `UserResponse`
+- [x] Auth API: `/auth/me` returns `locale`
+- [x] Users API: `locale` in `UserUpdate`, validation, self-update
 
 **Frontend**:
-- [ ] `i18next`, `react-i18next`, `i18next-browser-languagedetector` installed
-- [ ] Create `src/i18n/index.ts` configuration
-- [ ] Create all 12 English namespace JSON files (skeleton with initial keys)
-- [ ] Update `src/main.tsx` to import i18n
-- [ ] Add `locale` to `User` type
-- [ ] Sync locale in `useAuth.ts`
-- [ ] Add language switcher in `AppLayout.tsx`
+- [x] `i18next`, `react-i18next`, `i18next-browser-languagedetector` installed
+- [x] Create `src/i18n/index.ts` configuration (7 locales incl. German)
+- [x] Create all 12 English namespace JSON files (skeleton with initial keys)
+- [x] Create skeleton files for DE, FR, ES, IT, PT, ZH
+- [x] Update `src/main.tsx` to import i18n
+- [x] Add `locale` to `User` type
+- [x] Sync locale in `useAuth.ts`
+- [x] Add language switcher in `AppLayout.tsx` (with German)
 
-### Phase 2: Core Component Migration
+### Phase 2: Core Component Migration ✅
 
 **Scope**: Migrate ~30 core files (layout, auth, dashboard, shared components)
 
-- [ ] `AppLayout.tsx` (nav items, user menu, search)
-- [ ] Auth pages (Login, SetPassword, SsoCallback)
-- [ ] Dashboard
-- [ ] All shared components (`CreateCardDialog`, `NotificationBell`, etc.)
+- [x] `AppLayout.tsx` (nav items, user menu, search, language switcher)
+- [x] Auth pages (`LoginPage`, `SetPasswordPage`, `SsoCallback`)
+- [x] `Dashboard.tsx`
+- [x] `CreateCardDialog.tsx`
+- [x] `NotificationBell.tsx` + `NotificationPreferencesDialog.tsx`
+- [x] `LifecycleBadge.tsx` + `ApprovalStatusBadge.tsx`
+- [x] `EolLinkSection.tsx` (incl. `EolPicker`, `EolCycleDetails`, `EolLinkDialog`)
+- [x] `VendorField.tsx`
+- [x] `ColorPicker.tsx` + `KeyInput.tsx` + `TimelineSlider.tsx`
+- [x] English translation JSONs populated (common, auth, cards, notifications, validation)
 
 ### Phase 3: Feature Migration
 
@@ -1242,14 +1258,15 @@ Test with French (longest) and Chinese (shortest) to cover both extremes.
 
 ### Phase 7: Translations
 
-**Scope**: Create translation files for FR, ES, IT, PT, ZH
+**Scope**: Create translation files for DE, FR, ES, IT, PT, ZH
 
+- [ ] German translations (all 12 namespaces)
 - [ ] French translations (all 12 namespaces)
 - [ ] Spanish translations (all 12 namespaces)
 - [ ] Italian translations (all 12 namespaces)
 - [ ] Portuguese translations (all 12 namespaces)
 - [ ] Chinese translations (all 12 namespaces)
-- [ ] Seed data translations for all 14 card types
+- [ ] Seed data translations for all 14 card types (incl. German)
 
 ### Phase 8: QA & Polish
 

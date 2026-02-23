@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import Accordion from "@mui/material/Accordion";
 import AccordionSummary from "@mui/material/AccordionSummary";
 import AccordionDetails from "@mui/material/AccordionDetails";
@@ -30,41 +31,45 @@ function isEolEligible(cardTypeKey: string): boolean {
   return EOL_TYPES.includes(cardTypeKey);
 }
 
-/** Parse an EOL date-or-boolean field into a readable label + color. */
+/** Parse an EOL date-or-boolean field into a label key (or date string) + color. */
 function formatEolField(
-  val: string | boolean | null | undefined
+  val: string | boolean | null | undefined,
+  t: (key: string) => string,
 ): { label: string; color: string } {
-  if (val === true) return { label: "Yes (EOL)", color: "#f44336" };
-  if (val === false) return { label: "No", color: "#4caf50" };
+  if (val === true) return { label: t("eol.status.yesEol"), color: "#f44336" };
+  if (val === false) return { label: t("common:labels.no"), color: "#4caf50" };
   if (typeof val === "string") {
     const d = new Date(val);
     const now = new Date();
     const isPast = d <= now;
     return { label: val, color: isPast ? "#f44336" : "#4caf50" };
   }
-  return { label: "Unknown", color: "#9e9e9e" };
+  return { label: t("eol.status.unknown"), color: "#9e9e9e" };
 }
 
 /** Compute overall status from cycle data. */
-function computeEolStatus(cycle: EolCycle): {
+function computeEolStatus(
+  cycle: EolCycle,
+  t: (key: string) => string,
+): {
   label: string;
   color: string;
   icon: string;
 } {
   const eol = cycle.eol;
   if (eol === true)
-    return { label: "End of Life", color: "#f44336", icon: "cancel" };
+    return { label: t("eol.status.endOfLife"), color: "#f44336", icon: "cancel" };
   if (typeof eol === "string") {
     const eolDate = new Date(eol);
     const now = new Date();
     if (eolDate <= now)
-      return { label: "End of Life", color: "#f44336", icon: "cancel" };
+      return { label: t("eol.status.endOfLife"), color: "#f44336", icon: "cancel" };
     // Warn if within 6 months
     const sixMonths = new Date();
     sixMonths.setMonth(sixMonths.getMonth() + 6);
     if (eolDate <= sixMonths)
       return {
-        label: "Approaching EOL",
+        label: t("eol.status.approachingEol"),
         color: "#ff9800",
         icon: "warning",
       };
@@ -74,13 +79,13 @@ function computeEolStatus(cycle: EolCycle): {
   if (support === true || support === false || typeof support === "string") {
     if (support === false || (typeof support === "string" && new Date(support) <= new Date())) {
       return {
-        label: "Security fixes only",
+        label: t("eol.status.securityOnly"),
         color: "#ff9800",
         icon: "shield",
       };
     }
   }
-  return { label: "Supported", color: "#4caf50", icon: "check_circle" };
+  return { label: t("eol.status.supported"), color: "#4caf50", icon: "check_circle" };
 }
 
 // ── Inline EOL Picker (used in both Dialog and Detail page) ─────
@@ -93,6 +98,7 @@ interface EolPickerProps {
 }
 
 function EolPicker({ onSelect, onCancel, initialProduct, resetKey }: EolPickerProps) {
+  const { t } = useTranslation(["cards", "common"]);
   const [productSearch, setProductSearch] = useState(initialProduct || "");
   const [productOptions, setProductOptions] = useState<EolProduct[]>([]);
   const [productLoading, setProductLoading] = useState(false);
@@ -180,8 +186,8 @@ function EolPicker({ onSelect, onCancel, initialProduct, resetKey }: EolPickerPr
           <TextField
             {...params}
             size="small"
-            label="Search product on endoflife.date"
-            placeholder="e.g. python, nodejs, postgresql..."
+            label={t("eol.searchProduct")}
+            placeholder={t("eol.searchPlaceholder")}
             InputProps={{
               ...params.InputProps,
               endAdornment: (
@@ -202,14 +208,14 @@ function EolPicker({ onSelect, onCancel, initialProduct, resetKey }: EolPickerPr
 
       {selectedProduct && cycles.length > 0 && (
         <FormControl fullWidth size="small" sx={{ mb: 2 }}>
-          <InputLabel>Version / Cycle</InputLabel>
+          <InputLabel>{t("eol.versionCycle")}</InputLabel>
           <Select
             value={selectedCycle}
-            label="Version / Cycle"
+            label={t("eol.versionCycle")}
             onChange={(e) => setSelectedCycle(e.target.value)}
           >
             {cycles.map((c) => {
-              const status = computeEolStatus(c);
+              const status = computeEolStatus(c, t);
               return (
                 <MenuItem key={c.cycle} value={c.cycle}>
                   <Box
@@ -225,7 +231,7 @@ function EolPicker({ onSelect, onCancel, initialProduct, resetKey }: EolPickerPr
                     </Typography>
                     {c.latest && (
                       <Typography variant="caption" color="text.secondary">
-                        (latest: {c.latest})
+                        ({t("eol.latest", { version: c.latest })})
                       </Typography>
                     )}
                     <Box sx={{ ml: "auto" }}>
@@ -250,13 +256,13 @@ function EolPicker({ onSelect, onCancel, initialProduct, resetKey }: EolPickerPr
 
       {selectedProduct && !cyclesLoading && cycles.length === 0 && !error && (
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          No release cycles found for &quot;{selectedProduct}&quot;.
+          {t("eol.noCycles", { product: selectedProduct })}
         </Typography>
       )}
 
       <Box sx={{ display: "flex", gap: 1, justifyContent: "flex-end" }}>
         <Button size="small" onClick={onCancel}>
-          Cancel
+          {t("common:actions.cancel")}
         </Button>
         <Button
           size="small"
@@ -264,7 +270,7 @@ function EolPicker({ onSelect, onCancel, initialProduct, resetKey }: EolPickerPr
           disabled={!selectedProduct || !selectedCycle}
           onClick={() => onSelect(selectedProduct!, selectedCycle)}
         >
-          Link
+          {t("common:actions.link")}
         </Button>
       </Box>
     </Box>
@@ -274,9 +280,10 @@ function EolPicker({ onSelect, onCancel, initialProduct, resetKey }: EolPickerPr
 // ── EOL Cycle Details Display ───────────────────────────────────
 
 function EolCycleDetails({ cycle }: { cycle: EolCycle }) {
-  const status = computeEolStatus(cycle);
-  const eolInfo = formatEolField(cycle.eol);
-  const supportInfo = formatEolField(cycle.support);
+  const { t } = useTranslation(["cards", "common"]);
+  const status = computeEolStatus(cycle, t);
+  const eolInfo = formatEolField(cycle.eol, t);
+  const supportInfo = formatEolField(cycle.support, t);
 
   return (
     <Box>
@@ -304,7 +311,7 @@ function EolCycleDetails({ cycle }: { cycle: EolCycle }) {
         {cycle.releaseDate && (
           <Box sx={{ display: "contents" }}>
             <Typography variant="body2" color="text.secondary">
-              Release Date
+              {t("eol.releaseDate")}
             </Typography>
             <Typography variant="body2">{cycle.releaseDate}</Typography>
           </Box>
@@ -312,7 +319,7 @@ function EolCycleDetails({ cycle }: { cycle: EolCycle }) {
         {cycle.latest && (
           <Box sx={{ display: "contents" }}>
             <Typography variant="body2" color="text.secondary">
-              Latest Version
+              {t("eol.latestVersion")}
             </Typography>
             <Typography variant="body2">{cycle.latest}</Typography>
           </Box>
@@ -320,14 +327,14 @@ function EolCycleDetails({ cycle }: { cycle: EolCycle }) {
         {cycle.latestReleaseDate && (
           <Box sx={{ display: "contents" }}>
             <Typography variant="body2" color="text.secondary">
-              Latest Release
+              {t("eol.latestRelease")}
             </Typography>
             <Typography variant="body2">{cycle.latestReleaseDate}</Typography>
           </Box>
         )}
         <Box sx={{ display: "contents" }}>
           <Typography variant="body2" color="text.secondary">
-            Active Support
+            {t("eol.activeSupport")}
           </Typography>
           <Chip
             size="small"
@@ -346,7 +353,7 @@ function EolCycleDetails({ cycle }: { cycle: EolCycle }) {
         </Box>
         <Box sx={{ display: "contents" }}>
           <Typography variant="body2" color="text.secondary">
-            End of Life
+            {t("eol.endOfLife")}
           </Typography>
           <Chip
             size="small"
@@ -366,13 +373,13 @@ function EolCycleDetails({ cycle }: { cycle: EolCycle }) {
         {cycle.lts !== undefined && cycle.lts !== null && (
           <Box sx={{ display: "contents" }}>
             <Typography variant="body2" color="text.secondary">
-              LTS
+              {t("eol.lts")}
             </Typography>
             <Typography variant="body2">
               {cycle.lts === true
-                ? "Yes"
+                ? t("common:labels.yes")
                 : cycle.lts === false
-                  ? "No"
+                  ? t("common:labels.no")
                   : cycle.lts}
             </Typography>
           </Box>
@@ -380,7 +387,7 @@ function EolCycleDetails({ cycle }: { cycle: EolCycle }) {
         {cycle.codename && (
           <Box sx={{ display: "contents" }}>
             <Typography variant="body2" color="text.secondary">
-              Codename
+              {t("eol.codename")}
             </Typography>
             <Typography variant="body2">{cycle.codename}</Typography>
           </Box>
@@ -399,6 +406,7 @@ interface EolLinkSectionProps {
 }
 
 export default function EolLinkSection({ card, onSave, initialExpanded }: EolLinkSectionProps) {
+  const { t } = useTranslation(["cards", "common"]);
   const eolProduct = (card.attributes?.eol_product as string) || "";
   const eolCycle = (card.attributes?.eol_cycle as string) || "";
   const isLinked = !!(eolProduct && eolCycle);
@@ -488,16 +496,16 @@ export default function EolLinkSection({ card, onSave, initialExpanded }: EolLin
       >
         <Box sx={{ display: "flex", alignItems: "center", gap: 1, flex: 1 }}>
           <MaterialSymbol icon="update" size={20} color="#666" />
-          <Typography fontWeight={600}>End of Life</Typography>
+          <Typography fontWeight={600}>{t("eol.title")}</Typography>
           {isLinked && cycleData && (
             <Chip
               size="small"
-              label={computeEolStatus(cycleData).label}
+              label={computeEolStatus(cycleData, t).label}
               sx={{
                 ml: 1,
                 height: 20,
                 fontSize: "0.7rem",
-                bgcolor: computeEolStatus(cycleData).color,
+                bgcolor: computeEolStatus(cycleData, t).color,
                 color: "#fff",
               }}
             />
@@ -523,7 +531,7 @@ export default function EolLinkSection({ card, onSave, initialExpanded }: EolLin
               }}
             >
               <Typography variant="body2" color="text.secondary">
-                Linked to
+                {t("eol.linkedTo")}
               </Typography>
               <Chip
                 size="small"
@@ -535,21 +543,21 @@ export default function EolLinkSection({ card, onSave, initialExpanded }: EolLin
                 <IconButton
                   size="small"
                   onClick={fetchCycleData}
-                  title="Refresh EOL data"
+                  title={t("eol.refreshTooltip")}
                 >
                   <MaterialSymbol icon="refresh" size={16} />
                 </IconButton>
                 <IconButton
                   size="small"
                   onClick={() => setLinking(true)}
-                  title="Change linked product"
+                  title={t("eol.changeTooltip")}
                 >
                   <MaterialSymbol icon="edit" size={16} />
                 </IconButton>
                 <IconButton
                   size="small"
                   onClick={handleUnlink}
-                  title="Unlink EOL data"
+                  title={t("eol.unlinkTooltip")}
                 >
                   <MaterialSymbol icon="link_off" size={16} color="#f44336" />
                 </IconButton>
@@ -569,7 +577,7 @@ export default function EolLinkSection({ card, onSave, initialExpanded }: EolLin
                   rel="noopener noreferrer"
                   startIcon={<MaterialSymbol icon="open_in_new" size={16} />}
                 >
-                  Release notes
+                  {t("eol.releaseNotes")}
                 </Button>
               </Box>
             )}
@@ -577,11 +585,9 @@ export default function EolLinkSection({ card, onSave, initialExpanded }: EolLin
         ) : linking || !isLinked ? (
           <Box>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              Link this {card.type === "ITComponent" ? "IT component" : "application"} to
-              a product on endoflife.date to track its support lifecycle.
               {card.type === "ITComponent"
-                ? " Lifecycle dates will be synced automatically."
-                : ""}
+                ? t("eol.linkDescription.itComponent")
+                : t("eol.linkDescription.application")}
             </Typography>
             <EolPicker
               onSelect={handleLink}
@@ -609,13 +615,13 @@ interface EolLinkDialogProps {
 }
 
 export function EolLinkDialog({ open, onClose, onLink, initialProduct }: EolLinkDialogProps) {
+  const { t } = useTranslation("cards");
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>Link End-of-Life Data</DialogTitle>
+      <DialogTitle>{t("eol.linkDialog.title")}</DialogTitle>
       <DialogContent>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2, mt: 1 }}>
-          Search for a product on endoflife.date and select the version you are
-          using to track its support lifecycle.
+          {t("eol.linkDialog.description")}
         </Typography>
         <EolPicker
           onSelect={(product, cycle) => {

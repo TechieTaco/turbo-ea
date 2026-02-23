@@ -5,12 +5,14 @@ import CircularProgress from "@mui/material/CircularProgress";
 import Typography from "@mui/material/Typography";
 import Alert from "@mui/material/Alert";
 import Button from "@mui/material/Button";
+import { useTranslation } from "react-i18next";
 
 interface Props {
   onSsoCallback: (code: string, redirectUri: string) => Promise<void>;
 }
 
 export default function SsoCallback({ onSsoCallback }: Props) {
+  const { t } = useTranslation("auth");
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const [error, setError] = useState("");
@@ -26,7 +28,7 @@ export default function SsoCallback({ onSsoCallback }: Props) {
     }
 
     if (!code) {
-      setError("No authorization code received from Microsoft.");
+      setError(t("sso.noCode"));
       return;
     }
 
@@ -38,7 +40,7 @@ export default function SsoCallback({ onSsoCallback }: Props) {
         navigate("/", { replace: true });
       })
       .catch((err) => {
-        setError(err instanceof Error ? err.message : "SSO authentication failed");
+        setError(err instanceof Error ? err.message : t("sso.failed"));
       });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -64,13 +66,13 @@ export default function SsoCallback({ onSsoCallback }: Props) {
             onClick={() => navigate("/", { replace: true })}
             sx={{ mt: 2 }}
           >
-            Back to Login
+            {t("sso.backToLogin")}
           </Button>
         </>
       ) : (
         <>
           <CircularProgress sx={{ color: "#64b5f6" }} />
-          <Typography color="#fff">Completing sign-in...</Typography>
+          <Typography color="#fff">{t("sso.completing")}</Typography>
         </>
       )}
     </Box>

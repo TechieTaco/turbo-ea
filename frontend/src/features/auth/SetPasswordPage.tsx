@@ -7,6 +7,7 @@ import Button from "@mui/material/Button";
 import Typography from "@mui/material/Typography";
 import Alert from "@mui/material/Alert";
 import CircularProgress from "@mui/material/CircularProgress";
+import { useTranslation } from "react-i18next";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 
@@ -15,6 +16,7 @@ interface Props {
 }
 
 export default function SetPasswordPage({ onSetPassword }: Props) {
+  const { t } = useTranslation("auth");
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const token = searchParams.get("token") || "";
@@ -55,11 +57,11 @@ export default function SetPasswordPage({ onSetPassword }: Props) {
     setError("");
 
     if (password.length < 6) {
-      setError("Password must be at least 6 characters.");
+      setError(t("setPassword.minLength"));
       return;
     }
     if (password !== confirmPassword) {
-      setError("Passwords do not match.");
+      setError(t("setPassword.passwordMismatch"));
       return;
     }
 
@@ -68,7 +70,7 @@ export default function SetPasswordPage({ onSetPassword }: Props) {
       await onSetPassword(token, password);
       navigate("/", { replace: true });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to set password");
+      setError(err instanceof Error ? err.message : t("setPassword.failedToSet"));
     } finally {
       setLoading(false);
     }
@@ -104,16 +106,16 @@ export default function SetPasswordPage({ onSetPassword }: Props) {
         <Card sx={{ p: 4, width: 400, maxWidth: "90vw", textAlign: "center" }}>
           <MaterialSymbol icon="error" size={48} color="#d32f2f" />
           <Typography variant="h6" sx={{ mt: 2, mb: 1 }}>
-            Invalid Setup Link
+            {t("setPassword.invalidLink.title")}
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-            This password setup link is invalid or has already been used.
+            {t("setPassword.invalidLink.description")}
           </Typography>
           <Button
             variant="contained"
             onClick={() => navigate("/", { replace: true })}
           >
-            Go to Login
+            {t("setPassword.goToLogin")}
           </Button>
         </Card>
       </Box>
@@ -134,11 +136,12 @@ export default function SetPasswordPage({ onSetPassword }: Props) {
         <Box sx={{ textAlign: "center", mb: 3 }}>
           <MaterialSymbol icon="hub" size={48} color="#1976d2" />
           <Typography variant="h5" fontWeight={700} sx={{ mt: 1 }}>
-            Set Your Password
+            {t("setPassword.title")}
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            Welcome{displayName ? `, ${displayName}` : ""}! Set a password for{" "}
-            <strong>{email}</strong>.
+            {displayName
+              ? t("setPassword.welcomeUser", { name: displayName, email })
+              : t("setPassword.welcomeGeneric", { email })}
           </Typography>
         </Box>
 
@@ -151,7 +154,7 @@ export default function SetPasswordPage({ onSetPassword }: Props) {
         <form onSubmit={handleSubmit}>
           <TextField
             fullWidth
-            label="New Password"
+            label={t("setPassword.newPassword")}
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
@@ -161,7 +164,7 @@ export default function SetPasswordPage({ onSetPassword }: Props) {
           />
           <TextField
             fullWidth
-            label="Confirm Password"
+            label={t("setPassword.confirmPassword")}
             type="password"
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
@@ -175,7 +178,7 @@ export default function SetPasswordPage({ onSetPassword }: Props) {
             disabled={loading}
             size="large"
           >
-            {loading ? "Setting password..." : "Set Password & Sign In"}
+            {loading ? t("setPassword.submitting") : t("setPassword.button")}
           </Button>
         </form>
       </Card>

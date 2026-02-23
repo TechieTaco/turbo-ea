@@ -33,6 +33,8 @@
   "actions.showMore": "Show more",
   "actions.showLess": "Show less",
   "actions.logout": "Logout",
+  "actions.change": "Change",
+  "actions.link": "Link",
 
   "status.active": "Active",
   "status.inactive": "Inactive",
@@ -50,6 +52,7 @@
   "lifecycle.active": "Active",
   "lifecycle.phaseOut": "Phase Out",
   "lifecycle.endOfLife": "End of Life",
+  "lifecycle.notSet": "Not Set",
 
   "labels.name": "Name",
   "labels.type": "Type",
@@ -70,6 +73,10 @@
   "labels.required": "Required",
   "labels.optional": "Optional",
   "labels.version": "v{{version}}",
+  "labels.parent": "Parent",
+  "labels.system": "System",
+  "labels.count": "Count",
+  "labels.cards": "Cards",
 
   "emptyStates.noCards": "No cards found.",
   "emptyStates.noData": "No data available.",
@@ -79,14 +86,12 @@
   "errors.notFound": "Not found",
   "errors.unauthorized": "Unauthorized",
   "errors.forbidden": "You don't have permission to perform this action",
+  "errors.occurred": "An error occurred",
 
   "time.justNow": "just now",
-  "time.minutesAgo_one": "{{count}} minute ago",
-  "time.minutesAgo_other": "{{count}} minutes ago",
-  "time.hoursAgo_one": "{{count}} hour ago",
-  "time.hoursAgo_other": "{{count}} hours ago",
-  "time.daysAgo_one": "{{count}} day ago",
-  "time.daysAgo_other": "{{count}} days ago",
+  "time.minutesAgo": "{{count}}m ago",
+  "time.hoursAgo": "{{count}}h ago",
+  "time.daysAgo": "{{count}}d ago",
 
   "fieldTypes.text": "Text",
   "fieldTypes.number": "Number",
@@ -98,5 +103,25 @@
   "fieldTypes.multipleSelect": "Multiple Select",
 
   "items_one": "{{count}} item",
-  "items_other": "{{count}} items"
+  "items_other": "{{count}} items",
+
+  "dashboard.title": "Dashboard",
+  "dashboard.totalCards": "Total Cards",
+  "dashboard.avgCompletion": "Avg Completion",
+  "dashboard.cardsByType": "Cards by Type",
+  "dashboard.approvalStatusDistribution": "Approval Status Distribution",
+  "dashboard.completionDistribution": "Completion Distribution",
+  "dashboard.lifecycleOverview": "Lifecycle Overview",
+  "dashboard.browseByType": "Browse by Type",
+  "dashboard.recentActivity": "Recent Activity",
+  "dashboard.noCardsYet": "No cards yet",
+  "dashboard.noRecentActivity": "No recent activity",
+
+  "colorPicker.pickColor": "Pick color",
+  "colorPicker.recent": "Recent",
+
+  "timelineSlider.timeTravel": "Time Travel",
+  "timelineSlider.past": "Past",
+  "timelineSlider.future": "Future",
+  "timelineSlider.resetToToday": "Reset to today"
 }
