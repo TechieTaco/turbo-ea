@@ -94,13 +94,16 @@ export function useSavedReport(reportType: string) {
   /**
    * Auto-persist config to localStorage. Only writes after consumeConfig
    * has been called (prevents overwriting stored config with defaults on mount).
+   * Skips writes when viewing a URL saved report so that its config
+   * (e.g. time-travel date) doesn't leak into the regular report view.
    */
   const persistConfig = useCallback((config: Record<string, unknown>) => {
     if (!persistReadyRef.current) return;
+    if (savedReportId) return;
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
     } catch { /* quota exceeded or private browsing */ }
-  }, [STORAGE_KEY]);
+  }, [STORAGE_KEY, savedReportId]);
 
   /**
    * Clear both localStorage and URL saved report. Used by the reset button.
