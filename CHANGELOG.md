@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ## [0.8.0] - 2026-02-23
 
 ### Added
-- Portfolio report now opens card details in a side panel instead of navigating away, so users can browse cards without losing their report view
+- All reports and BPM pages now open card details in a right-side panel instead of navigating away, so users can browse cards without losing their current view
 
 ### Changed
 - Extracted shared card detail rendering into a reusable `CardDetailContent` component used by both the full card page and the new side panel
