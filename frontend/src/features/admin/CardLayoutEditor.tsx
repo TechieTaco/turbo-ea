@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Chip from "@mui/material/Chip";
@@ -43,12 +44,12 @@ import MaterialSymbol from "@/components/MaterialSymbol";
 
 // ── Constants ────────────────────────────────────────────────────
 
-const BUILTIN_SECTIONS: { key: string; label: string; icon: string; onlyIf?: (t: CardType) => boolean }[] = [
-  { key: "description", label: "Description", icon: "description" },
-  { key: "eol", label: "End of Life", icon: "update" },
-  { key: "lifecycle", label: "Lifecycle", icon: "timeline" },
-  { key: "hierarchy", label: "Hierarchy", icon: "account_tree", onlyIf: (t) => t.has_hierarchy },
-  { key: "relations", label: "Relations", icon: "hub" },
+const BUILTIN_SECTIONS: { key: string; labelKey: string; icon: string; onlyIf?: (ct: CardType) => boolean }[] = [
+  { key: "description", labelKey: "cardLayout.sections.description", icon: "description" },
+  { key: "eol", labelKey: "cardLayout.sections.eol", icon: "update" },
+  { key: "lifecycle", labelKey: "cardLayout.sections.lifecycle", icon: "timeline" },
+  { key: "hierarchy", labelKey: "cardLayout.sections.hierarchy", icon: "account_tree", onlyIf: (ct) => ct.has_hierarchy },
+  { key: "relations", labelKey: "cardLayout.sections.relations", icon: "hub" },
 ];
 
 const DEFAULT_ORDER = ["description", "eol", "lifecycle", "__custom__", "hierarchy", "relations"];
@@ -83,7 +84,7 @@ function getSectionInfo(key: string, customSections: SectionDef[], type: CardTyp
   const builtin = BUILTIN_SECTIONS.find((b) => b.key === key);
   if (!builtin) return null;
   if (builtin.onlyIf && !builtin.onlyIf(type)) return null;
-  return { label: builtin.label, icon: builtin.icon, isCustom: false, idx: -1, section: null };
+  return { labelKey: builtin.labelKey, label: builtin.labelKey, icon: builtin.icon, isCustom: false, idx: -1, section: null };
 }
 
 function fieldTypeColor(type: string): string {
@@ -243,6 +244,7 @@ function SortableGroupCard({
   onRename?: (newName: string) => void;
   onRemove?: () => void;
 }) {
+  const { t } = useTranslation(["admin"]);
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id,
     data: { type: "group", groupName },
@@ -294,14 +296,14 @@ function SortableGroupCard({
             </Typography>
           )}
           {!renaming && onRename && (
-            <Tooltip title="Rename group">
+            <Tooltip title={t("cardLayout.renameGroup")}>
               <IconButton size="small" onClick={() => { setRname(groupName); setRenaming(true); }} sx={{ p: 0.25 }}>
                 <MaterialSymbol icon="edit" size={14} />
               </IconButton>
             </Tooltip>
           )}
           {onRemove && (
-            <Tooltip title="Remove group (fields move to column)">
+            <Tooltip title={t("cardLayout.removeGroup")}>
               <IconButton size="small" onClick={onRemove} sx={{ p: 0.25 }}>
                 <MaterialSymbol icon="close" size={14} />
               </IconButton>
@@ -313,7 +315,7 @@ function SortableGroupCard({
           {children}
           {(!children || (Array.isArray(children) && (children as React.ReactNode[]).every(c => c == null))) && (
             <Typography variant="body2" color="text.disabled" sx={{ display: "block", textAlign: "center", py: 1 }}>
-              Drag fields here
+              {t("cardLayout.dragFieldsHere")}
             </Typography>
           )}
         </Box>
@@ -327,6 +329,7 @@ function SortableGroupCard({
 function DroppableColumn({ id, label, children, isEmpty }: {
   id: string; label: string; children: React.ReactNode; isEmpty: boolean;
 }) {
+  const { t } = useTranslation(["admin"]);
   const { setNodeRef, isOver } = useDroppable({ id });
 
   return (
@@ -346,7 +349,7 @@ function DroppableColumn({ id, label, children, isEmpty }: {
       {children}
       {isEmpty && (
         <Typography variant="body2" color="text.disabled" sx={{ display: "block", textAlign: "center", py: 2.5 }}>
-          Drag fields here
+          {t("cardLayout.dragFieldsHere")}
         </Typography>
       )}
     </Box>
@@ -369,6 +372,7 @@ function VisualFieldLayout({
   openEditField: (si: number, fi: number) => void;
   promptDeleteField: (si: number, fi: number) => void;
 }) {
+  const { t } = useTranslation(["admin", "common"]);
   const cols = section.columns || 1;
   const [containers, setContainers] = useState<Containers>(() => fieldsToContainers(section.fields, cols, section.groups));
   const [activeId, setActiveId] = useState<UniqueIdentifier | null>(null);
@@ -678,10 +682,10 @@ function VisualFieldLayout({
       <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1.5 }}>
         <ToggleButtonGroup size="small" exclusive value={cols} onChange={handleColumnChange} sx={{ height: 30 }}>
           <ToggleButton value={1} sx={{ px: 1.25, py: 0, fontSize: "0.8rem" }}>
-            <MaterialSymbol icon="view_agenda" size={16} />&nbsp;1 Col
+            <MaterialSymbol icon="view_agenda" size={16} />&nbsp;{t("cardLayout.oneCol")}
           </ToggleButton>
           <ToggleButton value={2} sx={{ px: 1.25, py: 0, fontSize: "0.8rem" }}>
-            <MaterialSymbol icon="view_column" size={16} />&nbsp;2 Col
+            <MaterialSymbol icon="view_column" size={16} />&nbsp;{t("cardLayout.twoCol")}
           </ToggleButton>
         </ToggleButtonGroup>
 
@@ -690,24 +694,24 @@ function VisualFieldLayout({
         {addingGroup ? (
           <Box sx={{ display: "flex", gap: 0.75, alignItems: "center" }}>
             <TextField
-              size="small" placeholder="Group name" autoFocus
+              size="small" placeholder={t("cardLayout.groupName")} autoFocus
               value={newGroupName} onChange={(e) => setNewGroupName(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") handleAddGroup(); }}
               sx={{ width: 150 }}
             />
-            <Button size="small" onClick={handleAddGroup} disabled={!newGroupName}>Add</Button>
+            <Button size="small" onClick={handleAddGroup} disabled={!newGroupName}>{t("common:actions.add")}</Button>
             <IconButton size="small" onClick={() => { setAddingGroup(false); setNewGroupName(""); }}>
               <MaterialSymbol icon="close" size={16} />
             </IconButton>
           </Box>
         ) : (
           <Button size="small" startIcon={<MaterialSymbol icon="workspaces" size={16} />} onClick={() => setAddingGroup(true)}>
-            Group
+            {t("cardLayout.group")}
           </Button>
         )}
 
         <Button size="small" startIcon={<MaterialSymbol icon="add" size={16} />} onClick={() => openAddField(sectionIdx)}>
-          Field
+          {t("cardLayout.field")}
         </Button>
       </Box>
 
@@ -723,7 +727,7 @@ function VisualFieldLayout({
         <Box sx={{ display: "flex", gap: 2 }}>
           {/* Column 1 */}
           <SortableContext id="col-0" items={containers["col-0"] || []} strategy={verticalListSortingStrategy}>
-            <DroppableColumn id="col-0" label="Column 1" isEmpty={(containers["col-0"] || []).length === 0}>
+            <DroppableColumn id="col-0" label={t("cardLayout.column1")} isEmpty={(containers["col-0"] || []).length === 0}>
               {renderItems("col-0")}
             </DroppableColumn>
           </SortableContext>
@@ -731,7 +735,7 @@ function VisualFieldLayout({
           {/* Column 2 */}
           {cols === 2 && (
             <SortableContext id="col-1" items={containers["col-1"] || []} strategy={verticalListSortingStrategy}>
-              <DroppableColumn id="col-1" label="Column 2" isEmpty={(containers["col-1"] || []).length === 0}>
+              <DroppableColumn id="col-1" label={t("cardLayout.column2")} isEmpty={(containers["col-1"] || []).length === 0}>
                 {renderItems("col-1")}
               </DroppableColumn>
             </SortableContext>
@@ -763,6 +767,7 @@ function DescriptionFieldsPanel({
   openEditField: (si: number, fi: number) => void;
   promptDeleteField: (si: number, fi: number) => void;
 }) {
+  const { t } = useTranslation(["admin"]);
   const descIdx = fieldsSchema.findIndex((s) => s.section === "__description");
   const descSection = descIdx >= 0 ? fieldsSchema[descIdx] : null;
   const customFields = descSection?.fields || [];
@@ -798,8 +803,8 @@ function DescriptionFieldsPanel({
   };
 
   const builtinFields: FieldDef[] = [
-    { key: "__name", label: "Name", type: "text", required: true, weight: 0 },
-    { key: "__description", label: "Description", type: "text", required: false, weight: 1 },
+    { key: "__name", label: t("common:labels.name"), type: "text", required: true, weight: 0 },
+    { key: "__description", label: t("common:labels.description"), type: "text", required: false, weight: 1 },
   ];
 
   return (
@@ -824,7 +829,7 @@ function DescriptionFieldsPanel({
         </DndContext>
       )}
       <Button size="small" startIcon={<MaterialSymbol icon="add" size={14} />} onClick={addFieldToDescription} sx={{ mt: 0.5 }}>
-        Field
+        {t("cardLayout.field")}
       </Button>
     </Box>
   );
@@ -837,7 +842,7 @@ function SortableSectionItem({
   onToggleCollapsed, onToggleHidden, onDelete, children,
 }: {
   id: string; sectionKey: string;
-  info: { label: string; icon: string; isCustom: boolean };
+  info: { label: string; icon: string; isCustom: boolean; labelKey?: string };
   cfg: SectionConfig; expanded: boolean;
   onToggleExpand: () => void;
   onToggleCollapsed: () => void;
@@ -845,6 +850,7 @@ function SortableSectionItem({
   onDelete?: () => void;
   children?: React.ReactNode;
 }) {
+  const { t } = useTranslation(["admin"]);
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 };
   const canExpand = (info.isCustom || sectionKey === "description") && !cfg.hidden;
@@ -857,24 +863,24 @@ function SortableSectionItem({
         </Box>
         <Box onClick={canExpand ? onToggleExpand : undefined} sx={{ display: "flex", alignItems: "center", gap: 0.75, flex: 1, cursor: canExpand ? "pointer" : "default" }}>
           <MaterialSymbol icon={info.icon} size={20} color={cfg.hidden ? "#bbb" : "#666"} />
-          <Typography variant="body2" fontWeight={600} sx={{ color: cfg.hidden ? "text.disabled" : "text.primary" }}>{info.label}</Typography>
+          <Typography variant="body2" fontWeight={600} sx={{ color: cfg.hidden ? "text.disabled" : "text.primary" }}>{info.labelKey ? t(info.labelKey) : info.label}</Typography>
         </Box>
-        <Tooltip title="Collapsed by default">
+        <Tooltip title={t("cardLayout.collapsedByDefault")}>
           <FormControlLabel
             control={<Switch size="small" checked={cfg.defaultExpanded === false} disabled={!!cfg.hidden} onChange={onToggleCollapsed} />}
-            label={<Typography variant="caption" color="text.secondary">Collapsed</Typography>}
+            label={<Typography variant="caption" color="text.secondary">{t("cardLayout.collapsed")}</Typography>}
             sx={{ mr: 0, ml: 0 }}
           />
         </Tooltip>
-        <Tooltip title="Hidden from card detail">
+        <Tooltip title={t("cardLayout.hiddenFromCardDetail")}>
           <FormControlLabel
             control={<Switch size="small" checked={!!cfg.hidden} onChange={onToggleHidden} />}
-            label={<Typography variant="caption" color="text.secondary">Hidden</Typography>}
+            label={<Typography variant="caption" color="text.secondary">{t("cardLayout.hidden")}</Typography>}
             sx={{ mr: 0, ml: 0 }}
           />
         </Tooltip>
         {onDelete && (
-          <Tooltip title="Delete section">
+          <Tooltip title={t("cardLayout.deleteSection")}>
             <IconButton size="small" onClick={onDelete}>
               <MaterialSymbol icon="delete" size={18} color="#999" />
             </IconButton>
@@ -906,6 +912,7 @@ interface CardLayoutEditorProps {
 export default function CardLayoutEditor({
   cardType, onRefresh, openAddField, openEditField, promptDeleteField, promptDeleteSection, calculatedFieldKeys,
 }: CardLayoutEditorProps) {
+  const { t } = useTranslation(["admin", "common"]);
   const secCfg = (cardType.section_config || {}) as Record<string, SectionConfig> & { __order?: string[] };
   const customSections = cardType.fields_schema.filter((s) => s.section !== "__description");
   const sectionOrder = getSectionOrder(secCfg, customSections, cardType.has_hierarchy);
@@ -980,10 +987,10 @@ export default function CardLayoutEditor({
   return (
     <Box>
       <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 0.5 }}>
-        Card Layout
+        {t("cardLayout.title")}
       </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-        Drag sections to reorder. Expand to manage fields, columns, and groups.
+        {t("cardLayout.description")}
       </Typography>
 
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleSectionDragEnd}>
@@ -1037,19 +1044,19 @@ export default function CardLayoutEditor({
 
       {addSectionOpen ? (
         <Box sx={{ display: "flex", gap: 1, alignItems: "center", mt: 1 }}>
-          <TextField size="small" placeholder="Section name" value={newSectionName} autoFocus
+          <TextField size="small" placeholder={t("cardLayout.sectionName")} value={newSectionName} autoFocus
             onChange={(e) => setNewSectionName(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter") handleAddSection(); }}
             sx={{ flex: 1 }}
           />
-          <Button size="small" variant="contained" onClick={handleAddSection} disabled={!newSectionName}>Add</Button>
+          <Button size="small" variant="contained" onClick={handleAddSection} disabled={!newSectionName}>{t("common:actions.add")}</Button>
           <IconButton size="small" onClick={() => { setAddSectionOpen(false); setNewSectionName(""); }}>
             <MaterialSymbol icon="close" size={18} />
           </IconButton>
         </Box>
       ) : (
         <Button size="small" startIcon={<MaterialSymbol icon="add" size={16} />} onClick={() => setAddSectionOpen(true)} sx={{ mt: 0.5 }}>
-          Add Section
+          {t("cardLayout.addSection")}
         </Button>
       )}
     </Box>
