@@ -430,31 +430,31 @@ export default function EolReport() {
       <Box sx={{ display: "flex", gap: 2, mb: 3, flexWrap: "wrap" }}>
         <KpiCard
           icon="cancel"
-          label="End of Life"
+          label={t("eol.statusEol")}
           value={data.summary.eol}
           color="#d32f2f"
         />
         <KpiCard
           icon="warning"
-          label="Approaching EOL"
+          label={t("eol.statusApproaching")}
           value={data.summary.approaching}
           color="#ed6c02"
         />
         <KpiCard
           icon="check_circle"
-          label="Supported"
+          label={t("eol.statusSupported")}
           value={data.summary.supported}
           color="#2e7d32"
         />
         <KpiCard
           icon="apps"
-          label="Impacted Apps"
+          label={t("eol.impactedApps")}
           value={data.summary.impacted_apps}
           color="#1565c0"
         />
         <KpiCard
           icon="edit_note"
-          label="Manually Maintained"
+          label={t("eol.manuallyMaintained")}
           value={data.summary.manual}
           color="#3949ab"
         />
@@ -465,8 +465,8 @@ export default function EolReport() {
           <MaterialSymbol icon="info" size={40} color="#bdbdbd" />
           <Typography color="text.secondary" sx={{ mt: 1 }}>
             {data.items.length === 0
-              ? "No cards with EOL data found. Link an Application or IT Component to endoflife.date, or set an End of Life date in the Lifecycle section."
-              : "No items match the current filters."}
+              ? t("eol.noEolData")
+              : t("eol.noFilterMatch")}
           </Typography>
         </Paper>
       ) : view === "chart" ? (
@@ -478,10 +478,13 @@ export default function EolReport() {
               severity="error"
               icon={<MaterialSymbol icon="cancel" size={20} />}
             >
-              <strong>{data.summary.eol}</strong> item
-              {data.summary.eol > 1 ? "s have" : " has"} reached End of Life
-              {data.summary.impacted_apps > 0 &&
-                `, impacting ${data.summary.impacted_apps} application${data.summary.impacted_apps > 1 ? "s" : ""}`}
+              <Trans
+                t={t}
+                i18nKey={data.summary.eol === 1 ? "eol.eolReached_one" : "eol.eolReached_other"}
+                values={{ count: data.summary.eol }}
+                components={{ strong: <strong /> }}
+              />
+              {data.summary.impacted_apps > 0 && t("eol.impacting", { count: data.summary.impacted_apps })}
             </Alert>
           )}
           {data.summary.approaching > 0 && (
@@ -489,11 +492,13 @@ export default function EolReport() {
               severity="warning"
               icon={<MaterialSymbol icon="warning" size={20} />}
             >
-              <strong>{data.summary.approaching}</strong> item
-              {data.summary.approaching > 1 ? "s are" : " is"} approaching End
-              of Life within 6 months
-              {data.summary.approaching_impacted_apps > 0 &&
-                `, impacting ${data.summary.approaching_impacted_apps} additional application${data.summary.approaching_impacted_apps > 1 ? "s" : ""}`}
+              <Trans
+                t={t}
+                i18nKey={data.summary.approaching === 1 ? "eol.approaching_one" : "eol.approaching_other"}
+                values={{ count: data.summary.approaching }}
+                components={{ strong: <strong /> }}
+              />
+              {data.summary.approaching_impacted_apps > 0 && t("eol.approachingImpacting", { count: data.summary.approaching_impacted_apps })}
             </Alert>
           )}
 
@@ -539,7 +544,7 @@ export default function EolReport() {
                         )}
                         <Tooltip title={
                           isManual
-                            ? `${item.name} (manually maintained)`
+                            ? `${item.name} (${t("eol.manuallyMaintained").toLowerCase()})`
                             : `${item.name} (${item.eol_product} ${item.eol_cycle})`
                         }>
                           <Typography

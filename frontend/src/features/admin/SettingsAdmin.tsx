@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, Suspense, lazy } from "react";
+import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router-dom";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
@@ -24,12 +25,7 @@ const EolAdmin = lazy(() => import("./EolAdmin"));
 const WebPortalsAdmin = lazy(() => import("./WebPortalsAdmin"));
 const ServiceNowAdmin = lazy(() => import("./ServiceNowAdmin"));
 
-const TABS = [
-  { key: "general", label: "General" },
-  { key: "eol", label: "EOL Search" },
-  { key: "web-portals", label: "Web Portals" },
-  { key: "servicenow", label: "ServiceNow" },
-];
+const TAB_KEYS = ["general", "eol", "web-portals", "servicenow"];
 
 function TabLoader() {
   return (
@@ -114,6 +110,7 @@ function SectionHeader({ children }: { children: React.ReactNode }) {
 }
 
 function GeneralTab() {
+  const { t } = useTranslation(["admin", "common"]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
@@ -193,7 +190,7 @@ function GeneralTab() {
         setSsoTenantId(ssoData.tenant_id);
         setRegistrationEnabled(regData.enabled);
       })
-      .catch((e) => setError(e instanceof Error ? e.message : "Failed to load"))
+      .catch((e) => setError(e instanceof Error ? e.message : t("common:errors.generic")))
       .finally(() => setLoading(false));
   }, []);
 
@@ -211,9 +208,9 @@ function GeneralTab() {
         app_base_url: appBaseUrl,
       });
       setConfigured(!!smtpHost);
-      setSnack("Email settings saved");
+      setSnack(t("settings.emailSaved"));
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to save");
+      setError(e instanceof Error ? e.message : t("common:errors.generic"));
     } finally {
       setSaving(false);
     }
@@ -226,9 +223,9 @@ function GeneralTab() {
       const res = await api.post<{ ok: boolean; sent_to: string }>(
         "/settings/email/test"
       );
-      setSnack(`Test email sent to ${res.sent_to}`);
+      setSnack(t("settings.testEmailSent", { email: res.sent_to }));
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to send test email");
+      setError(e instanceof Error ? e.message : t("settings.testEmailFailed"));
     } finally {
       setTesting(false);
     }

@@ -696,7 +696,7 @@ export default function ProcessMapReport() {
 
   return (
     <ReportShell
-      title="Process Landscape Map"
+      title={t("processMap.title")}
       icon="account_tree"
       iconColor="#e65100"
       hasTableToggle={false}
@@ -708,20 +708,20 @@ export default function ProcessMapReport() {
           <TextField
             select
             size="small"
-            label="Heatmap Metric"
+            label={t("processMap.heatmapMetric")}
             value={metric}
             onChange={(e) => setMetric(e.target.value as Metric)}
             sx={{ minWidth: 180 }}
           >
             {METRIC_OPTIONS.map((o) => (
-              <MenuItem key={o.key} value={o.key}>{o.label}</MenuItem>
+              <MenuItem key={o.key} value={o.key}>{t(o.tKey)}</MenuItem>
             ))}
           </TextField>
 
           <TextField
             select
             size="small"
-            label="Display Depth"
+            label={t("processMap.displayDepth")}
             value={displayLevel}
             onChange={(e) => setDisplayLevel(Number(e.target.value))}
             sx={{ minWidth: 140 }}
@@ -734,14 +734,14 @@ export default function ProcessMapReport() {
           <TextField
             select
             size="small"
-            label="Show Related"
+            label={t("processMap.showRelated")}
             value={showRelated}
             onChange={(e) => setShowRelated(e.target.value as ShowRelated)}
             sx={{ minWidth: 160 }}
           >
-            <MenuItem value="none">None</MenuItem>
-            <MenuItem value="apps">Applications</MenuItem>
-            <MenuItem value="data_objects">Data Objects</MenuItem>
+            <MenuItem value="none">{t("processMap.showNone")}</MenuItem>
+            <MenuItem value="apps">{t("processMap.showApplications")}</MenuItem>
+            <MenuItem value="data_objects">{t("processMap.showDataObjects")}</MenuItem>
           </TextField>
 
           {/* Row 2: Scope filters */}
@@ -757,19 +757,19 @@ export default function ProcessMapReport() {
           >
             <MaterialSymbol icon="filter_alt" size={18} color="#999" />
             <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
-              Scope:
+              {t("processMap.scope")}
             </Typography>
             {organizations.length > 0 && (
-              <FilterSelect label="Organization" options={orgOptions} value={filterOrgs} onChange={setFilterOrgs} />
+              <FilterSelect label={t("processMap.organization")} options={orgOptions} value={filterOrgs} onChange={setFilterOrgs} />
             )}
             {contexts.length > 0 && (
-              <FilterSelect label="Business Context" options={ctxOptions} value={filterCtxs} onChange={setFilterCtxs} />
+              <FilterSelect label={t("processMap.businessContext")} options={ctxOptions} value={filterCtxs} onChange={setFilterCtxs} />
             )}
 
             {hasActiveFilters && (
               <Chip
                 size="small"
-                label="Clear all"
+                label={t("processMap.clearAll")}
                 variant="outlined"
                 onDelete={() => { setFilterOrgs([]); setFilterCtxs([]); }}
                 sx={{ fontSize: "0.72rem" }}
@@ -783,37 +783,37 @@ export default function ProcessMapReport() {
           {metricLegend ? (
             <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
               <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
-                {METRIC_OPTIONS.find((o) => o.key === metric)?.label}:
+                {t(METRIC_OPTIONS.find((o) => o.key === metric)?.tKey ?? "")}:
               </Typography>
               {metricLegend.map((item) => (
-                <Box key={item.label} sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                <Box key={item.tKey} sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
                   <Box sx={{ width: 10, height: 10, borderRadius: "50%", bgcolor: item.color, flexShrink: 0 }} />
-                  <Typography variant="caption" color="text.secondary">{item.label}</Typography>
+                  <Typography variant="caption" color="text.secondary">{t(item.tKey)}</Typography>
                 </Box>
               ))}
             </Box>
           ) : (
             <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-              <Typography variant="caption" color="text.secondary">Low</Typography>
+              <Typography variant="caption" color="text.secondary">{t("processMap.low")}</Typography>
               <Box sx={{ display: "flex", height: 12 }}>
                 {[0, 0.25, 0.5, 0.75, 1].map((r) => (
                   <Box key={r} sx={{ width: 28, height: 12, bgcolor: heatColor(r * maxVal, maxVal, metric) }} />
                 ))}
               </Box>
-              <Typography variant="caption" color="text.secondary">High</Typography>
+              <Typography variant="caption" color="text.secondary">{t("processMap.high")}</Typography>
               <Typography variant="caption" color="text.secondary" sx={{ ml: 1 }}>
-                Max: {fmtVal(maxVal)}
+                {t("processMap.max", { value: fmtVal(maxVal) })}
               </Typography>
             </Box>
           )}
 
           {/* Process type legend */}
           <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, ml: 2 }}>
-            <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>Type:</Typography>
+            <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>{t("processMap.typeLabel")}</Typography>
             {Object.values(PROCESS_TYPE_MAP).map((pt) => (
-              <Box key={pt.label} sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+              <Box key={pt.tKey} sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
                 <Box sx={{ width: 10, height: 10, borderRadius: "50%", bgcolor: pt.color, flexShrink: 0 }} />
-                <Typography variant="caption" color="text.secondary">{pt.label}</Typography>
+                <Typography variant="caption" color="text.secondary">{t(pt.tKey)}</Typography>
               </Box>
             ))}
           </Box>
@@ -831,7 +831,7 @@ export default function ProcessMapReport() {
               onClick={() => setZoomNodeId(null)}
               sx={{ cursor: "pointer" }}
             >
-              All Processes
+              {t("processMap.allProcesses")}
             </Link>
             {breadcrumbs.map((bc, idx) => {
               const isLast = idx === breadcrumbs.length - 1;
