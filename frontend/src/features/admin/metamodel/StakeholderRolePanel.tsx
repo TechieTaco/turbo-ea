@@ -366,7 +366,7 @@ export default function StakeholderRolePanel({ typeKey, onError }: StakeholderRo
                           onClick={handleSaveEdit}
                           disabled={editSaving || !editForm.label}
                         >
-                          {editSaving ? t("metamodel.typeDrawer.saving") : t("common:actions.save")}
+                          {editSaving ? t("metamodel.stakeholderPanel.saving") : t("common:actions.save")}
                         </Button>
                       </Box>
                     </Box>
