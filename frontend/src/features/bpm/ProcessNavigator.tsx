@@ -2365,7 +2365,7 @@ export default function ProcessNavigator() {
                           fontSize: "0.75rem",
                         }}
                       >
-                        {PROCESS_TYPE_ROW_LABELS[rowType]}
+                        {t(PROCESS_TYPE_ROW_LABEL_KEYS[rowType])}
                       </Typography>
                       <Typography variant="caption" color="text.secondary">
                         ({nodes.length})
@@ -2405,7 +2405,7 @@ export default function ProcessNavigator() {
                         }}
                       >
                         <Typography variant="body2" color="text.secondary">
-                          No {PROCESS_TYPE_ROW_LABELS[rowType].toLowerCase()} defined
+                          {t("navigator.noProcessesDefined", { type: t(PROCESS_TYPE_ROW_LABEL_KEYS[rowType]).toLowerCase() })}
                         </Typography>
                       </Box>
                     ) : (() => {

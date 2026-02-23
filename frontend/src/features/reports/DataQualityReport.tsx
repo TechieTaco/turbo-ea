@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
+import { Trans, useTranslation } from "react-i18next";
 import { useTheme } from "@mui/material/styles";
 import Box from "@mui/material/Box";
 import CircularProgress from "@mui/material/CircularProgress";
@@ -61,10 +62,10 @@ function dataQualityColor(v: number): string {
   return "#f44336";
 }
 
-function dataQualityLabel(v: number): string {
-  if (v >= 80) return "Complete";
-  if (v >= 40) return "Partial";
-  return "Minimal";
+function dataQualityLabelKey(v: number): string {
+  if (v >= 80) return "dataQuality.complete";
+  if (v >= 40) return "dataQuality.partial";
+  return "dataQuality.minimal";
 }
 
 export default function DataQualityReport() {
