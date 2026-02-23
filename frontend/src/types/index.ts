@@ -486,8 +486,9 @@ export interface SurveyField {
   section: string;
   label: string;
   type: string;
-  options?: { key: string; label: string; color?: string }[];
+  options?: { key: string; label: string; color?: string; translations?: TranslationMap }[];
   action: "maintain" | "confirm";
+  translations?: TranslationMap;
 }
 
 export interface SurveyTargetFilters {

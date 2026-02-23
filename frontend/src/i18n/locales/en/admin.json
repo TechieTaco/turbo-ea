@@ -668,5 +668,14 @@
   "metamodel.translations.sectionTranslations": "Section Name Translations",
   "metamodel.translations.fieldTranslations": "Field Label Translations",
   "metamodel.translations.optionTranslations": "Option \"{{label}}\" Translations",
-  "metamodel.translations.roleTranslations": "Role Label Translations"
+  "metamodel.translations.roleTranslations": "Role Label Translations",
+  "metamodel.translationDialog.title": "Manage Translations — {{label}}",
+  "metamodel.translationDialog.manage": "Manage Translations",
+  "metamodel.translationDialog.typeInfo": "Type Info",
+  "metamodel.translationDialog.subtypes": "Subtypes",
+  "metamodel.translationDialog.sectionNames": "Section Names",
+  "metamodel.translationDialog.fieldsInSection": "Fields — {{section}}",
+  "metamodel.translationDialog.descriptionFields": "Description",
+  "metamodel.translationDialog.saving": "Saving…",
+  "metamodel.translationDialog.saved": "Translations saved"
 }

@@ -1306,7 +1306,7 @@ export default function PortalViewer() {
                         color: "text.secondary",
                       }}
                     >
-                      {section.section}
+                      {rl(section.section, section.translations)}
                     </Typography>
                     <Box
                       sx={{

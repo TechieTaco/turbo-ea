@@ -668,5 +668,14 @@
   "metamodel.translations.sectionTranslations": "Abschnittsname-Übersetzungen",
   "metamodel.translations.fieldTranslations": "Feldbezeichnungsübersetzungen",
   "metamodel.translations.optionTranslations": "Option-\"{{label}}\"-Übersetzungen",
-  "metamodel.translations.roleTranslations": "Rollenbezeichnungsübersetzungen"
+  "metamodel.translations.roleTranslations": "Rollenbezeichnungsübersetzungen",
+  "metamodel.translationDialog.title": "Übersetzungen verwalten — {{label}}",
+  "metamodel.translationDialog.manage": "Übersetzungen verwalten",
+  "metamodel.translationDialog.typeInfo": "Typinformationen",
+  "metamodel.translationDialog.subtypes": "Subtypen",
+  "metamodel.translationDialog.sectionNames": "Abschnittsnamen",
+  "metamodel.translationDialog.fieldsInSection": "Felder — {{section}}",
+  "metamodel.translationDialog.descriptionFields": "Beschreibung",
+  "metamodel.translationDialog.saving": "Wird gespeichert…",
+  "metamodel.translationDialog.saved": "Übersetzungen gespeichert"
 }

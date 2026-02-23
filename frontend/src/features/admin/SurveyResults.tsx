@@ -25,6 +25,7 @@ import DialogTitle from "@mui/material/DialogTitle";
 import DialogContent from "@mui/material/DialogContent";
 import DialogActions from "@mui/material/DialogActions";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import { useResolveLabel } from "@/hooks/useResolveLabel";
 import { api } from "@/api/client";
 import type { Survey, SurveyResponseDetail, SurveyField } from "@/types";
 
@@ -50,6 +51,7 @@ function formatValue(val: unknown, field?: SurveyField, boolLabels?: { yes: stri
 
 export default function SurveyResults() {
   const { t } = useTranslation(["admin", "common"]);
+  const rl = useResolveLabel();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
 
@@ -397,7 +399,7 @@ export default function SurveyResults() {
                       <TableRow key={field.key}>
                         <TableCell>
                           <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                            {field.label}
+                            {rl(field.label, field.translations)}
                           </Typography>
                         </TableCell>
                         <TableCell>{formatValue(resp.current_value, field, boolLabels)}</TableCell>

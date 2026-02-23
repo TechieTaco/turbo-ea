@@ -45,6 +45,7 @@ import DOMPurify from "dompurify";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import { useMetamodel } from "@/hooks/useMetamodel";
+import { useResolveLabel } from "@/hooks/useResolveLabel";
 import { useAuth } from "@/hooks/useAuth";
 
 /* ================================================================== */
@@ -153,13 +154,6 @@ const ATTR_COLORS: Record<string, Record<string, { label: string; color: string 
     high: { label: "High", color: "#f57c00" },
     critical: { label: "Critical", color: "#d32f2f" },
   },
-};
-
-const SUBTYPE_LABELS: Record<string, string> = {
-  category: "Category",
-  group: "Group",
-  process: "Process",
-  variant: "Variant",
 };
 
 const PROCESS_TYPE_ROW_LABEL_KEYS: Record<string, string> = {
@@ -344,12 +338,16 @@ function HouseCard({
   onDragDrop?: (dragId: string, dropId: string, rowType: string) => void;
 }) {
   const { t } = useTranslation(["bpm", "common"]);
+  const rl = useResolveLabel();
+  const { getType } = useMetamodel();
   const color = getCardColor(node, overlay);
   const isLeaf = node.level >= displayLevel || node.children.length === 0;
   const childCount = node.children.length;
   const hasElements = (node.element_count ?? 0) > 0;
   const hasDiagram = node.has_diagram ?? false;
-  const subtypeLabel = SUBTYPE_LABELS[node.subtype || ""] || null;
+  const bpType = getType("BusinessProcess");
+  const stDef = node.subtype ? bpType?.subtypes?.find((s) => s.key === node.subtype) : undefined;
+  const subtypeLabel = stDef ? rl(stDef.label, stDef.translations) : null;
 
   // Search highlight
   const matchesSearch =
@@ -718,6 +716,8 @@ function DrawerOverview({
   onDrill: (id: string) => void;
 }) {
   const { t } = useTranslation(["bpm", "common"]);
+  const rl = useResolveLabel();
+  const { getType } = useMetamodel();
   const [card, setCard] = useState<Record<string, unknown> | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -737,14 +737,17 @@ function DrawerOverview({
     const info = val ? ATTR_COLORS[opt.key]?.[val] : null;
     if (info) attrChips.push({ label: `${t(opt.labelKey)}: ${info.label}`, color: info.color });
   }
+  const bpType = getType("BusinessProcess");
+  const stDef = node.subtype ? bpType?.subtypes?.find((s) => s.key === node.subtype) : undefined;
+  const drawerSubtypeLabel = stDef ? rl(stDef.label, stDef.translations) : null;
 
   return (
     <Box>
       {/* Attribute chips */}
       {attrChips.length > 0 && (
         <Box sx={{ display: "flex", gap: 0.5, mb: 2, flexWrap: "wrap" }}>
-          {node.subtype && SUBTYPE_LABELS[node.subtype] && (
-            <Chip size="small" label={SUBTYPE_LABELS[node.subtype]} variant="outlined" />
+          {drawerSubtypeLabel && (
+            <Chip size="small" label={drawerSubtypeLabel} variant="outlined" />
           )}
           {attrChips.map((c) => (
             <Chip key={c.label} size="small" label={c.label} sx={{ bgcolor: c.color, color: "#fff" }} />
