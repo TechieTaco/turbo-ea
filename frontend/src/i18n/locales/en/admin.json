@@ -410,6 +410,8 @@
   "surveyBuilder.target.operators.contains": "contains",
   "surveyBuilder.target.operators.isEmpty": "is empty",
   "surveyBuilder.target.operators.isNotEmpty": "is not empty",
+  "surveyBuilder.target.operatorLabel": "Operator",
+  "surveyBuilder.target.valueLabel": "Value",
   "surveyBuilder.target.addAttributeFilter": "Add Attribute Filter",
   "surveyBuilder.target.stakeholderRoles": "Target Stakeholder Roles",
   "surveyBuilder.target.stakeholderRolesHint": "Which roles should receive the survey for each matched card?",

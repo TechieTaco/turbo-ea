@@ -502,7 +502,7 @@ export default function SurveyBuilder() {
                 <TextField
                   select
                   size="small"
-                  label="Field"
+                  label={t("surveyBuilder.fields.columns.field")}
                   value={af.key}
                   onChange={(e) => {
                     const updated = [...attributeFilters];
@@ -520,7 +520,7 @@ export default function SurveyBuilder() {
                 <TextField
                   select
                   size="small"
-                  label="Operator"
+                  label={t("surveyBuilder.target.operatorLabel")}
                   value={af.op}
                   onChange={(e) => {
                     const updated = [...attributeFilters];
@@ -542,7 +542,7 @@ export default function SurveyBuilder() {
                 {needsValue && (
                   <TextField
                     size="small"
-                    label="Value"
+                    label={t("surveyBuilder.target.valueLabel")}
                     value={af.value}
                     onChange={(e) => {
                       const updated = [...attributeFilters];
