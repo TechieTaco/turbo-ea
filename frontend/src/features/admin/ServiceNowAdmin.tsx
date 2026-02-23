@@ -55,12 +55,12 @@ interface TurboFieldOption {
 function getTurboFieldOptions(cardType: CardType | undefined, t: (key: string) => string): TurboFieldOption[] {
   const options: TurboFieldOption[] = [
     { path: "name", label: t("common:labels.name"), group: t("servicenow.fieldGroups.core") },
-    { path: "description", label: "Description", group: "Core" },
-    { path: "lifecycle.plan", label: "Plan", group: "Lifecycle" },
-    { path: "lifecycle.phaseIn", label: "Phase In", group: "Lifecycle" },
-    { path: "lifecycle.active", label: "Active", group: "Lifecycle" },
-    { path: "lifecycle.phaseOut", label: "Phase Out", group: "Lifecycle" },
-    { path: "lifecycle.endOfLife", label: "End of Life", group: "Lifecycle" },
+    { path: "description", label: t("common:labels.description"), group: t("servicenow.fieldGroups.core") },
+    { path: "lifecycle.plan", label: t("common:lifecycle.plan"), group: t("common:lifecycle.title") },
+    { path: "lifecycle.phaseIn", label: t("common:lifecycle.phaseIn"), group: t("common:lifecycle.title") },
+    { path: "lifecycle.active", label: t("common:lifecycle.active"), group: t("common:lifecycle.title") },
+    { path: "lifecycle.phaseOut", label: t("common:lifecycle.phaseOut"), group: t("common:lifecycle.title") },
+    { path: "lifecycle.endOfLife", label: t("common:lifecycle.endOfLife"), group: t("common:lifecycle.title") },
   ];
 
   if (cardType?.fields_schema) {
@@ -340,14 +340,14 @@ function ConnectionDialog({ open, connection, onClose, onSaved }: ConnectionDial
             fullWidth
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="e.g. Production ServiceNow"
+            placeholder={t("servicenow.connections.dialog.namePlaceholder")}
           />
           <TextField
             label={t("servicenow.connections.dialog.instanceUrl")}
             fullWidth
             value={instanceUrl}
             onChange={(e) => setInstanceUrl(e.target.value)}
-            placeholder="https://company.service-now.com"
+            placeholder={t("servicenow.connections.dialog.instanceUrlPlaceholder")}
             helperText={t("servicenow.connections.dialog.instanceUrlHelper")}
           />
           <FormControl fullWidth>
@@ -650,7 +650,7 @@ function MappingDialog({ open, mapping, connections, onClose, onSaved }: Mapping
     [types, cardTypeKey],
   );
   const turboFieldOptions = useMemo(
-    () => getTurboFieldOptions(selectedCardType),
+    () => getTurboFieldOptions(selectedCardType, t),
     [selectedCardType],
   );
 
@@ -760,7 +760,7 @@ function MappingDialog({ open, mapping, connections, onClose, onSaved }: Mapping
               fullWidth
               value={snowTable}
               onChange={(e) => setSnowTable(e.target.value)}
-              placeholder="e.g. cmdb_ci_business_app"
+              placeholder={t("servicenow.mappings.dialog.snowTablePlaceholder")}
             />
           </Box>
 
@@ -834,7 +834,7 @@ function MappingDialog({ open, mapping, connections, onClose, onSaved }: Mapping
             fullWidth
             value={filterQuery}
             onChange={(e) => setFilterQuery(e.target.value)}
-            placeholder="e.g. active=true^install_status=1"
+            placeholder={t("servicenow.mappings.dialog.filterQueryPlaceholder")}
             helperText={t("servicenow.mappings.dialog.filterQueryHelper")}
           />
 
