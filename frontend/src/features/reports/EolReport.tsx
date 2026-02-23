@@ -563,7 +563,7 @@ export default function EolReport() {
                           <SourceBadge source="manual" />
                         )}
                         {item.affected_apps.length > 0 && (
-                          <Tooltip title={`Impacts ${item.affected_apps.length} app${item.affected_apps.length > 1 ? "s" : ""}`}>
+                          <Tooltip title={t("eol.impacts", { count: item.affected_apps.length })}>
                             <Chip
                               size="small"
                               label={item.affected_apps.length}
@@ -572,9 +572,9 @@ export default function EolReport() {
                                 height: 18,
                                 fontSize: "0.65rem",
                                 bgcolor: item.status === "eol"
-                                  ? (t) => alpha(t.palette.error.light, 0.3)
+                                  ? (th) => alpha(th.palette.error.light, 0.3)
                                   : item.status === "approaching"
-                                    ? (t) => alpha(t.palette.warning.light, 0.3)
+                                    ? (th) => alpha(th.palette.warning.light, 0.3)
                                     : "action.selected",
                               }}
                             />
@@ -727,7 +727,7 @@ export default function EolReport() {
                             </Tooltip>
                             {/* Active support bar (release → support end) */}
                             {supportWidthPct && (
-                              <Tooltip title={`Active support until ${fmtDate(cd?.support)}`}>
+                              <Tooltip title={t("eol.activeSupportUntil", { date: fmtDate(cd?.support) })}>
                                 <Box
                                   className="bar"
                                   sx={{
@@ -744,7 +744,7 @@ export default function EolReport() {
                             )}
                             {/* EOL marker */}
                             {eolMs && (
-                              <Tooltip title={`End of Life: ${fmtDate(cd?.eol)}`}>
+                              <Tooltip title={t("eol.endOfLifeDate", { date: fmtDate(cd?.eol) })}>
                                 <Box
                                   sx={{
                                     position: "absolute",
@@ -847,7 +847,7 @@ export default function EolReport() {
                       zIndex: 4,
                     }}
                   >
-                    Today
+                    {t("eol.today")}
                   </Typography>
                 </Box>
               </Box>
@@ -989,7 +989,7 @@ export default function EolReport() {
                             height: 18,
                             fontSize: "0.6rem",
                             fontWeight: 600,
-                            bgcolor: (t) => alpha(t.palette.primary.main, 0.08),
+                            bgcolor: (th) => alpha(th.palette.primary.main, 0.08),
                             color: "primary.main",
                             "& .MuiChip-icon": { color: "primary.main" },
                           }}
@@ -1055,9 +1055,9 @@ export default function EolReport() {
                               fontSize: "0.7rem",
                               bgcolor:
                                 item.status === "eol"
-                                  ? (t) => alpha(t.palette.error.light, 0.3)
+                                  ? (th) => alpha(th.palette.error.light, 0.3)
                                   : item.status === "approaching"
-                                    ? (t) => alpha(t.palette.warning.light, 0.3)
+                                    ? (th) => alpha(th.palette.warning.light, 0.3)
                                     : "action.selected",
                             }}
                           />

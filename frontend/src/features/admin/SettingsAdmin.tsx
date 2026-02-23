@@ -250,9 +250,9 @@ function GeneralTab() {
       await api.upload("/settings/logo", file);
       setHasCustomLogo(true);
       setLogoVersion((v) => v + 1);
-      setSnack("Logo updated");
+      setSnack(t("settings.logoUpdated"));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to upload logo");
+      setError(err instanceof Error ? err.message : t("settings.logoUploadFailed"));
     } finally {
       setUploadingLogo(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
@@ -266,9 +266,9 @@ function GeneralTab() {
       await api.delete("/settings/logo");
       setHasCustomLogo(false);
       setLogoVersion((v) => v + 1);
-      setSnack("Logo reset to default");
+      setSnack(t("settings.logoResetSuccess"));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to reset logo");
+      setError(err instanceof Error ? err.message : t("settings.logoResetFailed"));
     } finally {
       setUploadingLogo(false);
     }
@@ -284,9 +284,9 @@ function GeneralTab() {
       setHasCustomFavicon(true);
       setFaviconVersion((v) => v + 1);
       updateFavicons();
-      setSnack("Favicon updated");
+      setSnack(t("settings.faviconUpdated"));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to upload favicon");
+      setError(err instanceof Error ? err.message : t("settings.faviconUploadFailed"));
     } finally {
       setUploadingFavicon(false);
       if (faviconFileInputRef.current) faviconFileInputRef.current.value = "";
@@ -301,9 +301,9 @@ function GeneralTab() {
       setHasCustomFavicon(false);
       setFaviconVersion((v) => v + 1);
       updateFavicons();
-      setSnack("Favicon reset to default");
+      setSnack(t("settings.faviconResetSuccess"));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to reset favicon");
+      setError(err instanceof Error ? err.message : t("settings.faviconResetFailed"));
     } finally {
       setUploadingFavicon(false);
     }
@@ -316,9 +316,9 @@ function GeneralTab() {
       await api.patch("/settings/bpm-enabled", { enabled });
       setBpmEnabled(enabled);
       invalidateMetamodel();
-      setSnack(enabled ? "BPM module enabled" : "BPM module disabled");
+      setSnack(enabled ? t("settings.bpmEnabled") : t("settings.bpmDisabled"));
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to update BPM setting");
+      setError(e instanceof Error ? e.message : t("common:errors.generic"));
     } finally {
       setSavingBpm(false);
     }
@@ -330,9 +330,9 @@ function GeneralTab() {
     try {
       await api.patch("/settings/registration", { enabled });
       setRegistrationEnabled(enabled);
-      setSnack(enabled ? "Self-registration enabled" : "Self-registration disabled");
+      setSnack(enabled ? t("settings.registrationEnabled") : t("settings.registrationDisabled"));
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to update registration setting");
+      setError(e instanceof Error ? e.message : t("common:errors.generic"));
     } finally {
       setSavingRegistration(false);
     }
@@ -348,9 +348,9 @@ function GeneralTab() {
         client_secret: ssoClientSecret,
         tenant_id: ssoTenantId,
       });
-      setSnack("SSO settings saved");
+      setSnack(t("settings.ssoSaved"));
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to save SSO settings");
+      setError(e instanceof Error ? e.message : t("common:errors.generic"));
     } finally {
       setSavingSso(false);
     }
@@ -362,9 +362,9 @@ function GeneralTab() {
     try {
       await api.patch("/settings/currency", { currency: selectedCurrency });
       invalidateCurrency(selectedCurrency);
-      setSnack("Currency updated");
+      setSnack(t("settings.currencyUpdated"));
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to save currency");
+      setError(e instanceof Error ? e.message : t("common:errors.generic"));
     } finally {
       setSavingCurrency(false);
     }
@@ -387,26 +387,24 @@ function GeneralTab() {
       )}
 
       {/* ── Appearance ────────────────────────────────────────────── */}
-      <SectionHeader>Appearance</SectionHeader>
+      <SectionHeader>{t("settings.sections.appearance")}</SectionHeader>
 
       {/* Logo Settings */}
       <Paper sx={{ p: 3, mb: 3 }}>
         <Box sx={{ display: "flex", alignItems: "center", mb: 2, gap: 1 }}>
           <MaterialSymbol icon="image" size={22} color="#555" />
           <Typography variant="h6" fontWeight={600}>
-            Logo
+            {t("settings.logo.title")}
           </Typography>
           <Chip
-            label={hasCustomLogo ? "Custom" : "Default"}
+            label={hasCustomLogo ? t("settings.custom") : t("settings.default")}
             size="small"
             color={hasCustomLogo ? "info" : "default"}
             sx={{ ml: 1 }}
           />
         </Box>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-          Upload a custom logo to replace the default Turbo EA branding in the
-          navigation bar. Recommended: PNG or SVG with visible colors (not
-          white-on-transparent). Max 2 MB.
+          {t("settings.logo.description")}
         </Typography>
 
         <Box
