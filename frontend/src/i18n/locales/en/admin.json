@@ -1,3 +1,28 @@
 {
-  "page.title": "Admin"
+  "page.title": "Admin",
+
+  "surveys.respond.title": "Survey Response",
+  "surveys.respond.submit": "Submit Response",
+  "surveys.respond.submitting": "Submitting...",
+  "surveys.respond.success": "Response Submitted",
+  "surveys.respond.thankYou": "Thank you for completing the survey for <strong>{{name}}</strong>.",
+  "surveys.respond.backToSurveys": "Back to My Surveys",
+  "surveys.respond.backTooltip": "Back to My Surveys",
+  "surveys.respond.notFound": "Survey not found",
+  "surveys.respond.currentValue": "Current value:",
+  "surveys.respond.updatedValue": "Updated value:",
+  "surveys.respond.proposedValue": "Proposed value:",
+  "surveys.respond.maintain": "Maintain",
+  "surveys.respond.confirmLabel": "Confirm",
+  "surveys.respond.noChangeNeeded": "No change needed",
+  "surveys.respond.confirmCorrect": "I confirm this value is correct",
+  "surveys.respond.proposeChange": "I want to propose a change",
+  "surveys.respond.error.loadFailed": "Failed to load survey",
+  "surveys.respond.error.submitFailed": "Failed to submit",
+
+  "surveys.my.title": "My Surveys",
+  "surveys.my.empty": "No pending surveys. You're all caught up!",
+  "surveys.my.pending": "{{count}} pending",
+  "surveys.my.respond": "Respond",
+  "surveys.my.error.loadFailed": "Failed to load surveys"
 }

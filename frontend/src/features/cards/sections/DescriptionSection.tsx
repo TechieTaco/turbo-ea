@@ -8,8 +8,9 @@ import TextField from "@mui/material/TextField";
 import Button from "@mui/material/Button";
 import IconButton from "@mui/material/IconButton";
 import Alert from "@mui/material/Alert";
+import { useTranslation } from "react-i18next";
 import MaterialSymbol from "@/components/MaterialSymbol";
-import { FieldValue, FieldEditor, isValidUrl, URL_ERROR_MSG } from "@/features/cards/sections/cardDetailUtils";
+import { FieldValue, FieldEditor, isValidUrl, getUrlErrorMsg } from "@/features/cards/sections/cardDetailUtils";
 import { ApiError } from "@/api/client";
 import type { Card, FieldDef } from "@/types";
 
@@ -29,6 +30,7 @@ function DescriptionSection({
   extraFields?: FieldDef[];
   currencyFmt?: Intl.NumberFormat;
 }) {
+  const { t } = useTranslation(["cards", "common"]);
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(card.name);
   const [description, setDescription] = useState(card.description || "");
@@ -48,7 +50,7 @@ function DescriptionSection({
       if (f.type === "url") {
         const val = attrs[f.key];
         if (typeof val === "string" && val && !isValidUrl(val)) {
-          urlErrors[f.key] = URL_ERROR_MSG;
+          urlErrors[f.key] = getUrlErrorMsg(t);
         }
       }
     }
@@ -76,7 +78,7 @@ function DescriptionSection({
       <AccordionSummary expandIcon={<MaterialSymbol icon="expand_more" size={20} />}>
         <Box sx={{ display: "flex", alignItems: "center", gap: 1, flex: 1 }}>
           <MaterialSymbol icon="description" size={20} />
-          <Typography fontWeight={600}>Description</Typography>
+          <Typography fontWeight={600}>{t("description.title")}</Typography>
         </Box>
         {!editing && canEdit && (
           <IconButton
@@ -95,7 +97,7 @@ function DescriptionSection({
           <Box>
             <TextField
               fullWidth
-              label="Name"
+              label={t("common:labels.name")}
               value={name}
               onChange={(e) => setName(e.target.value)}
               size="small"
@@ -103,7 +105,7 @@ function DescriptionSection({
             />
             <TextField
               fullWidth
-              label="Description"
+              label={t("common:labels.description")}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               multiline
@@ -132,17 +134,17 @@ function DescriptionSection({
                   setSaveError(null);
                 }}
               >
-                Cancel
+                {t("common:actions.cancel")}
               </Button>
               <Button size="small" variant="contained" onClick={save} disabled={hasValidationErrors}>
-                Save
+                {t("common:actions.save")}
               </Button>
             </Box>
           </Box>
         ) : (
           <Box>
             <Typography variant="body2" color="text.secondary" whiteSpace="pre-wrap" sx={{ mb: extraFields?.length ? 1 : 0 }}>
-              {card.description || "No description provided."}
+              {card.description || t("description.noDescription")}
             </Typography>
             {extraFields && extraFields.length > 0 && (
               <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "180px 1fr" }, rowGap: 1, columnGap: 2, alignItems: { sm: "center" } }}>

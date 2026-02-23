@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import IconButton from "@mui/material/IconButton";
@@ -225,6 +226,7 @@ function bootstrapDrawIO(iframe: HTMLIFrameElement) {
 /* ------------------------------------------------------------------ */
 
 export default function DiagramEditor() {
+  const { t } = useTranslation(["diagrams", "common"]);
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const iframeRef = useRef<HTMLIFrameElement>(null);
@@ -269,7 +271,7 @@ export default function DiagramEditor() {
     api
       .get<DiagramData>(`/diagrams/${id}`)
       .then(setDiagram)
-      .catch(() => setSnackMsg("Failed to load diagram"))
+      .catch(() => setSnackMsg(t("editor.errors.loadFailed")))
       .finally(() => setLoading(false));
   }, [id]);
 
@@ -292,9 +294,9 @@ export default function DiagramEditor() {
         setDiagram((prev) =>
           prev ? { ...prev, data: { ...prev.data, xml, ...(thumbnail ? { thumbnail } : {}) } } : prev,
         );
-        setSnackMsg("Diagram saved");
+        setSnackMsg(t("editor.saved"));
       } catch {
-        setSnackMsg("Save failed");
+        setSnackMsg(t("editor.errors.saveFailed"));
       } finally {
         setSaving(false);
       }
@@ -313,7 +315,7 @@ export default function DiagramEditor() {
         : children;
 
       if (visible.length === 0) {
-        setSnackMsg("No related cards");
+        setSnackMsg(t("editor.noRelatedCards"));
         return;
       }
 
@@ -391,7 +393,7 @@ export default function DiagramEditor() {
                 });
               }
               if (children.length === 0) {
-                setSnackMsg("No related cards");
+                setSnackMsg(t("editor.noRelatedCards"));
                 return;
               }
               children.sort((a, b) => {
@@ -404,7 +406,7 @@ export default function DiagramEditor() {
               expandCacheRef.current.set(cellId, children);
               doExpand(iframeRef.current!, cellId, cardId, children);
             })
-            .catch(() => setSnackMsg("Failed to load relations"));
+            .catch(() => setSnackMsg(t("editor.errors.loadRelationsFailed")));
         }
       }
     },
@@ -449,7 +451,7 @@ export default function DiagramEditor() {
             addExpandOverlay(iframeRef.current!, cellId, false, () =>
               handleToggleGroup(cellId, cardId, false),
             );
-            setSnackMsg("No related cards");
+            setSnackMsg(t("editor.noRelatedCards"));
             return;
           }
           children.sort((a, b) => {
@@ -460,9 +462,9 @@ export default function DiagramEditor() {
           });
           expandCacheRef.current.set(cellId, children);
           doExpand(iframeRef.current!, cellId, cardId, children);
-          setSnackMsg("Relations restored from inventory");
+          setSnackMsg(t("editor.relationsRestored"));
         })
-        .catch(() => setSnackMsg("Failed to resync relations"));
+        .catch(() => setSnackMsg(t("editor.errors.resyncFailed")));
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [doExpand],

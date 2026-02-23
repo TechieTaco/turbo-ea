@@ -1138,33 +1138,33 @@ export default function InventoryPage() {
 
       {/* Mass Archive Confirmation */}
       <Dialog open={massArchiveOpen} onClose={() => setMassArchiveOpen(false)} maxWidth="xs" fullWidth>
-        <DialogTitle>Archive {selectedIds.length} Cards</DialogTitle>
+        <DialogTitle>{t("massArchive.dialogTitle", { count: selectedIds.length })}</DialogTitle>
         <DialogContent>
           <Typography>
-            Are you sure you want to archive {selectedIds.length} card{selectedIds.length !== 1 ? "s" : ""}? Archived cards can be restored within 30 days.
+            {t("massArchive.confirmMessage", { count: selectedIds.length })}
           </Typography>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setMassArchiveOpen(false)}>Cancel</Button>
+          <Button onClick={() => setMassArchiveOpen(false)}>{t("common:actions.cancel")}</Button>
           <Button variant="contained" color="warning" onClick={handleMassArchive} disabled={massArchiveLoading}>
-            {massArchiveLoading ? "Archiving..." : "Archive"}
+            {massArchiveLoading ? t("massArchive.archiving") : t("common:actions.archive")}
           </Button>
         </DialogActions>
       </Dialog>
 
       {/* Mass Delete Confirmation */}
       <Dialog open={massDeleteOpen} onClose={() => setMassDeleteOpen(false)} maxWidth="xs" fullWidth>
-        <DialogTitle>Permanently Delete {selectedIds.length} Cards</DialogTitle>
+        <DialogTitle>{t("massDelete.dialogTitle", { count: selectedIds.length })}</DialogTitle>
         <DialogContent>
-          <Alert severity="error" sx={{ mb: 2 }}>This action cannot be undone.</Alert>
+          <Alert severity="error" sx={{ mb: 2 }}>{t("massDelete.cannotBeUndone")}</Alert>
           <Typography>
-            Are you sure you want to permanently delete {selectedIds.length} card{selectedIds.length !== 1 ? "s" : ""}? All related data (relations, comments, documents, etc.) will also be deleted.
+            {t("massDelete.confirmMessage", { count: selectedIds.length })}
           </Typography>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setMassDeleteOpen(false)}>Cancel</Button>
+          <Button onClick={() => setMassDeleteOpen(false)}>{t("common:actions.cancel")}</Button>
           <Button variant="contained" color="error" onClick={handleMassDelete} disabled={massDeleteLoading}>
-            {massDeleteLoading ? "Deleting..." : "Delete Permanently"}
+            {massDeleteLoading ? t("massDelete.deleting") : t("massEdit.deletePermanently")}
           </Button>
         </DialogActions>
       </Dialog>

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Tabs from "@mui/material/Tabs";
@@ -65,24 +66,24 @@ interface Props {
 }
 
 const APPROVAL_STATUS_OPTIONS = [
-  { key: "DRAFT", label: "Draft", color: "#9e9e9e" },
-  { key: "APPROVED", label: "Approved", color: "#4caf50" },
-  { key: "BROKEN", label: "Broken", color: "#ff9800" },
-  { key: "REJECTED", label: "Rejected", color: "#f44336" },
+  { key: "DRAFT", tKey: "common:status.draft" as const, color: "#9e9e9e" },
+  { key: "APPROVED", tKey: "common:status.approved" as const, color: "#4caf50" },
+  { key: "BROKEN", tKey: "common:status.broken" as const, color: "#ff9800" },
+  { key: "REJECTED", tKey: "common:status.rejected" as const, color: "#f44336" },
 ];
 
 const LIFECYCLE_PHASES = [
-  { key: "plan", label: "Plan", color: "#90a4ae" },
-  { key: "phaseIn", label: "Phase In", color: "#42a5f5" },
-  { key: "active", label: "Active", color: "#66bb6a" },
-  { key: "phaseOut", label: "Phase Out", color: "#ffa726" },
-  { key: "endOfLife", label: "End of Life", color: "#ef5350" },
+  { key: "plan", tKey: "common:lifecycle.plan" as const, color: "#90a4ae" },
+  { key: "phaseIn", tKey: "common:lifecycle.phaseIn" as const, color: "#42a5f5" },
+  { key: "active", tKey: "common:lifecycle.active" as const, color: "#66bb6a" },
+  { key: "phaseOut", tKey: "common:lifecycle.phaseOut" as const, color: "#ffa726" },
+  { key: "endOfLife", tKey: "common:lifecycle.endOfLife" as const, color: "#ef5350" },
 ];
 
 const DATA_QUALITY_THRESHOLDS = [
-  { key: 80, label: "Good (80%+)", color: "#4caf50" },
-  { key: 50, label: "Medium (50%+)", color: "#ff9800" },
-  { key: 0, label: "Poor (< 50%)", color: "#f44336" },
+  { key: 80, tKey: "filter.dataQualityGood" as const, color: "#4caf50" },
+  { key: 50, tKey: "filter.dataQualityMedium" as const, color: "#ff9800" },
+  { key: 0, tKey: "filter.dataQualityPoor" as const, color: "#f44336" },
 ];
 
 const MIN_WIDTH = 220;
@@ -107,6 +108,7 @@ export default function InventoryFilterSidebar({
   canOdataBookmarks = false,
   currentUserId,
 }: Props) {
+  const { t } = useTranslation(["inventory", "common"]);
   const [tab, setTab] = useState(0);
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
     types: true,
@@ -387,7 +389,7 @@ export default function InventoryFilterSidebar({
           bgcolor: "action.hover",
         }}
       >
-        <Tooltip title="Expand filters" placement="right">
+        <Tooltip title={t("filter.expand")} placement="right">
           <IconButton size="small" onClick={onToggleCollapse}>
             <MaterialSymbol icon="chevron_right" size={20} />
           </IconButton>
