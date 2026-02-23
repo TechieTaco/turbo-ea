@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { AgGridReact } from "ag-grid-react";
 import type { ColDef, CellValueChangedEvent, SelectionChangedEvent, RowClickedEvent } from "ag-grid-community";
@@ -120,6 +121,7 @@ function buildRelationIndex(
 }
 
 export default function InventoryPage() {
+  const { t } = useTranslation(["inventory", "common"]);
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { types, relationTypes } = useMetamodel();
@@ -419,10 +421,10 @@ export default function InventoryPage() {
   // Mass-editable fields for current type
   const massEditableFields = useMemo(() => {
     const fields: { key: string; label: string; fieldDef?: FieldDef; isCore: boolean }[] = [
-      { key: "approval_status", label: "Approval Status", isCore: true },
+      { key: "approval_status", label: t("columns.approvalStatus"), isCore: true },
     ];
     if (typeConfig?.subtypes && typeConfig.subtypes.length > 0) {
-      fields.push({ key: "subtype", label: "Subtype", isCore: true });
+      fields.push({ key: "subtype", label: t("common:labels.subtype"), isCore: true });
     }
     if (typeConfig) {
       for (const section of typeConfig.fields_schema) {
@@ -467,7 +469,7 @@ export default function InventoryPage() {
       setMassEditValue("");
       loadData();
     } catch (e) {
-      setMassEditError(e instanceof Error ? e.message : "Mass edit failed");
+      setMassEditError(e instanceof Error ? e.message : t("massEdit.failed"));
     } finally {
       setMassEditLoading(false);
     }
@@ -505,15 +507,15 @@ export default function InventoryPage() {
     const cols: ColDef[] = [
       {
         field: "type",
-        headerName: "Type",
+        headerName: t("common:labels.type"),
         width: 140,
         cellRenderer: (p: { value: string }) => {
-          const t = types.find((x) => x.key === p.value);
-          return t ? (
+          const tp = types.find((x) => x.key === p.value);
+          return tp ? (
             <Chip
               size="small"
-              label={t.label}
-              sx={{ bgcolor: t.color, color: "#fff", fontWeight: 500 }}
+              label={tp.label}
+              sx={{ bgcolor: tp.color, color: "#fff", fontWeight: 500 }}
             />
           ) : (
             p.value
@@ -522,7 +524,7 @@ export default function InventoryPage() {
       },
       {
         field: "name",
-        headerName: "Name",
+        headerName: t("common:labels.name"),
         flex: 1,
         minWidth: 200,
         editable: gridEditMode,
@@ -538,7 +540,7 @@ export default function InventoryPage() {
       },
       {
         field: "description",
-        headerName: "Description",
+        headerName: t("common:labels.description"),
         flex: 1,
         minWidth: 200,
         editable: gridEditMode,
@@ -549,7 +551,7 @@ export default function InventoryPage() {
     if (typeConfig?.subtypes && typeConfig.subtypes.length > 0) {
       cols.push({
         field: "subtype",
-        headerName: "Subtype",
+        headerName: t("common:labels.subtype"),
         width: 140,
         editable: gridEditMode,
         ...(gridEditMode
@@ -576,7 +578,7 @@ export default function InventoryPage() {
 
     cols.push(
       {
-        headerName: "Lifecycle",
+        headerName: t("columns.lifecycle"),
         width: 120,
         valueGetter: (p: { data: Card }) => {
           const lc = p.data?.lifecycle || {};
@@ -595,16 +597,16 @@ export default function InventoryPage() {
       },
       {
         field: "approval_status",
-        headerName: "Approval Status",
+        headerName: t("columns.approvalStatus"),
         width: 110,
         cellRenderer: (p: { value: string }) => {
           const color = APPROVAL_STATUS_COLORS[p.value];
           if (!color) return "";
           const labels: Record<string, string> = {
-            DRAFT: "Draft",
-            APPROVED: "Approved",
-            BROKEN: "Broken",
-            REJECTED: "Rejected",
+            DRAFT: t("common:status.draft"),
+            APPROVED: t("common:status.approved"),
+            BROKEN: t("common:status.broken"),
+            REJECTED: t("common:status.rejected"),
           };
           return (
             <Chip
@@ -617,7 +619,7 @@ export default function InventoryPage() {
       },
       {
         field: "data_quality",
-        headerName: "Data Quality",
+        headerName: t("columns.dataQuality"),
         width: 130,
         cellRenderer: (p: { value: number }) => {
           const v = Math.round(p.value || 0);
@@ -657,15 +659,15 @@ export default function InventoryPage() {
     if (filters.showArchived) {
       cols.push({
         field: "status",
-        headerName: "Status",
+        headerName: t("common:labels.status"),
         width: 110,
         cellRenderer: (p: { value: string }) => {
           if (p.value === "ARCHIVED") {
             return (
-              <Chip size="small" label="Archived" sx={{ bgcolor: "#9e9e9e", color: "#fff", fontWeight: 500 }} />
+              <Chip size="small" label={t("common:status.archived")} sx={{ bgcolor: "#9e9e9e", color: "#fff", fontWeight: 500 }} />
             );
           }
-          return <Chip size="small" label="Active" variant="outlined" sx={{ fontWeight: 500 }} />;
+          return <Chip size="small" label={t("common:status.active")} variant="outlined" sx={{ fontWeight: 500 }} />;
         },
       });
     }
@@ -767,7 +769,7 @@ export default function InventoryPage() {
                   sx={{ fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}
                   title={p.value}
                 >
-                  {p.value || <span style={{ opacity: 0.5 }}>Click to edit</span>}
+                  {p.value || <span style={{ opacity: 0.5 }}>{t("columns.clickToEdit")}</span>}
                 </Typography>
                 <MaterialSymbol icon="edit" size={14} />
               </Box>
@@ -800,7 +802,7 @@ export default function InventoryPage() {
     }
 
     return cols;
-  }, [types, typeConfig, gridEditMode, relevantRelTypes, relationsMap, selectedType, hierarchyPaths, filters.showArchived]);
+  }, [types, typeConfig, gridEditMode, relevantRelTypes, relationsMap, selectedType, hierarchyPaths, filters.showArchived, t]);
 
   // Render mass edit value input based on field type
   const renderMassEditInput = () => {
@@ -809,11 +811,11 @@ export default function InventoryPage() {
     if (massEditField === "approval_status") {
       return (
         <FormControl fullWidth size="small">
-          <InputLabel>Value</InputLabel>
-          <Select value={(massEditValue as string) || ""} label="Value" onChange={(e) => setMassEditValue(e.target.value)}>
-            <MenuItem value="DRAFT">Draft</MenuItem>
-            <MenuItem value="APPROVED">Approved</MenuItem>
-            <MenuItem value="REJECTED">Rejected</MenuItem>
+          <InputLabel>{t("massEdit.value")}</InputLabel>
+          <Select value={(massEditValue as string) || ""} label={t("massEdit.value")} onChange={(e) => setMassEditValue(e.target.value)}>
+            <MenuItem value="DRAFT">{t("common:status.draft")}</MenuItem>
+            <MenuItem value="APPROVED">{t("common:status.approved")}</MenuItem>
+            <MenuItem value="REJECTED">{t("common:status.rejected")}</MenuItem>
           </Select>
         </FormControl>
       );
@@ -822,9 +824,9 @@ export default function InventoryPage() {
     if (massEditField === "subtype" && typeConfig?.subtypes) {
       return (
         <FormControl fullWidth size="small">
-          <InputLabel>Value</InputLabel>
-          <Select value={(massEditValue as string) || ""} label="Value" onChange={(e) => setMassEditValue(e.target.value)}>
-            <MenuItem value=""><em>None</em></MenuItem>
+          <InputLabel>{t("massEdit.value")}</InputLabel>
+          <Select value={(massEditValue as string) || ""} label={t("massEdit.value")} onChange={(e) => setMassEditValue(e.target.value)}>
+            <MenuItem value=""><em>{t("common:labels.none")}</em></MenuItem>
             {typeConfig.subtypes.map((st) => (
               <MenuItem key={st.key} value={st.key}>{st.label}</MenuItem>
             ))}
@@ -839,9 +841,9 @@ export default function InventoryPage() {
     if (fd.type === "single_select" && fd.options) {
       return (
         <FormControl fullWidth size="small">
-          <InputLabel>Value</InputLabel>
-          <Select value={(massEditValue as string) || ""} label="Value" onChange={(e) => setMassEditValue(e.target.value)}>
-            <MenuItem value=""><em>Clear</em></MenuItem>
+          <InputLabel>{t("massEdit.value")}</InputLabel>
+          <Select value={(massEditValue as string) || ""} label={t("massEdit.value")} onChange={(e) => setMassEditValue(e.target.value)}>
+            <MenuItem value=""><em>{t("massEdit.clear")}</em></MenuItem>
             {fd.options.map((opt) => (
               <MenuItem key={opt.key} value={opt.key}>
                 <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
@@ -860,7 +862,7 @@ export default function InventoryPage() {
         <TextField
           fullWidth
           size="small"
-          label="Value"
+          label={t("massEdit.value")}
           type="number"
           value={massEditValue ?? ""}
           onChange={(e) => setMassEditValue(e.target.value ? Number(e.target.value) : "")}
@@ -872,7 +874,7 @@ export default function InventoryPage() {
       <TextField
         fullWidth
         size="small"
-        label="Value"
+        label={t("massEdit.value")}
         value={(massEditValue as string) ?? ""}
         onChange={(e) => setMassEditValue(e.target.value)}
       />
@@ -927,20 +929,20 @@ export default function InventoryPage() {
         {/* Header */}
         <Box sx={{ display: "flex", alignItems: "center", gap: { xs: 1, sm: 2 }, mb: 1.5, flexShrink: 0, flexWrap: "wrap" }}>
           {isMobile && (
-            <Tooltip title="Filters">
+            <Tooltip title={t("toolbar.filters")}>
               <IconButton onClick={() => setFilterDrawerOpen(true)} size="small">
                 <MaterialSymbol icon="filter_list" size={22} />
               </IconButton>
             </Tooltip>
           )}
           <Typography variant={isMobile ? "h6" : "h5"} fontWeight={600}>
-            Inventory
+            {t("page.title")}
           </Typography>
-          <Chip label={`${filteredData.length} items`} size="small" />
+          <Chip label={t("common:items", { count: filteredData.length })} size="small" />
           <Box sx={{ flex: 1 }} />
           {isMobile ? (
             <>
-              <Tooltip title={gridEditMode ? "Editing" : "Grid Edit"}>
+              <Tooltip title={gridEditMode ? t("toolbar.editing") : t("toolbar.gridEdit")}>
                 <IconButton
                   color={gridEditMode ? "primary" : "default"}
                   onClick={() => setGridEditMode((v) => !v)}
@@ -949,7 +951,7 @@ export default function InventoryPage() {
                   <MaterialSymbol icon={gridEditMode ? "edit" : "edit_off"} size={20} />
                 </IconButton>
               </Tooltip>
-              <Tooltip title="Export">
+              <Tooltip title={t("common:actions.export")}>
                 <span>
                   <IconButton
                     onClick={() => exportToExcel(filteredData, typeConfig, types)}
@@ -960,12 +962,12 @@ export default function InventoryPage() {
                   </IconButton>
                 </span>
               </Tooltip>
-              <Tooltip title="Import">
+              <Tooltip title={t("common:actions.import")}>
                 <IconButton onClick={() => setImportOpen(true)} size="small">
                   <MaterialSymbol icon="upload" size={20} />
                 </IconButton>
               </Tooltip>
-              <Tooltip title="Create">
+              <Tooltip title={t("common:actions.create")}>
                 <IconButton color="primary" onClick={() => setCreateOpen(true)} size="small">
                   <MaterialSymbol icon="add" size={20} />
                 </IconButton>
@@ -980,7 +982,7 @@ export default function InventoryPage() {
                 onClick={() => setGridEditMode((v) => !v)}
                 sx={{ textTransform: "none" }}
               >
-                {gridEditMode ? "Editing" : "Grid Edit"}
+                {gridEditMode ? t("toolbar.editing") : t("toolbar.gridEdit")}
               </Button>
               <Button
                 variant="outlined"
@@ -990,7 +992,7 @@ export default function InventoryPage() {
                 disabled={filteredData.length === 0}
                 sx={{ textTransform: "none" }}
               >
-                Export
+                {t("common:actions.export")}
               </Button>
               <Button
                 variant="outlined"
@@ -999,7 +1001,7 @@ export default function InventoryPage() {
                 onClick={() => setImportOpen(true)}
                 sx={{ textTransform: "none" }}
               >
-                Import
+                {t("common:actions.import")}
               </Button>
               <Button
                 variant="contained"
@@ -1007,7 +1009,7 @@ export default function InventoryPage() {
                 onClick={() => setCreateOpen(true)}
                 sx={{ textTransform: "none" }}
               >
-                Create
+                {t("common:actions.create")}
               </Button>
             </>
           )}
@@ -1031,7 +1033,7 @@ export default function InventoryPage() {
           >
             <MaterialSymbol icon="check_box" size={20} />
             <Typography variant="body2" fontWeight={600}>
-              {selectedIds.length} selected
+              {t("selectedCount", { count: selectedIds.length })}
             </Typography>
             <Button
               size="small"
@@ -1041,7 +1043,7 @@ export default function InventoryPage() {
               startIcon={<MaterialSymbol icon="edit" size={16} />}
               onClick={() => { setMassEditOpen(true); setMassEditField(""); setMassEditValue(""); setMassEditError(""); }}
             >
-              Mass Edit
+              {t("massEdit.title")}
             </Button>
             {canArchive && !filters.showArchived && (
               <Button
@@ -1052,7 +1054,7 @@ export default function InventoryPage() {
                 startIcon={<MaterialSymbol icon="archive" size={16} />}
                 onClick={() => setMassArchiveOpen(true)}
               >
-                Archive
+                {t("common:actions.archive")}
               </Button>
             )}
             {canDelete && filters.showArchived && (
@@ -1064,7 +1066,7 @@ export default function InventoryPage() {
                 startIcon={<MaterialSymbol icon="delete_forever" size={16} />}
                 onClick={() => setMassDeleteOpen(true)}
               >
-                Delete Permanently
+                {t("massEdit.deletePermanently")}
               </Button>
             )}
             <Button
@@ -1074,7 +1076,7 @@ export default function InventoryPage() {
               sx={{ borderColor: "rgba(255,255,255,0.5)", textTransform: "none" }}
               onClick={() => gridRef.current?.api?.deselectAll()}
             >
-              Clear Selection
+              {t("massEdit.clearSelection")}
             </Button>
           </Box>
         )}
@@ -1104,15 +1106,15 @@ export default function InventoryPage() {
       {/* Mass Edit Dialog */}
       <Dialog open={massEditOpen} onClose={() => setMassEditOpen(false)} maxWidth="xs" fullWidth>
         <DialogTitle>
-          Mass Edit ({selectedIds.length} items)
+          {t("massEdit.dialogTitle", { count: selectedIds.length })}
         </DialogTitle>
         <DialogContent>
           {massEditError && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setMassEditError("")}>{massEditError}</Alert>}
           <FormControl fullWidth size="small" sx={{ mt: 1, mb: 2 }}>
-            <InputLabel>Field</InputLabel>
+            <InputLabel>{t("massEdit.field")}</InputLabel>
             <Select
               value={massEditField}
-              label="Field"
+              label={t("massEdit.field")}
               onChange={(e) => { setMassEditField(e.target.value); setMassEditValue(""); }}
             >
               {massEditableFields.map((f) => (
@@ -1123,13 +1125,13 @@ export default function InventoryPage() {
           {massEditField && renderMassEditInput()}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setMassEditOpen(false)}>Cancel</Button>
+          <Button onClick={() => setMassEditOpen(false)}>{t("common:actions.cancel")}</Button>
           <Button
             variant="contained"
             onClick={handleMassEdit}
             disabled={!massEditField || massEditLoading}
           >
-            {massEditLoading ? "Applying..." : `Apply to ${selectedIds.length} items`}
+            {massEditLoading ? t("massEdit.applying") : t("massEdit.applyToCount", { count: selectedIds.length })}
           </Button>
         </DialogActions>
       </Dialog>

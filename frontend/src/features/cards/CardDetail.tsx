@@ -16,6 +16,7 @@ import Dialog from "@mui/material/Dialog";
 import DialogTitle from "@mui/material/DialogTitle";
 import DialogContent from "@mui/material/DialogContent";
 import DialogActions from "@mui/material/DialogActions";
+import { useTranslation } from "react-i18next";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import ApprovalStatusBadge from "@/components/ApprovalStatusBadge";
 import LifecycleBadge from "@/components/LifecycleBadge";
@@ -47,6 +48,7 @@ const DEFAULT_PERMISSIONS: CardEffectivePermissions["effective"] = {
 
 // ── Main Detail Page ────────────────────────────────────────────
 export default function CardDetail() {
+  const { t } = useTranslation(["cards", "common"]);
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -193,7 +195,7 @@ export default function CardDetail() {
               onClick={(e) => setApprovalMenuAnchor(e.currentTarget)}
               endIcon={<MaterialSymbol icon="arrow_drop_down" size={18} />}
             >
-              Approval Status
+              {t("detail.approvalStatus")}
             </Button>
           )}
         </Box>
@@ -208,21 +210,21 @@ export default function CardDetail() {
               disabled={card.approval_status === "APPROVED"}
             >
               <MaterialSymbol icon="verified" size={18} color="#4caf50" />
-              <Typography sx={{ ml: 1 }}>Approve</Typography>
+              <Typography sx={{ ml: 1 }}>{t("common:actions.approve")}</Typography>
             </MenuItem>
             <MenuItem
               onClick={() => handleApprovalAction("reject")}
               disabled={card.approval_status === "REJECTED"}
             >
               <MaterialSymbol icon="cancel" size={18} color="#f44336" />
-              <Typography sx={{ ml: 1 }}>Reject</Typography>
+              <Typography sx={{ ml: 1 }}>{t("common:actions.reject")}</Typography>
             </MenuItem>
             <MenuItem
               onClick={() => handleApprovalAction("reset")}
               disabled={card.approval_status === "DRAFT"}
             >
               <MaterialSymbol icon="restart_alt" size={18} color="#9e9e9e" />
-              <Typography sx={{ ml: 1 }}>Reset to Draft</Typography>
+              <Typography sx={{ ml: 1 }}>{t("detail.actions.resetToDraft")}</Typography>
             </MenuItem>
           </Menu>
         )}
@@ -230,35 +232,35 @@ export default function CardDetail() {
 
       {/* ── Archive confirmation dialog ── */}
       <Dialog open={archiveDialogOpen} onClose={() => setArchiveDialogOpen(false)}>
-        <DialogTitle>Archive Card</DialogTitle>
+        <DialogTitle>{t("detail.dialogs.archive.title")}</DialogTitle>
         <DialogContent>
           <Typography>
-            Are you sure you want to archive <strong>{card.name}</strong>?
+            {t("detail.dialogs.archive.confirm", { name: card.name })}
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-            Archived cards can be restored within 30 days. After that, they are permanently deleted.
+            {t("detail.dialogs.archive.description")}
           </Typography>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setArchiveDialogOpen(false)}>Cancel</Button>
-          <Button variant="contained" color="warning" onClick={handleArchive}>Archive</Button>
+          <Button onClick={() => setArchiveDialogOpen(false)}>{t("common:actions.cancel")}</Button>
+          <Button variant="contained" color="warning" onClick={handleArchive}>{t("common:actions.archive")}</Button>
         </DialogActions>
       </Dialog>
 
       {/* ── Delete confirmation dialog ── */}
       <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)}>
-        <DialogTitle>Permanently Delete Card</DialogTitle>
+        <DialogTitle>{t("detail.dialogs.delete.title")}</DialogTitle>
         <DialogContent>
           <Typography>
-            Are you sure you want to permanently delete <strong>{card.name}</strong>?
+            {t("detail.dialogs.delete.confirm", { name: card.name })}
           </Typography>
           <Typography variant="body2" color="error" sx={{ mt: 1 }}>
-            This action cannot be undone. The card and all its relations will be removed.
+            {t("detail.dialogs.delete.description")}
           </Typography>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDeleteDialogOpen(false)}>Cancel</Button>
-          <Button variant="contained" color="error" onClick={handleDelete}>Delete Permanently</Button>
+          <Button onClick={() => setDeleteDialogOpen(false)}>{t("common:actions.cancel")}</Button>
+          <Button variant="contained" color="error" onClick={handleDelete}>{t("detail.dialogs.delete.submit")}</Button>
         </DialogActions>
       </Dialog>
 
@@ -279,18 +281,18 @@ export default function CardDetail() {
                   <Box sx={{ display: "flex", gap: 1 }}>
                     {perms.can_archive && (
                       <Button size="small" color="inherit" onClick={handleRestore} startIcon={<MaterialSymbol icon="restore" size={18} />}>
-                        Restore
+                        {t("common:actions.restore")}
                       </Button>
                     )}
                     {perms.can_delete && (
                       <Button size="small" color="error" onClick={() => setDeleteDialogOpen(true)} startIcon={<MaterialSymbol icon="delete_forever" size={18} />}>
-                        Delete
+                        {t("common:actions.delete")}
                       </Button>
                     )}
                   </Box>
                 }
               >
-                This card is archived.{daysUntilPurge !== null && ` It will be permanently deleted in ${daysUntilPurge} day${daysUntilPurge !== 1 ? "s" : ""}.`}
+                {t("detail.archivedBanner")}{daysUntilPurge !== null && ` ${t("detail.purgeWarning", { count: daysUntilPurge })}`}
               </Alert>
             )}
 
@@ -298,7 +300,7 @@ export default function CardDetail() {
             {!isArchived && (perms.can_archive || perms.can_delete) && (
               <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 1, mb: 1 }}>
                 {perms.can_archive && (
-                  <Tooltip title="Archive this card">
+                  <Tooltip title={t("detail.actions.archiveTooltip")}>
                     <Button
                       size="small"
                       color="warning"
@@ -306,12 +308,12 @@ export default function CardDetail() {
                       onClick={() => setArchiveDialogOpen(true)}
                       startIcon={<MaterialSymbol icon="archive" size={18} />}
                     >
-                      Archive
+                      {t("common:actions.archive")}
                     </Button>
                   </Tooltip>
                 )}
                 {perms.can_delete && (
-                  <Tooltip title="Permanently delete this card">
+                  <Tooltip title={t("detail.actions.deleteTooltip")}>
                     <Button
                       size="small"
                       color="error"
@@ -319,7 +321,7 @@ export default function CardDetail() {
                       onClick={() => setDeleteDialogOpen(true)}
                       startIcon={<MaterialSymbol icon="delete_forever" size={18} />}
                     >
-                      Delete
+                      {t("common:actions.delete")}
                     </Button>
                   </Tooltip>
                 )}
