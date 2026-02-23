@@ -5,6 +5,22 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.14.1] - 2026-02-23
+
+### Added
+- Dedicated TranslationDialog for managing all metamodel translations (type labels, subtypes, sections, fields, options) in a single focused dialog with locale tabs and completion badges
+- Seed translations for all subtypes, section names, field labels, and select option labels across all 6 non-English locales (DE, FR, ES, IT, PT, ZH)
+
+### Changed
+- Replaced scattered inline translation accordions in TypeDetailDrawer with a centralized "Manage Translations" button and dialog
+- Simplified subtype management UI in TypeDetailDrawer by removing nested translation accordions
+
+### Fixed
+- Section names not translated in public web portals (PortalViewer)
+- Field and option labels not translated in survey response forms (SurveyRespond)
+- Field labels not translated in survey results admin view (SurveyResults)
+- Hardcoded English subtype labels in BPM ProcessNavigator replaced with metamodel-driven translation resolution
+
 ## [0.14.0] - 2026-02-23
 
 ### Added

@@ -668,5 +668,14 @@
   "metamodel.translations.sectionTranslations": "分区名称翻译",
   "metamodel.translations.fieldTranslations": "字段标签翻译",
   "metamodel.translations.optionTranslations": "选项 \"{{label}}\" 翻译",
-  "metamodel.translations.roleTranslations": "角色标签翻译"
+  "metamodel.translations.roleTranslations": "角色标签翻译",
+  "metamodel.translationDialog.title": "管理翻译 — {{label}}",
+  "metamodel.translationDialog.manage": "管理翻译",
+  "metamodel.translationDialog.typeInfo": "类型信息",
+  "metamodel.translationDialog.subtypes": "子类型",
+  "metamodel.translationDialog.sectionNames": "分区名称",
+  "metamodel.translationDialog.fieldsInSection": "字段 — {{section}}",
+  "metamodel.translationDialog.descriptionFields": "描述",
+  "metamodel.translationDialog.saving": "正在保存\u2026",
+  "metamodel.translationDialog.saved": "翻译已保存"
 }

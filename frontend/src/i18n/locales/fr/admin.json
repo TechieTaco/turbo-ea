@@ -668,5 +668,14 @@
   "metamodel.translations.sectionTranslations": "Traductions du nom de section",
   "metamodel.translations.fieldTranslations": "Traductions du libell\u00e9 de champ",
   "metamodel.translations.optionTranslations": "Traductions de l\u2019option \u00ab {{label}} \u00bb",
-  "metamodel.translations.roleTranslations": "Traductions du libell\u00e9 de r\u00f4le"
+  "metamodel.translations.roleTranslations": "Traductions du libell\u00e9 de r\u00f4le",
+  "metamodel.translationDialog.title": "G\u00e9rer les traductions — {{label}}",
+  "metamodel.translationDialog.manage": "G\u00e9rer les traductions",
+  "metamodel.translationDialog.typeInfo": "Informations sur le type",
+  "metamodel.translationDialog.subtypes": "Sous-types",
+  "metamodel.translationDialog.sectionNames": "Noms de section",
+  "metamodel.translationDialog.fieldsInSection": "Champs — {{section}}",
+  "metamodel.translationDialog.descriptionFields": "Description",
+  "metamodel.translationDialog.saving": "Enregistrement\u2026",
+  "metamodel.translationDialog.saved": "Traductions enregistr\u00e9es"
 }

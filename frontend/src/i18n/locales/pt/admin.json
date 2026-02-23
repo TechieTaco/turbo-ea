@@ -668,5 +668,14 @@
   "metamodel.translations.sectionTranslations": "Traduções do nome da seção",
   "metamodel.translations.fieldTranslations": "Traduções do rótulo do campo",
   "metamodel.translations.optionTranslations": "Traduções da opção \"{{label}}\"",
-  "metamodel.translations.roleTranslations": "Traduções do rótulo do papel"
+  "metamodel.translations.roleTranslations": "Traduções do rótulo do papel",
+  "metamodel.translationDialog.title": "Gerenciar tradu\u00e7\u00f5es — {{label}}",
+  "metamodel.translationDialog.manage": "Gerenciar tradu\u00e7\u00f5es",
+  "metamodel.translationDialog.typeInfo": "Informa\u00e7\u00f5es do tipo",
+  "metamodel.translationDialog.subtypes": "Subtipos",
+  "metamodel.translationDialog.sectionNames": "Nomes das se\u00e7\u00f5es",
+  "metamodel.translationDialog.fieldsInSection": "Campos — {{section}}",
+  "metamodel.translationDialog.descriptionFields": "Descri\u00e7\u00e3o",
+  "metamodel.translationDialog.saving": "Salvando\u2026",
+  "metamodel.translationDialog.saved": "Tradu\u00e7\u00f5es salvas"
 }

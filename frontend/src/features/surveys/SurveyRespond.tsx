@@ -13,6 +13,7 @@ import MenuItem from "@mui/material/MenuItem";
 import Switch from "@mui/material/Switch";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import IconButton from "@mui/material/IconButton";
+import { useResolveLabel } from "@/hooks/useResolveLabel";
 import Tooltip from "@mui/material/Tooltip";
 import Divider from "@mui/material/Divider";
 import MaterialSymbol from "@/components/MaterialSymbol";
@@ -46,6 +47,7 @@ interface FieldResponse {
 
 export default function SurveyRespond() {
   const { t } = useTranslation(["admin", "common"]);
+  const rl = useResolveLabel();
   const { surveyId, cardId } = useParams<{ surveyId: string; cardId: string }>();
   const navigate = useNavigate();
 
@@ -162,7 +164,7 @@ export default function SurveyRespond() {
           </MenuItem>
           {field.options.map((opt) => (
             <MenuItem key={opt.key} value={opt.key}>
-              {opt.label}
+              {rl(opt.label, opt.translations)}
             </MenuItem>
           ))}
         </TextField>
@@ -182,7 +184,7 @@ export default function SurveyRespond() {
         >
           {field.options.map((opt) => (
             <MenuItem key={opt.key} value={opt.key}>
-              {opt.label}
+              {rl(opt.label, opt.translations)}
             </MenuItem>
           ))}
         </TextField>
@@ -310,7 +312,7 @@ export default function SurveyRespond() {
         return (
           <Card key={field.key} sx={{ mb: 2, p: 2 }}>
             <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
-              <Typography sx={{ fontWeight: 600, flex: 1 }}>{field.label}</Typography>
+              <Typography sx={{ fontWeight: 600, flex: 1 }}>{rl(field.label, field.translations)}</Typography>
               <Chip
                 label={isMaintain ? t("surveys.respond.maintain") : t("surveys.respond.confirmLabel")}
                 size="small"
