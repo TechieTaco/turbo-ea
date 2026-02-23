@@ -11,6 +11,7 @@
  * Otherwise falls back to the legacy ProcessDiagram endpoint.
  */
 import { useRef, useEffect, useState, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 
@@ -40,6 +41,7 @@ interface Props {
 }
 
 export default function BpmnModeler({ processId, versionId, initialXml, onSaved, onBack }: Props) {
+  const { t } = useTranslation(["bpm", "common"]);
   const containerRef = useRef<HTMLDivElement>(null);
   const modelerRef = useRef<any>(null);
   const [dirty, setDirty] = useState(false);
@@ -161,7 +163,7 @@ export default function BpmnModeler({ processId, versionId, initialXml, onSaved,
 
       const vid = versionIdRef.current;
       if (!vid) {
-        setSnack({ msg: "No draft version to save to", severity: "error" });
+        setSnack({ msg: t("modeler.noDraftVersion"), severity: "error" });
         return;
       }
       // Save to draft version endpoint
@@ -170,9 +172,9 @@ export default function BpmnModeler({ processId, versionId, initialXml, onSaved,
         svg_thumbnail: svgThumbnail,
       });
       setDirty(false);
-      setSnack({ msg: "Draft saved", severity: "success" });
+      setSnack({ msg: t("modeler.draftSaved"), severity: "success" });
     } catch (err) {
-      setSnack({ msg: "Save failed", severity: "error" });
+      setSnack({ msg: t("modeler.saveFailed"), severity: "error" });
     } finally {
       setSaving(false);
     }
@@ -229,9 +231,9 @@ export default function BpmnModeler({ processId, versionId, initialXml, onSaved,
         await modelerRef.current.importXML(text);
         modelerRef.current.get("canvas").zoom("fit-viewport");
         setDirty(true);
-        setSnack({ msg: "BPMN imported successfully", severity: "success" });
+        setSnack({ msg: t("modeler.importSuccess"), severity: "success" });
       } catch {
-        setSnack({ msg: "Invalid BPMN file", severity: "error" });
+        setSnack({ msg: t("modeler.importInvalid"), severity: "error" });
       }
     };
     input.click();
@@ -266,43 +268,43 @@ export default function BpmnModeler({ processId, versionId, initialXml, onSaved,
           disabled={saving || !dirty}
           startIcon={<MaterialSymbol icon="save" />}
         >
-          {saving ? "Saving..." : "Save"}
+          {saving ? t("modeler.saving") : t("modeler.save")}
         </Button>
 
-        {versionId && <Chip label="Draft" size="small" color="warning" variant="outlined" />}
-        {version != null && <Chip label={`Rev ${version}`} size="small" variant="outlined" />}
-        {dirty && <Chip label="Unsaved" size="small" color="warning" variant="outlined" />}
+        {versionId && <Chip label={t("modeler.draft")} size="small" color="warning" variant="outlined" />}
+        {version != null && <Chip label={t("modeler.revision", { version })} size="small" variant="outlined" />}
+        {dirty && <Chip label={t("modeler.unsaved")} size="small" color="warning" variant="outlined" />}
 
         <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
 
-        <Tooltip title="Undo (Ctrl+Z)">
+        <Tooltip title={t("modeler.undo")}>
           <IconButton onClick={handleUndo} size="small"><MaterialSymbol icon="undo" /></IconButton>
         </Tooltip>
-        <Tooltip title="Redo (Ctrl+Y)">
+        <Tooltip title={t("modeler.redo")}>
           <IconButton onClick={handleRedo} size="small"><MaterialSymbol icon="redo" /></IconButton>
         </Tooltip>
 
         <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
 
-        <Tooltip title="Zoom In">
+        <Tooltip title={t("modeler.zoomIn")}>
           <IconButton onClick={handleZoomIn} size="small"><MaterialSymbol icon="zoom_in" /></IconButton>
         </Tooltip>
-        <Tooltip title="Zoom Out">
+        <Tooltip title={t("modeler.zoomOut")}>
           <IconButton onClick={handleZoomOut} size="small"><MaterialSymbol icon="zoom_out" /></IconButton>
         </Tooltip>
-        <Tooltip title="Fit to Screen">
+        <Tooltip title={t("modeler.fitToScreen")}>
           <IconButton onClick={handleFit} size="small"><MaterialSymbol icon="fit_screen" /></IconButton>
         </Tooltip>
 
         <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
 
-        <Tooltip title="Export SVG">
+        <Tooltip title={t("modeler.exportSvg")}>
           <IconButton onClick={handleExportSvg} size="small"><MaterialSymbol icon="image" /></IconButton>
         </Tooltip>
-        <Tooltip title="Export BPMN XML">
+        <Tooltip title={t("modeler.exportBpmn")}>
           <IconButton onClick={handleExportBpmn} size="small"><MaterialSymbol icon="download" /></IconButton>
         </Tooltip>
-        <Tooltip title="Import BPMN">
+        <Tooltip title={t("modeler.importBpmn")}>
           <IconButton onClick={handleImport} size="small"><MaterialSymbol icon="upload" /></IconButton>
         </Tooltip>
 
@@ -314,8 +316,8 @@ export default function BpmnModeler({ processId, versionId, initialXml, onSaved,
           onChange={(_, v) => v && setMode(v)}
           size="small"
         >
-          <ToggleButton value="simple">Simple</ToggleButton>
-          <ToggleButton value="full">Full BPMN</ToggleButton>
+          <ToggleButton value="simple">{t("modeler.modeSimple")}</ToggleButton>
+          <ToggleButton value="full">{t("modeler.modeFull")}</ToggleButton>
         </ToggleButtonGroup>
       </Box>
 

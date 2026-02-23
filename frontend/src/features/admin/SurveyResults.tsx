@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Button from "@mui/material/Button";
@@ -28,9 +29,9 @@ import { api } from "@/api/client";
 import type { Survey, SurveyResponseDetail, SurveyField } from "@/types";
 
 /** Resolve a value to its display label using field options when available. */
-function formatValue(val: unknown, field?: SurveyField): string {
+function formatValue(val: unknown, field?: SurveyField, boolLabels?: { yes: string; no: string }): string {
   if (val === null || val === undefined || val === "") return "—";
-  if (typeof val === "boolean") return val ? "Yes" : "No";
+  if (typeof val === "boolean") return val ? (boolLabels?.yes ?? "Yes") : (boolLabels?.no ?? "No");
 
   const opts = field?.options;
   if (opts && opts.length > 0) {
@@ -48,8 +49,11 @@ function formatValue(val: unknown, field?: SurveyField): string {
 }
 
 export default function SurveyResults() {
+  const { t } = useTranslation(["admin", "common"]);
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+
+  const boolLabels = { yes: t("surveyResults.boolTrue"), no: t("surveyResults.boolFalse") };
 
   const [survey, setSurvey] = useState<Survey | null>(null);
   const [responses, setResponses] = useState<SurveyResponseDetail[]>([]);
@@ -72,7 +76,7 @@ export default function SurveyResults() {
       setSurvey(s);
       setResponses(r);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load");
+      setError(e instanceof Error ? e.message : t("common:errors.generic"));
     } finally {
       setLoading(false);
     }
@@ -128,7 +132,7 @@ export default function SurveyResults() {
       setSelected(new Set());
       await fetchData();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to apply");
+      setError(e instanceof Error ? e.message : t("common:errors.generic"));
     } finally {
       setApplying(false);
     }
@@ -141,7 +145,7 @@ export default function SurveyResults() {
       const s = await api.post<Survey>(`/surveys/${id}/close`, {});
       setSurvey(s);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to close survey");
+      setError(e instanceof Error ? e.message : t("common:errors.generic"));
     } finally {
       setClosing(false);
     }
@@ -163,14 +167,14 @@ export default function SurveyResults() {
   }
 
   if (!survey) {
-    return <Alert severity="error">Survey not found</Alert>;
+    return <Alert severity="error">{t("surveyResults.notFound")}</Alert>;
   }
 
   return (
     <Box>
       {/* Header */}
       <Box sx={{ display: "flex", alignItems: "center", mb: 2, gap: 1 }}>
-        <Tooltip title="Back to Surveys">
+        <Tooltip title={t("surveyResults.backToSurveys")}>
           <IconButton onClick={() => navigate("/admin/surveys")}>
             <MaterialSymbol icon="arrow_back" size={22} />
           </IconButton>
@@ -433,7 +437,7 @@ export default function SurveyResults() {
                       setDetailResp(null);
                       await fetchData();
                     } catch (e) {
-                      setError(e instanceof Error ? e.message : "Failed to apply");
+                      setError(e instanceof Error ? e.message : t("common:errors.generic"));
                     } finally {
                       setApplying(false);
                     }
