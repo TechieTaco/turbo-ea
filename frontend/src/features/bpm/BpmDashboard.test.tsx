@@ -25,6 +25,10 @@ vi.mock("./ProcessNavigator", () => ({
 vi.mock("./BpmReportPage", () => ({
   default: () => <div data-testid="bpm-reports">BpmReports</div>,
 }));
+vi.mock("@/components/CardDetailSidePanel", () => ({
+  default: ({ cardId, open }: { cardId: string | null; open: boolean; onClose: () => void }) =>
+    open ? <div data-testid="card-side-panel" data-card-id={cardId}>SidePanel</div> : null,
+}));
 
 import { api } from "@/api/client";
 import BpmDashboard from "./BpmDashboard";
@@ -166,5 +170,17 @@ describe("BpmDashboard", () => {
     await waitFor(() => {
       expect(screen.getByText("Failed to load BPM dashboard.")).toBeInTheDocument();
     });
+  });
+
+  it("opens side panel when clicking a risk process row", async () => {
+    renderPage();
+    await userEvent.click(screen.getByText("Dashboard"));
+
+    await waitFor(() => {
+      expect(screen.getByText("Order Processing")).toBeInTheDocument();
+    });
+
+    await userEvent.click(screen.getByText("Order Processing"));
+    expect(screen.getByTestId("card-side-panel")).toHaveAttribute("data-card-id", "p1");
   });
 });
