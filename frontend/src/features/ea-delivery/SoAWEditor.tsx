@@ -491,7 +491,7 @@ export default function SoAWEditor() {
         {compact ? (
           <Tooltip title={t("editor.exportPdf")}>
             <IconButton
-              onClick={() => exportToPdf(name, docInfo, versionHistory, sections, customSections, revisionNumber, signatories, signedAt, t)}
+              onClick={() => exportToPdf(name, docInfo, versionHistory, sections, customSections, revisionNumber, signatories, signedAt)}
             >
               <MaterialSymbol icon="picture_as_pdf" size={20} />
             </IconButton>
@@ -501,7 +501,7 @@ export default function SoAWEditor() {
             size="small"
             startIcon={<MaterialSymbol icon="picture_as_pdf" size={18} />}
             sx={{ textTransform: "none" }}
-            onClick={() => exportToPdf(name, docInfo, versionHistory, sections, customSections, revisionNumber, signatories, signedAt, t)}
+            onClick={() => exportToPdf(name, docInfo, versionHistory, sections, customSections, revisionNumber, signatories, signedAt)}
           >
             {t("editor.pdf")}
           </Button>
@@ -509,7 +509,7 @@ export default function SoAWEditor() {
         {!isSigned && (compact ? (
           <Tooltip title={t("editor.exportWord")}>
             <IconButton
-              onClick={() => exportToDocx(name, docInfo, versionHistory, sections, customSections, t)}
+              onClick={() => exportToDocx(name, docInfo, versionHistory, sections, customSections)}
             >
               <MaterialSymbol icon="article" size={20} />
             </IconButton>
@@ -519,7 +519,7 @@ export default function SoAWEditor() {
             size="small"
             startIcon={<MaterialSymbol icon="article" size={18} />}
             sx={{ textTransform: "none" }}
-            onClick={() => exportToDocx(name, docInfo, versionHistory, sections, customSections, t)}
+            onClick={() => exportToDocx(name, docInfo, versionHistory, sections, customSections)}
           >
             {t("editor.word")}
           </Button>

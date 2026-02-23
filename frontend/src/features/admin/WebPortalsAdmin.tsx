@@ -468,29 +468,29 @@ export default function WebPortalsAdmin() {
             variant="overline"
             sx={{ display: "block", mb: 1.5, fontWeight: 700, color: "text.secondary", letterSpacing: 1 }}
           >
-            Data Source
+            {t("webPortals.section.dataSource")}
           </Typography>
           <TextField
             fullWidth
             select
-            label="Card Type"
+            label={t("common:labels.type")}
             value={cardType}
             onChange={(e) => {
               setCardType(e.target.value);
               setToggles({});
               setFilterSubtypes([]);
             }}
-            helperText="Which type of cards to display in this portal"
+            helperText={t("webPortals.cardTypeHelper")}
           >
-            {visibleTypes.map((t) => (
-              <MenuItem key={t.key} value={t.key}>
+            {visibleTypes.map((ct) => (
+              <MenuItem key={ct.key} value={ct.key}>
                 <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                   <MaterialSymbol
-                    icon={t.icon}
+                    icon={ct.icon}
                     size={18}
-                    color={t.color}
+                    color={ct.color}
                   />
-                  {t.label}
+                  {ct.label}
                 </Box>
               </MenuItem>
             ))}
@@ -500,7 +500,7 @@ export default function WebPortalsAdmin() {
             <TextField
               fullWidth
               select
-              label="Filter by Subtypes (optional)"
+              label={t("webPortals.filterSubtypes")}
               value={filterSubtypes}
               onChange={(e) =>
                 setFilterSubtypes(
@@ -511,7 +511,7 @@ export default function WebPortalsAdmin() {
               }
               sx={{ mt: 2 }}
               SelectProps={{ multiple: true }}
-              helperText="Only show cards of these subtypes"
+              helperText={t("webPortals.filterSubtypesHelper")}
             >
               {selectedType.subtypes.map((st) => (
                 <MenuItem key={st.key} value={st.key}>
@@ -530,26 +530,24 @@ export default function WebPortalsAdmin() {
               variant="overline"
               sx={{ display: "block", mb: 0.5, fontWeight: 700, color: "text.secondary", letterSpacing: 1 }}
             >
-              Display Configuration
+              {t("webPortals.section.displayConfig")}
             </Typography>
             <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1.5 }}>
-              Choose which properties appear on the summary card and the expanded
-              detail view. Visible select fields and relation types also become
-              filter dropdowns on the portal automatically.
+              {t("webPortals.displayConfigHint")}
             </Typography>
               <Table size="small" sx={{ "& td, & th": { py: 0.5, px: 1 } }}>
                 <TableHead>
                   <TableRow>
-                    <TableCell sx={{ fontWeight: 600, width: "50%" }}>Property</TableCell>
-                    <TableCell align="center" sx={{ fontWeight: 600 }}>Summary Card</TableCell>
-                    <TableCell align="center" sx={{ fontWeight: 600 }}>Expanded Detail</TableCell>
+                    <TableCell sx={{ fontWeight: 600, width: "50%" }}>{t("webPortals.columns.property")}</TableCell>
+                    <TableCell align="center" sx={{ fontWeight: 600 }}>{t("webPortals.columns.summaryCard")}</TableCell>
+                    <TableCell align="center" sx={{ fontWeight: 600 }}>{t("webPortals.columns.expandedDetail")}</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
                   {BUILT_IN_PROPERTIES.map((prop) => {
-                    const t = toggles[prop.key];
-                    const cardChecked = t ? t.card : (DEFAULT_CARD[prop.key] ?? true);
-                    const detailChecked = t ? t.detail : (DEFAULT_DETAIL[prop.key] ?? true);
+                    const tog = toggles[prop.key];
+                    const cardChecked = tog ? tog.card : (DEFAULT_CARD[prop.key] ?? true);
+                    const detailChecked = tog ? tog.detail : (DEFAULT_DETAIL[prop.key] ?? true);
                     return (
                       <TableRow key={prop.key}>
                         <TableCell>
@@ -604,7 +602,7 @@ export default function WebPortalsAdmin() {
                           borderBottom: "none",
                         }}
                       >
-                        Custom Fields
+                        {t("webPortals.customFields")}
                       </TableCell>
                     </TableRow>
                   )}
