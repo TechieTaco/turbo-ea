@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import MuiCard from "@mui/material/Card";
@@ -51,6 +52,7 @@ interface DiagramSummary {
 type ViewMode = "card" | "list";
 
 export default function DiagramsPage() {
+  const { t } = useTranslation(["diagrams", "common"]);
   const navigate = useNavigate();
   const [diagrams, setDiagrams] = useState<DiagramSummary[]>([]);
   const [viewMode, setViewMode] = useState<ViewMode>(
@@ -158,8 +160,8 @@ export default function DiagramsPage() {
     setMenuDiagram(d);
   };
 
-  const typeLabel = (t: string) => (t === "data_flow" ? "Data Flow" : "Free Draw");
-  const typeIcon = (t: string) => (t === "data_flow" ? "device_hub" : "draw");
+  const typeLabel = (typeKey: string) => (typeKey === "data_flow" ? t("gallery.types.dataFlow") : t("gallery.types.freeDraw"));
+  const typeIcon = (typeKey: string) => (typeKey === "data_flow" ? "device_hub" : "draw");
   const fmtDate = (iso?: string) =>
     iso ? new Date(iso).toLocaleDateString() : "";
 
@@ -175,7 +177,7 @@ export default function DiagramsPage() {
       {/* Header */}
       <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 3 }}>
         <Typography variant="h5" fontWeight={600}>
-          Diagrams
+          {t("page.title")}
         </Typography>
         <Chip label={`${diagrams.length}`} size="small" />
         <Box sx={{ flex: 1 }} />
@@ -198,7 +200,7 @@ export default function DiagramsPage() {
           onClick={() => setCreateOpen(true)}
           sx={{ textTransform: "none" }}
         >
-          New Diagram
+          {t("gallery.newDiagram")}
         </Button>
       </Box>
 
@@ -304,7 +306,7 @@ export default function DiagramsPage() {
                       {!!d.card_count && (
                         <Chip
                           size="small"
-                          label={`${d.card_count} card${d.card_count > 1 ? "s" : ""}`}
+                          label={t("gallery.cardCount", { count: d.card_count })}
                           variant="outlined"
                         />
                       )}
@@ -312,7 +314,7 @@ export default function DiagramsPage() {
                         <Chip
                           size="small"
                           icon={<MaterialSymbol icon="link" size={14} />}
-                          label={`${d.initiative_ids.length} initiative${d.initiative_ids.length > 1 ? "s" : ""}`}
+                          label={t("gallery.initiativeCount", { count: d.initiative_ids.length })}
                           variant="outlined"
                           color="success"
                         />
@@ -353,7 +355,7 @@ export default function DiagramsPage() {
                 color="text.secondary"
                 sx={{ textAlign: "center", py: 4 }}
               >
-                No diagrams yet. Create one to get started.
+                {t("gallery.empty")}
               </Typography>
             </Grid>
           )}
@@ -366,14 +368,14 @@ export default function DiagramsPage() {
           <Table size="small">
             <TableHead>
               <TableRow>
-                <TableCell sx={{ fontWeight: 600 }}>Name</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Description</TableCell>
-                <TableCell sx={{ fontWeight: 600, width: 120 }}>Type</TableCell>
-                <TableCell sx={{ fontWeight: 600, width: 180 }}>Initiatives</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>{t("common:labels.name")}</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>{t("common:labels.description")}</TableCell>
+                <TableCell sx={{ fontWeight: 600, width: 120 }}>{t("common:labels.type")}</TableCell>
+                <TableCell sx={{ fontWeight: 600, width: 180 }}>{t("gallery.initiatives")}</TableCell>
                 <TableCell sx={{ fontWeight: 600, width: 100 }} align="center">
-                  Cards
+                  {t("common:labels.cards")}
                 </TableCell>
-                <TableCell sx={{ fontWeight: 600, width: 120 }}>Updated</TableCell>
+                <TableCell sx={{ fontWeight: 600, width: 120 }}>{t("common:labels.updatedAt")}</TableCell>
                 <TableCell sx={{ width: 48 }} />
               </TableRow>
             </TableHead>
@@ -416,7 +418,7 @@ export default function DiagramsPage() {
                   <TableCell>
                     {d.initiative_ids.length > 0 ? (
                       <Typography variant="body2" noWrap sx={{ maxWidth: 160 }} title={initiativeNames(d.initiative_ids)}>
-                        {initiativeNames(d.initiative_ids) || `${d.initiative_ids.length} linked`}
+                        {initiativeNames(d.initiative_ids) || t("gallery.linked", { count: d.initiative_ids.length })}
                       </Typography>
                     ) : (
                       <Typography variant="body2" color="text.secondary">{"\u2014"}</Typography>
@@ -444,7 +446,7 @@ export default function DiagramsPage() {
                 <TableRow>
                   <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
                     <Typography color="text.secondary">
-                      No diagrams yet. Create one to get started.
+                      {t("gallery.empty")}
                     </Typography>
                   </TableCell>
                 </TableRow>
@@ -469,7 +471,7 @@ export default function DiagramsPage() {
           <ListItemIcon>
             <MaterialSymbol icon="open_in_new" size={18} />
           </ListItemIcon>
-          <ListItemText>Open</ListItemText>
+          <ListItemText>{t("gallery.menu.open")}</ListItemText>
         </MenuItem>
         <MenuItem
           onClick={() => {
@@ -479,7 +481,7 @@ export default function DiagramsPage() {
           <ListItemIcon>
             <MaterialSymbol icon="edit" size={18} />
           </ListItemIcon>
-          <ListItemText>Rename / Edit</ListItemText>
+          <ListItemText>{t("gallery.menu.renameEdit")}</ListItemText>
         </MenuItem>
         <MenuItem
           onClick={() => {
@@ -490,7 +492,7 @@ export default function DiagramsPage() {
           <ListItemIcon>
             <MaterialSymbol icon="delete" size={18} color="#d32f2f" />
           </ListItemIcon>
-          <ListItemText>Delete</ListItemText>
+          <ListItemText>{t("common:actions.delete")}</ListItemText>
         </MenuItem>
       </Menu>
 
@@ -501,11 +503,11 @@ export default function DiagramsPage() {
         maxWidth="xs"
         fullWidth
       >
-        <DialogTitle>New Diagram</DialogTitle>
+        <DialogTitle>{t("gallery.newDiagram")}</DialogTitle>
         <DialogContent>
           <TextField
             fullWidth
-            label="Name"
+            label={t("common:labels.name")}
             value={createName}
             onChange={(e) => setCreateName(e.target.value)}
             sx={{ mt: 1, mb: 2 }}
@@ -516,7 +518,7 @@ export default function DiagramsPage() {
           />
           <TextField
             fullWidth
-            label="Description"
+            label={t("common:labels.description")}
             value={createDesc}
             onChange={(e) => setCreateDesc(e.target.value)}
             multiline
@@ -524,14 +526,14 @@ export default function DiagramsPage() {
             sx={{ mb: 2 }}
           />
           <FormControl fullWidth sx={{ mb: 2 }}>
-            <InputLabel>Type</InputLabel>
+            <InputLabel>{t("common:labels.type")}</InputLabel>
             <Select
               value={createType}
-              label="Type"
+              label={t("common:labels.type")}
               onChange={(e) => setCreateType(e.target.value)}
             >
-              <MenuItem value="free_draw">Free Draw</MenuItem>
-              <MenuItem value="data_flow">Data Flow</MenuItem>
+              <MenuItem value="free_draw">{t("gallery.types.freeDraw")}</MenuItem>
+              <MenuItem value="data_flow">{t("gallery.types.dataFlow")}</MenuItem>
             </Select>
           </FormControl>
           <Autocomplete
@@ -550,20 +552,20 @@ export default function DiagramsPage() {
             renderInput={(params) => (
               <TextField
                 {...params}
-                label="Initiatives"
-                helperText="Link to one or more initiatives (optional)"
+                label={t("gallery.initiatives")}
+                helperText={t("gallery.initiativesHelperText")}
               />
             )}
           />
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setCreateOpen(false)}>Cancel</Button>
+          <Button onClick={() => setCreateOpen(false)}>{t("common:actions.cancel")}</Button>
           <Button
             variant="contained"
             onClick={handleCreate}
             disabled={!createName.trim()}
           >
-            Create
+            {t("common:actions.create")}
           </Button>
         </DialogActions>
       </Dialog>
@@ -575,11 +577,11 @@ export default function DiagramsPage() {
         maxWidth="xs"
         fullWidth
       >
-        <DialogTitle>Edit Diagram</DialogTitle>
+        <DialogTitle>{t("gallery.editDiagram")}</DialogTitle>
         <DialogContent>
           <TextField
             fullWidth
-            label="Name"
+            label={t("common:labels.name")}
             value={editName}
             onChange={(e) => setEditName(e.target.value)}
             sx={{ mt: 1, mb: 2 }}
@@ -590,7 +592,7 @@ export default function DiagramsPage() {
           />
           <TextField
             fullWidth
-            label="Description"
+            label={t("common:labels.description")}
             value={editDesc}
             onChange={(e) => setEditDesc(e.target.value)}
             multiline
@@ -613,20 +615,20 @@ export default function DiagramsPage() {
             renderInput={(params) => (
               <TextField
                 {...params}
-                label="Initiatives"
-                helperText="Link to one or more initiatives (optional)"
+                label={t("gallery.initiatives")}
+                helperText={t("gallery.initiativesHelperText")}
               />
             )}
           />
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setEditOpen(false)}>Cancel</Button>
+          <Button onClick={() => setEditOpen(false)}>{t("common:actions.cancel")}</Button>
           <Button
             variant="contained"
             onClick={handleEdit}
             disabled={!editName.trim()}
           >
-            Save
+            {t("common:actions.save")}
           </Button>
         </DialogActions>
       </Dialog>
