@@ -52,15 +52,15 @@ interface TurboFieldOption {
   group: string;
 }
 
-function getTurboFieldOptions(cardType: CardType | undefined, t: (key: string) => string): TurboFieldOption[] {
+function getTurboFieldOptions(cardType: CardType | undefined): TurboFieldOption[] {
   const options: TurboFieldOption[] = [
-    { path: "name", label: t("common:labels.name"), group: t("servicenow.fieldGroups.core") },
-    { path: "description", label: t("common:labels.description"), group: t("servicenow.fieldGroups.core") },
-    { path: "lifecycle.plan", label: t("common:lifecycle.plan"), group: t("common:lifecycle.title") },
-    { path: "lifecycle.phaseIn", label: t("common:lifecycle.phaseIn"), group: t("common:lifecycle.title") },
-    { path: "lifecycle.active", label: t("common:lifecycle.active"), group: t("common:lifecycle.title") },
-    { path: "lifecycle.phaseOut", label: t("common:lifecycle.phaseOut"), group: t("common:lifecycle.title") },
-    { path: "lifecycle.endOfLife", label: t("common:lifecycle.endOfLife"), group: t("common:lifecycle.title") },
+    { path: "name", label: "Name", group: "Core" },
+    { path: "description", label: "Description", group: "Core" },
+    { path: "lifecycle.plan", label: "Plan", group: "Lifecycle" },
+    { path: "lifecycle.phaseIn", label: "Phase In", group: "Lifecycle" },
+    { path: "lifecycle.active", label: "Active", group: "Lifecycle" },
+    { path: "lifecycle.phaseOut", label: "Phase Out", group: "Lifecycle" },
+    { path: "lifecycle.endOfLife", label: "End of Life", group: "Lifecycle" },
   ];
 
   if (cardType?.fields_schema) {
@@ -650,7 +650,7 @@ function MappingDialog({ open, mapping, connections, onClose, onSaved }: Mapping
     [types, cardTypeKey],
   );
   const turboFieldOptions = useMemo(
-    () => getTurboFieldOptions(selectedCardType, t),
+    () => getTurboFieldOptions(selectedCardType),
     [selectedCardType],
   );
 
@@ -1065,15 +1065,15 @@ function SyncDashboardTab() {
           <Table size="small">
             <TableHead>
               <TableRow>
-                <TableCell sx={{ fontWeight: 600 }}>Started</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Direction</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Status</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Fetched</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Created</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Updated</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Deleted</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Errors</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Duration</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>{t("servicenow.sync.columns.started")}</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>{t("servicenow.sync.columns.direction")}</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>{t("servicenow.sync.columns.status")}</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>{t("servicenow.sync.columns.fetched")}</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>{t("servicenow.sync.columns.created")}</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>{t("servicenow.sync.columns.updated")}</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>{t("servicenow.sync.columns.deleted")}</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>{t("servicenow.sync.columns.errors")}</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>{t("servicenow.sync.columns.duration")}</TableCell>
                 <TableCell />
               </TableRow>
             </TableHead>
@@ -1123,7 +1123,7 @@ function SyncDashboardTab() {
                     </TableCell>
                     <TableCell sx={{ fontSize: "0.8rem" }}>{duration}</TableCell>
                     <TableCell>
-                      <Tooltip title="View staged records">
+                      <Tooltip title={t("servicenow.sync.viewStaged")}>
                         <IconButton size="small" onClick={() => loadStaged(run)}>
                           <MaterialSymbol icon="list_alt" size={16} />
                         </IconButton>
@@ -1145,25 +1145,25 @@ function SyncDashboardTab() {
         fullWidth
       >
         <DialogTitle>
-          Staged Records — {selectedRun?.direction} sync
+          {t("servicenow.sync.stagedRecords")} — {selectedRun?.direction} sync
           {selectedRun?.started_at && ` (${new Date(selectedRun.started_at).toLocaleString()})`}
         </DialogTitle>
         <DialogContent>
           {stagedLoading ? (
             <LinearProgress />
           ) : stagedRecords.length === 0 ? (
-            <Typography color="text.secondary">No staged records for this run.</Typography>
+            <Typography color="text.secondary">{t("servicenow.sync.noStagedRecords")}</Typography>
           ) : (
             <TableContainer sx={{ maxHeight: 500 }}>
               <Table size="small" stickyHeader>
                 <TableHead>
                   <TableRow>
-                    <TableCell sx={{ fontWeight: 600 }}>SNOW sys_id</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>Action</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>Status</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>Card ID</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>Changes</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>Error</TableCell>
+                    <TableCell sx={{ fontWeight: 600 }}>{t("servicenow.sync.staged.sysId")}</TableCell>
+                    <TableCell sx={{ fontWeight: 600 }}>{t("servicenow.sync.staged.action")}</TableCell>
+                    <TableCell sx={{ fontWeight: 600 }}>{t("servicenow.sync.staged.status")}</TableCell>
+                    <TableCell sx={{ fontWeight: 600 }}>{t("servicenow.sync.staged.cardId")}</TableCell>
+                    <TableCell sx={{ fontWeight: 600 }}>{t("servicenow.sync.staged.changes")}</TableCell>
+                    <TableCell sx={{ fontWeight: 600 }}>{t("servicenow.sync.staged.error")}</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -1209,7 +1209,7 @@ function SyncDashboardTab() {
           )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setSelectedRun(null)}>Close</Button>
+          <Button onClick={() => setSelectedRun(null)}>{t("common:actions.close")}</Button>
         </DialogActions>
       </Dialog>
     </Box>
