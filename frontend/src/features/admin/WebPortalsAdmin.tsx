@@ -212,7 +212,7 @@ export default function WebPortalsAdmin() {
       resetForm();
       load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to save portal");
+      setError(err instanceof Error ? err.message : t("webPortals.saveError"));
     }
   };
 
@@ -436,7 +436,7 @@ export default function WebPortalsAdmin() {
               label={t("webPortals.portalName")}
               value={name}
               onChange={(e) => handleNameChange(e.target.value)}
-              placeholder="e.g. Application Catalog"
+              placeholder={t("webPortals.namePlaceholder")}
             />
             <TextField
               fullWidth
@@ -447,7 +447,7 @@ export default function WebPortalsAdmin() {
                 setSlugManual(true);
               }}
               helperText={`/portal/${slug || "..."}`}
-              placeholder="e.g. application-catalog"
+              placeholder={t("webPortals.slugPlaceholder")}
             />
           </Box>
           <TextField
@@ -458,7 +458,7 @@ export default function WebPortalsAdmin() {
             sx={{ mt: 2 }}
             multiline
             rows={2}
-            placeholder="Optional description displayed at the top of the portal"
+            placeholder={t("webPortals.descriptionPlaceholder")}
           />
 
           <Divider sx={{ my: 3 }} />

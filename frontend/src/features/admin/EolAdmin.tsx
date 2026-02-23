@@ -556,7 +556,7 @@ export default function EolAdmin() {
               size="small"
               onClick={() => setSelections({})}
             >
-              Clear All
+              {t("eol.clearAll")}
             </Button>
             <Button
               variant="contained"
@@ -571,7 +571,7 @@ export default function EolAdmin() {
                 )
               }
             >
-              {saving ? "Saving..." : "Apply Links"}
+              {saving ? t("common:actions.saving") : t("eol.applyLinks")}
             </Button>
           </Box>
         </Box>

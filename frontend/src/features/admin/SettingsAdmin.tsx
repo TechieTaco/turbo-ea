@@ -208,7 +208,7 @@ function GeneralTab() {
         app_base_url: appBaseUrl,
       });
       setConfigured(!!smtpHost);
-      setSnack(t("settings.emailSaved"));
+      setSnack(t("settings.smtp.savedSuccess"));
     } catch (e) {
       setError(e instanceof Error ? e.message : t("common:errors.generic"));
     } finally {
@@ -225,7 +225,7 @@ function GeneralTab() {
       );
       setSnack(t("settings.testEmailSent", { email: res.sent_to }));
     } catch (e) {
-      setError(e instanceof Error ? e.message : t("settings.testEmailFailed"));
+      setError(e instanceof Error ? e.message : t("common:errors.generic"));
     } finally {
       setTesting(false);
     }
@@ -250,9 +250,9 @@ function GeneralTab() {
       await api.upload("/settings/logo", file);
       setHasCustomLogo(true);
       setLogoVersion((v) => v + 1);
-      setSnack(t("settings.logoUpdated"));
+      setSnack(t("settings.logo.updated"));
     } catch (err) {
-      setError(err instanceof Error ? err.message : t("settings.logoUploadFailed"));
+      setError(err instanceof Error ? err.message : t("common:errors.generic"));
     } finally {
       setUploadingLogo(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
@@ -266,9 +266,9 @@ function GeneralTab() {
       await api.delete("/settings/logo");
       setHasCustomLogo(false);
       setLogoVersion((v) => v + 1);
-      setSnack(t("settings.logoResetSuccess"));
+      setSnack(t("settings.logo.resetSuccess"));
     } catch (err) {
-      setError(err instanceof Error ? err.message : t("settings.logoResetFailed"));
+      setError(err instanceof Error ? err.message : t("common:errors.generic"));
     } finally {
       setUploadingLogo(false);
     }
@@ -284,9 +284,9 @@ function GeneralTab() {
       setHasCustomFavicon(true);
       setFaviconVersion((v) => v + 1);
       updateFavicons();
-      setSnack(t("settings.faviconUpdated"));
+      setSnack(t("settings.favicon.updated"));
     } catch (err) {
-      setError(err instanceof Error ? err.message : t("settings.faviconUploadFailed"));
+      setError(err instanceof Error ? err.message : t("common:errors.generic"));
     } finally {
       setUploadingFavicon(false);
       if (faviconFileInputRef.current) faviconFileInputRef.current.value = "";
@@ -301,9 +301,9 @@ function GeneralTab() {
       setHasCustomFavicon(false);
       setFaviconVersion((v) => v + 1);
       updateFavicons();
-      setSnack(t("settings.faviconResetSuccess"));
+      setSnack(t("settings.favicon.resetSuccess"));
     } catch (err) {
-      setError(err instanceof Error ? err.message : t("settings.faviconResetFailed"));
+      setError(err instanceof Error ? err.message : t("common:errors.generic"));
     } finally {
       setUploadingFavicon(false);
     }
@@ -316,7 +316,7 @@ function GeneralTab() {
       await api.patch("/settings/bpm-enabled", { enabled });
       setBpmEnabled(enabled);
       invalidateMetamodel();
-      setSnack(enabled ? t("settings.bpmEnabled") : t("settings.bpmDisabled"));
+      setSnack(enabled ? t("settings.bpm.enabledSuccess") : t("settings.bpm.disabledSuccess"));
     } catch (e) {
       setError(e instanceof Error ? e.message : t("common:errors.generic"));
     } finally {
@@ -330,7 +330,7 @@ function GeneralTab() {
     try {
       await api.patch("/settings/registration", { enabled });
       setRegistrationEnabled(enabled);
-      setSnack(enabled ? t("settings.registrationEnabled") : t("settings.registrationDisabled"));
+      setSnack(enabled ? t("settings.registration.enabledSuccess") : t("settings.registration.disabledSuccess"));
     } catch (e) {
       setError(e instanceof Error ? e.message : t("common:errors.generic"));
     } finally {
@@ -348,7 +348,7 @@ function GeneralTab() {
         client_secret: ssoClientSecret,
         tenant_id: ssoTenantId,
       });
-      setSnack(t("settings.ssoSaved"));
+      setSnack(t("settings.sso.savedSuccess"));
     } catch (e) {
       setError(e instanceof Error ? e.message : t("common:errors.generic"));
     } finally {
@@ -362,7 +362,7 @@ function GeneralTab() {
     try {
       await api.patch("/settings/currency", { currency: selectedCurrency });
       invalidateCurrency(selectedCurrency);
-      setSnack(t("settings.currencyUpdated"));
+      setSnack(t("settings.currency.updated"));
     } catch (e) {
       setError(e instanceof Error ? e.message : t("common:errors.generic"));
     } finally {
@@ -387,7 +387,7 @@ function GeneralTab() {
       )}
 
       {/* ── Appearance ────────────────────────────────────────────── */}
-      <SectionHeader>{t("settings.sections.appearance")}</SectionHeader>
+      <SectionHeader>{t("settings.section.appearance")}</SectionHeader>
 
       {/* Logo Settings */}
       <Paper sx={{ p: 3, mb: 3 }}>
@@ -397,7 +397,7 @@ function GeneralTab() {
             {t("settings.logo.title")}
           </Typography>
           <Chip
-            label={hasCustomLogo ? t("settings.custom") : t("settings.default")}
+            label={hasCustomLogo ? t("settings.logo.custom") : t("settings.logo.default")}
             size="small"
             color={hasCustomLogo ? "info" : "default"}
             sx={{ ml: 1 }}
@@ -431,7 +431,7 @@ function GeneralTab() {
           >
             <img
               src={`/api/v1/settings/logo?v=${logoVersion}`}
-              alt={t("settings.logo.currentAlt")}
+              alt={t("settings.logo.title")}
               style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }}
             />
           </Box>
@@ -469,7 +469,7 @@ function GeneralTab() {
                 onClick={handleLogoReset}
                 disabled={uploadingLogo}
               >
-                {t("settings.resetToDefault")}
+                {t("settings.logo.reset")}
               </Button>
             )}
           </Box>
@@ -484,7 +484,7 @@ function GeneralTab() {
             {t("settings.favicon.title")}
           </Typography>
           <Chip
-            label={hasCustomFavicon ? t("settings.custom") : t("settings.default")}
+            label={hasCustomFavicon ? t("settings.logo.custom") : t("settings.logo.default")}
             size="small"
             color={hasCustomFavicon ? "info" : "default"}
             sx={{ ml: 1 }}
@@ -518,7 +518,7 @@ function GeneralTab() {
           >
             <img
               src={`/api/v1/settings/favicon?v=${faviconVersion}`}
-              alt={t("settings.favicon.currentAlt")}
+              alt={t("settings.favicon.title")}
               style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }}
             />
           </Box>
@@ -556,7 +556,7 @@ function GeneralTab() {
                 onClick={handleFaviconReset}
                 disabled={uploadingFavicon}
               >
-                {t("settings.resetToDefault")}
+                {t("settings.logo.reset")}
               </Button>
             )}
           </Box>
@@ -585,7 +585,7 @@ function GeneralTab() {
           <TextField
             select
             size="small"
-            label={t("settings.currency.displayCurrency")}
+            label={t("settings.currency.label")}
             value={selectedCurrency}
             onChange={(e) => setSelectedCurrency(e.target.value)}
             sx={{ minWidth: 280 }}
@@ -604,13 +604,13 @@ function GeneralTab() {
             onClick={handleCurrencySave}
             disabled={savingCurrency || selectedCurrency === currentCurrency}
           >
-            {savingCurrency ? t("settings.saving") : t("common:actions.save")}
+            {savingCurrency ? t("common:labels.loading") : t("common:actions.save")}
           </Button>
         </Box>
       </Paper>
 
       {/* ── Modules ───────────────────────────────────────────────── */}
-      <SectionHeader>{t("settings.sections.modules")}</SectionHeader>
+      <SectionHeader>{t("settings.section.modules")}</SectionHeader>
 
       {/* BPM Module Toggle */}
       <Paper sx={{ p: 3, mb: 3 }}>
@@ -620,7 +620,7 @@ function GeneralTab() {
             {t("settings.bpm.title")}
           </Typography>
           <Chip
-            label={bpmEnabled ? t("settings.enabled") : t("settings.disabled")}
+            label={bpmEnabled ? t("settings.bpm.enabled") : t("settings.bpm.disabled")}
             size="small"
             color={bpmEnabled ? "success" : "default"}
             sx={{ ml: 1 }}
@@ -637,12 +637,12 @@ function GeneralTab() {
               disabled={savingBpm}
             />
           }
-          label={bpmEnabled ? t("settings.bpm.visibleLabel") : t("settings.bpm.hiddenLabel")}
+          label={bpmEnabled ? t("settings.bpm.visible") : t("settings.bpm.hidden")}
         />
       </Paper>
 
       {/* ── Authentication ────────────────────────────────────────── */}
-      <SectionHeader>{t("settings.sections.authentication")}</SectionHeader>
+      <SectionHeader>{t("settings.section.authentication")}</SectionHeader>
 
       {/* Self-Registration Toggle */}
       <Paper sx={{ p: 3, mb: 3 }}>
@@ -652,7 +652,7 @@ function GeneralTab() {
             {t("settings.registration.title")}
           </Typography>
           <Chip
-            label={registrationEnabled ? t("settings.enabled") : t("settings.disabled")}
+            label={registrationEnabled ? t("settings.bpm.enabled") : t("settings.bpm.disabled")}
             size="small"
             color={registrationEnabled ? "success" : "default"}
             sx={{ ml: 1 }}
@@ -673,8 +673,8 @@ function GeneralTab() {
             ssoEnabled
               ? t("settings.registration.managedBySso")
               : registrationEnabled
-                ? t("settings.registration.selfRegister")
-                : t("settings.registration.adminOnly")
+                ? t("settings.registration.usersCanRegister")
+                : t("settings.registration.onlyAdmins")
           }
         />
       </Paper>
@@ -687,7 +687,7 @@ function GeneralTab() {
             {t("settings.sso.title")}
           </Typography>
           <Chip
-            label={ssoEnabled ? t("settings.enabled") : t("settings.disabled")}
+            label={ssoEnabled ? t("settings.bpm.enabled") : t("settings.bpm.disabled")}
             size="small"
             color={ssoEnabled ? "success" : "default"}
             sx={{ ml: 1 }}
@@ -704,7 +704,7 @@ function GeneralTab() {
               onChange={(e) => setSsoEnabled(e.target.checked)}
             />
           }
-          label={ssoEnabled ? t("settings.sso.enabledLabel") : t("settings.sso.disabledLabel")}
+          label={ssoEnabled ? t("settings.sso.enabled") : t("settings.sso.disabled")}
           sx={{ mb: 2 }}
         />
 
@@ -739,7 +739,7 @@ function GeneralTab() {
             />
             <Alert severity="info" sx={{ mb: 2 }}>
               <Typography variant="body2">
-                <strong>{t("settings.sso.redirectUri")}</strong>: {t("settings.sso.redirectUriHelper")}{" "}
+                <strong>{t("settings.sso.redirectUri")}</strong>: {t("settings.sso.redirectUriHint")}{" "}
                 <code>{window.location.origin}/auth/callback</code>
               </Typography>
             </Alert>
@@ -755,13 +755,13 @@ function GeneralTab() {
             onClick={handleSsoSave}
             disabled={savingSso}
           >
-            {savingSso ? t("settings.saving") : t("common:actions.save")}
+            {savingSso ? t("common:labels.loading") : t("common:actions.save")}
           </Button>
         </Box>
       </Paper>
 
       {/* ── Email ─────────────────────────────────────────────────── */}
-      <SectionHeader>{t("settings.sections.email")}</SectionHeader>
+      <SectionHeader>{t("settings.section.email")}</SectionHeader>
 
       {/* Email / SMTP Settings */}
       <Paper sx={{ p: 3, mb: 3 }}>
@@ -844,12 +844,12 @@ function GeneralTab() {
         <Divider sx={{ my: 2 }} />
 
         <TextField
-          label={t("settings.smtp.baseUrl")}
+          label={t("settings.smtp.appBaseUrl")}
           fullWidth
           value={appBaseUrl}
           onChange={(e) => setAppBaseUrl(e.target.value)}
           placeholder="e.g. https://turboea.yourcompany.com"
-          helperText={t("settings.smtp.baseUrlHelper")}
+          helperText={t("settings.smtp.appBaseUrlHelper")}
           sx={{ mb: 3 }}
         />
 
@@ -867,7 +867,7 @@ function GeneralTab() {
             onClick={handleTest}
             disabled={saving || testing || !smtpHost}
           >
-            {testing ? t("settings.smtp.sending") : t("settings.smtp.sendTestEmail")}
+            {testing ? t("settings.smtp.sending") : t("settings.smtp.sendTest")}
           </Button>
           <Button
             variant="contained"
@@ -876,7 +876,7 @@ function GeneralTab() {
             onClick={handleSave}
             disabled={saving}
           >
-            {saving ? t("settings.saving") : t("common:actions.save")}
+            {saving ? t("common:labels.loading") : t("common:actions.save")}
           </Button>
         </Box>
       </Paper>

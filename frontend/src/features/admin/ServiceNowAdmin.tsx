@@ -413,6 +413,7 @@ function ConnectionDialog({ open, connection, onClose, onSaved }: ConnectionDial
 // ---------------------------------------------------------------------------
 
 function MappingsTab() {
+  const { t } = useTranslation(["admin", "common"]);
   const [connections, setConnections] = useState<SnowConnection[]>([]);
   const [mappings, setMappings] = useState<SnowMapping[]>([]);
   const [loading, setLoading] = useState(true);
@@ -441,7 +442,7 @@ function MappingsTab() {
   useEffect(() => { load(); }, [load]);
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Delete this mapping and all its field mappings?")) return;
+    if (!confirm(t("common:actions.delete") + "?")) return;
     try {
       await api.delete(`/servicenow/mappings/${id}`);
       load();
@@ -464,7 +465,7 @@ function MappingsTab() {
   if (connections.length === 0) {
     return (
       <Alert severity="info">
-        Create a ServiceNow connection first before configuring mappings.
+        {t("servicenow.mappings.noConnectionsHint")}
       </Alert>
     );
   }
@@ -479,7 +480,7 @@ function MappingsTab() {
           startIcon={<MaterialSymbol icon="add" size={18} />}
           onClick={() => { setEditing(null); setDialogOpen(true); }}
         >
-          Add Mapping
+          {t("servicenow.mappings.addMapping")}
         </Button>
       </Box>
 
@@ -488,7 +489,7 @@ function MappingsTab() {
           <CardContent sx={{ textAlign: "center", py: 6 }}>
             <MaterialSymbol icon="swap_horiz" size={48} color="#ccc" />
             <Typography color="text.secondary" sx={{ mt: 1 }}>
-              No mappings configured yet
+              {t("servicenow.mappings.noMappings")}
             </Typography>
           </CardContent>
         </Card>
@@ -496,29 +497,29 @@ function MappingsTab() {
         <Stack spacing={2}>
           {mappings.map((mapping) => {
             const conn = connections.find((c) => c.id === mapping.connection_id);
-            const cardType = types.find((t) => t.key === mapping.card_type_key);
+            const ct = types.find((tp) => tp.key === mapping.card_type_key);
             return (
               <Card key={mapping.id} variant="outlined" sx={{ opacity: mapping.is_active ? 1 : 0.6 }}>
                 <CardContent>
                   <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
                     <MaterialSymbol
-                      icon={cardType?.icon || "swap_horiz"}
+                      icon={ct?.icon || "swap_horiz"}
                       size={24}
-                      color={cardType?.color || "#999"}
+                      color={ct?.color || "#999"}
                     />
                     <Box sx={{ flex: 1 }}>
                       <Typography fontWeight={600}>
-                        {cardType?.label || mapping.card_type_key}
+                        {ct?.label || mapping.card_type_key}
                         {" "}
                         <Typography component="span" color="text.secondary" fontSize="0.85rem">
                           <MaterialSymbol icon="sync_alt" size={14} /> {mapping.snow_table}
                         </Typography>
                       </Typography>
                       <Typography variant="body2" color="text.secondary">
-                        {conn?.name || "Unknown connection"} &middot;{" "}
+                        {conn?.name || t("servicenow.mappings.unknownConnection")} &middot;{" "}
                         {mapping.sync_direction.replace(/_/g, " ")} &middot;{" "}
-                        {mapping.sync_mode} mode &middot;{" "}
-                        {mapping.field_mappings.length} field{mapping.field_mappings.length !== 1 ? "s" : ""}
+                        {t("servicenow.mappings.mode", { mode: mapping.sync_mode })} &middot;{" "}
+                        {t("servicenow.mappings.fieldCount", { count: mapping.field_mappings.length })}
                       </Typography>
                     </Box>
                     <FormControlLabel
@@ -529,10 +530,10 @@ function MappingsTab() {
                           onChange={() => handleToggleActive(mapping)}
                         />
                       }
-                      label="Active"
+                      label={t("common:status.active")}
                       sx={{ mr: 1 }}
                     />
-                    <Tooltip title="Edit">
+                    <Tooltip title={t("common:actions.edit")}>
                       <IconButton
                         size="small"
                         onClick={() => { setEditing(mapping); setDialogOpen(true); }}
@@ -540,7 +541,7 @@ function MappingsTab() {
                         <MaterialSymbol icon="edit" size={18} />
                       </IconButton>
                     </Tooltip>
-                    <Tooltip title="Delete">
+                    <Tooltip title={t("common:actions.delete")}>
                       <IconButton size="small" onClick={() => handleDelete(mapping.id)}>
                         <MaterialSymbol icon="delete" size={18} color="#f44336" />
                       </IconButton>
@@ -552,11 +553,11 @@ function MappingsTab() {
                       <Table size="small">
                         <TableHead>
                           <TableRow>
-                            <TableCell sx={{ fontWeight: 600, fontSize: "0.75rem" }}>Turbo EA Field</TableCell>
-                            <TableCell sx={{ fontWeight: 600, fontSize: "0.75rem" }}>SNOW Field</TableCell>
-                            <TableCell sx={{ fontWeight: 600, fontSize: "0.75rem" }}>Direction</TableCell>
-                            <TableCell sx={{ fontWeight: 600, fontSize: "0.75rem" }}>Transform</TableCell>
-                            <TableCell sx={{ fontWeight: 600, fontSize: "0.75rem" }}>Identity</TableCell>
+                            <TableCell sx={{ fontWeight: 600, fontSize: "0.75rem" }}>{t("servicenow.mappings.columns.turboField")}</TableCell>
+                            <TableCell sx={{ fontWeight: 600, fontSize: "0.75rem" }}>{t("servicenow.mappings.columns.snowField")}</TableCell>
+                            <TableCell sx={{ fontWeight: 600, fontSize: "0.75rem" }}>{t("servicenow.mappings.columns.direction")}</TableCell>
+                            <TableCell sx={{ fontWeight: 600, fontSize: "0.75rem" }}>{t("servicenow.mappings.columns.transform")}</TableCell>
+                            <TableCell sx={{ fontWeight: 600, fontSize: "0.75rem" }}>{t("servicenow.mappings.columns.identity")}</TableCell>
                           </TableRow>
                         </TableHead>
                         <TableBody>
