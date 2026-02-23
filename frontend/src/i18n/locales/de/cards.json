@@ -124,5 +124,13 @@
   "vendor.createNew.title": "",
   "vendor.createNew.description": "",
   "vendor.createNew.creating": "",
-  "vendor.createNew.submit": ""
+  "vendor.createNew.submit": "",
+  "tabs.card": "",
+  "tabs.processFlow": "",
+  "tabs.assessments": "",
+  "tabs.comments": "",
+  "tabs.todos": "",
+  "tabs.stakeholders": "",
+  "tabs.history": "",
+  "sidePanel.openFullPage": ""
 }

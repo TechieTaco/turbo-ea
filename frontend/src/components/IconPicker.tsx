@@ -5,15 +5,16 @@ import Typography from "@mui/material/Typography";
 import TextField from "@mui/material/TextField";
 import InputAdornment from "@mui/material/InputAdornment";
 import Tooltip from "@mui/material/Tooltip";
+import { useTranslation } from "react-i18next";
 import MaterialSymbol from "./MaterialSymbol";
 
 /**
  * Curated list of Material Symbols icons useful for an EA platform.
  * Organised by category for browsing, flattened for search.
  */
-const ICON_CATEGORIES: { label: string; icons: string[] }[] = [
+const ICON_CATEGORIES: { labelKey: string; icons: string[] }[] = [
   {
-    label: "Common",
+    labelKey: "common",
     icons: [
       "home", "search", "settings", "info", "help", "check_circle",
       "cancel", "add_circle", "remove_circle", "star", "favorite",
@@ -23,7 +24,7 @@ const ICON_CATEGORIES: { label: string; icons: string[] }[] = [
     ],
   },
   {
-    label: "Business & Strategy",
+    labelKey: "businessStrategy",
     icons: [
       "rocket_launch", "trending_up", "trending_down", "analytics",
       "insights", "query_stats", "monitoring", "assessment", "leaderboard",
@@ -38,7 +39,7 @@ const ICON_CATEGORIES: { label: string; icons: string[] }[] = [
     ],
   },
   {
-    label: "Organization & People",
+    labelKey: "organizationPeople",
     icons: [
       "corporate_fare", "business", "domain", "apartment", "location_city",
       "groups", "group", "person", "person_add", "people",
@@ -50,7 +51,7 @@ const ICON_CATEGORIES: { label: string; icons: string[] }[] = [
     ],
   },
   {
-    label: "Architecture & Structure",
+    labelKey: "architectureStructure",
     icons: [
       "account_tree", "hub", "schema", "device_hub", "mediation",
       "lan", "share", "route", "fork_right", "fork_left",
@@ -62,7 +63,7 @@ const ICON_CATEGORIES: { label: string; icons: string[] }[] = [
     ],
   },
   {
-    label: "Technology & Cloud",
+    labelKey: "technologyCloud",
     icons: [
       "apps", "memory", "developer_board", "dns", "storage",
       "database", "cloud", "cloud_upload", "cloud_download", "cloud_sync",
@@ -76,7 +77,7 @@ const ICON_CATEGORIES: { label: string; icons: string[] }[] = [
     ],
   },
   {
-    label: "Data & Analytics",
+    labelKey: "dataAnalytics",
     icons: [
       "equalizer", "stacked_bar_chart", "waterfall_chart", "candlestick_chart",
       "bubble_chart", "scatter_plot", "ssid_chart", "area_chart",
@@ -86,7 +87,7 @@ const ICON_CATEGORIES: { label: string; icons: string[] }[] = [
     ],
   },
   {
-    label: "Security & Compliance",
+    labelKey: "securityCompliance",
     icons: [
       "security", "shield", "gpp_good", "gpp_bad", "gpp_maybe",
       "health_and_safety", "privacy_tip", "policy", "verified_user",
@@ -95,7 +96,7 @@ const ICON_CATEGORIES: { label: string; icons: string[] }[] = [
     ],
   },
   {
-    label: "Communication",
+    labelKey: "communication",
     icons: [
       "mail", "email", "send", "forum", "chat", "chat_bubble",
       "comment", "message", "sms", "notifications", "campaign",
@@ -105,7 +106,7 @@ const ICON_CATEGORIES: { label: string; icons: string[] }[] = [
     ],
   },
   {
-    label: "Files & Documents",
+    labelKey: "filesDocuments",
     icons: [
       "description", "article", "note", "sticky_note_2",
       "folder", "folder_open", "folder_shared", "create_new_folder",
@@ -115,7 +116,7 @@ const ICON_CATEGORIES: { label: string; icons: string[] }[] = [
     ],
   },
   {
-    label: "Navigation & Maps",
+    labelKey: "navigationMaps",
     icons: [
       "explore", "map", "place", "location_on", "my_location",
       "near_me", "navigation", "directions", "compass_calibration",
@@ -124,7 +125,7 @@ const ICON_CATEGORIES: { label: string; icons: string[] }[] = [
     ],
   },
   {
-    label: "Processes & Workflow",
+    labelKey: "processesWorkflow",
     icons: [
       "swap_horiz", "swap_vert", "sync_alt", "compare_arrows",
       "transform", "autorenew", "loop", "replay", "redo", "undo",
@@ -135,7 +136,7 @@ const ICON_CATEGORIES: { label: string; icons: string[] }[] = [
     ],
   },
   {
-    label: "Status & Indicators",
+    labelKey: "statusIndicators",
     icons: [
       "error", "warning", "report", "report_problem",
       "do_not_disturb", "block", "dangerous", "crisis_alert",
@@ -150,7 +151,7 @@ const ICON_CATEGORIES: { label: string; icons: string[] }[] = [
     ],
   },
   {
-    label: "Miscellaneous",
+    labelKey: "miscellaneous",
     icons: [
       "category", "extension", "widgets", "token",
       "interests", "palette", "brush", "color_lens",
@@ -177,6 +178,7 @@ interface IconPickerProps {
 }
 
 export default function IconPicker({ value, onChange, color, disabled }: IconPickerProps) {
+  const { t } = useTranslation("common");
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
   const [search, setSearch] = useState("");
   const searchRef = useRef<HTMLInputElement>(null);
@@ -282,7 +284,7 @@ export default function IconPicker({ value, onChange, color, disabled }: IconPic
             inputRef={searchRef}
             size="small"
             fullWidth
-            placeholder="Search icons..."
+            placeholder={t("iconPicker.searchPlaceholder")}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             slotProps={{
@@ -297,7 +299,7 @@ export default function IconPicker({ value, onChange, color, disabled }: IconPic
           />
           {search && (
             <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: "block" }}>
-              {totalResults} result{totalResults !== 1 ? "s" : ""}
+              {t("iconPicker.resultCount", { count: totalResults })}
             </Typography>
           )}
         </Box>
@@ -308,15 +310,15 @@ export default function IconPicker({ value, onChange, color, disabled }: IconPic
             <Box sx={{ py: 4, textAlign: "center" }}>
               <MaterialSymbol icon="search_off" size={32} color="#ccc" />
               <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                No icons match "{search}"
+                {t("iconPicker.noMatch", { search })}
               </Typography>
               <Typography variant="caption" color="text.secondary">
-                Try typing the icon name directly — any valid Material Symbols name will work.
+                {t("iconPicker.noMatchHint")}
               </Typography>
             </Box>
           ) : (
             filteredCategories.map((cat) => (
-              <Box key={cat.label} sx={{ mb: 1.5 }}>
+              <Box key={cat.labelKey} sx={{ mb: 1.5 }}>
                 <Typography
                   variant="caption"
                   color="text.secondary"
@@ -329,7 +331,7 @@ export default function IconPicker({ value, onChange, color, disabled }: IconPic
                     fontWeight: 600,
                   }}
                 >
-                  {cat.label}
+                  {t(`iconPicker.categories.${cat.labelKey}`)}
                 </Typography>
                 <Box
                   sx={{

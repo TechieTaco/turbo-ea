@@ -8,6 +8,7 @@ import TableRow from "@mui/material/TableRow";
 import IconButton from "@mui/material/IconButton";
 import Tooltip from "@mui/material/Tooltip";
 import InputBase from "@mui/material/InputBase";
+import { useTranslation } from "react-i18next";
 import MaterialSymbol from "@/components/MaterialSymbol";
 
 interface Props {
@@ -18,6 +19,7 @@ interface Props {
 }
 
 export default function EditableTable({ columns, rows, onChange, readOnly }: Props) {
+  const { t } = useTranslation("common");
   const updateCell = (ri: number, ci: number, value: string) => {
     const next = rows.map((r) => [...r]);
     next[ri][ci] = value;
@@ -81,7 +83,7 @@ export default function EditableTable({ columns, rows, onChange, readOnly }: Pro
                 {!readOnly && (
                   <TableCell sx={{ p: 0, width: 40 }}>
                     {rows.length > 1 && (
-                      <Tooltip title="Remove row">
+                      <Tooltip title={t("actions.remove")}>
                         <IconButton
                           size="small"
                           className="row-action"
@@ -101,7 +103,7 @@ export default function EditableTable({ columns, rows, onChange, readOnly }: Pro
       </TableContainer>
       {!readOnly && (
         <Box sx={{ mt: 0.5 }}>
-          <Tooltip title="Add row">
+          <Tooltip title={t("actions.add")}>
             <IconButton size="small" onClick={addRow}>
               <MaterialSymbol icon="add" size={18} />
             </IconButton>

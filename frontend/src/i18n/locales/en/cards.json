@@ -137,5 +137,15 @@
   "vendor.createNew.title": "Create New Provider",
   "vendor.createNew.description": "No existing Provider matches \"{{name}}\". Create a new Provider card and link it?",
   "vendor.createNew.creating": "Creating...",
-  "vendor.createNew.submit": "Create & Link"
+  "vendor.createNew.submit": "Create & Link",
+
+  "tabs.card": "Card",
+  "tabs.processFlow": "Process Flow",
+  "tabs.assessments": "Assessments",
+  "tabs.comments": "Comments",
+  "tabs.todos": "Todos",
+  "tabs.stakeholders": "Stakeholders",
+  "tabs.history": "History",
+
+  "sidePanel.openFullPage": "Open full page"
 }
