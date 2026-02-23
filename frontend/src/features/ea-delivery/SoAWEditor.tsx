@@ -38,8 +38,8 @@ import MaterialSymbol from "@/components/MaterialSymbol";
 import RichTextEditor from "./RichTextEditor";
 import EditableTable from "./EditableTable";
 import {
-  SOAW_TEMPLATE_SECTIONS,
-  TOGAF_PHASES,
+  getTemplateSections,
+  getTogafPhases,
   buildDefaultSections,
   type TemplateSectionDef,
 } from "./soawTemplate";
@@ -404,7 +404,7 @@ export default function SoAWEditor() {
     const result: ReturnType<typeof orderedSections> = [];
     let currentPart: "I" | "II" | null = null;
 
-    for (const def of SOAW_TEMPLATE_SECTIONS) {
+    for (const def of getTemplateSections()) {
       // Insert part headers
       if (def.part !== currentPart) {
         currentPart = def.part;
@@ -432,7 +432,7 @@ export default function SoAWEditor() {
     for (const cs of customSections) {
       if (
         !cs.insertAfter ||
-        !SOAW_TEMPLATE_SECTIONS.some((d) => d.id === cs.insertAfter)
+        !getTemplateSections().some((d) => d.id === cs.insertAfter)
       ) {
         if (!result.some((r) => r.kind === "custom" && r.cs.id === cs.id)) {
           result.push({ kind: "custom", cs });
@@ -941,7 +941,7 @@ export default function SoAWEditor() {
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {TOGAF_PHASES.map((phase) => (
+                    {getTogafPhases().map((phase) => (
                       <TableRow key={phase.key}>
                         <TableCell>{phase.label}</TableCell>
                         <TableCell sx={{ p: 0.5 }}>
@@ -1023,7 +1023,7 @@ export default function SoAWEditor() {
             <MenuItem value="">
               <em>{t("editor.endOfDocument")}</em>
             </MenuItem>
-            {SOAW_TEMPLATE_SECTIONS.map((s) => (
+            {getTemplateSections().map((s) => (
               <MenuItem key={s.id} value={s.id}>
                 {s.title}
               </MenuItem>
