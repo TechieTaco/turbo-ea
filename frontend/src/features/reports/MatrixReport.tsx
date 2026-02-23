@@ -825,7 +825,7 @@ export default function MatrixReport() {
                     fontSize: 11,
                   }}
                 >
-                  &Sigma; Total
+                  &Sigma; {t("matrix.total")}
                 </td>
                 {leafColNodes.map((cNode) => (
                   <td
@@ -881,7 +881,7 @@ export default function MatrixReport() {
               <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.5 }}>
                 {row?.name} × {col?.name}
               </Typography>
-              <Chip size="small" label={`${val} relation(s)`} variant="outlined" sx={{ mb: 1 }} />
+              <Chip size="small" label={t("matrix.relationsCount", { count: val })} variant="outlined" sx={{ mb: 1 }} />
               <List dense disablePadding>
                 <ListItemButton onClick={() => { setPopover(null); setSidePanelCardId(popover.rowId); }}>
                   <ListItemText primary={row?.name} secondary={rowLabel} />
