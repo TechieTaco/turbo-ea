@@ -861,8 +861,8 @@ export default function ProcessMapReport() {
           <MaterialSymbol icon="route" size={48} color="#999" />
           <Typography color="text.secondary" sx={{ mt: 1 }}>
             {hasActiveFilters
-              ? "No processes match the current filters."
-              : "No Business Processes found. Add processes to see the landscape map."}
+              ? t("processMap.noProcessesFiltered")
+              : t("processMap.noProcessesEmpty")}
           </Typography>
         </Box>
       ) : (
@@ -890,6 +890,7 @@ export default function ProcessMapReport() {
               onProcClick={handleProcClick}
               onItemClick={handleItemClick}
               fmtCost={fmtShort}
+              tr={t}
             />
           ))}
         </Box>
@@ -915,12 +916,12 @@ export default function ProcessMapReport() {
 
             {/* Metadata chips */}
             <Box sx={{ display: "flex", gap: 0.5, mb: 2, flexWrap: "wrap" }}>
-              {drawer.subtype && SUBTYPE_LABELS[drawer.subtype] && (
-                <Chip size="small" label={SUBTYPE_LABELS[drawer.subtype]} variant="outlined" />
+              {drawer.subtype && SUBTYPE_TKEYS[drawer.subtype] && (
+                <Chip size="small" label={t(SUBTYPE_TKEYS[drawer.subtype])} variant="outlined" />
               )}
               {PROCESS_TYPE_MAP[(drawer.attributes?.processType as string) || ""] && (
                 <Chip size="small"
-                  label={PROCESS_TYPE_MAP[(drawer.attributes?.processType as string) || ""].label}
+                  label={t(PROCESS_TYPE_MAP[(drawer.attributes?.processType as string) || ""].tKey)}
                   sx={{
                     bgcolor: PROCESS_TYPE_MAP[(drawer.attributes?.processType as string) || ""].color,
                     color: "#fff",
@@ -929,7 +930,7 @@ export default function ProcessMapReport() {
               )}
               {MATURITY_MAP[(drawer.attributes?.maturity as string) || ""] && (
                 <Chip size="small"
-                  label={MATURITY_MAP[(drawer.attributes?.maturity as string) || ""].label}
+                  label={t(MATURITY_MAP[(drawer.attributes?.maturity as string) || ""].tKey)}
                   sx={{
                     bgcolor: MATURITY_MAP[(drawer.attributes?.maturity as string) || ""].color,
                     color: "#fff",
@@ -938,7 +939,7 @@ export default function ProcessMapReport() {
               )}
               {RISK_MAP[(drawer.attributes?.riskLevel as string) || ""] && (
                 <Chip size="small"
-                  label={`Risk: ${RISK_MAP[(drawer.attributes?.riskLevel as string) || ""].label}`}
+                  label={t("processMap.risk", { level: t(RISK_MAP[(drawer.attributes?.riskLevel as string) || ""].tKey) })}
                   sx={{
                     bgcolor: RISK_MAP[(drawer.attributes?.riskLevel as string) || ""].color,
                     color: "#fff",
@@ -947,7 +948,7 @@ export default function ProcessMapReport() {
               )}
               {AUTOMATION_MAP[(drawer.attributes?.automationLevel as string) || ""] && (
                 <Chip size="small"
-                  label={AUTOMATION_MAP[(drawer.attributes?.automationLevel as string) || ""].label}
+                  label={t(AUTOMATION_MAP[(drawer.attributes?.automationLevel as string) || ""].tKey)}
                   variant="outlined"
                 />
               )}
@@ -957,15 +958,15 @@ export default function ProcessMapReport() {
             <Box sx={{ display: "flex", gap: 2, mb: 2, flexWrap: "wrap" }}>
               <Box sx={{ textAlign: "center", minWidth: 80 }}>
                 <Typography variant="h6" sx={{ fontWeight: 700 }}>{drawer.deepAppCount}</Typography>
-                <Typography variant="caption" color="text.secondary">Applications</Typography>
+                <Typography variant="caption" color="text.secondary">{t("processMap.showApplications")}</Typography>
               </Box>
               <Box sx={{ textAlign: "center", minWidth: 80 }}>
                 <Typography variant="h6" sx={{ fontWeight: 700 }}>{drawer.deepDataObjects.size}</Typography>
-                <Typography variant="caption" color="text.secondary">Data Objects</Typography>
+                <Typography variant="caption" color="text.secondary">{t("processMap.showDataObjects")}</Typography>
               </Box>
               <Box sx={{ textAlign: "center", minWidth: 80 }}>
                 <Typography variant="h6" sx={{ fontWeight: 700 }}>{fmtShort(drawer.deepCost)}</Typography>
-                <Typography variant="caption" color="text.secondary">Cost</Typography>
+                <Typography variant="caption" color="text.secondary">{t("processMap.cost")}</Typography>
               </Box>
             </Box>
 

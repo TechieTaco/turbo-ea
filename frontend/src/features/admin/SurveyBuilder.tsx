@@ -529,15 +529,15 @@ export default function SurveyBuilder() {
                   }}
                   sx={{ minWidth: 140 }}
                 >
-                  <MenuItem value="eq">equals</MenuItem>
-                  <MenuItem value="ne">not equals</MenuItem>
-                  <MenuItem value="gt">greater than</MenuItem>
-                  <MenuItem value="gte">greater or equal</MenuItem>
-                  <MenuItem value="lt">less than</MenuItem>
-                  <MenuItem value="lte">less or equal</MenuItem>
-                  <MenuItem value="contains">contains</MenuItem>
-                  <MenuItem value="is_empty">is empty</MenuItem>
-                  <MenuItem value="is_not_empty">is not empty</MenuItem>
+                  <MenuItem value="eq">{t("surveyBuilder.target.operators.eq")}</MenuItem>
+                  <MenuItem value="ne">{t("surveyBuilder.target.operators.ne")}</MenuItem>
+                  <MenuItem value="gt">{t("surveyBuilder.target.operators.gt")}</MenuItem>
+                  <MenuItem value="gte">{t("surveyBuilder.target.operators.gte")}</MenuItem>
+                  <MenuItem value="lt">{t("surveyBuilder.target.operators.lt")}</MenuItem>
+                  <MenuItem value="lte">{t("surveyBuilder.target.operators.lte")}</MenuItem>
+                  <MenuItem value="contains">{t("surveyBuilder.target.operators.contains")}</MenuItem>
+                  <MenuItem value="is_empty">{t("surveyBuilder.target.operators.isEmpty")}</MenuItem>
+                  <MenuItem value="is_not_empty">{t("surveyBuilder.target.operators.isNotEmpty")}</MenuItem>
                 </TextField>
                 {needsValue && (
                   <TextField
@@ -573,15 +573,15 @@ export default function SurveyBuilder() {
               setAttributeFilters((prev) => [...prev, { key: "", op: "eq", value: "" }])
             }
           >
-            Add Attribute Filter
+            {t("surveyBuilder.target.addAttributeFilter")}
           </Button>
 
           <Divider sx={{ my: 2 }} />
           <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
-            Target Stakeholder Roles
+            {t("surveyBuilder.target.stakeholderRoles")}
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-            Which roles should receive the survey for each matched card?
+            {t("surveyBuilder.target.stakeholderRolesHint")}
           </Typography>
           {roles.map((role) => (
             <FormControlLabel
@@ -603,7 +603,7 @@ export default function SurveyBuilder() {
                   <Typography variant="body2">{role.label}</Typography>
                   {role.allowed_types && (
                     <Typography variant="caption" color="text.secondary">
-                      Only for: {role.allowed_types.join(", ")}
+                      {t("surveyBuilder.target.onlyFor", { types: role.allowed_types.join(", ") })}
                     </Typography>
                   )}
                 </Box>
@@ -617,18 +617,18 @@ export default function SurveyBuilder() {
       {activeStep === 2 && (
         <MuiCard sx={{ p: 3 }}>
           <Typography variant="h6" sx={{ mb: 1, fontWeight: 600 }}>
-            Select Fields
+            {t("surveyBuilder.fields.title")}
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Choose which fields respondents should maintain or confirm for each {selectedType?.label || "card"}.
+            {t("surveyBuilder.fields.description", { type: selectedType?.label || "card" })}
           </Typography>
 
           {!selectedType && (
-            <Alert severity="warning">Please select a card type first.</Alert>
+            <Alert severity="warning">{t("surveyBuilder.fields.noTypeSelected")}</Alert>
           )}
 
           {selectedType && allFields.length === 0 && (
-            <Alert severity="info">This type has no configurable fields.</Alert>
+            <Alert severity="info">{t("surveyBuilder.fields.noFields")}</Alert>
           )}
 
           {allFields.length > 0 && (
@@ -637,10 +637,10 @@ export default function SurveyBuilder() {
                 <TableHead>
                   <TableRow>
                     <TableCell padding="checkbox" />
-                    <TableCell>Section</TableCell>
-                    <TableCell>Field</TableCell>
-                    <TableCell>Type</TableCell>
-                    <TableCell>Action</TableCell>
+                    <TableCell>{t("surveyBuilder.fields.columns.section")}</TableCell>
+                    <TableCell>{t("surveyBuilder.fields.columns.field")}</TableCell>
+                    <TableCell>{t("surveyBuilder.fields.columns.type")}</TableCell>
+                    <TableCell>{t("surveyBuilder.fields.columns.action")}</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -676,8 +676,8 @@ export default function SurveyBuilder() {
                               }
                               sx={{ minWidth: 120 }}
                             >
-                              <MenuItem value="maintain">Maintain</MenuItem>
-                              <MenuItem value="confirm">Confirm</MenuItem>
+                              <MenuItem value="maintain">{t("surveyBuilder.fields.maintain")}</MenuItem>
+                              <MenuItem value="confirm">{t("surveyBuilder.fields.confirm")}</MenuItem>
                             </TextField>
                           )}
                         </TableCell>
@@ -691,9 +691,11 @@ export default function SurveyBuilder() {
 
           {selectedFields.length > 0 && (
             <Typography variant="body2" sx={{ mt: 2 }} color="text.secondary">
-              {selectedFields.length} field{selectedFields.length !== 1 ? "s" : ""} selected
-              ({selectedFields.filter((f) => f.action === "maintain").length} maintain,{" "}
-              {selectedFields.filter((f) => f.action === "confirm").length} confirm)
+              {t("surveyBuilder.fields.selectedCount", {
+                count: selectedFields.length,
+                maintain: selectedFields.filter((f) => f.action === "maintain").length,
+                confirm: selectedFields.filter((f) => f.action === "confirm").length,
+              })}
             </Typography>
           )}
         </MuiCard>

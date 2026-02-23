@@ -499,7 +499,7 @@ export default function TypeDetailDrawer({
               </Box>
             ) : (
               <Button size="small" startIcon={<MaterialSymbol icon="add" size={16} />} onClick={() => setAddSubOpen(true)}>
-                Add Subtype
+                {t("metamodel.typeDrawer.addSubtype")}
               </Button>
             )}
           </Box>
@@ -507,14 +507,14 @@ export default function TypeDetailDrawer({
           {/* Relations */}
           <Box>
             <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 1.5 }}>
-              Relations
+              {t("metamodel.typeDrawer.relations")}
             </Typography>
             {connectedRelations.length > 0 ? (
               <List dense disablePadding sx={{ mb: 1 }}>
                 {connectedRelations.map((r) => {
                   const isSource = r.source_type_key === cardTypeKey.key;
                   const otherKey = isSource ? r.target_type_key : r.source_type_key;
-                  const otherType = types.find((t) => t.key === otherKey);
+                  const otherType = types.find((ct) => ct.key === otherKey);
                   return (
                     <ListItem key={r.key} sx={{ pl: 0, py: 0.25 }}>
                       <ListItemText
@@ -540,11 +540,11 @@ export default function TypeDetailDrawer({
               </List>
             ) : (
               <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                No relations connected to this type.
+                {t("metamodel.typeDrawer.noRelations")}
               </Typography>
             )}
             <Button size="small" startIcon={<MaterialSymbol icon="add" size={16} />} onClick={() => onCreateRelation(cardTypeKey.key)}>
-              Add Relation
+              {t("metamodel.typeDrawer.addRelation")}
             </Button>
           </Box>
         </Box>
@@ -573,77 +573,73 @@ export default function TypeDetailDrawer({
 
       {/* --- Field deletion confirmation dialog --- */}
       <Dialog open={!!deleteFieldConfirm} onClose={() => setDeleteFieldConfirm(null)} maxWidth="xs" fullWidth disableRestoreFocus>
-        <DialogTitle>Delete Field</DialogTitle>
+        <DialogTitle>{t("metamodel.typeDrawer.deleteField")}</DialogTitle>
         <DialogContent>
           {deleteFieldConfirm && (
             <>
-              <Typography variant="body2" sx={{ mb: 2 }}>
-                Are you sure you want to delete the field <strong>"{deleteFieldConfirm.fieldLabel}"</strong> ({deleteFieldConfirm.fieldKey})?
-              </Typography>
+              <Typography variant="body2" sx={{ mb: 2 }} dangerouslySetInnerHTML={{ __html: t("metamodel.typeDrawer.deleteFieldConfirm", { label: deleteFieldConfirm.fieldLabel, key: deleteFieldConfirm.fieldKey }) }} />
               {deleteFieldConfirm.cardCount === null ? (
                 <Alert severity="info" icon={<CircularProgress size={18} />}>
-                  Checking how many cards use this field...
+                  {t("metamodel.typeDrawer.checkingFieldUsage")}
                 </Alert>
               ) : deleteFieldConfirm.cardCount > 0 ? (
                 <Alert severity="warning">
-                  <strong>{deleteFieldConfirm.cardCount} card(s)</strong> have data for this field. Deleting it will permanently remove that data from all of them.
+                  <span dangerouslySetInnerHTML={{ __html: t("metamodel.typeDrawer.fieldUsedByCards", { count: deleteFieldConfirm.cardCount }) }} />
                 </Alert>
               ) : (
-                <Alert severity="info">No cards have data for this field. It can be safely deleted.</Alert>
+                <Alert severity="info">{t("metamodel.typeDrawer.fieldSafeToDelete")}</Alert>
               )}
             </>
           )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDeleteFieldConfirm(null)}>Cancel</Button>
+          <Button onClick={() => setDeleteFieldConfirm(null)}>{t("common:actions.cancel")}</Button>
           <Button
             variant="contained"
             color="error"
             disabled={deleteFieldConfirm?.cardCount === null}
             onClick={confirmDeleteField}
           >
-            Delete Field
+            {t("metamodel.typeDrawer.deleteField")}
           </Button>
         </DialogActions>
       </Dialog>
 
       {/* --- Section deletion confirmation dialog --- */}
       <Dialog open={!!deleteSectionConfirm} onClose={() => setDeleteSectionConfirm(null)} maxWidth="xs" fullWidth disableRestoreFocus>
-        <DialogTitle>Delete Section</DialogTitle>
+        <DialogTitle>{t("metamodel.typeDrawer.deleteSection")}</DialogTitle>
         <DialogContent>
           {deleteSectionConfirm && (
             <>
-              <Typography variant="body2" sx={{ mb: 2 }}>
-                Are you sure you want to delete the section <strong>"{deleteSectionConfirm.sectionName}"</strong>
-                {deleteSectionConfirm.fieldCount > 0
-                  ? ` and its ${deleteSectionConfirm.fieldCount} field(s)?`
-                  : "?"}
-              </Typography>
+              <Typography variant="body2" sx={{ mb: 2 }} dangerouslySetInnerHTML={{ __html: deleteSectionConfirm.fieldCount > 0
+                  ? t("metamodel.typeDrawer.deleteSectionWithFields", { name: deleteSectionConfirm.sectionName, count: deleteSectionConfirm.fieldCount })
+                  : t("metamodel.typeDrawer.deleteSectionConfirm", { name: deleteSectionConfirm.sectionName })
+              }} />
               {deleteSectionConfirm.cardCount === null ? (
                 <Alert severity="info" icon={<CircularProgress size={18} />}>
-                  Checking how many cards use fields in this section...
+                  {t("metamodel.typeDrawer.checkingSectionUsage")}
                 </Alert>
               ) : deleteSectionConfirm.fieldCount === 0 ? (
-                <Alert severity="info">This section has no fields. It can be safely deleted.</Alert>
+                <Alert severity="info">{t("metamodel.typeDrawer.sectionNoFields")}</Alert>
               ) : deleteSectionConfirm.cardCount > 0 ? (
                 <Alert severity="warning">
-                  <strong>{deleteSectionConfirm.cardCount} card(s)</strong> have data for fields in this section. Deleting it will permanently remove that data from all of them.
+                  <span dangerouslySetInnerHTML={{ __html: t("metamodel.typeDrawer.sectionUsedByCards", { count: deleteSectionConfirm.cardCount }) }} />
                 </Alert>
               ) : (
-                <Alert severity="info">No cards have data for fields in this section. It can be safely deleted.</Alert>
+                <Alert severity="info">{t("metamodel.typeDrawer.sectionSafeToDelete")}</Alert>
               )}
             </>
           )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDeleteSectionConfirm(null)}>Cancel</Button>
+          <Button onClick={() => setDeleteSectionConfirm(null)}>{t("common:actions.cancel")}</Button>
           <Button
             variant="contained"
             color="error"
             disabled={deleteSectionConfirm?.cardCount === null}
             onClick={confirmDeleteSection}
           >
-            Delete Section
+            {t("metamodel.typeDrawer.deleteSection")}
           </Button>
         </DialogActions>
       </Dialog>
