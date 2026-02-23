@@ -937,8 +937,8 @@ export default function MetamodelAdmin() {
               sx={{ minHeight: 36, "& .MuiAccordionSummary-content": { my: 0.25 } }}
             >
               <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-                <MaterialSymbol icon="translate" size={16} color="#999" />
-                <Typography variant="body2" color="text.secondary">
+                <MaterialSymbol icon="translate" size={18} color="inherit" />
+                <Typography variant="body2" fontWeight={600}>
                   {t("metamodel.translations")}
                 </Typography>
               </Box>
@@ -1092,8 +1092,8 @@ export default function MetamodelAdmin() {
                   sx={{ minHeight: 36, "& .MuiAccordionSummary-content": { my: 0.25 } }}
                 >
                   <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-                    <MaterialSymbol icon="translate" size={16} color="#999" />
-                    <Typography variant="body2" color="text.secondary">
+                    <MaterialSymbol icon="translate" size={18} color="inherit" />
+                    <Typography variant="body2" fontWeight={600}>
                       {t("metamodel.translations")}
                     </Typography>
                   </Box>
