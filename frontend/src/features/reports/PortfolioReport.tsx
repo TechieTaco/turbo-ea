@@ -1,5 +1,4 @@
 import { useEffect, useState, useMemo, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
 import { alpha, useTheme } from "@mui/material/styles";
 import Box from "@mui/material/Box";
 import TextField from "@mui/material/TextField";
@@ -25,6 +24,7 @@ import SaveReportDialog from "./SaveReportDialog";
 import TimelineSlider from "@/components/TimelineSlider";
 import FilterSelect, { EMPTY_FILTER_KEY } from "@/components/FilterSelect";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import CardDetailSidePanel from "@/components/CardDetailSidePanel";
 import { api } from "@/api/client";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useSavedReport } from "@/hooks/useSavedReport";
@@ -465,7 +465,6 @@ function GroupCard({
 /* ------------------------------------------------------------------ */
 
 export default function PortfolioReport() {
-  const navigate = useNavigate();
   const theme = useTheme();
   const { types: metamodelTypes } = useMetamodel();
   const saved = useSavedReport("portfolio");
@@ -474,6 +473,7 @@ export default function PortfolioReport() {
   // Data
   const [data, setData] = useState<ApiResponse | null>(null);
   const [drawer, setDrawer] = useState<DrawerData | null>(null);
+  const [sidePanelCardId, setSidePanelCardId] = useState<string | null>(null);
   const [view, setView] = useState<"chart" | "table">("chart");
 
   // Controls — defaults are set dynamically after data loads
@@ -728,13 +728,10 @@ export default function PortfolioReport() {
     tl.reset();
   }, [tl]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const handleAppClick = useCallback(
-    (id: string) => {
-      setDrawer(null);
-      navigate(`/cards/${id}`);
-    },
-    [navigate],
-  );
+  const handleAppClick = useCallback((id: string) => {
+    setDrawer(null);
+    setSidePanelCardId(id);
+  }, []);
 
   const handleGroupClick = useCallback((g: GroupData) => {
     setDrawer({ label: g.label, apps: g.apps });
@@ -1367,7 +1364,7 @@ export default function PortfolioReport() {
                     key={app.id}
                     hover
                     sx={{ cursor: "pointer" }}
-                    onClick={() => navigate(`/cards/${app.id}`)}
+                    onClick={() => setSidePanelCardId(app.id)}
                   >
                     <TableCell sx={{ fontWeight: 500 }}>
                       {app.name}
@@ -1507,6 +1504,11 @@ export default function PortfolioReport() {
           </Box>
         )}
       </Drawer>
+      <CardDetailSidePanel
+        cardId={sidePanelCardId}
+        open={!!sidePanelCardId}
+        onClose={() => setSidePanelCardId(null)}
+      />
       <SaveReportDialog
         open={saved.saveDialogOpen}
         onClose={() => saved.setSaveDialogOpen(false)}

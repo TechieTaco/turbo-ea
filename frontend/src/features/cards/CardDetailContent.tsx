@@ -1,0 +1,315 @@
+import { useState, useEffect, useCallback, type ReactNode } from "react";
+import Box from "@mui/material/Box";
+import MuiCard from "@mui/material/Card";
+import CardContent from "@mui/material/CardContent";
+import Tabs from "@mui/material/Tabs";
+import Tab from "@mui/material/Tab";
+import ErrorBoundary from "@/components/ErrorBoundary";
+import EolLinkSection from "@/components/EolLinkSection";
+import ProcessFlowTab from "@/features/bpm/ProcessFlowTab";
+import ProcessAssessmentPanel from "@/features/bpm/ProcessAssessmentPanel";
+import { useMetamodel } from "@/hooks/useMetamodel";
+import { useCalculatedFields } from "@/hooks/useCalculatedFields";
+import { useCurrency } from "@/hooks/useCurrency";
+import { api } from "@/api/client";
+import {
+  DescriptionSection,
+  LifecycleSection,
+  AttributeSection,
+  HierarchySection,
+  RelationsSection,
+  CommentsTab,
+  TodosTab,
+  StakeholdersTab,
+  HistoryTab,
+} from "@/features/cards/sections";
+import type { Card, CardEffectivePermissions } from "@/types";
+
+interface Props {
+  card: Card;
+  perms: CardEffectivePermissions["effective"];
+  onCardUpdate: (card: Card) => void;
+  /** Show BPM tabs (Process Flow, Assessments) for BusinessProcess cards (default true) */
+  showBpmTabs?: boolean;
+  /** Initial tab index (default 0) */
+  initialTab?: number;
+  /** Initial sub-tab for Process Flow tab */
+  initialSubTab?: number;
+  /** Extra content rendered before tabs (e.g. archive banner, action buttons) */
+  beforeTabs?: ReactNode;
+}
+
+export default function CardDetailContent({
+  card,
+  perms,
+  onCardUpdate,
+  showBpmTabs = true,
+  initialTab = 0,
+  initialSubTab,
+  beforeTabs,
+}: Props) {
+  const { getType } = useMetamodel();
+  const { isCalculated } = useCalculatedFields();
+  const { fmt: currencyFmt } = useCurrency();
+
+  const [tab, setTab] = useState(initialTab);
+  const [relRefresh, setRelRefresh] = useState(0);
+
+  // Reset tab when card changes
+  useEffect(() => {
+    setTab(initialTab);
+  }, [card.id, initialTab]);
+
+  const typeConfig = getType(card.type);
+
+  // Calculated field keys
+  let calcFieldKeys: string[] = [];
+  try {
+    for (const section of typeConfig?.fields_schema || []) {
+      for (const field of section.fields || []) {
+        if (isCalculated(card.type, field.key)) calcFieldKeys.push(field.key);
+      }
+    }
+  } catch (err) {
+    console.error("[CardDetailContent] calcFieldKeys error", err);
+    calcFieldKeys = [];
+  }
+
+  // Section config
+  const sc = typeConfig?.section_config || {};
+  const secExpanded = (key: string, fallback = true) =>
+    sc[key]?.defaultExpanded !== false ? fallback : false;
+  const secHidden = (key: string) => !!sc[key]?.hidden;
+
+  const customSections = (typeConfig?.fields_schema || []).filter(
+    (s) => s.section !== "__description",
+  );
+  const descExtraSection = (typeConfig?.fields_schema || []).find(
+    (s) => s.section === "__description",
+  );
+  const descExtraFields = descExtraSection?.fields || [];
+
+  // Build section order from config or default
+  const sectionOrder = (() => {
+    const raw = (sc as Record<string, unknown>).__order as string[] | undefined;
+    if (raw && Array.isArray(raw) && raw.length > 0) {
+      const customKeys = customSections.map((_, i) => `custom:${i}`);
+      const existing = new Set(raw);
+      const result = [...raw];
+      for (const k of customKeys) {
+        if (!existing.has(k)) result.push(k);
+      }
+      if (!typeConfig?.has_hierarchy)
+        return result.filter((k) => k !== "hierarchy");
+      return result;
+    }
+    const order: string[] = ["description", "eol", "lifecycle"];
+    customSections.forEach((_, i) => order.push(`custom:${i}`));
+    if (typeConfig?.has_hierarchy) order.push("hierarchy");
+    order.push("relations");
+    return order;
+  })();
+
+  const handleUpdate = useCallback(
+    async (updates: Record<string, unknown>) => {
+      const updated = await api.patch<Card>(`/cards/${card.id}`, updates);
+      onCardUpdate(updated);
+    },
+    [card.id, onCardUpdate],
+  );
+
+  const renderSection = (key: string) => {
+    if (secHidden(key)) return null;
+    const exp = secExpanded(key, key === "relations" ? false : true);
+
+    if (key === "description") {
+      return (
+        <ErrorBoundary key={key} label="Description" inline>
+          <DescriptionSection
+            card={card}
+            onSave={handleUpdate}
+            canEdit={perms.can_edit}
+            initialExpanded={exp}
+            extraFields={
+              descExtraFields.length > 0 ? descExtraFields : undefined
+            }
+            currencyFmt={currencyFmt}
+          />
+        </ErrorBoundary>
+      );
+    }
+    if (key === "eol") {
+      return (
+        <ErrorBoundary key={key} label="End of Life" inline>
+          <EolLinkSection
+            card={card}
+            onSave={handleUpdate}
+            initialExpanded={exp ? undefined : false}
+          />
+        </ErrorBoundary>
+      );
+    }
+    if (key === "lifecycle") {
+      return (
+        <ErrorBoundary key={key} label="Lifecycle" inline>
+          <LifecycleSection
+            card={card}
+            onSave={handleUpdate}
+            canEdit={perms.can_edit}
+            initialExpanded={exp}
+          />
+        </ErrorBoundary>
+      );
+    }
+    if (key === "hierarchy") {
+      return (
+        <ErrorBoundary key={key} label="Hierarchy" inline>
+          <HierarchySection
+            card={card}
+            onUpdate={() =>
+              api.get<Card>(`/cards/${card.id}`).then(onCardUpdate)
+            }
+            canEdit={perms.can_edit}
+            initialExpanded={exp}
+          />
+        </ErrorBoundary>
+      );
+    }
+    if (key === "relations") {
+      return (
+        <ErrorBoundary key={key} label="Relations" inline>
+          <RelationsSection
+            fsId={card.id}
+            cardTypeKey={card.type}
+            refreshKey={relRefresh}
+            canManageRelations={perms.can_manage_relations}
+            initialExpanded={exp}
+          />
+        </ErrorBoundary>
+      );
+    }
+    if (key.startsWith("custom:")) {
+      const idx = parseInt(key.split(":")[1], 10);
+      const section = customSections[idx];
+      if (!section) return null;
+      return (
+        <ErrorBoundary key={key} label={section.section}>
+          <AttributeSection
+            section={section}
+            card={card}
+            onSave={handleUpdate}
+            onRelationChange={() => setRelRefresh((n) => n + 1)}
+            canEdit={perms.can_edit}
+            calculatedFieldKeys={calcFieldKeys}
+            initialExpanded={exp}
+          />
+        </ErrorBoundary>
+      );
+    }
+    return null;
+  };
+
+  const isBpm = showBpmTabs && card.type === "BusinessProcess";
+
+  // Tab indices differ based on BPM
+  const commentsIdx = isBpm ? 3 : 1;
+  const todosIdx = isBpm ? 4 : 2;
+  const stakeholdersIdx = isBpm ? 5 : 3;
+  const historyIdx = isBpm ? 6 : 4;
+
+  return (
+    <>
+      {beforeTabs}
+
+      <Tabs
+        value={tab}
+        onChange={(_, v) => setTab(v)}
+        variant="scrollable"
+        scrollButtons="auto"
+        sx={{ borderBottom: 1, borderColor: "divider", mb: 2 }}
+      >
+        <Tab label="Card" />
+        {isBpm && <Tab label="Process Flow" />}
+        {isBpm && <Tab label="Assessments" />}
+        <Tab label="Comments" />
+        <Tab label="Todos" />
+        <Tab label="Stakeholders" />
+        <Tab label="History" />
+      </Tabs>
+
+      {tab === 0 && (
+        <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+          {sectionOrder.map(renderSection)}
+        </Box>
+      )}
+      {isBpm && tab === 1 && (
+        <ErrorBoundary label="Process Flow">
+          <MuiCard>
+            <CardContent>
+              <ProcessFlowTab
+                processId={card.id}
+                processName={card.name}
+                initialSubTab={initialSubTab}
+              />
+            </CardContent>
+          </MuiCard>
+        </ErrorBoundary>
+      )}
+      {isBpm && tab === 2 && (
+        <ErrorBoundary label="Assessments">
+          <MuiCard>
+            <CardContent>
+              <ProcessAssessmentPanel processId={card.id} />
+            </CardContent>
+          </MuiCard>
+        </ErrorBoundary>
+      )}
+      {tab === commentsIdx && (
+        <ErrorBoundary label="Comments">
+          <MuiCard>
+            <CardContent>
+              <CommentsTab
+                fsId={card.id}
+                canCreateComments={perms.can_create_comments}
+                canManageComments={perms.can_manage_comments}
+              />
+            </CardContent>
+          </MuiCard>
+        </ErrorBoundary>
+      )}
+      {tab === todosIdx && (
+        <ErrorBoundary label="Todos">
+          <MuiCard>
+            <CardContent>
+              <TodosTab fsId={card.id} />
+            </CardContent>
+          </MuiCard>
+        </ErrorBoundary>
+      )}
+      {tab === stakeholdersIdx && (
+        <ErrorBoundary label="Stakeholders">
+          <MuiCard>
+            <CardContent>
+              <StakeholdersTab
+                card={card}
+                onRefresh={() =>
+                  api.get<Card>(`/cards/${card.id}`).then(onCardUpdate)
+                }
+                canManageStakeholders={perms.can_manage_stakeholders}
+              />
+            </CardContent>
+          </MuiCard>
+        </ErrorBoundary>
+      )}
+      {tab === historyIdx && (
+        <ErrorBoundary label="History">
+          <MuiCard>
+            <CardContent>
+              <HistoryTab fsId={card.id} />
+            </CardContent>
+          </MuiCard>
+        </ErrorBoundary>
+      )}
+    </>
+  );
+}

@@ -5,6 +5,14 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.8.0] - 2026-02-23
+
+### Added
+- All reports and BPM pages now open card details in a right-side panel instead of navigating away, so users can browse cards without losing their current view
+
+### Changed
+- Extracted shared card detail rendering into a reusable `CardDetailContent` component used by both the full card page and the new side panel
+
 ## [0.7.6] - 2026-02-23
 
 ### Fixed
