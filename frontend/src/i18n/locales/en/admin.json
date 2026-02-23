@@ -1,6 +1,5 @@
 {
   "page.title": "Admin",
-
   "surveys.respond.title": "Survey Response",
   "surveys.respond.submit": "Submit Response",
   "surveys.respond.submitting": "Submitting...",
@@ -19,13 +18,11 @@
   "surveys.respond.proposeChange": "I want to propose a change",
   "surveys.respond.error.loadFailed": "Failed to load survey",
   "surveys.respond.error.submitFailed": "Failed to submit",
-
   "surveys.my.title": "My Surveys",
   "surveys.my.empty": "No pending surveys. You're all caught up!",
   "surveys.my.pending": "{{count}} pending",
   "surveys.my.respond": "Respond",
   "surveys.my.error.loadFailed": "Failed to load surveys",
-
   "metamodel.title": "Metamodel Configuration",
   "metamodel.tabs.cardTypes": "Card Types",
   "metamodel.tabs.relationTypes": "Relation Types",
@@ -62,7 +59,6 @@
   "metamodel.deleteRelHasInstances": "This relation type has <strong>{{count}}</strong> relation instance(s) linking cards together. Deleting it will permanently remove all of them.",
   "metamodel.deleteRelBuiltInHidden": "This built-in relation type will be hidden and can be restored later.",
   "metamodel.deleteRelNoInstances": "This relation type has no instances and will be permanently deleted.",
-
   "metamodel.typeDrawer.typeProperties": "Type Properties",
   "metamodel.typeDrawer.label": "Label",
   "metamodel.typeDrawer.category": "Category",
@@ -102,7 +98,6 @@
   "metamodel.typeDrawer.sectionNoFields": "This section has no fields. It can be safely deleted.",
   "metamodel.typeDrawer.sectionUsedByCards": "<strong>{{count}} card(s)</strong> have data for fields in this section. Deleting it will permanently remove that data from all of them.",
   "metamodel.typeDrawer.sectionSafeToDelete": "No cards have data for fields in this section. It can be safely deleted.",
-
   "metamodel.fieldEditor.editField": "Edit Field",
   "metamodel.fieldEditor.addField": "Add Field",
   "metamodel.fieldEditor.calculatedInfo": "This field is managed by a calculation. The field type is locked to prevent breaking the formula. Labels and colors can be changed freely.",
@@ -120,7 +115,6 @@
   "metamodel.fieldEditor.checkingUsage": "Checking usage...",
   "metamodel.fieldEditor.optionUsedByCards": "\"{{label}}\" is used by {{count}} card(s). Their value will be cleared on save.",
   "metamodel.fieldEditor.optionSafeToRemove": "No cards use \"{{label}}\". Safe to remove.",
-
   "metamodel.stakeholderPanel.title": "Stakeholder Roles",
   "metamodel.stakeholderPanel.showArchived": "Show archived",
   "metamodel.stakeholderPanel.noRoles": "No stakeholder roles defined.",
@@ -146,9 +140,7 @@
   "metamodel.stakeholderPanel.failedToUpdate": "Failed to update role",
   "metamodel.stakeholderPanel.failedToArchive": "Failed to archive role",
   "metamodel.stakeholderPanel.failedToRestore": "Failed to restore role",
-
   "metamodel.graph.noTypes": "No visible types to display. Create some card types first.",
-
   "tags.title": "Tag Management",
   "tags.newGroup": "New Tag Group",
   "tags.addTag": "Add Tag",
@@ -156,7 +148,6 @@
   "tags.groupName": "Group Name",
   "tags.tagName": "Tag Name",
   "tags.color": "Color",
-
   "roles.title": "Role Management",
   "roles.addRole": "Add Role",
   "roles.showArchived": "Show archived",
@@ -187,7 +178,6 @@
   "roles.archiveRestoreHint": "You can restore an archived role at any time.",
   "roles.archivedSuccess": "Role archived",
   "roles.restoredSuccess": "Role restored",
-
   "users.title": "User Management",
   "users.tabs.users": "Users",
   "users.tabs.roles": "Roles",
@@ -235,7 +225,6 @@
   "users.edit.saving": "Saving...",
   "users.edit.saveChanges": "Save Changes",
   "users.edit.requiredFields": "Email and display name are required.",
-
   "settings.title": "Settings",
   "settings.tabs.general": "General",
   "settings.tabs.eol": "EOL Search",
@@ -307,7 +296,6 @@
   "settings.smtp.sending": "Sending...",
   "settings.smtp.testSent": "Test email sent to {{email}}",
   "settings.smtp.savedSuccess": "Email settings saved",
-
   "calculations.title": "Calculated Fields",
   "calculations.filterByType": "Filter by type",
   "calculations.allTypes": "All types",
@@ -358,7 +346,6 @@
   "calculations.deleteCalculation": "Delete Calculation",
   "calculations.deleteConfirm": "Are you sure you want to delete \"{{name}}\"? This cannot be undone.",
   "calculations.recalcResult": "Processed {{cards}} cards: {{succeeded}} succeeded, {{failed}} failed",
-
   "eol.description": "Automatically find End-of-Life data for your IT Components and Applications by fuzzy-matching their names against endoflife.date. Select a product match, choose the version, and bulk-link them.",
   "eol.cardType": "Card Type",
   "eol.itComponent": "IT Component",
@@ -393,7 +380,6 @@
   "eol.status.endOfLife": "End of Life",
   "eol.status.approachingEol": "Approaching EOL",
   "eol.status.supported": "Supported",
-
   "surveyBuilder.editSurvey": "Edit Survey",
   "surveyBuilder.newSurvey": "New Survey",
   "surveyBuilder.backTooltip": "Back to Surveys",
@@ -458,7 +444,6 @@
   "surveyBuilder.validation.typeRequired": "Please select a target card type",
   "surveyBuilder.validation.rolesRequired": "Please select at least one stakeholder role",
   "surveyBuilder.validation.fieldsRequired": "Please select at least one field",
-
   "surveysAdmin.title": "Surveys",
   "surveysAdmin.newSurvey": "New Survey",
   "surveysAdmin.tabs.all": "All ({{count}})",
@@ -471,7 +456,6 @@
   "surveysAdmin.byCreator": "By {{name}}",
   "surveysAdmin.sentDate": "Sent {{date}}",
   "surveysAdmin.closedDate": "Closed {{date}}",
-
   "surveyResults.notFound": "Survey not found",
   "surveyResults.backToSurveys": "Back to Surveys",
   "surveyResults.closeSurvey": "Close Survey",
@@ -507,7 +491,6 @@
   "surveyResults.detail.applyChanges": "Apply Changes",
   "surveyResults.boolTrue": "Yes",
   "surveyResults.boolFalse": "No",
-
   "cardLayout.title": "Card Layout",
   "cardLayout.dragSections": "Drag sections to reorder...",
   "cardLayout.collapsedByDefault": "Collapsed by default",
@@ -533,7 +516,6 @@
   "cardLayout.builtinSections.lifecycle": "Lifecycle",
   "cardLayout.builtinSections.hierarchy": "Hierarchy",
   "cardLayout.builtinSections.relations": "Relations",
-
   "webPortals.description": "Web portals are public-facing pages that display cards to end users without requiring authentication. Configure which card type to display, apply filters, and customize the card layout.",
   "webPortals.createPortal": "Create Portal",
   "webPortals.noPortals": "No web portals yet",
@@ -571,7 +553,6 @@
   "webPortals.builtInProps.subscribers": "Team / Stakeholders",
   "webPortals.builtInProps.dataQuality": "Data Quality",
   "webPortals.builtInProps.approvalStatus": "Approval Status",
-
   "servicenow.tabs.connections": "Connections",
   "servicenow.tabs.mappings": "Mappings",
   "servicenow.tabs.syncDashboard": "Sync Dashboard",
@@ -661,5 +642,6 @@
   "servicenow.sync.staged.status": "Status",
   "servicenow.sync.staged.cardId": "Card ID",
   "servicenow.sync.staged.changes": "Changes",
-  "servicenow.sync.staged.error": "Error"
+  "servicenow.sync.staged.error": "Error",
+  "calculations.test": "Test"
 }

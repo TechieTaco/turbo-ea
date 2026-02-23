@@ -191,18 +191,6 @@ export function getTemplateSections(): TemplateSectionDef[] {
   ];
 }
 
-/**
- * @deprecated Use getTemplateSections() instead for translated labels.
- * Kept as a lazy-initialized getter for backward compatibility.
- */
-export const SOAW_TEMPLATE_SECTIONS: TemplateSectionDef[] = new Proxy([] as TemplateSectionDef[], {
-  get(target, prop, receiver) {
-    const sections = getTemplateSections();
-    if (prop === Symbol.iterator) return sections[Symbol.iterator].bind(sections);
-    return Reflect.get(sections, prop, receiver);
-  },
-});
-
 /** Returns the TOGAF ADM phases with translated labels. */
 export function getTogafPhases(): { key: string; label: string }[] {
   return [
@@ -218,20 +206,6 @@ export function getTogafPhases(): { key: string; label: string }[] {
   ];
 }
 
-/**
- * @deprecated Use getTogafPhases() instead for translated labels.
- * Kept as a lazy-initialized getter for backward compatibility.
- */
-export const TOGAF_PHASES: { key: string; label: string }[] = new Proxy(
-  [] as { key: string; label: string }[],
-  {
-    get(target, prop, receiver) {
-      const phases = getTogafPhases();
-      if (prop === Symbol.iterator) return phases[Symbol.iterator].bind(phases);
-      return Reflect.get(phases, prop, receiver);
-    },
-  },
-);
 
 /** Build the default (empty) sections record from the template. */
 export function buildDefaultSections(): Record<

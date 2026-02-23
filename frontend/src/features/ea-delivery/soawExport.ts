@@ -16,8 +16,8 @@ import {
 } from "docx";
 import { saveAs } from "file-saver";
 import {
-  SOAW_TEMPLATE_SECTIONS,
-  TOGAF_PHASES,
+  getTemplateSections,
+  getTogafPhases,
   type TemplateSectionDef,
 } from "./soawTemplate";
 import type { SoAWDocumentInfo, SoAWVersionEntry, SoAWSectionData, SoAWSignatory } from "@/types";
@@ -434,7 +434,7 @@ export async function exportToDocx(
       children.push(
         buildDocxTable(
           [t("export.phase"), t("export.relevantArtefacts")],
-          TOGAF_PHASES.map((p) => [p.label, data.togaf_data?.[p.key] ?? ""]),
+          getTogafPhases().map((p) => [p.label, data.togaf_data?.[p.key] ?? ""]),
         ),
       );
     }
@@ -466,7 +466,7 @@ export async function exportToDocx(
     }
   };
 
-  for (const def of SOAW_TEMPLATE_SECTIONS) {
+  for (const def of getTemplateSections()) {
     const data = sections[def.id] ?? { content: "", hidden: false };
     addSectionContent(def, data);
   }
@@ -475,7 +475,7 @@ export async function exportToDocx(
   for (const cs of customSections) {
     if (
       !cs.insertAfter ||
-      !SOAW_TEMPLATE_SECTIONS.some((d) => d.id === cs.insertAfter)
+      !getTemplateSections().some((d) => d.id === cs.insertAfter)
     ) {
       children.push(
         new Paragraph({
@@ -585,7 +585,7 @@ function isSectionEmpty(def: TemplateSectionDef, data: SoAWSectionData): boolean
   }
   if (def.type === "togaf_phases") {
     if (!data.togaf_data) return true;
-    return TOGAF_PHASES.every((p) => !(data.togaf_data?.[p.key] ?? "").trim());
+    return getTogafPhases().every((p) => !(data.togaf_data?.[p.key] ?? "").trim());
   }
   return false;
 }
@@ -676,7 +676,7 @@ export function buildPreviewBody(
       const phaseLabel = t("export.phase");
       const artefactsLabel = t("export.relevantArtefacts");
       html += `<table><tr><th>${phaseLabel}</th><th>${artefactsLabel}</th></tr>`;
-      for (const p of TOGAF_PHASES) {
+      for (const p of getTogafPhases()) {
         html += `<tr><td>${p.label}</td><td>${data.togaf_data[p.key] || "\u2014"}</td></tr>`;
       }
       html += `</table>`;
@@ -692,14 +692,14 @@ export function buildPreviewBody(
     }
   };
 
-  for (const def of SOAW_TEMPLATE_SECTIONS) {
+  for (const def of getTemplateSections()) {
     renderSection(def, sections[def.id] ?? { content: "", hidden: false });
   }
 
   // Trailing custom sections
   const trailingCustomBadge = t("export.custom");
   for (const cs of customSections) {
-    if (!cs.insertAfter || !SOAW_TEMPLATE_SECTIONS.some((d) => d.id === cs.insertAfter)) {
+    if (!cs.insertAfter || !getTemplateSections().some((d) => d.id === cs.insertAfter)) {
       html += `<h3><span class="custom-badge">${trailingCustomBadge}</span>${cs.title}</h3>`;
       html += cs.content || "";
     }

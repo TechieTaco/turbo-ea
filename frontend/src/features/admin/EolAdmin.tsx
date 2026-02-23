@@ -171,6 +171,7 @@ function CyclePickerDialog({
 // ── Main Admin Page ──────────────────────────────────────────────
 
 export default function EolAdmin() {
+  const { t } = useTranslation(["admin", "common"]);
   const [typeKey, setTypeKey] = useState<"Application" | "ITComponent">("ITComponent");
   const [results, setResults] = useState<MassEolResult[]>([]);
   const [loading, setLoading] = useState(false);
@@ -197,7 +198,7 @@ export default function EolAdmin() {
       );
       setResults(res);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to search");
+      setError(e instanceof Error ? e.message : t("eol.searchError"));
     } finally {
       setLoading(false);
     }
@@ -247,7 +248,7 @@ export default function EolAdmin() {
       // Refresh results
       await handleSearch();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to save");
+      setError(e instanceof Error ? e.message : t("eol.saveError"));
     } finally {
       setSaving(false);
     }
@@ -269,9 +270,7 @@ export default function EolAdmin() {
   return (
     <Box sx={{ maxWidth: 1100, mx: "auto" }}>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-        Automatically find End-of-Life data for your IT Components and
-        Applications by fuzzy-matching their names against endoflife.date.
-        Select a product match, choose the version, and bulk-link them.
+        {t("eol.description")}
       </Typography>
 
       {/* Controls */}
@@ -279,10 +278,10 @@ export default function EolAdmin() {
         <CardContent>
           <Box sx={{ display: "flex", gap: 2, alignItems: "flex-end", flexWrap: "wrap" }}>
             <FormControl size="small" sx={{ minWidth: 200 }}>
-              <InputLabel>Card Type</InputLabel>
+              <InputLabel>{t("common:labels.type")}</InputLabel>
               <Select
                 value={typeKey}
-                label="Card Type"
+                label={t("common:labels.type")}
                 onChange={(e) =>
                   setTypeKey(e.target.value as "Application" | "ITComponent")
                 }
@@ -290,13 +289,13 @@ export default function EolAdmin() {
                 <MenuItem value="ITComponent">
                   <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                     <MaterialSymbol icon="memory" size={18} color="#d29270" />
-                    IT Component
+                    {t("eol.itComponent")}
                   </Box>
                 </MenuItem>
                 <MenuItem value="Application">
                   <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                     <MaterialSymbol icon="apps" size={18} color="#0f7eb5" />
-                    Application
+                    {t("eol.application")}
                   </Box>
                 </MenuItem>
               </Select>
@@ -313,23 +312,23 @@ export default function EolAdmin() {
                 )
               }
             >
-              {loading ? "Searching..." : "Search EOL Data"}
+              {loading ? t("eol.searching") : t("eol.searchEolData")}
             </Button>
             {results.length > 0 && (
               <FormControl size="small" sx={{ minWidth: 140 }}>
-                <InputLabel>Filter</InputLabel>
+                <InputLabel>{t("eol.filter")}</InputLabel>
                 <Select
                   value={filter}
-                  label="Filter"
+                  label={t("eol.filter")}
                   onChange={(e) =>
                     setFilter(e.target.value as "all" | "unlinked" | "linked")
                   }
                 >
-                  <MenuItem value="all">All ({results.length})</MenuItem>
+                  <MenuItem value="all">{t("eol.filterAll", { count: results.length })}</MenuItem>
                   <MenuItem value="unlinked">
-                    Unlinked ({unlinkedCount})
+                    {t("eol.filterUnlinked", { count: unlinkedCount })}
                   </MenuItem>
-                  <MenuItem value="linked">Linked ({linkedCount})</MenuItem>
+                  <MenuItem value="linked">{t("eol.filterLinked", { count: linkedCount })}</MenuItem>
                 </Select>
               </FormControl>
             )}

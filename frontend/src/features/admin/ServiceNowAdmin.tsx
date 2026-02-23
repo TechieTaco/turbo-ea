@@ -138,7 +138,7 @@ function ConnectionsTab() {
       setTestResult({ id, ...res });
       load();
     } catch (e) {
-      setTestResult({ id, success: false, message: e instanceof Error ? e.message : "Test failed" });
+      setTestResult({ id, success: false, message: e instanceof Error ? e.message : t("common:errors.generic") });
     } finally {
       setTesting(null);
     }
@@ -166,7 +166,7 @@ function ConnectionsTab() {
           startIcon={<MaterialSymbol icon="add" size={18} />}
           onClick={() => { setEditing(null); setDialogOpen(true); }}
         >
-          Add Connection
+          {t("servicenow.connections.addConnection")}
         </Button>
       </Box>
 
@@ -175,7 +175,7 @@ function ConnectionsTab() {
           <CardContent sx={{ textAlign: "center", py: 6 }}>
             <MaterialSymbol icon="cloud_off" size={48} color="#ccc" />
             <Typography color="text.secondary" sx={{ mt: 1 }}>
-              No ServiceNow connections configured yet
+              {t("servicenow.connections.noConnections")}
             </Typography>
           </CardContent>
         </Card>
@@ -199,17 +199,17 @@ function ConnectionsTab() {
                   />
                   {conn.test_status && (
                     <Chip
-                      label={conn.test_status === "success" ? "Connected" : "Failed"}
+                      label={conn.test_status === "success" ? t("servicenow.connections.connected") : t("servicenow.connections.failed")}
                       size="small"
                       color={conn.test_status === "success" ? "success" : "error"}
                       sx={{ fontWeight: 600, fontSize: "0.7rem" }}
                     />
                   )}
                   {!conn.is_active && (
-                    <Chip label="Inactive" size="small" color="default" />
+                    <Chip label={t("servicenow.connections.inactive")} size="small" color="default" />
                   )}
                   <Chip
-                    label={`${conn.mapping_count} mapping${conn.mapping_count !== 1 ? "s" : ""}`}
+                    label={t("servicenow.connections.mappingCount", { count: conn.mapping_count })}
                     size="small"
                     variant="outlined"
                     sx={{ fontSize: "0.7rem" }}
@@ -431,7 +431,7 @@ function MappingsTab() {
       setMappings(maps);
       setError("");
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load mappings");
+      setError(e instanceof Error ? e.message : t("common:errors.generic"));
     } finally {
       setLoading(false);
     }
@@ -454,7 +454,7 @@ function MappingsTab() {
       await api.patch(`/servicenow/mappings/${mapping.id}`, { is_active: !mapping.is_active });
       load();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to toggle");
+      setError(e instanceof Error ? e.message : t("common:errors.generic"));
     }
   };
 
@@ -960,7 +960,7 @@ function SyncDashboardTab() {
       setRuns(syncRuns);
       setError("");
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load");
+      setError(e instanceof Error ? e.message : t("common:errors.generic"));
     } finally {
       setLoading(false);
     }
@@ -977,7 +977,7 @@ function SyncDashboardTab() {
       await api.post(endpoint);
       load();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Sync failed");
+      setError(e instanceof Error ? e.message : t("common:errors.generic"));
     } finally {
       setSyncing(null);
     }
@@ -990,7 +990,7 @@ function SyncDashboardTab() {
       const res = await api.get<SnowStagedRecord[]>(`/servicenow/sync/runs/${run.id}/staged`);
       setStagedRecords(res);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load staged records");
+      setError(e instanceof Error ? e.message : t("common:errors.generic"));
     } finally {
       setStagedLoading(false);
     }
