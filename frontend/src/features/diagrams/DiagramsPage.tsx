@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { useTranslation } from "react-i18next";
+import { Trans, useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import MuiCard from "@mui/material/Card";
@@ -643,7 +643,12 @@ export default function DiagramsPage() {
         <DialogTitle>{t("gallery.delete.title")}</DialogTitle>
         <DialogContent>
           <Typography>
-            {t("gallery.delete.confirm", { name: deleteDiagram?.name })}
+            <Trans
+              i18nKey="gallery.delete.confirm"
+              ns="diagrams"
+              values={{ name: deleteDiagram?.name }}
+              components={{ strong: <strong /> }}
+            />
           </Typography>
         </DialogContent>
         <DialogActions>

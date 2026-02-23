@@ -446,7 +446,7 @@ export default function RolesAdmin() {
                     secondary={
                       <Typography variant="caption" color="text.secondary">
                         {role.user_count !== undefined
-                          ? t("roles.usersAssigned", { count: role.user_count })
+                          ? t("roles.userCount", { count: role.user_count })
                           : role.key}
                       </Typography>
                     }
