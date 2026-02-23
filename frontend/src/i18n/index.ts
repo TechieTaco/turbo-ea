@@ -218,6 +218,7 @@ i18n
       },
     },
     fallbackLng: "en",
+    returnEmptyString: false, // treat "" as missing → fall back to English
     defaultNS: "common",
     interpolation: {
       escapeValue: false, // React already escapes

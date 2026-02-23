@@ -1,15 +1,15 @@
 {
-  "required": "",
-  "invalidEmail": "",
-  "tooLong": "",
-  "tooShort": "",
-  "invalidUrl": "",
-  "key.mustStartWithLetter": "",
-  "key.noUnderscores": "",
-  "key.noSpaces": "",
-  "key.noAccents": "",
-  "key.lettersAndDigitsOnly": "",
-  "key.cannotChange": "",
-  "key.valid": "",
-  "key.hint": ""
+  "required": "Questo campo \u00e8 obbligatorio",
+  "invalidEmail": "Indirizzo e-mail non valido",
+  "tooLong": "Troppo lungo (massimo {{max}} caratteri)",
+  "tooShort": "Troppo corto (minimo {{min}} caratteri)",
+  "invalidUrl": "URL non valido",
+  "key.mustStartWithLetter": "Deve iniziare con una lettera",
+  "key.noUnderscores": "I trattini bassi non sono consentiti \u2014 utilizzare il camelCase",
+  "key.noSpaces": "Gli spazi non sono consentiti \u2014 utilizzare il camelCase",
+  "key.noAccents": "I caratteri accentati non sono consentiti",
+  "key.lettersAndDigitsOnly": "Sono consentiti solo lettere e cifre (camelCase)",
+  "key.cannotChange": "La chiave non pu\u00f2 essere modificata dopo la creazione",
+  "key.valid": "Chiave valida",
+  "key.hint": "Solo lettere e cifre, camelCase (es. businessFit)"
 }
