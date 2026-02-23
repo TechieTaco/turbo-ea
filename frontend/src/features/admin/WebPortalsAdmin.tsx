@@ -609,9 +609,9 @@ export default function WebPortalsAdmin() {
 
                   {allFields.map((field, idx) => {
                     const fKey = `field:${field.key}`;
-                    const t = toggles[fKey];
-                    const cardChecked = t ? t.card : idx < 3;
-                    const detailChecked = t ? t.detail : true;
+                    const tog = toggles[fKey];
+                    const cardChecked = tog ? tog.card : idx < 3;
+                    const detailChecked = tog ? tog.detail : true;
                     return (
                       <TableRow key={fKey}>
                         <TableCell>
@@ -666,16 +666,16 @@ export default function WebPortalsAdmin() {
                           borderBottom: "none",
                         }}
                       >
-                        Related Items
+                        {t("webPortals.relatedItems")}
                       </TableCell>
                     </TableRow>
                   )}
 
                   {applicableRelTypes.map((rt) => {
                     const rKey = `rel:${rt.key}`;
-                    const t = toggles[rKey];
-                    const cardChecked = t ? t.card : false;
-                    const detailChecked = t ? t.detail : false;
+                    const tog = toggles[rKey];
+                    const cardChecked = tog ? tog.card : false;
+                    const detailChecked = tog ? tog.detail : false;
                     const verb =
                       rt.source_type_key === cardType
                         ? rt.label
@@ -745,10 +745,10 @@ export default function WebPortalsAdmin() {
             label={
               <Box>
                 <Typography variant="body1" fontWeight={500}>
-                  Published
+                  {t("webPortals.published")}
                 </Typography>
                 <Typography variant="caption" color="text.secondary">
-                  Make this portal publicly accessible without authentication
+                  {t("webPortals.publishedHint")}
                 </Typography>
               </Box>
             }
@@ -763,10 +763,10 @@ export default function WebPortalsAdmin() {
             label={
               <Box>
                 <Typography variant="body1" fontWeight={500}>
-                  Show Logo
+                  {t("webPortals.showLogo")}
                 </Typography>
                 <Typography variant="caption" color="text.secondary">
-                  Display the application logo in the portal header
+                  {t("webPortals.showLogoHint")}
                 </Typography>
               </Box>
             }
@@ -774,13 +774,13 @@ export default function WebPortalsAdmin() {
           />
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDialogOpen(false)}>Cancel</Button>
+          <Button onClick={() => setDialogOpen(false)}>{t("common:actions.cancel")}</Button>
           <Button
             variant="contained"
             onClick={handleSave}
             disabled={!name.trim() || !slug.trim() || !cardType}
           >
-            {editingPortal ? "Save Changes" : "Create"}
+            {editingPortal ? t("webPortals.saveChanges") : t("common:actions.create")}
           </Button>
         </DialogActions>
       </Dialog>
@@ -791,21 +791,20 @@ export default function WebPortalsAdmin() {
         onClose={() => setDeleteConfirm(null)}
         maxWidth="xs"
       >
-        <DialogTitle>Delete Portal</DialogTitle>
+        <DialogTitle>{t("webPortals.deletePortal")}</DialogTitle>
         <DialogContent>
           <Typography>
-            Are you sure you want to delete this portal? This action cannot be
-            undone.
+            {t("webPortals.deleteConfirm")}
           </Typography>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDeleteConfirm(null)}>Cancel</Button>
+          <Button onClick={() => setDeleteConfirm(null)}>{t("common:actions.cancel")}</Button>
           <Button
             variant="contained"
             color="error"
             onClick={() => deleteConfirm && handleDelete(deleteConfirm)}
           >
-            Delete
+            {t("common:actions.delete")}
           </Button>
         </DialogActions>
       </Dialog>

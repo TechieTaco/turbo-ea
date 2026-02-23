@@ -45,11 +45,11 @@ import MaterialSymbol from "@/components/MaterialSymbol";
 // ── Constants ────────────────────────────────────────────────────
 
 const BUILTIN_SECTIONS: { key: string; labelKey: string; icon: string; onlyIf?: (ct: CardType) => boolean }[] = [
-  { key: "description", labelKey: "cardLayout.sections.description", icon: "description" },
-  { key: "eol", labelKey: "cardLayout.sections.eol", icon: "update" },
-  { key: "lifecycle", labelKey: "cardLayout.sections.lifecycle", icon: "timeline" },
-  { key: "hierarchy", labelKey: "cardLayout.sections.hierarchy", icon: "account_tree", onlyIf: (ct) => ct.has_hierarchy },
-  { key: "relations", labelKey: "cardLayout.sections.relations", icon: "hub" },
+  { key: "description", labelKey: "cardLayout.builtinSections.description", icon: "description" },
+  { key: "eol", labelKey: "cardLayout.builtinSections.eol", icon: "update" },
+  { key: "lifecycle", labelKey: "cardLayout.builtinSections.lifecycle", icon: "timeline" },
+  { key: "hierarchy", labelKey: "cardLayout.builtinSections.hierarchy", icon: "account_tree", onlyIf: (ct) => ct.has_hierarchy },
+  { key: "relations", labelKey: "cardLayout.builtinSections.relations", icon: "hub" },
 ];
 
 const DEFAULT_ORDER = ["description", "eol", "lifecycle", "__custom__", "hierarchy", "relations"];
@@ -868,14 +868,14 @@ function SortableSectionItem({
         <Tooltip title={t("cardLayout.collapsedByDefault")}>
           <FormControlLabel
             control={<Switch size="small" checked={cfg.defaultExpanded === false} disabled={!!cfg.hidden} onChange={onToggleCollapsed} />}
-            label={<Typography variant="caption" color="text.secondary">{t("cardLayout.collapsed")}</Typography>}
+            label={<Typography variant="caption" color="text.secondary">{t("cardLayout.collapsedByDefault")}</Typography>}
             sx={{ mr: 0, ml: 0 }}
           />
         </Tooltip>
-        <Tooltip title={t("cardLayout.hiddenFromCardDetail")}>
+        <Tooltip title={t("cardLayout.hiddenFromDetail")}>
           <FormControlLabel
             control={<Switch size="small" checked={!!cfg.hidden} onChange={onToggleHidden} />}
-            label={<Typography variant="caption" color="text.secondary">{t("cardLayout.hidden")}</Typography>}
+            label={<Typography variant="caption" color="text.secondary">{t("cardLayout.hiddenFromDetail")}</Typography>}
             sx={{ mr: 0, ml: 0 }}
           />
         </Tooltip>
@@ -990,7 +990,7 @@ export default function CardLayoutEditor({
         {t("cardLayout.title")}
       </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-        {t("cardLayout.description")}
+        {t("cardLayout.dragSections")}
       </Typography>
 
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleSectionDragEnd}>

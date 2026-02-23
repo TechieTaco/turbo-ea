@@ -137,6 +137,7 @@
   "metamodel.stakeholderPanel.labelPlaceholder": "e.g. Data Steward",
   "metamodel.stakeholderPanel.descriptionLabel": "Description",
   "metamodel.stakeholderPanel.colorLabel": "Color",
+  "metamodel.stakeholderPanel.saving": "Saving...",
   "metamodel.stakeholderPanel.creating": "Creating...",
   "metamodel.stakeholderPanel.addRole": "Add Role",
   "metamodel.stakeholderPanel.failedToFetchRoles": "Failed to fetch stakeholder roles",
