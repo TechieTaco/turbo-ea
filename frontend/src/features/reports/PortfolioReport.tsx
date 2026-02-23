@@ -335,19 +335,37 @@ function GroupCard({
   group,
   colorBy,
   selectFields,
-  totalApps,
   onGroupClick,
   onAppClick,
 }: {
   group: GroupData;
   colorBy: string;
   selectFields: FieldDef[];
-  totalApps: number;
   onGroupClick: (g: GroupData) => void;
   onAppClick: (id: string) => void;
 }) {
   const count = group.apps.length;
-  const pct = totalApps > 0 ? Math.round((count / totalApps) * 100) : 0;
+
+  /* Build color-by distribution for the stacked bar */
+  const colorSegments = useMemo(() => {
+    if (!colorBy || count === 0) return [];
+    const fd = selectFields.find((f) => f.key === colorBy);
+    const counts = new Map<string, { color: string; label: string; n: number }>();
+    for (const app of group.apps) {
+      const val = (app.attributes || {})[colorBy] as string | undefined;
+      const optKey = val || "__unset__";
+      if (!counts.has(optKey)) {
+        const opt = val ? fd?.options?.find((o) => o.key === val) : undefined;
+        counts.set(optKey, {
+          color: opt?.color || UNSET_COLOR,
+          label: opt?.label || "Not set",
+          n: 0,
+        });
+      }
+      counts.get(optKey)!.n += 1;
+    }
+    return Array.from(counts.values()).filter((s) => s.n > 0);
+  }, [colorBy, count, group.apps, selectFields]);
 
   return (
     <Box
@@ -397,30 +415,29 @@ function GroupCard({
             color: count > 0 ? "primary.dark" : "text.disabled",
           }}
         />
-        {pct > 0 && (
-          <Typography
-            variant="caption"
-            color="text.secondary"
-            sx={{ fontSize: "0.7rem" }}
-          >
-            {pct}%
-          </Typography>
-        )}
       </Box>
 
-      {/* Progress bar */}
-      {totalApps > 0 && (
-        <Box sx={{ height: 3, bgcolor: "action.selected" }}>
-          <Box
-            sx={{
-              height: "100%",
-              width: `${pct}%`,
-              bgcolor: "primary.main",
-              borderRadius: "0 2px 2px 0",
-              transition: "width 0.3s",
-            }}
-          />
-        </Box>
+      {/* Color-by stacked bar */}
+      {colorSegments.length > 0 && (
+        <Tooltip
+          title={colorSegments
+            .map((s) => `${s.label}: ${s.n} (${Math.round((s.n / count) * 100)}%)`)
+            .join(" · ")}
+        >
+          <Box sx={{ height: 6, display: "flex" }}>
+            {colorSegments.map((s, i) => (
+              <Box
+                key={i}
+                sx={{
+                  height: "100%",
+                  width: `${(s.n / count) * 100}%`,
+                  bgcolor: s.color,
+                  transition: "width 0.3s",
+                }}
+              />
+            ))}
+          </Box>
+        </Tooltip>
       )}
 
       {/* App chips */}
@@ -658,6 +675,27 @@ export default function PortfolioReport() {
     if (!data) return { groups: [], ungrouped: [] };
     return groupApps(filteredApps, groupByMode, selectFields, data.groupable_types);
   }, [filteredApps, groupByMode, selectFields, data]);
+
+  // Color-by distribution for the ungrouped section
+  const ungroupedColorSegments = useMemo(() => {
+    if (!colorBy || ungrouped.length === 0) return [];
+    const fd = selectFields.find((f) => f.key === colorBy);
+    const counts = new Map<string, { color: string; label: string; n: number }>();
+    for (const app of ungrouped) {
+      const val = (app.attributes || {})[colorBy] as string | undefined;
+      const optKey = val || "__unset__";
+      if (!counts.has(optKey)) {
+        const opt = val ? fd?.options?.find((o) => o.key === val) : undefined;
+        counts.set(optKey, {
+          color: opt?.color || UNSET_COLOR,
+          label: opt?.label || "Not set",
+          n: 0,
+        });
+      }
+      counts.get(optKey)!.n += 1;
+    }
+    return Array.from(counts.values()).filter((s) => s.n > 0);
+  }, [colorBy, ungrouped, selectFields]);
 
   // Summary stats
   const stats = useMemo(() => {
@@ -1133,7 +1171,6 @@ export default function PortfolioReport() {
                     group={g}
                     colorBy={colorBy}
                     selectFields={selectFields}
-                    totalApps={stats.total}
                     onGroupClick={handleGroupClick}
                     onAppClick={handleAppClick}
                   />
@@ -1192,6 +1229,31 @@ export default function PortfolioReport() {
                       }}
                     />
                   </Box>
+                  {/* Color-by stacked bar */}
+                  {ungroupedColorSegments.length > 0 && (
+                    <Tooltip
+                      title={ungroupedColorSegments
+                        .map(
+                          (s) =>
+                            `${s.label}: ${s.n} (${Math.round((s.n / ungrouped.length) * 100)}%)`,
+                        )
+                        .join(" · ")}
+                    >
+                      <Box sx={{ height: 6, display: "flex" }}>
+                        {ungroupedColorSegments.map((s, i) => (
+                          <Box
+                            key={i}
+                            sx={{
+                              height: "100%",
+                              width: `${(s.n / ungrouped.length) * 100}%`,
+                              bgcolor: s.color,
+                              transition: "width 0.3s",
+                            }}
+                          />
+                        ))}
+                      </Box>
+                    </Tooltip>
+                  )}
                   <Box
                     sx={{
                       p: 1.5,

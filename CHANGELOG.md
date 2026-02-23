@@ -5,6 +5,15 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.7.6] - 2026-02-23
+
+### Fixed
+- Portfolio report leaf cards no longer show an incorrect percentage when apps belong to multiple groups
+
+### Changed
+- Portfolio report leaf cards now show a 100% stacked bar chart illustrating the color-by distribution instead of a single-color percentage bar
+- Version is now only maintained in `/VERSION` — `pyproject.toml` and `package.json` use a static placeholder to avoid triggering unnecessary CI jobs
+
 ## [0.7.5] - 2026-02-22
 
 ### Changed
