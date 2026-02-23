@@ -313,19 +313,19 @@ export default function BpmDashboard() {
         </Box>
         <Tabs value={tabIndex} onChange={handleTabChange}>
           <Tab
-            label="Process Navigator"
+            label={t("tabs.processNavigator")}
             icon={<MaterialSymbol icon="account_tree" size={18} />}
             iconPosition="start"
             sx={{ minHeight: 42, textTransform: "none" }}
           />
           <Tab
-            label="Dashboard"
+            label={t("tabs.dashboard")}
             icon={<MaterialSymbol icon="dashboard" size={18} />}
             iconPosition="start"
             sx={{ minHeight: 42, textTransform: "none" }}
           />
           <Tab
-            label="Reports"
+            label={t("tabs.reports")}
             icon={<MaterialSymbol icon="analytics" size={18} />}
             iconPosition="start"
             sx={{ minHeight: 42, textTransform: "none" }}

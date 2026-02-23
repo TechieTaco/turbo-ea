@@ -640,17 +640,16 @@ export default function DiagramsPage() {
         maxWidth="xs"
         fullWidth
       >
-        <DialogTitle>Delete Diagram</DialogTitle>
+        <DialogTitle>{t("gallery.delete.title")}</DialogTitle>
         <DialogContent>
           <Typography>
-            Are you sure you want to delete{" "}
-            <strong>{deleteDiagram?.name}</strong>? This action cannot be undone.
+            {t("gallery.delete.confirm", { name: deleteDiagram?.name })}
           </Typography>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDeleteOpen(false)}>Cancel</Button>
+          <Button onClick={() => setDeleteOpen(false)}>{t("common:actions.cancel")}</Button>
           <Button variant="contained" color="error" onClick={handleDelete}>
-            Delete
+            {t("common:actions.delete")}
           </Button>
         </DialogActions>
       </Dialog>

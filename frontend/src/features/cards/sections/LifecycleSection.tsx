@@ -8,8 +8,9 @@ import TextField from "@mui/material/TextField";
 import Button from "@mui/material/Button";
 import IconButton from "@mui/material/IconButton";
 import { useTheme } from "@mui/material/styles";
+import { useTranslation } from "react-i18next";
 import MaterialSymbol from "@/components/MaterialSymbol";
-import { PHASES, PHASE_LABELS } from "@/features/cards/sections/cardDetailUtils";
+import { PHASES, getPhaseLabels } from "@/features/cards/sections/cardDetailUtils";
 import type { Card } from "@/types";
 
 // ── Section: Lifecycle ──────────────────────────────────────────

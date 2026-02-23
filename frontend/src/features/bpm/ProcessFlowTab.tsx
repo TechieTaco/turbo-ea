@@ -7,6 +7,7 @@
  *   Archived  — Previously published versions (read-only list with revision + archival date).
  */
 import { useState, useEffect, useCallback, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import DOMPurify from "dompurify";
 import Box from "@mui/material/Box";
@@ -65,6 +66,7 @@ const STATUS_COLORS: Record<string, "success" | "warning" | "info" | "default" |
 };
 
 export default function ProcessFlowTab({ processId, processName, initialSubTab }: Props) {
+  const { t } = useTranslation(["bpm", "common"]);
   const navigate = useNavigate();
   const [subTab, setSubTab] = useState(initialSubTab ?? 0);
 
@@ -213,9 +215,9 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
       await api.put(`/bpm/processes/${processId}/elements/${elementId}`, updates);
       const elemData = await api.get<ProcessElement[]>(`/bpm/processes/${processId}/elements`).catch(() => [] as ProcessElement[]);
       setElements(elemData);
-      setSnack("Element updated");
+      setSnack(t("flowTab.elementUpdated"));
     } catch {
-      setSnack("Failed to update element");
+      setSnack(t("flowTab.elementUpdateFailed"));
     }
     setEditingCell(null);
     setCardOptions([]);
@@ -403,10 +405,10 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
 
     if (!svgContent) return;
 
-    const title = processName || "Process Flow";
+    const title = processName || t("flowTab.processFlow");
     const watermarkText = version.approved_by_name
-      ? `Revision ${version.revision} \u2014 Approved by ${version.approved_by_name} on ${formatDate(version.approved_at)}`
-      : `Revision ${version.revision}`;
+      ? t("flowTab.revisionApprovedBy", { revision: version.revision, name: version.approved_by_name, date: formatDate(version.approved_at) })
+      : t("flowTab.revisionLabel", { revision: version.revision });
 
     const printWindow = window.open("", "_blank");
     if (!printWindow) return;
