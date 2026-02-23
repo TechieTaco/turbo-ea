@@ -253,7 +253,7 @@ export default function TypeDetailDrawer({
       });
       onRefresh();
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Failed to delete field");
+      setError(e instanceof Error ? e.message : t("metamodel.typeDrawer.failedToDeleteField"));
     }
   };
 
@@ -313,7 +313,7 @@ export default function TypeDetailDrawer({
       });
       onRefresh();
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Failed to delete section");
+      setError(e instanceof Error ? e.message : t("metamodel.typeDrawer.failedToDeleteSection"));
     }
   };
 
@@ -323,7 +323,7 @@ export default function TypeDetailDrawer({
       await api.patch(`/metamodel/types/${cardTypeKey.key}`, { is_hidden: !cardTypeKey.is_hidden });
       onRefresh();
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Failed to update visibility");
+      setError(e instanceof Error ? e.message : t("metamodel.typeDrawer.failedToUpdateVisibility"));
     }
   };
 
@@ -372,7 +372,7 @@ export default function TypeDetailDrawer({
           </Box>
         </Box>
         <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
-          <Tooltip title={cardTypeKey.is_hidden ? "Unhide type" : "Hide type"}>
+          <Tooltip title={cardTypeKey.is_hidden ? t("metamodel.typeDrawer.unhideType") : t("metamodel.typeDrawer.hideType")}>
             <IconButton size="small" onClick={handleToggleHidden}>
               <MaterialSymbol
                 icon={cardTypeKey.is_hidden ? "visibility_off" : "visibility"}
@@ -387,7 +387,7 @@ export default function TypeDetailDrawer({
             onClick={handleSaveHeader}
             disabled={saving}
           >
-            {saving ? "Saving..." : "Save"}
+            {saving ? t("metamodel.typeDrawer.saving") : t("common:actions.save")}
           </Button>
           <IconButton onClick={onClose}>
             <MaterialSymbol icon="close" size={22} />
@@ -405,21 +405,21 @@ export default function TypeDetailDrawer({
       <Box sx={{ flex: 1, overflow: "auto", px: 4, py: 3 }}>
         {/* -- Type Properties -- */}
         <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 2 }}>
-          Type Properties
+          {t("metamodel.typeDrawer.typeProperties")}
         </Typography>
         <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr", md: "1fr 1fr 1fr" }, gap: 2.5, mb: 1.5 }}>
           <TextField
             size="small"
-            label="Label"
+            label={t("metamodel.typeDrawer.label")}
             value={label}
             onChange={(e) => setLabel(e.target.value)}
           />
           <TextField
             size="small"
-            label="Category"
+            label={t("metamodel.typeDrawer.category")}
             value={category}
             onChange={(e) => setCategory(e.target.value)}
-            helperText="e.g. Business Architecture"
+            helperText={t("metamodel.typeDrawer.categoryHelper")}
           />
           <Box>
             <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, display: "block" }}>

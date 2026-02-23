@@ -705,7 +705,7 @@ export default function UsersAdmin() {
               size="small"
             />
             <TextField
-              label="Email"
+              label={t("users.columns.email")}
               type="email"
               value={editForm.email}
               onChange={(e) =>
@@ -717,7 +717,7 @@ export default function UsersAdmin() {
             />
             {!isEditingSsoUser && (
               <TextField
-                label="Password (leave blank to keep current)"
+                label={t("users.edit.passwordKeep")}
                 type="password"
                 value={editForm.password}
                 onChange={(e) =>
@@ -729,13 +729,13 @@ export default function UsersAdmin() {
             )}
             {isEditingSsoUser && (
               <Alert severity="info" variant="outlined">
-                This user authenticates via SSO. Password cannot be changed.
+                {t("users.edit.ssoPasswordHint")}
               </Alert>
             )}
             <FormControl fullWidth size="small">
-              <InputLabel>Role</InputLabel>
+              <InputLabel>{t("users.columns.role")}</InputLabel>
               <Select
-                label="Role"
+                label={t("users.columns.role")}
                 value={editForm.role}
                 onChange={(e) =>
                   setEditForm((p) => ({
@@ -779,7 +779,7 @@ export default function UsersAdmin() {
             </FormControl>
             {editForm.role && roleMap.get(editForm.role)?.is_archived && (
               <Alert severity="warning" variant="outlined">
-                This user has an archived role. Consider assigning a new active role.
+                {t("users.edit.archivedRoleWarning")}
               </Alert>
             )}
             {editError && <Alert severity="error">{editError}</Alert>}
@@ -787,14 +787,14 @@ export default function UsersAdmin() {
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
           <Button onClick={() => setEditOpen(false)} disabled={editSubmitting}>
-            Cancel
+            {t("common:actions.cancel")}
           </Button>
           <Button
             variant="contained"
             onClick={handleEdit}
             disabled={editSubmitting}
           >
-            {editSubmitting ? "Saving..." : "Save Changes"}
+            {editSubmitting ? t("users.edit.saving") : t("users.edit.saveChanges")}
           </Button>
         </DialogActions>
       </Dialog>
