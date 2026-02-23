@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState, useEffect, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Slider from "@mui/material/Slider";
 import Typography from "@mui/material/Typography";
@@ -71,6 +72,7 @@ export default function TimelineSlider({
   yearMarks,
   todayMs: todayProp,
 }: TimelineSliderProps) {
+  const { t } = useTranslation("common");
   const theme = useTheme();
   const primary = theme.palette.primary.main;
   const todayMs = useMemo(() => todayProp ?? Date.now(), [todayProp]);
@@ -108,7 +110,7 @@ export default function TimelineSlider({
       <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, mb: 0.5 }}>
         <MaterialSymbol icon="electric_bolt" size={16} color={accent} />
         <Typography variant="caption" sx={{ fontWeight: 700, color: accent }}>
-          Time Travel
+          {t("timelineSlider.timeTravel")}
         </Typography>
         {isAway && (
           <Chip
@@ -120,7 +122,7 @@ export default function TimelineSlider({
                 color={accent}
               />
             }
-            label={isPast ? "Past" : "Future"}
+            label={isPast ? t("timelineSlider.past") : t("timelineSlider.future")}
             sx={{
               height: 20,
               fontSize: "0.65rem",
@@ -146,7 +148,7 @@ export default function TimelineSlider({
         {isAway && (
           <Chip
             size="small"
-            label="Reset to today"
+            label={t("timelineSlider.resetToToday")}
             onClick={() => onChange(todayMs)}
             sx={{
               height: 22,

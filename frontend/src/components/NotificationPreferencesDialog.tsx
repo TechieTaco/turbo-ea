@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import Dialog from "@mui/material/Dialog";
 import DialogTitle from "@mui/material/DialogTitle";
 import DialogContent from "@mui/material/DialogContent";
@@ -18,13 +19,13 @@ import { api } from "@/api/client";
 import type { NotificationPreferences } from "@/types";
 
 const NOTIFICATION_TYPES = [
-  { key: "todo_assigned", label: "Todo Assigned" },
-  { key: "card_updated", label: "Card Updated" },
-  { key: "comment_added", label: "Comment Added" },
-  { key: "approval_status_changed", label: "Approval Status Changed" },
-  { key: "soaw_sign_requested", label: "SoAW Signature Requested" },
-  { key: "soaw_signed", label: "SoAW Signed" },
-  { key: "survey_request", label: "Survey Request", forceEmail: true },
+  { key: "todo_assigned", labelKey: "preferences.todoAssigned" },
+  { key: "card_updated", labelKey: "preferences.cardUpdated" },
+  { key: "comment_added", labelKey: "preferences.commentAdded" },
+  { key: "approval_status_changed", labelKey: "preferences.approvalStatusChanged" },
+  { key: "soaw_sign_requested", labelKey: "preferences.soawSignRequested" },
+  { key: "soaw_signed", labelKey: "preferences.soawSigned" },
+  { key: "survey_request", labelKey: "preferences.surveyRequest", forceEmail: true },
 ];
 
 interface Props {
@@ -33,6 +34,7 @@ interface Props {
 }
 
 export default function NotificationPreferencesDialog({ open, onClose }: Props) {
+  const { t } = useTranslation(["notifications", "common"]);
   const [prefs, setPrefs] = useState<NotificationPreferences | null>(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -45,7 +47,7 @@ export default function NotificationPreferencesDialog({ open, onClose }: Props) 
     api
       .get<NotificationPreferences>("/users/me/notification-preferences")
       .then(setPrefs)
-      .catch(() => setError("Failed to load preferences"))
+      .catch(() => setError(t("preferences.loadFailed")))
       .finally(() => setLoading(false));
   }, [open]);
 
@@ -68,7 +70,7 @@ export default function NotificationPreferencesDialog({ open, onClose }: Props) 
       await api.patch("/users/me/notification-preferences", prefs);
       onClose();
     } catch {
-      setError("Failed to save preferences");
+      setError(t("preferences.saveFailed"));
     } finally {
       setSaving(false);
     }
@@ -76,7 +78,7 @@ export default function NotificationPreferencesDialog({ open, onClose }: Props) 
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>Notification Preferences</DialogTitle>
+      <DialogTitle>{t("preferences.title")}</DialogTitle>
       <DialogContent>
         {error && (
           <Alert severity="error" sx={{ mb: 2 }}>
@@ -91,25 +93,25 @@ export default function NotificationPreferencesDialog({ open, onClose }: Props) 
         ) : prefs ? (
           <>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              Choose which notifications you want to receive and how.
+              {t("preferences.description")}
             </Typography>
 
             <Table size="small">
               <TableHead>
                 <TableRow>
-                  <TableCell sx={{ fontWeight: 600 }}>Notification</TableCell>
+                  <TableCell sx={{ fontWeight: 600 }}>{t("preferences.notification")}</TableCell>
                   <TableCell align="center" sx={{ fontWeight: 600 }}>
-                    In-App
+                    {t("preferences.inApp")}
                   </TableCell>
                   <TableCell align="center" sx={{ fontWeight: 600 }}>
-                    Email
+                    {t("preferences.email")}
                   </TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
                 {NOTIFICATION_TYPES.map((nt) => (
                   <TableRow key={nt.key}>
-                    <TableCell>{nt.label}</TableCell>
+                    <TableCell>{t(nt.labelKey)}</TableCell>
                     <TableCell align="center">
                       <Switch
                         size="small"
@@ -133,13 +135,13 @@ export default function NotificationPreferencesDialog({ open, onClose }: Props) 
         ) : null}
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>Cancel</Button>
+        <Button onClick={onClose}>{t("common:actions.cancel")}</Button>
         <Button
           variant="contained"
           onClick={handleSave}
           disabled={saving || !prefs}
         >
-          {saving ? "Saving..." : "Save"}
+          {saving ? t("preferences.saving") : t("common:actions.save")}
         </Button>
       </DialogActions>
     </Dialog>

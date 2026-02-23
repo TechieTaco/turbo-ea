@@ -12,6 +12,7 @@
  * Provides real-time visual feedback as the user types.
  */
 import { useState, useEffect, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import TextField from "@mui/material/TextField";
 import type { TextFieldProps } from "@mui/material/TextField";
 
@@ -34,13 +35,13 @@ export interface KeyInputProps
 
 function validate(value: string): string {
   if (!value) return "";
-  if (/^[0-9]/.test(value)) return "Must start with a letter";
-  if (/_/.test(value)) return "Underscores are not allowed — use camelCase";
-  if (/\s/.test(value)) return "Spaces are not allowed — use camelCase";
+  if (/^[0-9]/.test(value)) return "key.mustStartWithLetter";
+  if (/_/.test(value)) return "key.noUnderscores";
+  if (/\s/.test(value)) return "key.noSpaces";
   if (/[àáâãäåèéêëìíîïòóôõöùúûüýÿñçæœ]/i.test(value))
-    return "Accented characters are not allowed";
+    return "key.noAccents";
   if (!KEY_PATTERN.test(value))
-    return "Only letters and digits allowed (camelCase)";
+    return "key.lettersAndDigitsOnly";
   return "";
 }
 
@@ -61,6 +62,7 @@ export default function KeyInput({
   lockedReason,
   ...rest
 }: KeyInputProps) {
+  const { t } = useTranslation("validation");
   const [touched, setTouched] = useState(false);
   const [internalError, setInternalError] = useState("");
 
@@ -83,8 +85,9 @@ export default function KeyInput({
     [onChange, autoFormat],
   );
 
-  const error = externalError || (touched ? internalError : "");
-  const showSuccess = touched && !error && value.length > 0;
+  const errorKey = touched ? internalError : "";
+  const displayError = externalError || (errorKey ? t(errorKey) : "");
+  const showSuccess = touched && !externalError && !errorKey && value.length > 0;
 
   return (
     <TextField
@@ -92,11 +95,11 @@ export default function KeyInput({
       value={value}
       onChange={handleChange}
       disabled={locked}
-      error={!!error}
+      error={!!displayError}
       helperText={
         locked
-          ? lockedReason || "Key cannot be changed after creation"
-          : error || (showSuccess ? "Valid key" : "Letters and digits only, camelCase (e.g. businessFit)")
+          ? lockedReason || t("key.cannotChange")
+          : displayError || (showSuccess ? t("key.valid") : t("key.hint"))
       }
       slotProps={{
         input: {
@@ -107,11 +110,11 @@ export default function KeyInput({
         },
         formHelperText: {
           sx: {
-            color: error ? "error.main" : showSuccess ? "success.main" : "text.secondary",
+            color: displayError ? "error.main" : showSuccess ? "success.main" : "text.secondary",
           },
         },
       }}
-      color={showSuccess && !error ? "success" : error ? "error" : undefined}
+      color={showSuccess && !displayError ? "success" : displayError ? "error" : undefined}
     />
   );
 }

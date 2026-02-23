@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import Dialog from "@mui/material/Dialog";
 import DialogTitle from "@mui/material/DialogTitle";
 import DialogContent from "@mui/material/DialogContent";
@@ -57,6 +58,7 @@ export default function CreateCardDialog({
   initialType,
 }: Props) {
   const navigate = useNavigate();
+  const { t } = useTranslation(["cards", "common"]);
   const { types } = useMetamodel();
 
   const [selectedType, setSelectedType] = useState(initialType || "");
@@ -265,7 +267,7 @@ export default function CreateCardDialog({
       navigate(`/cards/${newId}`);
     } catch (err: unknown) {
       const message =
-        err instanceof Error ? err.message : "Failed to create card";
+        err instanceof Error ? err.message : t("create.failed");
       setError(message);
     } finally {
       setLoading(false);
@@ -284,7 +286,7 @@ export default function CreateCardDialog({
               onChange={(e) => setAttr(field.key, e.target.value || undefined)}
             >
               <MenuItem value="">
-                <em>None</em>
+                <em>{t("common:labels.none")}</em>
               </MenuItem>
               {field.options?.map((opt) => (
                 <MenuItem key={opt.key} value={opt.key}>
@@ -385,9 +387,9 @@ export default function CreateCardDialog({
           pb: 1,
         }}
       >
-        Create Card
+        {t("create.title")}
         <IconButton
-          aria-label="close"
+          aria-label={t("common:actions.close")}
           onClick={onClose}
           size="small"
           sx={{ color: "text.secondary" }}
@@ -405,10 +407,10 @@ export default function CreateCardDialog({
 
         {/* Type selector */}
         <FormControl fullWidth sx={{ mb: 2 }}>
-          <InputLabel>Type</InputLabel>
+          <InputLabel>{t("common:labels.type")}</InputLabel>
           <Select
             value={selectedType}
-            label="Type"
+            label={t("common:labels.type")}
             onChange={(e) => setSelectedType(e.target.value)}
           >
             {types.filter((t) => !t.is_hidden).map((t) => (
@@ -434,14 +436,14 @@ export default function CreateCardDialog({
         {/* Subtype selector */}
         {hasSubtypes && (
           <FormControl fullWidth sx={{ mb: 2 }}>
-            <InputLabel>Subtype</InputLabel>
+            <InputLabel>{t("common:labels.subtype")}</InputLabel>
             <Select
               value={subtype}
-              label="Subtype"
+              label={t("common:labels.subtype")}
               onChange={(e) => setSubtype(e.target.value)}
             >
               <MenuItem value="">
-                <em>None</em>
+                <em>{t("common:labels.none")}</em>
               </MenuItem>
               {typeConfig!.subtypes!.map((st) => (
                 <MenuItem key={st.key} value={st.key}>
@@ -475,7 +477,7 @@ export default function CreateCardDialog({
             renderInput={(params) => (
               <TextField
                 {...params}
-                label="Parent"
+                label={t("common:labels.parent")}
                 InputProps={{
                   ...params.InputProps,
                   endAdornment: (
@@ -495,7 +497,7 @@ export default function CreateCardDialog({
         {/* Name */}
         <TextField
           fullWidth
-          label="Name"
+          label={t("common:labels.name")}
           value={name}
           onChange={(e) => setName(e.target.value)}
           required
@@ -505,7 +507,7 @@ export default function CreateCardDialog({
         {/* Description */}
         <TextField
           fullWidth
-          label="Description"
+          label={t("common:labels.description")}
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           multiline
@@ -543,7 +545,7 @@ export default function CreateCardDialog({
                   color="#4caf50"
                 />
                 <Typography variant="body2">
-                  Linked to{" "}
+                  {t("eol.linkedTo")}{" "}
                   <strong>
                     {eolProduct} {eolCycle}
                   </strong>
@@ -553,7 +555,7 @@ export default function CreateCardDialog({
                     size="small"
                     onClick={() => setEolDialogOpen(true)}
                   >
-                    Change
+                    {t("common:actions.change")}
                   </Button>
                   <Button
                     size="small"
@@ -564,7 +566,7 @@ export default function CreateCardDialog({
                       setEolAutoSearchDone(false);
                     }}
                   >
-                    Remove
+                    {t("common:actions.remove")}
                   </Button>
                 </Box>
               </Box>
@@ -580,7 +582,7 @@ export default function CreateCardDialog({
                 >
                   <MaterialSymbol icon="update" size={18} color="#666" />
                   <Typography variant="body2" color="text.secondary">
-                    End-of-Life Tracking
+                    {t("eol.tracking")}
                   </Typography>
                   <Button
                     size="small"
@@ -588,7 +590,7 @@ export default function CreateCardDialog({
                     sx={{ ml: "auto" }}
                     onClick={() => setEolDialogOpen(true)}
                   >
-                    Manual Search
+                    {t("eol.manualSearch")}
                   </Button>
                 </Box>
 
@@ -597,7 +599,7 @@ export default function CreateCardDialog({
                   <Box sx={{ mt: 1 }}>
                     <LinearProgress sx={{ mb: 0.5, borderRadius: 1 }} />
                     <Typography variant="caption" color="text.secondary">
-                      Searching endoflife.date for "{name.trim()}"...
+                      {t("eol.searching", { name: name.trim() })}
                     </Typography>
                   </Box>
                 )}
@@ -606,7 +608,7 @@ export default function CreateCardDialog({
                 {!eolSearching && eolAutoSearchDone && eolSuggestions.length > 0 && (
                   <Box>
                     <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.5 }}>
-                      Suggested matches from endoflife.date:
+                      {t("eol.suggestedMatches")}
                     </Typography>
                     <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
                       {eolSuggestions.map((s) => (
@@ -632,7 +634,7 @@ export default function CreateCardDialog({
                 {/* No matches found */}
                 {!eolSearching && eolAutoSearchDone && eolSuggestions.length === 0 && name.trim().length >= 2 && (
                   <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: "block" }}>
-                    No EOL matches found. Use "Manual Search" to look for variations.
+                    {t("eol.noMatches")}
                   </Typography>
                 )}
               </Box>
@@ -670,7 +672,7 @@ export default function CreateCardDialog({
 
       <DialogActions sx={{ px: 3, py: 1.5 }}>
         <Button onClick={onClose} color="inherit">
-          Cancel
+          {t("common:actions.cancel")}
         </Button>
         <Button
           variant="contained"
@@ -680,7 +682,7 @@ export default function CreateCardDialog({
             loading ? <CircularProgress size={18} color="inherit" /> : undefined
           }
         >
-          Create
+          {t("common:actions.create")}
         </Button>
       </DialogActions>
     </Dialog>
