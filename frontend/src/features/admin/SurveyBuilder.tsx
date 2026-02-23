@@ -400,12 +400,12 @@ export default function SurveyBuilder() {
       {activeStep === 1 && (
         <MuiCard sx={{ p: 3 }}>
           <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
-            Target Cards
+            {t("surveyBuilder.target.title")}
           </Typography>
 
           <TextField
             select
-            label="Card Type"
+            label={t("common:labels.type")}
             fullWidth
             value={targetTypeKey}
             onChange={(e) => {
@@ -417,12 +417,12 @@ export default function SurveyBuilder() {
             required
           >
             {types
-              .filter((t) => !t.is_hidden)
-              .map((t) => (
-                <MenuItem key={t.key} value={t.key}>
+              .filter((ct) => !ct.is_hidden)
+              .map((ct) => (
+                <MenuItem key={ct.key} value={ct.key}>
                   <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                    <MaterialSymbol icon={t.icon} size={18} color={t.color} />
-                    {t.label}
+                    <MaterialSymbol icon={ct.icon} size={18} color={ct.color} />
+                    {ct.label}
                   </Box>
                 </MenuItem>
               ))}
@@ -430,10 +430,10 @@ export default function SurveyBuilder() {
 
           <Divider sx={{ my: 2 }} />
           <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
-            Filter by Related Cards (optional)
+            {t("surveyBuilder.target.filterRelated")}
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-            Only target cards that are related to specific items (e.g., all Applications related to the Sales organization)
+            {t("surveyBuilder.target.filterRelatedHint")}
           </Typography>
           <Autocomplete
             multiple
@@ -451,7 +451,7 @@ export default function SurveyBuilder() {
               setRelatedIds(vals.map((v) => v.id));
             }}
             renderInput={(params) => (
-              <TextField {...params} label="Search cards..." size="small" />
+              <TextField {...params} label={t("surveyBuilder.target.searchCards")} size="small" />
             )}
             renderTags={(vals, getTagProps) =>
               vals.map((v, i) => (
@@ -459,20 +459,20 @@ export default function SurveyBuilder() {
               ))
             }
             sx={{ mb: 3 }}
-            noOptionsText={relatedSearch.length < 2 ? "Type to search..." : "No results"}
+            noOptionsText={relatedSearch.length < 2 ? t("common:labels.loading") : t("common:labels.noResults")}
           />
 
           <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
-            Filter by Tags (optional)
+            {t("surveyBuilder.target.filterTags")}
           </Typography>
           <Autocomplete
             multiple
             options={allTags}
-            getOptionLabel={(t) => `${t.group_name}: ${t.name}`}
-            value={allTags.filter((t) => tagIds.includes(t.id))}
+            getOptionLabel={(tg) => `${tg.group_name}: ${tg.name}`}
+            value={allTags.filter((tg) => tagIds.includes(tg.id))}
             onChange={(_, vals) => setTagIds(vals.map((v) => v.id))}
             renderInput={(params) => (
-              <TextField {...params} label="Select tags..." size="small" />
+              <TextField {...params} label={t("surveyBuilder.target.selectTags")} size="small" />
             )}
             renderTags={(vals, getTagProps) =>
               vals.map((v, i) => (
@@ -489,10 +489,10 @@ export default function SurveyBuilder() {
           />
 
           <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
-            Filter by Attributes (optional)
+            {t("surveyBuilder.target.filterAttributes")}
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-            Only target cards where specific attributes match a condition (e.g., cost greater than 10000, TIME rating is missing)
+            {t("surveyBuilder.target.filterAttributesHint")}
           </Typography>
 
           {attributeFilters.map((af, idx) => {

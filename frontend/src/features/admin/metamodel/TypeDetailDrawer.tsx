@@ -423,7 +423,7 @@ export default function TypeDetailDrawer({
           />
           <Box>
             <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, display: "block" }}>
-              Icon
+              {t("metamodel.typeDrawer.icon")}
             </Typography>
             <IconPicker value={icon} onChange={setIcon} color={color} />
           </Box>
@@ -431,7 +431,7 @@ export default function TypeDetailDrawer({
         <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" }, gap: 2.5, mb: 2.5 }}>
           <TextField
             size="small"
-            label="Description"
+            label={t("metamodel.typeDrawer.description")}
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             multiline
@@ -442,11 +442,11 @@ export default function TypeDetailDrawer({
               value={color}
               onChange={setColor}
               disabled={!!cardTypeKey?.built_in}
-              label={cardTypeKey?.built_in ? "Color (built-in)" : "Color"}
+              label={cardTypeKey?.built_in ? t("metamodel.typeDrawer.colorBuiltIn") : t("metamodel.typeDrawer.color")}
             />
             <FormControlLabel
               control={<Switch checked={hasHierarchy} onChange={(e) => setHasHierarchy(e.target.checked)} />}
-              label="Supports Hierarchy (Parent / Child)"
+              label={t("metamodel.typeDrawer.supportsHierarchy")}
             />
           </Box>
         </Box>
@@ -456,7 +456,7 @@ export default function TypeDetailDrawer({
           {/* Subtypes */}
           <Box>
             <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 1.5 }}>
-              Subtypes
+              {t("metamodel.typeDrawer.subtypes")}
             </Typography>
             <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, mb: 1.5 }}>
               {(cardTypeKey.subtypes || []).map((s) => (
@@ -470,7 +470,7 @@ export default function TypeDetailDrawer({
               ))}
               {(!cardTypeKey.subtypes || cardTypeKey.subtypes.length === 0) && (
                 <Typography variant="body2" color="text.secondary">
-                  No subtypes defined
+                  {t("metamodel.typeDrawer.noSubtypes")}
                 </Typography>
               )}
             </Box>
@@ -478,20 +478,20 @@ export default function TypeDetailDrawer({
               <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
                 <KeyInput
                   size="small"
-                  label="Key"
+                  label={t("metamodel.typeDrawer.key")}
                   value={newSubKey}
                   onChange={setNewSubKey}
                   sx={{ flex: 1 }}
                 />
                 <TextField
                   size="small"
-                  label="Label"
+                  label={t("metamodel.typeDrawer.label")}
                   value={newSubLabel}
                   onChange={(e) => setNewSubLabel(e.target.value)}
                   sx={{ flex: 1 }}
                 />
                 <Button size="small" variant="contained" onClick={handleAddSubtype} disabled={!newSubKey || !newSubLabel || !isValidKey(newSubKey)}>
-                  Add
+                  {t("common:actions.add")}
                 </Button>
                 <IconButton size="small" onClick={() => { setAddSubOpen(false); setNewSubKey(""); setNewSubLabel(""); }}>
                   <MaterialSymbol icon="close" size={18} />
