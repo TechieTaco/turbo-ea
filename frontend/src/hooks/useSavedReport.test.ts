@@ -162,6 +162,32 @@ describe("useSavedReport", () => {
     expect(config).toEqual({ x_axis: "api_value" });
   });
 
+  it("persistConfig skips localStorage when viewing a URL saved report", async () => {
+    const mockReport = {
+      id: "sr-123",
+      name: "My Report",
+      config: { x_axis: "api_value", timelineDate: 1718409600000 },
+    };
+    vi.mocked(api.get).mockResolvedValueOnce(mockReport);
+
+    const { result } = renderHook(() => useSavedReport("portfolio"), {
+      wrapper: wrapperWithSavedId,
+    });
+
+    await waitFor(() => {
+      expect(result.current.loadedConfig).not.toBeNull();
+    });
+
+    // Consume the config (marks persistReady)
+    result.current.consumeConfig();
+
+    // persistConfig should NOT write to localStorage while saved report is active
+    act(() => {
+      result.current.persistConfig({ x_axis: "api_value", timelineDate: 1718409600000 });
+    });
+    expect(localStorage.getItem("turboea-report:portfolio")).toBeNull();
+  });
+
   it("handles API fetch failure gracefully", async () => {
     vi.mocked(api.get).mockRejectedValueOnce(new Error("Not found"));
 
