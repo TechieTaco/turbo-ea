@@ -9,6 +9,10 @@ vi.mock("@/api/client", () => ({ api: { get: vi.fn() } }));
 vi.mock("@/features/reports/ProcessMapReport", () => ({
   default: () => <div data-testid="process-map-report">ProcessMapReport</div>,
 }));
+vi.mock("@/components/CardDetailSidePanel", () => ({
+  default: ({ cardId, open }: { cardId: string | null; open: boolean; onClose: () => void }) =>
+    open ? <div data-testid="card-side-panel" data-card-id={cardId}>SidePanel</div> : null,
+}));
 
 import { api } from "@/api/client";
 import BpmReportsContent from "./BpmReportPage";
@@ -179,6 +183,86 @@ describe("BpmReportsContent", () => {
     resolve!(mockCapMatrix);
     await waitFor(() => {
       expect(screen.getByText("Order Management")).toBeInTheDocument();
+    });
+  });
+
+  describe("Card detail side panel", () => {
+    it("opens side panel when clicking a row in Capability × Process", async () => {
+      vi.mocked(api.get).mockResolvedValue(mockCapMatrix);
+      renderPage();
+      await userEvent.click(screen.getByText("Capability × Process"));
+
+      await waitFor(() => {
+        expect(screen.getByText("Order Management")).toBeInTheDocument();
+      });
+
+      await userEvent.click(screen.getByText("Order Management"));
+      expect(screen.getByTestId("card-side-panel")).toHaveAttribute("data-card-id", "p1");
+    });
+
+    it("opens side panel when clicking a row in Process × Application", async () => {
+      vi.mocked(api.get).mockResolvedValue(mockAppMatrix);
+      renderPage();
+      await userEvent.click(screen.getByText("Process × Application"));
+
+      await waitFor(() => {
+        expect(screen.getByText("Billing Process")).toBeInTheDocument();
+      });
+
+      await userEvent.click(screen.getByText("Billing Process"));
+      expect(screen.getByTestId("card-side-panel")).toHaveAttribute("data-card-id", "p1");
+    });
+
+    it("opens side panel when clicking source in Process Dependencies", async () => {
+      vi.mocked(api.get).mockResolvedValue(mockDeps);
+      renderPage();
+      await userEvent.click(screen.getByRole("tab", { name: /Process Dependencies/ }));
+
+      await waitFor(() => {
+        expect(screen.getByText("Order")).toBeInTheDocument();
+      });
+
+      await userEvent.click(screen.getByText("Order"));
+      expect(screen.getByTestId("card-side-panel")).toHaveAttribute("data-card-id", "n1");
+    });
+
+    it("opens side panel when clicking target in Process Dependencies", async () => {
+      vi.mocked(api.get).mockResolvedValue(mockDeps);
+      renderPage();
+      await userEvent.click(screen.getByRole("tab", { name: /Process Dependencies/ }));
+
+      await waitFor(() => {
+        expect(screen.getByText("Shipping")).toBeInTheDocument();
+      });
+
+      await userEvent.click(screen.getByText("Shipping"));
+      expect(screen.getByTestId("card-side-panel")).toHaveAttribute("data-card-id", "n2");
+    });
+
+    it("opens side panel when clicking app name in Element-Application Map", async () => {
+      vi.mocked(api.get).mockResolvedValue(mockElementMap);
+      renderPage();
+      await userEvent.click(screen.getByRole("tab", { name: /Element-Application Map/ }));
+
+      await waitFor(() => {
+        expect(screen.getByText("CRM App (1 elements)")).toBeInTheDocument();
+      });
+
+      await userEvent.click(screen.getByText("CRM App (1 elements)"));
+      expect(screen.getByTestId("card-side-panel")).toHaveAttribute("data-card-id", "a1");
+    });
+
+    it("opens side panel when clicking process name in Element-Application Map", async () => {
+      vi.mocked(api.get).mockResolvedValue(mockElementMap);
+      renderPage();
+      await userEvent.click(screen.getByRole("tab", { name: /Element-Application Map/ }));
+
+      await waitFor(() => {
+        expect(screen.getByText("Order Process")).toBeInTheDocument();
+      });
+
+      await userEvent.click(screen.getByText("Order Process"));
+      expect(screen.getByTestId("card-side-panel")).toHaveAttribute("data-card-id", "p1");
     });
   });
 });
