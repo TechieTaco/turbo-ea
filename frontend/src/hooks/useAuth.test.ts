@@ -12,14 +12,15 @@ vi.mock("@/api/client", () => ({
   },
   setToken: vi.fn(),
   clearToken: vi.fn(),
+  hasToken: vi.fn(),
 }));
 
-import { auth, setToken, clearToken } from "@/api/client";
+import { auth, setToken, clearToken, hasToken } from "@/api/client";
 import { useAuth } from "./useAuth";
 
 beforeEach(() => {
   vi.clearAllMocks();
-  sessionStorage.clear();
+  vi.mocked(hasToken).mockReturnValue(false);
 });
 
 describe("useAuth", () => {
@@ -34,7 +35,7 @@ describe("useAuth", () => {
   });
 
   it("loads user on mount when token exists", async () => {
-    sessionStorage.setItem("token", "existing-jwt");
+    vi.mocked(hasToken).mockReturnValue(true);
     vi.mocked(auth.me).mockResolvedValueOnce({
       id: "u1",
       email: "a@b.com",
@@ -80,7 +81,7 @@ describe("useAuth", () => {
   });
 
   it("logout clears token and user", async () => {
-    sessionStorage.setItem("token", "existing-jwt");
+    vi.mocked(hasToken).mockReturnValue(true);
     vi.mocked(auth.me).mockResolvedValueOnce({
       id: "u1",
       email: "a@b.com",
@@ -103,7 +104,7 @@ describe("useAuth", () => {
   });
 
   it("clears token when loadUser fails", async () => {
-    sessionStorage.setItem("token", "bad-jwt");
+    vi.mocked(hasToken).mockReturnValue(true);
     vi.mocked(auth.me).mockRejectedValueOnce(
       new Error("Unauthorized"),
     );

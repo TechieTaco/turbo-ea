@@ -334,9 +334,20 @@ def _evaluate_formula(formula: str, context: dict[str, Any]) -> Any:
     result = None
     for line in lines:
         # Detect assignment: ``varname = expression``  (but NOT ``==``)
-        m = re.match(r"^([a-zA-Z_]\w*)\s*=(?!=)\s*(.+)$", line)
-        if m:
-            var_name, expression = m.group(1), m.group(2)
+        # Uses string operations instead of regex to avoid polynomial
+        # backtracking on adversarial input.
+        var_name = None
+        expression = None
+        eq_idx = line.find("=")
+        if eq_idx > 0 and (eq_idx + 1 >= len(line) or line[eq_idx + 1] != "="):
+            # Also reject ``!=`` — check char before ``=``
+            if line[eq_idx - 1] != "!":
+                candidate = line[:eq_idx].rstrip()
+                rest = line[eq_idx + 1 :].lstrip()
+                if candidate.isidentifier() and rest:
+                    var_name = candidate
+                    expression = rest
+        if var_name and expression:
             value = evaluator.eval(expression)
             evaluator.names[var_name] = value
             result = value
@@ -376,9 +387,12 @@ async def execute_calculation(
         return False, error
 
     except Exception as e:
-        error = f"Evaluation error: {type(e).__name__}: {e}"
-        logger.warning("Calculation '%s' failed for card %s: %s", calc.name, card.id, error)
-        return False, error
+        # Log full error internally but return sanitized message
+        logger.warning(
+            "Calculation '%s' failed for card %s: %s: %s",
+            calc.name, card.id, type(e).__name__, e,
+        )
+        return False, "Evaluation error"
 
 
 async def run_calculations_for_card(
@@ -517,7 +531,9 @@ async def validate_formula(formula: str, target_type_key: str, db: AsyncSession)
         return {"valid": True, "error": None, "preview_result": result}
 
     except Exception as e:
-        return {"valid": False, "error": f"{type(e).__name__}: {e}"}
+        # Limit error detail to avoid leaking internal paths or stack info
+        err_msg = str(e)[:200] if str(e) else "unknown error"
+        return {"valid": False, "error": f"{type(e).__name__}: {err_msg}"}
 
 
 async def detect_cycles(db: AsyncSession, new_calc: Calculation) -> list[str] | None:

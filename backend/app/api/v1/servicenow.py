@@ -369,7 +369,9 @@ async def test_connection(
     conn.test_status = "success" if success else "failed"
     await db.commit()
 
-    return {"success": success, "message": message}
+    # Sanitize message to avoid leaking internal error details
+    safe_message = "Connection successful" if success else "Connection failed"
+    return {"success": success, "message": safe_message}
 
 
 @router.get("/connections/{conn_id}/tables")

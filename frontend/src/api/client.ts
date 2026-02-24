@@ -12,16 +12,24 @@ export class ApiError extends Error {
   }
 }
 
-function getToken(): string | null {
-  return sessionStorage.getItem("token");
+// Keep token in memory only — avoids exposing credentials in browser storage
+// APIs (sessionStorage/localStorage) where XSS could exfiltrate them.
+let _token: string | null = null;
+
+export function getToken(): string | null {
+  return _token;
 }
 
 export function setToken(token: string): void {
-  sessionStorage.setItem("token", token);
+  _token = token;
 }
 
 export function clearToken(): void {
-  sessionStorage.removeItem("token");
+  _token = null;
+}
+
+export function hasToken(): boolean {
+  return _token !== null;
 }
 
 async function request<T>(
