@@ -241,8 +241,12 @@ describe("resolveLabel", () => {
     expect(resolveLabel("App", { fr: "Application" }, undefined)).toBe("App");
   });
 
-  it("returns the default label when locale is 'en'", () => {
-    expect(resolveLabel("App", { en: "Should not be used" }, "en")).toBe("App");
+  it("returns the en translation when locale is 'en' and en translation exists", () => {
+    expect(resolveLabel("App", { en: "Application" }, "en")).toBe("Application");
+  });
+
+  it("returns the fallback when locale is 'en' and no en translation exists", () => {
+    expect(resolveLabel("App", { fr: "Application" }, "en")).toBe("App");
   });
 
   it("returns the default label when translations is an empty object", () => {
