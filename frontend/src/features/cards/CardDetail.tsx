@@ -178,7 +178,7 @@ export default function CardDetail() {
           </Typography>
           <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
             <Typography variant="body2" color="text.secondary">
-              {rml(typeConfig?.label ?? "", typeConfig?.translations, "label") || card.type}
+              {rml(typeConfig?.key ?? "", typeConfig?.translations, "label") || card.type}
             </Typography>
             {card.subtype && typeof card.subtype === "string" && (
               <Chip size="small" label={card.subtype} variant="outlined" sx={{ height: 20 }} />

@@ -4,21 +4,21 @@ import type { TranslationMap, MetamodelTranslations } from "@/types";
 
 /**
  * Resolve a translated label from a translations map.
- * Falls back to the English default label if no translation exists.
+ * Falls back to the provided fallback (typically the entity key) when
+ * no translation exists for the requested locale.
  *
- * For top-level translations (card type label, relation type label):
- *   resolveLabel("Application", type.translations?.label, "fr") → "Application" (fr)
- *
- * For inline JSONB translations (field labels, option labels, section names):
- *   resolveLabel("Risk Level", field.translations, "fr") → "Niveau de Risque"
+ * For inline JSONB translations (field labels, option labels, section names, subtypes):
+ *   resolveLabel("riskLevel", field.translations, "fr") → "Niveau de Risque"
+ *   resolveLabel("riskLevel", field.translations, "en") → "Risk Level"
+ *   resolveLabel("riskLevel", undefined, "en") → "riskLevel"
  */
 export function resolveLabel(
-  label: string,
+  fallback: string,
   translations?: TranslationMap,
   locale?: string,
 ): string {
-  if (!translations || !locale || locale === "en") return label;
-  return translations[locale] || label;
+  if (!translations || !locale) return fallback;
+  return translations[locale] || fallback;
 }
 
 /**
@@ -27,13 +27,13 @@ export function resolveLabel(
  * resolveMetaLabel("Application", type.translations, "label", "fr") → "Application" (fr)
  */
 export function resolveMetaLabel(
-  label: string,
+  fallback: string,
   translations?: MetamodelTranslations,
   property?: string,
   locale?: string,
 ): string {
-  if (!translations || !property || !locale || locale === "en") return label;
-  return translations[property]?.[locale] || label;
+  if (!translations || !property || !locale) return fallback;
+  return translations[property]?.[locale] || fallback;
 }
 
 /**
@@ -42,17 +42,17 @@ export function resolveMetaLabel(
  * Usage:
  *   const rl = useResolveLabel();
  *   // For inline translations (fields, options, sections, subtypes):
- *   rl(field.label, field.translations)
+ *   rl(field.key, field.translations)
  *   // For top-level translations (card types, relation types):
- *   rl(type.label, type.translations?.label)
+ *   rl(type.key, type.translations?.label)
  */
 export function useResolveLabel() {
   const { i18n } = useTranslation();
   const locale = i18n.language;
 
   return useCallback(
-    (label: string, translations?: TranslationMap): string =>
-      resolveLabel(label, translations, locale),
+    (fallback: string, translations?: TranslationMap): string =>
+      resolveLabel(fallback, translations, locale),
     [locale],
   );
 }
@@ -62,16 +62,16 @@ export function useResolveLabel() {
  *
  * Usage:
  *   const rml = useResolveMetaLabel();
- *   rml(type.label, type.translations, "label")
- *   rml(rt.reverse_label, rt.translations, "reverse_label")
+ *   rml(type.key, type.translations, "label")
+ *   rml(rt.key, rt.translations, "reverse_label")
  */
 export function useResolveMetaLabel() {
   const { i18n } = useTranslation();
   const locale = i18n.language;
 
   return useCallback(
-    (label: string, translations?: MetamodelTranslations, property?: string): string =>
-      resolveMetaLabel(label, translations, property, locale),
+    (fallback: string, translations?: MetamodelTranslations, property?: string): string =>
+      resolveMetaLabel(fallback, translations, property, locale),
     [locale],
   );
 }

@@ -295,7 +295,7 @@ function HierarchySection({
                       inputValue={parentSearch}
                       onInputChange={(_, val) => setParentSearch(val)}
                       renderInput={(params) => (
-                        <TextField {...params} size="small" label={t("hierarchy.search", { type: rml(typeConfig?.label ?? "", typeConfig?.translations, "label") || card.type })} placeholder={t("hierarchy.searchPlaceholder")} sx={{ mt: 1 }} />
+                        <TextField {...params} size="small" label={t("hierarchy.search", { type: rml(typeConfig?.key ?? "", typeConfig?.translations, "label") || card.type })} placeholder={t("hierarchy.searchPlaceholder")} sx={{ mt: 1 }} />
                       )}
                       noOptionsText={parentSearch ? t("common:labels.noResults") : t("hierarchy.searchPlaceholder")}
                       filterOptions={(x) => x}
@@ -306,13 +306,13 @@ function HierarchySection({
                       startIcon={<MaterialSymbol icon="add" size={16} />}
                       onClick={() => { setCreateMode("parent"); setCreateName(parentSearch); }}
                     >
-                      {t("hierarchy.createNew", { type: rml(typeConfig?.label ?? "", typeConfig?.translations, "label") || card.type })}
+                      {t("hierarchy.createNew", { type: rml(typeConfig?.key ?? "", typeConfig?.translations, "label") || card.type })}
                     </Button>
                   </>
                 ) : (
                   <Box sx={{ mt: 1, p: 2, border: "1px solid", borderColor: "divider", borderRadius: 1, bgcolor: "action.hover" }}>
                     <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1 }}>
-                      {t("hierarchy.createAsParent", { type: rml(typeConfig?.label ?? "", typeConfig?.translations, "label") || card.type })}
+                      {t("hierarchy.createAsParent", { type: rml(typeConfig?.key ?? "", typeConfig?.translations, "label") || card.type })}
                     </Typography>
                     <TextField
                       fullWidth size="small" label={t("common:labels.name")} value={createName}
@@ -407,7 +407,7 @@ function HierarchySection({
                       inputValue={childSearch}
                       onInputChange={(_, val) => setChildSearch(val)}
                       renderInput={(params) => (
-                        <TextField {...params} size="small" label={t("hierarchy.search", { type: rml(typeConfig?.label ?? "", typeConfig?.translations, "label") || card.type })} placeholder={t("hierarchy.searchPlaceholder")} sx={{ mt: 1 }} />
+                        <TextField {...params} size="small" label={t("hierarchy.search", { type: rml(typeConfig?.key ?? "", typeConfig?.translations, "label") || card.type })} placeholder={t("hierarchy.searchPlaceholder")} sx={{ mt: 1 }} />
                       )}
                       noOptionsText={childSearch ? t("common:labels.noResults") : t("hierarchy.searchPlaceholder")}
                       filterOptions={(x) => x}
@@ -418,13 +418,13 @@ function HierarchySection({
                       startIcon={<MaterialSymbol icon="add" size={16} />}
                       onClick={() => { setCreateMode("child"); setCreateName(childSearch); }}
                     >
-                      {t("hierarchy.createNew", { type: rml(typeConfig?.label ?? "", typeConfig?.translations, "label") || card.type })}
+                      {t("hierarchy.createNew", { type: rml(typeConfig?.key ?? "", typeConfig?.translations, "label") || card.type })}
                     </Button>
                   </>
                 ) : (
                   <Box sx={{ mt: 1, p: 2, border: "1px solid", borderColor: "divider", borderRadius: 1, bgcolor: "action.hover" }}>
                     <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1 }}>
-                      {t("hierarchy.createAsChild", { type: rml(typeConfig?.label ?? "", typeConfig?.translations, "label") || card.type })}
+                      {t("hierarchy.createAsChild", { type: rml(typeConfig?.key ?? "", typeConfig?.translations, "label") || card.type })}
                     </Typography>
                     <TextField
                       fullWidth size="small" label={t("common:labels.name")} value={createName}

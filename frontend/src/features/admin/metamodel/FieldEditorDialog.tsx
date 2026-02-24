@@ -16,19 +16,13 @@ import FormControlLabel from "@mui/material/FormControlLabel";
 import Switch from "@mui/material/Switch";
 import IconButton from "@mui/material/IconButton";
 import Alert from "@mui/material/Alert";
-import Accordion from "@mui/material/Accordion";
-import AccordionSummary from "@mui/material/AccordionSummary";
-import AccordionDetails from "@mui/material/AccordionDetails";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import ColorPicker from "@/components/ColorPicker";
 import KeyInput, { isValidKey } from "@/components/KeyInput";
 import { api } from "@/api/client";
-import { SUPPORTED_LOCALES, LOCALE_LABELS } from "@/i18n";
+import { LOCALE_LABELS } from "@/i18n";
 import type { FieldDef, FieldOption, TranslationMap } from "@/types";
 import { FIELD_TYPE_OPTIONS } from "./constants";
-
-/** Locales to show translation inputs for (all except English). */
-const TRANSLATION_LOCALES = SUPPORTED_LOCALES.filter((l) => l !== "en");
 
 /** Remove empty-string entries from a TranslationMap. Returns undefined if all empty. */
 function cleanTranslationMap(map: TranslationMap | undefined): TranslationMap | undefined {
@@ -56,8 +50,12 @@ export interface FieldEditorProps {
 }
 
 export default function FieldEditorDialog({ open, field: initial, typeKey, fieldKey, onClose, onSave, isCalculated }: FieldEditorProps) {
-  const { t } = useTranslation(["admin", "common"]);
+  const { t, i18n } = useTranslation(["admin", "common"]);
+  const locale = i18n.language;
   const [field, setField] = useState<FieldDef>(initial);
+
+  // The label input reads/writes translations[currentLocale]
+  const [displayLabel, setDisplayLabel] = useState("");
 
   // Track which option keys existed before editing — these are locked
   const originalOptionKeys = useMemo(
@@ -76,9 +74,10 @@ export default function FieldEditorDialog({ open, field: initial, typeKey, field
   useEffect(() => {
     if (open) {
       setField({ ...initial });
+      setDisplayLabel(initial.translations?.[locale] || initial.label || "");
       setDeleteOptConfirm(null);
     }
-  }, [open, initial]);
+  }, [open, initial, locale]);
 
   const isSelect = field.type === "single_select" || field.type === "multiple_select";
 
@@ -147,42 +146,11 @@ export default function FieldEditorDialog({ open, field: initial, typeKey, field
         />
         <TextField
           fullWidth
-          label={t("metamodel.fieldEditor.labelLabel")}
-          value={field.label}
-          onChange={(e) => setField({ ...field, label: e.target.value })}
-          sx={{ mb: 1 }}
+          label={`${t("metamodel.fieldEditor.labelLabel")} (${LOCALE_LABELS[locale as keyof typeof LOCALE_LABELS] || locale})`}
+          value={displayLabel}
+          onChange={(e) => setDisplayLabel(e.target.value)}
+          sx={{ mb: 2 }}
         />
-        <Accordion variant="outlined" sx={{ mb: 2, "&:before": { display: "none" } }} disableGutters>
-          <AccordionSummary
-            expandIcon={<MaterialSymbol icon="expand_more" size={16} />}
-            sx={{ minHeight: 32, "& .MuiAccordionSummary-content": { my: 0.25 } }}
-          >
-            <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-              <MaterialSymbol icon="translate" size={16} color="inherit" />
-              <Typography variant="caption" fontWeight={600}>
-                {t("metamodel.translations.fieldTranslations")}
-              </Typography>
-            </Box>
-          </AccordionSummary>
-          <AccordionDetails sx={{ pt: 0, pb: 1 }}>
-            <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 1 }}>
-              {TRANSLATION_LOCALES.map((locale) => (
-                <TextField
-                  key={`field-${locale}`}
-                  size="small"
-                  label={LOCALE_LABELS[locale]}
-                  value={field.translations?.[locale] || ""}
-                  onChange={(e) =>
-                    setField({
-                      ...field,
-                      translations: { ...field.translations, [locale]: e.target.value },
-                    })
-                  }
-                />
-              ))}
-            </Box>
-          </AccordionDetails>
-        </Accordion>
         <FormControl fullWidth sx={{ mb: 2 }}>
           <InputLabel>{t("metamodel.fieldEditor.typeLabel")}</InputLabel>
           <Select
@@ -259,40 +227,6 @@ export default function FieldEditorDialog({ open, field: initial, typeKey, field
                     <MaterialSymbol icon="close" size={18} />
                   </IconButton>
                 </Box>
-                <Accordion
-                  variant="outlined"
-                  disableGutters
-                  sx={{ mb: deleteOptConfirm?.idx === idx ? 0.5 : 1, "&:before": { display: "none" } }}
-                >
-                  <AccordionSummary
-                    expandIcon={<MaterialSymbol icon="expand_more" size={16} />}
-                    sx={{ minHeight: 28, "& .MuiAccordionSummary-content": { my: 0.25 } }}
-                  >
-                    <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-                      <MaterialSymbol icon="translate" size={16} color="inherit" />
-                      <Typography variant="caption" fontWeight={600}>
-                        {t("metamodel.translations.optionTranslations", { label: opt.label || opt.key })}
-                      </Typography>
-                    </Box>
-                  </AccordionSummary>
-                  <AccordionDetails sx={{ pt: 0, pb: 1 }}>
-                    <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 1 }}>
-                      {TRANSLATION_LOCALES.map((locale) => (
-                        <TextField
-                          key={`opt-${idx}-${locale}`}
-                          size="small"
-                          label={LOCALE_LABELS[locale]}
-                          value={opt.translations?.[locale] || ""}
-                          onChange={(e) =>
-                            updateOption(idx, {
-                              translations: { ...opt.translations, [locale]: e.target.value },
-                            })
-                          }
-                        />
-                      ))}
-                    </Box>
-                  </AccordionDetails>
-                </Accordion>
                 {deleteOptConfirm?.idx === idx && (
                   <Alert
                     severity={deleteOptConfirm.cardCount === null ? "info" : deleteOptConfirm.cardCount > 0 ? "warning" : "info"}
@@ -337,9 +271,11 @@ export default function FieldEditorDialog({ open, field: initial, typeKey, field
         <Button
           variant="contained"
           onClick={() => {
+            const mergedTranslations = { ...field.translations, [locale]: displayLabel };
             const cleanedField: FieldDef = {
               ...field,
-              translations: cleanTranslationMap(field.translations),
+              label: displayLabel,
+              translations: cleanTranslationMap(mergedTranslations),
               options: field.options?.map((o) => ({
                 ...o,
                 translations: cleanTranslationMap(o.translations),
@@ -347,7 +283,7 @@ export default function FieldEditorDialog({ open, field: initial, typeKey, field
             };
             onSave(cleanedField);
           }}
-          disabled={!field.key || !field.label || (!initial.key && !isValidKey(field.key)) || (isSelect && (field.options || []).some((o) => o.key && !isValidKey(o.key) && !originalOptionKeys.has(o.key)))}
+          disabled={!field.key || !displayLabel || (!initial.key && !isValidKey(field.key)) || (isSelect && (field.options || []).some((o) => o.key && !isValidKey(o.key) && !originalOptionKeys.has(o.key)))}
         >
           {t("common:actions.save")}
         </Button>

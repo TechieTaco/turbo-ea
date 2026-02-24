@@ -399,7 +399,7 @@ export default function SurveyResults() {
                       <TableRow key={field.key}>
                         <TableCell>
                           <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                            {rl(field.label, field.translations)}
+                            {rl(field.key, field.translations)}
                           </Typography>
                         </TableCell>
                         <TableCell>{formatValue(resp.current_value, field, boolLabels)}</TableCell>

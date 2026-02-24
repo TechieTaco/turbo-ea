@@ -128,7 +128,7 @@ export default function CardSidebar({ onInsert }: Props) {
                 >
                   <MaterialSymbol icon={ct.icon} size={18} color={ct.color} />
                   <ListItemText
-                    primary={rml(ct.label, ct.translations, "label")}
+                    primary={rml(ct.key, ct.translations, "label")}
                     primaryTypographyProps={{
                       variant: "body2",
                       fontWeight: 600,

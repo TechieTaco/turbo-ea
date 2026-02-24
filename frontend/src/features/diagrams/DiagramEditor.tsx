@@ -523,7 +523,7 @@ export default function DiagramEditor() {
         return {
           cellId: p.cellId,
           type: p.type,
-          typeLabel: rml(typeInfo?.label ?? "", typeInfo?.translations, "label") || p.type,
+          typeLabel: rml(typeInfo?.key ?? "", typeInfo?.translations, "label") || p.type,
           typeColor: typeInfo?.color || "#999",
           name: p.name,
         };

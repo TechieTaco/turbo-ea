@@ -121,7 +121,7 @@ function AttributeSection({
       {fields.map((field) => (
         <Box key={field.key} sx={{ display: "contents" }}>
           <Typography variant="body2" color="text.secondary">
-            {rl(field.label, field.translations)}
+            {rl(field.key, field.translations)}
             {calculatedFieldKeys.includes(field.key) ? (
               <Chip component="span" size="small" label={t("attributes.calculated")} sx={{ height: 16, fontSize: "0.55rem", ml: 0.5, verticalAlign: "middle" }} />
             ) : field.readonly ? (
@@ -140,7 +140,7 @@ function AttributeSection({
       {fields.map((field) =>
         field.readonly || calculatedFieldKeys.includes(field.key) ? (
           <Box key={field.key} sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-            <Typography variant="body2" color="text.secondary" sx={{ minWidth: 160 }}>{rl(field.label, field.translations)}</Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ minWidth: 160 }}>{rl(field.key, field.translations)}</Typography>
             <FieldValue field={field} value={attrs[field.key]} currencyFmt={fmt} />
             <Chip size="small" label={calculatedFieldKeys.includes(field.key) ? t("attributes.calculated") : t("attributes.auto")} sx={{ height: 18, fontSize: "0.6rem", ml: 0.5 }} />
           </Box>

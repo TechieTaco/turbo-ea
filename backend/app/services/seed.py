@@ -4194,6 +4194,49 @@ RELATIONS = [
 ]
 
 
+def _inject_english_translations_type(type_def: dict) -> dict:
+    """Copy English labels into the translations JSONB so ``en`` is a locale like any other.
+
+    Processes: type label/description, subtypes, fields, field options, and sections.
+    """
+    t = type_def
+
+    # -- Type-level label + description --
+    translations = t.setdefault("translations", {})
+    translations.setdefault("label", {})["en"] = t["label"]
+    if t.get("description"):
+        translations.setdefault("description", {})["en"] = t["description"]
+
+    # -- Subtypes --
+    for sub in t.get("subtypes", []):
+        sub.setdefault("translations", {})["en"] = sub["label"]
+
+    # -- Fields schema: sections, fields, options --
+    for section in t.get("fields_schema", []):
+        # Section name (skip __description)
+        sec_name = section.get("section", "")
+        if sec_name and sec_name != "__description":
+            section.setdefault("translations", {})["en"] = sec_name
+
+        for field in section.get("fields", []):
+            field.setdefault("translations", {})["en"] = field["label"]
+
+            for option in field.get("options", []):
+                option.setdefault("translations", {})["en"] = option["label"]
+
+    return t
+
+
+def _inject_english_translations_relation(rel_def: dict) -> dict:
+    """Copy English labels into the translations JSONB for a relation type."""
+    r = rel_def
+    translations = r.setdefault("translations", {})
+    translations.setdefault("label", {})["en"] = r["label"]
+    if r.get("reverse_label"):
+        translations.setdefault("reverse_label", {})["en"] = r["reverse_label"]
+    return r
+
+
 async def seed_metamodel(db: AsyncSession) -> None:
     """Seed the default metamodel, adding any missing types and relations.
 
@@ -4221,6 +4264,12 @@ async def seed_metamodel(db: AsyncSession) -> None:
     existing_rel_pairs = {
         (r.source_type_key, r.target_type_key) for r in existing_rels_list if not r.is_hidden
     }
+
+    # Ensure English labels are present in all translation dicts
+    for t in TYPES:
+        _inject_english_translations_type(t)
+    for r in RELATIONS:
+        _inject_english_translations_relation(r)
 
     for i, t in enumerate(TYPES):
         key = t["key"]

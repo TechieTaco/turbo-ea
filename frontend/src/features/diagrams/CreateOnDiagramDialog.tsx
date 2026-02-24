@@ -83,7 +83,7 @@ export default function CreateOnDiagramDialog({ open, types, onClose, onCreate }
                     flexShrink: 0,
                   }}
                 />
-                {rml(tp.label, tp.translations, "label")}
+                {rml(tp.key, tp.translations, "label")}
               </Box>
             </MenuItem>
           ))}
@@ -115,7 +115,7 @@ export default function CreateOnDiagramDialog({ open, types, onClose, onCreate }
         {typeInfo && (
           <Typography variant="caption" color="text.disabled">
             {t("createOnDiagram.pendingHintPre")}{" "}
-            <strong style={{ color: typeInfo.color }}>{rml(typeInfo.label, typeInfo.translations, "label")}</strong>.{" "}
+            <strong style={{ color: typeInfo.color }}>{rml(typeInfo.key, typeInfo.translations, "label")}</strong>.{" "}
             {t("createOnDiagram.pendingHintPost")}
           </Typography>
         )}

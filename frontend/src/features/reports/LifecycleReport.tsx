@@ -279,7 +279,7 @@ export default function LifecycleReport() {
   const printParams = useMemo(() => {
     const params: { label: string; value: string }[] = [];
     const tp = types.find((tp) => tp.key === cardTypeKey);
-    const typeLabel = cardTypeKey ? (rml(tp?.label ?? "", tp?.translations, "label") || cardTypeKey) : t("lifecycle.allTypes");
+    const typeLabel = cardTypeKey ? (rml(tp?.key ?? "", tp?.translations, "label") || cardTypeKey) : t("lifecycle.allTypes");
     params.push({ label: t("common:labels.type"), value: typeLabel });
     if (useCustomDates) params.push({ label: t("common.mode"), value: t("lifecycle.dateRangeView") });
     if (useCustomDates && customColorBy) {
@@ -341,7 +341,7 @@ export default function LifecycleReport() {
         <>
           <TextField select size="small" label={t("lifecycle.cardType")} value={cardTypeKey} onChange={(e) => setCardTypeKey(e.target.value)} sx={{ minWidth: 180 }}>
             <MenuItem value="">{t("lifecycle.allTypes")}</MenuItem>
-            {types.filter((tp) => !tp.is_hidden).map((tp) => <MenuItem key={tp.key} value={tp.key}>{rml(tp.label, tp.translations, "label")}</MenuItem>)}
+            {types.filter((tp) => !tp.is_hidden).map((tp) => <MenuItem key={tp.key} value={tp.key}>{rml(tp.key, tp.translations, "label")}</MenuItem>)}
           </TextField>
 
           {hasDateFields && (

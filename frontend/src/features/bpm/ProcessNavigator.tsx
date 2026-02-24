@@ -347,7 +347,7 @@ function HouseCard({
   const hasDiagram = node.has_diagram ?? false;
   const bpType = getType("BusinessProcess");
   const stDef = node.subtype ? bpType?.subtypes?.find((s) => s.key === node.subtype) : undefined;
-  const subtypeLabel = stDef ? rl(stDef.label, stDef.translations) : null;
+  const subtypeLabel = stDef ? rl(stDef.key, stDef.translations) : null;
 
   // Search highlight
   const matchesSearch =
@@ -739,7 +739,7 @@ function DrawerOverview({
   }
   const bpType = getType("BusinessProcess");
   const stDef = node.subtype ? bpType?.subtypes?.find((s) => s.key === node.subtype) : undefined;
-  const drawerSubtypeLabel = stDef ? rl(stDef.label, stDef.translations) : null;
+  const drawerSubtypeLabel = stDef ? rl(stDef.key, stDef.translations) : null;
 
   return (
     <Box>

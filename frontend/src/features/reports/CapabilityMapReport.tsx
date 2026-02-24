@@ -765,7 +765,7 @@ export default function CapabilityMapReport() {
       const typeMeta = metamodelTypes.find((t) => t.key === typeKey);
       out.push({
         typeKey,
-        label: rml(typeMeta?.label ?? "", typeMeta?.translations, "label") || typeKey,
+        label: rml(typeMeta?.key ?? "", typeMeta?.translations, "label") || typeKey,
         options: members.map((m) => ({ key: m.id, label: m.name })),
       });
     }

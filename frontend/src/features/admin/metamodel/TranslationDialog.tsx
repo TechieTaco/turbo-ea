@@ -17,6 +17,7 @@ import CircularProgress from "@mui/material/CircularProgress";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import { SUPPORTED_LOCALES, LOCALE_LABELS } from "@/i18n";
+import { useEnabledLocales } from "@/hooks/useEnabledLocales";
 import type {
   CardType,
   MetamodelTranslations,
@@ -24,9 +25,6 @@ import type {
   SectionDef,
   SubtypeDef,
 } from "@/types";
-
-/** Locales to show translation inputs for (all except English). */
-const TRANSLATION_LOCALES = SUPPORTED_LOCALES.filter((l) => l !== "en");
 
 /** Remove empty-string entries from a TranslationMap. Returns undefined if all empty. */
 function cleanTranslationMap(map: TranslationMap | undefined): TranslationMap | undefined {
@@ -56,11 +54,11 @@ function cleanTranslations(
 /* ------------------------------------------------------------------ */
 
 function TranslationRow({
-  english,
+  reference,
   value,
   onChange,
 }: {
-  english: string;
+  reference: string;
   value: string;
   onChange: (v: string) => void;
 }) {
@@ -77,16 +75,22 @@ function TranslationRow({
       <Typography
         variant="body2"
         color="text.secondary"
-        sx={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
-        title={english}
+        sx={{
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+          whiteSpace: "nowrap",
+          fontFamily: "monospace",
+          fontSize: 12,
+        }}
+        title={reference}
       >
-        {english}
+        {reference}
       </Typography>
       <TextField
         size="small"
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        placeholder={english}
+        placeholder={reference}
         fullWidth
       />
     </Box>
@@ -139,7 +143,11 @@ export default function TranslationDialog({
   onSave,
 }: TranslationDialogProps) {
   const { t } = useTranslation(["admin", "common"]);
-  const [activeLocale, setActiveLocale] = useState<string>("de");
+  const { enabledLocales } = useEnabledLocales();
+  const visibleLocales = SUPPORTED_LOCALES.filter((l) => enabledLocales.includes(l));
+  const [activeLocale, setActiveLocale] = useState<string>(
+    visibleLocales[0] || "en",
+  );
   const [translations, setTranslations] = useState<MetamodelTranslations>({});
   const [subtypes, setSubtypes] = useState<SubtypeDef[]>([]);
   const [fieldsSchema, setFieldsSchema] = useState<SectionDef[]>([]);
@@ -241,7 +249,7 @@ export default function TranslationDialog({
 
   const completionCounts = useMemo(() => {
     const counts: Record<string, { filled: number; total: number }> = {};
-    TRANSLATION_LOCALES.forEach((locale) => {
+    visibleLocales.forEach((locale) => {
       let filled = 0;
       let total = 0;
 
@@ -249,8 +257,8 @@ export default function TranslationDialog({
       total++;
       if (translations.label?.[locale]?.trim()) filled++;
 
-      // Type description (only count if English has one)
-      if (cardType?.description) {
+      // Type description (only count if any locale has one)
+      if (cardType?.description || Object.values(translations.description || {}).some((v) => v?.trim())) {
         total++;
         if (translations.description?.[locale]?.trim()) filled++;
       }
@@ -280,7 +288,7 @@ export default function TranslationDialog({
       counts[locale] = { filled, total };
     });
     return counts;
-  }, [translations, subtypes, fieldsSchema, cardType]);
+  }, [translations, subtypes, fieldsSchema, cardType, visibleLocales]);
 
   // --- Save ---
 
@@ -344,7 +352,7 @@ export default function TranslationDialog({
         <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
           <MaterialSymbol icon="translate" size={22} color="#666" />
           <span>
-            {t("metamodel.translationDialog.title", { label: cardType.label })}
+            {t("metamodel.translationDialog.title", { label: cardType.key })}
           </span>
         </Box>
         <IconButton onClick={onClose} size="small">
@@ -354,15 +362,15 @@ export default function TranslationDialog({
 
       <Divider />
 
-      {/* Locale tabs */}
+      {/* Locale tabs — enabled locales only */}
       <Box sx={{ px: 3, borderBottom: 1, borderColor: "divider" }}>
         <Tabs
-          value={activeLocale}
+          value={visibleLocales.includes(activeLocale as typeof visibleLocales[number]) ? activeLocale : visibleLocales[0] || "en"}
           onChange={(_, v) => setActiveLocale(v)}
           variant="scrollable"
           scrollButtons="auto"
         >
-          {TRANSLATION_LOCALES.map((locale) => {
+          {visibleLocales.map((locale) => {
             const { filled, total } = completionCounts[locale] || { filled: 0, total: 0 };
             const isComplete = filled === total && total > 0;
             return (
@@ -393,13 +401,13 @@ export default function TranslationDialog({
         {/* Type Info */}
         <TranslationGroup title={t("metamodel.translationDialog.typeInfo")}>
           <TranslationRow
-            english={cardType.label}
+            reference={cardType.key}
             value={translations.label?.[activeLocale] || ""}
             onChange={(v) => updateTypeTranslation("label", activeLocale, v)}
           />
-          {cardType.description && (
+          {(cardType.description || Object.values(translations.description || {}).some((v) => v?.trim())) && (
             <TranslationRow
-              english={cardType.description}
+              reference={`${cardType.key}.description`}
               value={translations.description?.[activeLocale] || ""}
               onChange={(v) => updateTypeTranslation("description", activeLocale, v)}
             />
@@ -417,7 +425,7 @@ export default function TranslationDialog({
               {subtypes.map((s, idx) => (
                 <TranslationRow
                   key={s.key}
-                  english={s.label}
+                  reference={s.key}
                   value={s.translations?.[activeLocale] || ""}
                   onChange={(v) => updateSubtypeTranslation(idx, activeLocale, v)}
                 />
@@ -439,7 +447,7 @@ export default function TranslationDialog({
                 return (
                   <TranslationRow
                     key={sec.section}
-                    english={sec.section}
+                    reference={sec.section}
                     value={sec.translations?.[activeLocale] || ""}
                     onChange={(v) => updateSectionTranslation(secIdx, activeLocale, v)}
                   />
@@ -464,7 +472,7 @@ export default function TranslationDialog({
                 return (
                   <Box key={f.key}>
                     <TranslationRow
-                      english={f.label}
+                      reference={f.key}
                       value={f.translations?.[activeLocale] || ""}
                       onChange={(v) => updateFieldTranslation(secIdx, fi, activeLocale, v)}
                     />
@@ -474,7 +482,7 @@ export default function TranslationDialog({
                         {(f.options || []).map((o, oi) => (
                           <TranslationRow
                             key={o.key}
-                            english={o.label}
+                            reference={o.key}
                             value={o.translations?.[activeLocale] || ""}
                             onChange={(v) =>
                               updateOptionTranslation(secIdx, fi, oi, activeLocale, v)
@@ -506,7 +514,7 @@ export default function TranslationDialog({
                 {sec.fields.map((f, fi) => (
                   <Box key={f.key}>
                     <TranslationRow
-                      english={f.label}
+                      reference={f.key}
                       value={f.translations?.[activeLocale] || ""}
                       onChange={(v) => updateFieldTranslation(secIdx, fi, activeLocale, v)}
                     />
@@ -518,7 +526,7 @@ export default function TranslationDialog({
                         {(f.options || []).map((o, oi) => (
                           <TranslationRow
                             key={o.key}
-                            english={o.label}
+                            reference={o.key}
                             value={o.translations?.[activeLocale] || ""}
                             onChange={(v) =>
                               updateOptionTranslation(secIdx, fi, oi, activeLocale, v)

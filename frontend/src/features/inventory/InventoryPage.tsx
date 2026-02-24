@@ -433,7 +433,7 @@ export default function InventoryPage() {
       for (const section of typeConfig.fields_schema) {
         for (const field of section.fields) {
           if (field.readonly) continue;
-          fields.push({ key: `attr_${field.key}`, label: rl(field.label, field.translations), fieldDef: field, isCore: false });
+          fields.push({ key: `attr_${field.key}`, label: rl(field.key, field.translations), fieldDef: field, isCore: false });
         }
       }
     }
@@ -517,7 +517,7 @@ export default function InventoryPage() {
           return tp ? (
             <Chip
               size="small"
-              label={rml(tp.label, tp.translations, "label")}
+              label={rml(tp.key, tp.translations, "label")}
               sx={{ bgcolor: tp.color, color: "#fff", fontWeight: 500 }}
             />
           ) : (
@@ -571,7 +571,7 @@ export default function InventoryPage() {
           return (
             <Chip
               size="small"
-              label={st ? rl(st.label, st.translations) : p.value}
+              label={st ? rl(st.key, st.translations) : p.value}
               variant="outlined"
             />
           );
@@ -681,7 +681,7 @@ export default function InventoryPage() {
         for (const field of section.fields) {
           cols.push({
             field: `attr_${field.key}`,
-            headerName: rl(field.label, field.translations),
+            headerName: rl(field.key, field.translations),
             width: 150,
             editable: gridEditMode && !field.readonly,
             valueGetter: (p: { data: Card }) =>
@@ -703,7 +703,7 @@ export default function InventoryPage() {
                     return opt ? (
                       <Chip
                         size="small"
-                        label={rl(opt.label, opt.translations)}
+                        label={rl(opt.key, opt.translations)}
                         sx={
                           opt.color
                             ? { bgcolor: opt.color, color: "#fff" }
@@ -726,7 +726,7 @@ export default function InventoryPage() {
       const isSource = rt.source_type_key === selectedType;
       const otherTypeKey = isSource ? rt.target_type_key : rt.source_type_key;
       const otherType = types.find((t) => t.key === otherTypeKey);
-      const headerName = otherType ? rml(otherType.label, otherType.translations, "label") : otherTypeKey;
+      const headerName = otherType ? rml(otherType.key, otherType.translations, "label") : otherTypeKey;
       const index = relationsMap.get(rt.key);
       const relTypeRef = rt;
 
@@ -831,7 +831,7 @@ export default function InventoryPage() {
           <Select value={(massEditValue as string) || ""} label={t("massEdit.value")} onChange={(e) => setMassEditValue(e.target.value)}>
             <MenuItem value=""><em>{t("common:labels.none")}</em></MenuItem>
             {typeConfig.subtypes.map((st) => (
-              <MenuItem key={st.key} value={st.key}>{rl(st.label, st.translations)}</MenuItem>
+              <MenuItem key={st.key} value={st.key}>{rl(st.key, st.translations)}</MenuItem>
             ))}
           </Select>
         </FormControl>
@@ -851,7 +851,7 @@ export default function InventoryPage() {
               <MenuItem key={opt.key} value={opt.key}>
                 <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                   {opt.color && <Box sx={{ width: 10, height: 10, borderRadius: "50%", bgcolor: opt.color }} />}
-                  {rl(opt.label, opt.translations)}
+                  {rl(opt.key, opt.translations)}
                 </Box>
               </MenuItem>
             ))}

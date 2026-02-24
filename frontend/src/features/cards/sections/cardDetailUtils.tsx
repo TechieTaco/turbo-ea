@@ -146,7 +146,7 @@ export function FieldValue({ field, value, currencyFmt }: { field: FieldDef; val
     const strVal = typeof value === "string" ? value : safeString(value);
     const opt = field.options.find((o) => o.key === strVal);
     return opt ? (
-      <Chip size="small" label={rl(opt.label, opt.translations)} sx={{ ...SELECT_CHIP_BASE, width: w, ...(opt.color ? { bgcolor: opt.color, color: "#fff" } : {}) }} />
+      <Chip size="small" label={rl(opt.key, opt.translations)} sx={{ ...SELECT_CHIP_BASE, width: w, ...(opt.color ? { bgcolor: opt.color, color: "#fff" } : {}) }} />
     ) : (
       <Tooltip title={t("utils.unknownOption", { key: strVal })}>
         <Chip size="small" label={strVal} variant="outlined" color="warning" sx={{ ...SELECT_CHIP_BASE, width: w }} />
@@ -163,7 +163,7 @@ export function FieldValue({ field, value, currencyFmt }: { field: FieldDef; val
           const key = typeof v === "string" ? v : safeString(v);
           const opt = field.options!.find((o) => o.key === key);
           return opt ? (
-            <Chip key={key + i} size="small" label={rl(opt.label, opt.translations)} sx={{ ...SELECT_CHIP_BASE, width: w, ...(opt.color ? { bgcolor: opt.color, color: "#fff" } : {}) }} />
+            <Chip key={key + i} size="small" label={rl(opt.key, opt.translations)} sx={{ ...SELECT_CHIP_BASE, width: w, ...(opt.color ? { bgcolor: opt.color, color: "#fff" } : {}) }} />
           ) : (
             <Chip key={key + i} size="small" label={key} variant="outlined" color="warning" sx={{ ...SELECT_CHIP_BASE, width: w }} />
           );
@@ -234,10 +234,10 @@ export function FieldEditor({
     case "single_select":
       return (
         <FormControl size="small" sx={{ minWidth: 200 }}>
-          <InputLabel>{rl(field.label, field.translations)}</InputLabel>
+          <InputLabel>{rl(field.key, field.translations)}</InputLabel>
           <Select
             value={strVal}
-            label={rl(field.label, field.translations)}
+            label={rl(field.key, field.translations)}
             onChange={(e) => onChange(e.target.value || undefined)}
           >
             <MenuItem value="">
@@ -256,7 +256,7 @@ export function FieldEditor({
                       }}
                     />
                   )}
-                  {rl(opt.label, opt.translations)}
+                  {rl(opt.key, opt.translations)}
                 </Box>
               </MenuItem>
             ))}
@@ -267,11 +267,11 @@ export function FieldEditor({
       const arrVal: string[] = Array.isArray(value) ? value.map((v) => typeof v === "string" ? v : safeString(v)) : (strVal ? [strVal] : []);
       return (
         <FormControl size="small" sx={{ minWidth: 200 }}>
-          <InputLabel>{rl(field.label, field.translations)}</InputLabel>
+          <InputLabel>{rl(field.key, field.translations)}</InputLabel>
           <Select
             multiple
             value={arrVal}
-            label={rl(field.label, field.translations)}
+            label={rl(field.key, field.translations)}
             onChange={(e) => {
               const v = e.target.value;
               onChange(typeof v === "string" ? v.split(",") : v);
@@ -280,7 +280,7 @@ export function FieldEditor({
               <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
                 {(selected as string[]).map((key) => {
                   const opt = field.options?.find((o) => o.key === key);
-                  return <Chip key={key} size="small" label={opt ? rl(opt.label, opt.translations) : key} sx={{ height: 22 }} />;
+                  return <Chip key={key} size="small" label={opt ? rl(opt.key, opt.translations) : key} sx={{ height: 22 }} />;
                 })}
               </Box>
             )}
@@ -291,7 +291,7 @@ export function FieldEditor({
                   {opt.color && (
                     <Box sx={{ width: 10, height: 10, borderRadius: "50%", bgcolor: opt.color }} />
                   )}
-                  {rl(opt.label, opt.translations)}
+                  {rl(opt.key, opt.translations)}
                 </Box>
               </MenuItem>
             ))}
@@ -303,7 +303,7 @@ export function FieldEditor({
       return (
         <TextField
           size="small"
-          label={rl(field.label, field.translations)}
+          label={rl(field.key, field.translations)}
           type="number"
           value={numVal}
           onChange={(e) =>
@@ -317,7 +317,7 @@ export function FieldEditor({
       return (
         <TextField
           size="small"
-          label={rl(field.label, field.translations)}
+          label={rl(field.key, field.translations)}
           type="number"
           value={numVal}
           onChange={(e) =>
@@ -335,14 +335,14 @@ export function FieldEditor({
               onChange={(e) => onChange(e.target.checked)}
             />
           }
-          label={rl(field.label, field.translations)}
+          label={rl(field.key, field.translations)}
         />
       );
     case "date":
       return (
         <TextField
           size="small"
-          label={rl(field.label, field.translations)}
+          label={rl(field.key, field.translations)}
           type="date"
           value={strVal}
           onChange={(e) => onChange(e.target.value || undefined)}
@@ -354,7 +354,7 @@ export function FieldEditor({
       return (
         <TextField
           size="small"
-          label={rl(field.label, field.translations)}
+          label={rl(field.key, field.translations)}
           type="url"
           placeholder="https://"
           value={strVal}
@@ -368,7 +368,7 @@ export function FieldEditor({
       return (
         <TextField
           size="small"
-          label={rl(field.label, field.translations)}
+          label={rl(field.key, field.translations)}
           value={strVal}
           onChange={(e) => onChange(e.target.value || undefined)}
           sx={{ minWidth: 300 }}

@@ -282,10 +282,10 @@ export default function CreateCardDialog({
       case "single_select":
         return (
           <FormControl fullWidth key={field.key} sx={{ mb: 2 }}>
-            <InputLabel>{rl(field.label, field.translations)}</InputLabel>
+            <InputLabel>{rl(field.key, field.translations)}</InputLabel>
             <Select
               value={(attributes[field.key] as string) ?? ""}
-              label={rl(field.label, field.translations)}
+              label={rl(field.key, field.translations)}
               onChange={(e) => setAttr(field.key, e.target.value || undefined)}
             >
               <MenuItem value="">
@@ -305,7 +305,7 @@ export default function CreateCardDialog({
                         }}
                       />
                     )}
-                    {rl(opt.label, opt.translations)}
+                    {rl(opt.key, opt.translations)}
                   </Box>
                 </MenuItem>
               ))}
@@ -319,7 +319,7 @@ export default function CreateCardDialog({
           <TextField
             key={field.key}
             fullWidth
-            label={rl(field.label, field.translations)}
+            label={rl(field.key, field.translations)}
             type="number"
             value={attributes[field.key] ?? ""}
             onChange={(e) =>
@@ -342,7 +342,7 @@ export default function CreateCardDialog({
                 onChange={(e) => setAttr(field.key, e.target.checked)}
               />
             }
-            label={rl(field.label, field.translations)}
+            label={rl(field.key, field.translations)}
             sx={{ mb: 1, display: "block" }}
           />
         );
@@ -352,7 +352,7 @@ export default function CreateCardDialog({
           <TextField
             key={field.key}
             fullWidth
-            label={rl(field.label, field.translations)}
+            label={rl(field.key, field.translations)}
             type="date"
             value={(attributes[field.key] as string) ?? ""}
             onChange={(e) => setAttr(field.key, e.target.value || undefined)}
@@ -367,7 +367,7 @@ export default function CreateCardDialog({
           <TextField
             key={field.key}
             fullWidth
-            label={rl(field.label, field.translations)}
+            label={rl(field.key, field.translations)}
             value={(attributes[field.key] as string) ?? ""}
             onChange={(e) => setAttr(field.key, e.target.value || undefined)}
             sx={{ mb: 2 }}
@@ -429,7 +429,7 @@ export default function CreateCardDialog({
                     }}
                   />
                   <MaterialSymbol icon={t.icon} size={20} color={t.color} />
-                  {rml(t.label, t.translations, "label")}
+                  {rml(t.key, t.translations, "label")}
                 </Box>
               </MenuItem>
             ))}
@@ -450,7 +450,7 @@ export default function CreateCardDialog({
               </MenuItem>
               {typeConfig!.subtypes!.map((st) => (
                 <MenuItem key={st.key} value={st.key}>
-                  {rl(st.label, st.translations)}
+                  {rl(st.key, st.translations)}
                 </MenuItem>
               ))}
             </Select>

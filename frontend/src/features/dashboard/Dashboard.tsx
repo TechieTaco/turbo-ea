@@ -78,7 +78,7 @@ export default function Dashboard() {
     if (!data) return [];
     return types
       .filter((t) => (data.by_type[t.key] ?? 0) > 0)
-      .map((t) => ({ name: rml(t.label, t.translations, "label"), count: data.by_type[t.key] || 0, color: t.color, key: t.key }))
+      .map((t) => ({ name: rml(t.key, t.translations, "label"), count: data.by_type[t.key] || 0, color: t.color, key: t.key }))
       .sort((a, b) => b.count - a.count);
   }, [data, types]);
 
@@ -340,7 +340,7 @@ export default function Dashboard() {
                   onClick={() => navigate(`/inventory?type=${t.key}`)}
                 >
                   <MaterialSymbol icon={t.icon} size={20} color={t.color} />
-                  <Typography variant="body2" sx={{ flex: 1 }}>{rml(t.label, t.translations, "label")}</Typography>
+                  <Typography variant="body2" sx={{ flex: 1 }}>{rml(t.key, t.translations, "label")}</Typography>
                   <Chip size="small" label={data.by_type[t.key] || 0} />
                 </Box>
               ))}

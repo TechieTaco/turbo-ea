@@ -5,6 +5,24 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.15.0] - 2026-02-24
+
+### Added
+- Admin-configurable enabled languages setting under General Settings — controls which locales are available in the language picker and translation dialog
+- Alembic migration to backfill English translations from label fields into the translations JSONB
+- Seed helper to auto-inject English translations so `en` is treated as a first-class locale
+
+### Changed
+- Translation architecture: English is now stored in translations JSONB alongside all other locales, rather than implicitly in the label column
+- Metamodel label resolution falls back to the entity key when no translation exists for the current locale, instead of always showing the English label
+- TranslationDialog now shows all enabled locales (including English) and uses the entity key as reference instead of the English label
+- Metamodel form fields (type label, field label, etc.) now save against the admin's current UI locale
+- Removed all inline translation accordions from FieldEditorDialog, CardLayoutEditor, StakeholderRolePanel, and MetamodelAdmin — translations are managed exclusively via the centralized TranslationDialog
+- Language picker in the nav bar is filtered to only show admin-enabled locales
+
+### Fixed
+- SoAW editor displaying "Part I: Part I: Statement of Architecture Work" — removed duplicate Part prefix from section headers
+
 ## [0.14.2] - 2026-02-23
 
 ### Added

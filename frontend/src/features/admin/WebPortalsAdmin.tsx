@@ -186,7 +186,7 @@ export default function WebPortalsAdmin() {
         ? rt.target_type_key
         : rt.source_type_key;
     const tp = types.find((tp) => tp.key === otherKey);
-    return rml(tp?.label ?? "", tp?.translations, "label") || otherKey;
+    return rml(tp?.key ?? "", tp?.translations, "label") || otherKey;
   };
 
   const handleSave = async () => {
@@ -243,7 +243,7 @@ export default function WebPortalsAdmin() {
 
   const getTypeLabel = (key: string) => {
     const ct = types.find((tp) => tp.key === key);
-    return rml(ct?.label ?? "", ct?.translations, "label") || key;
+    return rml(ct?.key ?? "", ct?.translations, "label") || key;
   };
 
   const getTypeColor = (key: string) => {
@@ -494,7 +494,7 @@ export default function WebPortalsAdmin() {
                     size={18}
                     color={ct.color}
                   />
-                  {rml(ct.label, ct.translations, "label")}
+                  {rml(ct.key, ct.translations, "label")}
                 </Box>
               </MenuItem>
             ))}
@@ -519,7 +519,7 @@ export default function WebPortalsAdmin() {
             >
               {selectedType.subtypes.map((st) => (
                 <MenuItem key={st.key} value={st.key}>
-                  {rl(st.label, st.translations)}
+                  {rl(st.key, st.translations)}
                 </MenuItem>
               ))}
             </TextField>
@@ -619,7 +619,7 @@ export default function WebPortalsAdmin() {
                     return (
                       <TableRow key={fKey}>
                         <TableCell>
-                          <Typography variant="body2">{rl(field.label, field.translations)}</Typography>
+                          <Typography variant="body2">{rl(field.key, field.translations)}</Typography>
                         </TableCell>
                         <TableCell align="center">
                           <Checkbox
@@ -682,8 +682,8 @@ export default function WebPortalsAdmin() {
                     const detailChecked = tog ? tog.detail : false;
                     const verb =
                       rt.source_type_key === cardType
-                        ? rml(rt.label, rt.translations, "label")
-                        : rml(rt.reverse_label || rt.label, rt.translations, "reverse_label") || rml(rt.label, rt.translations, "label");
+                        ? rml(rt.key, rt.translations, "label")
+                        : rml(rt.key, rt.translations, "reverse_label") || rml(rt.key, rt.translations, "label");
                     return (
                       <TableRow key={rKey}>
                         <TableCell>

@@ -269,7 +269,7 @@ export default function EADeliveryPage() {
   const getTypeLabel = useCallback(
     (typeKey: string) => {
       const tp = metamodelTypes.find((t) => t.key === typeKey);
-      return rml(tp?.label ?? "", tp?.translations, "label") || typeKey;
+      return rml(tp?.key ?? "", tp?.translations, "label") || typeKey;
     },
     [metamodelTypes, rml],
   );
@@ -836,7 +836,7 @@ export default function EADeliveryPage() {
           <MenuItem value="">{t("filter.allSubtypes")}</MenuItem>
           {subtypes.map((st) => (
             <MenuItem key={st.key} value={st.key}>
-              {rl(st.label, st.translations)}
+              {rl(st.key, st.translations)}
             </MenuItem>
           ))}
         </TextField>

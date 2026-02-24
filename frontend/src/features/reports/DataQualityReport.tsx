@@ -117,7 +117,7 @@ export default function DataQualityReport() {
   const partialLabel = t("dataQuality.partial");
   const minimalLabel = t("dataQuality.minimal");
   const chartData = data.by_type.map((bt) => ({
-    name: (() => { const tp = types.find((tp) => tp.key === bt.type); return rml(tp?.label ?? "", tp?.translations, "label") || bt.type; })(),
+    name: (() => { const tp = types.find((tp) => tp.key === bt.type); return rml(tp?.key ?? "", tp?.translations, "label") || bt.type; })(),
     type: bt.type,
     [completeLabel]: bt.complete,
     [partialLabel]: bt.partial,
@@ -239,7 +239,7 @@ export default function DataQualityReport() {
             <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
               {data.by_type.map((bt) => {
                 const found = types.find((tp) => tp.key === bt.type);
-                const label = rml(found?.label ?? "", found?.translations, "label") || bt.type;
+                const label = rml(found?.key ?? "", found?.translations, "label") || bt.type;
                 return (
                   <Box key={bt.type}>
                     <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 0.5 }}>
@@ -294,7 +294,7 @@ export default function DataQualityReport() {
               <TableBody>
                 {data.by_type.map((bt) => (
                   <TableRow key={bt.type} hover>
-                    <TableCell sx={{ fontWeight: 500 }}>{(() => { const tp = types.find((tp) => tp.key === bt.type); return rml(tp?.label ?? "", tp?.translations, "label") || bt.type; })()}</TableCell>
+                    <TableCell sx={{ fontWeight: 500 }}>{(() => { const tp = types.find((tp) => tp.key === bt.type); return rml(tp?.key ?? "", tp?.translations, "label") || bt.type; })()}</TableCell>
                     <TableCell align="right">{bt.total}</TableCell>
                     <TableCell align="right" sx={{ color: QUALITY_COLORS.complete }}>{bt.complete}</TableCell>
                     <TableCell align="right" sx={{ color: QUALITY_COLORS.partial }}>{bt.partial}</TableCell>
@@ -343,7 +343,7 @@ export default function DataQualityReport() {
                   >
                     <TableCell sx={{ fontWeight: 500 }}>{item.name}</TableCell>
                     <TableCell>
-                      <Chip size="small" label={(() => { const tp = types.find((tp) => tp.key === item.type); return rml(tp?.label ?? "", tp?.translations, "label") || item.type; })()} variant="outlined" sx={{ height: 22, fontSize: 11 }} />
+                      <Chip size="small" label={(() => { const tp = types.find((tp) => tp.key === item.type); return rml(tp?.key ?? "", tp?.translations, "label") || item.type; })()} variant="outlined" sx={{ height: 22, fontSize: 11 }} />
                     </TableCell>
                     <TableCell align="right">
                       <Box sx={{ display: "flex", alignItems: "center", gap: 1, justifyContent: "flex-end" }}>

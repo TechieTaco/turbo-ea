@@ -16,10 +16,13 @@ import Divider from "@mui/material/Divider";
 import Chip from "@mui/material/Chip";
 import Tabs from "@mui/material/Tabs";
 import Tab from "@mui/material/Tab";
+import Checkbox from "@mui/material/Checkbox";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useMetamodel } from "@/hooks/useMetamodel";
+import { useEnabledLocales } from "@/hooks/useEnabledLocales";
+import { SUPPORTED_LOCALES, LOCALE_LABELS, type SupportedLocale } from "@/i18n";
 
 const EolAdmin = lazy(() => import("./EolAdmin"));
 const WebPortalsAdmin = lazy(() => import("./WebPortalsAdmin"));
@@ -145,6 +148,11 @@ function GeneralTab() {
   const [registrationEnabled, setRegistrationEnabled] = useState(true);
   const [savingRegistration, setSavingRegistration] = useState(false);
 
+  // Enabled locales state
+  const { enabledLocales: cachedLocales, invalidateEnabledLocales } = useEnabledLocales();
+  const [enabledLocales, setEnabledLocales] = useState<SupportedLocale[]>([...SUPPORTED_LOCALES]);
+  const [savingLocales, setSavingLocales] = useState(false);
+
   // SSO state
   const [ssoEnabled, setSsoEnabled] = useState(false);
   const [ssoClientId, setSsoClientId] = useState("");
@@ -162,6 +170,10 @@ function GeneralTab() {
   const [configured, setConfigured] = useState(false);
 
   useEffect(() => {
+    setEnabledLocales(cachedLocales);
+  }, [cachedLocales]);
+
+  useEffect(() => {
     Promise.all([
       api.get<EmailSettings>("/settings/email"),
       api.get<LogoInfo>("/settings/logo/info"),
@@ -170,8 +182,9 @@ function GeneralTab() {
       api.get<{ enabled: boolean }>("/settings/bpm-enabled"),
       api.get<SsoSettings>("/settings/sso"),
       api.get<{ enabled: boolean }>("/settings/registration"),
+      api.get<{ locales: string[] }>("/settings/enabled-locales"),
     ])
-      .then(([emailData, logoData, faviconData, currencyData, bpmData, ssoData, regData]) => {
+      .then(([emailData, logoData, faviconData, currencyData, bpmData, ssoData, regData, localesData]) => {
         setSmtpHost(emailData.smtp_host);
         setSmtpPort(emailData.smtp_port);
         setSmtpUser(emailData.smtp_user);
@@ -189,6 +202,10 @@ function GeneralTab() {
         setSsoClientSecret(ssoData.client_secret);
         setSsoTenantId(ssoData.tenant_id);
         setRegistrationEnabled(regData.enabled);
+        const validLocales = (localesData.locales || []).filter((l: string): l is SupportedLocale =>
+          (SUPPORTED_LOCALES as readonly string[]).includes(l),
+        );
+        if (validLocales.length > 0) setEnabledLocales(validLocales);
       })
       .catch((e) => setError(e instanceof Error ? e.message : t("common:errors.generic")))
       .finally(() => setLoading(false));
@@ -367,6 +384,34 @@ function GeneralTab() {
       setError(e instanceof Error ? e.message : t("common:errors.generic"));
     } finally {
       setSavingCurrency(false);
+    }
+  };
+
+  const handleLocaleToggle = (locale: SupportedLocale, checked: boolean) => {
+    if (checked) {
+      setEnabledLocales((prev) => [...prev, locale]);
+    } else {
+      setEnabledLocales((prev) => prev.filter((l) => l !== locale));
+    }
+  };
+
+  const handleLocalesSave = async () => {
+    if (enabledLocales.length === 0) return;
+    setSavingLocales(true);
+    setError("");
+    try {
+      const res = await api.patch<{ locales: string[] }>("/settings/enabled-locales", {
+        locales: enabledLocales,
+      });
+      const valid = (res.locales || []).filter((l: string): l is SupportedLocale =>
+        (SUPPORTED_LOCALES as readonly string[]).includes(l),
+      );
+      invalidateEnabledLocales(valid);
+      setSnack(t("settings.locales.savedSuccess"));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t("common:errors.generic"));
+    } finally {
+      setSavingLocales(false);
     }
   };
 
@@ -607,6 +652,52 @@ function GeneralTab() {
             {savingCurrency ? t("common:labels.loading") : t("common:actions.save")}
           </Button>
         </Box>
+      </Paper>
+
+      {/* Enabled Languages */}
+      <Paper sx={{ p: 3, mb: 3 }}>
+        <Box sx={{ display: "flex", alignItems: "center", mb: 2, gap: 1 }}>
+          <MaterialSymbol icon="translate" size={22} color="#555" />
+          <Typography variant="h6" fontWeight={600}>
+            {t("settings.locales.title")}
+          </Typography>
+          <Chip
+            label={`${enabledLocales.length}/${SUPPORTED_LOCALES.length}`}
+            size="small"
+            color="default"
+            sx={{ ml: 1 }}
+          />
+        </Box>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          {t("settings.locales.description")}
+        </Typography>
+        <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5, mb: 2 }}>
+          {SUPPORTED_LOCALES.map((locale) => (
+            <FormControlLabel
+              key={locale}
+              control={
+                <Checkbox
+                  size="small"
+                  checked={enabledLocales.includes(locale)}
+                  onChange={(e) => handleLocaleToggle(locale, e.target.checked)}
+                  disabled={enabledLocales.length === 1 && enabledLocales.includes(locale)}
+                />
+              }
+              label={LOCALE_LABELS[locale]}
+              sx={{ mr: 2 }}
+            />
+          ))}
+        </Box>
+        <Button
+          variant="contained"
+          size="small"
+          startIcon={<MaterialSymbol icon="save" size={18} />}
+          sx={{ textTransform: "none" }}
+          onClick={handleLocalesSave}
+          disabled={savingLocales || enabledLocales.length === 0}
+        >
+          {savingLocales ? t("common:labels.loading") : t("common:actions.save")}
+        </Button>
       </Paper>
 
       {/* ── Modules ───────────────────────────────────────────────── */}

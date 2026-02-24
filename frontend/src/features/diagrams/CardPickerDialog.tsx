@@ -115,7 +115,7 @@ export default function CardPickerDialog({
           {types.map((tp) => (
             <Chip
               key={tp.key}
-              label={rml(tp.label, tp.translations, "label")}
+              label={rml(tp.key, tp.translations, "label")}
               size="small"
               icon={
                 <MaterialSymbol
@@ -176,7 +176,7 @@ export default function CardPickerDialog({
                     )}
                     <ListItemText
                       primary={card.name}
-                      secondary={ct ? rml(ct.label, ct.translations, "label") : undefined}
+                      secondary={ct ? rml(ct.key, ct.translations, "label") : undefined}
                       primaryTypographyProps={{ noWrap: true, ml: 1 }}
                       secondaryTypographyProps={{
                         noWrap: true,

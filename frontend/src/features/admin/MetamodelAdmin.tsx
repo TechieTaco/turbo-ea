@@ -23,9 +23,6 @@ import IconButton from "@mui/material/IconButton";
 import Tooltip from "@mui/material/Tooltip";
 import Alert from "@mui/material/Alert";
 import CircularProgress from "@mui/material/CircularProgress";
-import Accordion from "@mui/material/Accordion";
-import AccordionSummary from "@mui/material/AccordionSummary";
-import AccordionDetails from "@mui/material/AccordionDetails";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import ColorPicker from "@/components/ColorPicker";
 import IconPicker from "@/components/IconPicker";
@@ -34,7 +31,6 @@ import CalculationsAdmin from "@/features/admin/CalculationsAdmin";
 import TagsAdmin from "@/features/admin/TagsAdmin";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { api } from "@/api/client";
-import { SUPPORTED_LOCALES, LOCALE_LABELS } from "@/i18n";
 import type {
   CardType as FSType,
   RelationType as RType,
@@ -43,9 +39,6 @@ import type {
 } from "@/types";
 import { TypeDetailDrawer, MetamodelGraph } from "./metamodel";
 import { CATEGORIES, CARDINALITY_OPTIONS } from "./metamodel/constants";
-
-/** Locales to show translation inputs for (all except English). */
-const TRANSLATION_LOCALES = SUPPORTED_LOCALES.filter((l) => l !== "en");
 
 /** Remove empty-string entries from a TranslationMap. Returns undefined if all empty. */
 function cleanTranslationMap(map: TranslationMap | undefined): TranslationMap | undefined {
@@ -931,65 +924,6 @@ export default function MetamodelAdmin() {
             }
             sx={{ mb: 2 }}
           />
-          <Accordion variant="outlined" sx={{ mb: 2, "&:before": { display: "none" } }} disableGutters>
-            <AccordionSummary
-              expandIcon={<MaterialSymbol icon="expand_more" size={16} />}
-              sx={{ minHeight: 36, "& .MuiAccordionSummary-content": { my: 0.25 } }}
-            >
-              <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-                <MaterialSymbol icon="translate" size={18} color="inherit" />
-                <Typography variant="body2" fontWeight={600}>
-                  {t("metamodel.translations")}
-                </Typography>
-              </Box>
-            </AccordionSummary>
-            <AccordionDetails sx={{ pt: 0 }}>
-              <Typography variant="caption" fontWeight={600} sx={{ mb: 0.5, display: "block" }}>
-                {t("metamodel.translations.labelTranslations")}
-              </Typography>
-              <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 1, mb: 2 }}>
-                {TRANSLATION_LOCALES.map((locale) => (
-                  <TextField
-                    key={`newrel-label-${locale}`}
-                    size="small"
-                    label={LOCALE_LABELS[locale]}
-                    value={newRel.translations.label?.[locale] || ""}
-                    onChange={(e) =>
-                      setNewRel({
-                        ...newRel,
-                        translations: {
-                          ...newRel.translations,
-                          label: { ...newRel.translations.label, [locale]: e.target.value },
-                        },
-                      })
-                    }
-                  />
-                ))}
-              </Box>
-              <Typography variant="caption" fontWeight={600} sx={{ mb: 0.5, display: "block" }}>
-                {t("metamodel.translations.reverseLabelTranslations")}
-              </Typography>
-              <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 1 }}>
-                {TRANSLATION_LOCALES.map((locale) => (
-                  <TextField
-                    key={`newrel-revlabel-${locale}`}
-                    size="small"
-                    label={LOCALE_LABELS[locale]}
-                    value={newRel.translations.reverse_label?.[locale] || ""}
-                    onChange={(e) =>
-                      setNewRel({
-                        ...newRel,
-                        translations: {
-                          ...newRel.translations,
-                          reverse_label: { ...newRel.translations.reverse_label, [locale]: e.target.value },
-                        },
-                      })
-                    }
-                  />
-                ))}
-              </Box>
-            </AccordionDetails>
-          </Accordion>
           <FormControl fullWidth>
             <InputLabel>{t("metamodel.cardinality")}</InputLabel>
             <Select
@@ -1086,65 +1020,6 @@ export default function MetamodelAdmin() {
                 }
                 sx={{ mb: 2 }}
               />
-              <Accordion variant="outlined" sx={{ mb: 2, "&:before": { display: "none" } }} disableGutters>
-                <AccordionSummary
-                  expandIcon={<MaterialSymbol icon="expand_more" size={16} />}
-                  sx={{ minHeight: 36, "& .MuiAccordionSummary-content": { my: 0.25 } }}
-                >
-                  <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-                    <MaterialSymbol icon="translate" size={18} color="inherit" />
-                    <Typography variant="body2" fontWeight={600}>
-                      {t("metamodel.translations")}
-                    </Typography>
-                  </Box>
-                </AccordionSummary>
-                <AccordionDetails sx={{ pt: 0 }}>
-                  <Typography variant="caption" fontWeight={600} sx={{ mb: 0.5, display: "block" }}>
-                    {t("metamodel.translations.labelTranslations")}
-                  </Typography>
-                  <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 1, mb: 2 }}>
-                    {TRANSLATION_LOCALES.map((locale) => (
-                      <TextField
-                        key={`editrel-label-${locale}`}
-                        size="small"
-                        label={LOCALE_LABELS[locale]}
-                        value={editRel.translations?.label?.[locale] || ""}
-                        onChange={(e) =>
-                          setEditRel({
-                            ...editRel,
-                            translations: {
-                              ...editRel.translations,
-                              label: { ...editRel.translations?.label, [locale]: e.target.value },
-                            },
-                          })
-                        }
-                      />
-                    ))}
-                  </Box>
-                  <Typography variant="caption" fontWeight={600} sx={{ mb: 0.5, display: "block" }}>
-                    {t("metamodel.translations.reverseLabelTranslations")}
-                  </Typography>
-                  <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 1 }}>
-                    {TRANSLATION_LOCALES.map((locale) => (
-                      <TextField
-                        key={`editrel-revlabel-${locale}`}
-                        size="small"
-                        label={LOCALE_LABELS[locale]}
-                        value={editRel.translations?.reverse_label?.[locale] || ""}
-                        onChange={(e) =>
-                          setEditRel({
-                            ...editRel,
-                            translations: {
-                              ...editRel.translations,
-                              reverse_label: { ...editRel.translations?.reverse_label, [locale]: e.target.value },
-                            },
-                          })
-                        }
-                      />
-                    ))}
-                  </Box>
-                </AccordionDetails>
-              </Accordion>
               <FormControl fullWidth>
                 <InputLabel>{t("metamodel.cardinality")}</InputLabel>
                 <Select

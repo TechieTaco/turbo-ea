@@ -238,7 +238,7 @@ function FormulaEditor({ value, onChange, cardType, relationTypes }: FormulaEdit
           items.push({
             insert: f.key,
             label: f.key,
-            detail: `${rl(f.label, f.translations)} (${f.type})`,
+            detail: `${rl(f.key, f.translations)} (${f.type})`,
             category: section.section,
           });
         }
@@ -255,7 +255,7 @@ function FormulaEditor({ value, onChange, cardType, relationTypes }: FormulaEdit
       .map((rt) => ({
         insert: rt.key,
         label: rt.key,
-        detail: `${rml(rt.label, rt.translations, "label")} (${rt.source_type_key} → ${rt.target_type_key})`,
+        detail: `${rml(rt.key, rt.translations, "label")} (${rt.source_type_key} → ${rt.target_type_key})`,
         category: "Relation Types",
       }));
   }, [cardType, relationTypes]);
@@ -656,7 +656,7 @@ function FormulaReference({ cardType, relationTypes }: FormulaReferenceProps) {
                       size="small"
                       label={`data.${f.key}`}
                       variant="outlined"
-                      title={`${rl(f.label, f.translations)} (${f.type})`}
+                      title={`${rl(f.key, f.translations)} (${f.type})`}
                     />
                   ))
                 )}
@@ -676,7 +676,7 @@ function FormulaReference({ cardType, relationTypes }: FormulaReferenceProps) {
                     size="small"
                     label={`relations.${rt.key}`}
                     variant="outlined"
-                    title={`${rml(rt.label, rt.translations, "label")} (${rt.source_type_key} → ${rt.target_type_key})`}
+                    title={`${rml(rt.key, rt.translations, "label")} (${rt.source_type_key} → ${rt.target_type_key})`}
                   />
                 ))}
               </Box>
@@ -827,7 +827,7 @@ function EditDialog({ open, calculation, cardTypes, relationTypes, onClose, onSa
               >
                 {cardTypes.map((ct) => (
                   <MenuItem key={ct.key} value={ct.key}>
-                    {rml(ct.label, ct.translations, "label")}
+                    {rml(ct.key, ct.translations, "label")}
                   </MenuItem>
                 ))}
               </Select>
@@ -842,7 +842,7 @@ function EditDialog({ open, calculation, cardTypes, relationTypes, onClose, onSa
               >
                 {eligibleFields.map((f) => (
                   <MenuItem key={f.key} value={f.key}>
-                    {rl(f.label, f.translations)} ({f.type})
+                    {rl(f.key, f.translations)} ({f.type})
                   </MenuItem>
                 ))}
               </Select>
@@ -979,7 +979,7 @@ function TestDialog({ open, calculation, onClose }: TestDialogProps) {
   };
 
   const typeFound = types.find((ct) => ct.key === calculation?.target_type_key);
-  const typeLabel = rml(typeFound?.label ?? "", typeFound?.translations, "label") || calculation?.target_type_key || "card";
+  const typeLabel = rml(typeFound?.key ?? "", typeFound?.translations, "label") || calculation?.target_type_key || "card";
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
@@ -1164,7 +1164,7 @@ export default function CalculationsAdmin() {
 
   const getTypeLabel = (key: string) => {
     const ct = types.find((ct) => ct.key === key);
-    return rml(ct?.label ?? "", ct?.translations, "label") || key;
+    return rml(ct?.key ?? "", ct?.translations, "label") || key;
   };
 
   const getFieldLabel = (typeKey: string, fieldKey: string) => {
@@ -1172,7 +1172,7 @@ export default function CalculationsAdmin() {
     if (!cardType) return fieldKey;
     for (const section of cardType.fields_schema || []) {
       for (const field of section.fields) {
-        if (field.key === fieldKey) return rl(field.label, field.translations);
+        if (field.key === fieldKey) return rl(field.key, field.translations);
       }
     }
     return fieldKey;
@@ -1196,7 +1196,7 @@ export default function CalculationsAdmin() {
             <MenuItem value="">{t("calculations.allTypes")}</MenuItem>
             {visibleTypes.map((ct) => (
               <MenuItem key={ct.key} value={ct.key}>
-                {rml(ct.label, ct.translations, "label")}
+                {rml(ct.key, ct.translations, "label")}
               </MenuItem>
             ))}
           </Select>

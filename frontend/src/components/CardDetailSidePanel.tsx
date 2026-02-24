@@ -127,7 +127,7 @@ export default function CardDetailSidePanel({ cardId, open, onClose }: Props) {
                 </Typography>
                 <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
                   <Typography variant="caption" color="text.secondary">
-                    {rml(typeConfig?.label ?? "", typeConfig?.translations, "label") || card.type}
+                    {rml(typeConfig?.key ?? "", typeConfig?.translations, "label") || card.type}
                   </Typography>
                   {card.subtype && typeof card.subtype === "string" && (
                     <Chip

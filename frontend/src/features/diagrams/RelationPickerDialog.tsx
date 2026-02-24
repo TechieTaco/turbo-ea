@@ -98,7 +98,7 @@ export default function RelationPickerDialog({
                   sx={{ borderRadius: 1, mx: 1, my: 0.25 }}
                 >
                   <ListItemText
-                    primary={rml(rt.label, rt.translations, "label")}
+                    primary={rml(rt.key, rt.translations, "label")}
                     secondary={
                       <>
                         {srcName} → {tgtName}
