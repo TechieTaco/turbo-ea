@@ -137,7 +137,7 @@ function tc(key: string, types: CardType[]): string {
 }
 function tl(key: string, types: CardType[], locale?: string): string {
   const t = types.find((t) => t.key === key);
-  return resolveMetaLabel(t?.label ?? "", t?.translations, "label", locale) || key;
+  return resolveMetaLabel(t?.key ?? "", t?.translations, "label", locale) || key;
 }
 function ti(key: string, types: CardType[]): string {
   return types.find((t) => t.key === key)?.icon || "description";
@@ -528,7 +528,7 @@ export default function DependencyReport() {
     const params: { label: string; value: string }[] = [];
     if (cardTypeKey) {
       const tp = types.find((tp) => tp.key === cardTypeKey);
-      const typeLabel = rml(tp?.label ?? "", tp?.translations, "label") || cardTypeKey;
+      const typeLabel = rml(tp?.key ?? "", tp?.translations, "label") || cardTypeKey;
       params.push({ label: t("common:labels.type"), value: typeLabel });
     }
     if (centerNode) params.push({ label: t("dependency.center"), value: centerNode.name });
@@ -577,7 +577,7 @@ export default function DependencyReport() {
             <MenuItem value="">{t("dependency.allTypes")}</MenuItem>
             {types.filter((tp) => !tp.is_hidden).map((tp) => (
               <MenuItem key={tp.key} value={tp.key}>
-                {rml(tp.label, tp.translations, "label")}
+                {rml(tp.key, tp.translations, "label")}
               </MenuItem>
             ))}
           </TextField>

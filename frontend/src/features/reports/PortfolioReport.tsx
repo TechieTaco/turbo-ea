@@ -570,7 +570,7 @@ export default function PortfolioReport() {
     for (const [typeKey, members] of Object.entries(data.groupable_types)) {
       if (members.length > 0) {
         const typeMeta = metamodelTypes.find((t) => t.key === typeKey);
-        const label = rml(typeMeta?.label ?? "", typeMeta?.translations, "label") || typeKey;
+        const label = rml(typeMeta?.key ?? "", typeMeta?.translations, "label") || typeKey;
         const icon = typeMeta?.icon || "link";
         opts.push({ key: `rel:${typeKey}`, label, icon });
       }
@@ -751,7 +751,7 @@ export default function PortfolioReport() {
       const typeMeta = metamodelTypes.find((t) => t.key === typeKey);
       out.push({
         typeKey,
-        label: rml(typeMeta?.label ?? "", typeMeta?.translations, "label") || typeKey,
+        label: rml(typeMeta?.key ?? "", typeMeta?.translations, "label") || typeKey,
         icon: typeMeta?.icon || "link",
         options: members.map((m) => ({ key: m.id, label: m.name })),
       });

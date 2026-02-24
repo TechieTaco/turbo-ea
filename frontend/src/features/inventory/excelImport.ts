@@ -446,7 +446,7 @@ export function validateImport(
           errors.push({
             row: rowNum,
             column: colKey,
-            message: t("import.errors.requiredFieldEmpty", { row: rowNum, field: resolveLabel(field.label, field.translations, i18n.language) }),
+            message: t("import.errors.requiredFieldEmpty", { row: rowNum, field: resolveLabel(field.key, field.translations, i18n.language) }),
           });
           rowHasAttrError = true;
         }
@@ -463,7 +463,7 @@ export function validateImport(
             errors.push({
               row: rowNum,
               column: colKey,
-              message: t("import.errors.expectsNumber", { row: rowNum, field: resolveLabel(field.label, field.translations, i18n.language), value: val }),
+              message: t("import.errors.expectsNumber", { row: rowNum, field: resolveLabel(field.key, field.translations, i18n.language), value: val }),
             });
             rowHasAttrError = true;
           } else {
@@ -482,7 +482,7 @@ export function validateImport(
             errors.push({
               row: rowNum,
               column: colKey,
-              message: t("import.errors.expectsBoolean", { row: rowNum, field: resolveLabel(field.label, field.translations, i18n.language), value: val }),
+              message: t("import.errors.expectsBoolean", { row: rowNum, field: resolveLabel(field.key, field.translations, i18n.language), value: val }),
             });
             rowHasAttrError = true;
           }
@@ -494,7 +494,7 @@ export function validateImport(
             errors.push({
               row: rowNum,
               column: colKey,
-              message: t("import.errors.invalidDate", { row: rowNum, field: resolveLabel(field.label, field.translations, i18n.language), value: val }),
+              message: t("import.errors.invalidDate", { row: rowNum, field: resolveLabel(field.key, field.translations, i18n.language), value: val }),
             });
             rowHasAttrError = true;
           } else {
@@ -510,7 +510,7 @@ export function validateImport(
               errors.push({
                 row: rowNum,
                 column: colKey,
-                message: t("import.errors.invalidSelectValue", { row: rowNum, value: val, field: resolveLabel(field.label, field.translations, i18n.language), valid: validKeys.join(", ") }),
+                message: t("import.errors.invalidSelectValue", { row: rowNum, value: val, field: resolveLabel(field.key, field.translations, i18n.language), valid: validKeys.join(", ") }),
               });
               rowHasAttrError = true;
             } else {
@@ -530,7 +530,7 @@ export function validateImport(
                 errors.push({
                   row: rowNum,
                   column: colKey,
-                  message: t("import.errors.invalidSelectValue", { row: rowNum, value: part, field: resolveLabel(field.label, field.translations, i18n.language), valid: validKeys.join(", ") }),
+                  message: t("import.errors.invalidSelectValue", { row: rowNum, value: part, field: resolveLabel(field.key, field.translations, i18n.language), valid: validKeys.join(", ") }),
                 });
                 rowHasAttrError = true;
               }

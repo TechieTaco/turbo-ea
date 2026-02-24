@@ -799,7 +799,6 @@ export default function SoAWEditor() {
                 variant="h5"
                 sx={{ fontWeight: 700, mt: 2, color: "primary.main" }}
               >
-                Part {entry.part}:{" "}
                 {entry.part === "I"
                   ? t("editor.partI")
                   : t("editor.partII")}

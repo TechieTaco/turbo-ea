@@ -51,8 +51,8 @@ export default function RelationCellPopover({
   const targetTypeKey = isSource ? relationType.target_type_key : relationType.source_type_key;
   const targetTypeConfig = getType(targetTypeKey);
   const verb = isSource
-    ? rml(relationType.label, relationType.translations, "label")
-    : (rml(relationType.reverse_label || relationType.label, relationType.translations, "reverse_label") || rml(relationType.label, relationType.translations, "label"));
+    ? rml(relationType.key, relationType.translations, "label")
+    : (rml(relationType.key, relationType.translations, "reverse_label") || rml(relationType.key, relationType.translations, "label"));
 
   const [relations, setRelations] = useState<Relation[]>([]);
   const [loading, setLoading] = useState(false);
@@ -189,7 +189,7 @@ export default function RelationCellPopover({
           <Typography component="span" variant="body1" color="text.secondary" sx={{ mx: 1 }}>
             {verb} &rarr;
           </Typography>
-          {otherType ? rml(otherType.label, otherType.translations, "label") : targetTypeKey}
+          {otherType ? rml(otherType.key, otherType.translations, "label") : targetTypeKey}
         </Typography>
         <IconButton size="small" onClick={onClose} edge="end">
           <MaterialSymbol icon="close" size={20} />
@@ -258,7 +258,7 @@ export default function RelationCellPopover({
                 renderInput={(params) => (
                   <TextField
                     {...params}
-                    placeholder={t("relation.searchType", { type: rml(targetTypeConfig?.label ?? "", targetTypeConfig?.translations, "label") || targetTypeKey })}
+                    placeholder={t("relation.searchType", { type: rml(targetTypeConfig?.key ?? "", targetTypeConfig?.translations, "label") || targetTypeKey })}
                   />
                 )}
                 noOptionsText={targetSearch ? t("common:labels.noResults") : t("relation.typeToSearch")}
@@ -280,13 +280,13 @@ export default function RelationCellPopover({
               startIcon={<MaterialSymbol icon="add" size={16} />}
               onClick={() => { setCreateMode(true); setCreateName(targetSearch); }}
             >
-              {t("relation.createNew", { type: rml(targetTypeConfig?.label ?? "", targetTypeConfig?.translations, "label") || targetTypeKey })}
+              {t("relation.createNew", { type: rml(targetTypeConfig?.key ?? "", targetTypeConfig?.translations, "label") || targetTypeKey })}
             </Button>
           </>
         ) : (
           <Box sx={{ p: 2, border: "1px solid", borderColor: "divider", borderRadius: 1, bgcolor: "action.hover" }}>
             <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1 }}>
-              {t("relation.createNew", { type: rml(targetTypeConfig?.label ?? "", targetTypeConfig?.translations, "label") || targetTypeKey })}
+              {t("relation.createNew", { type: rml(targetTypeConfig?.key ?? "", targetTypeConfig?.translations, "label") || targetTypeKey })}
             </Typography>
             <TextField
               fullWidth

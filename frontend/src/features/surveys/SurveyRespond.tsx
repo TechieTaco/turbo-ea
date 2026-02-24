@@ -164,7 +164,7 @@ export default function SurveyRespond() {
           </MenuItem>
           {field.options.map((opt) => (
             <MenuItem key={opt.key} value={opt.key}>
-              {rl(opt.label, opt.translations)}
+              {rl(opt.key, opt.translations)}
             </MenuItem>
           ))}
         </TextField>
@@ -184,7 +184,7 @@ export default function SurveyRespond() {
         >
           {field.options.map((opt) => (
             <MenuItem key={opt.key} value={opt.key}>
-              {rl(opt.label, opt.translations)}
+              {rl(opt.key, opt.translations)}
             </MenuItem>
           ))}
         </TextField>
@@ -312,7 +312,7 @@ export default function SurveyRespond() {
         return (
           <Card key={field.key} sx={{ mb: 2, p: 2 }}>
             <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
-              <Typography sx={{ fontWeight: 600, flex: 1 }}>{rl(field.label, field.translations)}</Typography>
+              <Typography sx={{ fontWeight: 600, flex: 1 }}>{rl(field.key, field.translations)}</Typography>
               <Chip
                 label={isMaintain ? t("surveys.respond.maintain") : t("surveys.respond.confirmLabel")}
                 size="small"

@@ -72,7 +72,7 @@ function getTurboFieldOptions(
       for (const field of section.fields) {
         options.push({
           path: `attributes.${field.key}`,
-          label: rl ? rl(field.label, field.translations) : field.label,
+          label: rl ? rl(field.key, field.translations) : field.label,
           group: section.section,
         });
       }
@@ -514,7 +514,7 @@ function MappingsTab() {
                     />
                     <Box sx={{ flex: 1 }}>
                       <Typography fontWeight={600}>
-                        {rml(ct?.label ?? "", ct?.translations, "label") || mapping.card_type_key}
+                        {rml(ct?.key ?? "", ct?.translations, "label") || mapping.card_type_key}
                         {" "}
                         <Typography component="span" color="text.secondary" fontSize="0.85rem">
                           <MaterialSymbol icon="sync_alt" size={14} /> {mapping.snow_table}
@@ -758,7 +758,7 @@ function MappingDialog({ open, mapping, connections, onClose, onSaved }: Mapping
                 onChange={(e) => setCardTypeKey(e.target.value)}
               >
                 {types.filter((ct) => !ct.is_hidden).map((ct) => (
-                  <MenuItem key={ct.key} value={ct.key}>{rml(ct.label, ct.translations, "label")}</MenuItem>
+                  <MenuItem key={ct.key} value={ct.key}>{rml(ct.key, ct.translations, "label")}</MenuItem>
                 ))}
               </Select>
             </FormControl>
@@ -1032,7 +1032,7 @@ function SyncDashboardTab() {
                       color={ct?.color || "#999"}
                     />
                     <Typography fontWeight={500} sx={{ flex: 1 }}>
-                      {rml(ct?.label ?? "", ct?.translations, "label") || mapping.card_type_key} <MaterialSymbol icon="sync_alt" size={14} /> {mapping.snow_table}
+                      {rml(ct?.key ?? "", ct?.translations, "label") || mapping.card_type_key} <MaterialSymbol icon="sync_alt" size={14} /> {mapping.snow_table}
                     </Typography>
                     {(mapping.sync_direction === "snow_to_turbo" || mapping.sync_direction === "bidirectional") && (
                       <Button

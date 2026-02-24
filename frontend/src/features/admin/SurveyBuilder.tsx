@@ -157,9 +157,9 @@ export default function SurveyBuilder() {
         fields.push({
           section: section.section,
           key: f.key,
-          label: rl(f.label, f.translations),
+          label: rl(f.key, f.translations),
           type: f.type,
-          options: f.options?.map((o) => ({ ...o, label: rl(o.label, o.translations) })),
+          options: f.options?.map((o) => ({ ...o, label: rl(o.key, o.translations) })),
         });
       }
     }
@@ -425,7 +425,7 @@ export default function SurveyBuilder() {
                 <MenuItem key={ct.key} value={ct.key}>
                   <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                     <MaterialSymbol icon={ct.icon} size={18} color={ct.color} />
-                    {rml(ct.label, ct.translations, "label")}
+                    {rml(ct.key, ct.translations, "label")}
                   </Box>
                 </MenuItem>
               ))}
@@ -623,7 +623,7 @@ export default function SurveyBuilder() {
             {t("surveyBuilder.fields.title")}
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            {t("surveyBuilder.fields.description", { type: rml(selectedType?.label ?? "", selectedType?.translations, "label") || "card" })}
+            {t("surveyBuilder.fields.description", { type: rml(selectedType?.key ?? "", selectedType?.translations, "label") || "card" })}
           </Typography>
 
           {!selectedType && (

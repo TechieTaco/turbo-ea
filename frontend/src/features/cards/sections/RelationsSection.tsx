@@ -138,8 +138,8 @@ function RelationsSection({ fsId, cardTypeKey, refreshKey = 0, canManageRelation
     .map((rt) => {
       const rtIsSource = rt.source_type_key === cardTypeKey;
       const verb = rtIsSource
-        ? rml(rt.label, rt.translations, "label")
-        : (rml(rt.reverse_label || rt.label, rt.translations, "reverse_label") || rml(rt.label, rt.translations, "label"));
+        ? rml(rt.key, rt.translations, "label")
+        : (rml(rt.key, rt.translations, "reverse_label") || rml(rt.key, rt.translations, "label"));
       const otherTypeKey = rtIsSource ? rt.target_type_key : rt.source_type_key;
       const otherType = getType(otherTypeKey);
       return { rt, verb, otherType, isSource: rtIsSource, rels: relations.filter((r) => r.type === rt.key) };
@@ -179,7 +179,7 @@ function RelationsSection({ fsId, cardTypeKey, refreshKey = 0, canManageRelation
               {otherType && (
                 <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
                   <Box sx={{ width: 10, height: 10, borderRadius: "50%", bgcolor: otherType.color, flexShrink: 0 }} />
-                  <Typography variant="subtitle2" color="text.secondary">{rml(otherType.label, otherType.translations, "label")}</Typography>
+                  <Typography variant="subtitle2" color="text.secondary">{rml(otherType.key, otherType.translations, "label")}</Typography>
                 </Box>
               )}
               <Chip size="small" label={rt.cardinality} variant="outlined" sx={{ height: 18, fontSize: "0.65rem" }} />
@@ -228,8 +228,8 @@ function RelationsSection({ fsId, cardTypeKey, refreshKey = 0, canManageRelation
               {relevantRTs.map((rt) => {
                 const rtIsSource = rt.source_type_key === cardTypeKey;
                 const verb = rtIsSource
-                  ? rml(rt.label, rt.translations, "label")
-                  : (rml(rt.reverse_label || rt.label, rt.translations, "reverse_label") || rml(rt.label, rt.translations, "label"));
+                  ? rml(rt.key, rt.translations, "label")
+                  : (rml(rt.key, rt.translations, "reverse_label") || rml(rt.key, rt.translations, "label"));
                 const otherKey = rtIsSource ? rt.target_type_key : rt.source_type_key;
                 const other = getType(otherKey);
                 return (
@@ -240,7 +240,7 @@ function RelationsSection({ fsId, cardTypeKey, refreshKey = 0, canManageRelation
                       {other && (
                         <>
                           <Box sx={{ width: 10, height: 10, borderRadius: "50%", bgcolor: other.color }} />
-                          <Typography variant="body2">{rml(other.label, other.translations, "label")}</Typography>
+                          <Typography variant="body2">{rml(other.key, other.translations, "label")}</Typography>
                         </>
                       )}
                       <Chip size="small" label={rt.cardinality} variant="outlined" sx={{ height: 18, fontSize: "0.65rem" }} />
@@ -275,7 +275,7 @@ function RelationsSection({ fsId, cardTypeKey, refreshKey = 0, canManageRelation
                   <TextField
                     {...params}
                     size="small"
-                    label={t("relations.search", { type: rml(targetTypeConfig?.label ?? "", targetTypeConfig?.translations, "label") || targetTypeKey })}
+                    label={t("relations.search", { type: rml(targetTypeConfig?.key ?? "", targetTypeConfig?.translations, "label") || targetTypeKey })}
                     placeholder={t("relations.searchPlaceholder")}
                   />
                 )}
@@ -288,14 +288,14 @@ function RelationsSection({ fsId, cardTypeKey, refreshKey = 0, canManageRelation
                 startIcon={<MaterialSymbol icon="add" size={16} />}
                 onClick={() => { setCreateOpen(true); setCreateName(targetSearch); }}
               >
-                {t("relations.createNew", { type: rml(targetTypeConfig?.label ?? "", targetTypeConfig?.translations, "label") || targetTypeKey })}
+                {t("relations.createNew", { type: rml(targetTypeConfig?.key ?? "", targetTypeConfig?.translations, "label") || targetTypeKey })}
               </Button>
             </>
           )}
           {addRelType && createOpen && (
             <Box sx={{ mt: 1, p: 2, border: "1px solid", borderColor: "divider", borderRadius: 1, bgcolor: "action.hover" }}>
               <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1 }}>
-                {t("relations.createNew", { type: rml(targetTypeConfig?.label ?? "", targetTypeConfig?.translations, "label") || targetTypeKey })}
+                {t("relations.createNew", { type: rml(targetTypeConfig?.key ?? "", targetTypeConfig?.translations, "label") || targetTypeKey })}
               </Typography>
               <TextField
                 fullWidth

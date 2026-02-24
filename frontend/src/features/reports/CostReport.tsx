@@ -248,7 +248,7 @@ export default function CostReport() {
   const printParams = useMemo(() => {
     const params: { label: string; value: string }[] = [];
     const tp = types.find((tp) => tp.key === cardTypeKey);
-    const typeLabel = rml(tp?.label ?? "", tp?.translations, "label") || cardTypeKey;
+    const typeLabel = rml(tp?.key ?? "", tp?.translations, "label") || cardTypeKey;
     params.push({ label: t("common:labels.type"), value: typeLabel });
     if (costFields.length > 1) {
       const cfLabel = costFields.find((f) => f.key === costField)?.label || costField;
@@ -312,7 +312,7 @@ export default function CostReport() {
       toolbar={
         <>
           <TextField select size="small" label={t("cost.cardType")} value={cardTypeKey} onChange={(e) => setCardTypeKey(e.target.value)} sx={{ minWidth: 150 }}>
-            {types.filter((tp) => !tp.is_hidden).map((tp) => <MenuItem key={tp.key} value={tp.key}>{rml(tp.label, tp.translations, "label")}</MenuItem>)}
+            {types.filter((tp) => !tp.is_hidden).map((tp) => <MenuItem key={tp.key} value={tp.key}>{rml(tp.key, tp.translations, "label")}</MenuItem>)}
           </TextField>
           {costFields.length > 1 && (
             <TextField select size="small" label={t("cost.costField")} value={costField} onChange={(e) => setCostField(e.target.value)} sx={{ minWidth: 160 }}>

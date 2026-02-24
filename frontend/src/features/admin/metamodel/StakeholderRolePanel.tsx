@@ -14,28 +14,11 @@ import Tooltip from "@mui/material/Tooltip";
 import Checkbox from "@mui/material/Checkbox";
 import CircularProgress from "@mui/material/CircularProgress";
 import Collapse from "@mui/material/Collapse";
-import Accordion from "@mui/material/Accordion";
-import AccordionSummary from "@mui/material/AccordionSummary";
-import AccordionDetails from "@mui/material/AccordionDetails";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import ColorPicker from "@/components/ColorPicker";
 import KeyInput from "@/components/KeyInput";
 import { api } from "@/api/client";
-import { SUPPORTED_LOCALES, LOCALE_LABELS } from "@/i18n";
-import type { StakeholderRoleDefinitionFull, MetamodelTranslations, TranslationMap } from "@/types";
-
-/** Locales to show translation inputs for (all except English). */
-const TRANSLATION_LOCALES = SUPPORTED_LOCALES.filter((l) => l !== "en");
-
-/** Remove empty-string entries from a TranslationMap. Returns undefined if all empty. */
-function cleanTranslationMap(map: TranslationMap | undefined): TranslationMap | undefined {
-  if (!map) return undefined;
-  const cleaned: TranslationMap = {};
-  for (const [k, v] of Object.entries(map)) {
-    if (v && v.trim()) cleaned[k] = v.trim();
-  }
-  return Object.keys(cleaned).length > 0 ? cleaned : undefined;
-}
+import type { StakeholderRoleDefinitionFull, MetamodelTranslations } from "@/types";
 
 /** Clean a MetamodelTranslations object, removing empty maps. */
 function cleanTranslations(
@@ -44,8 +27,12 @@ function cleanTranslations(
   if (!trans) return undefined;
   const cleaned: MetamodelTranslations = {};
   for (const [key, map] of Object.entries(trans)) {
-    const c = cleanTranslationMap(map);
-    if (c) cleaned[key] = c;
+    if (!map) continue;
+    const cm: Record<string, string> = {};
+    for (const [k, v] of Object.entries(map)) {
+      if (v && v.trim()) cm[k] = v.trim();
+    }
+    if (Object.keys(cm).length > 0) cleaned[key] = cm;
   }
   return Object.keys(cleaned).length > 0 ? cleaned : undefined;
 }
@@ -371,40 +358,6 @@ export default function StakeholderRolePanel({ typeKey, onError }: StakeholderRo
                         onChange={(e) => setEditForm({ ...editForm, label: e.target.value })}
                         fullWidth
                       />
-                      <Accordion variant="outlined" disableGutters sx={{ "&:before": { display: "none" } }}>
-                        <AccordionSummary
-                          expandIcon={<MaterialSymbol icon="expand_more" size={16} />}
-                          sx={{ minHeight: 32, "& .MuiAccordionSummary-content": { my: 0.25 } }}
-                        >
-                          <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-                            <MaterialSymbol icon="translate" size={16} color="inherit" />
-                            <Typography variant="caption" fontWeight={600}>
-                              {t("metamodel.translations.roleTranslations")}
-                            </Typography>
-                          </Box>
-                        </AccordionSummary>
-                        <AccordionDetails sx={{ pt: 0, pb: 1 }}>
-                          <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 1 }}>
-                            {TRANSLATION_LOCALES.map((locale) => (
-                              <TextField
-                                key={`edit-role-${locale}`}
-                                size="small"
-                                label={LOCALE_LABELS[locale]}
-                                value={editForm.translations.label?.[locale] || ""}
-                                onChange={(e) =>
-                                  setEditForm({
-                                    ...editForm,
-                                    translations: {
-                                      ...editForm.translations,
-                                      label: { ...editForm.translations.label, [locale]: e.target.value },
-                                    },
-                                  })
-                                }
-                              />
-                            ))}
-                          </Box>
-                        </AccordionDetails>
-                      </Accordion>
                       <TextField
                         size="small"
                         label={t("metamodel.stakeholderPanel.descriptionLabel")}
@@ -500,40 +453,6 @@ export default function StakeholderRolePanel({ typeKey, onError }: StakeholderRo
                 placeholder={t("metamodel.stakeholderPanel.labelPlaceholder")}
                 fullWidth
               />
-              <Accordion variant="outlined" disableGutters sx={{ "&:before": { display: "none" } }}>
-                <AccordionSummary
-                  expandIcon={<MaterialSymbol icon="expand_more" size={16} />}
-                  sx={{ minHeight: 32, "& .MuiAccordionSummary-content": { my: 0.25 } }}
-                >
-                  <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-                    <MaterialSymbol icon="translate" size={16} color="inherit" />
-                    <Typography variant="caption" fontWeight={600}>
-                      {t("metamodel.translations.roleTranslations")}
-                    </Typography>
-                  </Box>
-                </AccordionSummary>
-                <AccordionDetails sx={{ pt: 0, pb: 1 }}>
-                  <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 1 }}>
-                    {TRANSLATION_LOCALES.map((locale) => (
-                      <TextField
-                        key={`create-role-${locale}`}
-                        size="small"
-                        label={LOCALE_LABELS[locale]}
-                        value={createForm.translations.label?.[locale] || ""}
-                        onChange={(e) =>
-                          setCreateForm({
-                            ...createForm,
-                            translations: {
-                              ...createForm.translations,
-                              label: { ...createForm.translations.label, [locale]: e.target.value },
-                            },
-                          })
-                        }
-                      />
-                    ))}
-                  </Box>
-                </AccordionDetails>
-              </Accordion>
               <TextField
                 size="small"
                 label={t("metamodel.stakeholderPanel.descriptionLabel")}

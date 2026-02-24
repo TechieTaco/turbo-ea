@@ -37,6 +37,7 @@ import { useBpmEnabled } from "@/hooks/useBpmEnabled";
 import { useThemeMode } from "@/hooks/useThemeMode";
 import { useResolveMetaLabel } from "@/hooks/useResolveLabel";
 import { SUPPORTED_LOCALES, LOCALE_LABELS, type SupportedLocale } from "@/i18n";
+import { useEnabledLocales } from "@/hooks/useEnabledLocales";
 import type { BadgeCounts } from "@/types";
 
 interface NavItemDef {
@@ -116,6 +117,7 @@ export default function AppLayout({ children, user, onLogout }: Props) {
   const { getType } = useMetamodel();
   const rml = useResolveMetaLabel();
   const { bpmEnabled } = useBpmEnabled();
+  const { enabledLocales } = useEnabledLocales();
   const { mode, toggleMode } = useThemeMode();
 
   // Permission check helper
@@ -410,7 +412,7 @@ export default function AppLayout({ children, user, onLogout }: Props) {
                     {item.name}
                   </Typography>
                   <Chip
-                    label={typeConfig ? rml(typeConfig.label, typeConfig.translations, "label") : item.type}
+                    label={typeConfig ? rml(typeConfig.key, typeConfig.translations, "label") : item.type}
                     size="small"
                     sx={{
                       height: 18,
@@ -802,7 +804,7 @@ export default function AppLayout({ children, user, onLogout }: Props) {
                             </Typography>
                           </Box>
                           <Chip
-                            label={typeConfig ? rml(typeConfig.label, typeConfig.translations, "label") : item.type}
+                            label={typeConfig ? rml(typeConfig.key, typeConfig.translations, "label") : item.type}
                             size="small"
                             sx={{
                               height: 20,
@@ -977,7 +979,7 @@ export default function AppLayout({ children, user, onLogout }: Props) {
         open={!!langMenu}
         onClose={() => setLangMenu(null)}
       >
-        {SUPPORTED_LOCALES.map((locale) => (
+        {SUPPORTED_LOCALES.filter((l) => enabledLocales.includes(l)).map((locale) => (
           <MenuItem
             key={locale}
             selected={i18n.language === locale}

@@ -966,7 +966,7 @@ export default function EolReport() {
                     </TableCell>
                     <TableCell>
                       <Typography variant="body2" color="text.secondary">
-                        {rml(typeConf?.label ?? "", typeConf?.translations, "label") || item.type}
+                        {rml(typeConf?.key ?? "", typeConf?.translations, "label") || item.type}
                       </Typography>
                     </TableCell>
                     <TableCell>

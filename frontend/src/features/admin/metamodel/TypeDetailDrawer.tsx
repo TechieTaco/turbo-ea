@@ -26,6 +26,7 @@ import IconPicker from "@/components/IconPicker";
 import KeyInput, { isValidKey } from "@/components/KeyInput";
 import CardLayoutEditor from "@/features/admin/CardLayoutEditor";
 import { api } from "@/api/client";
+import { LOCALE_LABELS } from "@/i18n";
 import type {
   CardType as FSType,
   RelationType as RType,
@@ -60,7 +61,8 @@ export default function TypeDetailDrawer({
   onRefresh,
   onCreateRelation,
 }: TypeDrawerProps) {
-  const { t } = useTranslation(["admin", "common"]);
+  const { t, i18n } = useTranslation(["admin", "common"]);
+  const locale = i18n.language;
   const cardTypeKey = types.find((ct) => ct.key === typeKey) || null;
 
   /* --- Editable header state --- */
@@ -120,8 +122,8 @@ export default function TypeDetailDrawer({
   /* Initialise local state from the type whenever the dialog opens or the type changes */
   useEffect(() => {
     if (cardTypeKey) {
-      setLabel(cardTypeKey.label);
-      setDescription(cardTypeKey.description || "");
+      setLabel(cardTypeKey.translations?.label?.[locale] || cardTypeKey.label);
+      setDescription(cardTypeKey.translations?.description?.[locale] || cardTypeKey.description || "");
       setCategory(cardTypeKey.category || "");
       setColor(cardTypeKey.color);
       setIcon(cardTypeKey.icon);
@@ -131,7 +133,7 @@ export default function TypeDetailDrawer({
       setDeleteFieldConfirm(null);
       setDeleteSectionConfirm(null);
     }
-  }, [cardTypeKey]);
+  }, [cardTypeKey, locale]);
 
   if (!cardTypeKey) return null;
 
@@ -143,6 +145,11 @@ export default function TypeDetailDrawer({
   const handleSaveHeader = async () => {
     setSaving(true);
     try {
+      const mergedTranslations = {
+        ...cardTypeKey.translations,
+        label: { ...cardTypeKey.translations?.label, [locale]: label },
+        description: { ...cardTypeKey.translations?.description, [locale]: description || "" },
+      };
       await api.patch(`/metamodel/types/${cardTypeKey.key}`, {
         label,
         description: description || undefined,
@@ -150,6 +157,7 @@ export default function TypeDetailDrawer({
         color,
         icon,
         has_hierarchy: hasHierarchy,
+        translations: mergedTranslations,
       });
       onRefresh();
       setError(null);
@@ -421,7 +429,7 @@ export default function TypeDetailDrawer({
             <IconPicker value={icon} onChange={setIcon} color={color} />
             <TextField
               size="small"
-              label={t("metamodel.typeDrawer.label")}
+              label={`${t("metamodel.typeDrawer.label")} (${LOCALE_LABELS[locale as keyof typeof LOCALE_LABELS] || locale})`}
               value={label}
               onChange={(e) => setLabel(e.target.value)}
               fullWidth
@@ -438,7 +446,7 @@ export default function TypeDetailDrawer({
         <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" }, gap: 2.5, mb: 2.5 }}>
           <TextField
             size="small"
-            label={t("metamodel.typeDrawer.description")}
+            label={`${t("metamodel.typeDrawer.description")} (${LOCALE_LABELS[locale as keyof typeof LOCALE_LABELS] || locale})`}
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             multiline

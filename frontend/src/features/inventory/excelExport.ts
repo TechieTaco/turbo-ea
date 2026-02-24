@@ -73,7 +73,7 @@ export function exportToExcel(
 
   // Build filename
   const typeLabel = typeConfig
-    ? resolveMetaLabel(typeConfig.label, typeConfig.translations, "label", i18n.language)
+    ? resolveMetaLabel(typeConfig.key, typeConfig.translations, "label", i18n.language)
     : "cards";
   const date = new Date().toISOString().slice(0, 10);
   XLSX.writeFile(wb, `${typeLabel}_export_${date}.xlsx`);

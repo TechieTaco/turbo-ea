@@ -193,7 +193,7 @@ function FieldValue({
     if (opt) {
       return (
         <Chip
-          label={rl(opt.label, opt.translations)}
+          label={rl(opt.key, opt.translations)}
           size="small"
           sx={{
             height: 26,
@@ -219,7 +219,7 @@ function FieldValue({
           return (
             <Chip
               key={v}
-              label={opt ? rl(opt.label, opt.translations) : v}
+              label={opt ? rl(opt.key, opt.translations) : v}
               size="small"
               sx={{
                 height: 24,
@@ -488,7 +488,7 @@ export default function PortalViewer() {
                 </Typography>
               )}
               <Typography variant="body2" sx={{ mt: 1.5, opacity: 0.5, fontSize: "0.8rem" }}>
-                {t("portal.itemCount", { count: total, label: rml(portal.type_info?.label ?? "", portal.type_info?.translations, "label") || "item" })}
+                {t("portal.itemCount", { count: total, label: rml(portal.type_info?.key ?? "", portal.type_info?.translations, "label") || "item" })}
               </Typography>
             </Box>
 
@@ -536,7 +536,7 @@ export default function PortalViewer() {
         >
           <TextField
             size="small"
-            placeholder={t("portal.searchPlaceholder", { label: rml(portal.type_info?.label ?? "", portal.type_info?.translations, "label") || "items" })}
+            placeholder={t("portal.searchPlaceholder", { label: rml(portal.type_info?.key ?? "", portal.type_info?.translations, "label") || "items" })}
             defaultValue={search}
             onChange={(e) => handleSearchChange(e.target.value)}
             sx={{ flex: 1, minWidth: 200 }}
@@ -611,7 +611,7 @@ export default function PortalViewer() {
                   <MenuItem value="">{t("portal.allSubtypes")}</MenuItem>
                   {portal.type_info.subtypes.map((st) => (
                     <MenuItem key={st.key} value={st.key}>
-                      {rl(st.label, st.translations)}
+                      {rl(st.key, st.translations)}
                     </MenuItem>
                   ))}
                 </TextField>
@@ -622,7 +622,7 @@ export default function PortalViewer() {
                 key={field.key}
                 select
                 size="small"
-                label={rl(field.label, field.translations)}
+                label={rl(field.key, field.translations)}
                 value={attrFilters[field.key] || ""}
                 onChange={(e) => {
                   setAttrFilters((prev) => ({
@@ -637,7 +637,7 @@ export default function PortalViewer() {
                 <MenuItem value="">{t("labels.all")}</MenuItem>
                 {field.options!.map((opt) => (
                   <MenuItem key={opt.key} value={opt.key}>
-                    {rl(opt.label, opt.translations)}
+                    {rl(opt.key, opt.translations)}
                   </MenuItem>
                 ))}
               </TextField>
@@ -791,7 +791,7 @@ export default function PortalViewer() {
                             const stDef = portal.type_info?.subtypes?.find(
                               (st) => st.key === card.subtype
                             );
-                            return stDef ? rl(stDef.label, stDef.translations) : card.subtype;
+                            return stDef ? rl(stDef.key, stDef.translations) : card.subtype;
                           })()}
                         </Typography>
                       )}
@@ -845,7 +845,7 @@ export default function PortalViewer() {
                                 mb: 0.4,
                               }}
                             >
-                              {rl(field.label, field.translations)}
+                              {rl(field.key, field.translations)}
                             </Typography>
                             <FieldValue value={val} field={field} />
                           </Box>
@@ -1121,7 +1121,7 @@ export default function PortalViewer() {
                   }}
                 >
                   <Chip
-                    label={rml(portal.type_info?.label ?? "", portal.type_info?.translations, "label") || selectedFs.type}
+                    label={rml(portal.type_info?.key ?? "", portal.type_info?.translations, "label") || selectedFs.type}
                     size="small"
                     sx={{
                       height: 28,
@@ -1139,7 +1139,7 @@ export default function PortalViewer() {
                           const stDef = portal.type_info?.subtypes?.find(
                             (st) => st.key === selectedFs.subtype
                           );
-                          return stDef ? rl(stDef.label, stDef.translations) : selectedFs.subtype;
+                          return stDef ? rl(stDef.key, stDef.translations) : selectedFs.subtype;
                         })()
                       }
                       size="small"
@@ -1321,7 +1321,7 @@ export default function PortalViewer() {
                             variant="caption"
                             sx={{ display: "block", fontSize: "0.73rem", color: "text.secondary", mb: 0.25 }}
                           >
-                            {rl(field.label, field.translations)}
+                            {rl(field.key, field.translations)}
                           </Typography>
                           <FieldValue
                             value={selectedFs.attributes?.[field.key]}
@@ -1453,8 +1453,8 @@ export default function PortalViewer() {
                   const rt = portal.relation_types.find((r) => r.key === rel.type);
                   const label =
                     rel.direction === "outgoing"
-                      ? (rt ? rml(rt.label, rt.translations, "label") : rel.type)
-                      : (rt ? (rml(rt.reverse_label || rt.label, rt.translations, "reverse_label") || rml(rt.label, rt.translations, "label")) : rel.type);
+                      ? (rt ? rml(rt.key, rt.translations, "label") : rel.type)
+                      : (rt ? (rml(rt.key, rt.translations, "reverse_label") || rml(rt.key, rt.translations, "label")) : rel.type);
                   grouped[label] = grouped[label] || [];
                   grouped[label].push(rel);
                 }

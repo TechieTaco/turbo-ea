@@ -152,7 +152,7 @@ function DescriptionSection({
               <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "180px 1fr" }, rowGap: 1, columnGap: 2, alignItems: { sm: "center" } }}>
                 {extraFields.map((field) => (
                   <Box key={field.key} sx={{ display: "contents" }}>
-                    <Typography variant="body2" color="text.secondary">{rl(field.label, field.translations)}</Typography>
+                    <Typography variant="body2" color="text.secondary">{rl(field.key, field.translations)}</Typography>
                     <FieldValue field={field} value={(card.attributes || {})[field.key]} currencyFmt={currencyFmt} />
                   </Box>
                 ))}
