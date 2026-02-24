@@ -166,7 +166,7 @@ function getAppColorLabel(
 ): string | null {
   if (!colorBy || colorBy === "none") return null;
   const val = (app.attributes || {})[colorBy] as string | undefined;
-  if (!val) return "Not set";
+  if (!val) return null;
   const fd = selectFields.find((f) => f.key === colorBy);
   const opt = fd?.options?.find((o) => o.key === val);
   return opt?.label || val;
@@ -1234,7 +1234,7 @@ export default function CapabilityMapReport() {
                   const parts: string[] = [];
                   if (colorBy && colorBy !== "none") {
                     const lbl = getAppColorLabel(a, colorBy, selectFields);
-                    if (lbl && lbl !== "Not set") parts.push(lbl);
+                    if (lbl) parts.push(lbl);
                   }
                   if (a.lifecycle?.endOfLife)
                     parts.push(`EOL: ${a.lifecycle.endOfLife}`);

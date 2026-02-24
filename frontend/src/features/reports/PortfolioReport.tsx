@@ -146,7 +146,7 @@ function getAppColorLabel(
 ): string | null {
   if (!colorBy) return null;
   const val = (app.attributes || {})[colorBy] as string | undefined;
-  if (!val) return "Not set";
+  if (!val) return null;
   const fd = selectFields.find((f) => f.key === colorBy);
   const opt = fd?.options?.find((o) => o.key === val);
   return opt?.label || val;
@@ -361,14 +361,14 @@ function GroupCard({
         const opt = val ? fd?.options?.find((o) => o.key === val) : undefined;
         counts.set(optKey, {
           color: opt?.color || UNSET_COLOR,
-          label: opt?.label || "Not set",
+          label: opt?.label || t("portfolio.notSet"),
           n: 0,
         });
       }
       counts.get(optKey)!.n += 1;
     }
     return Array.from(counts.values()).filter((s) => s.n > 0);
-  }, [colorBy, count, group.apps, selectFields]);
+  }, [colorBy, count, group.apps, selectFields, t]);
 
   return (
     <Box
@@ -693,14 +693,14 @@ export default function PortfolioReport() {
         const opt = val ? fd?.options?.find((o) => o.key === val) : undefined;
         counts.set(optKey, {
           color: opt?.color || UNSET_COLOR,
-          label: opt?.label || "Not set",
+          label: opt?.label || t("portfolio.notSet"),
           n: 0,
         });
       }
       counts.get(optKey)!.n += 1;
     }
     return Array.from(counts.values()).filter((s) => s.n > 0);
-  }, [colorBy, ungrouped, selectFields]);
+  }, [colorBy, ungrouped, selectFields, t]);
 
   // Summary stats
   const stats = useMemo(() => {
@@ -1329,7 +1329,7 @@ export default function PortfolioReport() {
                       onClick={() => tableSort(colorBy)}
                     >
                       {colorByOptions.find((o) => o.key === colorBy)?.label ||
-                        "Color"}
+                        t("common.colorBy")}
                     </TableSortLabel>
                   </TableCell>
                 )}
@@ -1461,7 +1461,7 @@ export default function PortfolioReport() {
                   if (a.subtype) parts.push(a.subtype);
                   if (colorBy) {
                     const lbl = getAppColorLabel(a, colorBy, selectFields);
-                    if (lbl && lbl !== "Not set") parts.push(lbl);
+                    if (lbl) parts.push(lbl);
                   }
                   if (a.lifecycle?.endOfLife) parts.push(`EOL: ${a.lifecycle.endOfLife}`);
 
