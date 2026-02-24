@@ -22,6 +22,16 @@ import {
 } from "./soawTemplate";
 import type { SoAWDocumentInfo, SoAWVersionEntry, SoAWSectionData, SoAWSignatory } from "@/types";
 
+/** Escape a string for safe interpolation into HTML. */
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 // ─── constants (matching PDF styles) ─────────────────────────────────────────
 
 const FONT = "Segoe UI";
@@ -576,7 +586,7 @@ export const PREVIEW_CSS = `
 /** Check if a section has meaningful content worth rendering. */
 function isSectionEmpty(def: TemplateSectionDef, data: SoAWSectionData): boolean {
   if (def.type === "rich_text") {
-    const c = (data.content ?? "").replace(/<[^>]*>/g, "").trim();
+    const c = (new DOMParser().parseFromString(data.content ?? "", "text/html").body.textContent ?? "").trim();
     return !c;
   }
   if (def.type === "table") {
@@ -608,7 +618,7 @@ export function buildPreviewBody(
   const soawTitle = t("export.soawTitle");
   html += `<h1 style="text-align:center;border:none;">${soawTitle}</h1>`;
   const revLabel = revisionNumber && revisionNumber > 1 ? t("export.revision", { number: revisionNumber }) : "";
-  html += `<p style="text-align:center;font-size:14pt;color:#555;">${name}${revLabel}</p>`;
+  html += `<p style="text-align:center;font-size:14pt;color:#555;">${escapeHtml(name)}${revLabel}</p>`;
 
   // Doc info (hide empty fields, hide entire section if all empty)
   const docInfoRows: [string, string][] = [
@@ -621,7 +631,7 @@ export function buildPreviewBody(
     const docInfoTitle = t("export.documentInfo");
     html += `<h2>${docInfoTitle}</h2><table>`;
     for (const [label, val] of docInfoRows) {
-      html += `<tr><td class="meta-label">${label}</td><td>${val}</td></tr>`;
+      html += `<tr><td class="meta-label">${escapeHtml(label)}</td><td>${escapeHtml(val)}</td></tr>`;
     }
     html += `</table>`;
   }
@@ -635,7 +645,7 @@ export function buildPreviewBody(
     const vhDescription = t("export.description");
     html += `<h2>${vhTitle}</h2><table><tr><th>${vhVersion}</th><th>${vhDate}</th><th>${vhRevisedBy}</th><th>${vhDescription}</th></tr>`;
     for (const v of versionHistory) {
-      html += `<tr><td>${v.version}</td><td>${v.date}</td><td>${v.revised_by}</td><td>${v.description}</td></tr>`;
+      html += `<tr><td>${escapeHtml(v.version)}</td><td>${escapeHtml(v.date)}</td><td>${escapeHtml(v.revised_by)}</td><td>${escapeHtml(v.description)}</td></tr>`;
     }
     html += `</table>`;
   }
@@ -665,9 +675,9 @@ export function buildPreviewBody(
     }
 
     if (def.type === "table" && data.table_data) {
-      html += `<table><tr>${data.table_data.columns.map((c) => `<th>${c}</th>`).join("")}</tr>`;
+      html += `<table><tr>${data.table_data.columns.map((c) => `<th>${escapeHtml(c)}</th>`).join("")}</tr>`;
       for (const row of data.table_data.rows) {
-        html += `<tr>${row.map((cell) => `<td>${cell}</td>`).join("")}</tr>`;
+        html += `<tr>${row.map((cell) => `<td>${escapeHtml(cell)}</td>`).join("")}</tr>`;
       }
       html += `</table>`;
     }
@@ -677,7 +687,7 @@ export function buildPreviewBody(
       const artefactsLabel = t("export.relevantArtefacts");
       html += `<table><tr><th>${phaseLabel}</th><th>${artefactsLabel}</th></tr>`;
       for (const p of getTogafPhases()) {
-        html += `<tr><td>${p.label}</td><td>${data.togaf_data[p.key] || "\u2014"}</td></tr>`;
+        html += `<tr><td>${escapeHtml(p.label)}</td><td>${escapeHtml(data.togaf_data[p.key] || "\u2014")}</td></tr>`;
       }
       html += `</table>`;
     }
@@ -686,7 +696,7 @@ export function buildPreviewBody(
     const customBadge = t("export.custom");
     for (const cs of customSections) {
       if (cs.insertAfter === def.id) {
-        html += `<h3><span class="custom-badge">${customBadge}</span>${cs.title}</h3>`;
+        html += `<h3><span class="custom-badge">${customBadge}</span>${escapeHtml(cs.title)}</h3>`;
         html += cs.content || "";
       }
     }
@@ -700,7 +710,7 @@ export function buildPreviewBody(
   const trailingCustomBadge = t("export.custom");
   for (const cs of customSections) {
     if (!cs.insertAfter || !getTemplateSections().some((d) => d.id === cs.insertAfter)) {
-      html += `<h3><span class="custom-badge">${trailingCustomBadge}</span>${cs.title}</h3>`;
+      html += `<h3><span class="custom-badge">${trailingCustomBadge}</span>${escapeHtml(cs.title)}</h3>`;
       html += cs.content || "";
     }
   }
@@ -721,8 +731,8 @@ export function buildPreviewBody(
       const isSig = sig.status === "signed";
       html += `<div class="sig-card ${isSig ? "approved" : "pending"}">`;
       html += `<div class="sig-status ${isSig ? "approved" : "pending"}">${isSig ? `&#10003; ${sigApproved}` : `&#9711; ${sigPending}`}</div>`;
-      html += `<div class="sig-name">${sig.display_name}</div>`;
-      if (sig.email) html += `<div class="sig-detail">${sig.email}</div>`;
+      html += `<div class="sig-name">${escapeHtml(sig.display_name)}</div>`;
+      if (sig.email) html += `<div class="sig-detail">${escapeHtml(sig.email)}</div>`;
       if (isSig && sig.signed_at) {
         const signedLabel = t("export.signed", { date: new Date(sig.signed_at).toLocaleString() });
         html += `<div class="sig-detail">${signedLabel}</div>`;
@@ -770,7 +780,7 @@ export function exportToPdf(
   }
 
   const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
-<title>${name || "SoAW"}</title>
+<title>${escapeHtml(name || "SoAW")}</title>
 <style>${PREVIEW_CSS}</style></head><body class="soaw-preview">${body}${footerHtml}</body></html>`;
 
   w.document.write(html);
