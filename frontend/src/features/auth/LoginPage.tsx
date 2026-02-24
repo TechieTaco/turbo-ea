@@ -8,6 +8,7 @@ import Tabs from "@mui/material/Tabs";
 import Tab from "@mui/material/Tab";
 import Alert from "@mui/material/Alert";
 import Divider from "@mui/material/Divider";
+import { useTranslation } from "react-i18next";
 import { auth } from "@/api/client";
 import type { SsoConfig } from "@/types";
 
@@ -17,6 +18,7 @@ interface Props {
 }
 
 export default function LoginPage({ onLogin, onRegister }: Props) {
+  const { t } = useTranslation("auth");
   const [tab, setTab] = useState(0);
   const [email, setEmail] = useState("");
   const [displayName, setDisplayName] = useState("");
@@ -44,7 +46,7 @@ export default function LoginPage({ onLogin, onRegister }: Props) {
         await onRegister(email, displayName, password);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "An error occurred");
+      setError(err instanceof Error ? err.message : t("common:errors.occurred"));
     } finally {
       setLoading(false);
     }
@@ -83,7 +85,7 @@ export default function LoginPage({ onLogin, onRegister }: Props) {
           style={{ height: 64, objectFit: "contain" }}
         />
         <Typography variant="body2" sx={{ mt: 1, color: "rgba(255,255,255,0.6)" }}>
-          Enterprise Architecture Management
+          {t("login.title")}
         </Typography>
       </Box>
       <Card sx={{ p: 4, width: 400, maxWidth: "90vw" }}>
@@ -113,10 +115,10 @@ export default function LoginPage({ onLogin, onRegister }: Props) {
                 "&:hover": { bgcolor: "action.hover" },
               }}
             >
-              Sign in with Microsoft
+              {t("login.ssoButton")}
             </Button>
             <Divider sx={{ my: 2, color: "text.secondary", fontSize: 13 }}>
-              or sign in with email
+              {t("login.ssoEmailDivider")}
             </Divider>
           </>
         )}
@@ -124,8 +126,8 @@ export default function LoginPage({ onLogin, onRegister }: Props) {
         {/* Only show Login/Register tabs when registration is allowed */}
         {registrationAllowed && (
           <Tabs value={tab} onChange={(_, v) => setTab(v)} centered sx={{ mb: 2 }}>
-            <Tab label="Login" />
-            <Tab label="Register" />
+            <Tab label={t("login.tabLogin")} />
+            <Tab label={t("login.tabRegister")} />
           </Tabs>
         )}
 
@@ -138,7 +140,7 @@ export default function LoginPage({ onLogin, onRegister }: Props) {
         <form onSubmit={handleSubmit}>
           <TextField
             fullWidth
-            label="Email"
+            label={t("login.email")}
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
@@ -148,7 +150,7 @@ export default function LoginPage({ onLogin, onRegister }: Props) {
           {tab === 1 && registrationAllowed && (
             <TextField
               fullWidth
-              label="Display Name"
+              label={t("register.displayName")}
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
               required
@@ -157,7 +159,7 @@ export default function LoginPage({ onLogin, onRegister }: Props) {
           )}
           <TextField
             fullWidth
-            label="Password"
+            label={t("login.password")}
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
@@ -171,7 +173,7 @@ export default function LoginPage({ onLogin, onRegister }: Props) {
             disabled={loading}
             size="large"
           >
-            {loading ? "..." : tab === 0 || !registrationAllowed ? "Login" : "Register"}
+            {loading ? "..." : tab === 0 || !registrationAllowed ? t("login.submitLogin") : t("login.submitRegister")}
           </Button>
         </form>
       </Card>

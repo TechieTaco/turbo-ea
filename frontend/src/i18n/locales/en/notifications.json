@@ -1,0 +1,21 @@
+{
+  "title": "Notifications",
+  "markAllRead": "Mark all read",
+  "noNotifications": "No notifications",
+
+  "preferences.title": "Notification Preferences",
+  "preferences.description": "Choose which notifications you want to receive and how.",
+  "preferences.notification": "Notification",
+  "preferences.inApp": "In-App",
+  "preferences.email": "Email",
+  "preferences.saving": "Saving...",
+  "preferences.loadFailed": "Failed to load preferences",
+  "preferences.saveFailed": "Failed to save preferences",
+  "preferences.todoAssigned": "Todo Assigned",
+  "preferences.cardUpdated": "Card Updated",
+  "preferences.commentAdded": "Comment Added",
+  "preferences.approvalStatusChanged": "Approval Status Changed",
+  "preferences.soawSignRequested": "SoAW Signature Requested",
+  "preferences.soawSigned": "SoAW Signed",
+  "preferences.surveyRequest": "Survey Request"
+}

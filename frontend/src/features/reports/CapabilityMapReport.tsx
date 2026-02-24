@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import TextField from "@mui/material/TextField";
 import MenuItem from "@mui/material/MenuItem";
@@ -25,6 +26,7 @@ import { useMetamodel } from "@/hooks/useMetamodel";
 import { useSavedReport } from "@/hooks/useSavedReport";
 import { useThumbnailCapture } from "@/hooks/useThumbnailCapture";
 import { useTimeline } from "@/hooks/useTimeline";
+import { useResolveMetaLabel } from "@/hooks/useResolveLabel";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -83,10 +85,10 @@ type Metric = "app_count" | "total_cost" | "risk_count";
 /*  Constants                                                          */
 /* ------------------------------------------------------------------ */
 
-const METRIC_OPTIONS: { key: Metric; label: string; icon: string }[] = [
-  { key: "app_count", label: "Application Count", icon: "apps" },
-  { key: "total_cost", label: "Total Cost", icon: "payments" },
-  { key: "risk_count", label: "Risk (EOL count)", icon: "warning" },
+const METRIC_OPTIONS: { key: Metric; labelKey: string; icon: string }[] = [
+  { key: "app_count", labelKey: "capabilityMap.metricAppCount", icon: "apps" },
+  { key: "total_cost", labelKey: "capabilityMap.metricTotalCost", icon: "payments" },
+  { key: "risk_count", labelKey: "capabilityMap.metricRiskCount", icon: "warning" },
 ];
 
 const UNSET_COLOR = "rgba(128, 128, 128, 0.2)";
@@ -399,6 +401,7 @@ function CapabilityCard({
   onAppClick: (id: string) => void;
   fmtCost: (v: number) => string;
 }) {
+  const { t } = useTranslation(["reports"]);
   const val = nodeMetric(node, metric);
   const fmtVal = (v: number) =>
     metric === "total_cost" ? fmtCost(v) : String(v);
@@ -456,7 +459,7 @@ function CapabilityCard({
             sx={{ height: 20, fontSize: "0.7rem", bgcolor: "rgba(255,255,255,0.7)" }}
           />
           {node.deepRiskCount > 0 && metric !== "risk_count" && (
-            <Tooltip title={`${node.deepRiskCount} EOL risk`}>
+            <Tooltip title={t("capabilityMap.eolRisk", { count: node.deepRiskCount })}>
               <Box sx={{ display: "flex" }}>
                 <MaterialSymbol icon="warning" size={16} color="#e65100" />
               </Box>
@@ -523,11 +526,11 @@ function CapabilityCard({
         </Typography>
         <Chip
           size="small"
-          label={`${node.deepAppCount} apps`}
+          label={t("capabilityMap.apps", { count: node.deepAppCount })}
           sx={{ height: 20, fontSize: "0.7rem", bgcolor: "rgba(255,255,255,0.7)" }}
         />
         {node.deepRiskCount > 0 && metric !== "risk_count" && (
-          <Tooltip title={`${node.deepRiskCount} EOL risk`}>
+          <Tooltip title={t("capabilityMap.eolRisk", { count: node.deepRiskCount })}>
             <Box sx={{ display: "flex" }}>
               <MaterialSymbol icon="warning" size={16} color="#e65100" />
             </Box>
@@ -580,8 +583,10 @@ function CapabilityCard({
 /* ------------------------------------------------------------------ */
 
 export default function CapabilityMapReport() {
+  const { t } = useTranslation(["reports", "common"]);
   const { fmtShort } = useCurrency();
   const { types: metamodelTypes } = useMetamodel();
+  const rml = useResolveMetaLabel();
   const saved = useSavedReport("capability-map");
   const { chartRef, thumbnail, captureAndSave } = useThumbnailCapture(() => saved.setSaveDialogOpen(true));
 
@@ -648,13 +653,13 @@ export default function CapabilityMapReport() {
   // Color-by options: all single_select fields + "none"
   const colorByOptions = useMemo(() => {
     const opts: { key: string; label: string }[] = [
-      { key: "none", label: "No color" },
+      { key: "none", label: t("capabilityMap.noColor") },
     ];
     for (const f of selectFields) {
       opts.push({ key: f.key, label: f.label });
     }
     return opts;
-  }, [selectFields]);
+  }, [selectFields, t]);
 
   // Detect cost field keys from schema for deep cost computation
   const costFieldKeys = useMemo(() => {
@@ -760,7 +765,7 @@ export default function CapabilityMapReport() {
       const typeMeta = metamodelTypes.find((t) => t.key === typeKey);
       out.push({
         typeKey,
-        label: typeMeta?.label || typeKey,
+        label: rml(typeMeta?.key ?? "", typeMeta?.translations, "label") || typeKey,
         options: members.map((m) => ({ key: m.id, label: m.name })),
       });
     }
@@ -777,11 +782,11 @@ export default function CapabilityMapReport() {
   const levelOptions = useMemo(() => {
     const opts = [];
     for (let i = 1; i <= Math.max(maxLvl, 2); i++) {
-      opts.push({ value: i, label: `Level ${i}` });
+      opts.push({ value: i, label: t("capabilityMap.levelN", { n: i }) });
     }
-    opts.push({ value: 99, label: "All levels" });
+    opts.push({ value: 99, label: t("capabilityMap.allLevels") });
     return opts;
-  }, [maxLvl]);
+  }, [maxLvl, t]);
 
   // Color legend — built dynamically from schema
   const colorLegend = useMemo(() => {
@@ -796,19 +801,20 @@ export default function CapabilityMapReport() {
   const activeFilterCount = Object.values(attrFilters).flat().length + Object.values(relationFilters).flat().length;
   const printParams = useMemo(() => {
     const params: { label: string; value: string }[] = [];
-    const metricLabel = METRIC_OPTIONS.find((o) => o.key === metric)?.label || metric;
-    params.push({ label: "Metric", value: metricLabel });
+    const mo = METRIC_OPTIONS.find((o) => o.key === metric);
+    const metricLabel = mo ? t(mo.labelKey) : metric;
+    params.push({ label: t("common.metric"), value: metricLabel });
     const depthLabel = levelOptions.find((o) => o.value === displayLevel)?.label || "";
-    params.push({ label: "Depth", value: depthLabel });
-    if (showApps) params.push({ label: "Show Apps", value: "Yes" });
+    params.push({ label: t("common.depth"), value: depthLabel });
+    if (showApps) params.push({ label: t("common.showApps"), value: t("common:labels.yes") });
     if (showApps && colorBy && colorBy !== "none") {
       const cLabel = colorByOptions.find((o) => o.key === colorBy)?.label || "";
-      params.push({ label: "Color by", value: cLabel });
+      params.push({ label: t("common.colorBy"), value: cLabel });
     }
     if (tl.printParam) params.push(tl.printParam);
-    if (activeFilterCount > 0) params.push({ label: "Filters", value: `${activeFilterCount} active` });
+    if (activeFilterCount > 0) params.push({ label: t("common.filters"), value: t("common.filtersActive", { count: activeFilterCount }) });
     return params;
-  }, [metric, displayLevel, showApps, colorBy, colorByOptions, levelOptions, tl.printParam, activeFilterCount]);
+  }, [metric, displayLevel, showApps, colorBy, colorByOptions, levelOptions, tl.printParam, activeFilterCount, t]);
 
   if (data === null)
     return (
@@ -819,7 +825,7 @@ export default function CapabilityMapReport() {
 
   return (
     <ReportShell
-      title="Business Capability Map"
+      title={t("capabilityMap.title")}
       icon="grid_view"
       iconColor="#003399"
       hasTableToggle={false}
@@ -835,14 +841,14 @@ export default function CapabilityMapReport() {
           <TextField
             select
             size="small"
-            label="Heatmap Metric"
+            label={t("capabilityMap.heatmapMetric")}
             value={metric}
             onChange={(e) => setMetric(e.target.value as Metric)}
             sx={{ minWidth: 180 }}
           >
             {METRIC_OPTIONS.map((o) => (
               <MenuItem key={o.key} value={o.key}>
-                {o.label}
+                {t(o.labelKey)}
               </MenuItem>
             ))}
           </TextField>
@@ -850,7 +856,7 @@ export default function CapabilityMapReport() {
           <TextField
             select
             size="small"
-            label="Display Depth"
+            label={t("capabilityMap.displayDepth")}
             value={displayLevel}
             onChange={(e) => setDisplayLevel(Number(e.target.value))}
             sx={{ minWidth: 140 }}
@@ -872,7 +878,7 @@ export default function CapabilityMapReport() {
             }
             label={
               <Typography variant="body2" color="text.secondary">
-                Show Applications
+                {t("capabilityMap.showApplications")}
               </Typography>
             }
           />
@@ -881,7 +887,7 @@ export default function CapabilityMapReport() {
             <TextField
               select
               size="small"
-              label="Color Apps By"
+              label={t("capabilityMap.colorAppsBy")}
               value={colorBy || "none"}
               onChange={(e) => setColorBy(e.target.value === "none" ? "" : e.target.value)}
               sx={{ minWidth: 180 }}
@@ -918,12 +924,12 @@ export default function CapabilityMapReport() {
               >
                 <MaterialSymbol icon="filter_alt" size={16} color="#999" />
                 <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
-                  Application Filters
+                  {t("capabilityMap.applicationFilters")}
                 </Typography>
                 {hasActiveFilters && (
                   <Chip
                     size="small"
-                    label="Clear all"
+                    label={t("capabilityMap.clearAll")}
                     variant="outlined"
                     onDelete={() => {
                       setAttrFilters({});
@@ -958,7 +964,7 @@ export default function CapabilityMapReport() {
                       variant="caption"
                       sx={{ color: "text.secondary", fontWeight: 600, fontSize: "0.7rem", whiteSpace: "nowrap" }}
                     >
-                      Related By
+                      {t("capabilityMap.relatedBy")}
                     </Typography>
                     {relationFilterOptions.slice(0, showAllRelFilters ? undefined : 2).map((rf) => (
                       <FilterSelect
@@ -972,11 +978,11 @@ export default function CapabilityMapReport() {
                       />
                     ))}
                     {!showAllRelFilters && relationFilterOptions.length > 2 && (
-                      <Tooltip title={`Show ${relationFilterOptions.length - 2} more relation filters`}>
+                      <Tooltip title={t("capabilityMap.showMore", { count: relationFilterOptions.length - 2 })}>
                         <Chip
                           size="small"
                           icon={<MaterialSymbol icon="add" size={14} />}
-                          label={`${relationFilterOptions.length - 2} more`}
+                          label={t("capabilityMap.more", { count: relationFilterOptions.length - 2 })}
                           onClick={() => setShowAllRelFilters(true)}
                           sx={{
                             height: 26,
@@ -994,7 +1000,7 @@ export default function CapabilityMapReport() {
                     {showAllRelFilters && relationFilterOptions.length > 2 && (
                       <Chip
                         size="small"
-                        label="Less"
+                        label={t("capabilityMap.less")}
                         onClick={() => setShowAllRelFilters(false)}
                         sx={{
                           height: 26,
@@ -1027,7 +1033,7 @@ export default function CapabilityMapReport() {
                       variant="caption"
                       sx={{ color: "text.secondary", fontWeight: 600, fontSize: "0.7rem", whiteSpace: "nowrap" }}
                     >
-                      Fields
+                      {t("capabilityMap.fields")}
                     </Typography>
                     {selectFields
                       .filter((f) => f.options && f.options.length > 0)
@@ -1058,7 +1064,7 @@ export default function CapabilityMapReport() {
           {/* Heatmap gradient legend */}
           <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
             <Typography variant="caption" color="text.secondary">
-              Low
+              {t("capabilityMap.low")}
             </Typography>
             <Box sx={{ display: "flex", height: 12 }}>
               {[0, 0.25, 0.5, 0.75, 1].map((r) => (
@@ -1073,10 +1079,10 @@ export default function CapabilityMapReport() {
               ))}
             </Box>
             <Typography variant="caption" color="text.secondary">
-              High
+              {t("capabilityMap.high")}
             </Typography>
             <Typography variant="caption" color="text.secondary" sx={{ ml: 1 }}>
-              Max: {fmtVal(maxVal)}
+              {t("capabilityMap.max", { value: fmtVal(maxVal) })}
             </Typography>
           </Box>
 
@@ -1116,7 +1122,7 @@ export default function CapabilityMapReport() {
                   }}
                 />
                 <Typography variant="caption" color="text.secondary">
-                  Not set
+                  {t("capabilityMap.notSet")}
                 </Typography>
               </Box>
             </Box>
@@ -1127,7 +1133,7 @@ export default function CapabilityMapReport() {
       {tree.length === 0 ? (
         <Box sx={{ py: 8, textAlign: "center" }}>
           <Typography color="text.secondary">
-            No Business Capabilities found. Add capabilities to see the heatmap.
+            {t("capabilityMap.noCapabilities")}
           </Typography>
         </Box>
       ) : (
@@ -1190,7 +1196,7 @@ export default function CapabilityMapReport() {
                       : nodeMetric(drawer, o.key)}
                   </Typography>
                   <Typography variant="caption" color="text.secondary">
-                    {o.label}
+                    {t(o.labelKey)}
                   </Typography>
                 </Box>
               ))}
@@ -1200,7 +1206,7 @@ export default function CapabilityMapReport() {
             {drawer.children.length > 0 && (
               <>
                 <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
-                  Sub-Capabilities ({drawer.children.length})
+                  {t("capabilityMap.subCapabilities", { count: drawer.children.length })}
                 </Typography>
                 <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5, mb: 2 }}>
                   {drawer.children.map((ch) => (
@@ -1218,7 +1224,7 @@ export default function CapabilityMapReport() {
 
             {/* Supporting applications — all unique apps in the subtree */}
             <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
-              Supporting Applications ({drawer.deepAppCount})
+              {t("capabilityMap.supportingApps", { count: drawer.deepAppCount })}
             </Typography>
             <List dense>
               {Array.from(drawer.deepUniqueApps.values())
@@ -1264,8 +1270,8 @@ export default function CapabilityMapReport() {
                   sx={{ py: 2, textAlign: "center" }}
                 >
                   {hasActiveFilters
-                    ? "No applications match current filters"
-                    : "No linked applications"}
+                    ? t("capabilityMap.noAppsFiltered")
+                    : t("capabilityMap.noLinkedApps")}
                 </Typography>
               )}
             </List>

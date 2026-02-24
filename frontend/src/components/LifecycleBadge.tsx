@@ -1,4 +1,5 @@
 import Chip from "@mui/material/Chip";
+import { useTranslation } from "react-i18next";
 
 const PHASE_COLORS: Record<string, "default" | "primary" | "success" | "warning" | "error"> = {
   plan: "default",
@@ -6,14 +7,6 @@ const PHASE_COLORS: Record<string, "default" | "primary" | "success" | "warning"
   active: "success",
   phaseOut: "warning",
   endOfLife: "error",
-};
-
-const PHASE_LABELS: Record<string, string> = {
-  plan: "Plan",
-  phaseIn: "Phase In",
-  active: "Active",
-  phaseOut: "Phase Out",
-  endOfLife: "End of Life",
 };
 
 export function getCurrentPhase(lifecycle?: Record<string, string>): string | null {
@@ -33,12 +26,13 @@ interface Props {
 }
 
 export default function LifecycleBadge({ lifecycle, size = "small" }: Props) {
+  const { t } = useTranslation("common");
   const phase = getCurrentPhase(lifecycle);
   if (!phase) return null;
   return (
     <Chip
       size={size}
-      label={PHASE_LABELS[phase] || phase}
+      label={t(`lifecycle.${phase}`) || phase}
       color={PHASE_COLORS[phase] || "default"}
     />
   );

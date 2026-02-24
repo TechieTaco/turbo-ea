@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Card from "@mui/material/Card";
@@ -74,6 +75,7 @@ const PRESET_COLORS = [
 /* ------------------------------------------------------------------ */
 
 export default function RolesAdmin() {
+  const { t } = useTranslation(["admin", "common"]);
   /* ---- Data state ---- */
   const [roles, setRoles] = useState<AppRole[]>([]);
   const [schema, setSchema] = useState<PermissionsSchema>({});
@@ -117,7 +119,7 @@ export default function RolesAdmin() {
       setRoles(data);
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load roles");
+      setError(err instanceof Error ? err.message : t("roles.loadError"));
     } finally {
       setLoading(false);
     }
@@ -146,7 +148,7 @@ export default function RolesAdmin() {
       setDetailError(null);
     } catch (err) {
       setDetailError(
-        err instanceof Error ? err.message : "Failed to load role details"
+        err instanceof Error ? err.message : t("roles.loadError")
       );
     }
   }, []);
@@ -181,7 +183,7 @@ export default function RolesAdmin() {
   const handleSave = async () => {
     if (!selectedKey || !selectedRole) return;
     if (!editLabel.trim()) {
-      setDetailError("Label is required.");
+      setDetailError(t("roles.labelRequired"));
       return;
     }
     try {
@@ -194,13 +196,13 @@ export default function RolesAdmin() {
         is_default: editIsDefault,
         permissions: editPermissions,
       });
-      setSnack("Role saved successfully");
+      setSnack(t("roles.savedSuccess"));
       // Refresh list and detail
       await fetchRoles();
       await fetchRoleDetail(selectedKey);
     } catch (err) {
       setDetailError(
-        err instanceof Error ? err.message : "Failed to save role"
+        err instanceof Error ? err.message : t("roles.saveError")
       );
     } finally {
       setSaving(false);
@@ -209,7 +211,7 @@ export default function RolesAdmin() {
 
   const handleCreate = async () => {
     if (!createForm.key.trim() || !createForm.label.trim()) {
-      setCreateError("Key and label are required.");
+      setCreateError(t("roles.keyLabelRequired"));
       return;
     }
     try {
@@ -227,10 +229,10 @@ export default function RolesAdmin() {
       setCreateForm(EMPTY_CREATE_FORM);
       await fetchRoles();
       setSelectedKey(created.key);
-      setSnack("Role created successfully");
+      setSnack(t("roles.createdSuccess"));
     } catch (err) {
       setCreateError(
-        err instanceof Error ? err.message : "Failed to create role"
+        err instanceof Error ? err.message : t("roles.createError")
       );
     } finally {
       setCreateSubmitting(false);
@@ -252,10 +254,10 @@ export default function RolesAdmin() {
         setSelectedKey(null);
       }
       await fetchRoles();
-      setSnack("Role archived");
+      setSnack(t("roles.archivedSuccess"));
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : "Failed to archive role"
+        err instanceof Error ? err.message : t("roles.archiveError")
       );
       setArchiveConfirmOpen(false);
       setArchiveTarget(null);
@@ -269,10 +271,10 @@ export default function RolesAdmin() {
       if (selectedKey === key) {
         await fetchRoleDetail(key);
       }
-      setSnack("Role restored");
+      setSnack(t("roles.restoredSuccess"));
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : "Failed to restore role"
+        err instanceof Error ? err.message : t("roles.restoreError")
       );
     }
   };
@@ -324,7 +326,7 @@ export default function RolesAdmin() {
         }}
       >
         <Typography variant="h5" fontWeight={600}>
-          Role Management
+          {t("roles.title")}
         </Typography>
         <Button
           variant="contained"
@@ -335,7 +337,7 @@ export default function RolesAdmin() {
             setCreateOpen(true);
           }}
         >
-          Add Role
+          {t("roles.addRole")}
         </Button>
       </Box>
 
@@ -368,7 +370,7 @@ export default function RolesAdmin() {
                 }
                 label={
                   <Typography variant="body2" color="text.secondary">
-                    Show archived
+                    {t("roles.showArchived")}
                   </Typography>
                 }
               />
@@ -377,13 +379,13 @@ export default function RolesAdmin() {
 
             {loading && (
               <Box sx={{ p: 3, textAlign: "center" }}>
-                <Typography color="text.secondary">Loading roles...</Typography>
+                <Typography color="text.secondary">{t("roles.loadingRoles")}</Typography>
               </Box>
             )}
 
             {!loading && sortedRoles.length === 0 && (
               <Box sx={{ p: 3, textAlign: "center" }}>
-                <Typography color="text.secondary">No roles found.</Typography>
+                <Typography color="text.secondary">{t("roles.noRoles")}</Typography>
               </Box>
             )}
 
@@ -425,7 +427,7 @@ export default function RolesAdmin() {
                         {role.is_system && (
                           <Chip
                             size="small"
-                            label="System"
+                            label={t("common:labels.system")}
                             variant="outlined"
                             sx={{ height: 20, fontSize: "0.7rem" }}
                           />
@@ -433,7 +435,7 @@ export default function RolesAdmin() {
                         {role.is_default && (
                           <Chip
                             size="small"
-                            label="Default"
+                            label={t("roles.defaultRole")}
                             color="primary"
                             variant="outlined"
                             sx={{ height: 20, fontSize: "0.7rem" }}
@@ -444,7 +446,7 @@ export default function RolesAdmin() {
                     secondary={
                       <Typography variant="caption" color="text.secondary">
                         {role.user_count !== undefined
-                          ? `${role.user_count} user${role.user_count !== 1 ? "s" : ""}`
+                          ? t("roles.userCount", { count: role.user_count })
                           : role.key}
                       </Typography>
                     }
@@ -478,7 +480,7 @@ export default function RolesAdmin() {
                   sx={{ mt: 1 }}
                   variant="body1"
                 >
-                  Select a role to view and edit its permissions
+                  {t("roles.selectPrompt")}
                 </Typography>
               </CardContent>
             </Card>
@@ -509,13 +511,11 @@ export default function RolesAdmin() {
                         size="small"
                         onClick={() => handleRestore(selectedRole.key)}
                       >
-                        Restore
+                        {t("common:actions.restore")}
                       </Button>
                     }
                   >
-                    This role is archived. Users assigned to it retain their
-                    current permissions but the role cannot be assigned to new
-                    users.
+                    {t("roles.archivedBanner")}
                   </Alert>
                 )}
 
@@ -541,12 +541,12 @@ export default function RolesAdmin() {
                       {selectedRole.label}
                     </Typography>
                     {isSystemRole && (
-                      <Chip size="small" label="System" variant="outlined" />
+                      <Chip size="small" label={t("common:labels.system")} variant="outlined" />
                     )}
                   </Box>
                   <Box sx={{ display: "flex", gap: 1 }}>
                     {!isArchived && !isAdminRole && (
-                      <Tooltip title="Archive role">
+                      <Tooltip title={t("roles.archiveTooltip")}>
                         <IconButton
                           size="small"
                           color="warning"
@@ -566,17 +566,17 @@ export default function RolesAdmin() {
                 <Stack spacing={2.5} sx={{ mb: 3 }}>
                   {/* Key (read-only) */}
                   <TextField
-                    label="Key"
+                    label={t("roles.keyLabel")}
                     value={selectedRole.key}
                     fullWidth
                     size="small"
                     disabled
-                    helperText="The role key cannot be changed after creation."
+                    helperText={t("roles.keyHelperText")}
                   />
 
                   {/* Label */}
                   <TextField
-                    label="Label"
+                    label={t("common:labels.name")}
                     value={editLabel}
                     onChange={(e) => setEditLabel(e.target.value)}
                     fullWidth
@@ -587,7 +587,7 @@ export default function RolesAdmin() {
 
                   {/* Description */}
                   <TextField
-                    label="Description"
+                    label={t("common:labels.description")}
                     value={editDescription}
                     onChange={(e) => setEditDescription(e.target.value)}
                     fullWidth
@@ -605,7 +605,7 @@ export default function RolesAdmin() {
                       color="text.secondary"
                       sx={{ mb: 1 }}
                     >
-                      Color
+                      {t("tags.color")}
                     </Typography>
                     <Box
                       sx={{
@@ -666,9 +666,9 @@ export default function RolesAdmin() {
                     }
                     label={
                       <Box>
-                        <Typography variant="body2">Default role</Typography>
+                        <Typography variant="body2">{t("roles.defaultRole")}</Typography>
                         <Typography variant="caption" color="text.secondary">
-                          New users will be assigned this role automatically.
+                          {t("roles.defaultRoleHint")}
                         </Typography>
                       </Box>
                     }
@@ -688,9 +688,7 @@ export default function RolesAdmin() {
                     >
                       <MaterialSymbol icon="group" size={20} color="#757575" />
                       <Typography variant="body2" color="text.secondary">
-                        {selectedRole.user_count} user
-                        {selectedRole.user_count !== 1 ? "s" : ""} assigned to
-                        this role
+                        {t("roles.usersAssigned", { count: selectedRole.user_count })}
                       </Typography>
                     </Box>
                   )}
@@ -700,19 +698,18 @@ export default function RolesAdmin() {
 
                 {/* ---- Permissions Editor ---- */}
                 <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 2 }}>
-                  Permissions
+                  {t("roles.permissions")}
                 </Typography>
 
                 {isAdminRole && (
                   <Alert severity="info" variant="outlined" sx={{ mb: 2 }}>
-                    The admin role has full access to all features. Permissions
-                    cannot be modified.
+                    {t("roles.adminPermissionsInfo")}
                   </Alert>
                 )}
 
                 {Object.keys(schema).length === 0 && (
                   <Typography color="text.secondary" variant="body2">
-                    Loading permissions schema...
+                    {t("roles.loadingSchema")}
                   </Typography>
                 )}
 
@@ -769,7 +766,7 @@ export default function RolesAdmin() {
                               }}
                               sx={{ textTransform: "none", minWidth: "auto" }}
                             >
-                              {all ? "Deselect All" : "Select All"}
+                              {all ? t("common:actions.deselectAll") : t("common:actions.selectAll")}
                             </Button>
                           )}
                         </Box>
@@ -819,7 +816,7 @@ export default function RolesAdmin() {
                             color="text.secondary"
                             sx={{ py: 1 }}
                           >
-                            No permissions in this group.
+                            {t("roles.noPermissionsInGroup")}
                           </Typography>
                         )}
                       </AccordionDetails>
@@ -845,7 +842,7 @@ export default function RolesAdmin() {
                         }}
                         disabled={saving}
                       >
-                        Reset
+                        {t("common:actions.reset")}
                       </Button>
                       <Button
                         variant="contained"
@@ -855,7 +852,7 @@ export default function RolesAdmin() {
                           <MaterialSymbol icon="save" size={18} />
                         }
                       >
-                        {saving ? "Saving..." : "Save Changes"}
+                        {saving ? t("roles.saving") : t("roles.saveChanges")}
                       </Button>
                     </Box>
                   </>
@@ -873,11 +870,11 @@ export default function RolesAdmin() {
         maxWidth="sm"
         fullWidth
       >
-        <DialogTitle>Create Role</DialogTitle>
+        <DialogTitle>{t("roles.createRole")}</DialogTitle>
         <DialogContent>
           <Stack spacing={2.5} sx={{ mt: 1 }}>
             <TextField
-              label="Key"
+              label={t("roles.keyLabel")}
               value={createForm.key}
               onChange={(e) =>
                 setCreateForm((p) => ({
@@ -890,11 +887,11 @@ export default function RolesAdmin() {
               fullWidth
               required
               size="small"
-              helperText="Unique identifier (lowercase, underscores only). Cannot be changed later."
+              helperText={t("roles.createKeyHelperText")}
               autoFocus
             />
             <TextField
-              label="Label"
+              label={t("common:labels.name")}
               value={createForm.label}
               onChange={(e) =>
                 setCreateForm((p) => ({ ...p, label: e.target.value }))
@@ -904,7 +901,7 @@ export default function RolesAdmin() {
               size="small"
             />
             <TextField
-              label="Description"
+              label={t("common:labels.description")}
               value={createForm.description}
               onChange={(e) =>
                 setCreateForm((p) => ({ ...p, description: e.target.value }))
@@ -921,7 +918,7 @@ export default function RolesAdmin() {
                 color="text.secondary"
                 sx={{ mb: 1 }}
               >
-                Color
+                {t("tags.color")}
               </Typography>
               <Box
                 sx={{
@@ -977,7 +974,7 @@ export default function RolesAdmin() {
             onClick={() => setCreateOpen(false)}
             disabled={createSubmitting}
           >
-            Cancel
+            {t("common:actions.cancel")}
           </Button>
           <Button
             variant="contained"
@@ -988,7 +985,7 @@ export default function RolesAdmin() {
               !createForm.label.trim()
             }
           >
-            {createSubmitting ? "Creating..." : "Create Role"}
+            {createSubmitting ? t("roles.creating") : t("roles.createRole")}
           </Button>
         </DialogActions>
       </Dialog>
@@ -1000,36 +997,29 @@ export default function RolesAdmin() {
         maxWidth="xs"
         fullWidth
       >
-        <DialogTitle>Archive Role</DialogTitle>
+        <DialogTitle>{t("roles.archiveRole")}</DialogTitle>
         <DialogContent>
           {archiveTarget && (
             <Stack spacing={2} sx={{ mt: 1 }}>
               <Typography>
-                Are you sure you want to archive the role{" "}
-                <strong>{archiveTarget.label}</strong>?
+                <span dangerouslySetInnerHTML={{ __html: t("roles.archiveConfirm", { label: archiveTarget.label }) }} />
               </Typography>
               {archiveTarget.user_count !== undefined &&
                 archiveTarget.user_count > 0 && (
                   <Alert severity="warning" variant="outlined">
-                    This role is currently assigned to{" "}
-                    <strong>
-                      {archiveTarget.user_count} user
-                      {archiveTarget.user_count !== 1 ? "s" : ""}
-                    </strong>
-                    . Affected users will retain their current permissions but
-                    the role will no longer be available for new assignments.
+                    <span dangerouslySetInnerHTML={{ __html: t("roles.archiveUserWarning", { count: archiveTarget.user_count }) }} />
                   </Alert>
                 )}
               <Typography variant="body2" color="text.secondary">
-                You can restore an archived role at any time.
+                {t("roles.archiveRestoreHint")}
               </Typography>
             </Stack>
           )}
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={() => setArchiveConfirmOpen(false)}>Cancel</Button>
+          <Button onClick={() => setArchiveConfirmOpen(false)}>{t("common:actions.cancel")}</Button>
           <Button variant="contained" color="warning" onClick={handleArchive}>
-            Archive
+            {t("common:actions.archive")}
           </Button>
         </DialogActions>
       </Dialog>

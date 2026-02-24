@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Card from "@mui/material/Card";
@@ -27,22 +28,22 @@ type LinkSelection = Record<
   { product: string; cycle: string } | null
 >;
 
-function computeEolStatus(cycle: EolCycle): {
+function computeEolStatus(cycle: EolCycle, t: (key: string) => string): {
   label: string;
   color: string;
 } {
   const eol = cycle.eol;
-  if (eol === true) return { label: "End of Life", color: "#f44336" };
+  if (eol === true) return { label: t("eol.status.endOfLife"), color: "#f44336" };
   if (typeof eol === "string") {
     const eolDate = new Date(eol);
     const now = new Date();
-    if (eolDate <= now) return { label: "End of Life", color: "#f44336" };
+    if (eolDate <= now) return { label: t("eol.status.endOfLife"), color: "#f44336" };
     const sixMonths = new Date();
     sixMonths.setMonth(sixMonths.getMonth() + 6);
     if (eolDate <= sixMonths)
-      return { label: "Approaching EOL", color: "#ff9800" };
+      return { label: t("eol.status.approachingEol"), color: "#ff9800" };
   }
-  return { label: "Supported", color: "#4caf50" };
+  return { label: t("eol.status.supported"), color: "#4caf50" };
 }
 
 // ── Cycle Picker Dialog ──────────────────────────────────────────
@@ -64,6 +65,7 @@ function CyclePickerDialog({
   product,
   onSelect,
 }: CyclePickerProps) {
+  const { t } = useTranslation(["admin", "common"]);
   const [cycles, setCycles] = useState<EolCycle[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -77,19 +79,18 @@ function CyclePickerDialog({
     api
       .get<EolCycle[]>(`/eol/products/${encodeURIComponent(product)}`)
       .then((res) => setCycles(res))
-      .catch((e) => setError(e instanceof Error ? e.message : "Failed to fetch cycles"))
+      .catch((e) => setError(e instanceof Error ? e.message : t("common:errors.generic")))
       .finally(() => setLoading(false));
   }, [open, product]);
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
       <DialogTitle>
-        Select Version for {cardName}
+        {t("eol.selectVersion", { name: cardName })}
       </DialogTitle>
       <DialogContent>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2, mt: 1 }}>
-          Product: <strong>{product}</strong>. Select the version/cycle that matches
-          your deployment.
+          {t("eol.productHint")}
         </Typography>
         {error && (
           <Alert severity="error" sx={{ mb: 2 }}>
@@ -99,14 +100,14 @@ function CyclePickerDialog({
         {loading && <LinearProgress sx={{ mb: 2 }} />}
         {!loading && cycles.length > 0 && (
           <FormControl fullWidth size="small">
-            <InputLabel>Version / Cycle</InputLabel>
+            <InputLabel>{t("eol.versionCycle")}</InputLabel>
             <Select
               value={selectedCycle}
-              label="Version / Cycle"
+              label={t("eol.versionCycle")}
               onChange={(e) => setSelectedCycle(e.target.value)}
             >
               {cycles.map((c) => {
-                const status = computeEolStatus(c);
+                const status = computeEolStatus(c, t);
                 return (
                   <MenuItem key={c.cycle} value={c.cycle}>
                     <Box
@@ -146,12 +147,12 @@ function CyclePickerDialog({
         )}
         {!loading && cycles.length === 0 && !error && (
           <Typography variant="body2" color="text.secondary">
-            No release cycles found for "{product}".
+            {t("eol.noCycles", { product })}
           </Typography>
         )}
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>Cancel</Button>
+        <Button onClick={onClose}>{t("common:actions.cancel")}</Button>
         <Button
           variant="contained"
           disabled={!selectedCycle}
@@ -160,7 +161,7 @@ function CyclePickerDialog({
             onClose();
           }}
         >
-          Confirm
+          {t("common:actions.confirm")}
         </Button>
       </DialogActions>
     </Dialog>
@@ -170,6 +171,7 @@ function CyclePickerDialog({
 // ── Main Admin Page ──────────────────────────────────────────────
 
 export default function EolAdmin() {
+  const { t } = useTranslation(["admin", "common"]);
   const [typeKey, setTypeKey] = useState<"Application" | "ITComponent">("ITComponent");
   const [results, setResults] = useState<MassEolResult[]>([]);
   const [loading, setLoading] = useState(false);
@@ -196,7 +198,7 @@ export default function EolAdmin() {
       );
       setResults(res);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to search");
+      setError(e instanceof Error ? e.message : t("common:errors.generic"));
     } finally {
       setLoading(false);
     }
@@ -246,7 +248,7 @@ export default function EolAdmin() {
       // Refresh results
       await handleSearch();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to save");
+      setError(e instanceof Error ? e.message : t("common:errors.generic"));
     } finally {
       setSaving(false);
     }
@@ -268,9 +270,7 @@ export default function EolAdmin() {
   return (
     <Box sx={{ maxWidth: 1100, mx: "auto" }}>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-        Automatically find End-of-Life data for your IT Components and
-        Applications by fuzzy-matching their names against endoflife.date.
-        Select a product match, choose the version, and bulk-link them.
+        {t("eol.description")}
       </Typography>
 
       {/* Controls */}
@@ -278,10 +278,10 @@ export default function EolAdmin() {
         <CardContent>
           <Box sx={{ display: "flex", gap: 2, alignItems: "flex-end", flexWrap: "wrap" }}>
             <FormControl size="small" sx={{ minWidth: 200 }}>
-              <InputLabel>Card Type</InputLabel>
+              <InputLabel>{t("common:labels.type")}</InputLabel>
               <Select
                 value={typeKey}
-                label="Card Type"
+                label={t("common:labels.type")}
                 onChange={(e) =>
                   setTypeKey(e.target.value as "Application" | "ITComponent")
                 }
@@ -289,13 +289,13 @@ export default function EolAdmin() {
                 <MenuItem value="ITComponent">
                   <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                     <MaterialSymbol icon="memory" size={18} color="#d29270" />
-                    IT Component
+                    {t("eol.itComponent")}
                   </Box>
                 </MenuItem>
                 <MenuItem value="Application">
                   <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                     <MaterialSymbol icon="apps" size={18} color="#0f7eb5" />
-                    Application
+                    {t("eol.application")}
                   </Box>
                 </MenuItem>
               </Select>
@@ -312,23 +312,23 @@ export default function EolAdmin() {
                 )
               }
             >
-              {loading ? "Searching..." : "Search EOL Data"}
+              {loading ? t("eol.searching") : t("eol.searchEolData")}
             </Button>
             {results.length > 0 && (
               <FormControl size="small" sx={{ minWidth: 140 }}>
-                <InputLabel>Filter</InputLabel>
+                <InputLabel>{t("eol.filter")}</InputLabel>
                 <Select
                   value={filter}
-                  label="Filter"
+                  label={t("eol.filter")}
                   onChange={(e) =>
                     setFilter(e.target.value as "all" | "unlinked" | "linked")
                   }
                 >
-                  <MenuItem value="all">All ({results.length})</MenuItem>
+                  <MenuItem value="all">{t("eol.all", { count: results.length })}</MenuItem>
                   <MenuItem value="unlinked">
-                    Unlinked ({unlinkedCount})
+                    {t("eol.unlinked", { count: unlinkedCount })}
                   </MenuItem>
-                  <MenuItem value="linked">Linked ({linkedCount})</MenuItem>
+                  <MenuItem value="linked">{t("eol.linked", { count: linkedCount })}</MenuItem>
                 </Select>
               </FormControl>
             )}
@@ -344,7 +344,7 @@ export default function EolAdmin() {
 
       {saveResult && (
         <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSaveResult(null)}>
-          Successfully linked {saveResult.count} card(s) to EOL data.
+          {t("eol.linkSuccess", { count: saveResult.count })}
         </Alert>
       )}
 
@@ -356,7 +356,7 @@ export default function EolAdmin() {
           <Card sx={{ flex: 1, minWidth: 140 }}>
             <CardContent sx={{ py: 1.5, "&:last-child": { pb: 1.5 } }}>
               <Typography variant="caption" color="text.secondary">
-                Total
+                {t("eol.stats.total")}
               </Typography>
               <Typography variant="h6" fontWeight={700}>
                 {results.length}
@@ -366,7 +366,7 @@ export default function EolAdmin() {
           <Card sx={{ flex: 1, minWidth: 140 }}>
             <CardContent sx={{ py: 1.5, "&:last-child": { pb: 1.5 } }}>
               <Typography variant="caption" color="text.secondary">
-                Already Linked
+                {t("eol.stats.alreadyLinked")}
               </Typography>
               <Typography variant="h6" fontWeight={700} color="success.main">
                 {linkedCount}
@@ -376,7 +376,7 @@ export default function EolAdmin() {
           <Card sx={{ flex: 1, minWidth: 140 }}>
             <CardContent sx={{ py: 1.5, "&:last-child": { pb: 1.5 } }}>
               <Typography variant="caption" color="text.secondary">
-                Unlinked
+                {t("eol.stats.unlinked")}
               </Typography>
               <Typography variant="h6" fontWeight={700} color="warning.main">
                 {unlinkedCount}
@@ -386,7 +386,7 @@ export default function EolAdmin() {
           <Card sx={{ flex: 1, minWidth: 140 }}>
             <CardContent sx={{ py: 1.5, "&:last-child": { pb: 1.5 } }}>
               <Typography variant="caption" color="text.secondary">
-                Matches Found
+                {t("eol.stats.matchesFound")}
               </Typography>
               <Typography variant="h6" fontWeight={700} color="info.main">
                 {withCandidatesCount}
@@ -457,12 +457,7 @@ export default function EolAdmin() {
                       }}
                     >
                       <MaterialSymbol icon="check_circle" size={18} color="#4caf50" />
-                      <Typography variant="body2">
-                        Will link to{" "}
-                        <strong>
-                          {selection.product} {selection.cycle}
-                        </strong>
-                      </Typography>
+                      <Typography variant="body2">{t("eol.willLinkTo")} <strong>{selection.product}</strong> {selection.cycle}</Typography>
                       <IconButton
                         size="small"
                         onClick={() => handleRemoveSelection(r.card_id)}
@@ -478,13 +473,13 @@ export default function EolAdmin() {
                         color="text.secondary"
                         sx={{ display: "block", mb: 0.5 }}
                       >
-                        Suggested matches:
+                        {t("eol.suggestedMatches")}
                       </Typography>
                       <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
                         {r.candidates.map((c) => (
                           <Tooltip
                             key={c.eol_product}
-                            title={`Match score: ${Math.round(c.score * 100)}% — Click to select version`}
+                            title={t("eol.matchScore", { score: Math.round(c.score * 100) })}
                           >
                             <Chip
                               label={c.eol_product}
@@ -512,7 +507,7 @@ export default function EolAdmin() {
                     </Box>
                   ) : (
                     <Typography variant="body2" color="text.secondary">
-                      No matches found on endoflife.date
+                      {t("eol.noMatches")}
                     </Typography>
                   )}
                 </Box>
@@ -528,9 +523,7 @@ export default function EolAdmin() {
           <CardContent sx={{ textAlign: "center", py: 6 }}>
             <MaterialSymbol icon="search" size={48} color="#ccc" />
             <Typography variant="body1" color="text.secondary" sx={{ mt: 1 }}>
-              Click "Search EOL Data" to scan your{" "}
-              {typeKey === "ITComponent" ? "IT Components" : "Applications"} against
-              endoflife.date
+              {t("eol.emptyState", { type: typeKey === "ITComponent" ? t("eol.emptyStateType.ITComponent") : t("eol.emptyStateType.Application") })}
             </Typography>
           </CardContent>
         </Card>
@@ -556,14 +549,14 @@ export default function EolAdmin() {
         >
           <MaterialSymbol icon="link" size={20} color="#1976d2" />
           <Typography variant="body2" fontWeight={600}>
-            {selectedCount} card(s) selected for EOL linking
+            {t("eol.selectedCount", { count: selectedCount })}
           </Typography>
           <Box sx={{ ml: "auto", display: "flex", gap: 1 }}>
             <Button
               size="small"
               onClick={() => setSelections({})}
             >
-              Clear All
+              {t("eol.clearAll")}
             </Button>
             <Button
               variant="contained"
@@ -578,7 +571,7 @@ export default function EolAdmin() {
                 )
               }
             >
-              {saving ? "Saving..." : "Apply Links"}
+              {saving ? t("eol.saving") : t("eol.applyLinks")}
             </Button>
           </Box>
         </Box>

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Card from "@mui/material/Card";
@@ -39,6 +40,7 @@ import Autocomplete from "@mui/material/Autocomplete";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import { useMetamodel } from "@/hooks/useMetamodel";
+import { useResolveMetaLabel, useResolveLabel } from "@/hooks/useResolveLabel";
 import type { SnowConnection, SnowMapping, SnowSyncRun, SnowStagedRecord, CardType } from "@/types";
 
 // ---------------------------------------------------------------------------
@@ -51,7 +53,10 @@ interface TurboFieldOption {
   group: string;
 }
 
-function getTurboFieldOptions(cardType: CardType | undefined): TurboFieldOption[] {
+function getTurboFieldOptions(
+  cardType: CardType | undefined,
+  rl?: (label: string, translations?: Record<string, string>) => string,
+): TurboFieldOption[] {
   const options: TurboFieldOption[] = [
     { path: "name", label: "Name", group: "Core" },
     { path: "description", label: "Description", group: "Core" },
@@ -67,7 +72,7 @@ function getTurboFieldOptions(cardType: CardType | undefined): TurboFieldOption[
       for (const field of section.fields) {
         options.push({
           path: `attributes.${field.key}`,
-          label: field.label,
+          label: rl ? rl(field.key, field.translations) : field.label,
           group: section.section,
         });
       }
@@ -82,14 +87,15 @@ function getTurboFieldOptions(cardType: CardType | undefined): TurboFieldOption[
 // ---------------------------------------------------------------------------
 
 export default function ServiceNowAdmin() {
+  const { t } = useTranslation(["admin", "common"]);
   const [tab, setTab] = useState(0);
 
   return (
     <Box>
       <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 3 }}>
-        <Tab label="Connections" />
-        <Tab label="Mappings" />
-        <Tab label="Sync Dashboard" />
+        <Tab label={t("servicenow.tabs.connections")} />
+        <Tab label={t("servicenow.tabs.mappings")} />
+        <Tab label={t("servicenow.tabs.syncDashboard")} />
       </Tabs>
 
       {tab === 0 && <ConnectionsTab />}
@@ -104,6 +110,7 @@ export default function ServiceNowAdmin() {
 // ---------------------------------------------------------------------------
 
 function ConnectionsTab() {
+  const { t } = useTranslation(["admin", "common"]);
   const [connections, setConnections] = useState<SnowConnection[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -119,7 +126,7 @@ function ConnectionsTab() {
       setConnections(res);
       setError("");
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load connections");
+      setError(e instanceof Error ? e.message : t("common:errors.generic"));
     } finally {
       setLoading(false);
     }
@@ -135,19 +142,19 @@ function ConnectionsTab() {
       setTestResult({ id, ...res });
       load();
     } catch (e) {
-      setTestResult({ id, success: false, message: e instanceof Error ? e.message : "Test failed" });
+      setTestResult({ id, success: false, message: e instanceof Error ? e.message : t("common:errors.generic") });
     } finally {
       setTesting(null);
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Delete this connection and all its mappings?")) return;
+    if (!confirm(t("servicenow.connections.deleteConfirm"))) return;
     try {
       await api.delete(`/servicenow/connections/${id}`);
       load();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to delete");
+      setError(e instanceof Error ? e.message : t("common:errors.generic"));
     }
   };
 
@@ -163,7 +170,7 @@ function ConnectionsTab() {
           startIcon={<MaterialSymbol icon="add" size={18} />}
           onClick={() => { setEditing(null); setDialogOpen(true); }}
         >
-          Add Connection
+          {t("servicenow.connections.addConnection")}
         </Button>
       </Box>
 
@@ -172,7 +179,7 @@ function ConnectionsTab() {
           <CardContent sx={{ textAlign: "center", py: 6 }}>
             <MaterialSymbol icon="cloud_off" size={48} color="#ccc" />
             <Typography color="text.secondary" sx={{ mt: 1 }}>
-              No ServiceNow connections configured yet
+              {t("servicenow.connections.noConnections")}
             </Typography>
           </CardContent>
         </Card>
@@ -196,22 +203,22 @@ function ConnectionsTab() {
                   />
                   {conn.test_status && (
                     <Chip
-                      label={conn.test_status === "success" ? "Connected" : "Failed"}
+                      label={conn.test_status === "success" ? t("servicenow.connections.connected") : t("servicenow.connections.failed")}
                       size="small"
                       color={conn.test_status === "success" ? "success" : "error"}
                       sx={{ fontWeight: 600, fontSize: "0.7rem" }}
                     />
                   )}
                   {!conn.is_active && (
-                    <Chip label="Inactive" size="small" color="default" />
+                    <Chip label={t("servicenow.connections.inactive")} size="small" color="default" />
                   )}
                   <Chip
-                    label={`${conn.mapping_count} mapping${conn.mapping_count !== 1 ? "s" : ""}`}
+                    label={t("servicenow.connections.mappingCount", { count: conn.mapping_count })}
                     size="small"
                     variant="outlined"
                     sx={{ fontSize: "0.7rem" }}
                   />
-                  <Tooltip title="Test Connection">
+                  <Tooltip title={t("servicenow.connections.testTooltip")}>
                     <IconButton
                       size="small"
                       onClick={() => handleTest(conn.id)}
@@ -224,7 +231,7 @@ function ConnectionsTab() {
                       )}
                     </IconButton>
                   </Tooltip>
-                  <Tooltip title="Edit">
+                  <Tooltip title={t("common:actions.edit")}>
                     <IconButton
                       size="small"
                       onClick={() => { setEditing(conn); setDialogOpen(true); }}
@@ -232,7 +239,7 @@ function ConnectionsTab() {
                       <MaterialSymbol icon="edit" size={18} />
                     </IconButton>
                   </Tooltip>
-                  <Tooltip title="Delete">
+                  <Tooltip title={t("common:actions.delete")}>
                     <IconButton size="small" onClick={() => handleDelete(conn.id)}>
                       <MaterialSymbol icon="delete" size={18} color="#f44336" />
                     </IconButton>
@@ -275,6 +282,7 @@ interface ConnectionDialogProps {
 }
 
 function ConnectionDialog({ open, connection, onClose, onSaved }: ConnectionDialogProps) {
+  const { t } = useTranslation(["admin", "common"]);
   const [name, setName] = useState("");
   const [instanceUrl, setInstanceUrl] = useState("");
   const [authType, setAuthType] = useState("basic");
@@ -319,7 +327,7 @@ function ConnectionDialog({ open, connection, onClose, onSaved }: ConnectionDial
       onSaved();
       onClose();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to save");
+      setError(e instanceof Error ? e.message : t("common:errors.generic"));
     } finally {
       setSaving(false);
     }
@@ -327,77 +335,77 @@ function ConnectionDialog({ open, connection, onClose, onSaved }: ConnectionDial
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>{connection ? "Edit Connection" : "New Connection"}</DialogTitle>
+      <DialogTitle>{connection ? t("servicenow.connections.dialog.editConnection") : t("servicenow.connections.dialog.newConnection")}</DialogTitle>
       <DialogContent>
         {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
         <Stack spacing={2} sx={{ mt: 1 }}>
           <TextField
-            label="Name"
+            label={t("common:labels.name")}
             fullWidth
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="e.g. Production ServiceNow"
+            placeholder={t("servicenow.connections.dialog.namePlaceholder")}
           />
           <TextField
-            label="Instance URL"
+            label={t("servicenow.connections.dialog.instanceUrl")}
             fullWidth
             value={instanceUrl}
             onChange={(e) => setInstanceUrl(e.target.value)}
-            placeholder="https://company.service-now.com"
-            helperText="Must use HTTPS"
+            placeholder={t("servicenow.connections.dialog.instanceUrlPlaceholder")}
+            helperText={t("servicenow.connections.dialog.instanceUrlHelper")}
           />
           <FormControl fullWidth>
-            <InputLabel>Auth Type</InputLabel>
-            <Select value={authType} label="Auth Type" onChange={(e) => setAuthType(e.target.value)}>
-              <MenuItem value="basic">Basic Auth</MenuItem>
-              <MenuItem value="oauth2">OAuth 2.0</MenuItem>
+            <InputLabel>{t("servicenow.connections.dialog.authType")}</InputLabel>
+            <Select value={authType} label={t("servicenow.connections.dialog.authType")} onChange={(e) => setAuthType(e.target.value)}>
+              <MenuItem value="basic">{t("servicenow.connections.dialog.basicAuth")}</MenuItem>
+              <MenuItem value="oauth2">{t("servicenow.connections.dialog.oauth2")}</MenuItem>
             </Select>
           </FormControl>
           {authType === "basic" ? (
             <>
               <TextField
-                label="Username"
+                label={t("servicenow.connections.dialog.username")}
                 fullWidth
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
               />
               <TextField
-                label="Password"
+                label={t("servicenow.connections.dialog.password")}
                 type="password"
                 fullWidth
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder={connection ? "Leave blank to keep existing" : ""}
+                placeholder={connection ? t("servicenow.connections.dialog.keepExisting") : ""}
               />
             </>
           ) : (
             <>
               <TextField
-                label="Client ID"
+                label={t("servicenow.connections.dialog.clientId")}
                 fullWidth
                 value={clientId}
                 onChange={(e) => setClientId(e.target.value)}
               />
               <TextField
-                label="Client Secret"
+                label={t("servicenow.connections.dialog.clientSecret")}
                 type="password"
                 fullWidth
                 value={clientSecret}
                 onChange={(e) => setClientSecret(e.target.value)}
-                placeholder={connection ? "Leave blank to keep existing" : ""}
+                placeholder={connection ? t("servicenow.connections.dialog.keepExisting") : ""}
               />
             </>
           )}
         </Stack>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>Cancel</Button>
+        <Button onClick={onClose}>{t("common:actions.cancel")}</Button>
         <Button
           variant="contained"
           onClick={handleSave}
           disabled={saving || !name || !instanceUrl}
         >
-          {saving ? <CircularProgress size={20} /> : connection ? "Update" : "Create"}
+          {saving ? <CircularProgress size={20} /> : connection ? t("common:actions.save") : t("common:actions.create")}
         </Button>
       </DialogActions>
     </Dialog>
@@ -409,6 +417,7 @@ function ConnectionDialog({ open, connection, onClose, onSaved }: ConnectionDial
 // ---------------------------------------------------------------------------
 
 function MappingsTab() {
+  const { t } = useTranslation(["admin", "common"]);
   const [connections, setConnections] = useState<SnowConnection[]>([]);
   const [mappings, setMappings] = useState<SnowMapping[]>([]);
   const [loading, setLoading] = useState(true);
@@ -416,6 +425,7 @@ function MappingsTab() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<SnowMapping | null>(null);
   const { types } = useMetamodel();
+  const rml = useResolveMetaLabel();
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -428,7 +438,7 @@ function MappingsTab() {
       setMappings(maps);
       setError("");
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load mappings");
+      setError(e instanceof Error ? e.message : t("common:errors.generic"));
     } finally {
       setLoading(false);
     }
@@ -437,12 +447,12 @@ function MappingsTab() {
   useEffect(() => { load(); }, [load]);
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Delete this mapping and all its field mappings?")) return;
+    if (!confirm(t("common:actions.delete") + "?")) return;
     try {
       await api.delete(`/servicenow/mappings/${id}`);
       load();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to delete");
+      setError(e instanceof Error ? e.message : t("common:errors.generic"));
     }
   };
 
@@ -451,7 +461,7 @@ function MappingsTab() {
       await api.patch(`/servicenow/mappings/${mapping.id}`, { is_active: !mapping.is_active });
       load();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to toggle");
+      setError(e instanceof Error ? e.message : t("common:errors.generic"));
     }
   };
 
@@ -460,7 +470,7 @@ function MappingsTab() {
   if (connections.length === 0) {
     return (
       <Alert severity="info">
-        Create a ServiceNow connection first before configuring mappings.
+        {t("servicenow.mappings.noConnectionsHint")}
       </Alert>
     );
   }
@@ -475,7 +485,7 @@ function MappingsTab() {
           startIcon={<MaterialSymbol icon="add" size={18} />}
           onClick={() => { setEditing(null); setDialogOpen(true); }}
         >
-          Add Mapping
+          {t("servicenow.mappings.addMapping")}
         </Button>
       </Box>
 
@@ -484,7 +494,7 @@ function MappingsTab() {
           <CardContent sx={{ textAlign: "center", py: 6 }}>
             <MaterialSymbol icon="swap_horiz" size={48} color="#ccc" />
             <Typography color="text.secondary" sx={{ mt: 1 }}>
-              No mappings configured yet
+              {t("servicenow.mappings.noMappings")}
             </Typography>
           </CardContent>
         </Card>
@@ -492,29 +502,29 @@ function MappingsTab() {
         <Stack spacing={2}>
           {mappings.map((mapping) => {
             const conn = connections.find((c) => c.id === mapping.connection_id);
-            const cardType = types.find((t) => t.key === mapping.card_type_key);
+            const ct = types.find((tp) => tp.key === mapping.card_type_key);
             return (
               <Card key={mapping.id} variant="outlined" sx={{ opacity: mapping.is_active ? 1 : 0.6 }}>
                 <CardContent>
                   <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
                     <MaterialSymbol
-                      icon={cardType?.icon || "swap_horiz"}
+                      icon={ct?.icon || "swap_horiz"}
                       size={24}
-                      color={cardType?.color || "#999"}
+                      color={ct?.color || "#999"}
                     />
                     <Box sx={{ flex: 1 }}>
                       <Typography fontWeight={600}>
-                        {cardType?.label || mapping.card_type_key}
+                        {rml(ct?.key ?? "", ct?.translations, "label") || mapping.card_type_key}
                         {" "}
                         <Typography component="span" color="text.secondary" fontSize="0.85rem">
                           <MaterialSymbol icon="sync_alt" size={14} /> {mapping.snow_table}
                         </Typography>
                       </Typography>
                       <Typography variant="body2" color="text.secondary">
-                        {conn?.name || "Unknown connection"} &middot;{" "}
+                        {conn?.name || t("servicenow.mappings.unknownConnection")} &middot;{" "}
                         {mapping.sync_direction.replace(/_/g, " ")} &middot;{" "}
-                        {mapping.sync_mode} mode &middot;{" "}
-                        {mapping.field_mappings.length} field{mapping.field_mappings.length !== 1 ? "s" : ""}
+                        {t("servicenow.mappings.mode", { mode: mapping.sync_mode })} &middot;{" "}
+                        {t("servicenow.mappings.fieldCount", { count: mapping.field_mappings.length })}
                       </Typography>
                     </Box>
                     <FormControlLabel
@@ -525,10 +535,10 @@ function MappingsTab() {
                           onChange={() => handleToggleActive(mapping)}
                         />
                       }
-                      label="Active"
+                      label={t("common:status.active")}
                       sx={{ mr: 1 }}
                     />
-                    <Tooltip title="Edit">
+                    <Tooltip title={t("common:actions.edit")}>
                       <IconButton
                         size="small"
                         onClick={() => { setEditing(mapping); setDialogOpen(true); }}
@@ -536,7 +546,7 @@ function MappingsTab() {
                         <MaterialSymbol icon="edit" size={18} />
                       </IconButton>
                     </Tooltip>
-                    <Tooltip title="Delete">
+                    <Tooltip title={t("common:actions.delete")}>
                       <IconButton size="small" onClick={() => handleDelete(mapping.id)}>
                         <MaterialSymbol icon="delete" size={18} color="#f44336" />
                       </IconButton>
@@ -548,11 +558,11 @@ function MappingsTab() {
                       <Table size="small">
                         <TableHead>
                           <TableRow>
-                            <TableCell sx={{ fontWeight: 600, fontSize: "0.75rem" }}>Turbo EA Field</TableCell>
-                            <TableCell sx={{ fontWeight: 600, fontSize: "0.75rem" }}>SNOW Field</TableCell>
-                            <TableCell sx={{ fontWeight: 600, fontSize: "0.75rem" }}>Direction</TableCell>
-                            <TableCell sx={{ fontWeight: 600, fontSize: "0.75rem" }}>Transform</TableCell>
-                            <TableCell sx={{ fontWeight: 600, fontSize: "0.75rem" }}>Identity</TableCell>
+                            <TableCell sx={{ fontWeight: 600, fontSize: "0.75rem" }}>{t("servicenow.mappings.columns.turboField")}</TableCell>
+                            <TableCell sx={{ fontWeight: 600, fontSize: "0.75rem" }}>{t("servicenow.mappings.columns.snowField")}</TableCell>
+                            <TableCell sx={{ fontWeight: 600, fontSize: "0.75rem" }}>{t("servicenow.mappings.columns.direction")}</TableCell>
+                            <TableCell sx={{ fontWeight: 600, fontSize: "0.75rem" }}>{t("servicenow.mappings.columns.transform")}</TableCell>
+                            <TableCell sx={{ fontWeight: 600, fontSize: "0.75rem" }}>{t("servicenow.mappings.columns.identity")}</TableCell>
                           </TableRow>
                         </TableHead>
                         <TableBody>
@@ -566,14 +576,14 @@ function MappingsTab() {
                               </TableCell>
                               <TableCell>
                                 <Chip
-                                  label={fm.direction === "snow_leads" ? "SNOW leads" : "Turbo leads"}
+                                  label={fm.direction === "snow_leads" ? t("servicenow.mappings.direction.snowLeads") : t("servicenow.mappings.direction.turboLeads")}
                                   size="small"
                                   sx={{ fontSize: "0.65rem", height: 20 }}
                                   color={fm.direction === "snow_leads" ? "info" : "warning"}
                                 />
                               </TableCell>
                               <TableCell sx={{ fontSize: "0.8rem" }}>
-                                {fm.transform_type || "direct"}
+                                {fm.transform_type || t("servicenow.mappings.dialog.direct")}
                               </TableCell>
                               <TableCell>
                                 {fm.is_identity && (
@@ -626,7 +636,10 @@ interface MappingDialogProps {
 }
 
 function MappingDialog({ open, mapping, connections, onClose, onSaved }: MappingDialogProps) {
+  const { t } = useTranslation(["admin", "common"]);
   const { types } = useMetamodel();
+  const rml = useResolveMetaLabel();
+  const rl = useResolveLabel();
   const [connectionId, setConnectionId] = useState("");
   const [cardTypeKey, setCardTypeKey] = useState("");
   const [snowTable, setSnowTable] = useState("");
@@ -640,12 +653,12 @@ function MappingDialog({ open, mapping, connections, onClose, onSaved }: Mapping
   const [error, setError] = useState("");
 
   const selectedCardType = useMemo(
-    () => types.find((t) => t.key === cardTypeKey),
+    () => types.find((ct) => ct.key === cardTypeKey),
     [types, cardTypeKey],
   );
   const turboFieldOptions = useMemo(
-    () => getTurboFieldOptions(selectedCardType),
-    [selectedCardType],
+    () => getTurboFieldOptions(selectedCardType, rl),
+    [selectedCardType, rl],
   );
 
   useEffect(() => {
@@ -710,7 +723,7 @@ function MappingDialog({ open, mapping, connections, onClose, onSaved }: Mapping
       onSaved();
       onClose();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to save");
+      setError(e instanceof Error ? e.message : t("common:errors.generic"));
     } finally {
       setSaving(false);
     }
@@ -718,15 +731,15 @@ function MappingDialog({ open, mapping, connections, onClose, onSaved }: Mapping
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
-      <DialogTitle>{mapping ? "Edit Mapping" : "New Mapping"}</DialogTitle>
+      <DialogTitle>{mapping ? t("servicenow.mappings.dialog.editMapping") : t("servicenow.mappings.dialog.newMapping")}</DialogTitle>
       <DialogContent>
         {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
         <Stack spacing={2} sx={{ mt: 1 }}>
           <FormControl fullWidth>
-            <InputLabel>Connection</InputLabel>
+            <InputLabel>{t("servicenow.mappings.dialog.connection")}</InputLabel>
             <Select
               value={connectionId}
-              label="Connection"
+              label={t("servicenow.mappings.dialog.connection")}
               onChange={(e) => setConnectionId(e.target.value)}
               disabled={!!mapping}
             >
@@ -738,52 +751,52 @@ function MappingDialog({ open, mapping, connections, onClose, onSaved }: Mapping
 
           <Box sx={{ display: "flex", gap: 2 }}>
             <FormControl fullWidth>
-              <InputLabel>Card Type</InputLabel>
+              <InputLabel>{t("common:labels.type")}</InputLabel>
               <Select
                 value={cardTypeKey}
-                label="Card Type"
+                label={t("common:labels.type")}
                 onChange={(e) => setCardTypeKey(e.target.value)}
               >
-                {types.filter((t) => !t.is_hidden).map((t) => (
-                  <MenuItem key={t.key} value={t.key}>{t.label}</MenuItem>
+                {types.filter((ct) => !ct.is_hidden).map((ct) => (
+                  <MenuItem key={ct.key} value={ct.key}>{rml(ct.key, ct.translations, "label")}</MenuItem>
                 ))}
               </Select>
             </FormControl>
             <TextField
-              label="ServiceNow Table"
+              label={t("servicenow.mappings.dialog.snowTable")}
               fullWidth
               value={snowTable}
               onChange={(e) => setSnowTable(e.target.value)}
-              placeholder="e.g. cmdb_ci_business_app"
+              placeholder={t("servicenow.mappings.dialog.snowTablePlaceholder")}
             />
           </Box>
 
           <Box sx={{ display: "flex", gap: 2 }}>
             <FormControl fullWidth>
-              <InputLabel>Sync Direction</InputLabel>
+              <InputLabel>{t("servicenow.mappings.dialog.syncDirection")}</InputLabel>
               <Select
                 value={syncDirection}
-                label="Sync Direction"
+                label={t("servicenow.mappings.dialog.syncDirection")}
                 onChange={(e) => setSyncDirection(e.target.value)}
               >
-                <MenuItem value="snow_to_turbo">ServiceNow → Turbo EA</MenuItem>
-                <MenuItem value="turbo_to_snow">Turbo EA → ServiceNow</MenuItem>
-                <MenuItem value="bidirectional">Bidirectional</MenuItem>
+                <MenuItem value="snow_to_turbo">{t("servicenow.mappings.dialog.snowToTurbo")}</MenuItem>
+                <MenuItem value="turbo_to_snow">{t("servicenow.mappings.dialog.turboToSnow")}</MenuItem>
+                <MenuItem value="bidirectional">{t("servicenow.mappings.dialog.bidirectional")}</MenuItem>
               </Select>
               <FormHelperText>
-                Controls which Pull/Push operations are available on the Sync Dashboard
+                {t("servicenow.mappings.dialog.syncDirectionHelper")}
               </FormHelperText>
             </FormControl>
             <FormControl fullWidth>
-              <InputLabel>Sync Mode</InputLabel>
+              <InputLabel>{t("servicenow.mappings.dialog.syncMode")}</InputLabel>
               <Select
                 value={syncMode}
-                label="Sync Mode"
+                label={t("servicenow.mappings.dialog.syncMode")}
                 onChange={(e) => setSyncMode(e.target.value)}
               >
-                <MenuItem value="additive">Additive (no deletes)</MenuItem>
-                <MenuItem value="conservative">Conservative (delete orphans)</MenuItem>
-                <MenuItem value="strict">Strict (delete unlinked)</MenuItem>
+                <MenuItem value="additive">{t("servicenow.mappings.dialog.additive")}</MenuItem>
+                <MenuItem value="conservative">{t("servicenow.mappings.dialog.conservative")}</MenuItem>
+                <MenuItem value="strict">{t("servicenow.mappings.dialog.strict")}</MenuItem>
               </Select>
             </FormControl>
           </Box>
@@ -795,17 +808,17 @@ function MappingDialog({ open, mapping, connections, onClose, onSaved }: Mapping
                 onChange={(e) => setSkipStaging(e.target.checked)}
               />
             }
-            label="Skip staging (apply changes directly)"
+            label={t("servicenow.mappings.dialog.skipStaging")}
           />
           {skipStaging && (
             <Alert severity="warning" sx={{ mt: -1 }}>
-              Changes will be applied immediately without review. Staged records will not be created.
+              {t("servicenow.mappings.dialog.skipStagingWarning")}
             </Alert>
           )}
 
           <Box>
             <Typography variant="body2" gutterBottom>
-              Max Deletion Ratio: {Math.round(maxDeletionRatio * 100)}%
+              {t("servicenow.mappings.dialog.maxDeletionRatio", { value: Math.round(maxDeletionRatio * 100) })}
             </Typography>
             <Slider
               value={maxDeletionRatio}
@@ -824,26 +837,26 @@ function MappingDialog({ open, mapping, connections, onClose, onSaved }: Mapping
           </Box>
 
           <TextField
-            label="Filter Query (optional)"
+            label={t("servicenow.mappings.dialog.filterQuery")}
             fullWidth
             value={filterQuery}
             onChange={(e) => setFilterQuery(e.target.value)}
-            placeholder="e.g. active=true^install_status=1"
-            helperText="ServiceNow encoded query syntax"
+            placeholder={t("servicenow.mappings.dialog.filterQueryPlaceholder")}
+            helperText={t("servicenow.mappings.dialog.filterQueryHelper")}
           />
 
           <Divider />
 
           <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <Typography fontWeight={600}>Field Mappings</Typography>
+            <Typography fontWeight={600}>{t("servicenow.mappings.dialog.fieldMappings")}</Typography>
             <Button size="small" startIcon={<MaterialSymbol icon="add" size={16} />} onClick={addFieldMapping}>
-              Add Field
+              {t("servicenow.mappings.dialog.addField")}
             </Button>
           </Box>
 
           {!cardTypeKey && fieldMappings.length === 0 && (
             <Typography variant="body2" color="text.secondary">
-              Select a Card Type above to get field suggestions.
+              {t("servicenow.mappings.dialog.selectCardTypeHint")}
             </Typography>
           )}
 
@@ -865,27 +878,27 @@ function MappingDialog({ open, mapping, connections, onClose, onSaved }: Mapping
                   return found ? `${option} — ${found.label}` : option;
                 }}
                 renderInput={(params) => (
-                  <TextField {...params} label="Turbo EA Field" placeholder="name" />
+                  <TextField {...params} label={t("servicenow.mappings.dialog.turboEaField")} placeholder="name" />
                 )}
                 sx={{ flex: 1 }}
               />
               <MaterialSymbol icon="sync_alt" size={16} color="#999" />
               <TextField
-                label="SNOW Field"
+                label={t("servicenow.mappings.dialog.snowFieldLabel")}
                 size="small"
                 value={fm.snow_field}
                 onChange={(e) => updateFieldMapping(idx, "snow_field", e.target.value)}
                 placeholder="name"
                 sx={{ flex: 1 }}
               />
-              <Tooltip title="Per-field source of truth: which system's value wins during sync">
+              <Tooltip title={t("servicenow.mappings.dialog.fieldDirectionTooltip")}>
                 <FormControl size="small" sx={{ minWidth: 130 }}>
                   <Select
                     value={fm.direction}
                     onChange={(e) => updateFieldMapping(idx, "direction", e.target.value)}
                   >
-                    <MenuItem value="snow_leads">SNOW leads</MenuItem>
-                    <MenuItem value="turbo_leads">Turbo leads</MenuItem>
+                    <MenuItem value="snow_leads">{t("servicenow.mappings.direction.snowLeads")}</MenuItem>
+                    <MenuItem value="turbo_leads">{t("servicenow.mappings.direction.turboLeads")}</MenuItem>
                   </Select>
                 </FormControl>
               </Tooltip>
@@ -894,10 +907,10 @@ function MappingDialog({ open, mapping, connections, onClose, onSaved }: Mapping
                   value={fm.transform_type}
                   onChange={(e) => updateFieldMapping(idx, "transform_type", e.target.value)}
                 >
-                  <MenuItem value="direct">Direct</MenuItem>
-                  <MenuItem value="value_map">Value Map</MenuItem>
-                  <MenuItem value="date_format">Date</MenuItem>
-                  <MenuItem value="boolean">Boolean</MenuItem>
+                  <MenuItem value="direct">{t("servicenow.mappings.dialog.direct")}</MenuItem>
+                  <MenuItem value="value_map">{t("servicenow.mappings.dialog.valueMap")}</MenuItem>
+                  <MenuItem value="date_format">{t("servicenow.mappings.dialog.dateFormat")}</MenuItem>
+                  <MenuItem value="boolean">{t("servicenow.mappings.dialog.boolean")}</MenuItem>
                 </Select>
               </FormControl>
               <FormControlLabel
@@ -918,13 +931,13 @@ function MappingDialog({ open, mapping, connections, onClose, onSaved }: Mapping
         </Stack>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>Cancel</Button>
+        <Button onClick={onClose}>{t("common:actions.cancel")}</Button>
         <Button
           variant="contained"
           onClick={handleSave}
           disabled={saving || !connectionId || !cardTypeKey || !snowTable}
         >
-          {saving ? <CircularProgress size={20} /> : mapping ? "Update" : "Create"}
+          {saving ? <CircularProgress size={20} /> : mapping ? t("common:actions.save") : t("common:actions.create")}
         </Button>
       </DialogActions>
     </Dialog>
@@ -936,6 +949,7 @@ function MappingDialog({ open, mapping, connections, onClose, onSaved }: Mapping
 // ---------------------------------------------------------------------------
 
 function SyncDashboardTab() {
+  const { t } = useTranslation(["admin", "common"]);
   const [mappings, setMappings] = useState<SnowMapping[]>([]);
   const [runs, setRuns] = useState<SnowSyncRun[]>([]);
   const [loading, setLoading] = useState(true);
@@ -945,6 +959,7 @@ function SyncDashboardTab() {
   const [stagedRecords, setStagedRecords] = useState<SnowStagedRecord[]>([]);
   const [stagedLoading, setStagedLoading] = useState(false);
   const { types } = useMetamodel();
+  const rml = useResolveMetaLabel();
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -957,7 +972,7 @@ function SyncDashboardTab() {
       setRuns(syncRuns);
       setError("");
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load");
+      setError(e instanceof Error ? e.message : t("common:errors.generic"));
     } finally {
       setLoading(false);
     }
@@ -974,7 +989,7 @@ function SyncDashboardTab() {
       await api.post(endpoint);
       load();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Sync failed");
+      setError(e instanceof Error ? e.message : t("common:errors.generic"));
     } finally {
       setSyncing(null);
     }
@@ -987,7 +1002,7 @@ function SyncDashboardTab() {
       const res = await api.get<SnowStagedRecord[]>(`/servicenow/sync/runs/${run.id}/staged`);
       setStagedRecords(res);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load staged records");
+      setError(e instanceof Error ? e.message : t("common:errors.generic"));
     } finally {
       setStagedLoading(false);
     }
@@ -1000,24 +1015,24 @@ function SyncDashboardTab() {
       {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError("")}>{error}</Alert>}
 
       {/* Active mappings with sync triggers */}
-      <Typography fontWeight={600} sx={{ mb: 1.5 }}>Active Mappings</Typography>
+      <Typography fontWeight={600} sx={{ mb: 1.5 }}>{t("servicenow.sync.activeMappings")}</Typography>
       {mappings.filter((m) => m.is_active).length === 0 ? (
-        <Alert severity="info" sx={{ mb: 3 }}>No active mappings. Configure mappings first.</Alert>
+        <Alert severity="info" sx={{ mb: 3 }}>{t("servicenow.sync.noActiveMappings")}</Alert>
       ) : (
         <Stack spacing={1.5} sx={{ mb: 3 }}>
           {mappings.filter((m) => m.is_active).map((mapping) => {
-            const cardType = types.find((t) => t.key === mapping.card_type_key);
+            const ct = types.find((tp) => tp.key === mapping.card_type_key);
             return (
               <Card key={mapping.id} variant="outlined">
                 <CardContent sx={{ py: 1.5, "&:last-child": { pb: 1.5 } }}>
                   <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
                     <MaterialSymbol
-                      icon={cardType?.icon || "swap_horiz"}
+                      icon={ct?.icon || "swap_horiz"}
                       size={20}
-                      color={cardType?.color || "#999"}
+                      color={ct?.color || "#999"}
                     />
                     <Typography fontWeight={500} sx={{ flex: 1 }}>
-                      {cardType?.label || mapping.card_type_key} <MaterialSymbol icon="sync_alt" size={14} /> {mapping.snow_table}
+                      {rml(ct?.key ?? "", ct?.translations, "label") || mapping.card_type_key} <MaterialSymbol icon="sync_alt" size={14} /> {mapping.snow_table}
                     </Typography>
                     {(mapping.sync_direction === "snow_to_turbo" || mapping.sync_direction === "bidirectional") && (
                       <Button
@@ -1027,7 +1042,7 @@ function SyncDashboardTab() {
                         disabled={syncing === mapping.id}
                         onClick={() => triggerSync(mapping.id, "pull")}
                       >
-                        Pull
+                        {t("servicenow.sync.pull")}
                       </Button>
                     )}
                     {(mapping.sync_direction === "turbo_to_snow" || mapping.sync_direction === "bidirectional") && (
@@ -1038,7 +1053,7 @@ function SyncDashboardTab() {
                         disabled={syncing === mapping.id}
                         onClick={() => triggerSync(mapping.id, "push")}
                       >
-                        Push
+                        {t("servicenow.sync.push")}
                       </Button>
                     )}
                   </Box>
@@ -1050,23 +1065,23 @@ function SyncDashboardTab() {
       )}
 
       {/* Sync Run History */}
-      <Typography fontWeight={600} sx={{ mb: 1.5 }}>Sync History</Typography>
+      <Typography fontWeight={600} sx={{ mb: 1.5 }}>{t("servicenow.sync.history")}</Typography>
       {runs.length === 0 ? (
-        <Typography color="text.secondary" variant="body2">No sync runs yet.</Typography>
+        <Typography color="text.secondary" variant="body2">{t("servicenow.sync.noRuns")}</Typography>
       ) : (
         <TableContainer component={Paper} variant="outlined">
           <Table size="small">
             <TableHead>
               <TableRow>
-                <TableCell sx={{ fontWeight: 600 }}>Started</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Direction</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Status</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Fetched</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Created</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Updated</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Deleted</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Errors</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Duration</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>{t("servicenow.sync.columns.started")}</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>{t("servicenow.sync.columns.direction")}</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>{t("servicenow.sync.columns.status")}</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>{t("servicenow.sync.columns.fetched")}</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>{t("servicenow.sync.columns.created")}</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>{t("servicenow.sync.columns.updated")}</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>{t("servicenow.sync.columns.deleted")}</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>{t("servicenow.sync.columns.errors")}</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>{t("servicenow.sync.columns.duration")}</TableCell>
                 <TableCell />
               </TableRow>
             </TableHead>
@@ -1116,7 +1131,7 @@ function SyncDashboardTab() {
                     </TableCell>
                     <TableCell sx={{ fontSize: "0.8rem" }}>{duration}</TableCell>
                     <TableCell>
-                      <Tooltip title="View staged records">
+                      <Tooltip title={t("servicenow.sync.viewStaged")}>
                         <IconButton size="small" onClick={() => loadStaged(run)}>
                           <MaterialSymbol icon="list_alt" size={16} />
                         </IconButton>
@@ -1138,25 +1153,25 @@ function SyncDashboardTab() {
         fullWidth
       >
         <DialogTitle>
-          Staged Records — {selectedRun?.direction} sync
+          {t("servicenow.sync.stagedRecords")} — {selectedRun?.direction} sync
           {selectedRun?.started_at && ` (${new Date(selectedRun.started_at).toLocaleString()})`}
         </DialogTitle>
         <DialogContent>
           {stagedLoading ? (
             <LinearProgress />
           ) : stagedRecords.length === 0 ? (
-            <Typography color="text.secondary">No staged records for this run.</Typography>
+            <Typography color="text.secondary">{t("servicenow.sync.noStagedRecords")}</Typography>
           ) : (
             <TableContainer sx={{ maxHeight: 500 }}>
               <Table size="small" stickyHeader>
                 <TableHead>
                   <TableRow>
-                    <TableCell sx={{ fontWeight: 600 }}>SNOW sys_id</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>Action</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>Status</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>Card ID</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>Changes</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>Error</TableCell>
+                    <TableCell sx={{ fontWeight: 600 }}>{t("servicenow.sync.staged.sysId")}</TableCell>
+                    <TableCell sx={{ fontWeight: 600 }}>{t("servicenow.sync.staged.action")}</TableCell>
+                    <TableCell sx={{ fontWeight: 600 }}>{t("servicenow.sync.staged.status")}</TableCell>
+                    <TableCell sx={{ fontWeight: 600 }}>{t("servicenow.sync.staged.cardId")}</TableCell>
+                    <TableCell sx={{ fontWeight: 600 }}>{t("servicenow.sync.staged.changes")}</TableCell>
+                    <TableCell sx={{ fontWeight: 600 }}>{t("servicenow.sync.staged.error")}</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -1202,7 +1217,7 @@ function SyncDashboardTab() {
           )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setSelectedRun(null)}>Close</Button>
+          <Button onClick={() => setSelectedRun(null)}>{t("common:actions.close")}</Button>
         </DialogActions>
       </Dialog>
     </Box>

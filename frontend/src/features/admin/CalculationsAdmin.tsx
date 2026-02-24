@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Card from "@mui/material/Card";
@@ -35,6 +36,7 @@ import CodeEditor from "react-simple-code-editor";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import { useMetamodel } from "@/hooks/useMetamodel";
+import { useResolveMetaLabel, useResolveLabel } from "@/hooks/useResolveLabel";
 import type { Calculation, Card as CardItem, CardType, FieldDef, RelationType } from "@/types";
 
 // ── Suggestion types ───────────────────────────────────────────────
@@ -158,6 +160,9 @@ interface FormulaEditorProps {
 const TEXTAREA_ID = "formula-editor-textarea";
 
 function FormulaEditor({ value, onChange, cardType, relationTypes }: FormulaEditorProps) {
+  const { t } = useTranslation(["admin"]);
+  const rl = useResolveLabel();
+  const rml = useResolveMetaLabel();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [selectedIdx, setSelectedIdx] = useState(0);
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -233,7 +238,7 @@ function FormulaEditor({ value, onChange, cardType, relationTypes }: FormulaEdit
           items.push({
             insert: f.key,
             label: f.key,
-            detail: `${f.label} (${f.type})`,
+            detail: `${rl(f.key, f.translations)} (${f.type})`,
             category: section.section,
           });
         }
@@ -250,7 +255,7 @@ function FormulaEditor({ value, onChange, cardType, relationTypes }: FormulaEdit
       .map((rt) => ({
         insert: rt.key,
         label: rt.key,
-        detail: `${rt.label} (${rt.source_type_key} → ${rt.target_type_key})`,
+        detail: `${rml(rt.key, rt.translations, "label")} (${rt.source_type_key} → ${rt.target_type_key})`,
         category: "Relation Types",
       }));
   }, [cardType, relationTypes]);
@@ -375,7 +380,7 @@ function FormulaEditor({ value, onChange, cardType, relationTypes }: FormulaEdit
     <Box sx={{ position: "relative" }} ref={containerRef}>
       <style>{HL_STYLES}</style>
       <Typography variant="caption" sx={{ color: "text.secondary", mb: 0.5, display: "block" }}>
-        Formula *
+        {t("calculations.formula")}
       </Typography>
       <Box
         sx={{
@@ -421,7 +426,7 @@ function FormulaEditor({ value, onChange, cardType, relationTypes }: FormulaEdit
             onKeyDown={handleKeyDown}
             onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
             textareaId={TEXTAREA_ID}
-            placeholder="Start typing — suggestions appear for fields, functions, and relations"
+            placeholder={t("calculations.formulaPlaceholder")}
             padding={10}
             style={{
               fontFamily: "monospace",
@@ -506,7 +511,7 @@ function FormulaEditor({ value, onChange, cardType, relationTypes }: FormulaEdit
           ))}
           <Box sx={{ px: 1.5, pt: 0.5, borderTop: "1px solid", borderColor: "divider" }}>
             <Typography variant="caption" color="text.disabled">
-              Tab or Enter to insert &middot; Esc to dismiss
+              {t("calculations.insertHint")}
             </Typography>
           </Box>
         </Paper>
@@ -598,6 +603,9 @@ interface FormulaReferenceProps {
 }
 
 function FormulaReference({ cardType, relationTypes }: FormulaReferenceProps) {
+  const { t } = useTranslation(["admin"]);
+  const rl = useResolveLabel();
+  const rml = useResolveMetaLabel();
   const relTypes = relationTypes.filter(
     (rt) =>
       cardType &&
@@ -626,7 +634,7 @@ function FormulaReference({ cardType, relationTypes }: FormulaReferenceProps) {
     <Accordion sx={{ mt: 2 }}>
       <AccordionSummary expandIcon={<MaterialSymbol icon="expand_more" size={20} />}>
         <Typography variant="body2" sx={{ fontWeight: 500 }}>
-          Formula Reference
+          {t("calculations.formulaReference")}
         </Typography>
       </AccordionSummary>
       <AccordionDetails>
@@ -634,7 +642,7 @@ function FormulaReference({ cardType, relationTypes }: FormulaReferenceProps) {
           {cardType && (
             <Box>
               <Typography variant="caption" fontWeight={600} gutterBottom>
-                Available Fields (data.&lt;fieldKey&gt;)
+                {t("calculations.availableFields")}
               </Typography>
               <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5, mt: 0.5 }}>
                 <Chip size="small" label="data.name" variant="outlined" />
@@ -648,7 +656,7 @@ function FormulaReference({ cardType, relationTypes }: FormulaReferenceProps) {
                       size="small"
                       label={`data.${f.key}`}
                       variant="outlined"
-                      title={`${f.label} (${f.type})`}
+                      title={`${rl(f.key, f.translations)} (${f.type})`}
                     />
                   ))
                 )}
@@ -659,7 +667,7 @@ function FormulaReference({ cardType, relationTypes }: FormulaReferenceProps) {
           {relTypes.length > 0 && (
             <Box>
               <Typography variant="caption" fontWeight={600} gutterBottom>
-                Relation Types
+                {t("calculations.relationTypes")}
               </Typography>
               <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5, mt: 0.5 }}>
                 {relTypes.map((rt) => (
@@ -668,19 +676,19 @@ function FormulaReference({ cardType, relationTypes }: FormulaReferenceProps) {
                     size="small"
                     label={`relations.${rt.key}`}
                     variant="outlined"
-                    title={`${rt.label} (${rt.source_type_key} → ${rt.target_type_key})`}
+                    title={`${rml(rt.key, rt.translations, "label")} (${rt.source_type_key} → ${rt.target_type_key})`}
                   />
                 ))}
               </Box>
               <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: "block" }}>
-                Also: relation_count.&lt;key&gt;, children, children_count
+                {t("calculations.alsoRelationCount")}
               </Typography>
             </Box>
           )}
 
           <Box>
             <Typography variant="caption" fontWeight={600} gutterBottom>
-              Built-in Functions
+              {t("calculations.builtInFunctions")}
             </Typography>
             <Table size="small" sx={{ mt: 0.5 }}>
               <TableBody>
@@ -698,7 +706,7 @@ function FormulaReference({ cardType, relationTypes }: FormulaReferenceProps) {
 
           <Box>
             <Typography variant="caption" fontWeight={600} gutterBottom>
-              Example Formulas
+              {t("calculations.exampleFormulas")}
             </Typography>
             <HighlightedCodeBlock code={EXAMPLE_FORMULAS} />
           </Box>
@@ -720,6 +728,9 @@ interface EditDialogProps {
 }
 
 function EditDialog({ open, calculation, cardTypes, relationTypes, onClose, onSave }: EditDialogProps) {
+  const { t } = useTranslation(["admin", "common"]);
+  const rml = useResolveMetaLabel();
+  const rl = useResolveLabel();
   const [form, setForm] = useState<Partial<Calculation>>({});
   const [saving, setSaving] = useState(false);
   const [validating, setValidating] = useState(false);
@@ -734,7 +745,7 @@ function EditDialog({ open, calculation, cardTypes, relationTypes, onClose, onSa
     }
   }, [open, calculation]);
 
-  const selectedType = cardTypes.find((t) => t.key === form.target_type_key);
+  const selectedType = cardTypes.find((ct) => ct.key === form.target_type_key);
 
   // Get eligible fields for the selected type
   const eligibleFields: FieldDef[] = [];
@@ -767,7 +778,7 @@ function EditDialog({ open, calculation, cardTypes, relationTypes, onClose, onSa
 
   const handleSave = async () => {
     if (!form.name || !form.target_type_key || !form.target_field_key || !form.formula) {
-      setError("Name, target type, target field, and formula are required.");
+      setError(t("calculations.requiredFields"));
       return;
     }
     setSaving(true);
@@ -784,13 +795,13 @@ function EditDialog({ open, calculation, cardTypes, relationTypes, onClose, onSa
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
-      <DialogTitle>{calculation?.id ? "Edit Calculation" : "New Calculation"}</DialogTitle>
+      <DialogTitle>{calculation?.id ? t("calculations.editCalculation") : t("calculations.newCalculation")}</DialogTitle>
       <DialogContent>
         <Box sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 1 }}>
           {error && <Alert severity="error">{error}</Alert>}
 
           <TextField
-            label="Name"
+            label={t("common:labels.name")}
             value={form.name || ""}
             onChange={(e) => setForm({ ...form, name: e.target.value })}
             required
@@ -798,7 +809,7 @@ function EditDialog({ open, calculation, cardTypes, relationTypes, onClose, onSa
           />
 
           <TextField
-            label="Description"
+            label={t("common:labels.description")}
             value={form.description || ""}
             onChange={(e) => setForm({ ...form, description: e.target.value })}
             multiline
@@ -808,30 +819,30 @@ function EditDialog({ open, calculation, cardTypes, relationTypes, onClose, onSa
 
           <Box sx={{ display: "flex", gap: 2 }}>
             <FormControl fullWidth required>
-              <InputLabel>Target Card Type</InputLabel>
+              <InputLabel>{t("calculations.targetCardType")}</InputLabel>
               <Select
                 value={form.target_type_key || ""}
-                label="Target Card Type"
+                label={t("calculations.targetCardType")}
                 onChange={(e) => setForm({ ...form, target_type_key: e.target.value, target_field_key: "" })}
               >
-                {cardTypes.map((t) => (
-                  <MenuItem key={t.key} value={t.key}>
-                    {t.label}
+                {cardTypes.map((ct) => (
+                  <MenuItem key={ct.key} value={ct.key}>
+                    {rml(ct.key, ct.translations, "label")}
                   </MenuItem>
                 ))}
               </Select>
             </FormControl>
 
             <FormControl fullWidth required disabled={!selectedType}>
-              <InputLabel>Target Field</InputLabel>
+              <InputLabel>{t("calculations.targetField")}</InputLabel>
               <Select
                 value={form.target_field_key || ""}
-                label="Target Field"
+                label={t("calculations.targetField")}
                 onChange={(e) => setForm({ ...form, target_field_key: e.target.value })}
               >
                 {eligibleFields.map((f) => (
                   <MenuItem key={f.key} value={f.key}>
-                    {f.label} ({f.type})
+                    {rl(f.key, f.translations)} ({f.type})
                   </MenuItem>
                 ))}
               </Select>
@@ -839,7 +850,7 @@ function EditDialog({ open, calculation, cardTypes, relationTypes, onClose, onSa
           </Box>
 
           <TextField
-            label="Execution Order"
+            label={t("calculations.executionOrder")}
             type="number"
             value={form.execution_order ?? 0}
             onChange={(e) => setForm({ ...form, execution_order: parseInt(e.target.value) || 0 })}
@@ -864,12 +875,12 @@ function EditDialog({ open, calculation, cardTypes, relationTypes, onClose, onSa
               disabled={validating || !form.formula || !form.target_type_key}
             >
               {validating ? <CircularProgress size={16} sx={{ mr: 1 }} /> : null}
-              Validate
+              {t("calculations.validate")}
             </Button>
             {validationResult && (
               <Chip
                 size="small"
-                label={validationResult.valid ? "Valid" : "Invalid"}
+                label={validationResult.valid ? t("calculations.valid") : t("calculations.invalid")}
                 color={validationResult.valid ? "success" : "error"}
               />
             )}
@@ -880,7 +891,7 @@ function EditDialog({ open, calculation, cardTypes, relationTypes, onClose, onSa
             )}
             {validationResult?.valid && validationResult.preview_result !== undefined && (
               <Typography variant="caption" color="text.secondary" sx={{ ml: 1 }}>
-                Preview: {JSON.stringify(validationResult.preview_result)}
+                {t("calculations.preview", { value: JSON.stringify(validationResult.preview_result) })}
               </Typography>
             )}
           </Box>
@@ -889,10 +900,10 @@ function EditDialog({ open, calculation, cardTypes, relationTypes, onClose, onSa
         </Box>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>Cancel</Button>
+        <Button onClick={onClose}>{t("common:actions.cancel")}</Button>
         <Button variant="contained" onClick={handleSave} disabled={saving}>
           {saving ? <CircularProgress size={16} sx={{ mr: 1 }} /> : null}
-          {calculation?.id ? "Save" : "Create"}
+          {calculation?.id ? t("common:actions.save") : t("common:actions.create")}
         </Button>
       </DialogActions>
     </Dialog>
@@ -908,6 +919,7 @@ interface TestDialogProps {
 }
 
 function TestDialog({ open, calculation, onClose }: TestDialogProps) {
+  const { t } = useTranslation(["admin", "common"]);
   const [selectedCard, setSelectedCard] = useState<CardItem | null>(null);
   const [searchInput, setSearchInput] = useState("");
   const [options, setOptions] = useState<CardItem[]>([]);
@@ -916,6 +928,7 @@ function TestDialog({ open, calculation, onClose }: TestDialogProps) {
   const [result, setResult] = useState<{ success: boolean; error?: string; computed_value?: unknown; card_name?: string } | null>(null);
 
   const { types } = useMetamodel();
+  const rml = useResolveMetaLabel();
 
   useEffect(() => {
     if (open) {
@@ -933,7 +946,7 @@ function TestDialog({ open, calculation, onClose }: TestDialogProps) {
       return;
     }
     setSearchLoading(true);
-    const t = setTimeout(async () => {
+    const timer = setTimeout(async () => {
       try {
         const res = await api.get<{ items: CardItem[] }>(
           `/cards?type=${encodeURIComponent(calculation.target_type_key)}&search=${encodeURIComponent(searchInput)}&page_size=15`,
@@ -945,7 +958,7 @@ function TestDialog({ open, calculation, onClose }: TestDialogProps) {
         setSearchLoading(false);
       }
     }, 300);
-    return () => clearTimeout(t);
+    return () => clearTimeout(timer);
   }, [searchInput, calculation?.target_type_key]);
 
   const handleTest = async () => {
@@ -965,15 +978,16 @@ function TestDialog({ open, calculation, onClose }: TestDialogProps) {
     }
   };
 
-  const typeLabel = types.find((t) => t.key === calculation?.target_type_key)?.label || calculation?.target_type_key || "card";
+  const typeFound = types.find((ct) => ct.key === calculation?.target_type_key);
+  const typeLabel = rml(typeFound?.key ?? "", typeFound?.translations, "label") || calculation?.target_type_key || "card";
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>Test Calculation: {calculation?.name}</DialogTitle>
+      <DialogTitle>{t("calculations.testCalculation", { name: calculation?.name })}</DialogTitle>
       <DialogContent>
         <Box sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 1 }}>
           <Typography variant="body2" color="text.secondary">
-            Search for a {typeLabel} to test this formula against. The result will not be saved.
+            {t("calculations.testDescription", { type: typeLabel })}
           </Typography>
           <Autocomplete
             options={options}
@@ -990,7 +1004,7 @@ function TestDialog({ open, calculation, onClose }: TestDialogProps) {
             getOptionLabel={(opt) => opt.name}
             isOptionEqualToValue={(opt, val) => opt.id === val.id}
             loading={searchLoading}
-            noOptionsText={searchInput.length < 2 ? "Type to search..." : "No cards found"}
+            noOptionsText={searchInput.length < 2 ? t("calculations.typeToSearch") : t("calculations.noCardsFound")}
             renderOption={({ key, ...optProps }, option) => (
               <li key={option.id} {...optProps}>
                 <Box sx={{ display: "flex", flexDirection: "column" }}>
@@ -1006,8 +1020,8 @@ function TestDialog({ open, calculation, onClose }: TestDialogProps) {
             renderInput={(params) => (
               <TextField
                 {...params}
-                label={`Search ${typeLabel}`}
-                placeholder={`Type a ${typeLabel.toLowerCase()} name...`}
+                label={t("calculations.searchLabel", { type: typeLabel })}
+                placeholder={t("calculations.searchPlaceholder", { type: typeLabel.toLowerCase() })}
                 slotProps={{
                   input: {
                     ...params.InputProps,
@@ -1024,13 +1038,13 @@ function TestDialog({ open, calculation, onClose }: TestDialogProps) {
           />
           <Button variant="contained" onClick={handleTest} disabled={testing || !selectedCard}>
             {testing ? <CircularProgress size={16} sx={{ mr: 1 }} /> : null}
-            Test
+            {t("calculations.test")}
           </Button>
           {result && (
             <Alert severity={result.success ? "success" : "error"}>
               {result.success ? (
                 <>
-                  Computed value for &quot;{result.card_name}&quot;:{" "}
+                  {t("calculations.computedValue", { name: result.card_name })}{" "}
                   <strong>{JSON.stringify(result.computed_value)}</strong>
                 </>
               ) : (
@@ -1041,7 +1055,7 @@ function TestDialog({ open, calculation, onClose }: TestDialogProps) {
         </Box>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>Close</Button>
+        <Button onClick={onClose}>{t("common:actions.close")}</Button>
       </DialogActions>
     </Dialog>
   );
@@ -1050,7 +1064,10 @@ function TestDialog({ open, calculation, onClose }: TestDialogProps) {
 // ── Main Component ─────────────────────────────────────────────────
 
 export default function CalculationsAdmin() {
+  const { t } = useTranslation(["admin", "common"]);
   const { types, relationTypes } = useMetamodel();
+  const rml = useResolveMetaLabel();
+  const rl = useResolveLabel();
   const [calculations, setCalculations] = useState<Calculation[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -1063,7 +1080,7 @@ export default function CalculationsAdmin() {
   const [deleteConfirm, setDeleteConfirm] = useState<Calculation | null>(null);
   const [filterType, setFilterType] = useState<string>("");
 
-  const visibleTypes = types.filter((t) => !t.is_hidden);
+  const visibleTypes = types.filter((ct) => !ct.is_hidden);
 
   const fetchCalculations = useCallback(async () => {
     try {
@@ -1132,7 +1149,7 @@ export default function CalculationsAdmin() {
       }>(`/calculations/recalculate/${typeKey}`, {});
       setRecalcResult({
         type: typeKey,
-        message: `Processed ${res.cards_processed} cards: ${res.calculations_succeeded} succeeded, ${res.calculations_failed} failed`,
+        message: t("calculations.recalcResult", { cards: res.cards_processed, succeeded: res.calculations_succeeded, failed: res.calculations_failed }),
       });
     } catch (e: unknown) {
       setRecalcResult({ type: typeKey, message: `Error: ${String(e)}` });
@@ -1145,14 +1162,17 @@ export default function CalculationsAdmin() {
     ? calculations.filter((c) => c.target_type_key === filterType)
     : calculations;
 
-  const getTypeLabel = (key: string) => types.find((t) => t.key === key)?.label || key;
+  const getTypeLabel = (key: string) => {
+    const ct = types.find((ct) => ct.key === key);
+    return rml(ct?.key ?? "", ct?.translations, "label") || key;
+  };
 
   const getFieldLabel = (typeKey: string, fieldKey: string) => {
-    const t = types.find((ct) => ct.key === typeKey);
-    if (!t) return fieldKey;
-    for (const section of t.fields_schema || []) {
+    const cardType = types.find((ct) => ct.key === typeKey);
+    if (!cardType) return fieldKey;
+    for (const section of cardType.fields_schema || []) {
       for (const field of section.fields) {
-        if (field.key === fieldKey) return field.label;
+        if (field.key === fieldKey) return rl(field.key, field.translations);
       }
     }
     return fieldKey;
@@ -1163,20 +1183,20 @@ export default function CalculationsAdmin() {
       <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 3, flexWrap: "wrap" }}>
         <MaterialSymbol icon="calculate" size={22} />
         <Typography variant="h6" sx={{ fontWeight: 600 }}>
-          Calculated Fields
+          {t("calculations.title")}
         </Typography>
         <Box sx={{ flex: 1 }} />
         <FormControl size="small" sx={{ minWidth: 180 }}>
-          <InputLabel>Filter by type</InputLabel>
+          <InputLabel>{t("calculations.filterByType")}</InputLabel>
           <Select
             value={filterType}
-            label="Filter by type"
+            label={t("calculations.filterByType")}
             onChange={(e) => setFilterType(e.target.value)}
           >
-            <MenuItem value="">All types</MenuItem>
-            {visibleTypes.map((t) => (
-              <MenuItem key={t.key} value={t.key}>
-                {t.label}
+            <MenuItem value="">{t("calculations.allTypes")}</MenuItem>
+            {visibleTypes.map((ct) => (
+              <MenuItem key={ct.key} value={ct.key}>
+                {rml(ct.key, ct.translations, "label")}
               </MenuItem>
             ))}
           </Select>
@@ -1189,7 +1209,7 @@ export default function CalculationsAdmin() {
             setEditOpen(true);
           }}
         >
-          New Calculation
+          {t("calculations.newCalculation")}
         </Button>
       </Box>
 
@@ -1218,10 +1238,10 @@ export default function CalculationsAdmin() {
           <CardContent sx={{ textAlign: "center", py: 6 }}>
             <MaterialSymbol icon="calculate" size={48} color="#ccc" />
             <Typography variant="h6" color="text.secondary" sx={{ mt: 1 }}>
-              No calculations defined
+              {t("calculations.noCalculations")}
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              Create a calculation to auto-populate card fields based on formulas.
+              {t("calculations.noCalculationsHint")}
             </Typography>
           </CardContent>
         </Card>
@@ -1230,14 +1250,14 @@ export default function CalculationsAdmin() {
           <Table>
             <TableHead>
               <TableRow>
-                <TableCell>Name</TableCell>
-                <TableCell>Target Type</TableCell>
-                <TableCell>Target Field</TableCell>
-                <TableCell>Order</TableCell>
-                <TableCell align="center">Active</TableCell>
-                <TableCell>Last Run</TableCell>
-                <TableCell>Status</TableCell>
-                <TableCell align="right">Actions</TableCell>
+                <TableCell>{t("common:labels.name")}</TableCell>
+                <TableCell>{t("calculations.columns.targetType")}</TableCell>
+                <TableCell>{t("calculations.columns.targetField")}</TableCell>
+                <TableCell>{t("calculations.columns.order")}</TableCell>
+                <TableCell align="center">{t("calculations.columns.active")}</TableCell>
+                <TableCell>{t("calculations.columns.lastRun")}</TableCell>
+                <TableCell>{t("common:labels.status")}</TableCell>
+                <TableCell align="right">{t("calculations.columns.actions")}</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -1270,21 +1290,21 @@ export default function CalculationsAdmin() {
                       </Typography>
                     ) : (
                       <Typography variant="caption" color="text.secondary">
-                        Never
+                        {t("calculations.never")}
                       </Typography>
                     )}
                   </TableCell>
                   <TableCell>
                     {calc.last_error ? (
                       <Tooltip title={calc.last_error}>
-                        <Chip size="small" label="Error" color="error" />
+                        <Chip size="small" label={t("calculations.error")} color="error" />
                       </Tooltip>
                     ) : calc.last_run_at ? (
-                      <Chip size="small" label="OK" color="success" />
+                      <Chip size="small" label={t("calculations.ok")} color="success" />
                     ) : null}
                   </TableCell>
                   <TableCell align="right">
-                    <Tooltip title="Edit">
+                    <Tooltip title={t("calculations.editTooltip")}>
                       <IconButton
                         size="small"
                         onClick={() => {
@@ -1295,7 +1315,7 @@ export default function CalculationsAdmin() {
                         <MaterialSymbol icon="edit" size={18} />
                       </IconButton>
                     </Tooltip>
-                    <Tooltip title="Test with card">
+                    <Tooltip title={t("calculations.testTooltip")}>
                       <IconButton
                         size="small"
                         onClick={() => {
@@ -1306,7 +1326,7 @@ export default function CalculationsAdmin() {
                         <MaterialSymbol icon="science" size={18} />
                       </IconButton>
                     </Tooltip>
-                    <Tooltip title="Recalculate all">
+                    <Tooltip title={t("calculations.recalculateTooltip")}>
                       <IconButton
                         size="small"
                         onClick={() => handleRecalculate(calc.target_type_key)}
@@ -1319,7 +1339,7 @@ export default function CalculationsAdmin() {
                         )}
                       </IconButton>
                     </Tooltip>
-                    <Tooltip title="Delete">
+                    <Tooltip title={t("calculations.deleteTooltip")}>
                       <IconButton
                         size="small"
                         color="error"
@@ -1353,20 +1373,20 @@ export default function CalculationsAdmin() {
 
       {/* Delete confirmation */}
       <Dialog open={!!deleteConfirm} onClose={() => setDeleteConfirm(null)}>
-        <DialogTitle>Delete Calculation</DialogTitle>
+        <DialogTitle>{t("calculations.deleteCalculation")}</DialogTitle>
         <DialogContent>
           <Typography>
-            Are you sure you want to delete &quot;{deleteConfirm?.name}&quot;? This cannot be undone.
+            {t("calculations.deleteConfirm", { name: deleteConfirm?.name })}
           </Typography>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDeleteConfirm(null)}>Cancel</Button>
+          <Button onClick={() => setDeleteConfirm(null)}>{t("common:actions.cancel")}</Button>
           <Button
             color="error"
             variant="contained"
             onClick={() => deleteConfirm && handleDelete(deleteConfirm)}
           >
-            Delete
+            {t("common:actions.delete")}
           </Button>
         </DialogActions>
       </Dialog>

@@ -2,11 +2,10 @@ import Autocomplete from "@mui/material/Autocomplete";
 import Chip from "@mui/material/Chip";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
+import { useTranslation } from "react-i18next";
 
 /** Sentinel key used to represent "no value set" in filter selections. */
 export const EMPTY_FILTER_KEY = "__empty__";
-
-const EMPTY_OPTION = { key: EMPTY_FILTER_KEY, label: "(empty)", color: undefined as string | undefined };
 
 export default function FilterSelect({
   label,
@@ -19,7 +18,9 @@ export default function FilterSelect({
   value: string[];
   onChange: (v: string[]) => void;
 }) {
-  const allOptions = [EMPTY_OPTION, ...options];
+  const { t } = useTranslation("common");
+  const emptyOption = { key: EMPTY_FILTER_KEY, label: t("labels.empty"), color: undefined as string | undefined };
+  const allOptions = [emptyOption, ...options];
 
   return (
     <Autocomplete
@@ -74,7 +75,7 @@ export default function FilterSelect({
         <TextField
           {...params}
           label={label}
-          placeholder={value.length === 0 ? "All" : ""}
+          placeholder={value.length === 0 ? t("labels.all") : ""}
         />
       )}
       sx={{

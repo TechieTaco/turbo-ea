@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Card from "@mui/material/Card";
@@ -17,7 +18,24 @@ import MaterialSymbol from "@/components/MaterialSymbol";
 import ColorPicker from "@/components/ColorPicker";
 import KeyInput from "@/components/KeyInput";
 import { api } from "@/api/client";
-import type { StakeholderRoleDefinitionFull } from "@/types";
+import type { StakeholderRoleDefinitionFull, MetamodelTranslations } from "@/types";
+
+/** Clean a MetamodelTranslations object, removing empty maps. */
+function cleanTranslations(
+  trans: MetamodelTranslations | undefined,
+): MetamodelTranslations | undefined {
+  if (!trans) return undefined;
+  const cleaned: MetamodelTranslations = {};
+  for (const [key, map] of Object.entries(trans)) {
+    if (!map) continue;
+    const cm: Record<string, string> = {};
+    for (const [k, v] of Object.entries(map)) {
+      if (v && v.trim()) cm[k] = v.trim();
+    }
+    if (Object.keys(cm).length > 0) cleaned[key] = cm;
+  }
+  return Object.keys(cleaned).length > 0 ? cleaned : undefined;
+}
 
 /* ------------------------------------------------------------------ */
 /*  Stakeholder Role Panel                                            */
@@ -29,6 +47,7 @@ export interface StakeholderRolePanelProps {
 }
 
 export default function StakeholderRolePanel({ typeKey, onError }: StakeholderRolePanelProps) {
+  const { t } = useTranslation(["admin", "common"]);
   const [roles, setRoles] = useState<StakeholderRoleDefinitionFull[]>([]);
   const [permissionsSchema, setPermissionsSchema] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
@@ -43,6 +62,7 @@ export default function StakeholderRolePanel({ typeKey, onError }: StakeholderRo
     description: "",
     color: "#1976d2",
     permissions: {} as Record<string, boolean>,
+    translations: {} as MetamodelTranslations,
   });
   const [createSaving, setCreateSaving] = useState(false);
 
@@ -53,6 +73,7 @@ export default function StakeholderRolePanel({ typeKey, onError }: StakeholderRo
     description: "",
     color: "#1976d2",
     permissions: {} as Record<string, boolean>,
+    translations: {} as MetamodelTranslations,
   });
   const [editSaving, setEditSaving] = useState(false);
 
@@ -64,7 +85,7 @@ export default function StakeholderRolePanel({ typeKey, onError }: StakeholderRo
       );
       setRoles(data);
     } catch (e: unknown) {
-      onError(e instanceof Error ? e.message : "Failed to fetch stakeholder roles");
+      onError(e instanceof Error ? e.message : t("metamodel.stakeholderPanel.failedToFetchRoles"));
     }
   }, [typeKey, onError]);
 
@@ -73,7 +94,7 @@ export default function StakeholderRolePanel({ typeKey, onError }: StakeholderRo
       const data = await api.get<Record<string, string>>("/stakeholder-roles/permissions-schema");
       setPermissionsSchema(data);
     } catch (e: unknown) {
-      onError(e instanceof Error ? e.message : "Failed to fetch permissions schema");
+      onError(e instanceof Error ? e.message : t("metamodel.stakeholderPanel.failedToFetchSchema"));
     }
   }, [onError]);
 
@@ -103,12 +124,13 @@ export default function StakeholderRolePanel({ typeKey, onError }: StakeholderRo
         description: createForm.description || undefined,
         color: createForm.color,
         permissions: createForm.permissions,
+        translations: cleanTranslations(createForm.translations) || undefined,
       });
       await fetchRoles();
-      setCreateForm({ key: "", label: "", description: "", color: "#1976d2", permissions: {} });
+      setCreateForm({ key: "", label: "", description: "", color: "#1976d2", permissions: {}, translations: {} });
       setCreateOpen(false);
     } catch (e: unknown) {
-      onError(e instanceof Error ? e.message : "Failed to create role");
+      onError(e instanceof Error ? e.message : t("metamodel.stakeholderPanel.failedToCreate"));
     } finally {
       setCreateSaving(false);
     }
@@ -122,6 +144,7 @@ export default function StakeholderRolePanel({ typeKey, onError }: StakeholderRo
       description: role.description || "",
       color: role.color,
       permissions: { ...role.permissions },
+      translations: role.translations ? { ...role.translations } : {},
     });
     setExpandedRole(role.key);
   };
@@ -135,11 +158,12 @@ export default function StakeholderRolePanel({ typeKey, onError }: StakeholderRo
         description: editForm.description || undefined,
         color: editForm.color,
         permissions: editForm.permissions,
+        translations: cleanTranslations(editForm.translations) || null,
       });
       await fetchRoles();
       setEditRoleKey(null);
     } catch (e: unknown) {
-      onError(e instanceof Error ? e.message : "Failed to update role");
+      onError(e instanceof Error ? e.message : t("metamodel.stakeholderPanel.failedToUpdate"));
     } finally {
       setEditSaving(false);
     }
@@ -155,7 +179,7 @@ export default function StakeholderRolePanel({ typeKey, onError }: StakeholderRo
       await api.post(`/metamodel/types/${typeKey}/stakeholder-roles/${roleKey}/archive`);
       await fetchRoles();
     } catch (e: unknown) {
-      onError(e instanceof Error ? e.message : "Failed to archive role");
+      onError(e instanceof Error ? e.message : t("metamodel.stakeholderPanel.failedToArchive"));
     }
   };
 
@@ -164,7 +188,7 @@ export default function StakeholderRolePanel({ typeKey, onError }: StakeholderRo
       await api.post(`/metamodel/types/${typeKey}/stakeholder-roles/${roleKey}/restore`);
       await fetchRoles();
     } catch (e: unknown) {
-      onError(e instanceof Error ? e.message : "Failed to restore role");
+      onError(e instanceof Error ? e.message : t("metamodel.stakeholderPanel.failedToRestore"));
     }
   };
 
@@ -175,7 +199,7 @@ export default function StakeholderRolePanel({ typeKey, onError }: StakeholderRo
   ) => (
     <Box sx={{ mt: 1 }}>
       <Typography variant="caption" fontWeight={600} color="text.secondary" sx={{ mb: 0.5, display: "block" }}>
-        Permissions
+        {t("metamodel.stakeholderPanel.permissions")}
       </Typography>
       {Object.entries(permissionsSchema).map(([permKey, permDesc]) => (
         <Box
@@ -220,7 +244,7 @@ export default function StakeholderRolePanel({ typeKey, onError }: StakeholderRo
       {/* Header row */}
       <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1 }}>
         <Typography variant="subtitle1" fontWeight={600}>
-          Stakeholder Roles
+          {t("metamodel.stakeholderPanel.title")}
         </Typography>
         <FormControlLabel
           control={
@@ -230,7 +254,7 @@ export default function StakeholderRolePanel({ typeKey, onError }: StakeholderRo
               onChange={(e) => setShowArchived(e.target.checked)}
             />
           }
-          label={<Typography variant="caption">Show archived</Typography>}
+          label={<Typography variant="caption">{t("metamodel.stakeholderPanel.showArchived")}</Typography>}
           sx={{ mr: 0 }}
         />
       </Box>
@@ -238,7 +262,7 @@ export default function StakeholderRolePanel({ typeKey, onError }: StakeholderRo
       {/* Role list */}
       {displayRoles.length === 0 && (
         <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-          {showArchived ? "No stakeholder roles defined." : "No active stakeholder roles. Create one below."}
+          {showArchived ? t("metamodel.stakeholderPanel.noRoles") : t("metamodel.stakeholderPanel.noActiveRoles")}
         </Typography>
       )}
 
@@ -275,12 +299,12 @@ export default function StakeholderRolePanel({ typeKey, onError }: StakeholderRo
                   {role.key}
                 </Typography>
                 {role.is_archived && (
-                  <Chip size="small" label="Archived" sx={{ height: 20, fontSize: 11 }} />
+                  <Chip size="small" label={t("metamodel.stakeholderPanel.archived")} sx={{ height: 20, fontSize: 11 }} />
                 )}
                 {typeof role.stakeholder_count === "number" && (
                   <Chip
                     size="small"
-                    label={`${role.stakeholder_count} sub${role.stakeholder_count !== 1 ? "s" : ""}`}
+                    label={t("metamodel.stakeholderPanel.subscriberCount", { count: role.stakeholder_count })}
                     variant="outlined"
                     sx={{ height: 20, fontSize: 11 }}
                   />
@@ -300,13 +324,13 @@ export default function StakeholderRolePanel({ typeKey, onError }: StakeholderRo
                   </IconButton>
                 )}
                 {role.is_archived ? (
-                  <Tooltip title="Restore">
+                  <Tooltip title={t("common:actions.restore")}>
                     <IconButton size="small" onClick={() => handleRestore(role.key)}>
                       <MaterialSymbol icon="restore" size={18} />
                     </IconButton>
                   </Tooltip>
                 ) : (
-                  <Tooltip title="Archive">
+                  <Tooltip title={t("common:actions.archive")}>
                     <IconButton size="small" onClick={() => handleArchive(role.key)}>
                       <MaterialSymbol icon="archive" size={18} />
                     </IconButton>
@@ -329,14 +353,14 @@ export default function StakeholderRolePanel({ typeKey, onError }: StakeholderRo
                     <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
                       <TextField
                         size="small"
-                        label="Label"
+                        label={t("metamodel.stakeholderPanel.labelLabel")}
                         value={editForm.label}
                         onChange={(e) => setEditForm({ ...editForm, label: e.target.value })}
                         fullWidth
                       />
                       <TextField
                         size="small"
-                        label="Description"
+                        label={t("metamodel.stakeholderPanel.descriptionLabel")}
                         value={editForm.description}
                         onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
                         multiline
@@ -346,7 +370,7 @@ export default function StakeholderRolePanel({ typeKey, onError }: StakeholderRo
                       <ColorPicker
                         value={editForm.color}
                         onChange={(c) => setEditForm({ ...editForm, color: c })}
-                        label="Color"
+                        label={t("metamodel.stakeholderPanel.colorLabel")}
                       />
                       {renderPermissionEditor(editForm.permissions, (key, val) =>
                         setEditForm({
@@ -356,7 +380,7 @@ export default function StakeholderRolePanel({ typeKey, onError }: StakeholderRo
                       )}
                       <Box sx={{ display: "flex", gap: 1, justifyContent: "flex-end", mt: 1 }}>
                         <Button size="small" onClick={cancelEdit}>
-                          Cancel
+                          {t("common:actions.cancel")}
                         </Button>
                         <Button
                           size="small"
@@ -364,7 +388,7 @@ export default function StakeholderRolePanel({ typeKey, onError }: StakeholderRo
                           onClick={handleSaveEdit}
                           disabled={editSaving || !editForm.label}
                         >
-                          {editSaving ? "Saving..." : "Save"}
+                          {editSaving ? t("metamodel.stakeholderPanel.saving") : t("common:actions.save")}
                         </Button>
                       </Box>
                     </Box>
@@ -372,11 +396,11 @@ export default function StakeholderRolePanel({ typeKey, onError }: StakeholderRo
                     /* --- Read-only permission display --- */
                     <Box>
                       <Typography variant="caption" fontWeight={600} color="text.secondary" sx={{ mb: 0.5, display: "block" }}>
-                        Permissions
+                        {t("metamodel.stakeholderPanel.permissions")}
                       </Typography>
                       {Object.keys(permissionsSchema).length === 0 ? (
                         <Typography variant="caption" color="text.secondary">
-                          No permissions defined.
+                          {t("metamodel.stakeholderPanel.noPermissions")}
                         </Typography>
                       ) : (
                         <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
@@ -410,28 +434,28 @@ export default function StakeholderRolePanel({ typeKey, onError }: StakeholderRo
         <Card variant="outlined" sx={{ mt: 1, mb: 2, borderStyle: "dashed" }}>
           <CardContent sx={{ py: 2, "&:last-child": { pb: 2 } }}>
             <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1.5 }}>
-              New Stakeholder Role
+              {t("metamodel.stakeholderPanel.newRole")}
             </Typography>
             <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
               <KeyInput
                 size="small"
-                label="Key"
+                label={t("metamodel.stakeholderPanel.keyLabel")}
                 value={createForm.key}
                 onChange={(v) => setCreateForm({ ...createForm, key: v })}
-                placeholder="e.g. data_steward"
+                placeholder={t("metamodel.stakeholderPanel.keyPlaceholder")}
                 fullWidth
               />
               <TextField
                 size="small"
-                label="Label"
+                label={t("metamodel.stakeholderPanel.labelLabel")}
                 value={createForm.label}
                 onChange={(e) => setCreateForm({ ...createForm, label: e.target.value })}
-                placeholder="e.g. Data Steward"
+                placeholder={t("metamodel.stakeholderPanel.labelPlaceholder")}
                 fullWidth
               />
               <TextField
                 size="small"
-                label="Description"
+                label={t("metamodel.stakeholderPanel.descriptionLabel")}
                 value={createForm.description}
                 onChange={(e) => setCreateForm({ ...createForm, description: e.target.value })}
                 multiline
@@ -441,7 +465,7 @@ export default function StakeholderRolePanel({ typeKey, onError }: StakeholderRo
               <ColorPicker
                 value={createForm.color}
                 onChange={(c) => setCreateForm({ ...createForm, color: c })}
-                label="Color"
+                label={t("metamodel.stakeholderPanel.colorLabel")}
               />
               {renderPermissionEditor(createForm.permissions, (key, val) =>
                 setCreateForm({
@@ -454,10 +478,10 @@ export default function StakeholderRolePanel({ typeKey, onError }: StakeholderRo
                   size="small"
                   onClick={() => {
                     setCreateOpen(false);
-                    setCreateForm({ key: "", label: "", description: "", color: "#1976d2", permissions: {} });
+                    setCreateForm({ key: "", label: "", description: "", color: "#1976d2", permissions: {}, translations: {} });
                   }}
                 >
-                  Cancel
+                  {t("common:actions.cancel")}
                 </Button>
                 <Button
                   size="small"
@@ -465,7 +489,7 @@ export default function StakeholderRolePanel({ typeKey, onError }: StakeholderRo
                   onClick={handleCreate}
                   disabled={createSaving || !createForm.key || !createForm.label}
                 >
-                  {createSaving ? "Creating..." : "Create"}
+                  {createSaving ? t("metamodel.stakeholderPanel.creating") : t("common:actions.create")}
                 </Button>
               </Box>
             </Box>
@@ -478,7 +502,7 @@ export default function StakeholderRolePanel({ typeKey, onError }: StakeholderRo
           onClick={() => setCreateOpen(true)}
           sx={{ mb: 2 }}
         >
-          Add Role
+          {t("metamodel.stakeholderPanel.addRole")}
         </Button>
       )}
     </Box>

@@ -1,4 +1,6 @@
 import * as XLSX from "xlsx";
+import i18n from "@/i18n";
+import { resolveMetaLabel } from "@/hooks/useResolveLabel";
 import type { Card, CardType } from "@/types";
 
 const LIFECYCLE_PHASES = ["plan", "phaseIn", "active", "phaseOut", "endOfLife"] as const;
@@ -67,10 +69,12 @@ export function exportToExcel(
   });
 
   const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, "Cards");
+  XLSX.utils.book_append_sheet(wb, ws, i18n.t("common:labels.cards"));
 
   // Build filename
-  const typeLabel = typeConfig?.label ?? "cards";
+  const typeLabel = typeConfig
+    ? resolveMetaLabel(typeConfig.key, typeConfig.translations, "label", i18n.language)
+    : "cards";
   const date = new Date().toISOString().slice(0, 10);
   XLSX.writeFile(wb, `${typeLabel}_export_${date}.xlsx`);
 }

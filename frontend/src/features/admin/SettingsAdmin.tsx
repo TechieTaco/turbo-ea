@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, Suspense, lazy } from "react";
+import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router-dom";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
@@ -15,21 +16,19 @@ import Divider from "@mui/material/Divider";
 import Chip from "@mui/material/Chip";
 import Tabs from "@mui/material/Tabs";
 import Tab from "@mui/material/Tab";
+import Checkbox from "@mui/material/Checkbox";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useMetamodel } from "@/hooks/useMetamodel";
+import { useEnabledLocales } from "@/hooks/useEnabledLocales";
+import { SUPPORTED_LOCALES, LOCALE_LABELS, type SupportedLocale } from "@/i18n";
 
 const EolAdmin = lazy(() => import("./EolAdmin"));
 const WebPortalsAdmin = lazy(() => import("./WebPortalsAdmin"));
 const ServiceNowAdmin = lazy(() => import("./ServiceNowAdmin"));
 
-const TABS = [
-  { key: "general", label: "General" },
-  { key: "eol", label: "EOL Search" },
-  { key: "web-portals", label: "Web Portals" },
-  { key: "servicenow", label: "ServiceNow" },
-];
+const TAB_KEYS = ["general", "eol", "web-portals", "servicenow"];
 
 function TabLoader() {
   return (
@@ -114,6 +113,7 @@ function SectionHeader({ children }: { children: React.ReactNode }) {
 }
 
 function GeneralTab() {
+  const { t } = useTranslation(["admin", "common"]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
@@ -148,6 +148,11 @@ function GeneralTab() {
   const [registrationEnabled, setRegistrationEnabled] = useState(true);
   const [savingRegistration, setSavingRegistration] = useState(false);
 
+  // Enabled locales state
+  const { enabledLocales: cachedLocales, invalidateEnabledLocales } = useEnabledLocales();
+  const [enabledLocales, setEnabledLocales] = useState<SupportedLocale[]>([...SUPPORTED_LOCALES]);
+  const [savingLocales, setSavingLocales] = useState(false);
+
   // SSO state
   const [ssoEnabled, setSsoEnabled] = useState(false);
   const [ssoClientId, setSsoClientId] = useState("");
@@ -165,6 +170,10 @@ function GeneralTab() {
   const [configured, setConfigured] = useState(false);
 
   useEffect(() => {
+    setEnabledLocales(cachedLocales);
+  }, [cachedLocales]);
+
+  useEffect(() => {
     Promise.all([
       api.get<EmailSettings>("/settings/email"),
       api.get<LogoInfo>("/settings/logo/info"),
@@ -173,8 +182,9 @@ function GeneralTab() {
       api.get<{ enabled: boolean }>("/settings/bpm-enabled"),
       api.get<SsoSettings>("/settings/sso"),
       api.get<{ enabled: boolean }>("/settings/registration"),
+      api.get<{ locales: string[] }>("/settings/enabled-locales"),
     ])
-      .then(([emailData, logoData, faviconData, currencyData, bpmData, ssoData, regData]) => {
+      .then(([emailData, logoData, faviconData, currencyData, bpmData, ssoData, regData, localesData]) => {
         setSmtpHost(emailData.smtp_host);
         setSmtpPort(emailData.smtp_port);
         setSmtpUser(emailData.smtp_user);
@@ -192,8 +202,12 @@ function GeneralTab() {
         setSsoClientSecret(ssoData.client_secret);
         setSsoTenantId(ssoData.tenant_id);
         setRegistrationEnabled(regData.enabled);
+        const validLocales = (localesData.locales || []).filter((l: string): l is SupportedLocale =>
+          (SUPPORTED_LOCALES as readonly string[]).includes(l),
+        );
+        if (validLocales.length > 0) setEnabledLocales(validLocales);
       })
-      .catch((e) => setError(e instanceof Error ? e.message : "Failed to load"))
+      .catch((e) => setError(e instanceof Error ? e.message : t("common:errors.generic")))
       .finally(() => setLoading(false));
   }, []);
 
@@ -211,9 +225,9 @@ function GeneralTab() {
         app_base_url: appBaseUrl,
       });
       setConfigured(!!smtpHost);
-      setSnack("Email settings saved");
+      setSnack(t("settings.smtp.savedSuccess"));
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to save");
+      setError(e instanceof Error ? e.message : t("common:errors.generic"));
     } finally {
       setSaving(false);
     }
@@ -226,9 +240,9 @@ function GeneralTab() {
       const res = await api.post<{ ok: boolean; sent_to: string }>(
         "/settings/email/test"
       );
-      setSnack(`Test email sent to ${res.sent_to}`);
+      setSnack(t("settings.smtp.testSent", { email: res.sent_to }));
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to send test email");
+      setError(e instanceof Error ? e.message : t("common:errors.generic"));
     } finally {
       setTesting(false);
     }
@@ -253,9 +267,9 @@ function GeneralTab() {
       await api.upload("/settings/logo", file);
       setHasCustomLogo(true);
       setLogoVersion((v) => v + 1);
-      setSnack("Logo updated");
+      setSnack(t("settings.logo.updated"));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to upload logo");
+      setError(err instanceof Error ? err.message : t("common:errors.generic"));
     } finally {
       setUploadingLogo(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
@@ -269,9 +283,9 @@ function GeneralTab() {
       await api.delete("/settings/logo");
       setHasCustomLogo(false);
       setLogoVersion((v) => v + 1);
-      setSnack("Logo reset to default");
+      setSnack(t("settings.logo.resetSuccess"));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to reset logo");
+      setError(err instanceof Error ? err.message : t("common:errors.generic"));
     } finally {
       setUploadingLogo(false);
     }
@@ -287,9 +301,9 @@ function GeneralTab() {
       setHasCustomFavicon(true);
       setFaviconVersion((v) => v + 1);
       updateFavicons();
-      setSnack("Favicon updated");
+      setSnack(t("settings.favicon.updated"));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to upload favicon");
+      setError(err instanceof Error ? err.message : t("common:errors.generic"));
     } finally {
       setUploadingFavicon(false);
       if (faviconFileInputRef.current) faviconFileInputRef.current.value = "";
@@ -304,9 +318,9 @@ function GeneralTab() {
       setHasCustomFavicon(false);
       setFaviconVersion((v) => v + 1);
       updateFavicons();
-      setSnack("Favicon reset to default");
+      setSnack(t("settings.favicon.resetSuccess"));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to reset favicon");
+      setError(err instanceof Error ? err.message : t("common:errors.generic"));
     } finally {
       setUploadingFavicon(false);
     }
@@ -319,9 +333,9 @@ function GeneralTab() {
       await api.patch("/settings/bpm-enabled", { enabled });
       setBpmEnabled(enabled);
       invalidateMetamodel();
-      setSnack(enabled ? "BPM module enabled" : "BPM module disabled");
+      setSnack(enabled ? t("settings.bpm.enabledSuccess") : t("settings.bpm.disabledSuccess"));
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to update BPM setting");
+      setError(e instanceof Error ? e.message : t("common:errors.generic"));
     } finally {
       setSavingBpm(false);
     }
@@ -333,9 +347,9 @@ function GeneralTab() {
     try {
       await api.patch("/settings/registration", { enabled });
       setRegistrationEnabled(enabled);
-      setSnack(enabled ? "Self-registration enabled" : "Self-registration disabled");
+      setSnack(enabled ? t("settings.registration.enabledSuccess") : t("settings.registration.disabledSuccess"));
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to update registration setting");
+      setError(e instanceof Error ? e.message : t("common:errors.generic"));
     } finally {
       setSavingRegistration(false);
     }
@@ -351,9 +365,9 @@ function GeneralTab() {
         client_secret: ssoClientSecret,
         tenant_id: ssoTenantId,
       });
-      setSnack("SSO settings saved");
+      setSnack(t("settings.sso.savedSuccess"));
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to save SSO settings");
+      setError(e instanceof Error ? e.message : t("common:errors.generic"));
     } finally {
       setSavingSso(false);
     }
@@ -365,11 +379,39 @@ function GeneralTab() {
     try {
       await api.patch("/settings/currency", { currency: selectedCurrency });
       invalidateCurrency(selectedCurrency);
-      setSnack("Currency updated");
+      setSnack(t("settings.currency.updated"));
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to save currency");
+      setError(e instanceof Error ? e.message : t("common:errors.generic"));
     } finally {
       setSavingCurrency(false);
+    }
+  };
+
+  const handleLocaleToggle = (locale: SupportedLocale, checked: boolean) => {
+    if (checked) {
+      setEnabledLocales((prev) => [...prev, locale]);
+    } else {
+      setEnabledLocales((prev) => prev.filter((l) => l !== locale));
+    }
+  };
+
+  const handleLocalesSave = async () => {
+    if (enabledLocales.length === 0) return;
+    setSavingLocales(true);
+    setError("");
+    try {
+      const res = await api.patch<{ locales: string[] }>("/settings/enabled-locales", {
+        locales: enabledLocales,
+      });
+      const valid = (res.locales || []).filter((l: string): l is SupportedLocale =>
+        (SUPPORTED_LOCALES as readonly string[]).includes(l),
+      );
+      invalidateEnabledLocales(valid);
+      setSnack(t("settings.locales.savedSuccess"));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t("common:errors.generic"));
+    } finally {
+      setSavingLocales(false);
     }
   };
 
@@ -390,26 +432,24 @@ function GeneralTab() {
       )}
 
       {/* ── Appearance ────────────────────────────────────────────── */}
-      <SectionHeader>Appearance</SectionHeader>
+      <SectionHeader>{t("settings.section.appearance")}</SectionHeader>
 
       {/* Logo Settings */}
       <Paper sx={{ p: 3, mb: 3 }}>
         <Box sx={{ display: "flex", alignItems: "center", mb: 2, gap: 1 }}>
           <MaterialSymbol icon="image" size={22} color="#555" />
           <Typography variant="h6" fontWeight={600}>
-            Logo
+            {t("settings.logo.title")}
           </Typography>
           <Chip
-            label={hasCustomLogo ? "Custom" : "Default"}
+            label={hasCustomLogo ? t("settings.logo.custom") : t("settings.logo.default")}
             size="small"
             color={hasCustomLogo ? "info" : "default"}
             sx={{ ml: 1 }}
           />
         </Box>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-          Upload a custom logo to replace the default Turbo EA branding in the
-          navigation bar. Recommended: PNG or SVG with visible colors (not
-          white-on-transparent). Max 2 MB.
+          {t("settings.logo.description")}
         </Typography>
 
         <Box
@@ -436,7 +476,7 @@ function GeneralTab() {
           >
             <img
               src={`/api/v1/settings/logo?v=${logoVersion}`}
-              alt="Current logo"
+              alt={t("settings.logo.title")}
               style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }}
             />
           </Box>
@@ -462,7 +502,7 @@ function GeneralTab() {
               onClick={() => fileInputRef.current?.click()}
               disabled={uploadingLogo}
             >
-              Upload Logo
+              {t("settings.logo.upload")}
             </Button>
             {hasCustomLogo && (
               <Button
@@ -474,7 +514,7 @@ function GeneralTab() {
                 onClick={handleLogoReset}
                 disabled={uploadingLogo}
               >
-                Reset to Default
+                {t("settings.logo.reset")}
               </Button>
             )}
           </Box>
@@ -486,19 +526,17 @@ function GeneralTab() {
         <Box sx={{ display: "flex", alignItems: "center", mb: 2, gap: 1 }}>
           <MaterialSymbol icon="star" size={22} color="#555" />
           <Typography variant="h6" fontWeight={600}>
-            Favicon
+            {t("settings.favicon.title")}
           </Typography>
           <Chip
-            label={hasCustomFavicon ? "Custom" : "Default"}
+            label={hasCustomFavicon ? t("settings.logo.custom") : t("settings.logo.default")}
             size="small"
             color={hasCustomFavicon ? "info" : "default"}
             sx={{ ml: 1 }}
           />
         </Box>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-          Upload a custom favicon for the browser tab icon and Apple touch icon.
-          This can be different from the main logo. Recommended: square PNG,
-          at least 64x64 px. Max 2 MB.
+          {t("settings.favicon.description")}
         </Typography>
 
         <Box
@@ -525,7 +563,7 @@ function GeneralTab() {
           >
             <img
               src={`/api/v1/settings/favicon?v=${faviconVersion}`}
-              alt="Current favicon"
+              alt={t("settings.favicon.title")}
               style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }}
             />
           </Box>
@@ -551,7 +589,7 @@ function GeneralTab() {
               onClick={() => faviconFileInputRef.current?.click()}
               disabled={uploadingFavicon}
             >
-              Upload Favicon
+              {t("settings.favicon.upload")}
             </Button>
             {hasCustomFavicon && (
               <Button
@@ -563,7 +601,7 @@ function GeneralTab() {
                 onClick={handleFaviconReset}
                 disabled={uploadingFavicon}
               >
-                Reset to Default
+                {t("settings.logo.reset")}
               </Button>
             )}
           </Box>
@@ -575,7 +613,7 @@ function GeneralTab() {
         <Box sx={{ display: "flex", alignItems: "center", mb: 2, gap: 1 }}>
           <MaterialSymbol icon="payments" size={22} color="#555" />
           <Typography variant="h6" fontWeight={600}>
-            Currency
+            {t("settings.currency.title")}
           </Typography>
           <Chip
             label={currentCurrency}
@@ -585,15 +623,14 @@ function GeneralTab() {
           />
         </Box>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-          Choose the currency used to display all cost values across reports,
-          dashboards, and card details.
+          {t("settings.currency.description")}
         </Typography>
 
         <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
           <TextField
             select
             size="small"
-            label="Display Currency"
+            label={t("settings.currency.label")}
             value={selectedCurrency}
             onChange={(e) => setSelectedCurrency(e.target.value)}
             sx={{ minWidth: 280 }}
@@ -612,32 +649,76 @@ function GeneralTab() {
             onClick={handleCurrencySave}
             disabled={savingCurrency || selectedCurrency === currentCurrency}
           >
-            {savingCurrency ? "Saving..." : "Save"}
+            {savingCurrency ? t("common:labels.loading") : t("common:actions.save")}
           </Button>
         </Box>
       </Paper>
 
+      {/* Enabled Languages */}
+      <Paper sx={{ p: 3, mb: 3 }}>
+        <Box sx={{ display: "flex", alignItems: "center", mb: 2, gap: 1 }}>
+          <MaterialSymbol icon="translate" size={22} color="#555" />
+          <Typography variant="h6" fontWeight={600}>
+            {t("settings.locales.title")}
+          </Typography>
+          <Chip
+            label={`${enabledLocales.length}/${SUPPORTED_LOCALES.length}`}
+            size="small"
+            color="default"
+            sx={{ ml: 1 }}
+          />
+        </Box>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          {t("settings.locales.description")}
+        </Typography>
+        <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5, mb: 2 }}>
+          {SUPPORTED_LOCALES.map((locale) => (
+            <FormControlLabel
+              key={locale}
+              control={
+                <Checkbox
+                  size="small"
+                  checked={enabledLocales.includes(locale)}
+                  onChange={(e) => handleLocaleToggle(locale, e.target.checked)}
+                  disabled={enabledLocales.length === 1 && enabledLocales.includes(locale)}
+                />
+              }
+              label={LOCALE_LABELS[locale]}
+              sx={{ mr: 2 }}
+            />
+          ))}
+        </Box>
+        <Button
+          variant="contained"
+          size="small"
+          startIcon={<MaterialSymbol icon="save" size={18} />}
+          sx={{ textTransform: "none" }}
+          onClick={handleLocalesSave}
+          disabled={savingLocales || enabledLocales.length === 0}
+        >
+          {savingLocales ? t("common:labels.loading") : t("common:actions.save")}
+        </Button>
+      </Paper>
+
       {/* ── Modules ───────────────────────────────────────────────── */}
-      <SectionHeader>Modules</SectionHeader>
+      <SectionHeader>{t("settings.section.modules")}</SectionHeader>
 
       {/* BPM Module Toggle */}
       <Paper sx={{ p: 3, mb: 3 }}>
         <Box sx={{ display: "flex", alignItems: "center", mb: 2, gap: 1 }}>
           <MaterialSymbol icon="route" size={22} color="#555" />
           <Typography variant="h6" fontWeight={600}>
-            BPM Module
+            {t("settings.bpm.title")}
           </Typography>
           <Chip
-            label={bpmEnabled ? "Enabled" : "Disabled"}
+            label={bpmEnabled ? t("settings.bpm.enabled") : t("settings.bpm.disabled")}
             size="small"
             color={bpmEnabled ? "success" : "default"}
             sx={{ ml: 1 }}
           />
         </Box>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          Enable or disable the Business Process Management module. When
-          disabled, the BPM navigation item, BusinessProcess cards,
-          their relationships, and BPM reports will be hidden from all users.
+          {t("settings.bpm.description")}
         </Typography>
         <FormControlLabel
           control={
@@ -647,32 +728,29 @@ function GeneralTab() {
               disabled={savingBpm}
             />
           }
-          label={bpmEnabled ? "BPM features are visible to users" : "BPM features are hidden"}
+          label={bpmEnabled ? t("settings.bpm.visible") : t("settings.bpm.hidden")}
         />
       </Paper>
 
       {/* ── Authentication ────────────────────────────────────────── */}
-      <SectionHeader>Authentication</SectionHeader>
+      <SectionHeader>{t("settings.section.authentication")}</SectionHeader>
 
       {/* Self-Registration Toggle */}
       <Paper sx={{ p: 3, mb: 3 }}>
         <Box sx={{ display: "flex", alignItems: "center", mb: 2, gap: 1 }}>
           <MaterialSymbol icon="person_add" size={22} color="#555" />
           <Typography variant="h6" fontWeight={600}>
-            Self-Registration
+            {t("settings.registration.title")}
           </Typography>
           <Chip
-            label={registrationEnabled ? "Enabled" : "Disabled"}
+            label={registrationEnabled ? t("settings.bpm.enabled") : t("settings.bpm.disabled")}
             size="small"
             color={registrationEnabled ? "success" : "default"}
             sx={{ ml: 1 }}
           />
         </Box>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          Allow new users to create accounts themselves from the login page.
-          When disabled, users can only be added by an administrator (or via
-          SSO if configured). The first user can always register to bootstrap
-          the admin account.
+          {t("settings.registration.description")}
         </Typography>
         <FormControlLabel
           control={
@@ -684,10 +762,10 @@ function GeneralTab() {
           }
           label={
             ssoEnabled
-              ? "Registration is managed by SSO"
+              ? t("settings.registration.managedBySso")
               : registrationEnabled
-                ? "Users can self-register"
-                : "Only admins can create users"
+                ? t("settings.registration.usersCanRegister")
+                : t("settings.registration.onlyAdmins")
           }
         />
       </Paper>
@@ -697,20 +775,17 @@ function GeneralTab() {
         <Box sx={{ display: "flex", alignItems: "center", mb: 2, gap: 1 }}>
           <MaterialSymbol icon="shield_person" size={22} color="#555" />
           <Typography variant="h6" fontWeight={600}>
-            SSO / Microsoft Entra ID
+            {t("settings.sso.title")}
           </Typography>
           <Chip
-            label={ssoEnabled ? "Enabled" : "Disabled"}
+            label={ssoEnabled ? t("settings.bpm.enabled") : t("settings.bpm.disabled")}
             size="small"
             color={ssoEnabled ? "success" : "default"}
             sx={{ ml: 1 }}
           />
         </Box>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-          Enable Single Sign-On with Microsoft Entra ID (Azure AD). When enabled,
-          users can sign in with their Microsoft account. New SSO users are
-          automatically assigned the Viewer role unless pre-invited with a
-          specific role. Manual registration is disabled when SSO is active.
+          {t("settings.sso.description")}
         </Typography>
 
         <FormControlLabel
@@ -720,45 +795,42 @@ function GeneralTab() {
               onChange={(e) => setSsoEnabled(e.target.checked)}
             />
           }
-          label={ssoEnabled ? "SSO is enabled" : "SSO is disabled"}
+          label={ssoEnabled ? t("settings.sso.enabled") : t("settings.sso.disabled")}
           sx={{ mb: 2 }}
         />
 
         {ssoEnabled && (
           <>
             <TextField
-              label="Client ID (Application ID)"
+              label={t("settings.sso.clientId")}
               fullWidth
               value={ssoClientId}
               onChange={(e) => setSsoClientId(e.target.value)}
               placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
-              helperText="From your Azure App Registration"
+              helperText={t("settings.sso.clientIdHelper")}
               sx={{ mb: 2 }}
             />
             <TextField
-              label="Client Secret"
+              label={t("settings.sso.clientSecret")}
               fullWidth
               type="password"
               value={ssoClientSecret}
               onChange={(e) => setSsoClientSecret(e.target.value)}
-              helperText="From your Azure App Registration > Certificates & secrets"
+              helperText={t("settings.sso.clientSecretHelper")}
               sx={{ mb: 2 }}
             />
             <TextField
-              label="Tenant ID"
+              label={t("settings.sso.tenantId")}
               fullWidth
               value={ssoTenantId}
               onChange={(e) => setSsoTenantId(e.target.value)}
               placeholder="organizations"
-              helperText={
-                'Use "organizations" for multi-tenant (any Azure AD), or a specific tenant ID to restrict access.'
-              }
+              helperText={t("settings.sso.tenantIdHelper")}
               sx={{ mb: 2 }}
             />
             <Alert severity="info" sx={{ mb: 2 }}>
               <Typography variant="body2">
-                <strong>Redirect URI</strong>: Configure this in your Azure App
-                Registration under Authentication:{" "}
+                <strong>{t("settings.sso.redirectUri")}</strong>: {t("settings.sso.redirectUriHint")}{" "}
                 <code>{window.location.origin}/auth/callback</code>
               </Typography>
             </Alert>
@@ -774,45 +846,44 @@ function GeneralTab() {
             onClick={handleSsoSave}
             disabled={savingSso}
           >
-            {savingSso ? "Saving..." : "Save"}
+            {savingSso ? t("common:labels.loading") : t("common:actions.save")}
           </Button>
         </Box>
       </Paper>
 
       {/* ── Email ─────────────────────────────────────────────────── */}
-      <SectionHeader>Email</SectionHeader>
+      <SectionHeader>{t("settings.section.email")}</SectionHeader>
 
       {/* Email / SMTP Settings */}
       <Paper sx={{ p: 3, mb: 3 }}>
         <Box sx={{ display: "flex", alignItems: "center", mb: 2, gap: 1 }}>
           <MaterialSymbol icon="mail" size={22} color="#555" />
           <Typography variant="h6" fontWeight={600}>
-            SMTP Configuration
+            {t("settings.smtp.title")}
           </Typography>
           <Chip
-            label={configured ? "Configured" : "Not configured"}
+            label={configured ? t("settings.smtp.configured") : t("settings.smtp.notConfigured")}
             size="small"
             color={configured ? "success" : "default"}
             sx={{ ml: 1 }}
           />
         </Box>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-          Configure SMTP settings to enable email notifications. If left empty,
-          only in-app notifications will be delivered.
+          {t("settings.smtp.description")}
         </Typography>
 
         <Box
           sx={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 2, mb: 2 }}
         >
           <TextField
-            label="SMTP Host"
+            label={t("settings.smtp.host")}
             fullWidth
             value={smtpHost}
             onChange={(e) => setSmtpHost(e.target.value)}
             placeholder="e.g. smtp.gmail.com"
           />
           <TextField
-            label="SMTP Port"
+            label={t("settings.smtp.port")}
             fullWidth
             type="number"
             value={smtpPort}
@@ -824,14 +895,14 @@ function GeneralTab() {
           sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 2, mb: 2 }}
         >
           <TextField
-            label="SMTP Username"
+            label={t("settings.smtp.username")}
             fullWidth
             value={smtpUser}
             onChange={(e) => setSmtpUser(e.target.value)}
             placeholder="e.g. user@gmail.com"
           />
           <TextField
-            label="SMTP Password"
+            label={t("settings.smtp.password")}
             fullWidth
             type="password"
             value={smtpPassword}
@@ -843,7 +914,7 @@ function GeneralTab() {
           sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 2, mb: 2 }}
         >
           <TextField
-            label="From Address"
+            label={t("settings.smtp.fromAddress")}
             fullWidth
             value={smtpFrom}
             onChange={(e) => setSmtpFrom(e.target.value)}
@@ -856,7 +927,7 @@ function GeneralTab() {
                 onChange={(e) => setSmtpTls(e.target.checked)}
               />
             }
-            label="Use TLS"
+            label={t("settings.smtp.useTls")}
             sx={{ ml: 1, mt: 1 }}
           />
         </Box>
@@ -864,12 +935,12 @@ function GeneralTab() {
         <Divider sx={{ my: 2 }} />
 
         <TextField
-          label="Application Base URL"
+          label={t("settings.smtp.appBaseUrl")}
           fullWidth
           value={appBaseUrl}
           onChange={(e) => setAppBaseUrl(e.target.value)}
           placeholder="e.g. https://turboea.yourcompany.com"
-          helperText="Used in email notification links. Leave empty for localhost."
+          helperText={t("settings.smtp.appBaseUrlHelper")}
           sx={{ mb: 3 }}
         />
 
@@ -887,7 +958,7 @@ function GeneralTab() {
             onClick={handleTest}
             disabled={saving || testing || !smtpHost}
           >
-            {testing ? "Sending..." : "Send Test Email"}
+            {testing ? t("settings.smtp.sending") : t("settings.smtp.sendTest")}
           </Button>
           <Button
             variant="contained"
@@ -896,7 +967,7 @@ function GeneralTab() {
             onClick={handleSave}
             disabled={saving}
           >
-            {saving ? "Saving..." : "Save"}
+            {saving ? t("common:labels.loading") : t("common:actions.save")}
           </Button>
         </Box>
       </Paper>
@@ -917,12 +988,20 @@ function GeneralTab() {
 // ---------------------------------------------------------------------------
 
 export default function SettingsAdmin() {
+  const { t } = useTranslation(["admin", "common"]);
   const [params, setParams] = useSearchParams();
   const tabKey = params.get("tab") || "general";
-  const tabIndex = Math.max(0, TABS.findIndex((t) => t.key === tabKey));
+  const tabIndex = Math.max(0, TAB_KEYS.indexOf(tabKey));
+
+  const TAB_LABELS = [
+    t("settings.tabs.general"),
+    t("settings.tabs.eol"),
+    t("settings.tabs.webPortals"),
+    t("settings.tabs.servicenow"),
+  ];
 
   const handleTabChange = (_: React.SyntheticEvent, newIndex: number) => {
-    const newTab = TABS[newIndex].key;
+    const newTab = TAB_KEYS[newIndex];
     if (newTab === "general") {
       setParams({});
     } else {
@@ -935,7 +1014,7 @@ export default function SettingsAdmin() {
       <Box sx={{ display: "flex", alignItems: "center", mb: 3, gap: 1 }}>
         <MaterialSymbol icon="settings" size={28} color="#1976d2" />
         <Typography variant="h5" fontWeight={700}>
-          Settings
+          {t("settings.title")}
         </Typography>
       </Box>
 
@@ -946,8 +1025,8 @@ export default function SettingsAdmin() {
         scrollButtons="auto"
         sx={{ mb: 3 }}
       >
-        {TABS.map((t) => (
-          <Tab key={t.key} label={t.label} />
+        {TAB_LABELS.map((label, i) => (
+          <Tab key={TAB_KEYS[i]} label={label} />
         ))}
       </Tabs>
 

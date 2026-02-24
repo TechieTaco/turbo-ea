@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Tabs from "@mui/material/Tabs";
@@ -29,6 +30,7 @@ import FormControlLabel from "@mui/material/FormControlLabel";
 import Switch from "@mui/material/Switch";
 import Autocomplete from "@mui/material/Autocomplete";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import { useResolveLabel, useResolveMetaLabel } from "@/hooks/useResolveLabel";
 import { api } from "@/api/client";
 import type { CardType, Bookmark, FieldDef, RelationType, User } from "@/types";
 
@@ -65,24 +67,24 @@ interface Props {
 }
 
 const APPROVAL_STATUS_OPTIONS = [
-  { key: "DRAFT", label: "Draft", color: "#9e9e9e" },
-  { key: "APPROVED", label: "Approved", color: "#4caf50" },
-  { key: "BROKEN", label: "Broken", color: "#ff9800" },
-  { key: "REJECTED", label: "Rejected", color: "#f44336" },
+  { key: "DRAFT", tKey: "common:status.draft" as const, color: "#9e9e9e" },
+  { key: "APPROVED", tKey: "common:status.approved" as const, color: "#4caf50" },
+  { key: "BROKEN", tKey: "common:status.broken" as const, color: "#ff9800" },
+  { key: "REJECTED", tKey: "common:status.rejected" as const, color: "#f44336" },
 ];
 
 const LIFECYCLE_PHASES = [
-  { key: "plan", label: "Plan", color: "#90a4ae" },
-  { key: "phaseIn", label: "Phase In", color: "#42a5f5" },
-  { key: "active", label: "Active", color: "#66bb6a" },
-  { key: "phaseOut", label: "Phase Out", color: "#ffa726" },
-  { key: "endOfLife", label: "End of Life", color: "#ef5350" },
+  { key: "plan", tKey: "common:lifecycle.plan" as const, color: "#90a4ae" },
+  { key: "phaseIn", tKey: "common:lifecycle.phaseIn" as const, color: "#42a5f5" },
+  { key: "active", tKey: "common:lifecycle.active" as const, color: "#66bb6a" },
+  { key: "phaseOut", tKey: "common:lifecycle.phaseOut" as const, color: "#ffa726" },
+  { key: "endOfLife", tKey: "common:lifecycle.endOfLife" as const, color: "#ef5350" },
 ];
 
 const DATA_QUALITY_THRESHOLDS = [
-  { key: 80, label: "Good (80%+)", color: "#4caf50" },
-  { key: 50, label: "Medium (50%+)", color: "#ff9800" },
-  { key: 0, label: "Poor (< 50%)", color: "#f44336" },
+  { key: 80, tKey: "filter.dataQualityGood" as const, color: "#4caf50" },
+  { key: 50, tKey: "filter.dataQualityMedium" as const, color: "#ff9800" },
+  { key: 0, tKey: "filter.dataQualityPoor" as const, color: "#f44336" },
 ];
 
 const MIN_WIDTH = 220;
@@ -107,6 +109,9 @@ export default function InventoryFilterSidebar({
   canOdataBookmarks = false,
   currentUserId,
 }: Props) {
+  const { t } = useTranslation(["inventory", "common"]);
+  const rl = useResolveLabel();
+  const rml = useResolveMetaLabel();
   const [tab, setTab] = useState(0);
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
     types: true,
@@ -387,7 +392,7 @@ export default function InventoryFilterSidebar({
           bgcolor: "action.hover",
         }}
       >
-        <Tooltip title="Expand filters" placement="right">
+        <Tooltip title={t("filter.expand")} placement="right">
           <IconButton size="small" onClick={onToggleCollapse}>
             <MaterialSymbol icon="chevron_right" size={20} />
           </IconButton>
@@ -440,8 +445,8 @@ export default function InventoryFilterSidebar({
               "& .MuiTab-root": { minHeight: 36, py: 0, textTransform: "none", fontSize: 14 },
             }}
           >
-            <Tab label="Filters" />
-            <Tab label="Views" />
+            <Tab label={t("filter.title")} />
+            <Tab label={t("views.title")} />
           </Tabs>
           <IconButton size="small" onClick={onToggleCollapse}>
             <MaterialSymbol icon="chevron_left" size={20} />
@@ -455,7 +460,7 @@ export default function InventoryFilterSidebar({
             <>
               {/* Search */}
               <SectionHeader
-                label="Search"
+                label={t("common:actions.search")}
                 icon="search"
                 expanded={expandedSections.search}
                 onToggle={() => toggleSection("search")}
@@ -464,7 +469,7 @@ export default function InventoryFilterSidebar({
                 <TextField
                   size="small"
                   fullWidth
-                  placeholder="Search cards..."
+                  placeholder={t("filter.searchPlaceholder")}
                   value={filters.search}
                   onChange={(e) => onFiltersChange({ ...filters, search: e.target.value })}
                   sx={{ mb: 2 }}
@@ -494,7 +499,7 @@ export default function InventoryFilterSidebar({
 
               {/* Card Types */}
               <SectionHeader
-                label="Types"
+                label={t("filter.types")}
                 icon="category"
                 expanded={expandedSections.types}
                 onToggle={() => toggleSection("types")}
@@ -521,7 +526,7 @@ export default function InventoryFilterSidebar({
                         </ListItemIcon>
                         <MaterialSymbol icon={t.icon} size={16} color={t.color} />
                         <ListItemText
-                          primary={t.label}
+                          primary={rml(t.key, t.translations, "label")}
                           primaryTypographyProps={{
                             fontSize: 14,
                             ml: 0.75,
@@ -537,7 +542,7 @@ export default function InventoryFilterSidebar({
               {subtypeOptions.length > 0 && (
                 <>
                   <SectionHeader
-                    label="Subtypes"
+                    label={t("filter.subtypes")}
                     icon="label"
                     expanded={expandedSections.subtypes}
                     onToggle={() => toggleSection("subtypes")}
@@ -548,7 +553,7 @@ export default function InventoryFilterSidebar({
                       {subtypeOptions.map((st) => (
                         <Chip
                           key={st.key}
-                          label={st.label}
+                          label={rl(st.key, st.translations)}
                           size="small"
                           onClick={() => toggleSubtype(st.key)}
                           variant={filters.subtypes.includes(st.key) ? "filled" : "outlined"}
@@ -562,7 +567,7 @@ export default function InventoryFilterSidebar({
 
               {/* Approval Status */}
               <SectionHeader
-                label="Approval Status"
+                label={t("filter.approvalStatus")}
                 icon="verified"
                 expanded={expandedSections.approvalStatus}
                 onToggle={() => toggleSection("approvalStatus")}
@@ -573,7 +578,7 @@ export default function InventoryFilterSidebar({
                   {APPROVAL_STATUS_OPTIONS.map((s) => (
                     <Chip
                       key={s.key}
-                      label={s.label}
+                      label={t(s.tKey)}
                       size="small"
                       onClick={() => toggleApprovalStatus(s.key)}
                       variant={filters.approvalStatuses.includes(s.key) ? "filled" : "outlined"}
@@ -589,7 +594,7 @@ export default function InventoryFilterSidebar({
 
               {/* Lifecycle */}
               <SectionHeader
-                label="Lifecycle"
+                label={t("filter.lifecycle")}
                 icon="schedule"
                 expanded={expandedSections.lifecycle}
                 onToggle={() => toggleSection("lifecycle")}
@@ -600,7 +605,7 @@ export default function InventoryFilterSidebar({
                   {LIFECYCLE_PHASES.map((p) => (
                     <Chip
                       key={p.key}
-                      label={p.label}
+                      label={t(p.tKey)}
                       size="small"
                       onClick={() => toggleLifecyclePhase(p.key)}
                       variant={filters.lifecyclePhases.includes(p.key) ? "filled" : "outlined"}
@@ -616,7 +621,7 @@ export default function InventoryFilterSidebar({
 
               {/* Data Quality */}
               <SectionHeader
-                label="Data Quality"
+                label={t("filter.dataQuality")}
                 icon="bar_chart"
                 expanded={expandedSections.dataQuality}
                 onToggle={() => toggleSection("dataQuality")}
@@ -624,17 +629,17 @@ export default function InventoryFilterSidebar({
               />
               <Collapse in={expandedSections.dataQuality}>
                 <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5, mb: 2, px: 0.5 }}>
-                  {DATA_QUALITY_THRESHOLDS.map((t) => (
+                  {DATA_QUALITY_THRESHOLDS.map((dq) => (
                     <Chip
-                      key={t.key}
-                      label={t.label}
+                      key={dq.key}
+                      label={t(dq.tKey)}
                       size="small"
-                      onClick={() => onFiltersChange({ ...filters, dataQualityMin: filters.dataQualityMin === t.key ? null : t.key })}
-                      variant={filters.dataQualityMin === t.key ? "filled" : "outlined"}
+                      onClick={() => onFiltersChange({ ...filters, dataQualityMin: filters.dataQualityMin === dq.key ? null : dq.key })}
+                      variant={filters.dataQualityMin === dq.key ? "filled" : "outlined"}
                       sx={
-                        filters.dataQualityMin === t.key
-                          ? { bgcolor: t.color, color: "#fff", borderColor: t.color }
-                          : { borderColor: t.color, color: t.color }
+                        filters.dataQualityMin === dq.key
+                          ? { bgcolor: dq.color, color: "#fff", borderColor: dq.color }
+                          : { borderColor: dq.color, color: dq.color }
                       }
                     />
                   ))}
@@ -645,7 +650,7 @@ export default function InventoryFilterSidebar({
               {attributeFields.length > 0 && (
                 <>
                   <SectionHeader
-                    label="Attributes"
+                    label={t("filter.attributes")}
                     icon="tune"
                     expanded={expandedSections.attributes}
                     onToggle={() => toggleSection("attributes")}
@@ -659,15 +664,15 @@ export default function InventoryFilterSidebar({
                           const optionMap = new Map(field.options.map((o) => [o.key, o]));
                           const searchTerm = (dropdownSearch[field.key] || "").toLowerCase();
                           const filteredOpts = searchTerm
-                            ? field.options.filter((o) => o.label.toLowerCase().includes(searchTerm))
+                            ? field.options.filter((o) => rl(o.key, o.translations).toLowerCase().includes(searchTerm))
                             : field.options;
                           return (
                             <FormControl key={field.key} size="small" fullWidth>
-                              <InputLabel sx={{ fontSize: 14 }}>{field.label}</InputLabel>
+                              <InputLabel sx={{ fontSize: 14 }}>{rl(field.key, field.translations)}</InputLabel>
                               <Select
                                 multiple
                                 value={Array.isArray(selected) ? selected : []}
-                                label={field.label}
+                                label={rl(field.key, field.translations)}
                                 onChange={(e) => setAttr(field.key, e.target.value as string[])}
                                 onClose={() => setDropdownSearch((s) => ({ ...s, [field.key]: "" }))}
                                 sx={{ fontSize: 14 }}
@@ -679,7 +684,7 @@ export default function InventoryFilterSidebar({
                                       return (
                                         <Chip
                                           key={v}
-                                          label={opt?.label ?? v}
+                                          label={opt ? rl(opt.key, opt.translations) : v}
                                           size="small"
                                           sx={{
                                             height: 20, fontSize: 12,
@@ -697,7 +702,7 @@ export default function InventoryFilterSidebar({
                                   <TextField
                                     size="small"
                                     autoFocus
-                                    placeholder="Search…"
+                                    placeholder={t("filter.searchEllipsis")}
                                     fullWidth
                                     value={dropdownSearch[field.key] || ""}
                                     onChange={(e) => setDropdownSearch((s) => ({ ...s, [field.key]: e.target.value }))}
@@ -719,14 +724,14 @@ export default function InventoryFilterSidebar({
                                       {opt.color && (
                                         <Box sx={{ width: 10, height: 10, borderRadius: "50%", bgcolor: opt.color }} />
                                       )}
-                                      {opt.label}
+                                      {rl(opt.key, opt.translations)}
                                     </Box>
                                   </MenuItem>
                                 ))}
                                 {filteredOpts.length === 0 && (
                                   <MenuItem disabled>
                                     <Typography variant="body2" color="text.secondary" sx={{ fontSize: 14 }}>
-                                      No matches
+                                      {t("filter.noMatches")}
                                     </Typography>
                                   </MenuItem>
                                 )}
@@ -737,16 +742,16 @@ export default function InventoryFilterSidebar({
                         if (field.type === "boolean") {
                           return (
                             <FormControl key={field.key} size="small" fullWidth>
-                              <InputLabel sx={{ fontSize: 14 }}>{field.label}</InputLabel>
+                              <InputLabel sx={{ fontSize: 14 }}>{rl(field.key, field.translations)}</InputLabel>
                               <Select
                                 value={(filters.attributes[field.key] as string) ?? ""}
-                                label={field.label}
+                                label={rl(field.key, field.translations)}
                                 onChange={(e) => setAttr(field.key, e.target.value as string)}
                                 sx={{ fontSize: 14 }}
                               >
-                                <MenuItem value=""><em>Any</em></MenuItem>
-                                <MenuItem value="true">Yes</MenuItem>
-                                <MenuItem value="false">No</MenuItem>
+                                <MenuItem value=""><em>{t("filter.any")}</em></MenuItem>
+                                <MenuItem value="true">{t("common:labels.yes")}</MenuItem>
+                                <MenuItem value="false">{t("common:labels.no")}</MenuItem>
                               </Select>
                             </FormControl>
                           );
@@ -757,8 +762,8 @@ export default function InventoryFilterSidebar({
                               key={field.key}
                               size="small"
                               fullWidth
-                              label={field.label}
-                              placeholder="Min value"
+                              label={rl(field.key, field.translations)}
+                              placeholder={t("filter.minValue")}
                               type="number"
                               value={(filters.attributes[field.key] as string) || ""}
                               onChange={(e) => setAttr(field.key, e.target.value)}
@@ -773,9 +778,9 @@ export default function InventoryFilterSidebar({
                             key={field.key}
                             size="small"
                             fullWidth
-                            label={field.label}
+                            label={rl(field.key, field.translations)}
                             type={field.type === "date" ? "date" : "text"}
-                            placeholder={field.type === "date" ? "" : "Contains..."}
+                            placeholder={field.type === "date" ? "" : t("filter.contains")}
                             value={(filters.attributes[field.key] as string) || ""}
                             onChange={(e) => setAttr(field.key, e.target.value)}
                             sx={{ "& .MuiInputBase-input": { fontSize: 14 } }}
@@ -792,7 +797,7 @@ export default function InventoryFilterSidebar({
               {relFilterOptions.size > 0 && (
                 <>
                   <SectionHeader
-                    label="Relationships"
+                    label={t("filter.relationships")}
                     icon="share"
                     expanded={expandedSections.relationships}
                     onToggle={() => toggleSection("relationships")}
@@ -806,7 +811,7 @@ export default function InventoryFilterSidebar({
                         const isSource = rt.source_type_key === (filters.types.length === 1 ? filters.types[0] : "");
                         const otherTypeKey = isSource ? rt.target_type_key : rt.source_type_key;
                         const otherType = types.find((t) => t.key === otherTypeKey);
-                        const label = otherType?.label || otherTypeKey;
+                        const label = otherType ? rml(otherType.key, otherType.translations, "label") : otherTypeKey;
                         const selected = (filters.relations || {})[rt.key] || [];
                         const searchKey = `rel_${rt.key}`;
                         const searchTerm = (dropdownSearch[searchKey] || "").toLowerCase();
@@ -872,7 +877,7 @@ export default function InventoryFilterSidebar({
                               {filteredOpts.length === 0 && (
                                 <MenuItem disabled>
                                   <Typography variant="body2" color="text.secondary" sx={{ fontSize: 14 }}>
-                                    No matches
+                                    {t("filter.noMatches")}
                                   </Typography>
                                 </MenuItem>
                               )}
@@ -899,7 +904,7 @@ export default function InventoryFilterSidebar({
                     label={
                       <Box sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>
                         <MaterialSymbol icon="archive" size={16} />
-                        <Typography variant="body2" fontSize={13}>Show archived only</Typography>
+                        <Typography variant="body2" fontSize={13}>{t("filter.showArchivedOnly")}</Typography>
                       </Box>
                     }
                     sx={{ ml: 0 }}
@@ -916,7 +921,7 @@ export default function InventoryFilterSidebar({
                     startIcon={<MaterialSymbol icon="filter_alt_off" size={16} />}
                     sx={{ textTransform: "none", fontSize: 13 }}
                   >
-                    Clear all ({activeCount})
+                    {t("filter.clearAll", { count: activeCount })}
                   </Button>
                 )}
                 <Button
@@ -926,7 +931,7 @@ export default function InventoryFilterSidebar({
                   startIcon={<MaterialSymbol icon="bookmark_add" size={16} />}
                   sx={{ textTransform: "none", fontSize: 13, ml: "auto" }}
                 >
-                  Save view
+                  {t("views.saveView")}
                 </Button>
               </Box>
             </>
@@ -942,7 +947,7 @@ export default function InventoryFilterSidebar({
                 }}
               >
                 <Typography variant="body2" fontWeight={600} fontSize={14}>
-                  Saved Views
+                  {t("views.savedViews")}
                 </Typography>
                 <Button
                   size="small"
@@ -950,7 +955,7 @@ export default function InventoryFilterSidebar({
                   startIcon={<MaterialSymbol icon="add" size={16} />}
                   sx={{ textTransform: "none", fontSize: 13 }}
                 >
-                  Save current
+                  {t("views.saveCurrent")}
                 </Button>
               </Box>
 
@@ -960,9 +965,9 @@ export default function InventoryFilterSidebar({
                   color="text.secondary"
                   sx={{ textAlign: "center", py: 4, fontSize: 14 }}
                 >
-                  No saved views yet.
+                  {t("views.noSavedViews")}
                   <br />
-                  Apply filters and click "Save current".
+                  {t("views.noSavedViewsHint")}
                 </Typography>
               ) : (
                 <>
@@ -970,7 +975,7 @@ export default function InventoryFilterSidebar({
                   {myViews.length > 0 && (
                     <>
                       <Typography variant="overline" color="text.secondary" sx={{ fontSize: 11, px: 0.5 }}>
-                        My Views
+                        {t("views.myViews")}
                       </Typography>
                       <List dense disablePadding sx={{ mb: 1 }}>
                         {myViews.map((bm) => (
@@ -991,7 +996,7 @@ export default function InventoryFilterSidebar({
                   {sharedViews.length > 0 && (
                     <>
                       <Typography variant="overline" color="text.secondary" sx={{ fontSize: 11, px: 0.5 }}>
-                        Shared with me
+                        {t("views.sharedWithMe")}
                       </Typography>
                       <List dense disablePadding sx={{ mb: 1 }}>
                         {sharedViews.map((bm) => (
@@ -1011,7 +1016,7 @@ export default function InventoryFilterSidebar({
                   {publicViews.length > 0 && (
                     <>
                       <Typography variant="overline" color="text.secondary" sx={{ fontSize: 11, px: 0.5 }}>
-                        Public
+                        {t("views.public")}
                       </Typography>
                       <List dense disablePadding>
                         {publicViews.map((bm) => (
@@ -1054,14 +1059,14 @@ export default function InventoryFilterSidebar({
       >
         <DialogTitle sx={{ display: "flex", alignItems: "center", gap: 1 }}>
           <MaterialSymbol icon={editingBookmark ? "edit" : "bookmark_add"} size={22} color="#1976d2" />
-          {editingBookmark ? "Edit View" : "Save Current View"}
+          {editingBookmark ? t("views.editView") : t("views.saveCurrentView")}
         </DialogTitle>
         <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 2, pt: "8px !important" }}>
           <TextField
             autoFocus
             fullWidth
             size="small"
-            label="View name"
+            label={t("views.viewName")}
             value={viewName}
             onChange={(e) => setViewName(e.target.value)}
             onKeyDown={(e) => {
@@ -1070,7 +1075,7 @@ export default function InventoryFilterSidebar({
           />
           {!editingBookmark && activeCount > 0 && (
             <Typography variant="caption" color="text.secondary">
-              This will save your current {activeCount} active filter{activeCount > 1 ? "s" : ""}.
+              {t("views.saveActiveFilters", { count: activeCount })}
             </Typography>
           )}
 
@@ -1078,7 +1083,7 @@ export default function InventoryFilterSidebar({
           {canShareBookmarks && (
             <TextField
               select
-              label="Visibility"
+              label={t("views.visibility")}
               value={dialogVisibility}
               onChange={(e) => setDialogVisibility(e.target.value as "private" | "public" | "shared")}
               fullWidth
@@ -1088,19 +1093,19 @@ export default function InventoryFilterSidebar({
               <MenuItem value="private">
                 <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                   <MaterialSymbol icon="lock" size={16} />
-                  Private — Only me
+                  {t("views.visibilityPrivate")}
                 </Box>
               </MenuItem>
               <MenuItem value="public">
                 <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                   <MaterialSymbol icon="public" size={16} />
-                  Public — All users
+                  {t("views.visibilityPublic")}
                 </Box>
               </MenuItem>
               <MenuItem value="shared">
                 <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                   <MaterialSymbol icon="group" size={16} />
-                  Shared — Specific users
+                  {t("views.visibilityShared")}
                 </Box>
               </MenuItem>
             </TextField>
@@ -1124,7 +1129,7 @@ export default function InventoryFilterSidebar({
                   ))
                 }
                 renderInput={(params) => (
-                  <TextField {...params} label="Share with" size="small" placeholder="Search users..." />
+                  <TextField {...params} label={t("views.shareWith")} size="small" placeholder={t("views.searchUsers")} />
                 )}
                 size="small"
                 disabled={editingBookmark != null && !editingBookmark.is_owner}
@@ -1134,7 +1139,7 @@ export default function InventoryFilterSidebar({
               {dialogSharedWith.length > 0 && (
                 <Box sx={{ pl: 1 }}>
                   <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, display: "block" }}>
-                    Permissions (shared users can view by default)
+                    {t("views.permissionsHint")}
                   </Typography>
                   {dialogSharedWith.map((u) => (
                     <FormControlLabel
@@ -1153,7 +1158,7 @@ export default function InventoryFilterSidebar({
                       }
                       label={
                         <Typography variant="body2" fontSize={13}>
-                          {u.display_name} — can edit
+                          {t("views.userCanEdit", { name: u.display_name })}
                         </Typography>
                       }
                       sx={{ ml: 0 }}
@@ -1178,7 +1183,7 @@ export default function InventoryFilterSidebar({
               label={
                 <Box sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>
                   <MaterialSymbol icon="cloud" size={16} />
-                  <Typography variant="body2" fontSize={13}>Enable OData feed</Typography>
+                  <Typography variant="body2" fontSize={13}>{t("views.enableOdata")}</Typography>
                 </Box>
               }
               sx={{ ml: 0 }}
@@ -1187,7 +1192,7 @@ export default function InventoryFilterSidebar({
           {canOdataBookmarks && dialogOdata && editingBookmark?.odata_url && (
             <Box sx={{ bgcolor: "action.selected", borderRadius: 1, p: 1.5 }}>
               <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.5 }}>
-                OData Feed URL (requires authentication)
+                {t("views.odataFeedUrl")}
               </Typography>
               <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
                 <Typography
@@ -1201,7 +1206,7 @@ export default function InventoryFilterSidebar({
                 >
                   {editingBookmark.odata_url}
                 </Typography>
-                <Tooltip title="Copy URL">
+                <Tooltip title={t("views.copyUrl")}>
                   <IconButton
                     size="small"
                     onClick={() => navigator.clipboard.writeText(editingBookmark.odata_url || "")}
@@ -1214,13 +1219,13 @@ export default function InventoryFilterSidebar({
           )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setSaveDialogOpen(false)}>Cancel</Button>
+          <Button onClick={() => setSaveDialogOpen(false)}>{t("common:actions.cancel")}</Button>
           <Button
             variant="contained"
             onClick={handleSaveView}
             disabled={!viewName.trim()}
           >
-            {editingBookmark ? "Update" : "Save"}
+            {editingBookmark ? t("views.update") : t("common:actions.save")}
           </Button>
         </DialogActions>
       </Dialog>
@@ -1292,6 +1297,8 @@ function BookmarkListItem({
   onEdit?: (bm: Bookmark) => void;
   onDelete?: (bm: Bookmark) => void;
 }) {
+  const { t } = useTranslation(["inventory", "common"]);
+  const rml = useResolveMetaLabel();
   const bmFilters = bm.filters as Record<string, unknown> | undefined;
   const bmTypes = (bmFilters?.types as string[]) || [];
   const matchedType = bmTypes.length === 1 ? types.find((t) => t.key === bmTypes[0]) : null;
@@ -1322,12 +1329,12 @@ function BookmarkListItem({
         }
         secondary={
           !bm.is_owner
-            ? `by ${bm.owner_name || "Unknown"}`
+            ? t("inventory:views.byOwner", { name: bm.owner_name || t("inventory:views.unknown") })
             : matchedType
-            ? matchedType.label
+            ? rml(matchedType.key, matchedType.translations, "label")
             : bmTypes.length > 1
-            ? `${bmTypes.length} types`
-            : "All types"
+            ? t("inventory:views.nTypes", { count: bmTypes.length })
+            : t("inventory:views.allTypes")
         }
         secondaryTypographyProps={{ fontSize: 12 }}
       />

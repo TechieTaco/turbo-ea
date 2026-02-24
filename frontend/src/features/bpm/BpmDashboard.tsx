@@ -4,6 +4,7 @@
  * Tab 1: Dashboard KPIs, charts, and quick links to processes.
  */
 import { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import Box from "@mui/material/Box";
 import Card from "@mui/material/Card";
@@ -51,6 +52,7 @@ const RISK_COLORS: Record<string, string> = {
 
 /* ── Dashboard content (tab 1) ── */
 function BpmDashboardContent() {
+  const { t } = useTranslation(["bpm", "common"]);
   const navigate = useNavigate();
   const theme = useTheme();
   const [data, setData] = useState<BpmDashboardData | null>(null);
@@ -65,7 +67,7 @@ function BpmDashboardContent() {
   }, []);
 
   if (loading) return <LinearProgress />;
-  if (!data) return <Typography>Failed to load BPM dashboard.</Typography>;
+  if (!data) return <Typography>{t("dashboard.loadFailed")}</Typography>;
 
   const typeData = Object.entries(data.by_process_type)
     .filter(([k]) => k !== "unknown")
@@ -85,7 +87,7 @@ function BpmDashboardContent() {
           onClick={() => navigate("/inventory?type=BusinessProcess")}
           startIcon={<MaterialSymbol icon="list" />}
         >
-          All Processes
+          {t("dashboard.allProcesses")}
         </Button>
       </Box>
 
@@ -95,7 +97,7 @@ function BpmDashboardContent() {
           <Card>
             <CardContent sx={{ textAlign: "center" }}>
               <Typography variant="h3" color="primary">{data.total_processes}</Typography>
-              <Typography variant="body2" color="text.secondary">Total Processes</Typography>
+              <Typography variant="body2" color="text.secondary">{t("dashboard.totalProcesses")}</Typography>
             </CardContent>
           </Card>
         </Grid>
@@ -106,7 +108,7 @@ function BpmDashboardContent() {
                 {data.diagram_coverage.percentage}%
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                Diagram Coverage ({data.diagram_coverage.with_diagram}/{data.diagram_coverage.total})
+                {t("dashboard.diagramCoverage", { with: data.diagram_coverage.with_diagram, total: data.diagram_coverage.total })}
               </Typography>
             </CardContent>
           </Card>
@@ -117,7 +119,7 @@ function BpmDashboardContent() {
               <Typography variant="h3" color="warning.main">
                 {data.by_risk.high || 0}
               </Typography>
-              <Typography variant="body2" color="text.secondary">High Risk</Typography>
+              <Typography variant="body2" color="text.secondary">{t("dashboard.highRisk")}</Typography>
             </CardContent>
           </Card>
         </Grid>
@@ -127,7 +129,7 @@ function BpmDashboardContent() {
               <Typography variant="h3" color="error.main">
                 {data.by_risk.critical || 0}
               </Typography>
-              <Typography variant="body2" color="text.secondary">Critical Risk</Typography>
+              <Typography variant="body2" color="text.secondary">{t("dashboard.criticalRisk")}</Typography>
             </CardContent>
           </Card>
         </Grid>
@@ -139,7 +141,7 @@ function BpmDashboardContent() {
         <Grid item xs={12} md={4}>
           <Card>
             <CardContent>
-              <Typography variant="subtitle2" gutterBottom>By Process Type</Typography>
+              <Typography variant="subtitle2" gutterBottom>{t("dashboard.byProcessType")}</Typography>
               <ResponsiveContainer width="100%" height={220}>
                 <PieChart>
                   <Pie
@@ -172,7 +174,7 @@ function BpmDashboardContent() {
         <Grid item xs={12} md={4}>
           <Card>
             <CardContent>
-              <Typography variant="subtitle2" gutterBottom>Maturity Distribution</Typography>
+              <Typography variant="subtitle2" gutterBottom>{t("dashboard.maturityDistribution")}</Typography>
               <ResponsiveContainer width="100%" height={220}>
                 <BarChart data={maturityData}>
                   <CartesianGrid strokeDasharray="3 3" stroke={theme.palette.divider} />
@@ -181,7 +183,7 @@ function BpmDashboardContent() {
                   <Tooltip cursor={{ fill: theme.palette.action.hover }} contentStyle={{ backgroundColor: theme.palette.background.paper, borderColor: theme.palette.divider, color: theme.palette.text.primary }} />
                   <Bar
                     dataKey="value"
-                    name="Processes"
+                    name={t("dashboard.processes")}
                     style={{ cursor: "pointer" }}
                     onClick={(_data, idx) => {
                       const name = maturityData[idx]?.name;
@@ -202,7 +204,7 @@ function BpmDashboardContent() {
         <Grid item xs={12} md={4}>
           <Card>
             <CardContent>
-              <Typography variant="subtitle2" gutterBottom>Automation Level</Typography>
+              <Typography variant="subtitle2" gutterBottom>{t("dashboard.automationLevel")}</Typography>
               <ResponsiveContainer width="100%" height={220}>
                 <BarChart data={automationData}>
                   <CartesianGrid strokeDasharray="3 3" stroke={theme.palette.divider} />
@@ -211,7 +213,7 @@ function BpmDashboardContent() {
                   <Tooltip cursor={{ fill: theme.palette.action.hover }} contentStyle={{ backgroundColor: theme.palette.background.paper, borderColor: theme.palette.divider, color: theme.palette.text.primary }} />
                   <Bar
                     dataKey="value"
-                    name="Processes"
+                    name={t("dashboard.processes")}
                     fill="#1976d2"
                     style={{ cursor: "pointer" }}
                     onClick={(_data, idx) => {
@@ -230,13 +232,13 @@ function BpmDashboardContent() {
       {data.top_risk_processes.length > 0 && (
         <Card>
           <CardContent>
-            <Typography variant="subtitle2" gutterBottom>Top Risk Processes</Typography>
+            <Typography variant="subtitle2" gutterBottom>{t("dashboard.topRiskProcesses")}</Typography>
             <Table size="small">
               <TableHead>
                 <TableRow>
-                  <TableCell>Process</TableCell>
-                  <TableCell>Risk</TableCell>
-                  <TableCell>Maturity</TableCell>
+                  <TableCell>{t("dashboard.process")}</TableCell>
+                  <TableCell>{t("dashboard.risk")}</TableCell>
+                  <TableCell>{t("dashboard.maturity")}</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -282,6 +284,7 @@ function BpmDashboardContent() {
 const BPM_TAB_PARAM = "tab";
 
 export default function BpmDashboard() {
+  const { t } = useTranslation(["bpm", "common"]);
   const [searchParams, setSearchParams] = useSearchParams();
   const tabParam = searchParams.get(BPM_TAB_PARAM);
   const tabIndex = tabParam === "dashboard" ? 1 : tabParam === "reports" ? 2 : 0;
@@ -305,24 +308,24 @@ export default function BpmDashboard() {
         <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, mb: 1 }}>
           <MaterialSymbol icon="route" size={28} color="#1976d2" />
           <Typography variant="h5" sx={{ fontWeight: 700 }}>
-            Business Process Management
+            {t("page.title")}
           </Typography>
         </Box>
         <Tabs value={tabIndex} onChange={handleTabChange}>
           <Tab
-            label="Process Navigator"
+            label={t("tabs.processNavigator")}
             icon={<MaterialSymbol icon="account_tree" size={18} />}
             iconPosition="start"
             sx={{ minHeight: 42, textTransform: "none" }}
           />
           <Tab
-            label="Dashboard"
+            label={t("tabs.dashboard")}
             icon={<MaterialSymbol icon="dashboard" size={18} />}
             iconPosition="start"
             sx={{ minHeight: 42, textTransform: "none" }}
           />
           <Tab
-            label="Reports"
+            label={t("tabs.reports")}
             icon={<MaterialSymbol icon="analytics" size={18} />}
             iconPosition="start"
             sx={{ minHeight: 42, textTransform: "none" }}

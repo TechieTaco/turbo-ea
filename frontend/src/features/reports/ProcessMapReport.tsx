@@ -8,6 +8,7 @@
  * Modeled after CapabilityMapReport.
  */
 import { useEffect, useState, useMemo, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import TextField from "@mui/material/TextField";
 import MenuItem from "@mui/material/MenuItem";
@@ -76,46 +77,46 @@ type ShowRelated = "none" | "apps" | "data_objects";
 /*  Constants                                                          */
 /* ------------------------------------------------------------------ */
 
-const METRIC_OPTIONS: { key: Metric; label: string; icon: string }[] = [
-  { key: "app_count", label: "Application Count", icon: "apps" },
-  { key: "maturity", label: "Maturity (CMMI)", icon: "trending_up" },
-  { key: "automation", label: "Automation Level", icon: "precision_manufacturing" },
-  { key: "risk", label: "Risk Level", icon: "warning" },
-  { key: "total_cost", label: "Total Cost", icon: "payments" },
+const METRIC_OPTIONS: { key: Metric; tKey: string; icon: string }[] = [
+  { key: "app_count", tKey: "processMap.metricAppCount", icon: "apps" },
+  { key: "maturity", tKey: "processMap.metricMaturity", icon: "trending_up" },
+  { key: "automation", tKey: "processMap.metricAutomation", icon: "precision_manufacturing" },
+  { key: "risk", tKey: "processMap.metricRisk", icon: "warning" },
+  { key: "total_cost", tKey: "processMap.metricTotalCost", icon: "payments" },
 ];
 
-const MATURITY_MAP: Record<string, { order: number; label: string; color: string }> = {
-  initial: { order: 1, label: "1 - Initial", color: "#d32f2f" },
-  managed: { order: 2, label: "2 - Managed", color: "#f57c00" },
-  defined: { order: 3, label: "3 - Defined", color: "#fbc02d" },
-  measured: { order: 4, label: "4 - Measured", color: "#66bb6a" },
-  optimized: { order: 5, label: "5 - Optimized", color: "#2e7d32" },
+const MATURITY_MAP: Record<string, { order: number; tKey: string; color: string }> = {
+  initial: { order: 1, tKey: "processMap.maturityInitial", color: "#d32f2f" },
+  managed: { order: 2, tKey: "processMap.maturityManaged", color: "#f57c00" },
+  defined: { order: 3, tKey: "processMap.maturityDefined", color: "#fbc02d" },
+  measured: { order: 4, tKey: "processMap.maturityMeasured", color: "#66bb6a" },
+  optimized: { order: 5, tKey: "processMap.maturityOptimized", color: "#2e7d32" },
 };
 
-const AUTOMATION_MAP: Record<string, { order: number; label: string; color: string }> = {
-  manual: { order: 1, label: "Manual", color: "#d32f2f" },
-  partially: { order: 2, label: "Partially Automated", color: "#f57c00" },
-  fully: { order: 3, label: "Fully Automated", color: "#2e7d32" },
+const AUTOMATION_MAP: Record<string, { order: number; tKey: string; color: string }> = {
+  manual: { order: 1, tKey: "processMap.automationManual", color: "#d32f2f" },
+  partially: { order: 2, tKey: "processMap.automationPartially", color: "#f57c00" },
+  fully: { order: 3, tKey: "processMap.automationFully", color: "#2e7d32" },
 };
 
-const RISK_MAP: Record<string, { order: number; label: string; color: string }> = {
-  low: { order: 1, label: "Low", color: "#66bb6a" },
-  medium: { order: 2, label: "Medium", color: "#fbc02d" },
-  high: { order: 3, label: "High", color: "#f57c00" },
-  critical: { order: 4, label: "Critical", color: "#d32f2f" },
+const RISK_MAP: Record<string, { order: number; tKey: string; color: string }> = {
+  low: { order: 1, tKey: "processMap.riskLow", color: "#66bb6a" },
+  medium: { order: 2, tKey: "processMap.riskMedium", color: "#fbc02d" },
+  high: { order: 3, tKey: "processMap.riskHigh", color: "#f57c00" },
+  critical: { order: 4, tKey: "processMap.riskCritical", color: "#d32f2f" },
 };
 
-const PROCESS_TYPE_MAP: Record<string, { label: string; color: string }> = {
-  core: { label: "Core", color: "#1976d2" },
-  support: { label: "Support", color: "#7b1fa2" },
-  management: { label: "Management", color: "#00695c" },
+const PROCESS_TYPE_MAP: Record<string, { tKey: string; color: string }> = {
+  core: { tKey: "processMap.processTypeCore", color: "#1976d2" },
+  support: { tKey: "processMap.processTypeSupport", color: "#7b1fa2" },
+  management: { tKey: "processMap.processTypeManagement", color: "#00695c" },
 };
 
-const SUBTYPE_LABELS: Record<string, string> = {
-  category: "Category",
-  group: "Group",
-  process: "Process",
-  variant: "Variant",
+const SUBTYPE_TKEYS: Record<string, string> = {
+  category: "processMap.subtypeCategory",
+  group: "processMap.subtypeGroup",
+  process: "processMap.subtypeProcess",
+  variant: "processMap.subtypeVariant",
 };
 
 /* ------------------------------------------------------------------ */
@@ -156,13 +157,13 @@ function heatColor(value: number, max: number, metric: Metric): string {
   return `rgb(${r},${g},${b})`;
 }
 
-function metricLabel(attrs: Record<string, unknown>, metric: Metric, appCount: number, fmtCost: (v: number) => string, totalCost: number): string {
+function metricLabel(attrs: Record<string, unknown>, metric: Metric, appCount: number, fmtCost: (v: number) => string, totalCost: number, tr: (key: string) => string): string {
   if (metric === "app_count") return String(appCount);
   if (metric === "total_cost") return fmtCost(totalCost);
-  if (metric === "maturity") return MATURITY_MAP[attrs.maturity as string]?.label ?? "—";
-  if (metric === "automation") return AUTOMATION_MAP[attrs.automationLevel as string]?.label ?? "—";
-  if (metric === "risk") return RISK_MAP[attrs.riskLevel as string]?.label ?? "—";
-  return "—";
+  if (metric === "maturity") { const m = MATURITY_MAP[attrs.maturity as string]; return m ? tr(m.tKey) : "\u2014"; }
+  if (metric === "automation") { const a = AUTOMATION_MAP[attrs.automationLevel as string]; return a ? tr(a.tKey) : "\u2014"; }
+  if (metric === "risk") { const r = RISK_MAP[attrs.riskLevel as string]; return r ? tr(r.tKey) : "\u2014"; }
+  return "\u2014";
 }
 
 /* ------------------------------------------------------------------ */
@@ -334,6 +335,7 @@ function ProcessCard({
   onProcClick,
   onItemClick,
   fmtCost,
+  tr,
 }: {
   node: ProcNode;
   displayLevel: number;
@@ -343,10 +345,11 @@ function ProcessCard({
   onProcClick: (p: ProcNode) => void;
   onItemClick: (id: string) => void;
   fmtCost: (v: number) => string;
+  tr: (key: string, options?: Record<string, unknown>) => string;
 }) {
   const attrs = node.attributes || {};
   const val = metricValue(attrs, metric, node.deepAppCount, node.deepCost);
-  const label = metricLabel(attrs, metric, node.deepAppCount, fmtCost, node.deepCost);
+  const label = metricLabel(attrs, metric, node.deepAppCount, fmtCost, node.deepCost, tr);
   const isLeaf = node.level >= displayLevel || node.children.length === 0;
 
   const visibleApps = useMemo(
@@ -358,7 +361,7 @@ function ProcessCard({
     [node, displayLevel, showRelated],
   );
 
-  const subtypeLabel = SUBTYPE_LABELS[node.subtype || ""] || null;
+  const subtypeTKey = SUBTYPE_TKEYS[node.subtype || ""] || null;
   const processType = PROCESS_TYPE_MAP[attrs.processType as string];
   const isHighContrast = val > maxVal * 0.65 && maxVal > 0;
 
@@ -397,11 +400,11 @@ function ProcessCard({
           >
             {node.name}
           </Typography>
-          {subtypeLabel && (
-            <Chip size="small" label={subtypeLabel} sx={{ height: 18, fontSize: "0.65rem", bgcolor: "rgba(255,255,255,0.6)" }} />
+          {subtypeTKey && (
+            <Chip size="small" label={tr(subtypeTKey)} sx={{ height: 18, fontSize: "0.65rem", bgcolor: "rgba(255,255,255,0.6)" }} />
           )}
           {processType && (
-            <Chip size="small" label={processType.label}
+            <Chip size="small" label={tr(processType.tKey)}
               sx={{ height: 18, fontSize: "0.65rem", bgcolor: processType.color, color: "#fff" }} />
           )}
           <Chip size="small" label={label}
@@ -460,10 +463,10 @@ function ProcessCard({
         >
           {node.name}
         </Typography>
-        {subtypeLabel && (
-          <Chip size="small" label={subtypeLabel} sx={{ height: 18, fontSize: "0.65rem", bgcolor: "rgba(255,255,255,0.6)" }} />
+        {subtypeTKey && (
+          <Chip size="small" label={tr(subtypeTKey)} sx={{ height: 18, fontSize: "0.65rem", bgcolor: "rgba(255,255,255,0.6)" }} />
         )}
-        <Chip size="small" label={`${node.deepAppCount} apps`}
+        <Chip size="small" label={tr("processMap.apps", { count: node.deepAppCount })}
           sx={{ height: 20, fontSize: "0.7rem", bgcolor: "rgba(255,255,255,0.7)" }} />
       </Box>
 
@@ -504,6 +507,7 @@ function ProcessCard({
               onProcClick={onProcClick}
               onItemClick={onItemClick}
               fmtCost={fmtCost}
+              tr={tr}
             />
           </Box>
         ))}
@@ -517,6 +521,7 @@ function ProcessCard({
 /* ------------------------------------------------------------------ */
 
 export default function ProcessMapReport() {
+  const { t } = useTranslation(["reports", "common"]);
   const { fmtShort } = useCurrency();
   const saved = useSavedReport("process-map");
 
@@ -646,11 +651,11 @@ export default function ProcessMapReport() {
   const levelOptions = useMemo(() => {
     const opts = [];
     for (let i = 1; i <= Math.max(maxLvl, 2); i++) {
-      opts.push({ value: i, label: `Level ${i}` });
+      opts.push({ value: i, label: t("processMap.levelN", { n: i }) });
     }
-    opts.push({ value: 99, label: "All levels" });
+    opts.push({ value: 99, label: t("processMap.allLevels") });
     return opts;
-  }, [maxLvl]);
+  }, [maxLvl, t]);
 
   const hasActiveFilters = filterOrgs.length > 0 || filterCtxs.length > 0;
 
@@ -662,24 +667,25 @@ export default function ProcessMapReport() {
     return null;
   }, [metric]);
 
-  const showRelatedLabel = showRelated === "none" ? "" : showRelated === "apps" ? "Applications" : "Data Objects";
+  const showRelatedLabel = showRelated === "none" ? "" : showRelated === "apps" ? t("processMap.showApplications") : t("processMap.showDataObjects");
   const printParams = useMemo(() => {
     const params: { label: string; value: string }[] = [];
-    const metricLabel = METRIC_OPTIONS.find((o) => o.key === metric)?.label || metric;
-    params.push({ label: "Metric", value: metricLabel });
+    const mOpt = METRIC_OPTIONS.find((o) => o.key === metric);
+    const mLabel = mOpt ? t(mOpt.tKey) : metric;
+    params.push({ label: t("common.metric"), value: mLabel });
     const depthLabel = levelOptions.find((o) => o.value === displayLevel)?.label || "";
-    params.push({ label: "Depth", value: depthLabel });
-    if (showRelated !== "none") params.push({ label: "Show Related", value: showRelatedLabel });
+    params.push({ label: t("common.depth"), value: depthLabel });
+    if (showRelated !== "none") params.push({ label: t("processMap.showRelated"), value: showRelatedLabel });
     if (filterOrgs.length > 0) {
       const orgNames = filterOrgs.map((id) => orgOptions.find((o) => o.key === id)?.label || id).join(", ");
-      params.push({ label: "Organization", value: orgNames });
+      params.push({ label: t("processMap.organization"), value: orgNames });
     }
     if (filterCtxs.length > 0) {
       const ctxNames = filterCtxs.map((id) => ctxOptions.find((o) => o.key === id)?.label || id).join(", ");
-      params.push({ label: "Business Context", value: ctxNames });
+      params.push({ label: t("processMap.businessContext"), value: ctxNames });
     }
     return params;
-  }, [metric, displayLevel, showRelated, showRelatedLabel, filterOrgs, orgOptions, filterCtxs, ctxOptions, levelOptions]);
+  }, [metric, displayLevel, showRelated, showRelatedLabel, filterOrgs, orgOptions, filterCtxs, ctxOptions, levelOptions, t]);
 
   if (data === null)
     return (
@@ -690,7 +696,7 @@ export default function ProcessMapReport() {
 
   return (
     <ReportShell
-      title="Process Landscape Map"
+      title={t("processMap.title")}
       icon="account_tree"
       iconColor="#e65100"
       hasTableToggle={false}
@@ -702,20 +708,20 @@ export default function ProcessMapReport() {
           <TextField
             select
             size="small"
-            label="Heatmap Metric"
+            label={t("processMap.heatmapMetric")}
             value={metric}
             onChange={(e) => setMetric(e.target.value as Metric)}
             sx={{ minWidth: 180 }}
           >
             {METRIC_OPTIONS.map((o) => (
-              <MenuItem key={o.key} value={o.key}>{o.label}</MenuItem>
+              <MenuItem key={o.key} value={o.key}>{t(o.tKey)}</MenuItem>
             ))}
           </TextField>
 
           <TextField
             select
             size="small"
-            label="Display Depth"
+            label={t("processMap.displayDepth")}
             value={displayLevel}
             onChange={(e) => setDisplayLevel(Number(e.target.value))}
             sx={{ minWidth: 140 }}
@@ -728,14 +734,14 @@ export default function ProcessMapReport() {
           <TextField
             select
             size="small"
-            label="Show Related"
+            label={t("processMap.showRelated")}
             value={showRelated}
             onChange={(e) => setShowRelated(e.target.value as ShowRelated)}
             sx={{ minWidth: 160 }}
           >
-            <MenuItem value="none">None</MenuItem>
-            <MenuItem value="apps">Applications</MenuItem>
-            <MenuItem value="data_objects">Data Objects</MenuItem>
+            <MenuItem value="none">{t("processMap.showNone")}</MenuItem>
+            <MenuItem value="apps">{t("processMap.showApplications")}</MenuItem>
+            <MenuItem value="data_objects">{t("processMap.showDataObjects")}</MenuItem>
           </TextField>
 
           {/* Row 2: Scope filters */}
@@ -751,19 +757,19 @@ export default function ProcessMapReport() {
           >
             <MaterialSymbol icon="filter_alt" size={18} color="#999" />
             <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
-              Scope:
+              {t("processMap.scope")}
             </Typography>
             {organizations.length > 0 && (
-              <FilterSelect label="Organization" options={orgOptions} value={filterOrgs} onChange={setFilterOrgs} />
+              <FilterSelect label={t("processMap.organization")} options={orgOptions} value={filterOrgs} onChange={setFilterOrgs} />
             )}
             {contexts.length > 0 && (
-              <FilterSelect label="Business Context" options={ctxOptions} value={filterCtxs} onChange={setFilterCtxs} />
+              <FilterSelect label={t("processMap.businessContext")} options={ctxOptions} value={filterCtxs} onChange={setFilterCtxs} />
             )}
 
             {hasActiveFilters && (
               <Chip
                 size="small"
-                label="Clear all"
+                label={t("processMap.clearAll")}
                 variant="outlined"
                 onDelete={() => { setFilterOrgs([]); setFilterCtxs([]); }}
                 sx={{ fontSize: "0.72rem" }}
@@ -777,37 +783,37 @@ export default function ProcessMapReport() {
           {metricLegend ? (
             <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
               <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
-                {METRIC_OPTIONS.find((o) => o.key === metric)?.label}:
+                {t(METRIC_OPTIONS.find((o) => o.key === metric)?.tKey ?? "")}:
               </Typography>
               {metricLegend.map((item) => (
-                <Box key={item.label} sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                <Box key={item.tKey} sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
                   <Box sx={{ width: 10, height: 10, borderRadius: "50%", bgcolor: item.color, flexShrink: 0 }} />
-                  <Typography variant="caption" color="text.secondary">{item.label}</Typography>
+                  <Typography variant="caption" color="text.secondary">{t(item.tKey)}</Typography>
                 </Box>
               ))}
             </Box>
           ) : (
             <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-              <Typography variant="caption" color="text.secondary">Low</Typography>
+              <Typography variant="caption" color="text.secondary">{t("processMap.low")}</Typography>
               <Box sx={{ display: "flex", height: 12 }}>
                 {[0, 0.25, 0.5, 0.75, 1].map((r) => (
                   <Box key={r} sx={{ width: 28, height: 12, bgcolor: heatColor(r * maxVal, maxVal, metric) }} />
                 ))}
               </Box>
-              <Typography variant="caption" color="text.secondary">High</Typography>
+              <Typography variant="caption" color="text.secondary">{t("processMap.high")}</Typography>
               <Typography variant="caption" color="text.secondary" sx={{ ml: 1 }}>
-                Max: {fmtVal(maxVal)}
+                {t("processMap.max", { value: fmtVal(maxVal) })}
               </Typography>
             </Box>
           )}
 
           {/* Process type legend */}
           <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, ml: 2 }}>
-            <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>Type:</Typography>
+            <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>{t("processMap.typeLabel")}</Typography>
             {Object.values(PROCESS_TYPE_MAP).map((pt) => (
-              <Box key={pt.label} sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+              <Box key={pt.tKey} sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
                 <Box sx={{ width: 10, height: 10, borderRadius: "50%", bgcolor: pt.color, flexShrink: 0 }} />
-                <Typography variant="caption" color="text.secondary">{pt.label}</Typography>
+                <Typography variant="caption" color="text.secondary">{t(pt.tKey)}</Typography>
               </Box>
             ))}
           </Box>
@@ -825,7 +831,7 @@ export default function ProcessMapReport() {
               onClick={() => setZoomNodeId(null)}
               sx={{ cursor: "pointer" }}
             >
-              All Processes
+              {t("processMap.allProcesses")}
             </Link>
             {breadcrumbs.map((bc, idx) => {
               const isLast = idx === breadcrumbs.length - 1;
@@ -855,8 +861,8 @@ export default function ProcessMapReport() {
           <MaterialSymbol icon="route" size={48} color="#999" />
           <Typography color="text.secondary" sx={{ mt: 1 }}>
             {hasActiveFilters
-              ? "No processes match the current filters."
-              : "No Business Processes found. Add processes to see the landscape map."}
+              ? t("processMap.noProcessesFiltered")
+              : t("processMap.noProcessesEmpty")}
           </Typography>
         </Box>
       ) : (
@@ -884,6 +890,7 @@ export default function ProcessMapReport() {
               onProcClick={handleProcClick}
               onItemClick={handleItemClick}
               fmtCost={fmtShort}
+              tr={t}
             />
           ))}
         </Box>
@@ -909,12 +916,12 @@ export default function ProcessMapReport() {
 
             {/* Metadata chips */}
             <Box sx={{ display: "flex", gap: 0.5, mb: 2, flexWrap: "wrap" }}>
-              {drawer.subtype && SUBTYPE_LABELS[drawer.subtype] && (
-                <Chip size="small" label={SUBTYPE_LABELS[drawer.subtype]} variant="outlined" />
+              {drawer.subtype && SUBTYPE_TKEYS[drawer.subtype] && (
+                <Chip size="small" label={t(SUBTYPE_TKEYS[drawer.subtype])} variant="outlined" />
               )}
               {PROCESS_TYPE_MAP[(drawer.attributes?.processType as string) || ""] && (
                 <Chip size="small"
-                  label={PROCESS_TYPE_MAP[(drawer.attributes?.processType as string) || ""].label}
+                  label={t(PROCESS_TYPE_MAP[(drawer.attributes?.processType as string) || ""].tKey)}
                   sx={{
                     bgcolor: PROCESS_TYPE_MAP[(drawer.attributes?.processType as string) || ""].color,
                     color: "#fff",
@@ -923,7 +930,7 @@ export default function ProcessMapReport() {
               )}
               {MATURITY_MAP[(drawer.attributes?.maturity as string) || ""] && (
                 <Chip size="small"
-                  label={MATURITY_MAP[(drawer.attributes?.maturity as string) || ""].label}
+                  label={t(MATURITY_MAP[(drawer.attributes?.maturity as string) || ""].tKey)}
                   sx={{
                     bgcolor: MATURITY_MAP[(drawer.attributes?.maturity as string) || ""].color,
                     color: "#fff",
@@ -932,7 +939,7 @@ export default function ProcessMapReport() {
               )}
               {RISK_MAP[(drawer.attributes?.riskLevel as string) || ""] && (
                 <Chip size="small"
-                  label={`Risk: ${RISK_MAP[(drawer.attributes?.riskLevel as string) || ""].label}`}
+                  label={t("processMap.risk", { level: t(RISK_MAP[(drawer.attributes?.riskLevel as string) || ""].tKey) })}
                   sx={{
                     bgcolor: RISK_MAP[(drawer.attributes?.riskLevel as string) || ""].color,
                     color: "#fff",
@@ -941,7 +948,7 @@ export default function ProcessMapReport() {
               )}
               {AUTOMATION_MAP[(drawer.attributes?.automationLevel as string) || ""] && (
                 <Chip size="small"
-                  label={AUTOMATION_MAP[(drawer.attributes?.automationLevel as string) || ""].label}
+                  label={t(AUTOMATION_MAP[(drawer.attributes?.automationLevel as string) || ""].tKey)}
                   variant="outlined"
                 />
               )}
@@ -951,15 +958,15 @@ export default function ProcessMapReport() {
             <Box sx={{ display: "flex", gap: 2, mb: 2, flexWrap: "wrap" }}>
               <Box sx={{ textAlign: "center", minWidth: 80 }}>
                 <Typography variant="h6" sx={{ fontWeight: 700 }}>{drawer.deepAppCount}</Typography>
-                <Typography variant="caption" color="text.secondary">Applications</Typography>
+                <Typography variant="caption" color="text.secondary">{t("processMap.showApplications")}</Typography>
               </Box>
               <Box sx={{ textAlign: "center", minWidth: 80 }}>
                 <Typography variant="h6" sx={{ fontWeight: 700 }}>{drawer.deepDataObjects.size}</Typography>
-                <Typography variant="caption" color="text.secondary">Data Objects</Typography>
+                <Typography variant="caption" color="text.secondary">{t("processMap.showDataObjects")}</Typography>
               </Box>
               <Box sx={{ textAlign: "center", minWidth: 80 }}>
                 <Typography variant="h6" sx={{ fontWeight: 700 }}>{fmtShort(drawer.deepCost)}</Typography>
-                <Typography variant="caption" color="text.secondary">Cost</Typography>
+                <Typography variant="caption" color="text.secondary">{t("processMap.cost")}</Typography>
               </Box>
             </Box>
 
@@ -968,7 +975,7 @@ export default function ProcessMapReport() {
               <Chip
                 size="small"
                 icon={<MaterialSymbol icon="open_in_new" size={14} />}
-                label="Open Card"
+                label={t("processMap.openCard")}
                 onClick={() => handleItemClick(drawer.id)}
                 sx={{ cursor: "pointer" }}
               />
@@ -976,7 +983,7 @@ export default function ProcessMapReport() {
                 <Chip
                   size="small"
                   icon={<MaterialSymbol icon="zoom_in" size={14} />}
-                  label="Drill Down"
+                  label={t("processMap.drillDown")}
                   onClick={() => handleDrillDown(drawer.id)}
                   sx={{ cursor: "pointer" }}
                   color="primary"
@@ -988,7 +995,7 @@ export default function ProcessMapReport() {
             {drawer.children.length > 0 && (
               <>
                 <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
-                  Sub-Processes ({drawer.children.length})
+                  {t("processMap.subProcesses", { count: drawer.children.length })}
                 </Typography>
                 <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5, mb: 2 }}>
                   {drawer.children.map((ch) => (
@@ -1006,7 +1013,7 @@ export default function ProcessMapReport() {
 
             {/* Applications */}
             <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
-              Applications ({drawer.deepAppCount})
+              {t("processMap.applications", { count: drawer.deepAppCount })}
             </Typography>
             <List dense>
               {Array.from(drawer.deepUniqueApps.values())
@@ -1024,7 +1031,7 @@ export default function ProcessMapReport() {
                 ))}
               {drawer.deepAppCount === 0 && (
                 <Typography variant="body2" color="text.secondary" sx={{ py: 1, textAlign: "center" }}>
-                  No linked applications
+                  {t("processMap.noLinkedApps")}
                 </Typography>
               )}
             </List>
@@ -1033,7 +1040,7 @@ export default function ProcessMapReport() {
             {drawer.deepDataObjects.size > 0 && (
               <>
                 <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1, mt: 2 }}>
-                  Data Objects ({drawer.deepDataObjects.size})
+                  {t("processMap.dataObjects", { count: drawer.deepDataObjects.size })}
                 </Typography>
                 <List dense>
                   {Array.from(drawer.deepDataObjects.values())

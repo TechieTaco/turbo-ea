@@ -1,3 +1,4 @@
+import i18n from "@/i18n";
 import {
   Document,
   Packer,
@@ -15,8 +16,8 @@ import {
 } from "docx";
 import { saveAs } from "file-saver";
 import {
-  SOAW_TEMPLATE_SECTIONS,
-  TOGAF_PHASES,
+  getTemplateSections,
+  getTogafPhases,
   type TemplateSectionDef,
 } from "./soawTemplate";
 import type { SoAWDocumentInfo, SoAWVersionEntry, SoAWSectionData, SoAWSignatory } from "@/types";
@@ -259,6 +260,7 @@ export async function exportToDocx(
   sections: Record<string, SoAWSectionData>,
   customSections: { id: string; title: string; content: string; insertAfter: string }[],
 ) {
+  const t = (key: string, opts?: Record<string, unknown>) => String(i18n.t(`delivery:${key}`, opts as never));
   const children: (Paragraph | Table)[] = [];
 
   // ── Title ──
@@ -266,7 +268,7 @@ export async function exportToDocx(
     new Paragraph({
       children: [
         new TextRun({
-          text: "Statement of Architecture Work",
+          text: t("export.soawTitle"),
           bold: true,
           font: FONT,
           size: SIZE_TITLE,
@@ -299,9 +301,9 @@ export async function exportToDocx(
 
   // ── Document Information (hide empty fields, hide section if all empty) ──
   const docxDocInfoRows: [string, string][] = [
-    ["Prepared By", docInfo.prepared_by],
-    ["Reviewed By", docInfo.reviewed_by],
-    ["Review Date", docInfo.review_date],
+    [t("export.preparedBy"), docInfo.prepared_by],
+    [t("export.reviewedBy"), docInfo.reviewed_by],
+    [t("export.reviewDate"), docInfo.review_date],
   ].filter(([, val]) => val?.trim()) as [string, string][];
 
   if (docxDocInfoRows.length > 0) {
@@ -309,7 +311,7 @@ export async function exportToDocx(
       new Paragraph({
         children: [
           new TextRun({
-            text: "Document Information",
+            text: t("export.documentInfo"),
             bold: true,
             font: FONT,
             size: SIZE_H2,
@@ -320,7 +322,7 @@ export async function exportToDocx(
       }),
     );
     children.push(
-      buildDocxTable(["Field", "Value"], docxDocInfoRows),
+      buildDocxTable([t("export.field"), t("export.value")], docxDocInfoRows),
     );
     children.push(new Paragraph({ spacing: { after: SPACING_AFTER_TABLE } }));
   }
@@ -331,7 +333,7 @@ export async function exportToDocx(
       new Paragraph({
         children: [
           new TextRun({
-            text: "Document Version History",
+            text: t("export.versionHistory"),
             bold: true,
             font: FONT,
             size: SIZE_H2,
@@ -343,7 +345,7 @@ export async function exportToDocx(
     );
     children.push(
       buildDocxTable(
-        ["Version", "Date", "Revised By", "Description"],
+        [t("export.version"), t("export.date"), t("export.revisedBy"), t("export.description")],
         versionHistory.map((v) => [v.version, v.date, v.revised_by, v.description]),
       ),
     );
@@ -364,7 +366,7 @@ export async function exportToDocx(
         new Paragraph({
           children: [
             new TextRun({
-              text: `Part ${def.part}: ${def.part === "I" ? "Statement of Architecture Work" : "Baseline and Target Architectures"}`,
+              text: `Part ${def.part}: ${def.part === "I" ? (t("export.partI")) : (t("export.partII"))}`,
               bold: true,
               font: FONT,
               size: SIZE_PART,
@@ -431,8 +433,8 @@ export async function exportToDocx(
     if (def.type === "togaf_phases" && data.togaf_data) {
       children.push(
         buildDocxTable(
-          ["Phase", "Relevant Artefacts"],
-          TOGAF_PHASES.map((p) => [p.label, data.togaf_data?.[p.key] ?? ""]),
+          [t("export.phase"), t("export.relevantArtefacts")],
+          getTogafPhases().map((p) => [p.label, data.togaf_data?.[p.key] ?? ""]),
         ),
       );
     }
@@ -464,7 +466,7 @@ export async function exportToDocx(
     }
   };
 
-  for (const def of SOAW_TEMPLATE_SECTIONS) {
+  for (const def of getTemplateSections()) {
     const data = sections[def.id] ?? { content: "", hidden: false };
     addSectionContent(def, data);
   }
@@ -473,7 +475,7 @@ export async function exportToDocx(
   for (const cs of customSections) {
     if (
       !cs.insertAfter ||
-      !SOAW_TEMPLATE_SECTIONS.some((d) => d.id === cs.insertAfter)
+      !getTemplateSections().some((d) => d.id === cs.insertAfter)
     ) {
       children.push(
         new Paragraph({
@@ -583,7 +585,7 @@ function isSectionEmpty(def: TemplateSectionDef, data: SoAWSectionData): boolean
   }
   if (def.type === "togaf_phases") {
     if (!data.togaf_data) return true;
-    return TOGAF_PHASES.every((p) => !(data.togaf_data?.[p.key] ?? "").trim());
+    return getTogafPhases().every((p) => !(data.togaf_data?.[p.key] ?? "").trim());
   }
   return false;
 }
@@ -599,22 +601,25 @@ export function buildPreviewBody(
   signatories?: SoAWSignatory[],
   _signedAt?: string | null,
 ): string {
+  const t = (key: string, opts?: Record<string, unknown>) => String(i18n.t(`delivery:${key}`, opts as never));
   let html = "";
 
   // Title
-  html += `<h1 style="text-align:center;border:none;">Statement of Architecture Work</h1>`;
-  const revLabel = revisionNumber && revisionNumber > 1 ? ` — Revision ${revisionNumber}` : "";
+  const soawTitle = t("export.soawTitle");
+  html += `<h1 style="text-align:center;border:none;">${soawTitle}</h1>`;
+  const revLabel = revisionNumber && revisionNumber > 1 ? t("export.revision", { number: revisionNumber }) : "";
   html += `<p style="text-align:center;font-size:14pt;color:#555;">${name}${revLabel}</p>`;
 
   // Doc info (hide empty fields, hide entire section if all empty)
   const docInfoRows: [string, string][] = [
-    ["Prepared By", docInfo.prepared_by],
-    ["Reviewed By", docInfo.reviewed_by],
-    ["Review Date", docInfo.review_date],
+    [t("export.preparedBy"), docInfo.prepared_by],
+    [t("export.reviewedBy"), docInfo.reviewed_by],
+    [t("export.reviewDate"), docInfo.review_date],
   ].filter(([, val]) => val?.trim()) as [string, string][];
 
   if (docInfoRows.length > 0) {
-    html += `<h2>Document Information</h2><table>`;
+    const docInfoTitle = t("export.documentInfo");
+    html += `<h2>${docInfoTitle}</h2><table>`;
     for (const [label, val] of docInfoRows) {
       html += `<tr><td class="meta-label">${label}</td><td>${val}</td></tr>`;
     }
@@ -623,7 +628,12 @@ export function buildPreviewBody(
 
   // Version history
   if (versionHistory.some((v) => v.version || v.date)) {
-    html += `<h2>Document Version History</h2><table><tr><th>Version</th><th>Date</th><th>Revised By</th><th>Description</th></tr>`;
+    const vhTitle = t("export.versionHistory");
+    const vhVersion = t("export.version");
+    const vhDate = t("export.date");
+    const vhRevisedBy = t("export.revisedBy");
+    const vhDescription = t("export.description");
+    html += `<h2>${vhTitle}</h2><table><tr><th>${vhVersion}</th><th>${vhDate}</th><th>${vhRevisedBy}</th><th>${vhDescription}</th></tr>`;
     for (const v of versionHistory) {
       html += `<tr><td>${v.version}</td><td>${v.date}</td><td>${v.revised_by}</td><td>${v.description}</td></tr>`;
     }
@@ -639,7 +649,8 @@ export function buildPreviewBody(
 
     if (def.part !== currentPart) {
       currentPart = def.part;
-      html += `<div class="part-header">Part ${def.part}: ${def.part === "I" ? "Statement of Architecture Work" : "Baseline and Target Architectures"}</div>`;
+      const partLabel = def.part === "I" ? (t("export.partI")) : (t("export.partII"));
+      html += `<div class="part-header">Part ${def.part}: ${partLabel}</div>`;
     }
 
     const tag = def.level === 2 ? "h2" : "h3";
@@ -662,30 +673,34 @@ export function buildPreviewBody(
     }
 
     if (def.type === "togaf_phases" && data.togaf_data) {
-      html += `<table><tr><th>Phase</th><th>Relevant Artefacts</th></tr>`;
-      for (const p of TOGAF_PHASES) {
+      const phaseLabel = t("export.phase");
+      const artefactsLabel = t("export.relevantArtefacts");
+      html += `<table><tr><th>${phaseLabel}</th><th>${artefactsLabel}</th></tr>`;
+      for (const p of getTogafPhases()) {
         html += `<tr><td>${p.label}</td><td>${data.togaf_data[p.key] || "\u2014"}</td></tr>`;
       }
       html += `</table>`;
     }
 
     // Custom sections after this
+    const customBadge = t("export.custom");
     for (const cs of customSections) {
       if (cs.insertAfter === def.id) {
-        html += `<h3><span class="custom-badge">Custom</span>${cs.title}</h3>`;
+        html += `<h3><span class="custom-badge">${customBadge}</span>${cs.title}</h3>`;
         html += cs.content || "";
       }
     }
   };
 
-  for (const def of SOAW_TEMPLATE_SECTIONS) {
+  for (const def of getTemplateSections()) {
     renderSection(def, sections[def.id] ?? { content: "", hidden: false });
   }
 
   // Trailing custom sections
+  const trailingCustomBadge = t("export.custom");
   for (const cs of customSections) {
-    if (!cs.insertAfter || !SOAW_TEMPLATE_SECTIONS.some((d) => d.id === cs.insertAfter)) {
-      html += `<h3><span class="custom-badge">Custom</span>${cs.title}</h3>`;
+    if (!cs.insertAfter || !getTemplateSections().some((d) => d.id === cs.insertAfter)) {
+      html += `<h3><span class="custom-badge">${trailingCustomBadge}</span>${cs.title}</h3>`;
       html += cs.content || "";
     }
   }
@@ -693,18 +708,25 @@ export function buildPreviewBody(
   // Signature block (for PDF/print)
   if (signatories && signatories.length > 0) {
     const allSigned = signatories.every((s) => s.status === "signed");
+    const sigTitle = t("export.signatures");
+    const sigFullySigned = t("export.fullySigned");
+    const sigApproved = t("export.approved");
+    const sigPending = t("export.pending");
     html += `<div class="soaw-signatures">`;
-    html += `<h2>Signatures`;
-    if (allSigned) html += ` <span class="sig-badge fully-signed">Fully Signed</span>`;
+    html += `<h2>${sigTitle}`;
+    if (allSigned) html += ` <span class="sig-badge fully-signed">${sigFullySigned}</span>`;
     html += `</h2>`;
     html += `<div class="sig-grid">`;
     for (const sig of signatories) {
       const isSig = sig.status === "signed";
       html += `<div class="sig-card ${isSig ? "approved" : "pending"}">`;
-      html += `<div class="sig-status ${isSig ? "approved" : "pending"}">${isSig ? "&#10003; Approved" : "&#9711; Pending"}</div>`;
+      html += `<div class="sig-status ${isSig ? "approved" : "pending"}">${isSig ? `&#10003; ${sigApproved}` : `&#9711; ${sigPending}`}</div>`;
       html += `<div class="sig-name">${sig.display_name}</div>`;
       if (sig.email) html += `<div class="sig-detail">${sig.email}</div>`;
-      if (isSig && sig.signed_at) html += `<div class="sig-detail">Signed: ${new Date(sig.signed_at).toLocaleString()}</div>`;
+      if (isSig && sig.signed_at) {
+        const signedLabel = t("export.signed", { date: new Date(sig.signed_at).toLocaleString() });
+        html += `<div class="sig-detail">${signedLabel}</div>`;
+      }
       html += `</div>`;
     }
     html += `</div></div>`;
@@ -725,9 +747,10 @@ export function exportToPdf(
   signatories?: SoAWSignatory[],
   signedAt?: string | null,
 ) {
+  const t = (key: string, opts?: Record<string, unknown>) => String(i18n.t(`delivery:${key}`, opts as never));
   const w = window.open("", "_blank");
   if (!w) {
-    alert("Please allow pop-ups to export PDF.");
+    alert(t("export.popupBlocked"));
     return;
   }
 
@@ -740,9 +763,9 @@ export function exportToPdf(
     const approvalDate = signedAt ? new Date(signedAt).toLocaleDateString() : (approver?.signed_at ? new Date(approver.signed_at).toLocaleDateString() : "");
     const printDate = new Date().toLocaleDateString();
     const parts: string[] = [];
-    if (approver) parts.push(`Approved by: ${approver.display_name}`);
-    if (approvalDate) parts.push(`Date of approval: ${approvalDate}`);
-    parts.push(`Printed: ${printDate}`);
+    if (approver) parts.push(t("export.approvedBy", { name: approver.display_name }));
+    if (approvalDate) parts.push(t("export.dateOfApproval", { date: approvalDate }));
+    parts.push(t("export.printed", { date: printDate }));
     footerHtml = `<div class="soaw-print-footer">${parts.join("  &middot;  ")}</div>`;
   }
 

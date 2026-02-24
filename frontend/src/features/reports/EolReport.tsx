@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo, useRef, useLayoutEffect, useCallback } from "react";
+import { Trans, useTranslation } from "react-i18next";
 import { useTheme, alpha } from "@mui/material/styles";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
@@ -22,6 +23,7 @@ import ReportLegend from "./ReportLegend";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useSavedReport } from "@/hooks/useSavedReport";
 import { useThumbnailCapture } from "@/hooks/useThumbnailCapture";
+import { useResolveMetaLabel } from "@/hooks/useResolveLabel";
 import CardDetailSidePanel from "@/components/CardDetailSidePanel";
 import { api } from "@/api/client";
 
@@ -78,10 +80,10 @@ interface EolReportData {
 /* ------------------------------------------------------------------ */
 
 const STATUS_CONFIG = {
-  eol: { label: "End of Life", color: "#d32f2f", icon: "cancel" },
-  approaching: { label: "Approaching EOL", color: "#ed6c02", icon: "warning" },
-  supported: { label: "Supported", color: "#2e7d32", icon: "check_circle" },
-  unknown: { label: "Unknown", color: "#9e9e9e", icon: "help" },
+  eol: { labelKey: "eol.statusEol", color: "#d32f2f", icon: "cancel" },
+  approaching: { labelKey: "eol.statusApproaching", color: "#ed6c02", icon: "warning" },
+  supported: { labelKey: "eol.statusSupported", color: "#2e7d32", icon: "check_circle" },
+  unknown: { labelKey: "eol.statusUnknown", color: "#9e9e9e", icon: "help" },
 };
 
 /* ------------------------------------------------------------------ */
@@ -118,13 +120,14 @@ function countdownLabel(days: number | null): string {
 
 /** Source badge for manual vs API items */
 function SourceBadge({ source }: { source: "api" | "manual" }) {
+  const { t } = useTranslation(["reports"]);
   const theme = useTheme();
   if (source === "api") return null;
   return (
-    <Tooltip title="End-of-Life date was manually maintained in the Lifecycle section, not from endoflife.date API">
+    <Tooltip title={t("eol.manualTooltip")}>
       <Chip
         size="small"
-        label="Manual"
+        label={t("eol.manual")}
         icon={<MaterialSymbol icon="edit_note" size={14} />}
         sx={{
           height: 18,
@@ -185,7 +188,9 @@ function KpiCard({
 /* ------------------------------------------------------------------ */
 
 export default function EolReport() {
+  const { t } = useTranslation(["reports", "common"]);
   const { getType } = useMetamodel();
+  const rml = useResolveMetaLabel();
   const saved = useSavedReport("eol");
   const { chartRef, thumbnail, captureAndSave } = useThumbnailCapture(() => saved.setSaveDialogOpen(true));
   const [data, setData] = useState<EolReportData | null>(null);
@@ -320,14 +325,15 @@ export default function EolReport() {
   const printParams = useMemo(() => {
     const params: { label: string; value: string }[] = [];
     if (filterStatus) {
-      const statusLabel = STATUS_CONFIG[filterStatus as keyof typeof STATUS_CONFIG]?.label || filterStatus;
-      params.push({ label: "Status", value: statusLabel });
+      const cfg = STATUS_CONFIG[filterStatus as keyof typeof STATUS_CONFIG];
+      const statusLabel = cfg ? t(cfg.labelKey) : filterStatus;
+      params.push({ label: t("eol.status"), value: statusLabel });
     }
-    if (filterType) params.push({ label: "Type", value: filterType === "ITComponent" ? "IT Component" : filterType });
-    if (filterSource) params.push({ label: "Source", value: filterSource === "api" ? "endoflife.date" : "Manual" });
-    if (view === "table") params.push({ label: "View", value: "Table" });
+    if (filterType) params.push({ label: t("common:labels.type"), value: filterType === "ITComponent" ? "IT Component" : filterType });
+    if (filterSource) params.push({ label: t("eol.source"), value: filterSource === "api" ? "endoflife.date" : t("eol.manual") });
+    if (view === "table") params.push({ label: t("common.view"), value: t("common.table") });
     return params;
-  }, [filterStatus, filterType, filterSource, view]);
+  }, [filterStatus, filterType, filterSource, view, t]);
 
   if (!data)
     return (
@@ -343,7 +349,7 @@ export default function EolReport() {
 
   return (
     <ReportShell
-      title="End-of-Life & Impact"
+      title={t("eol.title")}
       icon="update"
       iconColor="#d32f2f"
       view={view}
@@ -359,17 +365,17 @@ export default function EolReport() {
           <TextField
             select
             size="small"
-            label="Status"
+            label={t("eol.status")}
             value={filterStatus}
             onChange={(e) => setFilterStatus(e.target.value)}
             sx={{ minWidth: 160 }}
           >
-            <MenuItem value="">All Statuses</MenuItem>
+            <MenuItem value="">{t("eol.allStatuses")}</MenuItem>
             {Object.entries(STATUS_CONFIG).map(([key, cfg]) => (
               <MenuItem key={key} value={key}>
                 <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                   <MaterialSymbol icon={cfg.icon} size={16} color={cfg.color} />
-                  {cfg.label}
+                  {t(cfg.labelKey)}
                 </Box>
               </MenuItem>
             ))}
@@ -377,24 +383,24 @@ export default function EolReport() {
           <TextField
             select
             size="small"
-            label="Type"
+            label={t("common:labels.type")}
             value={filterType}
             onChange={(e) => setFilterType(e.target.value)}
             sx={{ minWidth: 160 }}
           >
-            <MenuItem value="">All Types</MenuItem>
+            <MenuItem value="">{t("eol.allTypes")}</MenuItem>
             <MenuItem value="Application">Application</MenuItem>
             <MenuItem value="ITComponent">IT Component</MenuItem>
           </TextField>
           <TextField
             select
             size="small"
-            label="Source"
+            label={t("eol.source")}
             value={filterSource}
             onChange={(e) => setFilterSource(e.target.value)}
             sx={{ minWidth: 140 }}
           >
-            <MenuItem value="">All Sources</MenuItem>
+            <MenuItem value="">{t("eol.allSources")}</MenuItem>
             <MenuItem value="api">
               <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                 <MaterialSymbol icon="cloud" size={16} color="#1976d2" />
@@ -404,7 +410,7 @@ export default function EolReport() {
             <MenuItem value="manual">
               <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                 <MaterialSymbol icon="edit_note" size={16} color="#3949ab" />
-                Manual
+                {t("eol.manual")}
               </Box>
             </MenuItem>
           </TextField>
@@ -414,10 +420,10 @@ export default function EolReport() {
         <ReportLegend
           items={[
             ...Object.values(STATUS_CONFIG).map((s) => ({
-              label: s.label,
+              label: t(s.labelKey),
               color: s.color,
             })),
-            { label: "Manually Maintained", color: "#3949ab" },
+            { label: t("eol.manuallyMaintained"), color: "#3949ab" },
           ]}
         />
       }
@@ -426,31 +432,31 @@ export default function EolReport() {
       <Box sx={{ display: "flex", gap: 2, mb: 3, flexWrap: "wrap" }}>
         <KpiCard
           icon="cancel"
-          label="End of Life"
+          label={t("eol.statusEol")}
           value={data.summary.eol}
           color="#d32f2f"
         />
         <KpiCard
           icon="warning"
-          label="Approaching EOL"
+          label={t("eol.statusApproaching")}
           value={data.summary.approaching}
           color="#ed6c02"
         />
         <KpiCard
           icon="check_circle"
-          label="Supported"
+          label={t("eol.statusSupported")}
           value={data.summary.supported}
           color="#2e7d32"
         />
         <KpiCard
           icon="apps"
-          label="Impacted Apps"
+          label={t("eol.impactedApps")}
           value={data.summary.impacted_apps}
           color="#1565c0"
         />
         <KpiCard
           icon="edit_note"
-          label="Manually Maintained"
+          label={t("eol.manuallyMaintained")}
           value={data.summary.manual}
           color="#3949ab"
         />
@@ -461,8 +467,8 @@ export default function EolReport() {
           <MaterialSymbol icon="info" size={40} color="#bdbdbd" />
           <Typography color="text.secondary" sx={{ mt: 1 }}>
             {data.items.length === 0
-              ? "No cards with EOL data found. Link an Application or IT Component to endoflife.date, or set an End of Life date in the Lifecycle section."
-              : "No items match the current filters."}
+              ? t("eol.noEolData")
+              : t("eol.noFilterMatch")}
           </Typography>
         </Paper>
       ) : view === "chart" ? (
@@ -474,10 +480,13 @@ export default function EolReport() {
               severity="error"
               icon={<MaterialSymbol icon="cancel" size={20} />}
             >
-              <strong>{data.summary.eol}</strong> item
-              {data.summary.eol > 1 ? "s have" : " has"} reached End of Life
-              {data.summary.impacted_apps > 0 &&
-                `, impacting ${data.summary.impacted_apps} application${data.summary.impacted_apps > 1 ? "s" : ""}`}
+              <Trans
+                t={t}
+                i18nKey={data.summary.eol === 1 ? "eol.eolReached_one" : "eol.eolReached_other"}
+                values={{ count: data.summary.eol }}
+                components={{ strong: <strong /> }}
+              />
+              {data.summary.impacted_apps > 0 && t("eol.impacting", { count: data.summary.impacted_apps })}
             </Alert>
           )}
           {data.summary.approaching > 0 && (
@@ -485,11 +494,13 @@ export default function EolReport() {
               severity="warning"
               icon={<MaterialSymbol icon="warning" size={20} />}
             >
-              <strong>{data.summary.approaching}</strong> item
-              {data.summary.approaching > 1 ? "s are" : " is"} approaching End
-              of Life within 6 months
-              {data.summary.approaching_impacted_apps > 0 &&
-                `, impacting ${data.summary.approaching_impacted_apps} additional application${data.summary.approaching_impacted_apps > 1 ? "s" : ""}`}
+              <Trans
+                t={t}
+                i18nKey={data.summary.approaching === 1 ? "eol.approaching_one" : "eol.approaching_other"}
+                values={{ count: data.summary.approaching }}
+                components={{ strong: <strong /> }}
+              />
+              {data.summary.approaching_impacted_apps > 0 && t("eol.approachingImpacting", { count: data.summary.approaching_impacted_apps })}
             </Alert>
           )}
 
@@ -535,7 +546,7 @@ export default function EolReport() {
                         )}
                         <Tooltip title={
                           isManual
-                            ? `${item.name} (manually maintained)`
+                            ? `${item.name} (${t("eol.manuallyMaintained").toLowerCase()})`
                             : `${item.name} (${item.eol_product} ${item.eol_cycle})`
                         }>
                           <Typography
@@ -554,7 +565,7 @@ export default function EolReport() {
                           <SourceBadge source="manual" />
                         )}
                         {item.affected_apps.length > 0 && (
-                          <Tooltip title={`Impacts ${item.affected_apps.length} app${item.affected_apps.length > 1 ? "s" : ""}`}>
+                          <Tooltip title={t("eol.impacts", { count: item.affected_apps.length })}>
                             <Chip
                               size="small"
                               label={item.affected_apps.length}
@@ -563,9 +574,9 @@ export default function EolReport() {
                                 height: 18,
                                 fontSize: "0.65rem",
                                 bgcolor: item.status === "eol"
-                                  ? (t) => alpha(t.palette.error.light, 0.3)
+                                  ? (th) => alpha(th.palette.error.light, 0.3)
                                   : item.status === "approaching"
-                                    ? (t) => alpha(t.palette.warning.light, 0.3)
+                                    ? (th) => alpha(th.palette.warning.light, 0.3)
                                     : "action.selected",
                               }}
                             />
@@ -677,7 +688,7 @@ export default function EolReport() {
                     const eolDays =
                       typeof cd?.eol === "string" ? daysUntil(cd.eol) : null;
                     const productLabel = isManual
-                      ? "Manual"
+                      ? t("eol.manual")
                       : `${item.eol_product} ${item.eol_cycle}`;
                     const tipText = `${productLabel} \u00B7 EOL: ${fmtDate(cd?.eol)}${eolDays !== null ? ` (${countdownLabel(eolDays)})` : ""}`;
 
@@ -718,7 +729,7 @@ export default function EolReport() {
                             </Tooltip>
                             {/* Active support bar (release → support end) */}
                             {supportWidthPct && (
-                              <Tooltip title={`Active support until ${fmtDate(cd?.support)}`}>
+                              <Tooltip title={t("eol.activeSupportUntil", { date: fmtDate(cd?.support) })}>
                                 <Box
                                   className="bar"
                                   sx={{
@@ -735,7 +746,7 @@ export default function EolReport() {
                             )}
                             {/* EOL marker */}
                             {eolMs && (
-                              <Tooltip title={`End of Life: ${fmtDate(cd?.eol)}`}>
+                              <Tooltip title={t("eol.endOfLifeDate", { date: fmtDate(cd?.eol) })}>
                                 <Box
                                   sx={{
                                     position: "absolute",
@@ -838,7 +849,7 @@ export default function EolReport() {
                       zIndex: 4,
                     }}
                   >
-                    Today
+                    {t("eol.today")}
                   </Typography>
                 </Box>
               </Box>
@@ -857,7 +868,7 @@ export default function EolReport() {
                     direction={sortK === "name" ? sortD : "asc"}
                     onClick={() => sort("name")}
                   >
-                    Name
+                    {t("common:labels.name")}
                   </TableSortLabel>
                 </TableCell>
                 <TableCell>
@@ -866,7 +877,7 @@ export default function EolReport() {
                     direction={sortK === "type" ? sortD : "asc"}
                     onClick={() => sort("type")}
                   >
-                    Type
+                    {t("common:labels.type")}
                   </TableSortLabel>
                 </TableCell>
                 <TableCell>
@@ -875,17 +886,17 @@ export default function EolReport() {
                     direction={sortK === "product" ? sortD : "asc"}
                     onClick={() => sort("product")}
                   >
-                    Product
+                    {t("eol.product")}
                   </TableSortLabel>
                 </TableCell>
-                <TableCell>Version</TableCell>
+                <TableCell>{t("eol.version")}</TableCell>
                 <TableCell>
                   <TableSortLabel
                     active={sortK === "source"}
                     direction={sortK === "source" ? sortD : "asc"}
                     onClick={() => sort("source")}
                   >
-                    Source
+                    {t("eol.source")}
                   </TableSortLabel>
                 </TableCell>
                 <TableCell>
@@ -894,7 +905,7 @@ export default function EolReport() {
                     direction={sortK === "status" ? sortD : "asc"}
                     onClick={() => sort("status")}
                   >
-                    Status
+                    {t("common:labels.status")}
                   </TableSortLabel>
                 </TableCell>
                 <TableCell>
@@ -903,18 +914,18 @@ export default function EolReport() {
                     direction={sortK === "eolDate" ? sortD : "asc"}
                     onClick={() => sort("eolDate")}
                   >
-                    EOL Date
+                    {t("eol.eolDate")}
                   </TableSortLabel>
                 </TableCell>
-                <TableCell>Support Until</TableCell>
-                <TableCell>Latest</TableCell>
+                <TableCell>{t("eol.supportUntil")}</TableCell>
+                <TableCell>{t("eol.latest")}</TableCell>
                 <TableCell>
                   <TableSortLabel
                     active={sortK === "impact"}
                     direction={sortK === "impact" ? sortD : "asc"}
                     onClick={() => sort("impact")}
                   >
-                    Impact
+                    {t("eol.impact")}
                   </TableSortLabel>
                 </TableCell>
               </TableRow>
@@ -955,7 +966,7 @@ export default function EolReport() {
                     </TableCell>
                     <TableCell>
                       <Typography variant="body2" color="text.secondary">
-                        {typeConf?.label || item.type}
+                        {rml(typeConf?.key ?? "", typeConf?.translations, "label") || item.type}
                       </Typography>
                     </TableCell>
                     <TableCell>
@@ -974,13 +985,13 @@ export default function EolReport() {
                       ) : (
                         <Chip
                           size="small"
-                          label="API"
+                          label={t("eol.api")}
                           icon={<MaterialSymbol icon="cloud" size={12} />}
                           sx={{
                             height: 18,
                             fontSize: "0.6rem",
                             fontWeight: 600,
-                            bgcolor: (t) => alpha(t.palette.primary.main, 0.08),
+                            bgcolor: (th) => alpha(th.palette.primary.main, 0.08),
                             color: "primary.main",
                             "& .MuiChip-icon": { color: "primary.main" },
                           }}
@@ -991,7 +1002,7 @@ export default function EolReport() {
                       <Chip
                         size="small"
                         icon={<MaterialSymbol icon={cfg.icon} size={14} />}
-                        label={cfg.label}
+                        label={t(cfg.labelKey)}
                         sx={{
                           bgcolor: cfg.color,
                           color: "#fff",
@@ -1039,16 +1050,16 @@ export default function EolReport() {
                         >
                           <Chip
                             size="small"
-                            label={`${item.affected_apps.length} app${item.affected_apps.length > 1 ? "s" : ""}`}
+                            label={t("eol.apps", { count: item.affected_apps.length })}
                             icon={<MaterialSymbol icon="apps" size={14} />}
                             sx={{
                               height: 22,
                               fontSize: "0.7rem",
                               bgcolor:
                                 item.status === "eol"
-                                  ? (t) => alpha(t.palette.error.light, 0.3)
+                                  ? (th) => alpha(th.palette.error.light, 0.3)
                                   : item.status === "approaching"
-                                    ? (t) => alpha(t.palette.warning.light, 0.3)
+                                    ? (th) => alpha(th.palette.warning.light, 0.3)
                                     : "action.selected",
                             }}
                           />

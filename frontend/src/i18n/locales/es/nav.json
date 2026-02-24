@@ -1,0 +1,36 @@
+{
+  "dashboard": "Panel de control",
+  "inventory": "Inventario",
+  "reports": "Informes",
+  "reports.portfolio": "Portafolio",
+  "reports.capabilityMap": "Mapa de capacidades",
+  "reports.lifecycle": "Ciclo de vida",
+  "reports.dependencies": "Dependencias",
+  "reports.cost": "Costos",
+  "reports.matrix": "Matriz",
+  "reports.dataQuality": "Calidad de datos",
+  "reports.endOfLife": "Fin de vida",
+  "reports.saved": "Informes guardados",
+  "reports.processMap": "Mapa de procesos",
+  "bpm": "BPM",
+  "diagrams": "Diagramas",
+  "delivery": "Entrega",
+  "todos": "Tareas",
+
+  "admin": "Administraci\u00f3n",
+  "admin.metamodel": "Metamodelo",
+  "admin.usersAndRoles": "Usuarios y roles",
+  "admin.surveys": "Encuestas",
+  "admin.settings": "Configuraci\u00f3n",
+
+  "userMenu.notificationSettings": "Configuraci\u00f3n de notificaciones",
+  "userMenu.darkMode": "Modo oscuro",
+  "userMenu.lightMode": "Modo claro",
+  "userMenu.language": "Idioma",
+
+  "search.placeholder": "Buscar fichas...",
+  "search.viewAll": "Ver todos los resultados para \"{{query}}\"",
+
+  "createCard": "Crear ficha",
+  "create": "Crear"
+}

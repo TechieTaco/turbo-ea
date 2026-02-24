@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Button from "@mui/material/Button";
@@ -19,8 +20,19 @@ import MaterialSymbol from "@/components/MaterialSymbol";
 import ColorPicker from "@/components/ColorPicker";
 import KeyInput, { isValidKey } from "@/components/KeyInput";
 import { api } from "@/api/client";
-import type { FieldDef, FieldOption } from "@/types";
+import { LOCALE_LABELS } from "@/i18n";
+import type { FieldDef, FieldOption, TranslationMap } from "@/types";
 import { FIELD_TYPE_OPTIONS } from "./constants";
+
+/** Remove empty-string entries from a TranslationMap. Returns undefined if all empty. */
+function cleanTranslationMap(map: TranslationMap | undefined): TranslationMap | undefined {
+  if (!map) return undefined;
+  const cleaned: TranslationMap = {};
+  for (const [k, v] of Object.entries(map)) {
+    if (v && v.trim()) cleaned[k] = v.trim();
+  }
+  return Object.keys(cleaned).length > 0 ? cleaned : undefined;
+}
 
 /* ------------------------------------------------------------------ */
 /*  Field Editor Dialog                                                */
@@ -38,7 +50,12 @@ export interface FieldEditorProps {
 }
 
 export default function FieldEditorDialog({ open, field: initial, typeKey, fieldKey, onClose, onSave, isCalculated }: FieldEditorProps) {
+  const { t, i18n } = useTranslation(["admin", "common"]);
+  const locale = i18n.language;
   const [field, setField] = useState<FieldDef>(initial);
+
+  // The label input reads/writes translations[currentLocale]
+  const [displayLabel, setDisplayLabel] = useState("");
 
   // Track which option keys existed before editing — these are locked
   const originalOptionKeys = useMemo(
@@ -57,9 +74,10 @@ export default function FieldEditorDialog({ open, field: initial, typeKey, field
   useEffect(() => {
     if (open) {
       setField({ ...initial });
+      setDisplayLabel(initial.translations?.[locale] || initial.label || "");
       setDeleteOptConfirm(null);
     }
-  }, [open, initial]);
+  }, [open, initial, locale]);
 
   const isSelect = field.type === "single_select" || field.type === "multiple_select";
 
@@ -109,36 +127,35 @@ export default function FieldEditorDialog({ open, field: initial, typeKey, field
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth disableRestoreFocus>
-      <DialogTitle>{initial.key ? "Edit Field" : "Add Field"}</DialogTitle>
+      <DialogTitle>{initial.key ? t("metamodel.fieldEditor.editField") : t("metamodel.fieldEditor.addField")}</DialogTitle>
       <DialogContent>
         {isCalculated && (
           <Alert severity="info" sx={{ mb: 2, mt: 1 }}>
-            This field is managed by a calculation. The field type is locked
-            to prevent breaking the formula. Labels and colors can be changed freely.
+            {t("metamodel.fieldEditor.calculatedInfo")}
           </Alert>
         )}
         <KeyInput
           fullWidth
-          label="Key"
+          label={t("metamodel.fieldEditor.keyLabel")}
           value={field.key}
           onChange={(v) => setField({ ...field, key: v })}
           sx={{ mt: 1, mb: 2 }}
           size="small"
           locked={!!initial.key}
-          lockedReason="Field key cannot be changed after creation"
+          lockedReason={t("metamodel.fieldEditor.keyLockedReason")}
         />
         <TextField
           fullWidth
-          label="Label"
-          value={field.label}
-          onChange={(e) => setField({ ...field, label: e.target.value })}
+          label={`${t("metamodel.fieldEditor.labelLabel")} (${LOCALE_LABELS[locale as keyof typeof LOCALE_LABELS] || locale})`}
+          value={displayLabel}
+          onChange={(e) => setDisplayLabel(e.target.value)}
           sx={{ mb: 2 }}
         />
         <FormControl fullWidth sx={{ mb: 2 }}>
-          <InputLabel>Type</InputLabel>
+          <InputLabel>{t("metamodel.fieldEditor.typeLabel")}</InputLabel>
           <Select
             value={field.type}
-            label="Type"
+            label={t("metamodel.fieldEditor.typeLabel")}
             disabled={!!isCalculated}
             onChange={(e) =>
               setField({ ...field, type: e.target.value as FieldDef["type"] })
@@ -146,7 +163,7 @@ export default function FieldEditorDialog({ open, field: initial, typeKey, field
           >
             {FIELD_TYPE_OPTIONS.map((o) => (
               <MenuItem key={o.value} value={o.value}>
-                {o.label}
+                {t(o.tKey)}
               </MenuItem>
             ))}
           </Select>
@@ -161,10 +178,10 @@ export default function FieldEditorDialog({ open, field: initial, typeKey, field
                 }
               />
             }
-            label="Required"
+            label={t("metamodel.fieldEditor.required")}
           />
           <TextField
-            label="Weight"
+            label={t("metamodel.fieldEditor.weight")}
             type="number"
             value={field.weight ?? 0}
             onChange={(e) =>
@@ -177,25 +194,25 @@ export default function FieldEditorDialog({ open, field: initial, typeKey, field
         {isSelect && (
           <>
             <Typography variant="subtitle2" sx={{ mb: 1 }}>
-              Options
+              {t("metamodel.fieldEditor.options")}
             </Typography>
             {(field.options || []).map((opt, idx) => (
               <Box key={idx}>
                 <Box
-                  sx={{ display: "flex", gap: 1, mb: deleteOptConfirm?.idx === idx ? 0.5 : 1, alignItems: "flex-start" }}
+                  sx={{ display: "flex", gap: 1, mb: 0.5, alignItems: "flex-start" }}
                 >
                   <KeyInput
                     size="small"
-                    label="Key"
+                    label={t("metamodel.fieldEditor.optionKeyLabel")}
                     value={opt.key}
                     onChange={(v) => updateOption(idx, { key: v })}
                     sx={{ flex: 1 }}
                     locked={originalOptionKeys.has(opt.key)}
-                    lockedReason="Key is locked"
+                    lockedReason={t("metamodel.fieldEditor.optionKeyLocked")}
                   />
                   <TextField
                     size="small"
-                    label="Label"
+                    label={t("metamodel.fieldEditor.optionLabelLabel")}
                     value={opt.label}
                     onChange={(e) => updateOption(idx, { label: e.target.value })}
                     sx={{ flex: 1 }}
@@ -217,7 +234,7 @@ export default function FieldEditorDialog({ open, field: initial, typeKey, field
                     action={
                       <Box sx={{ display: "flex", gap: 0.5 }}>
                         <Button size="small" color="inherit" onClick={() => setDeleteOptConfirm(null)}>
-                          Cancel
+                          {t("common:actions.cancel")}
                         </Button>
                         <Button
                           size="small"
@@ -225,16 +242,16 @@ export default function FieldEditorDialog({ open, field: initial, typeKey, field
                           disabled={deleteOptConfirm.cardCount === null}
                           onClick={() => removeOption(idx)}
                         >
-                          Remove
+                          {t("common:actions.remove")}
                         </Button>
                       </Box>
                     }
                   >
                     {deleteOptConfirm.cardCount === null
-                      ? "Checking usage..."
+                      ? t("metamodel.fieldEditor.checkingUsage")
                       : deleteOptConfirm.cardCount > 0
-                        ? `"${deleteOptConfirm.optionLabel}" is used by ${deleteOptConfirm.cardCount} card(s). Their value will be cleared on save.`
-                        : `No cards use "${deleteOptConfirm.optionLabel}". Safe to remove.`}
+                        ? t("metamodel.fieldEditor.optionUsedByCards", { label: deleteOptConfirm.optionLabel, count: deleteOptConfirm.cardCount })
+                        : t("metamodel.fieldEditor.optionSafeToRemove", { label: deleteOptConfirm.optionLabel })}
                   </Alert>
                 )}
               </Box>
@@ -244,19 +261,31 @@ export default function FieldEditorDialog({ open, field: initial, typeKey, field
               startIcon={<MaterialSymbol icon="add" size={16} />}
               onClick={addOption}
             >
-              Add Option
+              {t("metamodel.fieldEditor.addOption")}
             </Button>
           </>
         )}
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>Cancel</Button>
+        <Button onClick={onClose}>{t("common:actions.cancel")}</Button>
         <Button
           variant="contained"
-          onClick={() => onSave(field)}
-          disabled={!field.key || !field.label || (!initial.key && !isValidKey(field.key)) || (isSelect && (field.options || []).some((o) => o.key && !isValidKey(o.key) && !originalOptionKeys.has(o.key)))}
+          onClick={() => {
+            const mergedTranslations = { ...field.translations, [locale]: displayLabel };
+            const cleanedField: FieldDef = {
+              ...field,
+              label: displayLabel,
+              translations: cleanTranslationMap(mergedTranslations),
+              options: field.options?.map((o) => ({
+                ...o,
+                translations: cleanTranslationMap(o.translations),
+              })),
+            };
+            onSave(cleanedField);
+          }}
+          disabled={!field.key || !displayLabel || (!initial.key && !isValidKey(field.key)) || (isSelect && (field.options || []).some((o) => o.key && !isValidKey(o.key) && !originalOptionKeys.has(o.key)))}
         >
-          Save
+          {t("common:actions.save")}
         </Button>
       </DialogActions>
     </Dialog>

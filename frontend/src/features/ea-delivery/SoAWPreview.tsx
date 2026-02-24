@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useParams, useNavigate } from "react-router-dom";
 import DOMPurify from "dompurify";
 import Box from "@mui/material/Box";
@@ -18,13 +19,6 @@ import { buildPreviewBody, exportToPdf, PREVIEW_CSS } from "./soawExport";
 import { api } from "@/api/client";
 import type { SoAW, SoAWSectionData } from "@/types";
 
-const STATUS_LABELS: Record<string, string> = {
-  draft: "Draft",
-  in_review: "In Review",
-  approved: "Approved",
-  signed: "Signed",
-};
-
 const STATUS_COLORS: Record<string, "default" | "warning" | "success" | "info"> = {
   draft: "default",
   in_review: "warning",
@@ -33,8 +27,16 @@ const STATUS_COLORS: Record<string, "default" | "warning" | "success" | "info"> 
 };
 
 export default function SoAWPreview() {
+  const { t } = useTranslation(["delivery", "common"]);
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+
+  const STATUS_LABELS: Record<string, string> = {
+    draft: t("status.draft"),
+    in_review: t("status.inReview"),
+    approved: t("status.approved"),
+    signed: t("status.signed"),
+  };
   const theme = useTheme();
   const compact = useMediaQuery(theme.breakpoints.down("sm"));
 
@@ -51,7 +53,7 @@ export default function SoAWPreview() {
         const data = await api.get<SoAW>(`/soaw/${id}`);
         setSoaw(data);
       } catch (e) {
-        setError(e instanceof Error ? e.message : "Failed to load");
+        setError(e instanceof Error ? e.message : t("editor.error.loadFailed"));
       } finally {
         setLoading(false);
       }
@@ -61,8 +63,8 @@ export default function SoAWPreview() {
 
   const handleCopyLink = () => {
     navigator.clipboard.writeText(window.location.href).then(
-      () => setSnack("Link copied to clipboard"),
-      () => setSnack("Failed to copy link"),
+      () => setSnack(t("preview.linkCopied")),
+      () => setSnack(t("preview.linkCopyFailed")),
     );
   };
 
@@ -77,7 +79,7 @@ export default function SoAWPreview() {
   if (error || !soaw) {
     return (
       <Box sx={{ maxWidth: 960, mx: "auto", py: 4 }}>
-        <Alert severity="error">{error || "SoAW not found"}</Alert>
+        <Alert severity="error">{error || t("preview.notFound")}</Alert>
       </Box>
     );
   }
@@ -102,7 +104,7 @@ export default function SoAWPreview() {
 
   const docInfo = soaw.document_info ?? { prepared_by: "", reviewed_by: "", review_date: "" };
   const versionHistory = soaw.version_history ?? [];
-  const bodyHtml = buildPreviewBody(soaw.name, docInfo, versionHistory, templateSections, customSections, soaw.revision_number);
+  const bodyHtml = buildPreviewBody(soaw.name, docInfo, versionHistory, templateSections, customSections, soaw.revision_number, soaw.signatories, soaw.signed_at);
 
   const handleExportPdf = () =>
     exportToPdf(soaw.name, docInfo, versionHistory, templateSections, customSections, soaw.revision_number, soaw.signatories, soaw.signed_at);
@@ -122,7 +124,7 @@ export default function SoAWPreview() {
           mx: "auto",
         }}
       >
-        <Tooltip title="Back to EA Delivery">
+        <Tooltip title={t("preview.backTooltip")}>
           <IconButton onClick={() => navigate("/ea-delivery")}>
             <MaterialSymbol icon="arrow_back" size={22} />
           </IconButton>
@@ -140,13 +142,13 @@ export default function SoAWPreview() {
           size="small"
           color={STATUS_COLORS[soaw.status] ?? "default"}
         />
-        <Tooltip title="Copy shareable link">
+        <Tooltip title={t("preview.copyLink")}>
           <IconButton onClick={handleCopyLink}>
             <MaterialSymbol icon="link" size={20} />
           </IconButton>
         </Tooltip>
         {compact ? (
-          <Tooltip title="Export PDF">
+          <Tooltip title={t("editor.exportPdf")}>
             <IconButton onClick={handleExportPdf}>
               <MaterialSymbol icon="picture_as_pdf" size={20} />
             </IconButton>
@@ -158,11 +160,11 @@ export default function SoAWPreview() {
             sx={{ textTransform: "none" }}
             onClick={handleExportPdf}
           >
-            PDF
+            {t("editor.pdf")}
           </Button>
         )}
         {compact ? (
-          <Tooltip title="Edit">
+          <Tooltip title={t("common:actions.edit")}>
             <IconButton onClick={() => navigate(`/ea-delivery/soaw/${id}`)}>
               <MaterialSymbol icon="edit" size={20} />
             </IconButton>
@@ -175,7 +177,7 @@ export default function SoAWPreview() {
             sx={{ textTransform: "none" }}
             onClick={() => navigate(`/ea-delivery/soaw/${id}`)}
           >
-            Edit
+            {t("common:actions.edit")}
           </Button>
         )}
       </Box>
@@ -207,10 +209,10 @@ export default function SoAWPreview() {
               color={soaw.status === "signed" ? "#2e7d32" : "#ed6c02"}
             />
             <Typography variant="h6" sx={{ fontWeight: 700 }}>
-              Signatures
+              {t("editor.signatures")}
             </Typography>
             {soaw.status === "signed" && (
-              <Chip label="Fully Signed" size="small" color="success" />
+              <Chip label={t("editor.fullySigned")} size="small" color="success" />
             )}
           </Box>
           <Box
@@ -248,7 +250,7 @@ export default function SoAWPreview() {
                         variant="subtitle2"
                         sx={{ fontWeight: 700, color: "success.dark" }}
                       >
-                        Approved
+                        {t("editor.sigApproved")}
                       </Typography>
                     </Box>
                     <Typography variant="body2" sx={{ fontWeight: 600 }}>
@@ -264,10 +266,9 @@ export default function SoAWPreview() {
                       color="text.secondary"
                       sx={{ display: "block", mt: 0.5 }}
                     >
-                      Signed:{" "}
-                      {sig.signed_at
+                      {t("editor.sigSignedAt", { date: sig.signed_at
                         ? new Date(sig.signed_at).toLocaleString()
-                        : "N/A"}
+                        : "N/A" })}
                     </Typography>
                   </>
                 ) : (
@@ -285,7 +286,7 @@ export default function SoAWPreview() {
                         variant="subtitle2"
                         sx={{ fontWeight: 700, color: "warning.dark" }}
                       >
-                        Pending
+                        {t("editor.sigPending")}
                       </Typography>
                     </Box>
                     <Typography variant="body2" sx={{ fontWeight: 600 }}>

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Popover from "@mui/material/Popover";
@@ -63,6 +64,7 @@ export default function ColorPicker({
   compact,
   label,
 }: ColorPickerProps) {
+  const { t } = useTranslation("common");
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
   const [draft, setDraft] = useState(value);
   const [recent, setRecent] = useState<string[]>(loadRecent);
@@ -110,7 +112,7 @@ export default function ColorPicker({
           if (!disabled) setAnchorEl(e.currentTarget);
         }}
       >
-        <Tooltip title={disabled ? "" : "Pick color"}>
+        <Tooltip title={disabled ? "" : t("colorPicker.pickColor")}>
           <Box
             sx={{
               width: size,
@@ -163,7 +165,7 @@ export default function ColorPicker({
                 color="text.secondary"
                 sx={{ display: "block", mb: 0.5, fontSize: "0.68rem", textTransform: "uppercase", letterSpacing: 0.5 }}
               >
-                Recent
+                {t("colorPicker.recent")}
               </Typography>
               <Box sx={{ display: "flex", gap: "4px", flexWrap: "wrap" }}>
                 {recent.map((c) => (
@@ -208,10 +210,10 @@ export default function ColorPicker({
             }}
           >
             <Button size="small" onClick={handleCancel}>
-              Cancel
+              {t("actions.cancel")}
             </Button>
             <Button size="small" variant="contained" onClick={handleSave}>
-              Save
+              {t("actions.save")}
             </Button>
           </Box>
         </Box>

@@ -1,0 +1,16 @@
+{
+  "required": "此字段为必填项",
+  "invalidEmail": "邮箱地址无效",
+  "tooLong": "内容过长（最多 {{max}} 个字符）",
+  "tooShort": "内容过短（最少 {{min}} 个字符）",
+  "invalidUrl": "URL 无效",
+
+  "key.mustStartWithLetter": "必须以字母开头",
+  "key.noUnderscores": "不允许使用下划线 \u2014 请使用驼峰命名法",
+  "key.noSpaces": "不允许使用空格 \u2014 请使用驼峰命名法",
+  "key.noAccents": "不允许使用带重音符号的字符",
+  "key.lettersAndDigitsOnly": "仅允许字母和数字（驼峰命名法）",
+  "key.cannotChange": "键值在创建后无法更改",
+  "key.valid": "有效的键值",
+  "key.hint": "仅允许字母和数字，使用驼峰命名法（例如 businessFit）"
+}

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import IconButton from "@mui/material/IconButton";
@@ -39,6 +40,7 @@ import {
 } from "./drawio-shapes";
 import type { ExpandChildData } from "./drawio-shapes";
 import { useMetamodel } from "@/hooks/useMetamodel";
+import { useResolveMetaLabel } from "@/hooks/useResolveLabel";
 import type { Card, CardType, Relation, RelationType } from "@/types";
 
 /* ------------------------------------------------------------------ */
@@ -225,6 +227,7 @@ function bootstrapDrawIO(iframe: HTMLIFrameElement) {
 /* ------------------------------------------------------------------ */
 
 export default function DiagramEditor() {
+  const { t } = useTranslation(["diagrams", "common"]);
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const iframeRef = useRef<HTMLIFrameElement>(null);
@@ -235,6 +238,7 @@ export default function DiagramEditor() {
 
   // Metamodel
   const { types: fsTypes, relationTypes } = useMetamodel();
+  const rml = useResolveMetaLabel();
   const fsTypesRef = useRef(fsTypes);
   fsTypesRef.current = fsTypes;
   const relTypesRef = useRef(relationTypes);
@@ -269,7 +273,7 @@ export default function DiagramEditor() {
     api
       .get<DiagramData>(`/diagrams/${id}`)
       .then(setDiagram)
-      .catch(() => setSnackMsg("Failed to load diagram"))
+      .catch(() => setSnackMsg(t("editor.errors.loadFailed")))
       .finally(() => setLoading(false));
   }, [id]);
 
@@ -292,9 +296,9 @@ export default function DiagramEditor() {
         setDiagram((prev) =>
           prev ? { ...prev, data: { ...prev.data, xml, ...(thumbnail ? { thumbnail } : {}) } } : prev,
         );
-        setSnackMsg("Diagram saved");
+        setSnackMsg(t("editor.saved"));
       } catch {
-        setSnackMsg("Save failed");
+        setSnackMsg(t("editor.errors.saveFailed"));
       } finally {
         setSaving(false);
       }
@@ -313,7 +317,7 @@ export default function DiagramEditor() {
         : children;
 
       if (visible.length === 0) {
-        setSnackMsg("No related cards");
+        setSnackMsg(t("editor.noRelatedCards"));
         return;
       }
 
@@ -381,22 +385,22 @@ export default function DiagramEditor() {
                 const other = r.source_id === cardId ? r.target : r.source;
                 if (!other || seen.has(other.id)) continue;
                 seen.add(other.id);
-                const t = fsTypesRef.current.find((tp) => tp.key === other.type);
+                const ct = fsTypesRef.current.find((tp) => tp.key === other.type);
                 children.push({
                   id: other.id,
                   name: other.name,
                   type: other.type,
-                  color: t?.color || "#999",
+                  color: ct?.color || "#999",
                   relationType: r.type,
                 });
               }
               if (children.length === 0) {
-                setSnackMsg("No related cards");
+                setSnackMsg(t("editor.noRelatedCards"));
                 return;
               }
               children.sort((a, b) => {
-                const sa = fsTypesRef.current.find((t) => t.key === a.type)?.sort_order ?? 99;
-                const sb = fsTypesRef.current.find((t) => t.key === b.type)?.sort_order ?? 99;
+                const sa = fsTypesRef.current.find((tp) => tp.key === a.type)?.sort_order ?? 99;
+                const sb = fsTypesRef.current.find((tp) => tp.key === b.type)?.sort_order ?? 99;
                 if (sa !== sb) return sa - sb;
                 return a.name.localeCompare(b.name);
               });
@@ -404,7 +408,7 @@ export default function DiagramEditor() {
               expandCacheRef.current.set(cellId, children);
               doExpand(iframeRef.current!, cellId, cardId, children);
             })
-            .catch(() => setSnackMsg("Failed to load relations"));
+            .catch(() => setSnackMsg(t("editor.errors.loadRelationsFailed")));
         }
       }
     },
@@ -436,12 +440,12 @@ export default function DiagramEditor() {
             const other = r.source_id === cardId ? r.target : r.source;
             if (!other || seen.has(other.id)) continue;
             seen.add(other.id);
-            const t = fsTypesRef.current.find((tp) => tp.key === other.type);
+            const ct = fsTypesRef.current.find((tp) => tp.key === other.type);
             children.push({
               id: other.id,
               name: other.name,
               type: other.type,
-              color: t?.color || "#999",
+              color: ct?.color || "#999",
               relationType: r.type,
             });
           }
@@ -449,20 +453,20 @@ export default function DiagramEditor() {
             addExpandOverlay(iframeRef.current!, cellId, false, () =>
               handleToggleGroup(cellId, cardId, false),
             );
-            setSnackMsg("No related cards");
+            setSnackMsg(t("editor.noRelatedCards"));
             return;
           }
           children.sort((a, b) => {
-            const sa = fsTypesRef.current.find((t) => t.key === a.type)?.sort_order ?? 99;
-            const sb = fsTypesRef.current.find((t) => t.key === b.type)?.sort_order ?? 99;
+            const sa = fsTypesRef.current.find((tp) => tp.key === a.type)?.sort_order ?? 99;
+            const sb = fsTypesRef.current.find((tp) => tp.key === b.type)?.sort_order ?? 99;
             if (sa !== sb) return sa - sb;
             return a.name.localeCompare(b.name);
           });
           expandCacheRef.current.set(cellId, children);
           doExpand(iframeRef.current!, cellId, cardId, children);
-          setSnackMsg("Relations restored from inventory");
+          setSnackMsg(t("editor.relationsRestored"));
         })
-        .catch(() => setSnackMsg("Failed to resync relations"));
+        .catch(() => setSnackMsg(t("editor.errors.resyncFailed")));
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [doExpand],
@@ -498,9 +502,9 @@ export default function DiagramEditor() {
         addExpandOverlay(frame, data.cellId, false, () =>
           handleToggleGroup(data.cellId, card.id, false),
         );
-        setSnackMsg(`Inserted "${card.name}"`);
+        setSnackMsg(t("editor.inserted", { name: card.name }));
       } else {
-        setSnackMsg("Editor not ready — try again in a moment");
+        setSnackMsg(t("editor.errors.editorNotReady"));
       }
     },
     [handleToggleGroup],
@@ -519,7 +523,7 @@ export default function DiagramEditor() {
         return {
           cellId: p.cellId,
           type: p.type,
-          typeLabel: typeInfo?.label || p.type,
+          typeLabel: rml(typeInfo?.key ?? "", typeInfo?.translations, "label") || p.type,
           typeColor: typeInfo?.color || "#999",
           name: p.name,
         };
@@ -576,7 +580,7 @@ export default function DiagramEditor() {
       });
 
       if (cellId) {
-        setSnackMsg(`"${data.name}" added (pending sync)`);
+        setSnackMsg(t("editor.addedPending", { name: data.name }));
         refreshSyncPanel();
       }
       setCreateOpen(false);
@@ -597,7 +601,7 @@ export default function DiagramEditor() {
 
       setRelPickerOpen(false);
       pendingEdgeRef.current = null;
-      setSnackMsg(`Relation "${relType.label}" added (pending sync)`);
+      setSnackMsg(t("editor.relationAddedPending", { label: relType.label }));
       refreshSyncPanel();
     },
     [refreshSyncPanel],
@@ -646,10 +650,10 @@ export default function DiagramEditor() {
             }
           }
         }
-        setSnackMsg(`"${item.name}" pushed to inventory`);
+        setSnackMsg(t("editor.pushedToInventory", { name: item.name }));
         refreshSyncPanel();
       } catch {
-        setSnackMsg("Failed to create card");
+        setSnackMsg(t("editor.errors.createCardFailed"));
       } finally {
         setSyncing(false);
       }
@@ -671,7 +675,7 @@ export default function DiagramEditor() {
 
         // Both endpoints must have real (non-pending) IDs
         if (rel.sourceCardId.startsWith("pending-") || rel.targetCardId.startsWith("pending-")) {
-          setSnackMsg("Sync the connected cards first");
+          setSnackMsg(t("editor.errors.syncCardsFirst"));
           return;
         }
 
@@ -682,10 +686,10 @@ export default function DiagramEditor() {
         });
 
         markEdgeSynced(frame, edgeCellId, "#666");
-        setSnackMsg(`Relation "${rel.relationLabel}" pushed to inventory`);
+        setSnackMsg(t("editor.relationPushed", { label: rel.relationLabel }));
         refreshSyncPanel();
       } catch {
-        setSnackMsg("Failed to create relation");
+        setSnackMsg(t("editor.errors.createRelationFailed"));
       } finally {
         setSyncing(false);
       }
@@ -713,7 +717,7 @@ export default function DiagramEditor() {
             handleToggleGroup(p.cellId, resp.id, false),
           );
         } catch {
-          setSnackMsg(`Failed to sync "${p.name}"`);
+          setSnackMsg(t("editor.errors.syncFailed", { name: p.name }));
         }
       }
 
@@ -731,12 +735,12 @@ export default function DiagramEditor() {
           });
           markEdgeSynced(frame, r.edgeCellId, "#666");
         } catch {
-          setSnackMsg(`Failed to sync relation "${r.relationLabel}"`);
+          setSnackMsg(t("editor.errors.syncRelationFailed", { label: r.relationLabel }));
         }
       }
 
       refreshSyncPanel();
-      setSnackMsg("Synchronisation complete");
+      setSnackMsg(t("editor.syncComplete"));
     } finally {
       setSyncing(false);
     }
@@ -788,7 +792,7 @@ export default function DiagramEditor() {
       }
 
       setStaleItems(stale);
-      if (stale.length === 0) setSnackMsg("All cards are up to date");
+      if (stale.length === 0) setSnackMsg(t("editor.allUpToDate"));
     } finally {
       setCheckingUpdates(false);
     }
@@ -801,7 +805,7 @@ export default function DiagramEditor() {
       if (!frame || !item) return;
       updateCellLabel(frame, cellId, item.inventoryName);
       setStaleItems((prev) => prev.filter((s) => s.cellId !== cellId));
-      setSnackMsg(`Updated to "${item.inventoryName}"`);
+      setSnackMsg(t("editor.updatedTo", { name: item.inventoryName }));
     },
     [staleItems],
   );
@@ -918,7 +922,7 @@ export default function DiagramEditor() {
       </Box>
     );
   }
-  if (!diagram) return <Typography color="error">Diagram not found</Typography>;
+  if (!diagram) return <Typography color="error">{t("editor.notFound")}</Typography>;
 
   const iframeSrc = `${DRAWIO_BASE_URL}?${DRAWIO_URL_PARAMS}`;
 
@@ -946,7 +950,7 @@ export default function DiagramEditor() {
         {saving && <CircularProgress size={16} sx={{ ml: 1 }} />}
 
         {/* Sync button */}
-        <Tooltip title="Synchronise diagram with inventory">
+        <Tooltip title={t("editor.toolbar.syncTooltip")}>
           <Button
             size="small"
             variant={totalPending > 0 ? "contained" : "outlined"}
@@ -955,7 +959,7 @@ export default function DiagramEditor() {
             onClick={() => setSyncOpen(true)}
             sx={{ textTransform: "none", minWidth: 0, px: 1.5, py: 0.25, fontSize: "0.8rem" }}
           >
-            Sync{totalPending > 0 ? ` (${totalPending})` : ""}
+            {totalPending > 0 ? t("editor.toolbar.syncCount", { count: totalPending }) : t("editor.toolbar.sync")}
           </Button>
         </Tooltip>
       </Box>
@@ -967,7 +971,7 @@ export default function DiagramEditor() {
             ref={iframeRef}
             src={iframeSrc}
             style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", border: "none" }}
-            title="Diagram Editor"
+            title={t("editor.title")}
           />
         </Box>
       </Box>

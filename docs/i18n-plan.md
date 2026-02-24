@@ -3,7 +3,7 @@
 > **Version**: 1.0
 > **Date**: 2026-02-23
 > **Status**: Draft — awaiting approval
-> **Target locales**: English (base), French, Spanish, Italian, Portuguese, Chinese
+> **Target locales**: English (base), German, French, Spanish, Italian, Portuguese, Chinese
 
 ---
 
@@ -46,7 +46,7 @@ These decisions were made during the assessment phase and guide all implementati
 |---|----------|--------|-----------|
 | 1 | **Metamodel labels** | Translate the seed data + allow admin to provide translations when creating new types/fields/lists/groups | Users in non-English markets need localized type names, field labels, and option labels. Admin-configurable translations future-proof the system. |
 | 2 | **Notification rendering** | Client-side (structured codes) | Store structured data in DB (`{type, actor_id, card_id, ...}`), render translated text in frontend. Old notifications update when user switches language. |
-| 3 | **Target locales** | EN, FR, ES, IT, PT, ZH | Initial set covers major European markets and Chinese. |
+| 3 | **Target locales** | EN, DE, FR, ES, IT, PT, ZH | Initial set covers major European markets, German-speaking markets, and Chinese. |
 | 4 | **RTL support** | Not included | No Arabic/Hebrew support needed currently. Eliminates layout complexity. |
 | 5 | **URL structure** | User preference only | No locale in URL path (e.g., no `/fr/inventory`). Language is stored on the user profile and applied globally. |
 | 6 | **Translation workflow** | Manual JSON files | No external platform (Crowdin/Lokalise). Translation files live in the repo under `frontend/src/i18n/locales/`. |
@@ -137,6 +137,8 @@ frontend/src/i18n/locales/
 │   ├── delivery.json
 │   ├── notifications.json
 │   └── validation.json
+├── de/
+│   └── (same structure)
 ├── fr/
 │   └── (same structure)
 ├── es/
@@ -323,6 +325,7 @@ With a submenu showing:
 | Code | Label |
 |------|-------|
 | `en` | English |
+| `de` | Deutsch |
 | `fr` | Français |
 | `es` | Español |
 | `it` | Italiano |
@@ -681,6 +684,7 @@ Add an optional `translations` object at each translatable level:
 {
   "section": "Technical Details",
   "translations": {
+    "de": "Technische Details",
     "fr": "Détails Techniques",
     "es": "Detalles Técnicos"
   },
@@ -689,6 +693,7 @@ Add an optional `translations` object at each translatable level:
       "key": "riskLevel",
       "label": "Risk Level",
       "translations": {
+        "de": "Risikostufe",
         "fr": "Niveau de Risque",
         "es": "Nivel de Riesgo"
       },
@@ -696,7 +701,7 @@ Add an optional `translations` object at each translatable level:
       "options": [
         {
           "key": "low", "label": "Low", "color": "#4caf50",
-          "translations": { "fr": "Faible", "es": "Bajo" }
+          "translations": { "de": "Niedrig", "fr": "Faible", "es": "Bajo" }
         }
       ]
     }
@@ -750,6 +755,7 @@ Update `seed.py` to include translations for all 14 built-in card types. Example
     "label": "Application",
     "translations": {
         "label": {
+            "de": "Anwendung",
             "fr": "Application",
             "es": "Aplicación",
             "it": "Applicazione",
@@ -761,14 +767,50 @@ Update `seed.py` to include translations for all 14 built-in card types. Example
 }
 ```
 
-### 10.6 Admin UI Changes
+### 10.6 Admin UI Changes — Translation Tab Pattern
 
-In `TypeDetailDrawer.tsx` and `FieldEditorDialog.tsx`, add translation input fields:
+Every dialog or drawer that creates or edits a metamodel entity must include a **"Translations" tab** alongside its existing content. This tab shows translation inputs for all translatable labels in the entity being edited. The pattern applies to:
 
-- Below each label input, show a collapsible "Translations" section
-- Show one text field per supported locale (FR, ES, IT, PT, ZH)
-- Only show locales that differ from the base (English) label
-- Save translations alongside the label in the `translations` object
+- **TypeDetailDrawer**: Translations tab for the card type's `label` and `description`, each subtype label, each section heading, each group heading
+- **FieldEditorDialog**: Translations tab for the field `label` and each select option `label`
+- **StakeholderRolePanel** (create/edit role dialog): Translations tab for the role `label` and `description`
+- **MetamodelAdmin** (create/edit relation type dialog): Translations tab for the relation `label` and `reverse_label`
+- **TagsAdmin** (create/edit tag group / tag dialogs): Translations tab for tag group `name` and tag `name`
+
+**Tab UX pattern:**
+
+```
+┌─── General ──┬── Translations ──┐
+│                                  │
+│  (normal form fields)            │
+│  ← shown on General tab          │
+│                                  │
+│  ── OR ──                        │
+│                                  │
+│  Field: "Risk Level"             │
+│                                  │
+│  German (de):     [Risikostufe ] │
+│  French (fr):     [Niveau de…  ] │
+│  Spanish (es):    [Nivel de …  ] │
+│  Italian (it):    [Livello di…]  │
+│  Portuguese (pt): [Nível de … ]  │
+│  Chinese (zh):    [风险级别    ]  │
+│                                  │
+│  (one row per translatable label │
+│   in the entity being edited)    │
+│                                  │
+└──────────────────────────────────┘
+```
+
+**Implementation details:**
+
+- The tabs use MUI `Tabs` / `Tab` components inside the dialog
+- The "General" tab contains the existing form fields (no change to current layout)
+- The "Translations" tab shows a form with one text field per supported locale (excluding `en`) for each translatable string in the entity
+- When the entity has multiple translatable strings (e.g., a field label + its option labels), group them with section headings
+- Empty translation fields are omitted from the saved `translations` object (only non-empty values are stored)
+- The translations object structure follows section 10.2 format
+- A shared `TranslationFields` component encapsulates the locale input rows to avoid duplication across dialogs
 
 ### 10.7 Frontend Resolution
 
@@ -800,10 +842,11 @@ const typeLabel = resolveLabel(type.label, type.translations?.label, i18n.langua
 MUI provides locale packs for component text (date pickers, pagination, data grid, etc.).
 
 ```typescript
-import { zhCN, frFR, esES, itIT, ptBR } from "@mui/material/locale";
+import { deDE, zhCN, frFR, esES, itIT, ptBR } from "@mui/material/locale";
 
 const MUI_LOCALES: Record<string, object> = {
   en: {},  // MUI defaults to English
+  de: deDE,
   fr: frFR,
   es: esES,
   it: itIT,
@@ -839,7 +882,7 @@ const AG_GRID_LOCALES: Record<string, object> = {
 />
 ```
 
-AG Grid provides official locale packs for French. For other languages, we'll need to create custom `localeText` objects (~50 keys for pagination, filtering, column menu).
+AG Grid provides official locale packs for French and German. For other languages, we'll need to create custom `localeText` objects (~50 keys for pagination, filtering, column menu).
 
 ### 11.3 Date Formatting
 
@@ -912,141 +955,142 @@ const navItems = useMemo(() => getNavItems(t), [t]);
 
 This is the complete list of files requiring migration, grouped by priority.
 
-### Priority 1: Infrastructure (must be done first)
+### Priority 1: Infrastructure (must be done first) ✅
 
-- [ ] `src/i18n/index.ts` — i18n configuration
-- [ ] `src/i18n/locales/en/*.json` — all 12 English namespace files
-- [ ] `src/main.tsx` — import i18n
-- [ ] `src/types/index.ts` — add `locale` to User type
-- [ ] `src/hooks/useAuth.ts` — sync locale with i18next on login
+- [x] `src/i18n/index.ts` — i18n configuration
+- [x] `src/i18n/locales/en/*.json` — all 12 English namespace files
+- [x] `src/main.tsx` — import i18n
+- [x] `src/types/index.ts` — add `locale` to User type
+- [x] `src/hooks/useAuth.ts` — sync locale with i18next on login
 
-### Priority 2: Layout & Navigation (high visibility)
+### Priority 2: Layout & Navigation (high visibility) ✅
 
-- [ ] `src/layouts/AppLayout.tsx` — nav items, admin menu, user menu, search, language switcher
-- [ ] `src/App.tsx` — loading fallback text (if any)
+- [x] `src/layouts/AppLayout.tsx` — nav items, admin menu, user menu, search, language switcher
+- [x] `src/App.tsx` — loading fallback text (if any)
 
-### Priority 3: Auth Pages
+### Priority 3: Auth Pages ✅
 
-- [ ] `src/features/auth/LoginPage.tsx`
-- [ ] `src/features/auth/SetPasswordPage.tsx`
-- [ ] `src/features/auth/SsoCallback.tsx`
+- [x] `src/features/auth/LoginPage.tsx`
+- [x] `src/features/auth/SetPasswordPage.tsx`
+- [x] `src/features/auth/SsoCallback.tsx`
 
-### Priority 4: Dashboard & Core
+### Priority 4: Dashboard & Core ✅
 
-- [ ] `src/features/dashboard/Dashboard.tsx`
-- [ ] `src/components/CreateCardDialog.tsx`
-- [ ] `src/components/LifecycleBadge.tsx`
-- [ ] `src/components/ApprovalStatusBadge.tsx`
-- [ ] `src/components/NotificationBell.tsx`
-- [ ] `src/components/NotificationPreferencesDialog.tsx`
-- [ ] `src/components/EolLinkSection.tsx`
-- [ ] `src/components/VendorField.tsx`
-- [ ] `src/components/ColorPicker.tsx`
-- [ ] `src/components/KeyInput.tsx`
-- [ ] `src/components/TimelineSlider.tsx`
+- [x] `src/features/dashboard/Dashboard.tsx`
+- [x] `src/components/CreateCardDialog.tsx`
+- [x] `src/components/LifecycleBadge.tsx`
+- [x] `src/components/ApprovalStatusBadge.tsx`
+- [x] `src/components/NotificationBell.tsx`
+- [x] `src/components/NotificationPreferencesDialog.tsx`
+- [x] `src/components/EolLinkSection.tsx`
+- [x] `src/components/VendorField.tsx`
+- [x] `src/components/ColorPicker.tsx`
+- [x] `src/components/KeyInput.tsx`
+- [x] `src/components/TimelineSlider.tsx`
 
-### Priority 5: Inventory
+### Priority 5: Inventory ✅
 
-- [ ] `src/features/inventory/InventoryPage.tsx`
-- [ ] `src/features/inventory/InventoryFilterSidebar.tsx`
-- [ ] `src/features/inventory/ImportDialog.tsx`
-- [ ] `src/features/inventory/RelationCellPopover.tsx`
-- [ ] `src/features/inventory/excelExport.ts`
-- [ ] `src/features/inventory/excelImport.ts`
+- [x] `src/features/inventory/InventoryPage.tsx`
+- [x] `src/features/inventory/InventoryFilterSidebar.tsx`
+- [x] `src/features/inventory/ImportDialog.tsx`
+- [x] `src/features/inventory/RelationCellPopover.tsx`
+- [x] `src/features/inventory/excelExport.ts`
+- [x] `src/features/inventory/excelImport.ts`
 
-### Priority 6: Card Detail
+### Priority 6: Card Detail ✅
 
-- [ ] `src/features/cards/CardDetail.tsx`
-- [ ] `src/features/cards/sections/DescriptionSection.tsx`
-- [ ] `src/features/cards/sections/LifecycleSection.tsx`
-- [ ] `src/features/cards/sections/AttributeSection.tsx`
-- [ ] `src/features/cards/sections/HierarchySection.tsx`
-- [ ] `src/features/cards/sections/RelationsSection.tsx`
-- [ ] `src/features/cards/sections/StakeholdersTab.tsx`
-- [ ] `src/features/cards/sections/CommentsTab.tsx`
-- [ ] `src/features/cards/sections/TodosTab.tsx`
-- [ ] `src/features/cards/sections/HistoryTab.tsx`
-- [ ] `src/features/cards/sections/cardDetailUtils.tsx`
+- [x] `src/features/cards/CardDetail.tsx`
+- [x] `src/features/cards/sections/DescriptionSection.tsx`
+- [x] `src/features/cards/sections/LifecycleSection.tsx`
+- [x] `src/features/cards/sections/AttributeSection.tsx`
+- [x] `src/features/cards/sections/HierarchySection.tsx`
+- [x] `src/features/cards/sections/RelationsSection.tsx`
+- [x] `src/features/cards/sections/StakeholdersTab.tsx`
+- [x] `src/features/cards/sections/CommentsTab.tsx`
+- [x] `src/features/cards/sections/TodosTab.tsx`
+- [x] `src/features/cards/sections/HistoryTab.tsx`
+- [x] `src/features/cards/sections/cardDetailUtils.tsx`
 
-### Priority 7: Reports
+### Priority 7: Reports ✅
 
-- [ ] `src/features/reports/ReportShell.tsx`
-- [ ] `src/features/reports/MetricCard.tsx`
-- [ ] `src/features/reports/ReportLegend.tsx`
-- [ ] `src/features/reports/SaveReportDialog.tsx`
-- [ ] `src/features/reports/EditReportDialog.tsx`
-- [ ] `src/features/reports/SavedReportsPage.tsx`
-- [ ] `src/features/reports/PortfolioReport.tsx`
-- [ ] `src/features/reports/CapabilityMapReport.tsx`
-- [ ] `src/features/reports/LifecycleReport.tsx`
-- [ ] `src/features/reports/DependencyReport.tsx`
-- [ ] `src/features/reports/CostReport.tsx`
-- [ ] `src/features/reports/MatrixReport.tsx`
-- [ ] `src/features/reports/DataQualityReport.tsx`
-- [ ] `src/features/reports/EolReport.tsx`
-- [ ] `src/features/reports/ProcessMapReport.tsx`
+- [x] `src/features/reports/ReportShell.tsx`
+- [x] `src/features/reports/MetricCard.tsx` (presentational — no hardcoded strings)
+- [x] `src/features/reports/ReportLegend.tsx` (presentational — no hardcoded strings)
+- [x] `src/features/reports/SaveReportDialog.tsx`
+- [x] `src/features/reports/EditReportDialog.tsx`
+- [x] `src/features/reports/SavedReportsPage.tsx`
+- [x] `src/features/reports/PortfolioReport.tsx`
+- [x] `src/features/reports/CapabilityMapReport.tsx`
+- [x] `src/features/reports/LifecycleReport.tsx`
+- [x] `src/features/reports/DependencyReport.tsx`
+- [x] `src/features/reports/CostReport.tsx`
+- [x] `src/features/reports/MatrixReport.tsx`
+- [x] `src/features/reports/DataQualityReport.tsx`
+- [x] `src/features/reports/EolReport.tsx`
+- [x] `src/features/reports/ProcessMapReport.tsx`
 
-### Priority 8: BPM
+### Priority 8: BPM ✅
 
-- [ ] `src/features/bpm/BpmDashboard.tsx`
-- [ ] `src/features/bpm/ProcessFlowEditorPage.tsx`
-- [ ] `src/features/bpm/ProcessFlowTab.tsx`
-- [ ] `src/features/bpm/ProcessAssessmentPanel.tsx`
-- [ ] `src/features/bpm/BpmnTemplateChooser.tsx`
-- [ ] `src/features/bpm/BpmnViewer.tsx`
-- [ ] `src/features/bpm/ElementLinker.tsx`
-- [ ] `src/features/bpm/ProcessNavigator.tsx`
-- [ ] `src/features/bpm/BpmReportPage.tsx`
+- [x] `src/features/bpm/BpmDashboard.tsx`
+- [x] `src/features/bpm/ProcessFlowEditorPage.tsx`
+- [x] `src/features/bpm/ProcessFlowTab.tsx`
+- [x] `src/features/bpm/ProcessAssessmentPanel.tsx`
+- [x] `src/features/bpm/BpmnTemplateChooser.tsx`
+- [x] `src/features/bpm/BpmnViewer.tsx`
+- [x] `src/features/bpm/ElementLinker.tsx`
+- [x] `src/features/bpm/ProcessNavigator.tsx`
+- [x] `src/features/bpm/BpmReportPage.tsx`
+- [x] `src/features/bpm/BpmnModeler.tsx`
 
-### Priority 9: Diagrams
+### Priority 9: Diagrams ✅
 
-- [ ] `src/features/diagrams/DiagramsPage.tsx`
-- [ ] `src/features/diagrams/DiagramEditor.tsx`
-- [ ] `src/features/diagrams/DiagramSyncPanel.tsx`
-- [ ] `src/features/diagrams/CardSidebar.tsx`
-- [ ] `src/features/diagrams/CardPickerDialog.tsx`
-- [ ] `src/features/diagrams/CreateOnDiagramDialog.tsx`
-- [ ] `src/features/diagrams/RelationPickerDialog.tsx`
+- [x] `src/features/diagrams/DiagramsPage.tsx`
+- [x] `src/features/diagrams/DiagramEditor.tsx`
+- [x] `src/features/diagrams/DiagramSyncPanel.tsx`
+- [x] `src/features/diagrams/CardSidebar.tsx`
+- [x] `src/features/diagrams/CardPickerDialog.tsx`
+- [x] `src/features/diagrams/CreateOnDiagramDialog.tsx`
+- [x] `src/features/diagrams/RelationPickerDialog.tsx`
 
-### Priority 10: Admin
+### Priority 10: Admin ✅
 
-- [ ] `src/features/admin/MetamodelAdmin.tsx`
-- [ ] `src/features/admin/metamodel/TypeDetailDrawer.tsx`
-- [ ] `src/features/admin/metamodel/FieldEditorDialog.tsx`
-- [ ] `src/features/admin/metamodel/StakeholderRolePanel.tsx`
-- [ ] `src/features/admin/metamodel/MetamodelGraph.tsx`
-- [ ] `src/features/admin/metamodel/constants.ts`
-- [ ] `src/features/admin/RolesAdmin.tsx`
-- [ ] `src/features/admin/UsersAdmin.tsx`
-- [ ] `src/features/admin/SettingsAdmin.tsx`
-- [ ] `src/features/admin/CalculationsAdmin.tsx`
-- [ ] `src/features/admin/TagsAdmin.tsx`
-- [ ] `src/features/admin/CardLayoutEditor.tsx`
-- [ ] `src/features/admin/EolAdmin.tsx`
-- [ ] `src/features/admin/SurveysAdmin.tsx`
-- [ ] `src/features/admin/SurveyBuilder.tsx`
-- [ ] `src/features/admin/SurveyResults.tsx`
-- [ ] `src/features/admin/WebPortalsAdmin.tsx`
-- [ ] `src/features/admin/ServiceNowAdmin.tsx`
+- [x] `src/features/admin/MetamodelAdmin.tsx`
+- [x] `src/features/admin/metamodel/TypeDetailDrawer.tsx`
+- [x] `src/features/admin/metamodel/FieldEditorDialog.tsx`
+- [x] `src/features/admin/metamodel/StakeholderRolePanel.tsx`
+- [x] `src/features/admin/metamodel/MetamodelGraph.tsx`
+- [x] `src/features/admin/metamodel/constants.ts`
+- [x] `src/features/admin/RolesAdmin.tsx`
+- [x] `src/features/admin/UsersAdmin.tsx`
+- [x] `src/features/admin/SettingsAdmin.tsx`
+- [x] `src/features/admin/CalculationsAdmin.tsx`
+- [x] `src/features/admin/TagsAdmin.tsx`
+- [x] `src/features/admin/CardLayoutEditor.tsx`
+- [x] `src/features/admin/EolAdmin.tsx`
+- [x] `src/features/admin/SurveysAdmin.tsx`
+- [x] `src/features/admin/SurveyBuilder.tsx`
+- [x] `src/features/admin/SurveyResults.tsx`
+- [x] `src/features/admin/WebPortalsAdmin.tsx`
+- [x] `src/features/admin/ServiceNowAdmin.tsx`
 
-### Priority 11: Other Features
+### Priority 11: Other Features ✅
 
-- [ ] `src/features/ea-delivery/EADeliveryPage.tsx`
-- [ ] `src/features/ea-delivery/SoAWEditor.tsx`
-- [ ] `src/features/ea-delivery/SoAWPreview.tsx`
-- [ ] `src/features/ea-delivery/RichTextEditor.tsx`
-- [ ] `src/features/ea-delivery/soawTemplate.ts`
-- [ ] `src/features/ea-delivery/soawExport.ts`
-- [ ] `src/features/todos/TodosPage.tsx`
-- [ ] `src/features/surveys/SurveyRespond.tsx`
-- [ ] `src/features/surveys/MySurveys.tsx`
-- [ ] `src/features/web-portals/PortalViewer.tsx`
+- [x] `src/features/ea-delivery/EADeliveryPage.tsx`
+- [x] `src/features/ea-delivery/SoAWEditor.tsx`
+- [x] `src/features/ea-delivery/SoAWPreview.tsx`
+- [x] `src/features/ea-delivery/RichTextEditor.tsx`
+- [x] `src/features/ea-delivery/soawTemplate.ts`
+- [x] `src/features/ea-delivery/soawExport.ts`
+- [x] `src/features/todos/TodosPage.tsx`
+- [x] `src/features/surveys/SurveyRespond.tsx`
+- [x] `src/features/surveys/MySurveys.tsx`
+- [x] `src/features/web-portals/PortalViewer.tsx`
 
 ### Priority 12: MUI & AG Grid Locale
 
 - [ ] `src/App.tsx` — MUI locale injection
 - [ ] `src/features/inventory/InventoryPage.tsx` — AG Grid `localeText`
-- [ ] Create AG Grid locale files for es, it, pt, zh (FR is provided by AG Grid)
+- [ ] Create AG Grid locale files for es, it, pt, zh (DE and FR are provided by AG Grid)
 
 ---
 
@@ -1124,60 +1168,66 @@ For each locale:
 
 | Language | Text Length vs English | Key Risk |
 |----------|-----------------------|----------|
+| German | +20–35% longer | Button overflow, column width, compound words |
 | French | +15–30% longer | Button overflow, column width |
 | Spanish | +15–25% longer | Button overflow |
 | Italian | +10–20% longer | Minor overflow |
 | Portuguese | +15–25% longer | Button overflow |
 | Chinese | ~20–40% shorter | Empty space, character rendering |
 
-Test with French (longest) and Chinese (shortest) to cover both extremes.
+Test with German (longest) and Chinese (shortest) to cover both extremes.
 
 ---
 
 ## 16. Phase Plan & Milestones
 
-### Phase 1: Infrastructure
+### Phase 1: Infrastructure ✅
 
 **Scope**: Backend locale field + frontend i18n setup
 
-**Backend (done in this PR)**:
-- [ ]  User model: `locale` column
-- [ ]  Migration `036_add_user_locale.py`
-- [ ] Auth schema: `locale` in `UserResponse`
-- [ ] Auth API: `/auth/me` returns `locale`
-- [ ]  Users API: `locale` in `UserUpdate`, validation, self-update
+**Backend**:
+- [x] User model: `locale` column
+- [x] Migration `036_add_user_locale.py`
+- [x] Auth schema: `locale` in `UserResponse`
+- [x] Auth API: `/auth/me` returns `locale`
+- [x] Users API: `locale` in `UserUpdate`, validation, self-update
 
-**Frontend (done in this PR)**:
-- [ ] `i18next`, `react-i18next`, `i18next-browser-languagedetector` installed
+**Frontend**:
+- [x] `i18next`, `react-i18next`, `i18next-browser-languagedetector` installed
+- [x] Create `src/i18n/index.ts` configuration (7 locales incl. German)
+- [x] Create all 12 English namespace JSON files (skeleton with initial keys)
+- [x] Create skeleton files for DE, FR, ES, IT, PT, ZH
+- [x] Update `src/main.tsx` to import i18n
+- [x] Add `locale` to `User` type
+- [x] Sync locale in `useAuth.ts`
+- [x] Add language switcher in `AppLayout.tsx` (with German)
 
-**Frontend (remaining)**:
-- [ ] Create `src/i18n/index.ts` configuration
-- [ ] Create all 12 English namespace JSON files
-- [ ] Update `src/main.tsx` to import i18n
-- [ ] Add `locale` to `User` type
-- [ ] Sync locale in `useAuth.ts`
-- [ ] Add language switcher in `AppLayout.tsx`
-
-### Phase 2: Core Component Migration
+### Phase 2: Core Component Migration ✅
 
 **Scope**: Migrate ~30 core files (layout, auth, dashboard, shared components)
 
-- [ ] `AppLayout.tsx` (nav items, user menu, search)
-- [ ] Auth pages (Login, SetPassword, SsoCallback)
-- [ ] Dashboard
-- [ ] All shared components (`CreateCardDialog`, `NotificationBell`, etc.)
+- [x] `AppLayout.tsx` (nav items, user menu, search, language switcher)
+- [x] Auth pages (`LoginPage`, `SetPasswordPage`, `SsoCallback`)
+- [x] `Dashboard.tsx`
+- [x] `CreateCardDialog.tsx`
+- [x] `NotificationBell.tsx` + `NotificationPreferencesDialog.tsx`
+- [x] `LifecycleBadge.tsx` + `ApprovalStatusBadge.tsx`
+- [x] `EolLinkSection.tsx` (incl. `EolPicker`, `EolCycleDetails`, `EolLinkDialog`)
+- [x] `VendorField.tsx`
+- [x] `ColorPicker.tsx` + `KeyInput.tsx` + `TimelineSlider.tsx`
+- [x] English translation JSONs populated (common, auth, cards, notifications, validation)
 
-### Phase 3: Feature Migration
+### Phase 3: Feature Migration ✅
 
 **Scope**: Migrate ~80 feature files
 
-- [ ] Inventory (6 files)
-- [ ] Card Detail (11 files)
-- [ ] Reports (15 files)
-- [ ] Admin (18 files)
-- [ ] BPM (9 files)
-- [ ] Diagrams (7 files)
-- [ ] Other features (10 files)
+- [x] Inventory (6 files) — 154 translation keys
+- [x] Card Detail (11 files) — 126 translation keys
+- [x] Reports (15 files) — 293 translation keys
+- [x] Admin (18 files) — 658 translation keys
+- [x] BPM (10 files) — 202 translation keys
+- [x] Diagrams (7 files) — 66 translation keys
+- [x] Other features (10 files) — 237 delivery + 155 common + 18 notification keys
 
 ### Phase 4: Notification Refactoring
 
@@ -1209,14 +1259,15 @@ Test with French (longest) and Chinese (shortest) to cover both extremes.
 
 ### Phase 7: Translations
 
-**Scope**: Create translation files for FR, ES, IT, PT, ZH
+**Scope**: Create translation files for DE, FR, ES, IT, PT, ZH
 
+- [ ] German translations (all 12 namespaces)
 - [ ] French translations (all 12 namespaces)
 - [ ] Spanish translations (all 12 namespaces)
 - [ ] Italian translations (all 12 namespaces)
 - [ ] Portuguese translations (all 12 namespaces)
 - [ ] Chinese translations (all 12 namespaces)
-- [ ] Seed data translations for all 14 card types
+- [ ] Seed data translations for all 14 card types (incl. German)
 
 ### Phase 8: QA & Polish
 

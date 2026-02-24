@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Button from "@mui/material/Button";
@@ -26,6 +27,7 @@ import TableCell from "@mui/material/TableCell";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import { useMetamodel } from "@/hooks/useMetamodel";
+import { useResolveMetaLabel, useResolveLabel } from "@/hooks/useResolveLabel";
 import type { WebPortal } from "@/types";
 
 interface ToggleEntry {
@@ -34,14 +36,14 @@ interface ToggleEntry {
 }
 type Toggles = Record<string, ToggleEntry>;
 
-const BUILT_IN_PROPERTIES = [
-  { key: "description", label: "Description" },
-  { key: "lifecycle", label: "Lifecycle" },
-  { key: "tags", label: "Tags" },
-  { key: "subscribers", label: "Team / Stakeholders" },
-  { key: "data_quality", label: "Data Quality" },
-  { key: "approval_status", label: "Approval Status" },
-];
+const BUILT_IN_PROPERTY_KEYS = [
+  "description",
+  "lifecycle",
+  "tags",
+  "subscribers",
+  "data_quality",
+  "approval_status",
+] as const;
 
 const DEFAULT_CARD: Record<string, boolean> = {
   description: true,
@@ -69,7 +71,15 @@ function slugify(text: string): string {
 }
 
 export default function WebPortalsAdmin() {
+  const { t } = useTranslation(["admin", "common"]);
   const { types, relationTypes } = useMetamodel();
+  const rml = useResolveMetaLabel();
+  const rl = useResolveLabel();
+
+  const BUILT_IN_PROPERTIES = BUILT_IN_PROPERTY_KEYS.map((key) => ({
+    key,
+    label: t(`webPortals.builtInProps.${key}`),
+  }));
   const [portals, setPortals] = useState<WebPortal[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingPortal, setEditingPortal] = useState<WebPortal | null>(null);
@@ -87,7 +97,7 @@ export default function WebPortalsAdmin() {
   const [filterSubtypes, setFilterSubtypes] = useState<string[]>([]);
   const [showLogo, setShowLogo] = useState(true);
 
-  const visibleTypes = types.filter((t) => !t.is_hidden);
+  const visibleTypes = types.filter((tp) => !tp.is_hidden);
 
   const load = async () => {
     try {
@@ -149,13 +159,13 @@ export default function WebPortalsAdmin() {
     }
   };
 
-  const selectedType = visibleTypes.find((t) => t.key === cardType);
+  const selectedType = visibleTypes.find((tp) => tp.key === cardType);
   const allFields =
     selectedType?.fields_schema?.flatMap((s) => s.fields) || [];
 
   // Relation types applicable to the selected card type
   // Since the API excludes hidden types, check that the other-end type exists in visible types
-  const visibleTypeKeys = new Set(types.map((t) => t.key));
+  const visibleTypeKeys = new Set(types.map((tp) => tp.key));
   const applicableRelTypes = cardType
     ? relationTypes.filter(
         (r) =>
@@ -175,7 +185,8 @@ export default function WebPortalsAdmin() {
       rt.source_type_key === cardType
         ? rt.target_type_key
         : rt.source_type_key;
-    return types.find((t) => t.key === otherKey)?.label || otherKey;
+    const tp = types.find((tp) => tp.key === otherKey);
+    return rml(tp?.key ?? "", tp?.translations, "label") || otherKey;
   };
 
   const handleSave = async () => {
@@ -205,7 +216,7 @@ export default function WebPortalsAdmin() {
       resetForm();
       load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to save portal");
+      setError(err instanceof Error ? err.message : t("webPortals.saveError"));
     }
   };
 
@@ -231,22 +242,20 @@ export default function WebPortalsAdmin() {
   };
 
   const getTypeLabel = (key: string) => {
-    const t = types.find((t) => t.key === key);
-    return t?.label || key;
+    const ct = types.find((tp) => tp.key === key);
+    return rml(ct?.key ?? "", ct?.translations, "label") || key;
   };
 
   const getTypeColor = (key: string) => {
-    const t = types.find((t) => t.key === key);
-    return t?.color || "#666";
+    const ct = types.find((tp) => tp.key === key);
+    return ct?.color || "#666";
   };
 
   return (
     <Box>
       <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 3 }}>
         <Typography variant="body2" color="text.secondary" sx={{ flex: 1 }}>
-          Web portals are public-facing pages that display cards to end
-          users without requiring authentication. Configure which card type
-          to display, apply filters, and customize the card layout.
+          {t("webPortals.description")}
         </Typography>
         <Button
           variant="contained"
@@ -254,7 +263,7 @@ export default function WebPortalsAdmin() {
           onClick={openCreate}
           sx={{ flexShrink: 0 }}
         >
-          Create Portal
+          {t("webPortals.createPortal")}
         </Button>
       </Box>
 
@@ -272,13 +281,13 @@ export default function WebPortalsAdmin() {
               color="#ccc"
             />
             <Typography variant="h6" color="text.secondary" sx={{ mt: 1 }}>
-              No web portals yet
+              {t("webPortals.noPortals")}
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              Create your first portal to share card data with end users.
+              {t("webPortals.noPortalsHint")}
             </Typography>
             <Button variant="outlined" onClick={openCreate}>
-              Create Portal
+              {t("webPortals.createPortal")}
             </Button>
           </CardContent>
         </Card>
@@ -300,7 +309,7 @@ export default function WebPortalsAdmin() {
                   {portal.name}
                 </Typography>
                 <Chip
-                  label={portal.is_published ? "Published" : "Draft"}
+                  label={portal.is_published ? t("common:status.published") : t("common:status.draft")}
                   size="small"
                   color={portal.is_published ? "success" : "default"}
                   sx={{ height: 22, fontSize: "0.7rem" }}
@@ -347,7 +356,7 @@ export default function WebPortalsAdmin() {
               )}
             </Box>
             <Tooltip
-              title={portal.is_published ? "Unpublish" : "Publish"}
+              title={portal.is_published ? t("webPortals.unpublish") : t("webPortals.publish")}
             >
               <IconButton
                 size="small"
@@ -360,7 +369,7 @@ export default function WebPortalsAdmin() {
                 />
               </IconButton>
             </Tooltip>
-            <Tooltip title="Open Portal">
+            <Tooltip title={t("webPortals.openPortal")}>
               <IconButton
                 size="small"
                 component="a"
@@ -371,7 +380,7 @@ export default function WebPortalsAdmin() {
                 <MaterialSymbol icon="open_in_new" size={20} />
               </IconButton>
             </Tooltip>
-            <Tooltip title="Copy portal URL">
+            <Tooltip title={t("webPortals.copyUrl")}>
               <IconButton
                 size="small"
                 onClick={() => {
@@ -383,12 +392,12 @@ export default function WebPortalsAdmin() {
                 <MaterialSymbol icon="content_copy" size={20} />
               </IconButton>
             </Tooltip>
-            <Tooltip title="Edit">
+            <Tooltip title={t("webPortals.editPortal")}>
               <IconButton size="small" onClick={() => openEdit(portal)}>
                 <MaterialSymbol icon="edit" size={20} />
               </IconButton>
             </Tooltip>
-            <Tooltip title="Delete">
+            <Tooltip title={t("common:actions.delete")}>
               <IconButton
                 size="small"
                 color="error"
@@ -409,7 +418,7 @@ export default function WebPortalsAdmin() {
         fullWidth
       >
         <DialogTitle>
-          {editingPortal ? "Edit Portal" : "Create Web Portal"}
+          {editingPortal ? t("webPortals.editPortal") : t("webPortals.createWebPortal")}
         </DialogTitle>
         <DialogContent>
           {error && (
@@ -423,37 +432,37 @@ export default function WebPortalsAdmin() {
             variant="overline"
             sx={{ display: "block", mt: 1, mb: 1.5, fontWeight: 700, color: "text.secondary", letterSpacing: 1 }}
           >
-            General
+            {t("webPortals.section.general")}
           </Typography>
           <Box sx={{ display: "flex", gap: 2 }}>
             <TextField
               fullWidth
-              label="Portal Name"
+              label={t("webPortals.portalName")}
               value={name}
               onChange={(e) => handleNameChange(e.target.value)}
-              placeholder="e.g. Application Catalog"
+              placeholder={t("webPortals.namePlaceholder")}
             />
             <TextField
               fullWidth
-              label="URL Slug"
+              label={t("webPortals.urlSlug")}
               value={slug}
               onChange={(e) => {
                 setSlug(e.target.value);
                 setSlugManual(true);
               }}
               helperText={`/portal/${slug || "..."}`}
-              placeholder="e.g. application-catalog"
+              placeholder={t("webPortals.slugPlaceholder")}
             />
           </Box>
           <TextField
             fullWidth
-            label="Description"
+            label={t("common:labels.description")}
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             sx={{ mt: 2 }}
             multiline
             rows={2}
-            placeholder="Optional description displayed at the top of the portal"
+            placeholder={t("webPortals.descriptionPlaceholder")}
           />
 
           <Divider sx={{ my: 3 }} />
@@ -463,29 +472,29 @@ export default function WebPortalsAdmin() {
             variant="overline"
             sx={{ display: "block", mb: 1.5, fontWeight: 700, color: "text.secondary", letterSpacing: 1 }}
           >
-            Data Source
+            {t("webPortals.section.dataSource")}
           </Typography>
           <TextField
             fullWidth
             select
-            label="Card Type"
+            label={t("common:labels.type")}
             value={cardType}
             onChange={(e) => {
               setCardType(e.target.value);
               setToggles({});
               setFilterSubtypes([]);
             }}
-            helperText="Which type of cards to display in this portal"
+            helperText={t("webPortals.cardTypeHelper")}
           >
-            {visibleTypes.map((t) => (
-              <MenuItem key={t.key} value={t.key}>
+            {visibleTypes.map((ct) => (
+              <MenuItem key={ct.key} value={ct.key}>
                 <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                   <MaterialSymbol
-                    icon={t.icon}
+                    icon={ct.icon}
                     size={18}
-                    color={t.color}
+                    color={ct.color}
                   />
-                  {t.label}
+                  {rml(ct.key, ct.translations, "label")}
                 </Box>
               </MenuItem>
             ))}
@@ -495,7 +504,7 @@ export default function WebPortalsAdmin() {
             <TextField
               fullWidth
               select
-              label="Filter by Subtypes (optional)"
+              label={t("webPortals.filterSubtypes")}
               value={filterSubtypes}
               onChange={(e) =>
                 setFilterSubtypes(
@@ -506,11 +515,11 @@ export default function WebPortalsAdmin() {
               }
               sx={{ mt: 2 }}
               SelectProps={{ multiple: true }}
-              helperText="Only show cards of these subtypes"
+              helperText={t("webPortals.filterSubtypesHelper")}
             >
               {selectedType.subtypes.map((st) => (
                 <MenuItem key={st.key} value={st.key}>
-                  {st.label}
+                  {rl(st.key, st.translations)}
                 </MenuItem>
               ))}
             </TextField>
@@ -525,26 +534,24 @@ export default function WebPortalsAdmin() {
               variant="overline"
               sx={{ display: "block", mb: 0.5, fontWeight: 700, color: "text.secondary", letterSpacing: 1 }}
             >
-              Display Configuration
+              {t("webPortals.section.displayConfig")}
             </Typography>
             <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1.5 }}>
-              Choose which properties appear on the summary card and the expanded
-              detail view. Visible select fields and relation types also become
-              filter dropdowns on the portal automatically.
+              {t("webPortals.displayConfigHint")}
             </Typography>
               <Table size="small" sx={{ "& td, & th": { py: 0.5, px: 1 } }}>
                 <TableHead>
                   <TableRow>
-                    <TableCell sx={{ fontWeight: 600, width: "50%" }}>Property</TableCell>
-                    <TableCell align="center" sx={{ fontWeight: 600 }}>Summary Card</TableCell>
-                    <TableCell align="center" sx={{ fontWeight: 600 }}>Expanded Detail</TableCell>
+                    <TableCell sx={{ fontWeight: 600, width: "50%" }}>{t("webPortals.columns.property")}</TableCell>
+                    <TableCell align="center" sx={{ fontWeight: 600 }}>{t("webPortals.columns.summaryCard")}</TableCell>
+                    <TableCell align="center" sx={{ fontWeight: 600 }}>{t("webPortals.columns.expandedDetail")}</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
                   {BUILT_IN_PROPERTIES.map((prop) => {
-                    const t = toggles[prop.key];
-                    const cardChecked = t ? t.card : (DEFAULT_CARD[prop.key] ?? true);
-                    const detailChecked = t ? t.detail : (DEFAULT_DETAIL[prop.key] ?? true);
+                    const tog = toggles[prop.key];
+                    const cardChecked = tog ? tog.card : (DEFAULT_CARD[prop.key] ?? true);
+                    const detailChecked = tog ? tog.detail : (DEFAULT_DETAIL[prop.key] ?? true);
                     return (
                       <TableRow key={prop.key}>
                         <TableCell>
@@ -599,20 +606,20 @@ export default function WebPortalsAdmin() {
                           borderBottom: "none",
                         }}
                       >
-                        Custom Fields
+                        {t("webPortals.customFields")}
                       </TableCell>
                     </TableRow>
                   )}
 
                   {allFields.map((field, idx) => {
                     const fKey = `field:${field.key}`;
-                    const t = toggles[fKey];
-                    const cardChecked = t ? t.card : idx < 3;
-                    const detailChecked = t ? t.detail : true;
+                    const tog = toggles[fKey];
+                    const cardChecked = tog ? tog.card : idx < 3;
+                    const detailChecked = tog ? tog.detail : true;
                     return (
                       <TableRow key={fKey}>
                         <TableCell>
-                          <Typography variant="body2">{field.label}</Typography>
+                          <Typography variant="body2">{rl(field.key, field.translations)}</Typography>
                         </TableCell>
                         <TableCell align="center">
                           <Checkbox
@@ -663,20 +670,20 @@ export default function WebPortalsAdmin() {
                           borderBottom: "none",
                         }}
                       >
-                        Related Items
+                        {t("webPortals.relatedItems")}
                       </TableCell>
                     </TableRow>
                   )}
 
                   {applicableRelTypes.map((rt) => {
                     const rKey = `rel:${rt.key}`;
-                    const t = toggles[rKey];
-                    const cardChecked = t ? t.card : false;
-                    const detailChecked = t ? t.detail : false;
+                    const tog = toggles[rKey];
+                    const cardChecked = tog ? tog.card : false;
+                    const detailChecked = tog ? tog.detail : false;
                     const verb =
                       rt.source_type_key === cardType
-                        ? rt.label
-                        : rt.reverse_label || rt.label;
+                        ? rml(rt.key, rt.translations, "label")
+                        : rml(rt.key, rt.translations, "reverse_label") || rml(rt.key, rt.translations, "label");
                     return (
                       <TableRow key={rKey}>
                         <TableCell>
@@ -742,10 +749,10 @@ export default function WebPortalsAdmin() {
             label={
               <Box>
                 <Typography variant="body1" fontWeight={500}>
-                  Published
+                  {t("webPortals.published")}
                 </Typography>
                 <Typography variant="caption" color="text.secondary">
-                  Make this portal publicly accessible without authentication
+                  {t("webPortals.publishedHint")}
                 </Typography>
               </Box>
             }
@@ -760,10 +767,10 @@ export default function WebPortalsAdmin() {
             label={
               <Box>
                 <Typography variant="body1" fontWeight={500}>
-                  Show Logo
+                  {t("webPortals.showLogo")}
                 </Typography>
                 <Typography variant="caption" color="text.secondary">
-                  Display the application logo in the portal header
+                  {t("webPortals.showLogoHint")}
                 </Typography>
               </Box>
             }
@@ -771,13 +778,13 @@ export default function WebPortalsAdmin() {
           />
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDialogOpen(false)}>Cancel</Button>
+          <Button onClick={() => setDialogOpen(false)}>{t("common:actions.cancel")}</Button>
           <Button
             variant="contained"
             onClick={handleSave}
             disabled={!name.trim() || !slug.trim() || !cardType}
           >
-            {editingPortal ? "Save Changes" : "Create"}
+            {editingPortal ? t("webPortals.saveChanges") : t("common:actions.create")}
           </Button>
         </DialogActions>
       </Dialog>
@@ -788,21 +795,20 @@ export default function WebPortalsAdmin() {
         onClose={() => setDeleteConfirm(null)}
         maxWidth="xs"
       >
-        <DialogTitle>Delete Portal</DialogTitle>
+        <DialogTitle>{t("webPortals.deletePortal")}</DialogTitle>
         <DialogContent>
           <Typography>
-            Are you sure you want to delete this portal? This action cannot be
-            undone.
+            {t("webPortals.deleteConfirm")}
           </Typography>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDeleteConfirm(null)}>Cancel</Button>
+          <Button onClick={() => setDeleteConfirm(null)}>{t("common:actions.cancel")}</Button>
           <Button
             variant="contained"
             color="error"
             onClick={() => deleteConfirm && handleDelete(deleteConfirm)}
           >
-            Delete
+            {t("common:actions.delete")}
           </Button>
         </DialogActions>
       </Dialog>

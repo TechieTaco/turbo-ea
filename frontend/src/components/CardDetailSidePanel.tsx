@@ -8,10 +8,12 @@ import Chip from "@mui/material/Chip";
 import LinearProgress from "@mui/material/LinearProgress";
 import Alert from "@mui/material/Alert";
 import Tooltip from "@mui/material/Tooltip";
+import { useTranslation } from "react-i18next";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import ApprovalStatusBadge from "@/components/ApprovalStatusBadge";
 import LifecycleBadge from "@/components/LifecycleBadge";
 import { useMetamodel } from "@/hooks/useMetamodel";
+import { useResolveMetaLabel } from "@/hooks/useResolveLabel";
 import { api } from "@/api/client";
 import { DataQualityRing } from "@/features/cards/sections";
 import CardDetailContent from "@/features/cards/CardDetailContent";
@@ -41,7 +43,9 @@ interface Props {
 
 export default function CardDetailSidePanel({ cardId, open, onClose }: Props) {
   const navigate = useNavigate();
+  const { t } = useTranslation("common");
   const { getType } = useMetamodel();
+  const rml = useResolveMetaLabel();
 
   const [card, setCard] = useState<Card | null>(null);
   const [error, setError] = useState("");
@@ -123,7 +127,7 @@ export default function CardDetailSidePanel({ cardId, open, onClose }: Props) {
                 </Typography>
                 <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
                   <Typography variant="caption" color="text.secondary">
-                    {typeConfig?.label || card.type}
+                    {rml(typeConfig?.key ?? "", typeConfig?.translations, "label") || card.type}
                   </Typography>
                   {card.subtype && typeof card.subtype === "string" && (
                     <Chip
@@ -137,7 +141,7 @@ export default function CardDetailSidePanel({ cardId, open, onClose }: Props) {
               </>
             ) : (
               <Typography variant="subtitle1" color="text.secondary">
-                Loading...
+                {t("labels.loading")}
               </Typography>
             )}
           </Box>
@@ -148,7 +152,7 @@ export default function CardDetailSidePanel({ cardId, open, onClose }: Props) {
               <ApprovalStatusBadge status={card.approval_status} />
             </Box>
           )}
-          <Tooltip title="Open full page">
+          <Tooltip title={t("cards:sidePanel.openFullPage")}>
             <IconButton
               size="small"
               onClick={() => {

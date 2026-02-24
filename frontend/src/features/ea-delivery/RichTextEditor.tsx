@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
@@ -16,12 +17,13 @@ interface Props {
 }
 
 export default function RichTextEditor({ content, onChange, placeholder, readOnly }: Props) {
+  const { t } = useTranslation("delivery");
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
         heading: { levels: [3, 4] },
       }),
-      Placeholder.configure({ placeholder: placeholder ?? "Start typing..." }),
+      Placeholder.configure({ placeholder: placeholder ?? t("richText.startTyping") }),
     ],
     content,
     editable: !readOnly,
@@ -93,25 +95,25 @@ export default function RichTextEditor({ content, onChange, placeholder, readOnl
       >
         {btn(
           "format_bold",
-          "Bold",
+          t("richText.bold"),
           () => editor.chain().focus().toggleBold().run(),
           editor.isActive("bold"),
         )}
         {btn(
           "format_italic",
-          "Italic",
+          t("richText.italic"),
           () => editor.chain().focus().toggleItalic().run(),
           editor.isActive("italic"),
         )}
         {btn(
           "format_underlined",
-          "Underline",
+          t("richText.underline"),
           () => editor.chain().focus().toggleUnderline().run(),
           editor.isActive("underline"),
         )}
         {btn(
           "format_strikethrough",
-          "Strikethrough",
+          t("richText.strikethrough"),
           () => editor.chain().focus().toggleStrike().run(),
           editor.isActive("strike"),
         )}
@@ -120,37 +122,37 @@ export default function RichTextEditor({ content, onChange, placeholder, readOnl
 
         {btn(
           "title",
-          "Heading",
+          t("richText.heading"),
           () => editor.chain().focus().toggleHeading({ level: 3 }).run(),
           editor.isActive("heading", { level: 3 }),
         )}
         {btn(
           "format_list_bulleted",
-          "Bullet list",
+          t("richText.bulletList"),
           () => editor.chain().focus().toggleBulletList().run(),
           editor.isActive("bulletList"),
         )}
         {btn(
           "format_list_numbered",
-          "Numbered list",
+          t("richText.numberedList"),
           () => editor.chain().focus().toggleOrderedList().run(),
           editor.isActive("orderedList"),
         )}
 
         <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
 
-        {btn("format_quote", "Blockquote", () =>
+        {btn("format_quote", t("richText.blockquote"), () =>
           editor.chain().focus().toggleBlockquote().run(),
           editor.isActive("blockquote"),
         )}
-        {btn("horizontal_rule", "Divider", () =>
+        {btn("horizontal_rule", t("richText.divider"), () =>
           editor.chain().focus().setHorizontalRule().run(),
         )}
 
         <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
 
-        {btn("undo", "Undo", () => editor.chain().focus().undo().run())}
-        {btn("redo", "Redo", () => editor.chain().focus().redo().run())}
+        {btn("undo", t("richText.undo"), () => editor.chain().focus().undo().run())}
+        {btn("redo", t("richText.redo"), () => editor.chain().focus().redo().run())}
       </Box>}
 
       {/* Editor content */}

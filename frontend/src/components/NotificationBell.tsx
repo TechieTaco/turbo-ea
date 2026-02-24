@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import Badge from "@mui/material/Badge";
 import IconButton from "@mui/material/IconButton";
 import Popover from "@mui/material/Popover";
@@ -28,20 +29,21 @@ const NOTIFICATION_ICONS: Record<string, { icon: string; color: string }> = {
   survey_request: { icon: "assignment", color: "#0288d1" },
 };
 
-function timeAgo(dateStr: string): string {
+function timeAgo(dateStr: string, t: (key: string, opts?: Record<string, unknown>) => string): string {
   const diff = Date.now() - new Date(dateStr).getTime();
   const mins = Math.floor(diff / 60000);
-  if (mins < 1) return "just now";
-  if (mins < 60) return `${mins}m ago`;
+  if (mins < 1) return t("common:time.justNow");
+  if (mins < 60) return t("common:time.minutesAgo", { count: mins });
   const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
+  if (hrs < 24) return t("common:time.hoursAgo", { count: hrs });
   const days = Math.floor(hrs / 24);
-  if (days < 7) return `${days}d ago`;
+  if (days < 7) return t("common:time.daysAgo", { count: days });
   return new Date(dateStr).toLocaleDateString();
 }
 
 export default function NotificationBell({ userId }: { userId: string }) {
   const navigate = useNavigate();
+  const { t } = useTranslation(["notifications", "common"]);
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -144,7 +146,7 @@ export default function NotificationBell({ userId }: { userId: string }) {
 
   return (
     <>
-      <Tooltip title="Notifications">
+      <Tooltip title={t("title")}>
         <IconButton
           sx={{ color: "#fff", ml: 0.5 }}
           onClick={handleOpen}
@@ -182,7 +184,7 @@ export default function NotificationBell({ userId }: { userId: string }) {
           }}
         >
           <Typography sx={{ fontWeight: 700, flex: 1 }}>
-            Notifications
+            {t("title")}
           </Typography>
           {unreadCount > 0 && (
             <Button
@@ -190,7 +192,7 @@ export default function NotificationBell({ userId }: { userId: string }) {
               sx={{ textTransform: "none", fontSize: "0.8rem" }}
               onClick={handleMarkAllRead}
             >
-              Mark all read
+              {t("markAllRead")}
             </Button>
           )}
         </Box>
@@ -205,7 +207,7 @@ export default function NotificationBell({ userId }: { userId: string }) {
           <Box sx={{ py: 4, textAlign: "center" }}>
             <MaterialSymbol icon="notifications_off" size={32} color="#999" />
             <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-              No notifications
+              {t("noNotifications")}
             </Typography>
           </Box>
         ) : (
@@ -263,7 +265,7 @@ export default function NotificationBell({ userId }: { userId: string }) {
                           color="text.disabled"
                           sx={{ fontSize: "0.7rem" }}
                         >
-                          {notif.created_at ? timeAgo(notif.created_at) : ""}
+                          {notif.created_at ? timeAgo(notif.created_at, t) : ""}
                         </Typography>
                       </>
                     }

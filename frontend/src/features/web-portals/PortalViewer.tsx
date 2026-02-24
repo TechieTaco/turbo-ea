@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import { useParams } from "react-router-dom";
 import DOMPurify from "dompurify";
 import Box from "@mui/material/Box";
@@ -24,6 +25,7 @@ import Divider from "@mui/material/Divider";
 import Tooltip from "@mui/material/Tooltip";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import { useTheme } from "@mui/material/styles";
+import { useResolveMetaLabel, useResolveLabel } from "@/hooks/useResolveLabel";
 import type {
   PublicPortal,
   PortalCard,
@@ -97,11 +99,11 @@ function Icon({
   );
 }
 
-const ROLE_LABELS: Record<string, string> = {
-  responsible: "Responsible",
-  observer: "Observer",
-  technical_application_owner: "Technical Owner",
-  business_application_owner: "Business Owner",
+const ROLE_LABEL_KEYS: Record<string, string> = {
+  responsible: "portal.roles.responsible",
+  observer: "portal.roles.observer",
+  technical_application_owner: "portal.roles.technical_application_owner",
+  business_application_owner: "portal.roles.business_application_owner",
 };
 
 function initials(name: string): string {
@@ -113,14 +115,14 @@ function initials(name: string): string {
     .slice(0, 2);
 }
 
-function LifecycleBar({ lifecycle }: { lifecycle?: Record<string, string> }) {
+function LifecycleBar({ lifecycle, t }: { lifecycle?: Record<string, string>; t: (key: string) => string }) {
   if (!lifecycle) return null;
   const phases = [
-    { key: "plan", label: "Plan", color: "#90caf9" },
-    { key: "phaseIn", label: "Phase In", color: "#66bb6a" },
-    { key: "active", label: "Active", color: "#4caf50" },
-    { key: "phaseOut", label: "Phase Out", color: "#ff9800" },
-    { key: "endOfLife", label: "End of Life", color: "#f44336" },
+    { key: "plan", label: t("lifecycle.plan"), color: "#90caf9" },
+    { key: "phaseIn", label: t("lifecycle.phaseIn"), color: "#66bb6a" },
+    { key: "active", label: t("lifecycle.active"), color: "#4caf50" },
+    { key: "phaseOut", label: t("lifecycle.phaseOut"), color: "#ff9800" },
+    { key: "endOfLife", label: t("lifecycle.endOfLife"), color: "#f44336" },
   ];
   const filled = phases.filter((p) => lifecycle[p.key]);
   if (filled.length === 0) return null;
@@ -166,9 +168,10 @@ function FieldValue({
   value: unknown;
   field?: {
     type: string;
-    options?: { key: string; label: string; color?: string }[];
+    options?: { key: string; label: string; color?: string; translations?: Record<string, string> }[];
   };
 }) {
+  const rl = useResolveLabel();
   if (value === null || value === undefined || value === "") {
     return (
       <Typography variant="body2" color="text.disabled">
@@ -190,7 +193,7 @@ function FieldValue({
     if (opt) {
       return (
         <Chip
-          label={opt.label}
+          label={rl(opt.key, opt.translations)}
           size="small"
           sx={{
             height: 26,
@@ -216,7 +219,7 @@ function FieldValue({
           return (
             <Chip
               key={v}
-              label={opt?.label || v}
+              label={opt ? rl(opt.key, opt.translations) : v}
               size="small"
               sx={{
                 height: 24,
@@ -235,6 +238,9 @@ function FieldValue({
 }
 
 export default function PortalViewer() {
+  const { t } = useTranslation("common");
+  const rml = useResolveMetaLabel();
+  const rl = useResolveLabel();
   const { slug } = useParams<{ slug: string }>();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
@@ -415,10 +421,10 @@ export default function PortalViewer() {
       >
         <Icon name="error_outline" size={64} color="#bbb" />
         <Typography variant="h5" color="text.secondary">
-          {error || "Portal not found"}
+          {error || t("portal.notFound")}
         </Typography>
         <Typography variant="body2" color="text.disabled">
-          This portal may not exist or may not be published yet.
+          {t("portal.notFoundHint")}
         </Typography>
       </Box>
     );
@@ -482,8 +488,7 @@ export default function PortalViewer() {
                 </Typography>
               )}
               <Typography variant="body2" sx={{ mt: 1.5, opacity: 0.5, fontSize: "0.8rem" }}>
-                {total} {portal.type_info?.label || "item"}
-                {total !== 1 ? "s" : ""}
+                {t("portal.itemCount", { count: total, label: rml(portal.type_info?.key ?? "", portal.type_info?.translations, "label") || "item" })}
               </Typography>
             </Box>
 
@@ -531,7 +536,7 @@ export default function PortalViewer() {
         >
           <TextField
             size="small"
-            placeholder={`Search ${portal.type_info?.label || "items"}...`}
+            placeholder={t("portal.searchPlaceholder", { label: rml(portal.type_info?.key ?? "", portal.type_info?.translations, "label") || "items" })}
             defaultValue={search}
             onChange={(e) => handleSearchChange(e.target.value)}
             sx={{ flex: 1, minWidth: 200 }}
@@ -568,11 +573,11 @@ export default function PortalViewer() {
             InputLabelProps={{ shrink: true }}
             sx={{ width: 180 }}
           >
-            <MenuItem value="name-asc">Name A-Z</MenuItem>
-            <MenuItem value="name-desc">Name Z-A</MenuItem>
-            <MenuItem value="updated_at-desc">Recently Updated</MenuItem>
-            <MenuItem value="data_quality-desc">Highest Data Quality</MenuItem>
-            <MenuItem value="data_quality-asc">Lowest Data Quality</MenuItem>
+            <MenuItem value="name-asc">{t("portal.sortNameAsc")}</MenuItem>
+            <MenuItem value="name-desc">{t("portal.sortNameDesc")}</MenuItem>
+            <MenuItem value="updated_at-desc">{t("portal.sortRecentlyUpdated")}</MenuItem>
+            <MenuItem value="data_quality-desc">{t("portal.sortHighestQuality")}</MenuItem>
+            <MenuItem value="data_quality-asc">{t("portal.sortLowestQuality")}</MenuItem>
           </TextField>
         </Box>
 
@@ -594,7 +599,7 @@ export default function PortalViewer() {
                 <TextField
                   select
                   size="small"
-                  label="Subtype"
+                  label={t("portal.filterSubtype")}
                   value={subtype}
                   onChange={(e) => {
                     setSubtype(e.target.value);
@@ -603,10 +608,10 @@ export default function PortalViewer() {
                   InputLabelProps={{ shrink: true }}
                   sx={{ width: 180 }}
                 >
-                  <MenuItem value="">All Subtypes</MenuItem>
+                  <MenuItem value="">{t("portal.allSubtypes")}</MenuItem>
                   {portal.type_info.subtypes.map((st) => (
                     <MenuItem key={st.key} value={st.key}>
-                      {st.label}
+                      {rl(st.key, st.translations)}
                     </MenuItem>
                   ))}
                 </TextField>
@@ -617,7 +622,7 @@ export default function PortalViewer() {
                 key={field.key}
                 select
                 size="small"
-                label={field.label}
+                label={rl(field.key, field.translations)}
                 value={attrFilters[field.key] || ""}
                 onChange={(e) => {
                   setAttrFilters((prev) => ({
@@ -629,10 +634,10 @@ export default function PortalViewer() {
                 InputLabelProps={{ shrink: true }}
                 sx={{ width: 180 }}
               >
-                <MenuItem value="">All</MenuItem>
+                <MenuItem value="">{t("labels.all")}</MenuItem>
                 {field.options!.map((opt) => (
                   <MenuItem key={opt.key} value={opt.key}>
-                    {opt.label}
+                    {rl(opt.key, opt.translations)}
                   </MenuItem>
                 ))}
               </TextField>
@@ -659,7 +664,7 @@ export default function PortalViewer() {
                   sx={{ width: 200 }}
                 >
                   <MenuItem value="">
-                    All {rt.other_type_label}s
+                    {t("portal.allRelType", { label: rt.other_type_label })}
                   </MenuItem>
                   {opts.map((o) => (
                     <MenuItem key={o.id} value={o.id}>
@@ -672,7 +677,7 @@ export default function PortalViewer() {
 
             {hasActiveFilters && (
               <Chip
-                label="Clear Filters"
+                label={t("portal.clearFilters")}
                 size="small"
                 onDelete={() => {
                   setSubtype("");
@@ -694,10 +699,10 @@ export default function PortalViewer() {
           <Box sx={{ textAlign: "center", py: 8 }}>
             <Icon name="search_off" size={48} color="#ccc" />
             <Typography variant="h6" color="text.secondary" sx={{ mt: 1 }}>
-              No results found
+              {t("portal.noResults")}
             </Typography>
             <Typography variant="body2" color="text.disabled">
-              Try adjusting your search or filters.
+              {t("portal.noResultsHint")}
             </Typography>
           </Box>
         )}
@@ -782,9 +787,12 @@ export default function PortalViewer() {
                           variant="caption"
                           sx={{ color: "text.secondary", fontSize: "0.75rem" }}
                         >
-                          {portal.type_info?.subtypes?.find(
-                            (st) => st.key === card.subtype
-                          )?.label || card.subtype}
+                          {(() => {
+                            const stDef = portal.type_info?.subtypes?.find(
+                              (st) => st.key === card.subtype
+                            );
+                            return stDef ? rl(stDef.key, stDef.translations) : card.subtype;
+                          })()}
                         </Typography>
                       )}
                     </Box>
@@ -837,7 +845,7 @@ export default function PortalViewer() {
                                 mb: 0.4,
                               }}
                             >
-                              {field.label}
+                              {rl(field.key, field.translations)}
                             </Typography>
                             <FieldValue value={val} field={field} />
                           </Box>
@@ -848,7 +856,7 @@ export default function PortalViewer() {
 
                   {/* Lifecycle */}
                   {show("lifecycle", "card") && (
-                    <LifecycleBar lifecycle={card.lifecycle} />
+                    <LifecycleBar lifecycle={card.lifecycle} t={t} />
                   )}
 
                   {/* Approval Status */}
@@ -961,7 +969,7 @@ export default function PortalViewer() {
                         title={card.stakeholders
                           .map(
                             (s) =>
-                              `${s.display_name} (${ROLE_LABELS[s.role] || s.role})`
+                              `${s.display_name} (${ROLE_LABEL_KEYS[s.role] ? t(ROLE_LABEL_KEYS[s.role]) : s.role})`
                           )
                           .join(", ")}
                       >
@@ -1113,7 +1121,7 @@ export default function PortalViewer() {
                   }}
                 >
                   <Chip
-                    label={portal.type_info?.label || selectedFs.type}
+                    label={rml(portal.type_info?.key ?? "", portal.type_info?.translations, "label") || selectedFs.type}
                     size="small"
                     sx={{
                       height: 28,
@@ -1127,9 +1135,12 @@ export default function PortalViewer() {
                   {selectedFs.subtype && (
                     <Chip
                       label={
-                        portal.type_info?.subtypes?.find(
-                          (st) => st.key === selectedFs.subtype
-                        )?.label || selectedFs.subtype
+                        (() => {
+                          const stDef = portal.type_info?.subtypes?.find(
+                            (st) => st.key === selectedFs.subtype
+                          );
+                          return stDef ? rl(stDef.key, stDef.translations) : selectedFs.subtype;
+                        })()
                       }
                       size="small"
                       variant="outlined"
@@ -1138,7 +1149,7 @@ export default function PortalViewer() {
                   )}
                   {show("data_quality", "detail") && (
                   <Chip
-                    label={`${Math.round(selectedFs.data_quality)}% complete`}
+                    label={t("portal.complete", { percent: Math.round(selectedFs.data_quality) })}
                     size="small"
                     sx={{
                       height: 28,
@@ -1205,7 +1216,7 @@ export default function PortalViewer() {
                       color: "text.secondary",
                     }}
                   >
-                    Description
+                    {t("portal.description")}
                   </Typography>
                   <Typography
                     variant="body2"
@@ -1236,15 +1247,15 @@ export default function PortalViewer() {
                         color: "text.secondary",
                       }}
                     >
-                      Lifecycle
+                      {t("portal.lifecycle")}
                     </Typography>
                     <Box sx={{ display: "flex", gap: 2.5, flexWrap: "wrap" }}>
                       {[
-                        { key: "plan", label: "Plan" },
-                        { key: "phaseIn", label: "Phase In" },
-                        { key: "active", label: "Active" },
-                        { key: "phaseOut", label: "Phase Out" },
-                        { key: "endOfLife", label: "End of Life" },
+                        { key: "plan", label: t("lifecycle.plan") },
+                        { key: "phaseIn", label: t("lifecycle.phaseIn") },
+                        { key: "active", label: t("lifecycle.active") },
+                        { key: "phaseOut", label: t("lifecycle.phaseOut") },
+                        { key: "endOfLife", label: t("lifecycle.endOfLife") },
                       ].map((phase) => {
                         const date = selectedFs.lifecycle?.[phase.key];
                         if (!date) return null;
@@ -1267,7 +1278,7 @@ export default function PortalViewer() {
                         );
                       })}
                     </Box>
-                    <LifecycleBar lifecycle={selectedFs.lifecycle} />
+                    <LifecycleBar lifecycle={selectedFs.lifecycle} t={t} />
                   </Box>
                 )}
 
@@ -1295,7 +1306,7 @@ export default function PortalViewer() {
                         color: "text.secondary",
                       }}
                     >
-                      {section.section}
+                      {rl(section.section, section.translations)}
                     </Typography>
                     <Box
                       sx={{
@@ -1310,7 +1321,7 @@ export default function PortalViewer() {
                             variant="caption"
                             sx={{ display: "block", fontSize: "0.73rem", color: "text.secondary", mb: 0.25 }}
                           >
-                            {field.label}
+                            {rl(field.key, field.translations)}
                           </Typography>
                           <FieldValue
                             value={selectedFs.attributes?.[field.key]}
@@ -1338,7 +1349,7 @@ export default function PortalViewer() {
                         color: "text.secondary",
                       }}
                     >
-                      Stakeholders
+                      {t("portal.stakeholders")}
                     </Typography>
                     <Box
                       sx={{ display: "flex", gap: 1.5, flexWrap: "wrap" }}
@@ -1382,7 +1393,7 @@ export default function PortalViewer() {
                               variant="caption"
                               sx={{ display: "block", fontSize: "0.73rem", color: "text.secondary", mb: 0.25 }}
                             >
-                              {ROLE_LABELS[sub.role] || sub.role}
+                              {ROLE_LABEL_KEYS[sub.role] ? t(ROLE_LABEL_KEYS[sub.role]) : sub.role}
                             </Typography>
                           </Box>
                         </Box>
@@ -1405,7 +1416,7 @@ export default function PortalViewer() {
                       color: "text.secondary",
                     }}
                   >
-                    Tags
+                    {t("portal.tags")}
                   </Typography>
                   <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
                     {selectedFs.tags.map((tag) => (
@@ -1442,8 +1453,8 @@ export default function PortalViewer() {
                   const rt = portal.relation_types.find((r) => r.key === rel.type);
                   const label =
                     rel.direction === "outgoing"
-                      ? rt?.label || rel.type
-                      : rt?.reverse_label || rt?.label || rel.type;
+                      ? (rt ? rml(rt.key, rt.translations, "label") : rel.type)
+                      : (rt ? (rml(rt.key, rt.translations, "reverse_label") || rml(rt.key, rt.translations, "label")) : rel.type);
                   grouped[label] = grouped[label] || [];
                   grouped[label].push(rel);
                 }
@@ -1461,7 +1472,7 @@ export default function PortalViewer() {
                         color: "text.secondary",
                       }}
                     >
-                      Related Items
+                      {t("portal.relatedItems")}
                     </Typography>
                     {Object.entries(grouped).map(([label, rels]) => (
                       <Box key={label} sx={{ mb: 2 }}>
@@ -1508,11 +1519,10 @@ export default function PortalViewer() {
                     variant="caption"
                     sx={{ color: "text.disabled", fontSize: "0.75rem" }}
                   >
-                    Last updated:{" "}
-                    {new Date(selectedFs.updated_at).toLocaleDateString(
+                    {t("portal.lastUpdated", { date: new Date(selectedFs.updated_at).toLocaleDateString(
                       undefined,
                       { year: "numeric", month: "long", day: "numeric" }
-                    )}
+                    ) })}
                   </Typography>
                 </>
               )}

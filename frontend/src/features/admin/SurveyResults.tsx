@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Button from "@mui/material/Button";
@@ -24,13 +25,14 @@ import DialogTitle from "@mui/material/DialogTitle";
 import DialogContent from "@mui/material/DialogContent";
 import DialogActions from "@mui/material/DialogActions";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import { useResolveLabel } from "@/hooks/useResolveLabel";
 import { api } from "@/api/client";
 import type { Survey, SurveyResponseDetail, SurveyField } from "@/types";
 
 /** Resolve a value to its display label using field options when available. */
-function formatValue(val: unknown, field?: SurveyField): string {
+function formatValue(val: unknown, field?: SurveyField, boolLabels?: { yes: string; no: string }): string {
   if (val === null || val === undefined || val === "") return "—";
-  if (typeof val === "boolean") return val ? "Yes" : "No";
+  if (typeof val === "boolean") return val ? (boolLabels?.yes ?? "Yes") : (boolLabels?.no ?? "No");
 
   const opts = field?.options;
   if (opts && opts.length > 0) {
@@ -48,8 +50,12 @@ function formatValue(val: unknown, field?: SurveyField): string {
 }
 
 export default function SurveyResults() {
+  const { t } = useTranslation(["admin", "common"]);
+  const rl = useResolveLabel();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+
+  const boolLabels = { yes: t("surveyResults.boolTrue"), no: t("surveyResults.boolFalse") };
 
   const [survey, setSurvey] = useState<Survey | null>(null);
   const [responses, setResponses] = useState<SurveyResponseDetail[]>([]);
@@ -72,7 +78,7 @@ export default function SurveyResults() {
       setSurvey(s);
       setResponses(r);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load");
+      setError(e instanceof Error ? e.message : t("common:errors.generic"));
     } finally {
       setLoading(false);
     }
@@ -123,12 +129,12 @@ export default function SurveyResults() {
         { response_ids: Array.from(selected) },
       );
       if (result.errors.length > 0) {
-        setError(`Applied ${result.applied}, but ${result.errors.length} error(s): ${result.errors.map((e) => e.error).join(", ")}`);
+        setError(t("surveyResults.applyPartial", { applied: result.applied, errorCount: result.errors.length, errors: result.errors.map((e) => e.error).join(", ") }));
       }
       setSelected(new Set());
       await fetchData();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to apply");
+      setError(e instanceof Error ? e.message : t("common:errors.generic"));
     } finally {
       setApplying(false);
     }
@@ -141,7 +147,7 @@ export default function SurveyResults() {
       const s = await api.post<Survey>(`/surveys/${id}/close`, {});
       setSurvey(s);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to close survey");
+      setError(e instanceof Error ? e.message : t("common:errors.generic"));
     } finally {
       setClosing(false);
     }
@@ -163,14 +169,14 @@ export default function SurveyResults() {
   }
 
   if (!survey) {
-    return <Alert severity="error">Survey not found</Alert>;
+    return <Alert severity="error">{t("surveyResults.notFound")}</Alert>;
   }
 
   return (
     <Box>
       {/* Header */}
       <Box sx={{ display: "flex", alignItems: "center", mb: 2, gap: 1 }}>
-        <Tooltip title="Back to Surveys">
+        <Tooltip title={t("surveyResults.backToSurveys")}>
           <IconButton onClick={() => navigate("/admin/surveys")}>
             <MaterialSymbol icon="arrow_back" size={22} />
           </IconButton>
@@ -193,7 +199,7 @@ export default function SurveyResults() {
             disabled={closing}
             sx={{ textTransform: "none" }}
           >
-            {closing ? "Closing..." : "Close Survey"}
+            {closing ? t("surveyResults.closing") : t("surveyResults.closeSurvey")}
           </Button>
         )}
       </Box>
@@ -217,7 +223,7 @@ export default function SurveyResults() {
             {responses.length}
           </Typography>
           <Typography variant="caption" color="text.secondary">
-            Total Targets
+            {t("surveyResults.stats.totalTargets")}
           </Typography>
         </Card>
         <Card variant="outlined" sx={{ p: 2, flex: 1, textAlign: "center" }}>
@@ -225,7 +231,7 @@ export default function SurveyResults() {
             {completedCount}
           </Typography>
           <Typography variant="caption" color="text.secondary">
-            Responded
+            {t("surveyResults.stats.responded")}
           </Typography>
         </Card>
         <Card variant="outlined" sx={{ p: 2, flex: 1, textAlign: "center" }}>
@@ -233,7 +239,7 @@ export default function SurveyResults() {
             {pendingCount}
           </Typography>
           <Typography variant="caption" color="text.secondary">
-            Pending
+            {t("surveyResults.stats.pending")}
           </Typography>
         </Card>
         <Card variant="outlined" sx={{ p: 2, flex: 1, textAlign: "center" }}>
@@ -241,7 +247,7 @@ export default function SurveyResults() {
             {appliedCount}
           </Typography>
           <Typography variant="caption" color="text.secondary">
-            Applied
+            {t("surveyResults.stats.applied")}
           </Typography>
         </Card>
       </Box>
@@ -251,10 +257,10 @@ export default function SurveyResults() {
       {/* Tabs */}
       <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
         <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ flex: 1 }}>
-          <Tab label={`All (${responses.length})`} />
-          <Tab label={`Completed (${completedCount})`} />
-          <Tab label={`Pending (${pendingCount})`} />
-          <Tab label={`Applied (${appliedCount})`} />
+          <Tab label={t("surveyResults.tabs.all", { count: responses.length })} />
+          <Tab label={t("surveyResults.tabs.completed", { count: completedCount })} />
+          <Tab label={t("surveyResults.tabs.pending", { count: pendingCount })} />
+          <Tab label={t("surveyResults.tabs.applied", { count: appliedCount })} />
         </Tabs>
         {selected.size > 0 && (
           <Button
@@ -265,7 +271,7 @@ export default function SurveyResults() {
             startIcon={<MaterialSymbol icon="check_circle" size={18} />}
             sx={{ textTransform: "none" }}
           >
-            {applying ? "Applying..." : `Apply ${selected.size} Response${selected.size !== 1 ? "s" : ""}`}
+            {applying ? t("surveyResults.applying") : t("surveyResults.applyResponses", { count: selected.size })}
           </Button>
         )}
       </Box>
@@ -283,12 +289,12 @@ export default function SurveyResults() {
                   onChange={toggleAll}
                 />
               </TableCell>
-              <TableCell>Card</TableCell>
-              <TableCell>User</TableCell>
-              <TableCell>Status</TableCell>
-              <TableCell>Changes</TableCell>
-              <TableCell>Applied</TableCell>
-              <TableCell>Responded</TableCell>
+              <TableCell>{t("surveyResults.columns.card")}</TableCell>
+              <TableCell>{t("surveyResults.columns.user")}</TableCell>
+              <TableCell>{t("surveyResults.columns.status")}</TableCell>
+              <TableCell>{t("surveyResults.columns.changes")}</TableCell>
+              <TableCell>{t("surveyResults.columns.applied")}</TableCell>
+              <TableCell>{t("surveyResults.columns.responded")}</TableCell>
               <TableCell />
             </TableRow>
           </TableHead>
@@ -320,7 +326,7 @@ export default function SurveyResults() {
                   </TableCell>
                   <TableCell>
                     <Chip
-                      label={r.status === "completed" ? "Completed" : "Pending"}
+                      label={r.status === "completed" ? t("common:status.completed") : t("common:status.pending")}
                       size="small"
                       color={r.status === "completed" ? "success" : "warning"}
                     />
@@ -328,9 +334,9 @@ export default function SurveyResults() {
                   <TableCell>
                     {r.status === "completed" && (
                       hasChanges(r) ? (
-                        <Chip label="Has changes" size="small" color="info" variant="outlined" />
+                        <Chip label={t("surveyResults.hasChanges")} size="small" color="info" variant="outlined" />
                       ) : (
-                        <Chip label="All confirmed" size="small" variant="outlined" />
+                        <Chip label={t("surveyResults.allConfirmed")} size="small" variant="outlined" />
                       )
                     )}
                   </TableCell>
@@ -346,7 +352,7 @@ export default function SurveyResults() {
                   </TableCell>
                   <TableCell>
                     {r.status === "completed" && (
-                      <Tooltip title="View details">
+                      <Tooltip title={t("surveyResults.viewDetails")}>
                         <IconButton size="small" onClick={() => setDetailResp(r)}>
                           <MaterialSymbol icon="visibility" size={18} />
                         </IconButton>
@@ -359,7 +365,7 @@ export default function SurveyResults() {
             {filtered.length === 0 && (
               <TableRow>
                 <TableCell colSpan={8} align="center" sx={{ py: 4, color: "text.secondary" }}>
-                  No responses in this category
+                  {t("surveyResults.noResponses")}
                 </TableCell>
               </TableRow>
             )}
@@ -372,16 +378,16 @@ export default function SurveyResults() {
         {detailResp && (
           <>
             <DialogTitle>
-              Response: {detailResp.card_name} — {detailResp.user_display_name}
+              {t("surveyResults.detail.title", { card: detailResp.card_name, user: detailResp.user_display_name })}
             </DialogTitle>
             <DialogContent>
               <Table size="small">
                 <TableHead>
                   <TableRow>
-                    <TableCell>Field</TableCell>
-                    <TableCell>Current Value</TableCell>
-                    <TableCell>Response</TableCell>
-                    <TableCell>Status</TableCell>
+                    <TableCell>{t("surveyResults.detail.columns.field")}</TableCell>
+                    <TableCell>{t("surveyResults.detail.columns.currentValue")}</TableCell>
+                    <TableCell>{t("surveyResults.detail.columns.response")}</TableCell>
+                    <TableCell>{t("surveyResults.detail.columns.status")}</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -393,26 +399,26 @@ export default function SurveyResults() {
                       <TableRow key={field.key}>
                         <TableCell>
                           <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                            {field.label}
+                            {rl(field.key, field.translations)}
                           </Typography>
                         </TableCell>
-                        <TableCell>{formatValue(resp.current_value, field)}</TableCell>
+                        <TableCell>{formatValue(resp.current_value, field, boolLabels)}</TableCell>
                         <TableCell>
                           {changed ? (
                             <Typography variant="body2" sx={{ color: "info.main", fontWeight: 600 }}>
-                              {formatValue(resp.new_value, field)}
+                              {formatValue(resp.new_value, field, boolLabels)}
                             </Typography>
                           ) : (
-                            formatValue(resp.current_value, field)
+                            formatValue(resp.current_value, field, boolLabels)
                           )}
                         </TableCell>
                         <TableCell>
                           {resp.confirmed ? (
-                            <Chip label="Confirmed" size="small" color="success" variant="outlined" />
+                            <Chip label={t("surveyResults.detail.confirmed")} size="small" color="success" variant="outlined" />
                           ) : changed ? (
-                            <Chip label="Changed" size="small" color="info" variant="outlined" />
+                            <Chip label={t("surveyResults.detail.changed")} size="small" color="info" variant="outlined" />
                           ) : (
-                            <Chip label="No input" size="small" variant="outlined" />
+                            <Chip label={t("surveyResults.detail.noInput")} size="small" variant="outlined" />
                           )}
                         </TableCell>
                       </TableRow>
@@ -422,7 +428,7 @@ export default function SurveyResults() {
               </Table>
             </DialogContent>
             <DialogActions>
-              <Button onClick={() => setDetailResp(null)}>Close</Button>
+              <Button onClick={() => setDetailResp(null)}>{t("common:actions.close")}</Button>
               {detailResp.status === "completed" && !detailResp.applied && hasChanges(detailResp) && (
                 <Button
                   variant="contained"
@@ -433,14 +439,14 @@ export default function SurveyResults() {
                       setDetailResp(null);
                       await fetchData();
                     } catch (e) {
-                      setError(e instanceof Error ? e.message : "Failed to apply");
+                      setError(e instanceof Error ? e.message : t("common:errors.generic"));
                     } finally {
                       setApplying(false);
                     }
                   }}
                   disabled={applying}
                 >
-                  Apply Changes
+                  {t("surveyResults.detail.applyChanges")}
                 </Button>
               )}
             </DialogActions>
