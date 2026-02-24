@@ -1,0 +1,20 @@
+{
+  "title": "Notifiche",
+  "markAllRead": "Segna tutte come lette",
+  "noNotifications": "Nessuna notifica",
+  "preferences.title": "Preferenze di notifica",
+  "preferences.description": "Scegliere quali notifiche ricevere e in che modo.",
+  "preferences.notification": "Notifica",
+  "preferences.inApp": "In-app",
+  "preferences.email": "E-mail",
+  "preferences.saving": "Salvataggio...",
+  "preferences.loadFailed": "Impossibile caricare le preferenze",
+  "preferences.saveFailed": "Impossibile salvare le preferenze",
+  "preferences.todoAssigned": "Attivit\u00e0 assegnata",
+  "preferences.cardUpdated": "Scheda aggiornata",
+  "preferences.commentAdded": "Commento aggiunto",
+  "preferences.approvalStatusChanged": "Stato di approvazione modificato",
+  "preferences.soawSignRequested": "Firma SoAW richiesta",
+  "preferences.soawSigned": "SoAW firmato",
+  "preferences.surveyRequest": "Richiesta di sondaggio"
+}

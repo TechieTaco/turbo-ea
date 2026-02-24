@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo, useRef, useLayoutEffect, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import TextField from "@mui/material/TextField";
 import MenuItem from "@mui/material/MenuItem";
@@ -24,6 +25,7 @@ import ReportLegend from "./ReportLegend";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useSavedReport } from "@/hooks/useSavedReport";
 import { useThumbnailCapture } from "@/hooks/useThumbnailCapture";
+import { useResolveMetaLabel } from "@/hooks/useResolveLabel";
 import { api } from "@/api/client";
 
 /* ------------------------------------------------------------------ */
@@ -44,11 +46,11 @@ interface RoadmapItem {
 /* ------------------------------------------------------------------ */
 
 const PHASES = [
-  { key: "plan", label: "Plan", color: "#9e9e9e" },
-  { key: "phaseIn", label: "Phase In", color: "#2196f3" },
-  { key: "active", label: "Active", color: "#4caf50" },
-  { key: "phaseOut", label: "Phase Out", color: "#ff9800" },
-  { key: "endOfLife", label: "End of Life", color: "#f44336" },
+  { key: "plan", labelKey: "lifecycle.phasePlan", color: "#9e9e9e" },
+  { key: "phaseIn", labelKey: "lifecycle.phasePhaseIn", color: "#2196f3" },
+  { key: "active", labelKey: "lifecycle.phaseActive", color: "#4caf50" },
+  { key: "phaseOut", labelKey: "lifecycle.phasePhaseOut", color: "#ff9800" },
+  { key: "endOfLife", labelKey: "lifecycle.phaseEndOfLife", color: "#f44336" },
 ];
 
 const UNSET_BAR_COLOR = "#bdbdbd";
@@ -95,7 +97,9 @@ function fmtDate(s: string | undefined): string {
 /* ------------------------------------------------------------------ */
 
 export default function LifecycleReport() {
+  const { t } = useTranslation(["reports", "common"]);
   const { types, loading: ml } = useMetamodel();
+  const rml = useResolveMetaLabel();
   const saved = useSavedReport("lifecycle");
   const { chartRef, thumbnail, captureAndSave } = useThumbnailCapture(() => saved.setSaveDialogOpen(true));
   const [cardTypeKey, setCardTypeKey] = useState("");
@@ -274,14 +278,15 @@ export default function LifecycleReport() {
 
   const printParams = useMemo(() => {
     const params: { label: string; value: string }[] = [];
-    const typeLabel = cardTypeKey ? (types.find((t) => t.key === cardTypeKey)?.label || cardTypeKey) : "All Types";
-    params.push({ label: "Type", value: typeLabel });
-    if (useCustomDates) params.push({ label: "Mode", value: "Date Range" });
+    const tp = types.find((tp) => tp.key === cardTypeKey);
+    const typeLabel = cardTypeKey ? (rml(tp?.key ?? "", tp?.translations, "label") || cardTypeKey) : t("lifecycle.allTypes");
+    params.push({ label: t("common:labels.type"), value: typeLabel });
+    if (useCustomDates) params.push({ label: t("common.mode"), value: t("lifecycle.dateRangeView") });
     if (useCustomDates && customColorBy) {
       const cLabel = colorByOptions.find((o) => o.key === customColorBy)?.label || customColorBy;
-      params.push({ label: "Color by", value: cLabel });
+      params.push({ label: t("common.colorBy"), value: cLabel });
     }
-    if (view === "table") params.push({ label: "View", value: "Table" });
+    if (view === "table") params.push({ label: t("common.view"), value: t("common.table") });
     return params;
   }, [cardTypeKey, types, useCustomDates, customColorBy, colorByOptions, view]);
 
@@ -321,7 +326,7 @@ export default function LifecycleReport() {
 
   return (
     <ReportShell
-      title="Technology Lifecycle"
+      title={t("lifecycle.title")}
       icon="timeline"
       iconColor="#e65100"
       view={view}
@@ -334,9 +339,9 @@ export default function LifecycleReport() {
       printParams={printParams}
       toolbar={
         <>
-          <TextField select size="small" label="Card Type" value={cardTypeKey} onChange={(e) => setCardTypeKey(e.target.value)} sx={{ minWidth: 180 }}>
-            <MenuItem value="">All Types</MenuItem>
-            {types.filter((t) => !t.is_hidden).map((t) => <MenuItem key={t.key} value={t.key}>{t.label}</MenuItem>)}
+          <TextField select size="small" label={t("lifecycle.cardType")} value={cardTypeKey} onChange={(e) => setCardTypeKey(e.target.value)} sx={{ minWidth: 180 }}>
+            <MenuItem value="">{t("lifecycle.allTypes")}</MenuItem>
+            {types.filter((tp) => !tp.is_hidden).map((tp) => <MenuItem key={tp.key} value={tp.key}>{rml(tp.key, tp.translations, "label")}</MenuItem>)}
           </TextField>
 
           {hasDateFields && (
@@ -351,7 +356,7 @@ export default function LifecycleReport() {
                 }
                 label={
                   <Typography variant="body2" color="text.secondary">
-                    Date Range View
+                    {t("lifecycle.dateRangeView")}
                   </Typography>
                 }
               />
@@ -359,7 +364,7 @@ export default function LifecycleReport() {
                 <TextField
                   select
                   size="small"
-                  label="Color By"
+                  label={t("lifecycle.colorBy")}
                   value={customColorBy}
                   onChange={(e) => setCustomColorBy(e.target.value)}
                   sx={{ minWidth: 150 }}
@@ -382,12 +387,12 @@ export default function LifecycleReport() {
               />
               <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
                 <Box sx={{ width: 12, height: 12, borderRadius: "50%", bgcolor: UNSET_BAR_COLOR, flexShrink: 0 }} />
-                <Typography variant="caption" color="text.secondary">Not set</Typography>
+                <Typography variant="caption" color="text.secondary">{t("lifecycle.notSet")}</Typography>
               </Box>
             </>
           ) : (
             <>
-              <ReportLegend items={PHASES.map((p) => ({ label: p.label, color: p.color }))} />
+              <ReportLegend items={PHASES.map((p) => ({ label: t(p.labelKey), color: p.color }))} />
               {PHASES.map((p) => (
                 <Chip key={p.key} size="small" label={`${phaseCounts[p.key]}`} sx={{ bgcolor: p.color, color: "#fff", fontWeight: 600, fontSize: "0.7rem", height: 20 }} />
               ))}
@@ -398,14 +403,14 @@ export default function LifecycleReport() {
     >
       {!useCustomDates && eolCount > 0 && (
         <Alert severity="warning" sx={{ mb: 2 }} icon={<MaterialSymbol icon="warning" size={20} />}>
-          {eolCount} item{eolCount > 1 ? "s" : ""} at End of Life
+          {t("lifecycle.eolAlert", { count: eolCount })}
         </Alert>
       )}
 
       {view === "chart" ? (
         <Paper variant="outlined" sx={{ p: 2 }}>
           {items.length === 0 ? (
-            <Typography color="text.secondary" sx={{ py: 4, textAlign: "center" }}>No lifecycle data found.</Typography>
+            <Typography color="text.secondary" sx={{ py: 4, textAlign: "center" }}>{t("lifecycle.noData")}</Typography>
           ) : (
             <Box sx={{ display: "flex" }}>
               {/* Fixed name column */}
@@ -487,7 +492,7 @@ export default function LifecycleReport() {
                     }
 
                     // Standard lifecycle phases mode
-                    const segments: { left: number; width: number; color: string; label: string }[] = [];
+                    const segments: { left: number; width: number; color: string; label: string; phaseKey: string }[] = [];
                     let eolPct: number | null = null;
                     for (let i = 0; i < PHASES.length; i++) {
                       const start = parseDate(item.lifecycle[PHASES[i].key]);
@@ -500,7 +505,7 @@ export default function LifecycleReport() {
                       const end = nextPhaseStart ?? totalMax;
                       const left = ((start - totalMin) / totalRange) * 100;
                       const width = Math.max(((end - start) / totalRange) * 100, 0.5);
-                      segments.push({ left, width, color: PHASES[i].color, label: PHASES[i].label });
+                      segments.push({ left, width, color: PHASES[i].color, label: t(PHASES[i].labelKey), phaseKey: PHASES[i].key });
                     }
                     return (
                       <Box
@@ -510,7 +515,7 @@ export default function LifecycleReport() {
                       >
                         <Box sx={{ position: "absolute", top: 8, left: 0, right: 0, height: 16 }}>
                           {segments.map((s, i) => (
-                            <Tooltip key={i} title={`${s.label}: ${fmtDate(item.lifecycle[PHASES.find((p) => p.label === s.label)?.key || ""])}`}>
+                            <Tooltip key={i} title={`${s.label}: ${fmtDate(item.lifecycle[s.phaseKey])}`}>
                               <Box
                                 sx={{
                                   position: "absolute",
@@ -561,8 +566,8 @@ export default function LifecycleReport() {
           <Table size="small" stickyHeader>
             <TableHead>
               <TableRow>
-                <TableCell><TableSortLabel active={sortK === "name"} direction={sortK === "name" ? sortD : "asc"} onClick={() => sort("name")}>Name</TableSortLabel></TableCell>
-                <TableCell><TableSortLabel active={sortK === "type"} direction={sortK === "type" ? sortD : "asc"} onClick={() => sort("type")}>Type</TableSortLabel></TableCell>
+                <TableCell><TableSortLabel active={sortK === "name"} direction={sortK === "name" ? sortD : "asc"} onClick={() => sort("name")}>{t("common:labels.name")}</TableSortLabel></TableCell>
+                <TableCell><TableSortLabel active={sortK === "type"} direction={sortK === "type" ? sortD : "asc"} onClick={() => sort("type")}>{t("common:labels.type")}</TableSortLabel></TableCell>
                 {useCustomDates ? (
                   <>
                     <TableCell><TableSortLabel active={sortK === "startDate"} direction={sortK === "startDate" ? sortD : "asc"} onClick={() => sort("startDate")}>{dateFields.find((f) => f.key === startDateKey)?.label || "Start"}</TableSortLabel></TableCell>
@@ -571,8 +576,8 @@ export default function LifecycleReport() {
                   </>
                 ) : (
                   <>
-                    <TableCell><TableSortLabel active={sortK === "phase"} direction={sortK === "phase" ? sortD : "asc"} onClick={() => sort("phase")}>Current Phase</TableSortLabel></TableCell>
-                    {PHASES.map((p) => <TableCell key={p.key}>{p.label}</TableCell>)}
+                    <TableCell><TableSortLabel active={sortK === "phase"} direction={sortK === "phase" ? sortD : "asc"} onClick={() => sort("phase")}>{t("lifecycle.currentPhase")}</TableSortLabel></TableCell>
+                    {PHASES.map((p) => <TableCell key={p.key}>{t(p.labelKey)}</TableCell>)}
                   </>
                 )}
               </TableRow>
@@ -606,7 +611,7 @@ export default function LifecycleReport() {
                     <TableCell sx={{ fontWeight: 500 }}>{d.name}</TableCell>
                     <TableCell>{d.type}</TableCell>
                     <TableCell>
-                      <Chip size="small" label={phase?.label || cp} sx={{ bgcolor: phase?.color, color: "#fff", fontWeight: 600, height: 22, fontSize: "0.72rem" }} />
+                      <Chip size="small" label={phase ? t(phase.labelKey) : cp} sx={{ bgcolor: phase?.color, color: "#fff", fontWeight: 600, height: 22, fontSize: "0.72rem" }} />
                     </TableCell>
                     {PHASES.map((p) => <TableCell key={p.key}>{fmtDate(d.lifecycle[p.key])}</TableCell>)}
                   </TableRow>

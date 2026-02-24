@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Button from "@mui/material/Button";
@@ -27,6 +28,7 @@ import TableRow from "@mui/material/TableRow";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import { useMetamodel } from "@/hooks/useMetamodel";
+import { useResolveMetaLabel, useResolveLabel } from "@/hooks/useResolveLabel";
 import type {
   Survey,
   SurveyField,
@@ -37,12 +39,20 @@ import type {
   StakeholderRoleDef,
 } from "@/types";
 
-const STEPS = ["Basics", "Target", "Fields", "Preview & Send"];
-
 export default function SurveyBuilder() {
+  const { t } = useTranslation(["admin", "common"]);
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { types } = useMetamodel();
+  const rml = useResolveMetaLabel();
+  const rl = useResolveLabel();
+
+  const STEPS = [
+    t("surveyBuilder.steps.basics"),
+    t("surveyBuilder.steps.target"),
+    t("surveyBuilder.steps.fields"),
+    t("surveyBuilder.steps.previewSend"),
+  ];
 
   const [activeStep, setActiveStep] = useState(0);
   const [loading, setLoading] = useState(!!id);
@@ -94,7 +104,7 @@ export default function SurveyBuilder() {
         setSelectedFields(s.fields || []);
         setSurveyId(s.id);
       } catch (e) {
-        setError(e instanceof Error ? e.message : "Failed to load survey");
+        setError(e instanceof Error ? e.message : t("common:errors.generic"));
       } finally {
         setLoading(false);
       }
@@ -114,7 +124,7 @@ export default function SurveyBuilder() {
       setRelatedOptions([]);
       return;
     }
-    const t = setTimeout(async () => {
+    const timer = setTimeout(async () => {
       try {
         const res = await api.get<{ items: Card[] }>(
           `/cards?search=${encodeURIComponent(relatedSearch)}&page_size=20`,
@@ -124,7 +134,7 @@ export default function SurveyBuilder() {
         // ignore
       }
     }, 300);
-    return () => clearTimeout(t);
+    return () => clearTimeout(timer);
   }, [relatedSearch]);
 
   // Merge selected items with search results so selected values are always in options
@@ -135,7 +145,7 @@ export default function SurveyBuilder() {
 
   // Get the selected type's fields schema
   const selectedType = useMemo(
-    () => types.find((t) => t.key === targetTypeKey),
+    () => types.find((ct) => ct.key === targetTypeKey),
     [types, targetTypeKey],
   );
 
@@ -147,18 +157,18 @@ export default function SurveyBuilder() {
         fields.push({
           section: section.section,
           key: f.key,
-          label: f.label,
+          label: rl(f.key, f.translations),
           type: f.type,
-          options: f.options,
+          options: f.options?.map((o) => ({ ...o, label: rl(o.key, o.translations) })),
         });
       }
     }
     return fields;
-  }, [selectedType]);
+  }, [selectedType, rl]);
 
   // All tags from all groups
   const allTags = useMemo(
-    () => tagGroups.flatMap((g) => g.tags.map((t) => ({ ...t, group_name: g.name }))),
+    () => tagGroups.flatMap((g) => g.tags.map((tg) => ({ ...tg, group_name: g.name }))),
     [tagGroups],
   );
 
@@ -189,7 +199,7 @@ export default function SurveyBuilder() {
         window.history.replaceState(null, "", `/admin/surveys/${created.id}`);
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to save");
+      setError(e instanceof Error ? e.message : t("common:errors.generic"));
     } finally {
       setSaving(false);
     }
@@ -232,7 +242,7 @@ export default function SurveyBuilder() {
       const data = await api.post<SurveyPreviewResult>(`/surveys/${sid}/preview`, {});
       setPreview(data);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to preview");
+      setError(e instanceof Error ? e.message : t("common:errors.generic"));
     } finally {
       setPreviewing(false);
     }
@@ -247,7 +257,7 @@ export default function SurveyBuilder() {
       await api.post(`/surveys/${surveyId}/send`, {});
       navigate(`/admin/surveys/${surveyId}/results`);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to send survey");
+      setError(e instanceof Error ? e.message : t("common:errors.generic"));
     } finally {
       setSending(false);
     }
@@ -273,19 +283,19 @@ export default function SurveyBuilder() {
 
   const handleNext = async () => {
     if (activeStep === 0 && !name.trim()) {
-      setError("Survey name is required");
+      setError(t("surveyBuilder.validation.nameRequired"));
       return;
     }
     if (activeStep === 1 && !targetTypeKey) {
-      setError("Please select a target card type");
+      setError(t("surveyBuilder.validation.typeRequired"));
       return;
     }
     if (activeStep === 1 && targetRoles.length === 0) {
-      setError("Please select at least one stakeholder role");
+      setError(t("surveyBuilder.validation.rolesRequired"));
       return;
     }
     if (activeStep === 2 && selectedFields.length === 0) {
-      setError("Please select at least one field");
+      setError(t("surveyBuilder.validation.fieldsRequired"));
       return;
     }
 
@@ -325,17 +335,17 @@ export default function SurveyBuilder() {
     <Box>
       {/* Header */}
       <Box sx={{ display: "flex", alignItems: "center", mb: 3, gap: 1 }}>
-        <Tooltip title="Back to Surveys">
+        <Tooltip title={t("surveyBuilder.backTooltip")}>
           <IconButton onClick={() => navigate("/admin/surveys")}>
             <MaterialSymbol icon="arrow_back" size={22} />
           </IconButton>
         </Tooltip>
         <MaterialSymbol icon="assignment" size={28} color="#1976d2" />
         <Typography variant="h5" sx={{ fontWeight: 700, flex: 1 }}>
-          {id ? "Edit Survey" : "New Survey"}
+          {id ? t("surveyBuilder.editSurvey") : t("surveyBuilder.newSurvey")}
         </Typography>
         {surveyId && (
-          <Chip label="Draft" size="small" color="default" />
+          <Chip label={t("common:status.draft")} size="small" color="default" />
         )}
       </Box>
 
@@ -357,10 +367,10 @@ export default function SurveyBuilder() {
       {activeStep === 0 && (
         <MuiCard sx={{ p: 3 }}>
           <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
-            Survey Details
+            {t("surveyBuilder.basics.title")}
           </Typography>
           <TextField
-            label="Survey Name"
+            label={t("surveyBuilder.basics.name")}
             fullWidth
             value={name}
             onChange={(e) => setName(e.target.value)}
@@ -368,23 +378,23 @@ export default function SurveyBuilder() {
             required
           />
           <TextField
-            label="Description"
+            label={t("surveyBuilder.basics.description")}
             fullWidth
             multiline
             rows={2}
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             sx={{ mb: 2 }}
-            helperText="Optional internal description (not shown to respondents)"
+            helperText={t("surveyBuilder.basics.descriptionHelper")}
           />
           <TextField
-            label="Message to Respondents"
+            label={t("surveyBuilder.basics.message")}
             fullWidth
             multiline
             rows={4}
             value={message}
             onChange={(e) => setMessage(e.target.value)}
-            helperText="This message will be shown to targeted users when they open the survey"
+            helperText={t("surveyBuilder.basics.messageHelper")}
           />
         </MuiCard>
       )}
@@ -393,12 +403,12 @@ export default function SurveyBuilder() {
       {activeStep === 1 && (
         <MuiCard sx={{ p: 3 }}>
           <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
-            Target Cards
+            {t("surveyBuilder.target.title")}
           </Typography>
 
           <TextField
             select
-            label="Card Type"
+            label={t("common:labels.type")}
             fullWidth
             value={targetTypeKey}
             onChange={(e) => {
@@ -410,12 +420,12 @@ export default function SurveyBuilder() {
             required
           >
             {types
-              .filter((t) => !t.is_hidden)
-              .map((t) => (
-                <MenuItem key={t.key} value={t.key}>
+              .filter((ct) => !ct.is_hidden)
+              .map((ct) => (
+                <MenuItem key={ct.key} value={ct.key}>
                   <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                    <MaterialSymbol icon={t.icon} size={18} color={t.color} />
-                    {t.label}
+                    <MaterialSymbol icon={ct.icon} size={18} color={ct.color} />
+                    {rml(ct.key, ct.translations, "label")}
                   </Box>
                 </MenuItem>
               ))}
@@ -423,10 +433,10 @@ export default function SurveyBuilder() {
 
           <Divider sx={{ my: 2 }} />
           <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
-            Filter by Related Cards (optional)
+            {t("surveyBuilder.target.filterRelated")}
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-            Only target cards that are related to specific items (e.g., all Applications related to the Sales organization)
+            {t("surveyBuilder.target.filterRelatedHint")}
           </Typography>
           <Autocomplete
             multiple
@@ -444,7 +454,7 @@ export default function SurveyBuilder() {
               setRelatedIds(vals.map((v) => v.id));
             }}
             renderInput={(params) => (
-              <TextField {...params} label="Search cards..." size="small" />
+              <TextField {...params} label={t("surveyBuilder.target.searchCards")} size="small" />
             )}
             renderTags={(vals, getTagProps) =>
               vals.map((v, i) => (
@@ -452,20 +462,20 @@ export default function SurveyBuilder() {
               ))
             }
             sx={{ mb: 3 }}
-            noOptionsText={relatedSearch.length < 2 ? "Type to search..." : "No results"}
+            noOptionsText={relatedSearch.length < 2 ? t("common:labels.loading") : t("common:labels.noResults")}
           />
 
           <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
-            Filter by Tags (optional)
+            {t("surveyBuilder.target.filterTags")}
           </Typography>
           <Autocomplete
             multiple
             options={allTags}
-            getOptionLabel={(t) => `${t.group_name}: ${t.name}`}
-            value={allTags.filter((t) => tagIds.includes(t.id))}
+            getOptionLabel={(tg) => `${tg.group_name}: ${tg.name}`}
+            value={allTags.filter((tg) => tagIds.includes(tg.id))}
             onChange={(_, vals) => setTagIds(vals.map((v) => v.id))}
             renderInput={(params) => (
-              <TextField {...params} label="Select tags..." size="small" />
+              <TextField {...params} label={t("surveyBuilder.target.selectTags")} size="small" />
             )}
             renderTags={(vals, getTagProps) =>
               vals.map((v, i) => (
@@ -482,10 +492,10 @@ export default function SurveyBuilder() {
           />
 
           <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
-            Filter by Attributes (optional)
+            {t("surveyBuilder.target.filterAttributes")}
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-            Only target cards where specific attributes match a condition (e.g., cost greater than 10000, TIME rating is missing)
+            {t("surveyBuilder.target.filterAttributesHint")}
           </Typography>
 
           {attributeFilters.map((af, idx) => {
@@ -495,7 +505,7 @@ export default function SurveyBuilder() {
                 <TextField
                   select
                   size="small"
-                  label="Field"
+                  label={t("surveyBuilder.fields.columns.field")}
                   value={af.key}
                   onChange={(e) => {
                     const updated = [...attributeFilters];
@@ -513,7 +523,7 @@ export default function SurveyBuilder() {
                 <TextField
                   select
                   size="small"
-                  label="Operator"
+                  label={t("surveyBuilder.target.operatorLabel")}
                   value={af.op}
                   onChange={(e) => {
                     const updated = [...attributeFilters];
@@ -522,20 +532,20 @@ export default function SurveyBuilder() {
                   }}
                   sx={{ minWidth: 140 }}
                 >
-                  <MenuItem value="eq">equals</MenuItem>
-                  <MenuItem value="ne">not equals</MenuItem>
-                  <MenuItem value="gt">greater than</MenuItem>
-                  <MenuItem value="gte">greater or equal</MenuItem>
-                  <MenuItem value="lt">less than</MenuItem>
-                  <MenuItem value="lte">less or equal</MenuItem>
-                  <MenuItem value="contains">contains</MenuItem>
-                  <MenuItem value="is_empty">is empty</MenuItem>
-                  <MenuItem value="is_not_empty">is not empty</MenuItem>
+                  <MenuItem value="eq">{t("surveyBuilder.target.operators.eq")}</MenuItem>
+                  <MenuItem value="ne">{t("surveyBuilder.target.operators.ne")}</MenuItem>
+                  <MenuItem value="gt">{t("surveyBuilder.target.operators.gt")}</MenuItem>
+                  <MenuItem value="gte">{t("surveyBuilder.target.operators.gte")}</MenuItem>
+                  <MenuItem value="lt">{t("surveyBuilder.target.operators.lt")}</MenuItem>
+                  <MenuItem value="lte">{t("surveyBuilder.target.operators.lte")}</MenuItem>
+                  <MenuItem value="contains">{t("surveyBuilder.target.operators.contains")}</MenuItem>
+                  <MenuItem value="is_empty">{t("surveyBuilder.target.operators.isEmpty")}</MenuItem>
+                  <MenuItem value="is_not_empty">{t("surveyBuilder.target.operators.isNotEmpty")}</MenuItem>
                 </TextField>
                 {needsValue && (
                   <TextField
                     size="small"
-                    label="Value"
+                    label={t("surveyBuilder.target.valueLabel")}
                     value={af.value}
                     onChange={(e) => {
                       const updated = [...attributeFilters];
@@ -566,15 +576,15 @@ export default function SurveyBuilder() {
               setAttributeFilters((prev) => [...prev, { key: "", op: "eq", value: "" }])
             }
           >
-            Add Attribute Filter
+            {t("surveyBuilder.target.addAttributeFilter")}
           </Button>
 
           <Divider sx={{ my: 2 }} />
           <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
-            Target Stakeholder Roles
+            {t("surveyBuilder.target.stakeholderRoles")}
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-            Which roles should receive the survey for each matched card?
+            {t("surveyBuilder.target.stakeholderRolesHint")}
           </Typography>
           {roles.map((role) => (
             <FormControlLabel
@@ -596,7 +606,7 @@ export default function SurveyBuilder() {
                   <Typography variant="body2">{role.label}</Typography>
                   {role.allowed_types && (
                     <Typography variant="caption" color="text.secondary">
-                      Only for: {role.allowed_types.join(", ")}
+                      {t("surveyBuilder.target.onlyFor", { types: role.allowed_types.join(", ") })}
                     </Typography>
                   )}
                 </Box>
@@ -610,18 +620,18 @@ export default function SurveyBuilder() {
       {activeStep === 2 && (
         <MuiCard sx={{ p: 3 }}>
           <Typography variant="h6" sx={{ mb: 1, fontWeight: 600 }}>
-            Select Fields
+            {t("surveyBuilder.fields.title")}
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Choose which fields respondents should maintain or confirm for each {selectedType?.label || "card"}.
+            {t("surveyBuilder.fields.description", { type: rml(selectedType?.key ?? "", selectedType?.translations, "label") || "card" })}
           </Typography>
 
           {!selectedType && (
-            <Alert severity="warning">Please select a card type first.</Alert>
+            <Alert severity="warning">{t("surveyBuilder.fields.noTypeSelected")}</Alert>
           )}
 
           {selectedType && allFields.length === 0 && (
-            <Alert severity="info">This type has no configurable fields.</Alert>
+            <Alert severity="info">{t("surveyBuilder.fields.noFields")}</Alert>
           )}
 
           {allFields.length > 0 && (
@@ -630,10 +640,10 @@ export default function SurveyBuilder() {
                 <TableHead>
                   <TableRow>
                     <TableCell padding="checkbox" />
-                    <TableCell>Section</TableCell>
-                    <TableCell>Field</TableCell>
-                    <TableCell>Type</TableCell>
-                    <TableCell>Action</TableCell>
+                    <TableCell>{t("surveyBuilder.fields.columns.section")}</TableCell>
+                    <TableCell>{t("surveyBuilder.fields.columns.field")}</TableCell>
+                    <TableCell>{t("surveyBuilder.fields.columns.type")}</TableCell>
+                    <TableCell>{t("surveyBuilder.fields.columns.action")}</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -669,8 +679,8 @@ export default function SurveyBuilder() {
                               }
                               sx={{ minWidth: 120 }}
                             >
-                              <MenuItem value="maintain">Maintain</MenuItem>
-                              <MenuItem value="confirm">Confirm</MenuItem>
+                              <MenuItem value="maintain">{t("surveyBuilder.fields.maintain")}</MenuItem>
+                              <MenuItem value="confirm">{t("surveyBuilder.fields.confirm")}</MenuItem>
                             </TextField>
                           )}
                         </TableCell>
@@ -684,9 +694,11 @@ export default function SurveyBuilder() {
 
           {selectedFields.length > 0 && (
             <Typography variant="body2" sx={{ mt: 2 }} color="text.secondary">
-              {selectedFields.length} field{selectedFields.length !== 1 ? "s" : ""} selected
-              ({selectedFields.filter((f) => f.action === "maintain").length} maintain,{" "}
-              {selectedFields.filter((f) => f.action === "confirm").length} confirm)
+              {t("surveyBuilder.fields.selectedCount", {
+                count: selectedFields.length,
+                maintain: selectedFields.filter((f) => f.action === "maintain").length,
+                confirm: selectedFields.filter((f) => f.action === "confirm").length,
+              })}
             </Typography>
           )}
         </MuiCard>
@@ -696,7 +708,7 @@ export default function SurveyBuilder() {
       {activeStep === 3 && (
         <MuiCard sx={{ p: 3 }}>
           <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
-            Preview & Send
+            {t("surveyBuilder.preview.title")}
           </Typography>
 
           {previewing && (
@@ -713,7 +725,7 @@ export default function SurveyBuilder() {
                     {preview.total_cards}
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
-                    Cards
+                    {t("surveyBuilder.preview.cards")}
                   </Typography>
                 </MuiCard>
                 <MuiCard variant="outlined" sx={{ p: 2, flex: 1, textAlign: "center" }}>
@@ -721,7 +733,7 @@ export default function SurveyBuilder() {
                     {preview.total_users}
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
-                    Users to Notify
+                    {t("surveyBuilder.preview.usersToNotify")}
                   </Typography>
                 </MuiCard>
                 <MuiCard variant="outlined" sx={{ p: 2, flex: 1, textAlign: "center" }}>
@@ -729,37 +741,36 @@ export default function SurveyBuilder() {
                     {selectedFields.length}
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
-                    Fields
+                    {t("surveyBuilder.preview.fields")}
                   </Typography>
                 </MuiCard>
               </Box>
 
               {preview.total_cards === 0 && (
                 <Alert severity="warning" sx={{ mb: 2 }}>
-                  No cards matched your filters, or no stakeholders were found with the selected roles.
-                  Go back and adjust your targeting criteria.
+                  {t("surveyBuilder.preview.noMatches")}
                 </Alert>
               )}
 
               {preview.targets.length > 0 && (
                 <>
                   <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
-                    Target Breakdown
+                    {t("surveyBuilder.preview.targetBreakdown")}
                   </Typography>
                   <TableContainer sx={{ maxHeight: 400, mb: 3 }}>
                     <Table size="small" stickyHeader>
                       <TableHead>
                         <TableRow>
-                          <TableCell>Card</TableCell>
-                          <TableCell>Users</TableCell>
+                          <TableCell>{t("surveyBuilder.preview.columns.card")}</TableCell>
+                          <TableCell>{t("surveyBuilder.preview.columns.users")}</TableCell>
                         </TableRow>
                       </TableHead>
                       <TableBody>
-                        {preview.targets.map((t) => (
-                          <TableRow key={t.card_id}>
-                            <TableCell>{t.card_name}</TableCell>
+                        {preview.targets.map((tp) => (
+                          <TableRow key={tp.card_id}>
+                            <TableCell>{tp.card_name}</TableCell>
                             <TableCell>
-                              {t.users.map((u) => (
+                              {tp.users.map((u) => (
                                 <Chip
                                   key={u.user_id}
                                   label={`${u.display_name} (${u.role})`}
@@ -778,16 +789,16 @@ export default function SurveyBuilder() {
 
               <Divider sx={{ my: 2 }} />
               <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
-                Message Preview
+                {t("surveyBuilder.preview.messagePreview")}
               </Typography>
               <MuiCard variant="outlined" sx={{ p: 2, mb: 2, bgcolor: "action.hover" }}>
                 <Typography variant="body2" sx={{ whiteSpace: "pre-wrap" }}>
-                  {message || "(No message set)"}
+                  {message || t("surveyBuilder.preview.noMessage")}
                 </Typography>
               </MuiCard>
 
               <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
-                Fields
+                {t("surveyBuilder.preview.fields")}
               </Typography>
               <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", mb: 3 }}>
                 {selectedFields.map((f) => (
@@ -806,7 +817,7 @@ export default function SurveyBuilder() {
           {!previewing && !preview && (
             <Box sx={{ textAlign: "center", py: 4 }}>
               <Button variant="outlined" onClick={loadPreview}>
-                Load Preview
+                {t("surveyBuilder.preview.loadPreview")}
               </Button>
             </Box>
           )}
@@ -820,7 +831,7 @@ export default function SurveyBuilder() {
           onClick={handleBack}
           startIcon={<MaterialSymbol icon="arrow_back" size={18} />}
         >
-          Back
+          {t("common:actions.back")}
         </Button>
         <Box sx={{ display: "flex", gap: 1 }}>
           {targetTypeKey && name.trim() && (
@@ -830,7 +841,7 @@ export default function SurveyBuilder() {
               disabled={saving}
               sx={{ textTransform: "none" }}
             >
-              {saving ? "Saving..." : "Save Draft"}
+              {saving ? t("surveyBuilder.savingDraft") : t("surveyBuilder.saveDraft")}
             </Button>
           )}
           {activeStep < STEPS.length - 1 ? (
@@ -840,7 +851,7 @@ export default function SurveyBuilder() {
               endIcon={<MaterialSymbol icon="arrow_forward" size={18} />}
               sx={{ textTransform: "none" }}
             >
-              Next
+              {t("common:actions.next")}
             </Button>
           ) : (
             <Button
@@ -855,7 +866,7 @@ export default function SurveyBuilder() {
               startIcon={<MaterialSymbol icon="send" size={18} />}
               sx={{ textTransform: "none" }}
             >
-              {sending ? "Sending..." : "Send Survey"}
+              {sending ? t("surveyBuilder.sendingSurvey") : t("surveyBuilder.sendSurvey")}
             </Button>
           )}
         </Box>

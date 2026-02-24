@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import Dialog from "@mui/material/Dialog";
 import DialogTitle from "@mui/material/DialogTitle";
 import DialogContent from "@mui/material/DialogContent";
@@ -10,6 +11,7 @@ import Typography from "@mui/material/Typography";
 import Box from "@mui/material/Box";
 import Chip from "@mui/material/Chip";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import { useResolveMetaLabel } from "@/hooks/useResolveLabel";
 import type { RelationType } from "@/types";
 
 export interface EdgeEndpoints {
@@ -42,6 +44,8 @@ export default function RelationPickerDialog({
   onClose,
   onSelect,
 }: Props) {
+  const { t } = useTranslation(["diagrams", "common"]);
+  const rml = useResolveMetaLabel();
   if (!endpoints) return null;
 
   // Find relation types valid for this pair (in either direction)
@@ -60,7 +64,7 @@ export default function RelationPickerDialog({
     <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
       <DialogTitle sx={{ display: "flex", alignItems: "center", gap: 1 }}>
         <MaterialSymbol icon="link" size={22} color="#1976d2" />
-        Pick Relation Type
+        {t("relationPicker.title")}
       </DialogTitle>
       <DialogContent sx={{ px: 1, pt: "0 !important" }}>
         {/* Show source → target labels */}
@@ -80,7 +84,7 @@ export default function RelationPickerDialog({
 
         {matches.length === 0 ? (
           <Typography variant="body2" color="text.disabled" sx={{ px: 2, py: 2 }}>
-            No valid relation types exist between these two card types in the metamodel.
+            {t("relationPicker.noValidTypes")}
           </Typography>
         ) : (
           <List dense disablePadding>
@@ -94,7 +98,7 @@ export default function RelationPickerDialog({
                   sx={{ borderRadius: 1, mx: 1, my: 0.25 }}
                 >
                   <ListItemText
-                    primary={rt.label}
+                    primary={rml(rt.key, rt.translations, "label")}
                     secondary={
                       <>
                         {srcName} → {tgtName}
@@ -122,7 +126,7 @@ export default function RelationPickerDialog({
         )}
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>Cancel</Button>
+        <Button onClick={onClose}>{t("common:actions.cancel")}</Button>
       </DialogActions>
     </Dialog>
   );

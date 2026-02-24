@@ -1,0 +1,21 @@
+{
+  "title": "Benachrichtigungen",
+  "markAllRead": "Alle als gelesen markieren",
+  "noNotifications": "Keine Benachrichtigungen",
+
+  "preferences.title": "Benachrichtigungseinstellungen",
+  "preferences.description": "Wählen Sie, welche Benachrichtigungen Sie erhalten möchten und wie.",
+  "preferences.notification": "Benachrichtigung",
+  "preferences.inApp": "In-App",
+  "preferences.email": "E-Mail",
+  "preferences.saving": "Wird gespeichert...",
+  "preferences.loadFailed": "Einstellungen konnten nicht geladen werden",
+  "preferences.saveFailed": "Einstellungen konnten nicht gespeichert werden",
+  "preferences.todoAssigned": "Aufgabe zugewiesen",
+  "preferences.cardUpdated": "Karte aktualisiert",
+  "preferences.commentAdded": "Kommentar hinzugefügt",
+  "preferences.approvalStatusChanged": "Genehmigungsstatus geändert",
+  "preferences.soawSignRequested": "SoAW-Unterschrift angefordert",
+  "preferences.soawSigned": "SoAW unterzeichnet",
+  "preferences.surveyRequest": "Umfrageanfrage"
+}

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Tabs from "@mui/material/Tabs";
@@ -56,6 +57,7 @@ interface EditFormState {
 }
 
 export default function UsersAdmin() {
+  const { t } = useTranslation(["admin", "common"]);
   const [tab, setTab] = useState(0);
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
@@ -102,7 +104,7 @@ export default function UsersAdmin() {
       setUsers(data);
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load users");
+      setError(err instanceof Error ? err.message : t("common:errors.generic"));
     } finally {
       setLoading(false);
     }
@@ -141,7 +143,7 @@ export default function UsersAdmin() {
         prev.map((u) => (u.id === userId ? { ...u, role } : u))
       );
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to update role");
+      setError(err instanceof Error ? err.message : t("common:errors.generic"));
     }
   };
 
@@ -156,7 +158,7 @@ export default function UsersAdmin() {
       );
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : "Failed to toggle user status"
+        err instanceof Error ? err.message : t("common:errors.generic")
       );
     }
   };
@@ -164,14 +166,14 @@ export default function UsersAdmin() {
   // --- Delete (soft-delete) ---
   const handleDelete = async (user: User) => {
     const confirmed = window.confirm(
-      `Are you sure you want to delete "${user.display_name || user.email}"? This action cannot be undone.`
+      t("users.deleteConfirm", { name: user.display_name || user.email })
     );
     if (!confirmed) return;
     try {
       await api.delete(`/users/${user.id}`);
       setUsers((prev) => prev.filter((u) => u.id !== user.id));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to delete user");
+      setError(err instanceof Error ? err.message : t("common:errors.generic"));
     }
   };
 
@@ -184,7 +186,7 @@ export default function UsersAdmin() {
 
   const handleInvite = async () => {
     if (!inviteForm.email.trim() || !inviteForm.display_name.trim()) {
-      setInviteError("Email and display name are required.");
+      setInviteError(t("users.invite.requiredFields"));
       return;
     }
     try {
@@ -203,7 +205,7 @@ export default function UsersAdmin() {
       fetchInvitations();
     } catch (err) {
       setInviteError(
-        err instanceof Error ? err.message : "Failed to invite user"
+        err instanceof Error ? err.message : t("common:errors.generic")
       );
     } finally {
       setInviteSubmitting(false);
@@ -226,7 +228,7 @@ export default function UsersAdmin() {
   const handleEdit = async () => {
     if (!editingUser) return;
     if (!editForm.email.trim() || !editForm.display_name.trim()) {
-      setEditError("Email and display name are required.");
+      setEditError(t("users.edit.requiredFields"));
       return;
     }
     const payload: Record<string, string> = {
@@ -251,7 +253,7 @@ export default function UsersAdmin() {
       setEditingUser(null);
     } catch (err) {
       setEditError(
-        err instanceof Error ? err.message : "Failed to update user"
+        err instanceof Error ? err.message : t("common:errors.generic")
       );
     } finally {
       setEditSubmitting(false);
@@ -265,7 +267,7 @@ export default function UsersAdmin() {
       setInvitations((prev) => prev.filter((i) => i.id !== inv.id));
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : "Failed to delete invitation"
+        err instanceof Error ? err.message : t("common:errors.generic")
       );
     }
   };
@@ -291,7 +293,7 @@ export default function UsersAdmin() {
             }}
           />
           {role.is_archived && (
-            <Tooltip title="Archived role">
+            <Tooltip title={t("users.archivedRoleTooltip")}>
               <span style={{ display: "inline-flex", alignItems: "center" }}>
                 <MaterialSymbol icon="warning" size={16} color="#ed6c02" />
               </span>
@@ -311,28 +313,28 @@ export default function UsersAdmin() {
     if (u.auth_provider === "sso") {
       if (u.has_password) {
         return (
-          <Chip size="small" label="SSO + Password" color="info" variant="outlined" />
+          <Chip size="small" label={t("users.auth.ssoPassword")} color="info" variant="outlined" />
         );
       }
-      return <Chip size="small" label="SSO" color="info" variant="outlined" />;
+      return <Chip size="small" label={t("users.auth.sso")} color="info" variant="outlined" />;
     }
     if (u.pending_setup) {
       return (
-        <Chip size="small" label="Pending Setup" color="warning" variant="outlined" />
+        <Chip size="small" label={t("users.auth.pendingSetup")} color="warning" variant="outlined" />
       );
     }
-    return <Chip size="small" label="Local" color="default" variant="outlined" />;
+    return <Chip size="small" label={t("users.auth.local")} color="default" variant="outlined" />;
   };
 
   return (
     <Box>
       <Typography variant="h5" fontWeight={600} sx={{ mb: 2 }}>
-        User Management
+        {t("users.title")}
       </Typography>
 
       <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 3 }}>
-        <Tab label="Users" />
-        <Tab label="Roles" />
+        <Tab label={t("users.tabs.users")} />
+        <Tab label={t("users.tabs.roles")} />
       </Tabs>
 
       {/* ============================================================ */}
@@ -353,7 +355,7 @@ export default function UsersAdmin() {
           startIcon={<MaterialSymbol icon="person_add" size={20} />}
           onClick={openInvite}
         >
-          Invite User
+          {t("users.inviteUser")}
         </Button>
       </Box>
 
@@ -369,12 +371,12 @@ export default function UsersAdmin() {
         <Table>
           <TableHead>
             <TableRow>
-              <TableCell>Name</TableCell>
-              <TableCell>Email</TableCell>
-              <TableCell>Role</TableCell>
-              <TableCell>Auth</TableCell>
-              <TableCell>Status</TableCell>
-              <TableCell align="right">Actions</TableCell>
+              <TableCell>{t("users.columns.name")}</TableCell>
+              <TableCell>{t("users.columns.email")}</TableCell>
+              <TableCell>{t("users.columns.role")}</TableCell>
+              <TableCell>{t("users.columns.auth")}</TableCell>
+              <TableCell>{t("users.columns.status")}</TableCell>
+              <TableCell align="right">{t("users.columns.actions")}</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -382,7 +384,7 @@ export default function UsersAdmin() {
               <TableRow>
                 <TableCell colSpan={6} align="center" sx={{ py: 4 }}>
                   <Typography color="text.secondary">
-                    Loading users...
+                    {t("users.loadingUsers")}
                   </Typography>
                 </TableCell>
               </TableRow>
@@ -391,7 +393,7 @@ export default function UsersAdmin() {
               <TableRow>
                 <TableCell colSpan={6} align="center" sx={{ py: 4 }}>
                   <Typography color="text.secondary">
-                    No users found.
+                    {t("users.noUsers")}
                   </Typography>
                 </TableCell>
               </TableRow>
@@ -458,7 +460,7 @@ export default function UsersAdmin() {
                           )}
                         </Select>
                         {roleMap.get(u.role)?.is_archived && (
-                          <Tooltip title="This user has an archived role. Consider reassigning.">
+                          <Tooltip title={t("users.archivedRoleWarning")}>
                             <span style={{ display: "inline-flex", alignItems: "center" }}>
                               <MaterialSymbol icon="warning" size={18} color="#ed6c02" />
                             </span>
@@ -473,18 +475,18 @@ export default function UsersAdmin() {
                   <TableCell>
                     <Chip
                       size="small"
-                      label={u.is_active ? "Active" : "Disabled"}
+                      label={u.is_active ? t("users.status.active") : t("users.status.disabled")}
                       color={u.is_active ? "success" : "default"}
                     />
                   </TableCell>
                   <TableCell align="right">
-                    <Tooltip title="Edit user">
+                    <Tooltip title={t("users.editTooltip")}>
                       <IconButton size="small" onClick={() => openEdit(u)}>
                         <MaterialSymbol icon="edit" size={20} />
                       </IconButton>
                     </Tooltip>
                     <Tooltip
-                      title={u.is_active ? "Deactivate user" : "Activate user"}
+                      title={u.is_active ? t("users.deactivateTooltip") : t("users.activateTooltip")}
                     >
                       <IconButton
                         size="small"
@@ -498,7 +500,7 @@ export default function UsersAdmin() {
                       </IconButton>
                     </Tooltip>
                     {!u.is_active && (
-                      <Tooltip title="Delete user">
+                      <Tooltip title={t("users.deleteTooltip")}>
                         <IconButton
                           size="small"
                           color="error"
@@ -519,16 +521,16 @@ export default function UsersAdmin() {
       {invitations.length > 0 && (
         <Box sx={{ mt: 4 }}>
           <Typography variant="h6" fontWeight={600} sx={{ mb: 2 }}>
-            Pending Invitations
+            {t("users.pendingInvitations")}
           </Typography>
           <TableContainer component={Paper} variant="outlined">
             <Table size="small">
               <TableHead>
                 <TableRow>
-                  <TableCell>Email</TableCell>
-                  <TableCell>Pre-assigned Role</TableCell>
-                  <TableCell>Invited</TableCell>
-                  <TableCell align="right">Actions</TableCell>
+                  <TableCell>{t("users.invitations.email")}</TableCell>
+                  <TableCell>{t("users.invitations.role")}</TableCell>
+                  <TableCell>{t("users.invitations.invited")}</TableCell>
+                  <TableCell align="right">{t("users.columns.actions")}</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -544,7 +546,7 @@ export default function UsersAdmin() {
                         : "—"}
                     </TableCell>
                     <TableCell align="right">
-                      <Tooltip title="Revoke invitation">
+                      <Tooltip title={t("users.invitations.revokeTooltip")}>
                         <IconButton
                           size="small"
                           color="error"
@@ -569,23 +571,21 @@ export default function UsersAdmin() {
         maxWidth="sm"
         fullWidth
       >
-        <DialogTitle>Invite User</DialogTitle>
+        <DialogTitle>{t("users.invite.title")}</DialogTitle>
         <DialogContent>
           <Stack spacing={2.5} sx={{ mt: 1 }}>
             {ssoEnabled && (
               <Alert severity="info" variant="outlined">
-                SSO is enabled. If no password is defined, the user will need to
-                sign in with Microsoft.
+                {t("users.invite.ssoHint")}
               </Alert>
             )}
             {!ssoEnabled && (
               <Alert severity="info" variant="outlined">
-                If no password is defined, the user will receive an email with a
-                link to set their password.
+                {t("users.invite.emailHint")}
               </Alert>
             )}
             <TextField
-              label="Display Name"
+              label={t("users.invite.displayName")}
               value={inviteForm.display_name}
               onChange={(e) =>
                 setInviteForm((p) => ({ ...p, display_name: e.target.value }))
@@ -596,7 +596,7 @@ export default function UsersAdmin() {
               size="small"
             />
             <TextField
-              label="Email"
+              label={t("users.columns.email")}
               type="email"
               value={inviteForm.email}
               onChange={(e) =>
@@ -607,7 +607,7 @@ export default function UsersAdmin() {
               size="small"
             />
             <TextField
-              label="Password (optional)"
+              label={t("users.invite.passwordOptional")}
               type="password"
               value={inviteForm.password}
               onChange={(e) =>
@@ -617,14 +617,14 @@ export default function UsersAdmin() {
               size="small"
               helperText={
                 ssoEnabled
-                  ? "If set, the user can also sign in with this password instead of SSO."
-                  : "Leave blank to send a password setup link via email."
+                  ? t("users.invite.passwordSsoHelperText")
+                  : t("users.invite.passwordHelperText")
               }
             />
             <FormControl fullWidth size="small">
-              <InputLabel>Role</InputLabel>
+              <InputLabel>{t("users.columns.role")}</InputLabel>
               <Select
-                label="Role"
+                label={t("users.columns.role")}
                 value={inviteForm.role}
                 onChange={(e) =>
                   setInviteForm((p) => ({
@@ -662,7 +662,7 @@ export default function UsersAdmin() {
                   }
                 />
               }
-              label="Send invitation email"
+              label={t("users.invite.sendEmail")}
             />
             {inviteError && <Alert severity="error">{inviteError}</Alert>}
           </Stack>
@@ -672,14 +672,14 @@ export default function UsersAdmin() {
             onClick={() => setInviteOpen(false)}
             disabled={inviteSubmitting}
           >
-            Cancel
+            {t("common:actions.cancel")}
           </Button>
           <Button
             variant="contained"
             onClick={handleInvite}
             disabled={inviteSubmitting}
           >
-            {inviteSubmitting ? "Inviting..." : "Invite User"}
+            {inviteSubmitting ? t("users.invite.inviting") : t("users.inviteUser")}
           </Button>
         </DialogActions>
       </Dialog>
@@ -691,11 +691,11 @@ export default function UsersAdmin() {
         maxWidth="sm"
         fullWidth
       >
-        <DialogTitle>Edit User</DialogTitle>
+        <DialogTitle>{t("users.edit.title")}</DialogTitle>
         <DialogContent>
           <Stack spacing={2.5} sx={{ mt: 1 }}>
             <TextField
-              label="Display Name"
+              label={t("users.invite.displayName")}
               value={editForm.display_name}
               onChange={(e) =>
                 setEditForm((p) => ({ ...p, display_name: e.target.value }))
@@ -705,7 +705,7 @@ export default function UsersAdmin() {
               size="small"
             />
             <TextField
-              label="Email"
+              label={t("users.columns.email")}
               type="email"
               value={editForm.email}
               onChange={(e) =>
@@ -717,7 +717,7 @@ export default function UsersAdmin() {
             />
             {!isEditingSsoUser && (
               <TextField
-                label="Password (leave blank to keep current)"
+                label={t("users.edit.passwordKeep")}
                 type="password"
                 value={editForm.password}
                 onChange={(e) =>
@@ -729,13 +729,13 @@ export default function UsersAdmin() {
             )}
             {isEditingSsoUser && (
               <Alert severity="info" variant="outlined">
-                This user authenticates via SSO. Password cannot be changed.
+                {t("users.edit.ssoPasswordHint")}
               </Alert>
             )}
             <FormControl fullWidth size="small">
-              <InputLabel>Role</InputLabel>
+              <InputLabel>{t("users.columns.role")}</InputLabel>
               <Select
-                label="Role"
+                label={t("users.columns.role")}
                 value={editForm.role}
                 onChange={(e) =>
                   setEditForm((p) => ({
@@ -779,7 +779,7 @@ export default function UsersAdmin() {
             </FormControl>
             {editForm.role && roleMap.get(editForm.role)?.is_archived && (
               <Alert severity="warning" variant="outlined">
-                This user has an archived role. Consider assigning a new active role.
+                {t("users.edit.archivedRoleWarning")}
               </Alert>
             )}
             {editError && <Alert severity="error">{editError}</Alert>}
@@ -787,14 +787,14 @@ export default function UsersAdmin() {
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
           <Button onClick={() => setEditOpen(false)} disabled={editSubmitting}>
-            Cancel
+            {t("common:actions.cancel")}
           </Button>
           <Button
             variant="contained"
             onClick={handleEdit}
             disabled={editSubmitting}
           >
-            {editSubmitting ? "Saving..." : "Save Changes"}
+            {editSubmitting ? t("users.edit.saving") : t("users.edit.saveChanges")}
           </Button>
         </DialogActions>
       </Dialog>

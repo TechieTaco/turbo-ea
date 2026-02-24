@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import Dialog from "@mui/material/Dialog";
 import DialogTitle from "@mui/material/DialogTitle";
 import DialogContent from "@mui/material/DialogContent";
@@ -14,6 +15,7 @@ import CircularProgress from "@mui/material/CircularProgress";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import { useMetamodel } from "@/hooks/useMetamodel";
+import { useResolveMetaLabel } from "@/hooks/useResolveLabel";
 import type { Relation, RelationType } from "@/types";
 
 interface RelationCellPopoverProps {
@@ -41,12 +43,16 @@ export default function RelationCellPopover({
   selectedType,
   onRelationsChanged,
 }: RelationCellPopoverProps) {
+  const { t } = useTranslation(["inventory", "common"]);
   const { getType } = useMetamodel();
+  const rml = useResolveMetaLabel();
 
   const isSource = relationType.source_type_key === selectedType;
   const targetTypeKey = isSource ? relationType.target_type_key : relationType.source_type_key;
   const targetTypeConfig = getType(targetTypeKey);
-  const verb = isSource ? relationType.label : (relationType.reverse_label || relationType.label);
+  const verb = isSource
+    ? rml(relationType.key, relationType.translations, "label")
+    : (rml(relationType.key, relationType.translations, "reverse_label") || rml(relationType.key, relationType.translations, "label"));
 
   const [relations, setRelations] = useState<Relation[]>([]);
   const [loading, setLoading] = useState(false);
@@ -127,7 +133,7 @@ export default function RelationCellPopover({
       setSelectedTarget(null);
       setTargetSearch("");
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to add relation");
+      setError(e instanceof Error ? e.message : t("relation.addFailed"));
     } finally {
       setAdding(false);
     }
@@ -140,7 +146,7 @@ export default function RelationCellPopover({
       await loadRelations();
       onRelationsChanged();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to remove relation");
+      setError(e instanceof Error ? e.message : t("relation.removeFailed"));
     }
   };
 
@@ -164,7 +170,7 @@ export default function RelationCellPopover({
       setCreateMode(false);
       setCreateName("");
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to create");
+      setError(e instanceof Error ? e.message : t("relation.createFailed"));
     } finally {
       setCreateLoading(false);
     }
@@ -183,7 +189,7 @@ export default function RelationCellPopover({
           <Typography component="span" variant="body1" color="text.secondary" sx={{ mx: 1 }}>
             {verb} &rarr;
           </Typography>
-          {otherType?.label || targetTypeKey}
+          {otherType ? rml(otherType.key, otherType.translations, "label") : targetTypeKey}
         </Typography>
         <IconButton size="small" onClick={onClose} edge="end">
           <MaterialSymbol icon="close" size={20} />
@@ -194,7 +200,7 @@ export default function RelationCellPopover({
 
         {/* Current relations */}
         <Typography variant="caption" color="text.secondary" fontWeight={600} sx={{ mb: 1, display: "block" }}>
-          Current relations
+          {t("relation.currentRelations")}
         </Typography>
         {loading ? (
           <Box sx={{ display: "flex", justifyContent: "center", py: 2 }}>
@@ -204,7 +210,7 @@ export default function RelationCellPopover({
           <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.75, mb: 2.5, minHeight: 32 }}>
             {relations.length === 0 && (
               <Typography variant="body2" color="text.secondary" sx={{ fontStyle: "italic" }}>
-                No relations yet
+                {t("relation.noRelationsYet")}
               </Typography>
             )}
             {relations.map((r) => {
@@ -212,7 +218,7 @@ export default function RelationCellPopover({
               return (
                 <Chip
                   key={r.id}
-                  label={other?.name || "Unknown"}
+                  label={other?.name || t("relation.unknown")}
                   onDelete={() => handleDelete(r.id)}
                   icon={otherType ? <MaterialSymbol icon={otherType.icon} size={16} color={otherType.color} /> : undefined}
                   sx={{ maxWidth: "100%" }}
@@ -224,7 +230,7 @@ export default function RelationCellPopover({
 
         {/* Add section */}
         <Typography variant="caption" color="text.secondary" fontWeight={600} sx={{ mb: 1, display: "block" }}>
-          Add relation
+          {t("relation.addRelation")}
         </Typography>
         {!createMode ? (
           <>
@@ -252,10 +258,10 @@ export default function RelationCellPopover({
                 renderInput={(params) => (
                   <TextField
                     {...params}
-                    placeholder={`Search ${targetTypeConfig?.label || targetTypeKey}...`}
+                    placeholder={t("relation.searchType", { type: rml(targetTypeConfig?.key ?? "", targetTypeConfig?.translations, "label") || targetTypeKey })}
                   />
                 )}
-                noOptionsText={targetSearch ? "No results" : "Type to search..."}
+                noOptionsText={targetSearch ? t("common:labels.noResults") : t("relation.typeToSearch")}
                 filterOptions={(x) => x}
               />
               <Button
@@ -265,7 +271,7 @@ export default function RelationCellPopover({
                 disabled={!selectedTarget || adding}
                 sx={{ textTransform: "none", whiteSpace: "nowrap", minWidth: 56, height: 40 }}
               >
-                {adding ? <CircularProgress size={18} color="inherit" /> : "Add"}
+                {adding ? <CircularProgress size={18} color="inherit" /> : t("common:actions.add")}
               </Button>
             </Box>
             <Button
@@ -274,18 +280,18 @@ export default function RelationCellPopover({
               startIcon={<MaterialSymbol icon="add" size={16} />}
               onClick={() => { setCreateMode(true); setCreateName(targetSearch); }}
             >
-              Create new {targetTypeConfig?.label || targetTypeKey}
+              {t("relation.createNew", { type: rml(targetTypeConfig?.key ?? "", targetTypeConfig?.translations, "label") || targetTypeKey })}
             </Button>
           </>
         ) : (
           <Box sx={{ p: 2, border: "1px solid", borderColor: "divider", borderRadius: 1, bgcolor: "action.hover" }}>
             <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1 }}>
-              Create new {targetTypeConfig?.label || targetTypeKey}
+              {t("relation.createNew", { type: rml(targetTypeConfig?.key ?? "", targetTypeConfig?.translations, "label") || targetTypeKey })}
             </Typography>
             <TextField
               fullWidth
               size="small"
-              placeholder="Name"
+              placeholder={t("common:labels.name")}
               value={createName}
               onChange={(e) => setCreateName(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleQuickCreate()}
@@ -300,10 +306,10 @@ export default function RelationCellPopover({
                 disabled={!createName.trim() || createLoading}
                 sx={{ textTransform: "none" }}
               >
-                {createLoading ? <CircularProgress size={16} color="inherit" /> : "Create & Add"}
+                {createLoading ? <CircularProgress size={16} color="inherit" /> : t("relation.createAndAdd")}
               </Button>
               <Button size="small" onClick={() => setCreateMode(false)} sx={{ textTransform: "none" }}>
-                Back
+                {t("common:actions.back")}
               </Button>
             </Box>
           </Box>

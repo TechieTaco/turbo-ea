@@ -4,6 +4,7 @@ import MuiCard from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
 import Tabs from "@mui/material/Tabs";
 import Tab from "@mui/material/Tab";
+import { useTranslation } from "react-i18next";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import EolLinkSection from "@/components/EolLinkSection";
 import ProcessFlowTab from "@/features/bpm/ProcessFlowTab";
@@ -48,6 +49,7 @@ export default function CardDetailContent({
   initialSubTab,
   beforeTabs,
 }: Props) {
+  const { t } = useTranslation("cards");
   const { getType } = useMetamodel();
   const { isCalculated } = useCalculatedFields();
   const { fmt: currencyFmt } = useCurrency();
@@ -228,13 +230,13 @@ export default function CardDetailContent({
         scrollButtons="auto"
         sx={{ borderBottom: 1, borderColor: "divider", mb: 2 }}
       >
-        <Tab label="Card" />
-        {isBpm && <Tab label="Process Flow" />}
-        {isBpm && <Tab label="Assessments" />}
-        <Tab label="Comments" />
-        <Tab label="Todos" />
-        <Tab label="Stakeholders" />
-        <Tab label="History" />
+        <Tab label={t("tabs.card")} />
+        {isBpm && <Tab label={t("tabs.processFlow")} />}
+        {isBpm && <Tab label={t("tabs.assessments")} />}
+        <Tab label={t("tabs.comments")} />
+        <Tab label={t("tabs.todos")} />
+        <Tab label={t("tabs.stakeholders")} />
+        <Tab label={t("tabs.history")} />
       </Tabs>
 
       {tab === 0 && (

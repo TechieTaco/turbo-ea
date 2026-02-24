@@ -1,6 +1,11 @@
 import * as XLSX from "xlsx";
+import i18n from "@/i18n";
+import { resolveLabel } from "@/hooks/useResolveLabel";
 import type { Card, CardType, FieldDef } from "@/types";
 import { api } from "@/api/client";
+
+const t = (key: string, opts?: Record<string, unknown>) =>
+  i18n.t(key, { ns: "inventory", ...opts });
 
 // ---- Public types --------------------------------------------------------
 
@@ -71,9 +76,9 @@ function fieldDefsForType(
   type: string,
   allTypes: CardType[],
 ): FieldDef[] {
-  const t = allTypes.find((x) => x.key === type);
-  if (!t) return [];
-  return t.fields_schema.flatMap((s) => s.fields);
+  const ct = allTypes.find((x) => x.key === type);
+  if (!ct) return [];
+  return ct.fields_schema.flatMap((s) => s.fields);
 }
 
 /**
@@ -220,7 +225,7 @@ export function validateImport(
   let skipped = 0;
 
   if (rows.length === 0) {
-    errors.push({ row: 0, message: "The file contains no data rows" });
+    errors.push({ row: 0, message: t("import.errors.noDataRows") });
     return { errors, warnings, creates, updates, skipped, totalRows: 0 };
   }
 
@@ -230,13 +235,13 @@ export function validateImport(
   const hasTypeCol = headers.some((h) => h.toLowerCase() === "type");
 
   if (!hasNameCol) {
-    errors.push({ row: 0, column: "name", message: "Missing required column: name" });
+    errors.push({ row: 0, column: "name", message: t("import.errors.missingColumn", { column: "name" }) });
   }
   if (!hasTypeCol && !preSelectedType) {
     errors.push({
       row: 0,
       column: "type",
-      message: "Missing required column: type (or select a single type filter before importing)",
+      message: t("import.errors.missingTypeColumn"),
     });
   }
 
@@ -262,7 +267,7 @@ export function validateImport(
   }
   for (const h of headers) {
     if (!knownCoreCols.has(h) && !knownCoreCols.has(h.toLowerCase()) && !allAttrKeys.has(h) && !h.startsWith("attr_")) {
-      warnings.push({ column: h, message: `Column "${h}" is not recognised and will be ignored` });
+      warnings.push({ column: h, message: t("import.warnings.unrecognisedColumn", { column: h }) });
     }
   }
 
@@ -307,7 +312,7 @@ export function validateImport(
 
     // Rule 2: name required
     if (!name) {
-      errors.push({ row: rowNum, column: "name", message: `Row ${rowNum}: name is required` });
+      errors.push({ row: rowNum, column: "name", message: t("import.errors.nameRequired", { row: rowNum }) });
       continue;
     }
 
@@ -316,7 +321,7 @@ export function validateImport(
       errors.push({
         row: rowNum,
         column: "type",
-        message: `Row ${rowNum}: unknown type "${type}"`,
+        message: t("import.errors.unknownType", { row: rowNum, type }),
       });
       continue;
     }
@@ -328,7 +333,7 @@ export function validateImport(
         errors.push({
           row: rowNum,
           column: "id",
-          message: `Row ${rowNum}: invalid id format "${id}"`,
+          message: t("import.errors.invalidId", { row: rowNum, id }),
         });
         continue;
       }
@@ -339,7 +344,7 @@ export function validateImport(
         errors.push({
           row: rowNum,
           column: "id",
-          message: `Row ${rowNum}: duplicate id "${id}" (also on row ${prevRow})`,
+          message: t("import.errors.duplicateId", { row: rowNum, id, prevRow }),
         });
         continue;
       }
@@ -351,7 +356,7 @@ export function validateImport(
         errors.push({
           row: rowNum,
           column: "id",
-          message: `Row ${rowNum}: no existing card with id "${id}"`,
+          message: t("import.errors.noExistingCard", { row: rowNum, id }),
         });
         continue;
       }
@@ -361,7 +366,7 @@ export function validateImport(
         errors.push({
           row: rowNum,
           column: "type",
-          message: `Row ${rowNum}: type mismatch — file has "${type}", existing has "${matchedExisting.type}"`,
+          message: t("import.errors.typeMismatch", { row: rowNum, fileType: type, existingType: matchedExisting.type }),
         });
         continue;
       }
@@ -373,7 +378,7 @@ export function validateImport(
         errors.push({
           row: rowNum,
           column: "parent_id",
-          message: `Row ${rowNum}: invalid parent_id format "${parentId}"`,
+          message: t("import.errors.invalidParentId", { row: rowNum, parentId }),
         });
         continue;
       }
@@ -382,7 +387,7 @@ export function validateImport(
         errors.push({
           row: rowNum,
           column: "parent_id",
-          message: `Row ${rowNum}: parent_id "${parentId}" not found — must reference an existing card or another row in this file`,
+          message: t("import.errors.parentNotFound", { row: rowNum, parentId }),
         });
         continue;
       }
@@ -391,7 +396,7 @@ export function validateImport(
         errors.push({
           row: rowNum,
           column: "parent_id",
-          message: `Row ${rowNum}: parent_id cannot reference itself`,
+          message: t("import.errors.parentSelfReference", { row: rowNum }),
         });
         continue;
       }
@@ -402,7 +407,7 @@ export function validateImport(
       errors.push({
         row: rowNum,
         column: "approval_status",
-        message: `Row ${rowNum}: invalid approval_status "${approvalStatus}" (valid: DRAFT, APPROVED, BROKEN, REJECTED)`,
+        message: t("import.errors.invalidApprovalStatus", { row: rowNum, status: approvalStatus }),
       });
       continue;
     }
@@ -417,7 +422,7 @@ export function validateImport(
           errors.push({
             row: rowNum,
             column: `lifecycle_${phase}`,
-            message: `Row ${rowNum}: lifecycle_${phase} expects a date (YYYY-MM-DD), got "${val}"`,
+            message: t("import.errors.invalidDate", { row: rowNum, field: `lifecycle_${phase}`, value: val }),
           });
         } else {
           lifecycle[phase] = val;
@@ -441,7 +446,7 @@ export function validateImport(
           errors.push({
             row: rowNum,
             column: colKey,
-            message: `Row ${rowNum}: required field "${field.label}" is empty`,
+            message: t("import.errors.requiredFieldEmpty", { row: rowNum, field: resolveLabel(field.key, field.translations, i18n.language) }),
           });
           rowHasAttrError = true;
         }
@@ -458,7 +463,7 @@ export function validateImport(
             errors.push({
               row: rowNum,
               column: colKey,
-              message: `Row ${rowNum}: "${field.label}" expects a number, got "${val}"`,
+              message: t("import.errors.expectsNumber", { row: rowNum, field: resolveLabel(field.key, field.translations, i18n.language), value: val }),
             });
             rowHasAttrError = true;
           } else {
@@ -477,7 +482,7 @@ export function validateImport(
             errors.push({
               row: rowNum,
               column: colKey,
-              message: `Row ${rowNum}: "${field.label}" expects true/false, got "${val}"`,
+              message: t("import.errors.expectsBoolean", { row: rowNum, field: resolveLabel(field.key, field.translations, i18n.language), value: val }),
             });
             rowHasAttrError = true;
           }
@@ -489,7 +494,7 @@ export function validateImport(
             errors.push({
               row: rowNum,
               column: colKey,
-              message: `Row ${rowNum}: "${field.label}" expects a date (YYYY-MM-DD), got "${val}"`,
+              message: t("import.errors.invalidDate", { row: rowNum, field: resolveLabel(field.key, field.translations, i18n.language), value: val }),
             });
             rowHasAttrError = true;
           } else {
@@ -505,7 +510,7 @@ export function validateImport(
               errors.push({
                 row: rowNum,
                 column: colKey,
-                message: `Row ${rowNum}: invalid value "${val}" for field "${field.label}" (valid: ${validKeys.join(", ")})`,
+                message: t("import.errors.invalidSelectValue", { row: rowNum, value: val, field: resolveLabel(field.key, field.translations, i18n.language), valid: validKeys.join(", ") }),
               });
               rowHasAttrError = true;
             } else {
@@ -525,7 +530,7 @@ export function validateImport(
                 errors.push({
                   row: rowNum,
                   column: colKey,
-                  message: `Row ${rowNum}: invalid value "${part}" for field "${field.label}" (valid: ${validKeys.join(", ")})`,
+                  message: t("import.errors.invalidSelectValue", { row: rowNum, value: part, field: resolveLabel(field.key, field.translations, i18n.language), valid: validKeys.join(", ") }),
                 });
                 rowHasAttrError = true;
               }
@@ -620,7 +625,7 @@ export async function executeImport(
       failed++;
       failedDetails.push({
         row: row.rowIndex,
-        message: e instanceof Error ? e.message : "Unknown error",
+        message: e instanceof Error ? e.message : t("import.errors.unknown"),
       });
     }
     done++;
@@ -640,7 +645,7 @@ export async function executeImport(
       failed++;
       failedDetails.push({
         row: row.rowIndex,
-        message: e instanceof Error ? e.message : "Unknown error",
+        message: e instanceof Error ? e.message : t("import.errors.unknown"),
       });
     }
     done++;

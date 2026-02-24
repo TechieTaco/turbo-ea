@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import Dialog from "@mui/material/Dialog";
 import DialogTitle from "@mui/material/DialogTitle";
 import DialogContent from "@mui/material/DialogContent";
@@ -9,6 +10,7 @@ import MenuItem from "@mui/material/MenuItem";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import { useResolveMetaLabel } from "@/hooks/useResolveLabel";
 import type { CardType } from "@/types";
 
 interface Props {
@@ -24,6 +26,8 @@ interface Props {
  * deferred until the user synchronises from the sync panel.
  */
 export default function CreateOnDiagramDialog({ open, types, onClose, onCreate }: Props) {
+  const { t } = useTranslation(["diagrams", "common"]);
+  const rml = useResolveMetaLabel();
   const [selectedType, setSelectedType] = useState("");
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -56,37 +60,37 @@ export default function CreateOnDiagramDialog({ open, types, onClose, onCreate }
     <Dialog open={open} onClose={handleClose} maxWidth="xs" fullWidth>
       <DialogTitle sx={{ display: "flex", alignItems: "center", gap: 1 }}>
         <MaterialSymbol icon="note_add" size={22} color="#6a1b9a" />
-        Create Card
+        {t("createOnDiagram.title")}
       </DialogTitle>
       <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 2, pt: "8px !important" }}>
         <TextField
           select
-          label="Type"
+          label={t("common:labels.type")}
           size="small"
           fullWidth
           value={selectedType}
           onChange={(e) => setSelectedType(e.target.value)}
         >
-          {visibleTypes.map((t) => (
-            <MenuItem key={t.key} value={t.key}>
+          {visibleTypes.map((tp) => (
+            <MenuItem key={tp.key} value={tp.key}>
               <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                 <Box
                   sx={{
                     width: 10,
                     height: 10,
                     borderRadius: "50%",
-                    bgcolor: t.color,
+                    bgcolor: tp.color,
                     flexShrink: 0,
                   }}
                 />
-                {t.label}
+                {rml(tp.key, tp.translations, "label")}
               </Box>
             </MenuItem>
           ))}
         </TextField>
 
         <TextField
-          label="Name"
+          label={t("common:labels.name")}
           size="small"
           fullWidth
           value={name}
@@ -98,7 +102,7 @@ export default function CreateOnDiagramDialog({ open, types, onClose, onCreate }
         />
 
         <TextField
-          label="Description (optional)"
+          label={t("createOnDiagram.descriptionOptional")}
           size="small"
           fullWidth
           multiline
@@ -110,16 +114,16 @@ export default function CreateOnDiagramDialog({ open, types, onClose, onCreate }
 
         {typeInfo && (
           <Typography variant="caption" color="text.disabled">
-            Will be added to the diagram as a pending{" "}
-            <strong style={{ color: typeInfo.color }}>{typeInfo.label}</strong>.
-            Synchronise to save it to the inventory.
+            {t("createOnDiagram.pendingHintPre")}{" "}
+            <strong style={{ color: typeInfo.color }}>{rml(typeInfo.key, typeInfo.translations, "label")}</strong>.{" "}
+            {t("createOnDiagram.pendingHintPost")}
           </Typography>
         )}
       </DialogContent>
       <DialogActions>
-        <Button onClick={handleClose}>Cancel</Button>
+        <Button onClick={handleClose}>{t("common:actions.cancel")}</Button>
         <Button variant="contained" disabled={!valid} onClick={handleCreate}>
-          Add to Diagram
+          {t("createOnDiagram.addToDiagram")}
         </Button>
       </DialogActions>
     </Dialog>

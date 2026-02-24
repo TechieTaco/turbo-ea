@@ -5,6 +5,7 @@
  * dynamically from the metamodel) is created automatically.
  */
 import { useState, useEffect, useCallback, useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import Autocomplete, { createFilterOptions } from "@mui/material/Autocomplete";
 import TextField from "@mui/material/TextField";
 import CircularProgress from "@mui/material/CircularProgress";
@@ -53,9 +54,11 @@ export default function VendorField({
   cardTypeKey,
   fsId,
   size = "small",
-  label = "Vendor",
+  label,
   onRelationChange,
 }: VendorFieldProps) {
+  const { t } = useTranslation(["cards", "common"]);
+  const resolvedLabel = label ?? t("vendor.label");
   const { relationTypes } = useMetamodel();
   const [inputValue, setInputValue] = useState(value || "");
   const [options, setOptions] = useState<ProviderOption[]>([]);
@@ -250,7 +253,7 @@ export default function VendorField({
             if (iv && !opts.some((o) => o.name.toLowerCase() === iv.toLowerCase())) {
               filtered.push({
                 id: "__new__",
-                name: `Create Provider "${iv}"`,
+                name: t("vendor.createProvider", { name: iv }),
                 isNew: true,
                 inputValue: iv,
               });
@@ -278,8 +281,8 @@ export default function VendorField({
           renderInput={(params) => (
             <TextField
               {...params}
-              label={label}
-              placeholder="Search existing providers or type a new name..."
+              label={resolvedLabel}
+              placeholder={t("vendor.searchPlaceholder")}
               InputProps={{
                 ...params.InputProps,
                 endAdornment: (
@@ -312,22 +315,21 @@ export default function VendorField({
 
       {/* Create Provider confirmation dialog */}
       <Dialog open={confirmOpen} onClose={() => setConfirmOpen(false)} maxWidth="xs" fullWidth>
-        <DialogTitle>Create New Provider</DialogTitle>
+        <DialogTitle>{t("vendor.createNew.title")}</DialogTitle>
         <DialogContent>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-            No existing Provider matches "{pendingProvider?.inputValue}".
-            Create a new Provider card and link it?
+            {t("vendor.createNew.description", { name: pendingProvider?.inputValue })}
           </Typography>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setConfirmOpen(false)}>Cancel</Button>
+          <Button onClick={() => setConfirmOpen(false)}>{t("common:actions.cancel")}</Button>
           <Button
             variant="contained"
             onClick={handleCreateAndLink}
             disabled={creating}
             startIcon={creating ? <CircularProgress size={16} color="inherit" /> : undefined}
           >
-            {creating ? "Creating..." : "Create & Link"}
+            {creating ? t("vendor.createNew.creating") : t("vendor.createNew.submit")}
           </Button>
         </DialogActions>
       </Dialog>

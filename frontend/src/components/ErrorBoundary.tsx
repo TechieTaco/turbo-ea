@@ -3,6 +3,7 @@ import type { ReactNode, ErrorInfo } from "react";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Button from "@mui/material/Button";
+import i18n from "@/i18n";
 
 interface Props {
   children: ReactNode;
@@ -58,10 +59,10 @@ export default class ErrorBoundary extends Component<Props, State> {
           }}
         >
           <Typography variant="caption" color="error">
-            Failed to render{this.props.label ? ` ${this.props.label}` : ""}
+            {i18n.t("common:errors.failedToRender")}{this.props.label ? ` ${this.props.label}` : ""}
           </Typography>
           <Button size="small" onClick={this.handleReset} sx={{ minWidth: 0, fontSize: "0.7rem", textTransform: "none" }}>
-            Retry
+            {i18n.t("common:actions.retry")}
           </Button>
         </Box>
       );
@@ -78,7 +79,7 @@ export default class ErrorBoundary extends Component<Props, State> {
         }}
       >
         <Typography variant="subtitle2" color="error" gutterBottom>
-          Something went wrong{this.props.label ? ` in "${this.props.label}"` : ""}
+          {i18n.t("common:errors.generic")}{this.props.label ? ` — ${this.props.label}` : ""}
         </Typography>
         <Typography variant="caption" color="text.secondary" component="pre" sx={{ whiteSpace: "pre-wrap", mb: 1 }}>
           {this.state.error?.message}
@@ -89,7 +90,7 @@ export default class ErrorBoundary extends Component<Props, State> {
           </Typography>
         )}
         <Button size="small" variant="outlined" color="error" onClick={this.handleReset}>
-          Retry
+          {i18n.t("common:actions.retry")}
         </Button>
       </Box>
     );

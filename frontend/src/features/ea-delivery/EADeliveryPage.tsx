@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useMemo, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
@@ -36,6 +37,7 @@ import TableRow from "@mui/material/TableRow";
 import Paper from "@mui/material/Paper";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { useMetamodel } from "@/hooks/useMetamodel";
+import { useResolveMetaLabel, useResolveLabel } from "@/hooks/useResolveLabel";
 import { api } from "@/api/client";
 import type { Card, SoAW, DiagramSummary, Relation } from "@/types";
 
@@ -48,27 +50,12 @@ const SOAW_STATUS_COLORS: Record<string, "default" | "warning" | "success" | "in
   signed: "info",
 };
 
-const SOAW_STATUS_LABELS: Record<string, string> = {
-  draft: "Draft",
-  in_review: "In Review",
-  approved: "Approved",
-  signed: "Signed",
-};
-
 const INITIATIVE_STATUS_COLORS: Record<string, string> = {
   onTrack: "#4caf50",
   atRisk: "#ff9800",
   offTrack: "#d32f2f",
   onHold: "#9e9e9e",
   completed: "#1976d2",
-};
-
-const INITIATIVE_STATUS_LABELS: Record<string, string> = {
-  onTrack: "On Track",
-  atRisk: "At Risk",
-  offTrack: "Off Track",
-  onHold: "On Hold",
-  completed: "Completed",
 };
 
 interface InitiativeGroup {
@@ -83,8 +70,26 @@ type StatusFilter = "ACTIVE" | "ARCHIVED" | "";
 // ─── component ──────────────────────────────────────────────────────────────
 
 export default function EADeliveryPage() {
+  const { t } = useTranslation(["delivery", "common"]);
   const navigate = useNavigate();
   const { types: metamodelTypes } = useMetamodel();
+  const rml = useResolveMetaLabel();
+  const rl = useResolveLabel();
+
+  const SOAW_STATUS_LABELS: Record<string, string> = {
+    draft: t("status.draft"),
+    in_review: t("status.inReview"),
+    approved: t("status.approved"),
+    signed: t("status.signed"),
+  };
+
+  const INITIATIVE_STATUS_LABELS: Record<string, string> = {
+    onTrack: t("initiativeStatus.onTrack"),
+    atRisk: t("initiativeStatus.atRisk"),
+    offTrack: t("initiativeStatus.offTrack"),
+    onHold: t("initiativeStatus.onHold"),
+    completed: t("initiativeStatus.completed"),
+  };
 
   const [initiatives, setInitiatives] = useState<Card[]>([]);
   const [diagrams, setDiagrams] = useState<DiagramSummary[]>([]);
@@ -147,7 +152,7 @@ export default function EADeliveryPage() {
         setExpanded({ [initRes.items[0].id]: true });
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load data");
+      setError(e instanceof Error ? e.message : t("error.loadData"));
     } finally {
       setLoading(false);
     }
@@ -263,9 +268,10 @@ export default function EADeliveryPage() {
 
   const getTypeLabel = useCallback(
     (typeKey: string) => {
-      return metamodelTypes.find((t) => t.key === typeKey)?.label ?? typeKey;
+      const tp = metamodelTypes.find((t) => t.key === typeKey);
+      return rml(tp?.key ?? "", tp?.translations, "label") || typeKey;
     },
-    [metamodelTypes],
+    [metamodelTypes, rml],
   );
 
   // ── create SoAW ────────────────────────────────────────────────────────
@@ -283,7 +289,7 @@ export default function EADeliveryPage() {
       setNewInitiativeId("");
       navigate(`/ea-delivery/soaw/${created.id}`);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to create");
+      setError(e instanceof Error ? e.message : t("error.createSoaw"));
     } finally {
       setCreating(false);
     }
@@ -330,7 +336,7 @@ export default function EADeliveryPage() {
       setLinkOpen(false);
       await fetchAll();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to link diagrams");
+      setError(e instanceof Error ? e.message : t("error.linkDiagrams"));
     } finally {
       setLinking(false);
     }
@@ -339,12 +345,12 @@ export default function EADeliveryPage() {
   // ── delete SoAW ────────────────────────────────────────────────────────
 
   const handleDeleteSoaw = async (id: string) => {
-    if (!confirm("Delete this Statement of Architecture Work?")) return;
+    if (!confirm(t("confirm.deleteSoaw"))) return;
     try {
       await api.delete(`/soaw/${id}`);
       setSoaws((prev) => prev.filter((s) => s.id !== id));
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to delete");
+      setError(e instanceof Error ? e.message : t("error.deleteSoaw"));
     }
     setCtxMenu(null);
   };
@@ -357,7 +363,7 @@ export default function EADeliveryPage() {
       await api.patch(`/diagrams/${diagram.id}`, { initiative_ids: newIds });
       await fetchAll();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to unlink diagram");
+      setError(e instanceof Error ? e.message : t("error.unlinkDiagram"));
     }
   };
 
@@ -379,18 +385,18 @@ export default function EADeliveryPage() {
           {d.name}
         </Typography>
         {d.initiative_ids.length > 1 && (
-          <Tooltip title={`Linked to ${d.initiative_ids.length} initiatives`}>
+          <Tooltip title={t("diagram.linkedToInitiatives", { count: d.initiative_ids.length })}>
             <Chip
-              label={`${d.initiative_ids.length} initiatives`}
+              label={t("diagram.linkedToInitiatives", { count: d.initiative_ids.length })}
               size="small"
               variant="outlined"
               sx={{ mr: 0.5 }}
             />
           </Tooltip>
         )}
-        <Chip label="Diagram" size="small" color="info" variant="outlined" />
+        <Chip label={t("diagram.label")} size="small" color="info" variant="outlined" />
         {initiativeId && (
-          <Tooltip title="Unlink from this initiative">
+          <Tooltip title={t("diagram.unlinkTooltip")}>
             <IconButton
               size="small"
               sx={{ ml: 0.5 }}
@@ -419,7 +425,7 @@ export default function EADeliveryPage() {
           {s.name}
           {s.revision_number > 1 && (
             <Typography component="span" sx={{ ml: 0.5, fontSize: "0.8rem", color: "text.secondary" }}>
-              (Rev {s.revision_number})
+              {t("soaw.revision", { number: s.revision_number })}
             </Typography>
           )}
         </Typography>
@@ -429,8 +435,8 @@ export default function EADeliveryPage() {
           color={SOAW_STATUS_COLORS[s.status] ?? "default"}
           sx={{ mr: 1 }}
         />
-        <Chip label="SoAW" size="small" variant="outlined" />
-        <Tooltip title="Preview">
+        <Chip label={t("soaw.label")} size="small" variant="outlined" />
+        <Tooltip title={t("soaw.previewTooltip")}>
           <IconButton
             size="small"
             sx={{ ml: 0.5 }}
@@ -476,22 +482,22 @@ export default function EADeliveryPage() {
         <Table size="small">
           <TableHead>
             <TableRow sx={{ bgcolor: "action.hover" }}>
-              <TableCell sx={{ fontWeight: 600 }}>Name</TableCell>
-              <TableCell sx={{ fontWeight: 600 }}>Subtype</TableCell>
-              <TableCell sx={{ fontWeight: 600 }}>Status</TableCell>
-              <TableCell sx={{ fontWeight: 600 }}>Business Value</TableCell>
-              <TableCell sx={{ fontWeight: 600 }}>Effort</TableCell>
-              <TableCell sx={{ fontWeight: 600 }}>Timeline</TableCell>
-              <TableCell sx={{ fontWeight: 600 }}>Artefacts</TableCell>
-              <TableCell sx={{ fontWeight: 600 }}>Related Elements</TableCell>
-              <TableCell sx={{ fontWeight: 600, width: 80 }}>Actions</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>{t("list.name")}</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>{t("list.subtype")}</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>{t("list.status")}</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>{t("list.businessValue")}</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>{t("list.effort")}</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>{t("list.timeline")}</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>{t("list.artefacts")}</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>{t("list.relatedElements")}</TableCell>
+              <TableCell sx={{ fontWeight: 600, width: 80 }}>{t("list.actions")}</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {filteredInitiatives.length === 0 && (
               <TableRow>
                 <TableCell colSpan={totalCols} sx={{ textAlign: "center", py: 4, color: "text.secondary" }}>
-                  No initiatives match the current filters.
+                  {t("empty.noMatch")}
                 </TableCell>
               </TableRow>
             )}
@@ -531,7 +537,7 @@ export default function EADeliveryPage() {
                           {init.name}
                         </Typography>
                         {init.status === "ARCHIVED" && (
-                          <Chip label="Archived" size="small" variant="outlined" color="default" sx={{ height: 20, fontSize: "0.7rem" }} />
+                          <Chip label={t("common:status.archived")} size="small" variant="outlined" color="default" sx={{ height: 20, fontSize: "0.7rem" }} />
                         )}
                       </Box>
                     </TableCell>
@@ -639,7 +645,7 @@ export default function EADeliveryPage() {
                         {sCount > 0 && (
                           <Chip
                             icon={<MaterialSymbol icon="description" size={14} />}
-                            label={`${sCount} SoAW`}
+                            label={t("list.soawCount", { count: sCount })}
                             size="small"
                             variant="outlined"
                             sx={{ height: 22, fontSize: "0.75rem" }}
@@ -648,7 +654,7 @@ export default function EADeliveryPage() {
                         {dCount > 0 && (
                           <Chip
                             icon={<MaterialSymbol icon="schema" size={14} />}
-                            label={`${dCount} Diagram${dCount > 1 ? "s" : ""}`}
+                            label={t("list.diagramCount", { count: dCount })}
                             size="small"
                             variant="outlined"
                             color="info"
@@ -692,7 +698,7 @@ export default function EADeliveryPage() {
                     {/* Actions */}
                     <TableCell onClick={(e) => e.stopPropagation()}>
                       <Box sx={{ display: "flex" }}>
-                        <Tooltip title="Create SoAW">
+                        <Tooltip title={t("card.createSoaw")}>
                           <IconButton
                             size="small"
                             onClick={() => handleCreateForInitiative(init.id)}
@@ -700,7 +706,7 @@ export default function EADeliveryPage() {
                             <MaterialSymbol icon="add_circle_outline" size={18} />
                           </IconButton>
                         </Tooltip>
-                        <Tooltip title="Link diagrams">
+                        <Tooltip title={t("card.linkDiagrams")}>
                           <IconButton
                             size="small"
                             onClick={() => openLinkDialog(init.id)}
@@ -753,7 +759,7 @@ export default function EADeliveryPage() {
       <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
         <MaterialSymbol icon="architecture" size={28} color="#1976d2" />
         <Typography variant="h5" sx={{ ml: 1, fontWeight: 700 }}>
-          EA Delivery
+          {t("page.title")}
         </Typography>
         <Box sx={{ flex: 1 }} />
         <Button
@@ -766,7 +772,7 @@ export default function EADeliveryPage() {
             setCreateOpen(true);
           }}
         >
-          New Statement of Architecture Work
+          {t("header.newSoaw")}
         </Button>
       </Box>
 
@@ -789,7 +795,7 @@ export default function EADeliveryPage() {
         {/* Search */}
         <TextField
           size="small"
-          placeholder="Search initiatives..."
+          placeholder={t("header.searchInitiatives")}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           sx={{ minWidth: 220 }}
@@ -808,29 +814,29 @@ export default function EADeliveryPage() {
         <TextField
           select
           size="small"
-          label="Status"
+          label={t("filter.status")}
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
           sx={{ minWidth: 130 }}
         >
-          <MenuItem value="ACTIVE">Active</MenuItem>
-          <MenuItem value="ARCHIVED">Archived</MenuItem>
-          <MenuItem value="">All</MenuItem>
+          <MenuItem value="ACTIVE">{t("filter.active")}</MenuItem>
+          <MenuItem value="ARCHIVED">{t("filter.archived")}</MenuItem>
+          <MenuItem value="">{t("filter.all")}</MenuItem>
         </TextField>
 
         {/* Subtype filter */}
         <TextField
           select
           size="small"
-          label="Subtype"
+          label={t("filter.subtype")}
           value={subtypeFilter}
           onChange={(e) => setSubtypeFilter(e.target.value)}
           sx={{ minWidth: 130 }}
         >
-          <MenuItem value="">All Subtypes</MenuItem>
+          <MenuItem value="">{t("filter.allSubtypes")}</MenuItem>
           {subtypes.map((st) => (
             <MenuItem key={st.key} value={st.key}>
-              {st.label}
+              {rl(st.key, st.translations)}
             </MenuItem>
           ))}
         </TextField>
@@ -839,7 +845,7 @@ export default function EADeliveryPage() {
 
         {/* Result count */}
         <Typography variant="body2" color="text.secondary" sx={{ mr: 1 }}>
-          {filteredInitiatives.length} initiative{filteredInitiatives.length !== 1 ? "s" : ""}
+          {t("header.resultCount", { count: filteredInitiatives.length })}
         </Typography>
 
         {/* View toggle */}
@@ -850,14 +856,14 @@ export default function EADeliveryPage() {
           size="small"
         >
           <ToggleButton value="cards">
-            <Tooltip title="Card view">
+            <Tooltip title={t("view.cardView")}>
               <Box sx={{ display: "flex", alignItems: "center" }}>
                 <MaterialSymbol icon="dashboard" size={20} />
               </Box>
             </Tooltip>
           </ToggleButton>
           <ToggleButton value="list">
-            <Tooltip title="List view">
+            <Tooltip title={t("view.listView")}>
               <Box sx={{ display: "flex", alignItems: "center" }}>
                 <MaterialSymbol icon="view_list" size={20} />
               </Box>
@@ -869,8 +875,7 @@ export default function EADeliveryPage() {
       {/* Empty state */}
       {initiatives.length === 0 && soaws.length === 0 && diagrams.length === 0 && (
         <Alert severity="info" sx={{ mb: 2 }}>
-          No initiatives found. Create initiatives in the Inventory first, then
-          come back here to manage artefacts.
+          {t("empty.noInitiatives")}
         </Alert>
       )}
 
@@ -882,7 +887,7 @@ export default function EADeliveryPage() {
         <>
           {filteredInitiatives.length === 0 && initiatives.length > 0 && (
             <Alert severity="info" sx={{ mb: 2 }}>
-              No initiatives match the current filters.
+              {t("empty.noMatch")}
             </Alert>
           )}
 
@@ -923,7 +928,7 @@ export default function EADeliveryPage() {
                     {initiative.name}
                   </Typography>
                   {initiative.status === "ARCHIVED" && (
-                    <Chip label="Archived" size="small" variant="outlined" color="default" sx={{ mr: 1 }} />
+                    <Chip label={t("common:status.archived")} size="small" variant="outlined" color="default" sx={{ mr: 1 }} />
                   )}
                   {initiative.subtype && (
                     <Chip
@@ -948,12 +953,12 @@ export default function EADeliveryPage() {
                     ) : null;
                   })()}
                   <Chip
-                    label={`${artefactCount} artefact${artefactCount !== 1 ? "s" : ""}`}
+                    label={t("card.artefactCount", { count: artefactCount })}
                     size="small"
                     variant="outlined"
                     sx={{ mr: 1 }}
                   />
-                  <Tooltip title="Link diagrams to this initiative">
+                  <Tooltip title={t("card.linkDiagramsTooltip")}>
                     <IconButton
                       size="small"
                       onClick={(e) => {
@@ -965,7 +970,7 @@ export default function EADeliveryPage() {
                       <MaterialSymbol icon="link" size={20} />
                     </IconButton>
                   </Tooltip>
-                  <Tooltip title="Create SoAW for this initiative">
+                  <Tooltip title={t("card.createSoawTooltip")}>
                     <IconButton
                       size="small"
                       onClick={(e) => {
@@ -987,7 +992,7 @@ export default function EADeliveryPage() {
                         color="text.secondary"
                         sx={{ py: 2, textAlign: "center" }}
                       >
-                        No artefacts yet.{" "}
+                        {t("empty.noArtefacts")}{" "}
                         <Box
                           component="span"
                           sx={{
@@ -997,9 +1002,9 @@ export default function EADeliveryPage() {
                           }}
                           onClick={() => openLinkDialog(initiative.id)}
                         >
-                          Link a diagram
+                          {t("empty.linkDiagram")}
                         </Box>
-                        {" or "}
+                        {t("empty.or")}
                         <Box
                           component="span"
                           sx={{
@@ -1009,7 +1014,7 @@ export default function EADeliveryPage() {
                           }}
                           onClick={() => handleCreateForInitiative(initiative.id)}
                         >
-                          create a Statement of Architecture Work
+                          {t("empty.createSoaw")}
                         </Box>
                         .
                       </Typography>
@@ -1050,10 +1055,10 @@ export default function EADeliveryPage() {
                 <Typography
                   sx={{ ml: 1, fontWeight: 600, flex: 1, color: "text.secondary" }}
                 >
-                  Not linked to an Initiative
+                  {t("unlinked.title")}
                 </Typography>
                 <Chip
-                  label={`${unlinkedSoaws.length + unlinkedDiagrams.length} artefact${unlinkedSoaws.length + unlinkedDiagrams.length !== 1 ? "s" : ""}`}
+                  label={t("card.artefactCount", { count: unlinkedSoaws.length + unlinkedDiagrams.length })}
                   size="small"
                   variant="outlined"
                 />
@@ -1084,7 +1089,7 @@ export default function EADeliveryPage() {
           <ListItemIcon>
             <MaterialSymbol icon="visibility" size={18} />
           </ListItemIcon>
-          <ListItemText>Preview</ListItemText>
+          <ListItemText>{t("menu.preview")}</ListItemText>
         </MenuItem>
         <MenuItem
           onClick={() => {
@@ -1095,7 +1100,7 @@ export default function EADeliveryPage() {
           <ListItemIcon>
             <MaterialSymbol icon="edit" size={18} />
           </ListItemIcon>
-          <ListItemText>Edit</ListItemText>
+          <ListItemText>{t("menu.edit")}</ListItemText>
         </MenuItem>
         <MenuItem
           onClick={() => ctxMenu && handleDeleteSoaw(ctxMenu.soaw.id)}
@@ -1104,7 +1109,7 @@ export default function EADeliveryPage() {
           <ListItemIcon>
             <MaterialSymbol icon="delete" size={18} color="#d32f2f" />
           </ListItemIcon>
-          <ListItemText>Delete</ListItemText>
+          <ListItemText>{t("menu.delete")}</ListItemText>
         </MenuItem>
       </Menu>
 
@@ -1115,11 +1120,11 @@ export default function EADeliveryPage() {
         maxWidth="sm"
         fullWidth
       >
-        <DialogTitle>New Statement of Architecture Work</DialogTitle>
+        <DialogTitle>{t("createDialog.title")}</DialogTitle>
         <DialogContent>
           <TextField
             autoFocus
-            label="Document name"
+            label={t("createDialog.documentName")}
             fullWidth
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
@@ -1128,14 +1133,14 @@ export default function EADeliveryPage() {
           />
           <TextField
             select
-            label="Initiative"
+            label={t("createDialog.initiative")}
             fullWidth
             value={newInitiativeId}
             onChange={(e) => setNewInitiativeId(e.target.value)}
-            helperText="Link this document to an initiative (optional)"
+            helperText={t("createDialog.initiativeHelper")}
           >
             <MenuItem value="">
-              <em>None</em>
+              <em>{t("common:labels.none")}</em>
             </MenuItem>
             {initiatives.map((init) => (
               <MenuItem key={init.id} value={init.id}>
@@ -1145,13 +1150,13 @@ export default function EADeliveryPage() {
           </TextField>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setCreateOpen(false)}>Cancel</Button>
+          <Button onClick={() => setCreateOpen(false)}>{t("common:actions.cancel")}</Button>
           <Button
             variant="contained"
             disabled={!newName.trim() || creating}
             onClick={handleCreate}
           >
-            {creating ? "Creating..." : "Create"}
+            {creating ? t("createDialog.creating") : t("common:actions.create")}
           </Button>
         </DialogActions>
       </Dialog>
@@ -1164,20 +1169,21 @@ export default function EADeliveryPage() {
         fullWidth
       >
         <DialogTitle>
-          Link Diagrams to Initiative
+          {t("linkDialog.title")}
         </DialogTitle>
         <DialogContent>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Select diagrams to link to{" "}
-            <strong>
-              {initiatives.find((i) => i.id === linkInitiativeId)?.name ?? ""}
-            </strong>
-            . A diagram can be linked to multiple initiatives.
-          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}
+            dangerouslySetInnerHTML={{
+              __html: t("linkDialog.description", {
+                name: initiatives.find((i) => i.id === linkInitiativeId)?.name ?? "",
+                interpolation: { escapeValue: true },
+              }),
+            }}
+          />
 
           {diagrams.length === 0 ? (
             <Typography variant="body2" color="text.secondary" sx={{ py: 2, textAlign: "center" }}>
-              No diagrams available. Create one from the Diagrams page first.
+              {t("linkDialog.noDiagrams")}
             </Typography>
           ) : (
             <List dense sx={{ maxHeight: 400, overflow: "auto" }}>
@@ -1202,8 +1208,8 @@ export default function EADeliveryPage() {
                         primary={d.name}
                         secondary={
                           d.initiative_ids.length > 0
-                            ? `Linked to ${d.initiative_ids.length} initiative${d.initiative_ids.length > 1 ? "s" : ""}`
-                            : "Not linked"
+                            ? t("linkDialog.linkedToCount", { count: d.initiative_ids.length })
+                            : t("linkDialog.notLinked")
                         }
                       />
                     </ListItemButton>
@@ -1214,13 +1220,13 @@ export default function EADeliveryPage() {
           )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setLinkOpen(false)}>Cancel</Button>
+          <Button onClick={() => setLinkOpen(false)}>{t("common:actions.cancel")}</Button>
           <Button
             variant="contained"
             disabled={linking}
             onClick={handleLinkDiagrams}
           >
-            {linking ? "Saving..." : "Save Links"}
+            {linking ? t("linkDialog.saving") : t("linkDialog.saveLinks")}
           </Button>
         </DialogActions>
       </Dialog>

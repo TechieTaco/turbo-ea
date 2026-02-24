@@ -11,6 +11,7 @@ import {
   useCallback,
   useRef,
 } from "react";
+import { useTranslation } from "react-i18next";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
@@ -44,6 +45,7 @@ import DOMPurify from "dompurify";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import { useMetamodel } from "@/hooks/useMetamodel";
+import { useResolveLabel } from "@/hooks/useResolveLabel";
 import { useAuth } from "@/hooks/useAuth";
 
 /* ================================================================== */
@@ -121,11 +123,11 @@ type ViewMode = "house" | "matrix" | "dependencies";
 /*  Constants                                                          */
 /* ================================================================== */
 
-const OVERLAY_OPTIONS: { key: ColorOverlay; label: string; icon: string }[] = [
-  { key: "processType", label: "Type", icon: "category" },
-  { key: "maturity", label: "Maturity", icon: "trending_up" },
-  { key: "automationLevel", label: "Automation", icon: "precision_manufacturing" },
-  { key: "riskLevel", label: "Risk", icon: "warning" },
+const OVERLAY_OPTIONS: { key: ColorOverlay; labelKey: string; icon: string }[] = [
+  { key: "processType", labelKey: "navigator.overlayType", icon: "category" },
+  { key: "maturity", labelKey: "navigator.overlayMaturity", icon: "trending_up" },
+  { key: "automationLevel", labelKey: "navigator.overlayAutomation", icon: "precision_manufacturing" },
+  { key: "riskLevel", labelKey: "navigator.overlayRisk", icon: "warning" },
 ];
 
 const ATTR_COLORS: Record<string, Record<string, { label: string; color: string }>> = {
@@ -154,17 +156,10 @@ const ATTR_COLORS: Record<string, Record<string, { label: string; color: string 
   },
 };
 
-const SUBTYPE_LABELS: Record<string, string> = {
-  category: "Category",
-  group: "Group",
-  process: "Process",
-  variant: "Variant",
-};
-
-const PROCESS_TYPE_ROW_LABELS: Record<string, string> = {
-  management: "Management Processes",
-  core: "Core Processes",
-  support: "Support Processes",
+const PROCESS_TYPE_ROW_LABEL_KEYS: Record<string, string> = {
+  management: "navigator.managementProcesses",
+  core: "navigator.coreProcesses",
+  support: "navigator.supportProcesses",
 };
 const PROCESS_TYPE_ROW_COLORS: Record<string, string> = {
   management: "#00695c",
@@ -342,12 +337,17 @@ function HouseCard({
   dragRef?: React.MutableRefObject<{ id: string; rowType: string } | null>;
   onDragDrop?: (dragId: string, dropId: string, rowType: string) => void;
 }) {
+  const { t } = useTranslation(["bpm", "common"]);
+  const rl = useResolveLabel();
+  const { getType } = useMetamodel();
   const color = getCardColor(node, overlay);
   const isLeaf = node.level >= displayLevel || node.children.length === 0;
   const childCount = node.children.length;
   const hasElements = (node.element_count ?? 0) > 0;
   const hasDiagram = node.has_diagram ?? false;
-  const subtypeLabel = SUBTYPE_LABELS[node.subtype || ""] || null;
+  const bpType = getType("BusinessProcess");
+  const stDef = node.subtype ? bpType?.subtypes?.find((s) => s.key === node.subtype) : undefined;
+  const subtypeLabel = stDef ? rl(stDef.key, stDef.translations) : null;
 
   // Search highlight
   const matchesSearch =
@@ -484,7 +484,7 @@ function HouseCard({
           }}
         >
           {node.deepAppCount > 0 && (
-            <Tooltip title={`${node.deepAppCount} application(s)`}>
+            <Tooltip title={t("navigator.applicationCount", { count: node.deepAppCount })}>
               <Chip
                 size="small"
                 icon={<MaterialSymbol icon="apps" size={12} />}
@@ -494,7 +494,7 @@ function HouseCard({
             </Tooltip>
           )}
           {hasElements && (
-            <Tooltip title={`${node.element_count} BPMN elements`}>
+            <Tooltip title={t("navigator.bpmnElementCount", { count: node.element_count })}>
               <Chip
                 size="small"
                 icon={<MaterialSymbol icon="checklist" size={12} />}
@@ -504,7 +504,7 @@ function HouseCard({
             </Tooltip>
           )}
           {hasDiagram && (
-            <Tooltip title="Has BPMN diagram">
+            <Tooltip title={t("navigator.hasBpmnDiagram")}>
               <Box sx={{ display: "flex", alignItems: "center" }}>
                 <MaterialSymbol icon="schema" size={14} color="#7b1fa2" />
               </Box>
@@ -512,7 +512,7 @@ function HouseCard({
           )}
           <Box sx={{ flex: 1 }} />
           {childCount > 0 && !isNested && (
-            <Tooltip title={`${childCount} sub-process(es) — click to drill down`}>
+            <Tooltip title={t("navigator.subProcessDrillDown", { count: childCount })}>
               <Chip
                 size="small"
                 label={`+${childCount}`}
@@ -635,7 +635,7 @@ function HouseCard({
           </Typography>
         )}
         {(hasDiagram || hasElements) && (
-          <Tooltip title={hasDiagram ? `Has process flow (${node.element_count ?? 0} elements)` : `${node.element_count} BPMN elements`}>
+          <Tooltip title={hasDiagram ? t("navigator.hasProcessFlow", { count: node.element_count ?? 0 }) : t("navigator.bpmnElementCount", { count: node.element_count })}>
             <Box sx={{ display: "inline-flex", alignItems: "center", gap: 0.25, ml: 0.25, opacity: 0.85 }}>
               <MaterialSymbol icon="schema" size={16} />
               {hasElements && (
@@ -659,7 +659,7 @@ function HouseCard({
           }}
         />
         {!isNested && (
-          <Tooltip title="Drill down into this process">
+          <Tooltip title={t("navigator.drillDown")}>
             <IconButton
               size="small"
               onClick={(e) => { e.stopPropagation(); onDrill(node.id); }}
@@ -715,6 +715,9 @@ function DrawerOverview({
   onSwitchNode: (n: ProcNode) => void;
   onDrill: (id: string) => void;
 }) {
+  const { t } = useTranslation(["bpm", "common"]);
+  const rl = useResolveLabel();
+  const { getType } = useMetamodel();
   const [card, setCard] = useState<Record<string, unknown> | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -732,16 +735,19 @@ function DrawerOverview({
   for (const opt of OVERLAY_OPTIONS) {
     const val = (node.attributes || {})[opt.key] as string | undefined;
     const info = val ? ATTR_COLORS[opt.key]?.[val] : null;
-    if (info) attrChips.push({ label: `${opt.label}: ${info.label}`, color: info.color });
+    if (info) attrChips.push({ label: `${t(opt.labelKey)}: ${info.label}`, color: info.color });
   }
+  const bpType = getType("BusinessProcess");
+  const stDef = node.subtype ? bpType?.subtypes?.find((s) => s.key === node.subtype) : undefined;
+  const drawerSubtypeLabel = stDef ? rl(stDef.key, stDef.translations) : null;
 
   return (
     <Box>
       {/* Attribute chips */}
       {attrChips.length > 0 && (
         <Box sx={{ display: "flex", gap: 0.5, mb: 2, flexWrap: "wrap" }}>
-          {node.subtype && SUBTYPE_LABELS[node.subtype] && (
-            <Chip size="small" label={SUBTYPE_LABELS[node.subtype]} variant="outlined" />
+          {drawerSubtypeLabel && (
+            <Chip size="small" label={drawerSubtypeLabel} variant="outlined" />
           )}
           {attrChips.map((c) => (
             <Chip key={c.label} size="small" label={c.label} sx={{ bgcolor: c.color, color: "#fff" }} />
@@ -753,15 +759,15 @@ function DrawerOverview({
       <Box sx={{ display: "flex", gap: 2, mb: 2, flexWrap: "wrap" }}>
         <Box sx={{ textAlign: "center", minWidth: 70 }}>
           <Typography variant="h6" sx={{ fontWeight: 700 }}>{node.deepAppCount}</Typography>
-          <Typography variant="caption" color="text.secondary">Apps</Typography>
+          <Typography variant="caption" color="text.secondary">{t("navigator.apps")}</Typography>
         </Box>
         <Box sx={{ textAlign: "center", minWidth: 70 }}>
           <Typography variant="h6" sx={{ fontWeight: 700 }}>{node.deepDataObjects.size}</Typography>
-          <Typography variant="caption" color="text.secondary">Data Objects</Typography>
+          <Typography variant="caption" color="text.secondary">{t("navigator.dataObjects")}</Typography>
         </Box>
         <Box sx={{ textAlign: "center", minWidth: 70 }}>
           <Typography variant="h6" sx={{ fontWeight: 700 }}>{node.element_count ?? 0}</Typography>
-          <Typography variant="caption" color="text.secondary">Elements</Typography>
+          <Typography variant="caption" color="text.secondary">{t("navigator.elements")}</Typography>
         </Box>
       </Box>
 
@@ -770,7 +776,7 @@ function DrawerOverview({
         <Chip
           size="small"
           icon={<MaterialSymbol icon="open_in_new" size={14} />}
-          label="Open Card"
+          label={t("navigator.openCard")}
           onClick={() => onNavigate(node.id)}
           color="primary"
           sx={{ cursor: "pointer" }}
@@ -779,7 +785,7 @@ function DrawerOverview({
           <Chip
             size="small"
             icon={<MaterialSymbol icon="zoom_in" size={14} />}
-            label="Drill Down"
+            label={t("navigator.drillDown")}
             onClick={() => onDrill(node.id)}
             color="secondary"
             sx={{ cursor: "pointer" }}
@@ -789,7 +795,7 @@ function DrawerOverview({
           <Chip
             size="small"
             icon={<MaterialSymbol icon="schema" size={14} />}
-            label="View Flow"
+            label={t("navigator.viewFlow")}
             onClick={() => onNavigate(`/cards/${node.id}?tab=1`)}
             variant="outlined"
             sx={{ cursor: "pointer" }}
@@ -803,7 +809,7 @@ function DrawerOverview({
       {card && !!card.description && (
         <>
           <Divider sx={{ my: 1.5 }} />
-          <Typography variant="subtitle2" sx={{ mb: 0.5 }}>Description</Typography>
+          <Typography variant="subtitle2" sx={{ mb: 0.5 }}>{t("common:labels.description")}</Typography>
           <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: "pre-wrap", mb: 1 }}>
             {String(card.description)}
           </Typography>
@@ -814,7 +820,7 @@ function DrawerOverview({
       {card && !!card.lifecycle && Object.keys(card.lifecycle as Record<string, string>).length > 0 && (
         <>
           <Divider sx={{ my: 1.5 }} />
-          <Typography variant="subtitle2" sx={{ mb: 0.5 }}>Lifecycle</Typography>
+          <Typography variant="subtitle2" sx={{ mb: 0.5 }}>{t("navigator.lifecycle")}</Typography>
           <Box sx={{ display: "flex", gap: 0.5, flexWrap: "wrap", mb: 1 }}>
             {Object.entries(card.lifecycle as Record<string, string>).map(
               ([phase, date]) =>
@@ -840,7 +846,7 @@ function DrawerOverview({
             {typeof card.data_quality === "number" && (
               <Box sx={{ flex: 1 }}>
                 <Typography variant="caption" color="text.secondary">
-                  Completion
+                  {t("navigator.completion")}
                 </Typography>
                 <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                   <LinearProgress
@@ -880,7 +886,7 @@ function DrawerOverview({
           <Divider sx={{ my: 1.5 }} />
           <Typography variant="subtitle2" sx={{ mb: 0.75, display: "flex", alignItems: "center", gap: 0.5 }}>
             <MaterialSymbol icon="account_tree" size={18} />
-            Sub-Processes ({node.children.length})
+            {t("navigator.subProcesses", { count: node.children.length })}
           </Typography>
           <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5 }}>
             {node.children.map((ch) => (
@@ -917,7 +923,7 @@ function DrawerOverview({
                 )}
                 {ch.deepAppCount > 0 && (
                   <Typography variant="caption" sx={{ opacity: 0.85 }}>
-                    {ch.deepAppCount} apps
+                    {t("navigator.appsCount", { count: ch.deepAppCount })}
                   </Typography>
                 )}
               </Box>
@@ -932,7 +938,7 @@ function DrawerOverview({
         (card.tags as Array<{ id: string; name: string; color?: string }>).length > 0 && (
           <>
             <Divider sx={{ my: 1.5 }} />
-            <Typography variant="subtitle2" sx={{ mb: 0.5 }}>Tags</Typography>
+            <Typography variant="subtitle2" sx={{ mb: 0.5 }}>{t("navigator.tags")}</Typography>
             <Box sx={{ display: "flex", gap: 0.5, flexWrap: "wrap" }}>
               {(card.tags as Array<{ id: string; name: string; color?: string }>).map((tag) => (
                 <Chip
@@ -961,6 +967,7 @@ function DrawerSteps({
   processId: string;
   onNavigate: (id: string) => void;
 }) {
+  const { t } = useTranslation(["bpm", "common"]);
   const [elements, setElements] = useState<ProcessElementData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -987,7 +994,7 @@ function DrawerSteps({
       <Box sx={{ py: 4, textAlign: "center" }}>
         <MaterialSymbol icon="checklist" size={40} color="#ccc" />
         <Typography color="text.secondary" sx={{ mt: 1 }}>
-          No BPMN elements found. Create a process flow to see steps here.
+          {t("navigator.noElements")}
         </Typography>
       </Box>
     );
@@ -995,7 +1002,7 @@ function DrawerSteps({
   // Group by lane
   const lanes = new Map<string, ProcessElementData[]>();
   for (const el of elements) {
-    const lane = el.lane_name || "(Default)";
+    const lane = el.lane_name || t("navigator.defaultLane");
     lanes.set(lane, [...(lanes.get(lane) || []), el]);
   }
 
@@ -1054,12 +1061,12 @@ function DrawerSteps({
                     <Box sx={{ flex: 1, minWidth: 0 }}>
                       <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
                         <Typography variant="body2" sx={{ fontWeight: 600, fontSize: "0.85rem" }}>
-                          {el.name || "(unnamed)"}
+                          {el.name || t("viewer.unnamed")}
                         </Typography>
                         {el.is_automated && (
                           <Chip
                             size="small"
-                            label="Auto"
+                            label={t("navigator.auto")}
                             sx={{ height: 16, fontSize: "0.55rem", bgcolor: "#7b1fa2", color: "#fff" }}
                           />
                         )}
@@ -1154,6 +1161,7 @@ function DrawerFlow({
   processId: string;
   onNavigate: (path: string) => void;
 }) {
+  const { t } = useTranslation(["bpm", "common"]);
   const [svgThumbnail, setSvgThumbnail] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [hasPublished, setHasPublished] = useState(false);
@@ -1203,12 +1211,12 @@ function DrawerFlow({
       <Box sx={{ py: 4, textAlign: "center" }}>
         <MaterialSymbol icon="schema" size={40} color="#ccc" />
         <Typography color="text.secondary" sx={{ mt: 1 }}>
-          No process flow available.
+          {t("navigator.noProcessFlow")}
         </Typography>
         <Chip
           size="small"
           icon={<MaterialSymbol icon="open_in_new" size={14} />}
-          label="Go to Process Flow"
+          label={t("navigator.goToProcessFlow")}
           onClick={openFlowTab}
           color="primary"
           sx={{ mt: 1, cursor: "pointer" }}
@@ -1221,12 +1229,12 @@ function DrawerFlow({
       <Box sx={{ py: 4, textAlign: "center" }}>
         <MaterialSymbol icon="edit_note" size={40} color="#ed6c02" />
         <Typography color="text.secondary" sx={{ mt: 1 }}>
-          No published flow yet. Draft available.
+          {t("navigator.noPublishedDraftAvailable")}
         </Typography>
         <Chip
           size="small"
           icon={<MaterialSymbol icon="open_in_new" size={14} />}
-          label="View Drafts"
+          label={t("navigator.viewDrafts")}
           onClick={openDraftsTab}
           color="warning"
           sx={{ mt: 1, cursor: "pointer" }}
@@ -1239,12 +1247,12 @@ function DrawerFlow({
       <Box sx={{ py: 4, textAlign: "center" }}>
         <MaterialSymbol icon="schema" size={40} color="#7b1fa2" />
         <Typography color="text.secondary" sx={{ mt: 1 }}>
-          Published flow available.
+          {t("navigator.publishedFlowAvailable")}
         </Typography>
         <Chip
           size="small"
           icon={<MaterialSymbol icon="open_in_new" size={14} />}
-          label="View Published Flow"
+          label={t("navigator.viewPublishedFlow")}
           onClick={openFlowTab}
           color="primary"
           sx={{ mt: 1, cursor: "pointer" }}
@@ -1273,7 +1281,7 @@ function DrawerFlow({
         <Chip
           size="small"
           icon={<MaterialSymbol icon="open_in_new" size={14} />}
-          label="View Published Flow"
+          label={t("navigator.viewPublishedFlow")}
           onClick={openFlowTab}
           color="primary"
           sx={{ cursor: "pointer" }}
@@ -1294,6 +1302,7 @@ function DrawerApps({
   node: ProcNode;
   onNavigate: (id: string) => void;
 }) {
+  const { t } = useTranslation(["bpm", "common"]);
   const apps = useMemo(
     () => Array.from(node.deepUniqueApps.values()).sort((a, b) => a.name.localeCompare(b.name)),
     [node],
@@ -1304,7 +1313,7 @@ function DrawerApps({
       <Box sx={{ py: 4, textAlign: "center" }}>
         <MaterialSymbol icon="apps" size={40} color="#ccc" />
         <Typography color="text.secondary" sx={{ mt: 1 }}>
-          No applications linked to this process.
+          {t("navigator.noAppsLinked")}
         </Typography>
       </Box>
     );
@@ -1340,7 +1349,7 @@ function DrawerApps({
             )}
           </Box>
           {app.lifecycle?.endOfLife && (
-            <Tooltip title="End of Life">
+            <Tooltip title={t("navigator.endOfLife")}>
               <Box>
                 <MaterialSymbol icon="warning" size={16} color="#e65100" />
               </Box>
@@ -1363,6 +1372,7 @@ function DrawerData({
   node: ProcNode;
   onNavigate: (id: string) => void;
 }) {
+  const { t } = useTranslation(["bpm", "common"]);
   const dataObjs = useMemo(
     () => Array.from(node.deepDataObjects.values()).sort((a, b) => a.name.localeCompare(b.name)),
     [node],
@@ -1373,7 +1383,7 @@ function DrawerData({
       <Box sx={{ py: 4, textAlign: "center" }}>
         <MaterialSymbol icon="database" size={40} color="#ccc" />
         <Typography color="text.secondary" sx={{ mt: 1 }}>
-          No data objects linked to this process.
+          {t("navigator.noDataObjectsLinked")}
         </Typography>
       </Box>
     );
@@ -1430,6 +1440,7 @@ function ProcessDrawer({
   onSwitchNode: (n: ProcNode) => void;
   onDrill: (id: string) => void;
 }) {
+  const { t } = useTranslation(["bpm", "common"]);
   const [tab, setTab] = useState(0);
 
   // Reset tab when node changes
@@ -1486,20 +1497,20 @@ function ProcessDrawer({
           "& .MuiTab-root": { minHeight: 36, py: 0, fontSize: "0.8rem" },
         }}
       >
-        <Tab label="Overview" icon={<MaterialSymbol icon="info" size={16} />} iconPosition="start" />
+        <Tab label={t("navigator.overview")} icon={<MaterialSymbol icon="info" size={16} />} iconPosition="start" />
         <Tab
-          label={`Steps${node.element_count ? ` (${node.element_count})` : ""}`}
+          label={`${t("navigator.steps")}${node.element_count ? ` (${node.element_count})` : ""}`}
           icon={<MaterialSymbol icon="checklist" size={16} />}
           iconPosition="start"
         />
-        <Tab label="Flow" icon={<MaterialSymbol icon="schema" size={16} />} iconPosition="start" />
+        <Tab label={t("navigator.flow")} icon={<MaterialSymbol icon="schema" size={16} />} iconPosition="start" />
         <Tab
-          label={`Apps (${node.deepAppCount})`}
+          label={`${t("navigator.apps")} (${node.deepAppCount})`}
           icon={<MaterialSymbol icon="apps" size={16} />}
           iconPosition="start"
         />
         <Tab
-          label={`Data (${node.deepDataObjects.size})`}
+          label={`${t("navigator.data")} (${node.deepDataObjects.size})`}
           icon={<MaterialSymbol icon="database" size={16} />}
           iconPosition="start"
         />
@@ -1534,6 +1545,7 @@ function MatrixView({
 }: {
   onNavigate: (id: string) => void;
 }) {
+  const { t } = useTranslation(["bpm", "common"]);
   const [data, setData] = useState<{
     rows: { id: string; name: string }[];
     columns: { id: string; name: string }[];
@@ -1555,7 +1567,7 @@ function MatrixView({
       <Box sx={{ py: 4, textAlign: "center" }}>
         <MaterialSymbol icon="table_chart" size={48} color="#ccc" />
         <Typography color="text.secondary" sx={{ mt: 1 }}>
-          No data. Link processes to applications first.
+          {t("reports.noDataLinkApplications")}
         </Typography>
       </Box>
     );
@@ -1566,7 +1578,7 @@ function MatrixView({
         <TableHead>
           <TableRow>
             <TableCell sx={{ fontWeight: 700, position: "sticky", left: 0, zIndex: 3, bgcolor: "background.paper" }}>
-              Process
+              {t("reports.process")}
             </TableCell>
             {data.columns.map((c) => (
               <TableCell key={c.id} align="center" sx={{ fontWeight: 700, whiteSpace: "nowrap" }}>
@@ -1602,7 +1614,7 @@ function MatrixView({
                       <Tooltip
                         title={matches
                           .map((x) =>
-                            x.source === "element" ? `Element: ${x.element_name}` : "Relation",
+                            x.source === "element" ? `${t("reports.element")}: ${x.element_name}` : t("reports.relation"),
                           )
                           .join(", ")}
                       >
@@ -1631,6 +1643,7 @@ function MatrixView({
 /* ================================================================== */
 
 function DependenciesView({ onNavigate }: { onNavigate: (id: string) => void }) {
+  const { t } = useTranslation(["bpm", "common"]);
   const [data, setData] = useState<{
     nodes: { id: string; name: string }[];
     edges: { id: string; source: string; target: string }[];
@@ -1651,7 +1664,7 @@ function DependenciesView({ onNavigate }: { onNavigate: (id: string) => void }) 
       <Box sx={{ py: 4, textAlign: "center" }}>
         <MaterialSymbol icon="hub" size={48} color="#ccc" />
         <Typography color="text.secondary" sx={{ mt: 1 }}>
-          No process dependencies defined yet.
+          {t("reports.noDependencies")}
         </Typography>
       </Box>
     );
@@ -1659,17 +1672,17 @@ function DependenciesView({ onNavigate }: { onNavigate: (id: string) => void }) 
   return (
     <Box>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-        {data.nodes.length} processes, {data.edges.length} dependencies
+        {t("reports.dependenciesSummary", { processes: data.nodes.length, dependencies: data.edges.length })}
       </Typography>
       <TableContainer component={Paper} variant="outlined">
         <Table size="small">
           <TableHead>
             <TableRow>
-              <TableCell sx={{ fontWeight: 700 }}>From Process</TableCell>
+              <TableCell sx={{ fontWeight: 700 }}>{t("reports.fromProcess")}</TableCell>
               <TableCell align="center" sx={{ width: 80 }}>
-                depends on
+                {t("reports.dependsOn")}
               </TableCell>
-              <TableCell sx={{ fontWeight: 700 }}>To Process</TableCell>
+              <TableCell sx={{ fontWeight: 700 }}>{t("reports.toProcess")}</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -1716,12 +1729,13 @@ function LevelIndicator({
   displayLevel: number;
   onChange: (level: number) => void;
 }) {
+  const { t } = useTranslation(["bpm", "common"]);
   const marks = [];
   for (let i = 1; i <= maxLevel; i++) {
     marks.push({ value: i, label: `L${i}` });
   }
   if (maxLevel > 1) {
-    marks.push({ value: maxLevel + 1, label: "All" });
+    marks.push({ value: maxLevel + 1, label: t("common:labels.all") });
   }
 
   return (
@@ -1736,7 +1750,7 @@ function LevelIndicator({
     >
       <MaterialSymbol icon="layers" size={18} color="#666" />
       <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, whiteSpace: "nowrap" }}>
-        Depth
+        {t("navigator.depth")}
       </Typography>
       <Slider
         value={Math.min(displayLevel, maxLevel + 1)}
@@ -1760,6 +1774,7 @@ function LevelIndicator({
 /* ================================================================== */
 
 function OverlayLegend({ overlay }: { overlay: ColorOverlay }) {
+  const { t } = useTranslation(["bpm", "common"]);
   const items = ATTR_COLORS[overlay];
   if (!items) return null;
 
@@ -1792,7 +1807,7 @@ function OverlayLegend({ overlay }: { overlay: ColorOverlay }) {
           }}
         />
         <Typography variant="caption" color="text.secondary">
-          Not set
+          {t("navigator.notSet")}
         </Typography>
       </Box>
     </Box>
@@ -1804,6 +1819,7 @@ function OverlayLegend({ overlay }: { overlay: ColorOverlay }) {
 /* ================================================================== */
 
 export default function ProcessNavigator() {
+  const { t } = useTranslation(["bpm", "common"]);
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { getType } = useMetamodel();
@@ -2130,21 +2146,21 @@ export default function ProcessNavigator() {
           onChange={(_, v) => v && setViewMode(v)}
         >
           <ToggleButton value="house">
-            <Tooltip title="Process House">
+            <Tooltip title={t("navigator.processHouse")}>
               <Box sx={{ display: "flex" }}>
                 <MaterialSymbol icon="grid_view" size={18} />
               </Box>
             </Tooltip>
           </ToggleButton>
           <ToggleButton value="matrix">
-            <Tooltip title="Process × App Matrix">
+            <Tooltip title={t("navigator.processAppMatrix")}>
               <Box sx={{ display: "flex" }}>
                 <MaterialSymbol icon="table_chart" size={18} />
               </Box>
             </Tooltip>
           </ToggleButton>
           <ToggleButton value="dependencies">
-            <Tooltip title="Dependencies">
+            <Tooltip title={t("reports.processDependencies")}>
               <Box sx={{ display: "flex" }}>
                 <MaterialSymbol icon="hub" size={18} />
               </Box>
@@ -2152,7 +2168,7 @@ export default function ProcessNavigator() {
           </ToggleButton>
         </ToggleButtonGroup>
 
-        <Tooltip title="Reset to defaults">
+        <Tooltip title={t("navigator.resetToDefaults")}>
           <IconButton size="small" onClick={handleReset}>
             <MaterialSymbol icon="restart_alt" size={20} />
           </IconButton>
@@ -2178,7 +2194,7 @@ export default function ProcessNavigator() {
           {/* Search */}
           <TextField
             size="small"
-            placeholder="Search processes..."
+            placeholder={t("navigator.searchProcesses")}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             InputProps={{
@@ -2204,7 +2220,7 @@ export default function ProcessNavigator() {
               <Chip
                 key={opt.key}
                 icon={<MaterialSymbol icon={opt.icon} size={14} />}
-                label={opt.label}
+                label={t(opt.labelKey)}
                 onClick={() => setOverlay(opt.key)}
                 variant={overlay === opt.key ? "filled" : "outlined"}
                 color={overlay === opt.key ? "primary" : "default"}
@@ -2242,7 +2258,7 @@ export default function ProcessNavigator() {
               renderInput={(params) => (
                 <TextField
                   {...params}
-                  placeholder={orgFilter.length === 0 ? "Filter by Organization..." : ""}
+                  placeholder={orgFilter.length === 0 ? t("navigator.filterByOrg") : ""}
                   InputProps={{
                     ...params.InputProps,
                     startAdornment: (
@@ -2263,10 +2279,10 @@ export default function ProcessNavigator() {
           {/* Summary */}
           <Typography variant="caption" color="text.secondary" sx={{ ml: "auto" }}>
             {search
-              ? `${matchCount} of ${totalProcesses} processes`
+              ? t("navigator.matchOfTotal", { match: matchCount, total: totalProcesses })
               : orgFilter.length > 0
-                ? `${allFlat.length} total, showing filtered`
-                : `${totalProcesses} processes`}
+                ? t("navigator.totalShowingFiltered", { total: allFlat.length })
+                : t("navigator.totalProcesses", { count: totalProcesses })}
           </Typography>
         </Box>
       )}
@@ -2282,7 +2298,7 @@ export default function ProcessNavigator() {
               onClick={() => setZoomNodeId(null)}
               sx={{ cursor: "pointer" }}
             >
-              All Processes
+              {t("navigator.allProcesses")}
             </Link>
             {breadcrumbs.map((bc, idx) => {
               const isLast = idx === breadcrumbs.length - 1;
@@ -2314,7 +2330,7 @@ export default function ProcessNavigator() {
             <Box sx={{ py: 8, textAlign: "center" }}>
               <MaterialSymbol icon="account_tree" size={56} color="#ccc" />
               <Typography color="text.secondary" sx={{ mt: 1, fontSize: "1.05rem" }}>
-                No Business Processes found. Add processes to see the Process House.
+                {t("navigator.noProcessesFound")}
               </Typography>
             </Box>
           ) : (
@@ -2352,7 +2368,7 @@ export default function ProcessNavigator() {
                           fontSize: "0.75rem",
                         }}
                       >
-                        {PROCESS_TYPE_ROW_LABELS[rowType]}
+                        {t(PROCESS_TYPE_ROW_LABEL_KEYS[rowType])}
                       </Typography>
                       <Typography variant="caption" color="text.secondary">
                         ({nodes.length})
@@ -2392,7 +2408,7 @@ export default function ProcessNavigator() {
                         }}
                       >
                         <Typography variant="body2" color="text.secondary">
-                          No {PROCESS_TYPE_ROW_LABELS[rowType].toLowerCase()} defined
+                          {t("navigator.noProcessesDefined", { type: t(PROCESS_TYPE_ROW_LABEL_KEYS[rowType]).toLowerCase() })}
                         </Typography>
                       </Box>
                     ) : (() => {

@@ -154,7 +154,7 @@ describe("BpmReportsContent", () => {
       await userEvent.click(screen.getByRole("tab", { name: /Element-Application Map/ }));
 
       await waitFor(() => {
-        expect(screen.getByText("CRM App (1 elements)")).toBeInTheDocument();
+        expect(screen.getByText("CRM App (1 element)")).toBeInTheDocument();
         expect(screen.getByText("Create Order")).toBeInTheDocument();
         expect(screen.getByText("Sales")).toBeInTheDocument();
       });
@@ -245,10 +245,10 @@ describe("BpmReportsContent", () => {
       await userEvent.click(screen.getByRole("tab", { name: /Element-Application Map/ }));
 
       await waitFor(() => {
-        expect(screen.getByText("CRM App (1 elements)")).toBeInTheDocument();
+        expect(screen.getByText("CRM App (1 element)")).toBeInTheDocument();
       });
 
-      await userEvent.click(screen.getByText("CRM App (1 elements)"));
+      await userEvent.click(screen.getByText("CRM App (1 element)"));
       expect(screen.getByTestId("card-side-panel")).toHaveAttribute("data-card-id", "a1");
     });
 

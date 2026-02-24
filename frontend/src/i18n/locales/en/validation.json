@@ -1,0 +1,16 @@
+{
+  "required": "This field is required",
+  "invalidEmail": "Invalid email address",
+  "tooLong": "Too long (max {{max}} characters)",
+  "tooShort": "Too short (min {{min}} characters)",
+  "invalidUrl": "Invalid URL",
+
+  "key.mustStartWithLetter": "Must start with a letter",
+  "key.noUnderscores": "Underscores are not allowed — use camelCase",
+  "key.noSpaces": "Spaces are not allowed — use camelCase",
+  "key.noAccents": "Accented characters are not allowed",
+  "key.lettersAndDigitsOnly": "Only letters and digits allowed (camelCase)",
+  "key.cannotChange": "Key cannot be changed after creation",
+  "key.valid": "Valid key",
+  "key.hint": "Letters and digits only, camelCase (e.g. businessFit)"
+}

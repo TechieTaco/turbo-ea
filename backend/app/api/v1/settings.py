@@ -557,3 +557,47 @@ async def update_registration_settings(
     await db.commit()
 
     return {"ok": True}
+
+
+# ---------------------------------------------------------------------------
+# Enabled locales
+# ---------------------------------------------------------------------------
+
+SUPPORTED_LOCALES = ["en", "de", "fr", "es", "it", "pt", "zh"]
+
+
+class EnabledLocalesPayload(BaseModel):
+    locales: list[str]
+
+
+@router.get("/enabled-locales")
+async def get_enabled_locales(db: AsyncSession = Depends(get_db)):
+    """Public endpoint — returns which locales are enabled (defaults to all)."""
+    result = await db.execute(select(AppSettings).where(AppSettings.id == "default"))
+    row = result.scalar_one_or_none()
+    general = (row.general_settings if row else None) or {}
+    locales = general.get("enabledLocales", SUPPORTED_LOCALES)
+    return {"locales": locales}
+
+
+@router.patch("/enabled-locales")
+async def update_enabled_locales(
+    body: EnabledLocalesPayload,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Admin endpoint — set which locales are available to users."""
+    await PermissionService.require_permission(db, user, "admin.settings")
+
+    # Validate — must be a subset of supported locales, at least one
+    valid = [loc for loc in body.locales if loc in SUPPORTED_LOCALES]
+    if not valid:
+        raise HTTPException(status_code=400, detail="At least one valid locale is required.")
+
+    row = await _get_or_create_row(db)
+    general = dict(row.general_settings or {})
+    general["enabledLocales"] = valid
+    row.general_settings = general
+    await db.commit()
+
+    return {"locales": valid}

@@ -19,8 +19,10 @@ import DialogTitle from "@mui/material/DialogTitle";
 import DialogContent from "@mui/material/DialogContent";
 import DialogActions from "@mui/material/DialogActions";
 import Autocomplete from "@mui/material/Autocomplete";
+import { useTranslation } from "react-i18next";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { useMetamodel } from "@/hooks/useMetamodel";
+import { useResolveMetaLabel } from "@/hooks/useResolveLabel";
 import { api } from "@/api/client";
 import type { Card, HierarchyData } from "@/types";
 
@@ -38,8 +40,10 @@ function HierarchySection({
   canEdit?: boolean;
   initialExpanded?: boolean;
 }) {
+  const { t } = useTranslation(["cards", "common"]);
   const navigate = useNavigate();
   const { getType } = useMetamodel();
+  const rml = useResolveMetaLabel();
   const typeConfig = getType(card.type);
   const [hierarchy, setHierarchy] = useState<HierarchyData | null>(null);
 
@@ -112,7 +116,7 @@ function HierarchySection({
       loadHierarchy();
       onUpdate();
     } catch (err: unknown) {
-      setHierarchyError(err instanceof Error ? err.message : "Failed to set parent");
+      setHierarchyError(err instanceof Error ? err.message : t("hierarchy.errors.setParent"));
     }
   };
 
@@ -132,7 +136,7 @@ function HierarchySection({
       setChildSearch("");
       loadHierarchy();
     } catch (err: unknown) {
-      setHierarchyError(err instanceof Error ? err.message : "Failed to add child");
+      setHierarchyError(err instanceof Error ? err.message : t("hierarchy.errors.addChild"));
     }
   };
 
@@ -160,7 +164,7 @@ function HierarchySection({
       setCreateName("");
       loadHierarchy();
     } catch (err: unknown) {
-      setHierarchyError(err instanceof Error ? err.message : "Failed to create");
+      setHierarchyError(err instanceof Error ? err.message : t("hierarchy.errors.create"));
     } finally {
       setCreateLoading(false);
     }
@@ -176,11 +180,11 @@ function HierarchySection({
       <AccordionSummary expandIcon={<MaterialSymbol icon="expand_more" size={20} />}>
         <Box sx={{ display: "flex", alignItems: "center", gap: 1, flex: 1 }}>
           <MaterialSymbol icon="account_tree" size={20} />
-          <Typography fontWeight={600}>Hierarchy</Typography>
+          <Typography fontWeight={600}>{t("hierarchy.title")}</Typography>
           {hierarchy && (
             <Chip
               size="small"
-              label={`Level ${level}`}
+              label={t("hierarchy.level", { level })}
               sx={{ ml: 1, height: 20, fontSize: "0.7rem", bgcolor: levelColor, color: "#fff" }}
             />
           )}
@@ -200,7 +204,7 @@ function HierarchySection({
             {hierarchy.ancestors.length > 0 && (
               <Box sx={{ mb: 2 }}>
                 <Typography variant="caption" color="text.secondary" fontWeight={600} sx={{ mb: 0.5, display: "block" }}>
-                  Path
+                  {t("hierarchy.path")}
                 </Typography>
                 <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, flexWrap: "wrap" }}>
                   {hierarchy.ancestors.map((ancestor, i) => {
@@ -232,7 +236,7 @@ function HierarchySection({
             <Box sx={{ mb: 2 }}>
               <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
                 <Typography variant="caption" color="text.secondary" fontWeight={600}>
-                  Parent
+                  {t("hierarchy.parent")}
                 </Typography>
               </Box>
               {hierarchy.ancestors.length > 0 ? (
@@ -245,19 +249,19 @@ function HierarchySection({
                     icon={<MaterialSymbol icon={typeConfig?.icon || "category"} size={16} />}
                   />
                   {canEdit && (
-                    <IconButton size="small" onClick={() => setPickingParent(true)} title="Change parent">
+                    <IconButton size="small" onClick={() => setPickingParent(true)} title={t("hierarchy.changeParent")}>
                       <MaterialSymbol icon="edit" size={16} />
                     </IconButton>
                   )}
                   {canEdit && (
-                    <IconButton size="small" onClick={handleRemoveParent} title="Remove parent">
+                    <IconButton size="small" onClick={handleRemoveParent} title={t("hierarchy.removeParent")}>
                       <MaterialSymbol icon="link_off" size={16} color="#f44336" />
                     </IconButton>
                   )}
                 </Box>
               ) : (
                 <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                  <Typography variant="body2" color="text.secondary">No parent</Typography>
+                  <Typography variant="body2" color="text.secondary">{t("hierarchy.noParent")}</Typography>
                   {canEdit && (
                     <Button
                       size="small"
@@ -265,7 +269,7 @@ function HierarchySection({
                       startIcon={<MaterialSymbol icon="add" size={16} />}
                       onClick={() => setPickingParent(true)}
                     >
-                      Set Parent
+                      {t("hierarchy.setParent")}
                     </Button>
                   )}
                 </Box>
@@ -274,7 +278,7 @@ function HierarchySection({
 
             {/* Parent picker dialog */}
             <Dialog open={pickingParent} onClose={() => { setPickingParent(false); setCreateMode(null); setHierarchyError(""); }} maxWidth="sm" fullWidth>
-              <DialogTitle>Set Parent</DialogTitle>
+              <DialogTitle>{t("hierarchy.setParent")}</DialogTitle>
               <DialogContent>
                 {hierarchyError && (
                   <Alert severity="error" onClose={() => setHierarchyError("")} sx={{ mb: 1, mt: 1 }}>
@@ -291,9 +295,9 @@ function HierarchySection({
                       inputValue={parentSearch}
                       onInputChange={(_, val) => setParentSearch(val)}
                       renderInput={(params) => (
-                        <TextField {...params} size="small" label={`Search ${typeConfig?.label || card.type}`} placeholder="Type to search..." sx={{ mt: 1 }} />
+                        <TextField {...params} size="small" label={t("hierarchy.search", { type: rml(typeConfig?.key ?? "", typeConfig?.translations, "label") || card.type })} placeholder={t("hierarchy.searchPlaceholder")} sx={{ mt: 1 }} />
                       )}
-                      noOptionsText={parentSearch ? "No results found" : "Type to search..."}
+                      noOptionsText={parentSearch ? t("common:labels.noResults") : t("hierarchy.searchPlaceholder")}
                       filterOptions={(x) => x}
                     />
                     <Button
@@ -302,34 +306,34 @@ function HierarchySection({
                       startIcon={<MaterialSymbol icon="add" size={16} />}
                       onClick={() => { setCreateMode("parent"); setCreateName(parentSearch); }}
                     >
-                      Create new {typeConfig?.label || card.type}
+                      {t("hierarchy.createNew", { type: rml(typeConfig?.key ?? "", typeConfig?.translations, "label") || card.type })}
                     </Button>
                   </>
                 ) : (
                   <Box sx={{ mt: 1, p: 2, border: "1px solid", borderColor: "divider", borderRadius: 1, bgcolor: "action.hover" }}>
                     <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1 }}>
-                      Create new {typeConfig?.label || card.type} as parent
+                      {t("hierarchy.createAsParent", { type: rml(typeConfig?.key ?? "", typeConfig?.translations, "label") || card.type })}
                     </Typography>
                     <TextField
-                      fullWidth size="small" label="Name" value={createName}
+                      fullWidth size="small" label={t("common:labels.name")} value={createName}
                       onChange={(e) => setCreateName(e.target.value)}
                       onKeyDown={(e) => e.key === "Enter" && handleQuickCreate()}
                       autoFocus sx={{ mb: 1 }}
                     />
                     <Box sx={{ display: "flex", gap: 1 }}>
                       <Button size="small" variant="contained" onClick={handleQuickCreate} disabled={!createName.trim() || createLoading}>
-                        Create & Set as Parent
+                        {t("hierarchy.createAndSetParent")}
                       </Button>
-                      <Button size="small" onClick={() => setCreateMode(null)}>Back to search</Button>
+                      <Button size="small" onClick={() => setCreateMode(null)}>{t("hierarchy.backToSearch")}</Button>
                     </Box>
                   </Box>
                 )}
               </DialogContent>
               <DialogActions>
-                <Button onClick={() => { setPickingParent(false); setCreateMode(null); }}>Cancel</Button>
+                <Button onClick={() => { setPickingParent(false); setCreateMode(null); }}>{t("common:actions.cancel")}</Button>
                 {!createMode && (
                   <Button variant="contained" onClick={handleSetParent} disabled={!selectedParent}>
-                    Set Parent
+                    {t("hierarchy.setParent")}
                   </Button>
                 )}
               </DialogActions>
@@ -339,7 +343,7 @@ function HierarchySection({
             <Box>
               <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
                 <Typography variant="caption" color="text.secondary" fontWeight={600}>
-                  Children
+                  {t("hierarchy.children")}
                 </Typography>
                 <Chip size="small" label={hierarchy.children.length} sx={{ height: 18, fontSize: "0.65rem" }} />
               </Box>
@@ -350,7 +354,7 @@ function HierarchySection({
                       key={child.id}
                       secondaryAction={
                         canEdit ? (
-                          <IconButton size="small" onClick={() => handleRemoveChild(child.id)} title="Remove from hierarchy">
+                          <IconButton size="small" onClick={() => handleRemoveChild(child.id)} title={t("hierarchy.removeChild")}>
                             <MaterialSymbol icon="link_off" size={16} />
                           </IconButton>
                         ) : undefined
@@ -368,7 +372,7 @@ function HierarchySection({
                   ))}
                 </List>
               ) : (
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>No children</Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>{t("hierarchy.noChildren")}</Typography>
               )}
               {canEdit && (
                 <Box sx={{ display: "flex", gap: 1, mt: 1 }}>
@@ -378,7 +382,7 @@ function HierarchySection({
                     startIcon={<MaterialSymbol icon="add" size={16} />}
                     onClick={() => setAddChildOpen(true)}
                   >
-                    Add Child
+                    {t("hierarchy.addChild")}
                   </Button>
                 </Box>
               )}
@@ -386,7 +390,7 @@ function HierarchySection({
 
             {/* Add child dialog */}
             <Dialog open={addChildOpen} onClose={() => { setAddChildOpen(false); setCreateMode(null); setHierarchyError(""); }} maxWidth="sm" fullWidth>
-              <DialogTitle>Add Child</DialogTitle>
+              <DialogTitle>{t("hierarchy.addChild")}</DialogTitle>
               <DialogContent>
                 {hierarchyError && (
                   <Alert severity="error" onClose={() => setHierarchyError("")} sx={{ mb: 1, mt: 1 }}>
@@ -403,9 +407,9 @@ function HierarchySection({
                       inputValue={childSearch}
                       onInputChange={(_, val) => setChildSearch(val)}
                       renderInput={(params) => (
-                        <TextField {...params} size="small" label={`Search ${typeConfig?.label || card.type}`} placeholder="Type to search..." sx={{ mt: 1 }} />
+                        <TextField {...params} size="small" label={t("hierarchy.search", { type: rml(typeConfig?.key ?? "", typeConfig?.translations, "label") || card.type })} placeholder={t("hierarchy.searchPlaceholder")} sx={{ mt: 1 }} />
                       )}
-                      noOptionsText={childSearch ? "No results found" : "Type to search..."}
+                      noOptionsText={childSearch ? t("common:labels.noResults") : t("hierarchy.searchPlaceholder")}
                       filterOptions={(x) => x}
                     />
                     <Button
@@ -414,34 +418,34 @@ function HierarchySection({
                       startIcon={<MaterialSymbol icon="add" size={16} />}
                       onClick={() => { setCreateMode("child"); setCreateName(childSearch); }}
                     >
-                      Create new {typeConfig?.label || card.type}
+                      {t("hierarchy.createNew", { type: rml(typeConfig?.key ?? "", typeConfig?.translations, "label") || card.type })}
                     </Button>
                   </>
                 ) : (
                   <Box sx={{ mt: 1, p: 2, border: "1px solid", borderColor: "divider", borderRadius: 1, bgcolor: "action.hover" }}>
                     <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1 }}>
-                      Create new {typeConfig?.label || card.type} as child
+                      {t("hierarchy.createAsChild", { type: rml(typeConfig?.key ?? "", typeConfig?.translations, "label") || card.type })}
                     </Typography>
                     <TextField
-                      fullWidth size="small" label="Name" value={createName}
+                      fullWidth size="small" label={t("common:labels.name")} value={createName}
                       onChange={(e) => setCreateName(e.target.value)}
                       onKeyDown={(e) => e.key === "Enter" && handleQuickCreate()}
                       autoFocus sx={{ mb: 1 }}
                     />
                     <Box sx={{ display: "flex", gap: 1 }}>
                       <Button size="small" variant="contained" onClick={handleQuickCreate} disabled={!createName.trim() || createLoading}>
-                        Create & Add as Child
+                        {t("hierarchy.createAndAddChild")}
                       </Button>
-                      <Button size="small" onClick={() => setCreateMode(null)}>Back to search</Button>
+                      <Button size="small" onClick={() => setCreateMode(null)}>{t("hierarchy.backToSearch")}</Button>
                     </Box>
                   </Box>
                 )}
               </DialogContent>
               <DialogActions>
-                <Button onClick={() => { setAddChildOpen(false); setCreateMode(null); }}>Cancel</Button>
+                <Button onClick={() => { setAddChildOpen(false); setCreateMode(null); }}>{t("common:actions.cancel")}</Button>
                 {createMode !== "child" && (
                   <Button variant="contained" onClick={handleAddChild} disabled={!selectedChild}>
-                    Add Child
+                    {t("hierarchy.addChild")}
                   </Button>
                 )}
               </DialogActions>
