@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { auth, setToken, clearToken } from "@/api/client";
+import { auth, setToken, clearToken, hasToken } from "@/api/client";
 import i18n from "@/i18n";
 import type { User } from "@/types";
 
@@ -32,8 +32,7 @@ export function useAuth() {
   }, []);
 
   const loadUser = useCallback(async () => {
-    const token = sessionStorage.getItem("token");
-    if (!token) {
+    if (!hasToken()) {
       setLoading(false);
       return;
     }

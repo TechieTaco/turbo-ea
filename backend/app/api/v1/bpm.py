@@ -444,8 +444,11 @@ async def get_template(
     # Return BPMN XML from bundled templates
     import pathlib
 
+    # Use the validated key from the hardcoded TEMPLATES constant (not the
+    # raw user input) so the path is never controlled by external data.
+    safe_key = tmpl["key"]
     template_dir = pathlib.Path(__file__).resolve().parent.parent.parent.parent / "bpmn_templates"
-    template_file = template_dir / f"{template_key}.bpmn"
+    template_file = template_dir / f"{safe_key}.bpmn"
     if template_file.exists():
         bpmn_xml = template_file.read_text()
     else:

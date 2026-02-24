@@ -1,6 +1,7 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderHook } from "@testing-library/react";
 import { useEventStream } from "./useEventStream";
+import { setToken, clearToken } from "@/api/client";
 
 // ---------------------------------------------------------------------------
 // Mock EventSource globally
@@ -25,12 +26,12 @@ vi.stubGlobal("EventSource", MockEventSource);
 
 beforeEach(() => {
   vi.clearAllMocks();
-  sessionStorage.clear();
+  clearToken();
 });
 
 describe("useEventStream", () => {
   it("creates EventSource with correct URL when token exists", () => {
-    sessionStorage.setItem("token", "my-jwt");
+    setToken("my-jwt");
     const onEvent = vi.fn();
 
     renderHook(() => useEventStream(onEvent));
@@ -49,7 +50,7 @@ describe("useEventStream", () => {
   });
 
   it("encodes token in URL", () => {
-    sessionStorage.setItem("token", "token with spaces&special=chars");
+    setToken("token with spaces&special=chars");
     const onEvent = vi.fn();
 
     renderHook(() => useEventStream(onEvent));
@@ -60,7 +61,7 @@ describe("useEventStream", () => {
   });
 
   it("parses incoming messages and calls onEvent", () => {
-    sessionStorage.setItem("token", "jwt");
+    setToken("jwt");
     const onEvent = vi.fn();
 
     renderHook(() => useEventStream(onEvent));
@@ -73,7 +74,7 @@ describe("useEventStream", () => {
   });
 
   it("ignores messages with invalid JSON", () => {
-    sessionStorage.setItem("token", "jwt");
+    setToken("jwt");
     const onEvent = vi.fn();
 
     renderHook(() => useEventStream(onEvent));
@@ -85,7 +86,7 @@ describe("useEventStream", () => {
   });
 
   it("cleanup closes EventSource on unmount", () => {
-    sessionStorage.setItem("token", "jwt");
+    setToken("jwt");
     const onEvent = vi.fn();
 
     const { unmount } = renderHook(() => useEventStream(onEvent));
