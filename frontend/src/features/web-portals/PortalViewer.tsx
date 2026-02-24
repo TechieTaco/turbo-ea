@@ -813,7 +813,7 @@ export default function PortalViewer() {
                         color: "text.secondary",
                       }}
                     >
-                      {card.description.replace(/<[^>]*>/g, "")}
+                      {new DOMParser().parseFromString(card.description, "text/html").body.textContent ?? ""}
                     </Typography>
                   )}
 
