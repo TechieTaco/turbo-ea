@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { api, ApiError, setToken, clearToken, auth } from "./client";
+import { api, ApiError, setToken, clearToken, getToken, auth } from "./client";
 
 // ---------------------------------------------------------------------------
 // Mock fetch globally
@@ -28,7 +28,7 @@ function emptyResponse(status = 204) {
 
 beforeEach(() => {
   mockFetch.mockReset();
-  sessionStorage.clear();
+  clearToken();
 });
 
 // ---------------------------------------------------------------------------
@@ -36,15 +36,15 @@ beforeEach(() => {
 // ---------------------------------------------------------------------------
 
 describe("setToken / clearToken", () => {
-  it("stores token in sessionStorage", () => {
+  it("stores token in memory", () => {
     setToken("my-jwt");
-    expect(sessionStorage.getItem("token")).toBe("my-jwt");
+    expect(getToken()).toBe("my-jwt");
   });
 
-  it("removes token from sessionStorage", () => {
+  it("removes token from memory", () => {
     setToken("my-jwt");
     clearToken();
-    expect(sessionStorage.getItem("token")).toBeNull();
+    expect(getToken()).toBeNull();
   });
 });
 

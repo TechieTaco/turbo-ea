@@ -5,6 +5,16 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.15.3] - 2026-02-24
+
+### Security
+- Fixed incomplete HTML sanitization in PortalViewer and SoAW export — replaced regex-based tag stripping with DOMParser for safe text extraction
+- Fixed DOM-based XSS in SoAW PDF export — user-controlled values are now HTML-escaped before interpolation into document.write
+- Moved JWT token from sessionStorage to in-memory storage to prevent exfiltration via XSS accessing browser storage APIs
+- Fixed ReDoS vulnerability in calculation engine — replaced polynomial regex with string-based assignment parsing
+- Fixed path traversal in BPM template endpoint — template keys are now validated and resolved paths are confined to the template directory
+- Fixed information exposure in ServiceNow connection test, calculation test, and formula validation endpoints — error responses no longer leak internal exception details
+
 ## [0.15.2] - 2026-02-24
 
 ### Security
