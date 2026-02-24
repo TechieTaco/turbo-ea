@@ -444,15 +444,11 @@ async def get_template(
     # Return BPMN XML from bundled templates
     import pathlib
 
-    # Reject path-traversal characters to prevent reading arbitrary files
-    if "/" in template_key or "\\" in template_key or ".." in template_key:
-        raise HTTPException(400, "Invalid template key")
-
+    # Use the validated key from the hardcoded TEMPLATES constant (not the
+    # raw user input) so the path is never controlled by external data.
+    safe_key = tmpl["key"]
     template_dir = pathlib.Path(__file__).resolve().parent.parent.parent.parent / "bpmn_templates"
-    template_file = (template_dir / f"{template_key}.bpmn").resolve()
-    # Ensure the resolved path is still within the template directory
-    if not str(template_file).startswith(str(template_dir.resolve())):
-        raise HTTPException(400, "Invalid template key")
+    template_file = template_dir / f"{safe_key}.bpmn"
     if template_file.exists():
         bpmn_xml = template_file.read_text()
     else:
