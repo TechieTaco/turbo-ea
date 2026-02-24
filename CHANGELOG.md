@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Security
 - Fixed exception information exposure in ServiceNow integration endpoints — all external service calls now catch exceptions and return sanitized error messages instead of leaking internal details
+- Fixed unhandled httpx exception in SSO token exchange that could expose the identity provider URL and tenant ID on network failures
 
 ## [0.16.1] - 2026-02-24
 
