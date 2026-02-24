@@ -194,7 +194,7 @@ function FieldCard({
         <Box sx={{ width: 7, height: 7, borderRadius: "50%", bgcolor: "#1976d2", flexShrink: 0 }} />
       )}
       <Typography variant="body2" fontWeight={500} sx={{ flex: 1 }} noWrap>
-        {rl(field.key, field.translations)}
+        {isProtected ? field.label : rl(field.key, field.translations)}
         {isCalc && <Chip component="span" size="small" label="calc" color="info" sx={{ ml: 0.5, height: 16, fontSize: "0.6rem" }} />}
       </Typography>
       <Chip size="small" label={field.type.replace("_", " ")} sx={{ bgcolor: fieldTypeColor(field.type), color: "#fff", height: 18, fontSize: "0.6rem" }} />

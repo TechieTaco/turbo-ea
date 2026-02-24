@@ -491,7 +491,7 @@ export default function TypeDetailDrawer({
               </Typography>
             )}
             {addSubOpen ? (
-              <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
+              <Box sx={{ display: "flex", gap: 1, alignItems: "flex-start" }}>
                 <KeyInput
                   size="small"
                   label={t("metamodel.typeDrawer.key")}
@@ -506,10 +506,10 @@ export default function TypeDetailDrawer({
                   onChange={(e) => setNewSubLabel(e.target.value)}
                   sx={{ flex: 1 }}
                 />
-                <Button size="small" variant="contained" onClick={handleAddSubtype} disabled={!newSubKey || !newSubLabel || !isValidKey(newSubKey)}>
+                <Button size="small" variant="contained" onClick={handleAddSubtype} disabled={!newSubKey || !newSubLabel || !isValidKey(newSubKey)} sx={{ mt: "8px" }}>
                   {t("common:actions.add")}
                 </Button>
-                <IconButton size="small" onClick={() => { setAddSubOpen(false); setNewSubKey(""); setNewSubLabel(""); }}>
+                <IconButton size="small" onClick={() => { setAddSubOpen(false); setNewSubKey(""); setNewSubLabel(""); }} sx={{ mt: "8px" }}>
                   <MaterialSymbol icon="close" size={18} />
                 </IconButton>
               </Box>

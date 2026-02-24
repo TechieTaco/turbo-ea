@@ -45,15 +45,16 @@ const MOCK_TYPES = [
     color: "#0f7eb5",
     category: "Application & Data",
     has_hierarchy: true,
+    translations: { label: { en: "Application" } },
     subtypes: [
-      { key: "business_app", label: "Business Application" },
-      { key: "microservice", label: "Microservice" },
+      { key: "business_app", label: "Business Application", translations: { en: "Business Application" } },
+      { key: "microservice", label: "Microservice", translations: { en: "Microservice" } },
     ],
     fields_schema: [
       {
         section: "Details",
         fields: [
-          { key: "costTotalAnnual", label: "Total Annual Cost", type: "cost", required: true },
+          { key: "costTotalAnnual", label: "Total Annual Cost", type: "cost", required: true, translations: { en: "Total Annual Cost" } },
         ],
       },
     ],
@@ -66,6 +67,7 @@ const MOCK_TYPES = [
     color: "#c7527d",
     category: "Strategy",
     has_hierarchy: false,
+    translations: { label: { en: "Objective" } },
     subtypes: [],
     fields_schema: [],
     is_hidden: false,
