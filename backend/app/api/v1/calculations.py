@@ -296,9 +296,11 @@ async def test_calculation(
     # Roll back changes (don't persist)
     await db.rollback()
 
+    # Sanitize error to avoid exposing internal exception details
+    safe_error = "Calculation failed" if error else None
     return {
         "success": success,
-        "error": error,
+        "error": safe_error,
         "computed_value": computed_value,
         "card_name": card_name,
     }
