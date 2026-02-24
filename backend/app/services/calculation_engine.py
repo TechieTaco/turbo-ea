@@ -390,7 +390,10 @@ async def execute_calculation(
         # Log full error internally but return sanitized message
         logger.warning(
             "Calculation '%s' failed for card %s: %s: %s",
-            calc.name, card.id, type(e).__name__, e,
+            calc.name,
+            card.id,
+            type(e).__name__,
+            e,
         )
         return False, "Evaluation error"
 

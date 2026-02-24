@@ -361,7 +361,9 @@ async def test_connection(
 
     client = _build_client(conn)
     try:
-        success, message = await client.test_connection()
+        success, _message = await client.test_connection()
+    except Exception:
+        success = False
     finally:
         await client.close()
 
@@ -369,7 +371,6 @@ async def test_connection(
     conn.test_status = "success" if success else "failed"
     await db.commit()
 
-    # Sanitize message to avoid leaking internal error details
     safe_message = "Connection successful" if success else "Connection failed"
     return {"success": success, "message": safe_message}
 
