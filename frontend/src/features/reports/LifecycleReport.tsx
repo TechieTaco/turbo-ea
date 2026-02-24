@@ -316,9 +316,9 @@ export default function LifecycleReport() {
   }
 
   function getCustomColorLabel(item: RoadmapItem): string {
-    if (!customColorBy) return "Not set";
+    if (!customColorBy) return t("lifecycle.notSet");
     const val = item.attributes?.[customColorBy] as string | undefined;
-    if (!val) return "Not set";
+    if (!val) return t("lifecycle.notSet");
     const fd = selectFields.find((f) => f.key === customColorBy);
     const opt = fd?.options?.find((o) => o.key === val);
     return opt?.label ?? val;
@@ -570,9 +570,9 @@ export default function LifecycleReport() {
                 <TableCell><TableSortLabel active={sortK === "type"} direction={sortK === "type" ? sortD : "asc"} onClick={() => sort("type")}>{t("common:labels.type")}</TableSortLabel></TableCell>
                 {useCustomDates ? (
                   <>
-                    <TableCell><TableSortLabel active={sortK === "startDate"} direction={sortK === "startDate" ? sortD : "asc"} onClick={() => sort("startDate")}>{dateFields.find((f) => f.key === startDateKey)?.label || "Start"}</TableSortLabel></TableCell>
-                    <TableCell><TableSortLabel active={sortK === "endDate"} direction={sortK === "endDate" ? sortD : "asc"} onClick={() => sort("endDate")}>{dateFields.find((f) => f.key === endDateKey)?.label || "End"}</TableSortLabel></TableCell>
-                    <TableCell><TableSortLabel active={sortK === "status"} direction={sortK === "status" ? sortD : "asc"} onClick={() => sort("status")}>{colorByOptions.find((o) => o.key === customColorBy)?.label || "Status"}</TableSortLabel></TableCell>
+                    <TableCell><TableSortLabel active={sortK === "startDate"} direction={sortK === "startDate" ? sortD : "asc"} onClick={() => sort("startDate")}>{dateFields.find((f) => f.key === startDateKey)?.label || t("lifecycle.start")}</TableSortLabel></TableCell>
+                    <TableCell><TableSortLabel active={sortK === "endDate"} direction={sortK === "endDate" ? sortD : "asc"} onClick={() => sort("endDate")}>{dateFields.find((f) => f.key === endDateKey)?.label || t("lifecycle.end")}</TableSortLabel></TableCell>
+                    <TableCell><TableSortLabel active={sortK === "status"} direction={sortK === "status" ? sortD : "asc"} onClick={() => sort("status")}>{colorByOptions.find((o) => o.key === customColorBy)?.label || t("lifecycle.status")}</TableSortLabel></TableCell>
                   </>
                 ) : (
                   <>
