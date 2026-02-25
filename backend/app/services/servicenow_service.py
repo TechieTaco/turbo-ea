@@ -127,7 +127,7 @@ class ServiceNowClient:
                 resp.status_code,
                 resp.text[:200],
             )
-            return False, "Connection failed"
+            return False, f"Connection failed: HTTP {resp.status_code}"
         except httpx.HTTPError:
             logger.exception("ServiceNow connection test error")
             return False, "Connection failed"
