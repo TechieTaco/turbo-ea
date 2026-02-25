@@ -225,6 +225,15 @@ def _build_client(conn: SnowConnection) -> ServiceNowClient:
     return ServiceNowClient(conn.instance_url, creds, conn.auth_type)
 
 
+def _try_build_client(conn: SnowConnection, label: str) -> ServiceNowClient | None:
+    """Build a ServiceNowClient, returning None on failure (logs the error)."""
+    try:
+        return _build_client(conn)
+    except Exception:
+        logger.exception("Failed to build ServiceNow client for %s", label)
+        return None
+
+
 # ---------------------------------------------------------------------------
 # Connection endpoints
 # ---------------------------------------------------------------------------
@@ -362,19 +371,18 @@ async def test_connection(
     if not conn:
         raise HTTPException(404, "Connection not found")
 
-    try:
-        client = _build_client(conn)
-    except Exception:
-        logger.exception("Failed to build ServiceNow client for connection %s", conn_id)
+    client = _try_build_client(conn, f"connection {conn_id}")
+    if client is None:
         conn.last_tested_at = datetime.now(timezone.utc)
         conn.test_status = "failed"
         await db.commit()
         return {"success": False, "message": "Connection failed"}
 
+    success = False
     try:
-        success, _message = await client.test_connection()
+        success, _ = await client.test_connection()
     except Exception:
-        success = False
+        logger.error("Connection test failed for %s", conn_id)
     finally:
         await client.close()
 
@@ -399,19 +407,22 @@ async def list_tables(
     if not conn:
         raise HTTPException(404, "Connection not found")
 
-    try:
-        client = _build_client(conn)
-    except Exception:
-        logger.exception("Failed to build ServiceNow client for connection %s", conn_id)
-        raise HTTPException(502, "Failed to connect to ServiceNow") from None
+    client = _try_build_client(conn, f"connection {conn_id}")
+    if client is None:
+        raise HTTPException(502, "Failed to connect to ServiceNow")
 
+    fetch_failed = False
+    tables = []
     try:
         tables = await client.list_tables(search)
     except Exception:
-        logger.exception("Failed to list tables from ServiceNow connection %s", conn_id)
-        raise HTTPException(502, "Failed to fetch tables from ServiceNow") from None
+        fetch_failed = True
+        logger.error("Failed to list tables from ServiceNow connection %s", conn_id)
     finally:
         await client.close()
+
+    if fetch_failed:
+        raise HTTPException(502, "Failed to fetch tables from ServiceNow")
 
     return tables
 
@@ -431,19 +442,22 @@ async def list_table_fields(
     if not conn:
         raise HTTPException(404, "Connection not found")
 
-    try:
-        client = _build_client(conn)
-    except Exception:
-        logger.exception("Failed to build ServiceNow client for connection %s", conn_id)
-        raise HTTPException(502, "Failed to connect to ServiceNow") from None
+    client = _try_build_client(conn, f"connection {conn_id}")
+    if client is None:
+        raise HTTPException(502, "Failed to connect to ServiceNow")
 
+    fetch_failed = False
+    fields = []
     try:
         fields = await client.list_table_fields(table)
     except Exception:
-        logger.exception("Failed to list fields for table %s from connection %s", table, conn_id)
-        raise HTTPException(502, "Failed to fetch table fields from ServiceNow") from None
+        fetch_failed = True
+        logger.error("Failed to list fields for table %s from connection %s", table, conn_id)
     finally:
         await client.close()
+
+    if fetch_failed:
+        raise HTTPException(502, "Failed to fetch table fields from ServiceNow")
 
     return fields
 
@@ -651,12 +665,13 @@ async def preview_mapping(
     if not conn:
         raise HTTPException(404, "Connection not found")
 
-    try:
-        client = _build_client(conn)
-    except Exception:
-        logger.exception("Failed to build ServiceNow client for mapping %s", mapping_id)
-        raise HTTPException(502, "Failed to connect to ServiceNow") from None
+    client = _try_build_client(conn, f"mapping {mapping_id}")
+    if client is None:
+        raise HTTPException(502, "Failed to connect to ServiceNow")
 
+    fetch_failed = False
+    records: list = []
+    total = 0
     try:
         snow_fields = [fm.snow_field for fm in mapping.field_mappings]
         records, total = await client.fetch_records(
@@ -666,10 +681,13 @@ async def preview_mapping(
             limit=5,
         )
     except Exception:
-        logger.exception("Failed to preview records for mapping %s", mapping_id)
-        raise HTTPException(502, "Failed to fetch records from ServiceNow") from None
+        fetch_failed = True
+        logger.error("Failed to preview records for mapping %s", mapping_id)
     finally:
         await client.close()
+
+    if fetch_failed:
+        raise HTTPException(502, "Failed to fetch records from ServiceNow")
 
     from app.services.servicenow_service import FieldTransformer
 
@@ -719,12 +737,12 @@ async def trigger_pull_sync(
     if not conn or not conn.is_active:
         raise HTTPException(400, "Connection is inactive or not found")
 
-    try:
-        client = _build_client(conn)
-    except Exception:
-        logger.exception("Failed to build ServiceNow client for pull sync %s", mapping_id)
-        raise HTTPException(502, "Failed to connect to ServiceNow") from None
+    client = _try_build_client(conn, f"pull sync {mapping_id}")
+    if client is None:
+        raise HTTPException(502, "Failed to connect to ServiceNow")
 
+    sync_failed = False
+    run = None
     try:
         engine = SyncEngine(db, client)
         run = await engine.pull_sync(
@@ -735,10 +753,13 @@ async def trigger_pull_sync(
         )
         await db.commit()
     except Exception:
-        logger.exception("Pull sync failed for mapping %s", mapping_id)
-        raise HTTPException(502, "Pull sync operation failed") from None
+        sync_failed = True
+        logger.error("Pull sync failed for mapping %s", mapping_id)
     finally:
         await client.close()
+
+    if sync_failed or run is None:
+        raise HTTPException(502, "Pull sync operation failed")
 
     return SyncRunOut(
         id=str(run.id),
@@ -779,12 +800,12 @@ async def trigger_push_sync(
     if not conn or not conn.is_active:
         raise HTTPException(400, "Connection is inactive or not found")
 
-    try:
-        client = _build_client(conn)
-    except Exception:
-        logger.exception("Failed to build ServiceNow client for push sync %s", mapping_id)
-        raise HTTPException(502, "Failed to connect to ServiceNow") from None
+    client = _try_build_client(conn, f"push sync {mapping_id}")
+    if client is None:
+        raise HTTPException(502, "Failed to connect to ServiceNow")
 
+    sync_failed = False
+    run = None
     try:
         engine = SyncEngine(db, client)
         run = await engine.push_sync(
@@ -794,10 +815,13 @@ async def trigger_push_sync(
         )
         await db.commit()
     except Exception:
-        logger.exception("Push sync failed for mapping %s", mapping_id)
-        raise HTTPException(502, "Push sync operation failed") from None
+        sync_failed = True
+        logger.error("Push sync failed for mapping %s", mapping_id)
     finally:
         await client.close()
+
+    if sync_failed or run is None:
+        raise HTTPException(502, "Push sync operation failed")
 
     return SyncRunOut(
         id=str(run.id),
@@ -927,20 +951,23 @@ async def apply_staged_records(
     if not conn:
         raise HTTPException(404, "Connection not found")
 
-    try:
-        client = _build_client(conn)
-    except Exception:
-        logger.exception("Failed to build ServiceNow client for apply staged %s", run_id)
-        raise HTTPException(502, "Failed to connect to ServiceNow") from None
+    client = _try_build_client(conn, f"apply staged {run_id}")
+    if client is None:
+        raise HTTPException(502, "Failed to connect to ServiceNow")
 
+    apply_failed = False
+    applied: dict[str, int] = {}
     try:
         engine = SyncEngine(db, client)
         applied = await engine._apply_staged(run)
         await db.commit()
     except Exception:
-        logger.exception("Failed to apply staged records for run %s", run_id)
-        raise HTTPException(502, "Failed to apply staged records") from None
+        apply_failed = True
+        logger.error("Failed to apply staged records for run %s", run_id)
     finally:
         await client.close()
+
+    if apply_failed:
+        raise HTTPException(502, "Failed to apply staged records")
 
     return {"ok": True, "applied": applied}
