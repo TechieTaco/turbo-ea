@@ -281,7 +281,9 @@ class SsoCallbackRequest(BaseModel):
 @router.post("/sso/callback", response_model=TokenResponse)
 @limiter.limit("20/minute")
 async def sso_callback(
-    request: Request, response: Response, body: SsoCallbackRequest,
+    request: Request,
+    response: Response,
+    body: SsoCallbackRequest,
     db: AsyncSession = Depends(get_db),
 ):
     """Exchange an authorization code from Microsoft Entra ID for a Turbo EA JWT."""
