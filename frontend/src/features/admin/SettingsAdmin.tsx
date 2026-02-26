@@ -27,8 +27,9 @@ import { SUPPORTED_LOCALES, LOCALE_LABELS, type SupportedLocale } from "@/i18n";
 const EolAdmin = lazy(() => import("./EolAdmin"));
 const WebPortalsAdmin = lazy(() => import("./WebPortalsAdmin"));
 const ServiceNowAdmin = lazy(() => import("./ServiceNowAdmin"));
+const AiAdmin = lazy(() => import("./AiAdmin"));
 
-const TAB_KEYS = ["general", "eol", "web-portals", "servicenow"];
+const TAB_KEYS = ["general", "ai", "eol", "web-portals", "servicenow"];
 
 function TabLoader() {
   return (
@@ -160,17 +161,6 @@ function GeneralTab() {
   const [ssoTenantId, setSsoTenantId] = useState("organizations");
   const [savingSso, setSavingSso] = useState(false);
 
-  // AI settings state
-  const [aiEnabled, setAiEnabled] = useState(false);
-  const [aiProviderUrl, setAiProviderUrl] = useState("");
-  const [aiModel, setAiModel] = useState("");
-  const [aiSearchProvider, setAiSearchProvider] = useState("duckduckgo");
-  const [aiSearchUrl, setAiSearchUrl] = useState("");
-  const [aiEnabledTypes, setAiEnabledTypes] = useState<string[]>([]);
-  const [savingAi, setSavingAi] = useState(false);
-  const [testingAi, setTestingAi] = useState(false);
-  const [aiAvailableModels, setAiAvailableModels] = useState<string[]>([]);
-
   const [smtpHost, setSmtpHost] = useState("");
   const [smtpPort, setSmtpPort] = useState(587);
   const [smtpUser, setSmtpUser] = useState("");
@@ -184,15 +174,6 @@ function GeneralTab() {
     setEnabledLocales(cachedLocales);
   }, [cachedLocales]);
 
-  interface AiSettings {
-    enabled: boolean;
-    provider_url: string;
-    model: string;
-    search_provider: string;
-    search_url: string;
-    enabled_types: string[];
-  }
-
   useEffect(() => {
     Promise.all([
       api.get<EmailSettings>("/settings/email"),
@@ -203,9 +184,8 @@ function GeneralTab() {
       api.get<SsoSettings>("/settings/sso"),
       api.get<{ enabled: boolean }>("/settings/registration"),
       api.get<{ locales: string[] }>("/settings/enabled-locales"),
-      api.get<AiSettings>("/settings/ai"),
     ])
-      .then(([emailData, logoData, faviconData, currencyData, bpmData, ssoData, regData, localesData, aiData]) => {
+      .then(([emailData, logoData, faviconData, currencyData, bpmData, ssoData, regData, localesData]) => {
         setSmtpHost(emailData.smtp_host);
         setSmtpPort(emailData.smtp_port);
         setSmtpUser(emailData.smtp_user);
@@ -227,12 +207,6 @@ function GeneralTab() {
           (SUPPORTED_LOCALES as readonly string[]).includes(l),
         );
         if (validLocales.length > 0) setEnabledLocales(validLocales);
-        setAiEnabled(aiData.enabled);
-        setAiProviderUrl(aiData.provider_url);
-        setAiModel(aiData.model);
-        setAiSearchProvider(aiData.search_provider);
-        setAiSearchUrl(aiData.search_url);
-        setAiEnabledTypes(aiData.enabled_types);
       })
       .catch((e) => setError(e instanceof Error ? e.message : t("common:errors.generic")))
       .finally(() => setLoading(false));
@@ -439,59 +413,6 @@ function GeneralTab() {
       setError(e instanceof Error ? e.message : t("common:errors.generic"));
     } finally {
       setSavingLocales(false);
-    }
-  };
-
-  const { types } = useMetamodel();
-  const availableTypes = types.filter((t) => !t.is_hidden);
-
-  const handleAiSave = async () => {
-    setSavingAi(true);
-    setError("");
-    try {
-      await api.patch("/settings/ai", {
-        enabled: aiEnabled,
-        provider_url: aiProviderUrl,
-        model: aiModel,
-        search_provider: aiSearchProvider,
-        search_url: aiSearchUrl,
-        enabled_types: aiEnabledTypes,
-      });
-      setSnack(t("settings.ai.savedSuccess"));
-    } catch (e) {
-      setError(e instanceof Error ? e.message : t("common:errors.generic"));
-    } finally {
-      setSavingAi(false);
-    }
-  };
-
-  const handleAiTest = async () => {
-    setTestingAi(true);
-    setError("");
-    try {
-      const res = await api.post<{ ok: boolean; available_models: string[]; model_found: boolean }>(
-        "/settings/ai/test"
-      );
-      setAiAvailableModels(res.available_models);
-      if (res.model_found) {
-        setSnack(t("settings.ai.testSuccess"));
-      } else if (res.available_models.length > 0) {
-        setSnack(t("settings.ai.testNoModel", { models: res.available_models.slice(0, 5).join(", ") }));
-      } else {
-        setSnack(t("settings.ai.testNoModels"));
-      }
-    } catch (e) {
-      setError(e instanceof Error ? e.message : t("common:errors.generic"));
-    } finally {
-      setTestingAi(false);
-    }
-  };
-
-  const handleAiTypeToggle = (typeKey: string, checked: boolean) => {
-    if (checked) {
-      setAiEnabledTypes((prev) => [...prev, typeKey]);
-    } else {
-      setAiEnabledTypes((prev) => prev.filter((k) => k !== typeKey));
     }
   };
 
@@ -812,171 +733,6 @@ function GeneralTab() {
         />
       </Paper>
 
-      {/* AI Suggestions */}
-      <Paper sx={{ p: 3, mb: 3 }}>
-        <Box sx={{ display: "flex", alignItems: "center", mb: 2, gap: 1 }}>
-          <MaterialSymbol icon="auto_awesome" size={22} color="#555" />
-          <Typography variant="h6" fontWeight={600}>
-            {t("settings.ai.title")}
-          </Typography>
-          <Chip
-            label={aiEnabled ? t("settings.bpm.enabled") : t("settings.bpm.disabled")}
-            size="small"
-            color={aiEnabled ? "success" : "default"}
-            sx={{ ml: 1 }}
-          />
-        </Box>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-          {t("settings.ai.description")}
-        </Typography>
-
-        <FormControlLabel
-          control={
-            <Switch
-              checked={aiEnabled}
-              onChange={(e) => setAiEnabled(e.target.checked)}
-            />
-          }
-          label={aiEnabled ? t("settings.ai.enabled") : t("settings.ai.disabled")}
-          sx={{ mb: 2, display: "block" }}
-        />
-
-        {aiEnabled && (
-          <>
-            <TextField
-              label={t("settings.ai.providerUrl")}
-              fullWidth
-              value={aiProviderUrl}
-              onChange={(e) => setAiProviderUrl(e.target.value)}
-              placeholder="http://localhost:11434"
-              helperText={t("settings.ai.providerUrlHelper")}
-              sx={{ mb: 2 }}
-            />
-            {aiAvailableModels.length > 0 ? (
-              <TextField
-                select
-                label={t("settings.ai.model")}
-                fullWidth
-                value={aiModel}
-                onChange={(e) => setAiModel(e.target.value)}
-                helperText={t("settings.ai.modelPickerHelper")}
-                sx={{ mb: 2 }}
-              >
-                {!aiModel && (
-                  <MenuItem value="" disabled>
-                    {t("settings.ai.selectModel")}
-                  </MenuItem>
-                )}
-                {aiAvailableModels.map((m) => (
-                  <MenuItem key={m} value={m}>
-                    {m}
-                  </MenuItem>
-                ))}
-              </TextField>
-            ) : (
-              <TextField
-                label={t("settings.ai.model")}
-                fullWidth
-                value={aiModel}
-                onChange={(e) => setAiModel(e.target.value)}
-                placeholder="gemma3:4b"
-                helperText={t("settings.ai.modelHelper")}
-                sx={{ mb: 2 }}
-              />
-            )}
-            <TextField
-              select
-              label={t("settings.ai.searchProvider")}
-              fullWidth
-              value={aiSearchProvider}
-              onChange={(e) => setAiSearchProvider(e.target.value)}
-              helperText={t("settings.ai.searchProviderHelper")}
-              sx={{ mb: 2 }}
-            >
-              <MenuItem value="duckduckgo">DuckDuckGo</MenuItem>
-              <MenuItem value="google">Google Custom Search</MenuItem>
-              <MenuItem value="searxng">SearXNG</MenuItem>
-            </TextField>
-            {(aiSearchProvider === "searxng" || aiSearchProvider === "google") && (
-              <TextField
-                label={
-                  aiSearchProvider === "google"
-                    ? t("settings.ai.googleCredentials")
-                    : t("settings.ai.searxngUrl")
-                }
-                fullWidth
-                value={aiSearchUrl}
-                onChange={(e) => setAiSearchUrl(e.target.value)}
-                placeholder={
-                  aiSearchProvider === "google"
-                    ? "API_KEY:SEARCH_ENGINE_ID"
-                    : "http://localhost:8888"
-                }
-                helperText={
-                  aiSearchProvider === "google"
-                    ? t("settings.ai.googleCredentialsHelper")
-                    : t("settings.ai.searxngUrlHelper")
-                }
-                sx={{ mb: 2 }}
-              />
-            )}
-            <Typography variant="body2" fontWeight={600} sx={{ mb: 1 }}>
-              {t("settings.ai.enabledTypes")}
-            </Typography>
-            <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1 }}>
-              {t("settings.ai.enabledTypesHelper")}
-            </Typography>
-            <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5, mb: 2 }}>
-              {availableTypes.map((ct) => (
-                <FormControlLabel
-                  key={ct.key}
-                  control={
-                    <Checkbox
-                      size="small"
-                      checked={aiEnabledTypes.includes(ct.key)}
-                      onChange={(e) => handleAiTypeToggle(ct.key, e.target.checked)}
-                    />
-                  }
-                  label={ct.label}
-                  sx={{ mr: 2 }}
-                />
-              ))}
-            </Box>
-          </>
-        )}
-
-        <Box sx={{ display: "flex", gap: 1, justifyContent: "flex-end" }}>
-          {aiEnabled && aiProviderUrl && (
-            <Button
-              variant="outlined"
-              size="small"
-              startIcon={
-                testingAi ? (
-                  <CircularProgress size={16} />
-                ) : (
-                  <MaterialSymbol icon="cable" size={18} />
-                )
-              }
-              sx={{ textTransform: "none" }}
-              onClick={handleAiTest}
-              disabled={testingAi || savingAi}
-            >
-              {testingAi ? t("common:labels.loading") : t("settings.ai.testConnection")}
-            </Button>
-          )}
-          <Button
-            variant="contained"
-            size="small"
-            startIcon={<MaterialSymbol icon="save" size={18} />}
-            sx={{ textTransform: "none" }}
-            onClick={handleAiSave}
-            disabled={savingAi}
-          >
-            {savingAi ? t("common:labels.loading") : t("common:actions.save")}
-          </Button>
-        </Box>
-      </Paper>
-
       {/* ── Authentication ────────────────────────────────────────── */}
       <SectionHeader>{t("settings.section.authentication")}</SectionHeader>
 
@@ -1240,6 +996,7 @@ export default function SettingsAdmin() {
 
   const TAB_LABELS = [
     t("settings.tabs.general"),
+    t("settings.tabs.ai"),
     t("settings.tabs.eol"),
     t("settings.tabs.webPortals"),
     t("settings.tabs.servicenow"),
@@ -1278,15 +1035,20 @@ export default function SettingsAdmin() {
       {tabIndex === 0 && <GeneralTab />}
       {tabIndex === 1 && (
         <Suspense fallback={<TabLoader />}>
-          <EolAdmin />
+          <AiAdmin />
         </Suspense>
       )}
       {tabIndex === 2 && (
         <Suspense fallback={<TabLoader />}>
-          <WebPortalsAdmin />
+          <EolAdmin />
         </Suspense>
       )}
       {tabIndex === 3 && (
+        <Suspense fallback={<TabLoader />}>
+          <WebPortalsAdmin />
+        </Suspense>
+      )}
+      {tabIndex === 4 && (
         <Suspense fallback={<TabLoader />}>
           <ServiceNowAdmin />
         </Suspense>
