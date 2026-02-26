@@ -651,9 +651,7 @@ async def test_ai_connection(
             available_models = [m.get("name", "") for m in data.get("models", [])]
             model_found = any(model in m for m in available_models) if model else False
     except _httpx.HTTPError as exc:
-        raise HTTPException(
-            502, f"Cannot reach AI provider at {provider_url}: {exc}"
-        ) from exc
+        raise HTTPException(502, f"Cannot reach AI provider at {provider_url}: {exc}") from exc
 
     return {
         "ok": True,

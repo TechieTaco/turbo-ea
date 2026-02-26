@@ -15,7 +15,7 @@ vi.mock("react-router-dom", async () => {
 });
 
 vi.mock("@/api/client", () => ({
-  api: { get: vi.fn() },
+  api: { get: vi.fn().mockResolvedValue({}), post: vi.fn().mockResolvedValue({}) },
 }));
 
 vi.mock("@/hooks/useMetamodel", () => ({

@@ -71,9 +71,7 @@ async def _search_duckduckgo(query: str, limit: int = 8) -> list[dict[str, str]]
     return results
 
 
-async def _search_searxng(
-    base_url: str, query: str, limit: int = 8
-) -> list[dict[str, str]]:
+async def _search_searxng(base_url: str, query: str, limit: int = 8) -> list[dict[str, str]]:
     """Search via a SearXNG instance (JSON API)."""
     client = await _get_client()
     try:
@@ -89,17 +87,17 @@ async def _search_searxng(
 
     results: list[dict[str, str]] = []
     for item in data.get("results", [])[:limit]:
-        results.append({
-            "url": item.get("url", ""),
-            "title": item.get("title", ""),
-            "snippet": item.get("content", ""),
-        })
+        results.append(
+            {
+                "url": item.get("url", ""),
+                "title": item.get("title", ""),
+                "snippet": item.get("content", ""),
+            }
+        )
     return results
 
 
-async def _search_google(
-    api_key: str, cx: str, query: str, limit: int = 8
-) -> list[dict[str, str]]:
+async def _search_google(api_key: str, cx: str, query: str, limit: int = 8) -> list[dict[str, str]]:
     """Search via Google Custom Search JSON API.
 
     Requires a Google API key and a Custom Search Engine ID (cx).
@@ -120,11 +118,13 @@ async def _search_google(
 
     results: list[dict[str, str]] = []
     for item in data.get("items", [])[:limit]:
-        results.append({
-            "url": item.get("link", ""),
-            "title": item.get("title", ""),
-            "snippet": item.get("snippet", ""),
-        })
+        results.append(
+            {
+                "url": item.get("link", ""),
+                "title": item.get("title", ""),
+                "snippet": item.get("snippet", ""),
+            }
+        )
     return results
 
 
@@ -164,7 +164,7 @@ def _build_field_schema_description(fields_schema: list[dict]) -> str:
             if ftype in ("single_select", "multiple_select"):
                 options = field.get("options", [])
                 option_keys = [o["key"] for o in options]
-                desc += f', allowed values: {option_keys}'
+                desc += f", allowed values: {option_keys}"
             lines.append(desc)
     return "\n".join(lines)
 
@@ -183,8 +183,7 @@ def build_llm_prompt(
     snippets_text = ""
     for i, sr in enumerate(search_results, 1):
         snippets_text += (
-            f"[{i}] {sr.get('title', '')} ({sr.get('url', '')})\n"
-            f"    {sr.get('snippet', '')}\n\n"
+            f"[{i}] {sr.get('title', '')} ({sr.get('url', '')})\n    {sr.get('snippet', '')}\n\n"
         )
 
     if not snippets_text.strip():
@@ -198,8 +197,8 @@ def build_llm_prompt(
         "- For select fields, use ONLY the allowed option keys listed.\n"
         "- Set a field to null if the information is not available.\n"
         "- Do not guess — only extract what is clearly supported by the search results.\n"
-        "- Include a \"description\" field with a 2-3 sentence summary.\n"
-        "- For each populated field, include \"confidence\" (0.0-1.0) and \"source\" "
+        '- Include a "description" field with a 2-3 sentence summary.\n'
+        '- For each populated field, include "confidence" (0.0-1.0) and "source" '
         "(the domain the info came from).\n\n"
         f"Available fields:\n{field_desc}\n\n"
         "Response format (JSON):\n"
@@ -210,7 +209,7 @@ def build_llm_prompt(
         "}"
     )
 
-    user_msg = f"Item name: \"{name}\"\nType: {type_label}"
+    user_msg = f'Item name: "{name}"\nType: {type_label}'
     if subtype:
         user_msg += f"\nSubtype: {subtype}"
     if context:
@@ -256,12 +255,14 @@ async def call_llm(
     content = data.get("message", {}).get("content", "{}")
 
     try:
-        return json.loads(content)
+        parsed: dict[str, Any] = json.loads(content)
+        return parsed
     except json.JSONDecodeError:
         # Try to extract JSON from markdown code block
         json_match = re.search(r"```(?:json)?\s*([\s\S]*?)```", content)
         if json_match:
-            return json.loads(json_match.group(1))
+            parsed = json.loads(json_match.group(1))
+            return parsed
         logger.warning("LLM returned non-JSON content: %.200s", content)
         return {}
 
@@ -384,9 +385,7 @@ async def suggest_metadata(
 
     # Build source list from search results
     sources = [
-        {"url": sr.get("url"), "title": sr.get("title")}
-        for sr in search_results
-        if sr.get("url")
+        {"url": sr.get("url"), "title": sr.get("title")} for sr in search_results if sr.get("url")
     ]
 
     return {

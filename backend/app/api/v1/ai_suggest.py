@@ -52,9 +52,7 @@ async def suggest(
     await PermissionService.require_permission(db, user, "ai.suggest")
 
     # Load AI configuration
-    result = await db.execute(
-        select(AppSettings).where(AppSettings.id == "default")
-    )
+    result = await db.execute(select(AppSettings).where(AppSettings.id == "default"))
     row = result.scalar_one_or_none()
     general = (row.general_settings if row else None) or {}
     ai_cfg = _get_ai_config(general)
@@ -79,9 +77,7 @@ async def suggest(
         )
 
     # Fetch the card type definition
-    ct_result = await db.execute(
-        select(CardType).where(CardType.key == body.type_key)
-    )
+    ct_result = await db.execute(select(CardType).where(CardType.key == body.type_key))
     card_type = ct_result.scalar_one_or_none()
     if not card_type:
         raise HTTPException(status_code=404, detail=f"Card type '{body.type_key}' not found")
@@ -124,9 +120,7 @@ async def ai_status(
 
     Returns the status without exposing secrets.
     """
-    result = await db.execute(
-        select(AppSettings).where(AppSettings.id == "default")
-    )
+    result = await db.execute(select(AppSettings).where(AppSettings.id == "default"))
     row = result.scalar_one_or_none()
     general = (row.general_settings if row else None) or {}
     ai_cfg = _get_ai_config(general)
