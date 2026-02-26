@@ -226,7 +226,7 @@ class TestBuildLLMPrompt:
             fields_schema=[],
             search_results=search_results,
         )
-        assert "kafka.apache.org" in messages[1]["content"]
+        assert "https://kafka.apache.org" in messages[1]["content"]
         assert "Streaming" in messages[1]["content"]
 
     def test_no_search_results_fallback(self):
@@ -240,9 +240,7 @@ class TestBuildLLMPrompt:
         assert "No web search results available" in messages[1]["content"]
 
     def test_field_schema_in_system_prompt(self):
-        schema = [
-            {"fields": [{"key": "vendor", "label": "Vendor", "type": "text"}]}
-        ]
+        schema = [{"fields": [{"key": "vendor", "label": "Vendor", "type": "text"}]}]
         messages = build_llm_prompt(
             name="Test",
             type_label="Application",
@@ -426,9 +424,7 @@ class TestCallLLM:
     @pytest.mark.asyncio
     async def test_successful_json_response(self):
         mock_resp = MagicMock()
-        mock_resp.json.return_value = {
-            "message": {"content": '{"vendor": {"value": "Acme"}}'}
-        }
+        mock_resp.json.return_value = {"message": {"content": '{"vendor": {"value": "Acme"}}'}}
         mock_resp.raise_for_status = MagicMock()
 
         with patch("app.services.ai_service._get_client") as mock_get:
@@ -444,9 +440,7 @@ class TestCallLLM:
     @pytest.mark.asyncio
     async def test_json_in_markdown_code_block(self):
         mock_resp = MagicMock()
-        mock_resp.json.return_value = {
-            "message": {"content": '```json\n{"vendor": "Acme"}\n```'}
-        }
+        mock_resp.json.return_value = {"message": {"content": '```json\n{"vendor": "Acme"}\n```'}}
         mock_resp.raise_for_status = MagicMock()
 
         with patch("app.services.ai_service._get_client") as mock_get:
@@ -462,9 +456,7 @@ class TestCallLLM:
     @pytest.mark.asyncio
     async def test_non_json_returns_empty(self):
         mock_resp = MagicMock()
-        mock_resp.json.return_value = {
-            "message": {"content": "This is not JSON at all"}
-        }
+        mock_resp.json.return_value = {"message": {"content": "This is not JSON at all"}}
         mock_resp.raise_for_status = MagicMock()
 
         with patch("app.services.ai_service._get_client") as mock_get:
