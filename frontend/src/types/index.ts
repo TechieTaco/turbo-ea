@@ -895,3 +895,33 @@ export interface SnowStagedRecord {
   error_message?: string | null;
   created_at?: string | null;
 }
+
+// ---------------------------------------------------------------------------
+// AI Suggestions
+// ---------------------------------------------------------------------------
+
+export interface AiFieldSuggestion {
+  value: string | number | boolean | null;
+  confidence: number;
+  source?: string;
+  alternatives?: string[];
+  note?: string;
+}
+
+export interface AiSourceRef {
+  url?: string;
+  title?: string;
+}
+
+export interface AiSuggestResponse {
+  suggestions: Record<string, AiFieldSuggestion>;
+  sources: AiSourceRef[];
+  model?: string;
+  search_provider?: string;
+}
+
+export interface AiStatus {
+  enabled: boolean;
+  configured: boolean;
+  enabled_types: string[];
+}

@@ -136,6 +136,12 @@ APP_PERMISSIONS: dict[str, dict] = {
             "servicenow.manage": "Manage ServiceNow connections, mappings, and trigger syncs",
         },
     },
+    "ai": {
+        "label": "AI Suggestions",
+        "permissions": {
+            "ai.suggest": "Use AI-powered metadata suggestions when creating or editing cards",
+        },
+    },
     "admin": {
         "label": "Admin",
         "permissions": {
@@ -248,6 +254,7 @@ BPM_ADMIN_PERMISSIONS: dict[str, bool] = {
     "web_portals.manage": False,
     "servicenow.view": False,
     "servicenow.manage": False,
+    "ai.suggest": True,
     "notifications.manage": True,
     "admin.users": False,
     "admin.roles": False,
@@ -300,6 +307,7 @@ MEMBER_PERMISSIONS: dict[str, bool] = {
     "web_portals.manage": False,
     "servicenow.view": False,
     "servicenow.manage": False,
+    "ai.suggest": True,
     "notifications.manage": True,
     "admin.users": False,
     "admin.roles": False,
@@ -352,6 +360,7 @@ VIEWER_PERMISSIONS: dict[str, bool] = {
     "web_portals.manage": False,
     "servicenow.view": False,
     "servicenow.manage": False,
+    "ai.suggest": False,
     "notifications.manage": True,
     "admin.users": False,
     "admin.roles": False,
