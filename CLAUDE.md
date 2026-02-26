@@ -11,7 +11,7 @@ cp .env.example .env          # Edit secrets and DB credentials
 docker compose up --build -d  # Starts backend (port 8000) + frontend (port 8920)
 ```
 
-The first user to register automatically gets the `admin` role. Set `SEED_DEMO=true` to pre-populate with the NexaTech Industries demo dataset.
+The first user to register automatically gets the `admin` role. Set `SEED_DEMO=true` to pre-populate with the NexaTech Industries demo dataset. Add `--profile ai` to include the bundled Ollama container for AI description suggestions.
 
 ---
 
@@ -150,12 +150,14 @@ cd frontend && npm run test:run  # single run (CI mode)
 │  RBAC permissions + JWT auth (HS256, bcrypt, PyJWT)       │
 │  SSE event stream for real-time updates                   │
 │  Rate limiting (slowapi) + field encryption (Fernet)      │
-└──────────────────────────┬────────────────────────────────┘
-                           │
-┌──────────────────────────▼────────────────────────────────┐
-│  PostgreSQL (asyncpg driver)                              │
-│  External container on `guac-net` Docker network          │
-└───────────────────────────────────────────────────────────┘
+│  AI suggestions via Ollama-compatible LLM + web search    │
+└──────────────┬───────────────────────┬────────────────────┘
+               │                       │  /api/chat, /api/tags
+┌──────────────▼──────────────┐  ┌─────▼──────────────────────┐
+│  PostgreSQL (asyncpg driver)│  │  Ollama (optional, ai       │
+│  External container on      │  │  profile) or external LLM   │
+│  `guac-net` Docker network  │  │  provider on port 11434     │
+└─────────────────────────────┘  └─────────────────────────────┘
 ```
 
 **DrawIO** is self-hosted inside the frontend Docker image (cloned at build time from `jgraph/drawio` v26.0.9) and served under `/drawio/` by Nginx.
@@ -183,7 +185,7 @@ turbo-ea/
 │   │   ├── api/
 │   │   │   ├── deps.py                # Auth dependencies (get_current_user, require_permission)
 │   │   │   └── v1/
-│   │   │       ├── router.py          # Mounts all 30 API routers
+│   │   │       ├── router.py          # Mounts all 32 API routers
 │   │   │       ├── auth.py            # /auth (login, register, me, SSO, set-password)
 │   │   │       ├── cards.py           # /cards CRUD + hierarchy + approval status + CSV export
 │   │   │       ├── metamodel.py       # /metamodel (types + relation types + field/section usage)
@@ -207,7 +209,8 @@ turbo-ea/
 │   │   │       ├── bookmarks.py       # /bookmarks (saved inventory views)
 │   │   │       ├── events.py          # /events + /events/stream (SSE)
 │   │   │       ├── users.py           # /users CRUD (admin only)
-│   │   │       ├── settings.py        # /settings (logo, currency, SMTP, favicon)
+│   │   │       ├── ai_suggest.py       # /ai (AI description suggestions + status)
+│   │   │       ├── settings.py        # /settings (logo, currency, SMTP, favicon, AI)
 │   │   │       ├── surveys.py         # /surveys (data-maintenance surveys)
 │   │   │       ├── eol.py             # /eol (End-of-Life proxy for endoflife.date)
 │   │   │       ├── web_portals.py     # /web-portals (public portal management)
@@ -224,11 +227,13 @@ turbo-ea/
 │   │   │   ├── card.py                # Card schemas
 │   │   │   ├── common.py              # Shared schemas (pagination, sorting)
 │   │   │   ├── relation.py            # Relation schemas
-│   │   │   └── bpm.py                 # BPM schemas
+│   │   │   ├── bpm.py                 # BPM schemas
+│   │   │   └── ai_suggest.py          # AI suggestion request/response schemas
 │   │   ├── services/
 │   │   │   ├── event_bus.py           # In-memory pub/sub + SSE streaming
 │   │   │   ├── permission_service.py  # RBAC permission checks (5-min cache)
 │   │   │   ├── calculation_engine.py  # Safe formula eval (simpleeval sandbox)
+│   │   │   ├── ai_service.py          # AI description suggestions (web search + LLM)
 │   │   │   ├── bpmn_parser.py         # BPMN 2.0 XML → element extraction
 │   │   │   ├── element_relation_sync.py # Link BPMN elements to EA cards
 │   │   │   ├── servicenow_service.py  # ServiceNow API client + sync
@@ -239,8 +244,8 @@ turbo-ea/
 │   │   │   └── email_service.py       # SMTP-based email sending
 │   │   ├── config.py                  # Settings from env vars + APP_VERSION
 │   │   ├── database.py                # Async engine + session factory
-│   │   └── main.py                    # FastAPI app, lifespan (migrations + seed + purge loop)
-│   ├── alembic/                       # Database migrations (35 versions)
+│   │   └── main.py                    # FastAPI app, lifespan (migrations + seed + purge loop + AI auto-config)
+│   ├── alembic/                       # Database migrations (41 versions)
 │   ├── tests/
 │   ├── pyproject.toml
 │   └── Dockerfile                     # Python 3.12-alpine + uvicorn (root context)
@@ -272,6 +277,7 @@ turbo-ea/
 │   │   │   ├── NotificationPreferencesDialog.tsx
 │   │   │   ├── EolLinkSection.tsx
 │   │   │   ├── VendorField.tsx
+│   │   │   ├── AiSuggestPanel.tsx
 │   │   │   ├── ErrorBoundary.tsx
 │   │   │   ├── ColorPicker.tsx
 │   │   │   ├── KeyInput.tsx
@@ -374,7 +380,8 @@ turbo-ea/
 │   │   │       ├── SurveyBuilder.tsx
 │   │   │       ├── SurveyResults.tsx
 │   │   │       ├── WebPortalsAdmin.tsx
-│   │   │       └── ServiceNowAdmin.tsx
+│   │   │       ├── ServiceNowAdmin.tsx
+│   │   │       └── AiAdmin.tsx            # AI suggestion settings (provider, model, search)
 │   │   ├── App.tsx                          # Routes + MUI theme (lazy imports)
 │   │   └── main.tsx                         # React entry point
 │   ├── drawio-config/                       # PreConfig.js, PostConfig.js
@@ -412,6 +419,12 @@ turbo-ea/
 | `SMTP_PASSWORD` | *(empty)* | SMTP password |
 | `SMTP_FROM` | `noreply@turboea.local` | Sender email address |
 | `SMTP_TLS` | `true` | Use TLS for SMTP |
+| `AI_PROVIDER_URL` | *(empty)* | Ollama-compatible LLM provider URL (e.g., `http://ollama:11434`) |
+| `AI_MODEL` | *(empty)* | LLM model name (e.g., `mistral`, `gemma3:4b`, `llama3:8b`) |
+| `AI_SEARCH_PROVIDER` | `duckduckgo` | Web search provider for AI context: `duckduckgo`, `google`, or `searxng` |
+| `AI_SEARCH_URL` | *(empty)* | Search provider URL: SearXNG URL or `API_KEY:CX` for Google |
+| `AI_AUTO_CONFIGURE` | `false` | Auto-enable AI on startup if provider is reachable |
+| `OLLAMA_MEMORY_LIMIT` | `4G` | Memory limit for bundled Ollama container (Docker `--profile ai`) |
 
 For local frontend dev without Docker, create `frontend/.env.development`:
 ```
@@ -472,7 +485,7 @@ All tables use UUID primary keys and `created_at`/`updated_at` timestamps (from 
 | `diagrams` | `Diagram` | DrawIO diagram storage: name, type, data (JSONB with XML + thumbnail) |
 | `diagram_initiatives` | (association) | M:N between diagrams and initiative cards |
 | `statement_of_architecture_works` | `SoAW` | TOGAF SoAW documents linked to initiatives |
-| `app_settings` | `AppSettings` | Singleton row: email_settings, general_settings, custom_logo, custom_favicon |
+| `app_settings` | `AppSettings` | Singleton row: email_settings, general_settings (incl. AI config), custom_logo, custom_favicon |
 | `surveys` | `Survey` | Data-maintenance surveys with target_type, filters, actions |
 | `survey_responses` | `SurveyResponse` | Per card + user responses |
 | `notifications` | `Notification` | Per-user notifications |
@@ -493,7 +506,7 @@ All tables use UUID primary keys and `created_at`/`updated_at` timestamps (from 
 
 ### Migrations
 
-Located in `backend/alembic/versions/` (35 migration files, sequentially numbered `001_` through `035_`). The app auto-runs Alembic on startup:
+Located in `backend/alembic/versions/` (41 migration files, sequentially numbered `001_` through `041_`). The app auto-runs Alembic on startup:
 - Fresh DB: `create_all` + stamp head
 - Existing DB without Alembic: stamp head
 - Normal: `upgrade head` (run pending migrations)
@@ -627,6 +640,21 @@ Base path: `/api/v1`. All endpoints except auth and public portals require `Auth
 | GET | `/servicenow/staged` | List staged records for review |
 | POST | `/servicenow/staged/apply` | Apply staged records |
 
+### AI Suggestions (`/ai`)
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/ai/suggest` | Generate AI description suggestion for a card (requires `ai.suggest` permission) |
+| GET | `/ai/status` | Check if AI is enabled, configured, and which types are supported |
+
+### AI Settings (`/settings/ai`) — Admin only
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/settings/ai` | Get AI configuration (provider URL, model, search provider, enabled types) |
+| PATCH | `/settings/ai` | Update AI settings |
+| POST | `/settings/ai/test` | Test LLM provider connectivity, returns available models |
+
 ### Other Endpoints
 
 | Category | Key Endpoints |
@@ -644,7 +672,7 @@ Base path: `/api/v1`. All endpoints except auth and public portals require `Auth
 | **EOL** | `/eol/products`, `/eol/products/fuzzy`, `/eol/mass-search`, `/eol/mass-link` |
 | **Web Portals** | CRUD + `/web-portals/public/{slug}` (no auth) |
 | **Notifications** | `GET /notifications`, badge counts, mark read |
-| **Settings** | Email SMTP, currency, logo upload, favicon upload |
+| **Settings** | Email SMTP, currency, logo upload, favicon upload, AI config |
 | **Users** | CRUD (admin only), self-update |
 | **Events** | `GET /events`, `GET /events/stream` (SSE) |
 | **Health** | `GET /api/health` (no auth, includes version) |
@@ -699,7 +727,7 @@ All route-level pages use `lazy()` imports for code splitting. Auth pages (Login
 | `/auth/set-password` | `SetPasswordPage` | Invited user password setup |
 | `/admin/metamodel` | `MetamodelAdmin` | Card types + relations |
 | `/admin/users` | `UsersAdmin` | User management |
-| `/admin/settings` | `SettingsAdmin` | Logo, currency, SMTP |
+| `/admin/settings` | `SettingsAdmin` | Logo, currency, SMTP, AI |
 | `/admin/eol` | `EolAdmin` | Mass EOL linking |
 | `/admin/surveys` | `SurveysAdmin` | Survey management |
 | `/admin/surveys/new` | `SurveyBuilder` | Create survey |
@@ -830,7 +858,7 @@ Each type has an optional `section_config` (JSONB) controlling layout:
 
 Single source of truth for all valid permission keys. Two categories:
 
-**App-level permissions** (17 groups, 40+ keys): `inventory.*`, `relations.*`, `stakeholders.*`, `comments.*`, `documents.*`, `diagrams.*`, `bpm.*`, `reports.*`, `surveys.*`, `soaw.*`, `tags.*`, `bookmarks.*`, `saved_reports.*`, `eol.*`, `web_portals.*`, `notifications.*`, `servicenow.*`, `admin.*`
+**App-level permissions** (18 groups, 40+ keys): `inventory.*`, `relations.*`, `stakeholders.*`, `comments.*`, `documents.*`, `diagrams.*`, `bpm.*`, `reports.*`, `surveys.*`, `soaw.*`, `tags.*`, `bookmarks.*`, `saved_reports.*`, `eol.*`, `web_portals.*`, `notifications.*`, `servicenow.*`, `ai.*`, `admin.*`
 
 **Card-level permissions** (13 keys): `card.view`, `card.edit`, `card.archive`, `card.delete`, `card.approval_status`, `card.manage_stakeholders`, `card.manage_relations`, `card.manage_documents`, `card.manage_comments`, `card.create_comments`, `card.bpm_edit`, `card.bpm_manage_drafts`, `card.bpm_approve`
 
@@ -938,6 +966,48 @@ Bi-directional sync between Turbo EA cards and ServiceNow CMDB.
 
 ---
 
+## AI Description Suggestions
+
+Optional feature that uses a local LLM (via Ollama or any Ollama-compatible provider) to generate card description suggestions. The pipeline combines web search context with LLM inference.
+
+### Architecture
+- **Two-step pipeline**: Web search (DuckDuckGo/Google/SearXNG) → LLM description generation
+- **Description-only**: Suggestions are limited to the `description` field — not arbitrary metadata fields
+- **Type-aware prompting**: Search queries and LLM system prompts are customized per card type (e.g., "Application" → "software application", "ITComponent" → "technology product")
+- **Confidence scoring**: Each suggestion includes a 0–100% confidence score for user transparency
+- **Source attribution**: Web search sources are displayed as clickable links alongside suggestions
+
+### Backend Components
+- **`services/ai_service.py`**: Core orchestration — web search dispatch, LLM prompt building, response validation
+- **`api/v1/ai_suggest.py`**: FastAPI endpoints (`POST /ai/suggest`, `GET /ai/status`)
+- **`schemas/ai_suggest.py`**: Pydantic request/response models
+- **Settings stored in**: `app_settings.general_settings.ai` (JSONB) — provider URL, model, search provider, enabled types
+
+### Frontend Components
+- **`AiSuggestPanel.tsx`**: Reusable UI showing suggestion with confidence badge, editable description, source links, and apply/dismiss buttons. Used in both `CardDetail` and `CreateCardDialog`
+- **`AiAdmin.tsx`**: Admin settings page — toggle, provider URL, model selector, search provider, per-type enablement
+
+### Search Providers
+- **DuckDuckGo** (default): Zero-dependency HTML scraping fallback
+- **Google Custom Search**: Requires API key + search engine ID (`API_KEY:CX` format)
+- **SearXNG**: Self-hosted meta-search engine, JSON API
+
+### Docker Integration
+Ollama is available as an opt-in Docker Compose profile:
+```bash
+docker compose --profile ai up -d   # Starts Ollama alongside backend + frontend
+```
+The `ollama` service uses a persistent volume (`turboea-ollama`) and is only accessible internally. Set `AI_AUTO_CONFIGURE=true` to auto-detect and configure on first startup.
+
+### Startup Automation (`main.py`)
+- **Auto-configuration**: If `AI_AUTO_CONFIGURE=true` and AI is not yet configured in DB, writes env var values to `app_settings`
+- **Model pulling**: Background task checks if the configured model exists in Ollama and pulls it if missing (10-minute timeout, non-blocking)
+
+### Permission
+- **`ai.suggest`**: Controls access to AI suggestion functionality. Granted to admin, bpm_admin, and member roles by default. Not available to viewers.
+
+---
+
 ## Version Management
 
 Single source of truth: `/VERSION` file at project root.
@@ -992,6 +1062,7 @@ Single source of truth: `/VERSION` file at project root.
 
 ### Background Processes
 - **Archived card auto-purge**: Background task runs hourly, permanently deletes cards archived for 30+ days (including their relations)
+- **Ollama model pull**: On startup (if `AI_AUTO_CONFIGURE=true`), a background task checks if the configured LLM model exists and pulls it if missing (non-blocking, 10-minute timeout)
 
 ---
 
@@ -1047,7 +1118,7 @@ Set `RESET_DB=true` to drop all tables and re-seed on next startup.
 - simpleeval for safe formula evaluation
 - sse-starlette for Server-Sent Events
 - slowapi for rate limiting
-- httpx for outbound HTTP (ServiceNow, EOL)
+- httpx for outbound HTTP (ServiceNow, EOL, AI search + LLM)
 - defusedxml for safe XML parsing (BPMN)
 - ruff for linting (target: Python 3.11+, line-length: 100)
 
@@ -1072,6 +1143,13 @@ Both services use **root build context** (`context: .`) on the `guac-net` extern
 - **frontend**: `dockerfile: frontend/Dockerfile`, multi-stage build, port 80 mapped to `HOST_PORT`
 
 PostgreSQL is external (not managed by this compose file). A separate `docker-compose.db.yml` is provided for local development.
+
+### Ollama Service (opt-in)
+- **Profile**: `ai` — started with `docker compose --profile ai up -d`
+- **Image**: `ollama/ollama:latest`, exposes port 11434 internally only
+- **Volume**: `turboea-ollama` for persistent model storage
+- **Memory**: Configurable via `OLLAMA_MEMORY_LIMIT` (default 4G)
+- **Health check**: Polls `/api/tags` endpoint
 
 ### Frontend Dockerfile (multi-stage, root context)
 1. **build stage**: `node:20-alpine` — copies `frontend/package.json` + `VERSION`, npm ci, vite build
