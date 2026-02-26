@@ -72,6 +72,31 @@ class TestBuildFieldSchemaDescription:
         result = _build_field_schema_description(schema)
         assert "type=text" in result
 
+    def test_ai_suggest_false_excluded(self):
+        schema = [
+            {
+                "fields": [
+                    {"key": "vendor", "label": "Vendor", "type": "text"},
+                    {"key": "cost", "label": "Cost", "type": "cost", "ai_suggest": False},
+                ]
+            }
+        ]
+        result = _build_field_schema_description(schema)
+        assert '"vendor"' in result
+        assert '"cost"' not in result
+
+    def test_ai_suggest_true_included(self):
+        schema = [
+            {"fields": [{"key": "vendor", "label": "Vendor", "type": "text", "ai_suggest": True}]}
+        ]
+        result = _build_field_schema_description(schema)
+        assert '"vendor"' in result
+
+    def test_ai_suggest_absent_defaults_to_included(self):
+        schema = [{"fields": [{"key": "vendor", "label": "Vendor", "type": "text"}]}]
+        result = _build_field_schema_description(schema)
+        assert '"vendor"' in result
+
 
 # ---------------------------------------------------------------------------
 # validate_suggestions
@@ -164,6 +189,23 @@ class TestValidateSuggestions:
         raw = {"vendor": {"value": "Acme", "confidence": 0.7, "note": "Founded in 1990"}}
         result = validate_suggestions(raw, self.SCHEMA)
         assert result["vendor"]["note"] == "Founded in 1990"
+
+    def test_ai_suggest_false_field_rejected(self):
+        schema = [
+            {
+                "fields": [
+                    {"key": "vendor", "type": "text"},
+                    {"key": "cost", "type": "cost", "ai_suggest": False},
+                ]
+            }
+        ]
+        raw = {
+            "vendor": {"value": "Acme", "confidence": 0.8},
+            "cost": {"value": 50000, "confidence": 0.6},
+        }
+        result = validate_suggestions(raw, schema)
+        assert "vendor" in result
+        assert "cost" not in result
 
 
 # ---------------------------------------------------------------------------

@@ -166,10 +166,17 @@ async def web_search(
 
 
 def _build_field_schema_description(fields_schema: list[dict]) -> str:
-    """Build a human-readable field description for the LLM prompt."""
+    """Build a human-readable field description for the LLM prompt.
+
+    Fields with ``"ai_suggest": false`` are excluded — these are internal
+    organisational assessments (e.g. business criticality, cost) that
+    cannot be determined from external sources.
+    """
     lines: list[str] = []
     for section in fields_schema:
         for field in section.get("fields", []):
+            if field.get("ai_suggest") is False:
+                continue
             key = field["key"]
             ftype = field.get("type", "text")
             label = field.get("label", key)
@@ -307,10 +314,12 @@ def validate_suggestions(
 
     Drops invalid option keys, normalizes confidence scores, etc.
     """
-    # Build a lookup: field_key → field definition
+    # Build a lookup: field_key → field definition (skip ai_suggest=false)
     field_map: dict[str, dict] = {"description": {"key": "description", "type": "text"}}
     for section in fields_schema:
         for field in section.get("fields", []):
+            if field.get("ai_suggest") is False:
+                continue
             field_map[field["key"]] = field
 
     validated: dict[str, dict] = {}
