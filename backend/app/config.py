@@ -51,6 +51,13 @@ class Settings:
     SMTP_FROM: str = os.getenv("SMTP_FROM", "noreply@turboea.local")
     SMTP_TLS: bool = os.getenv("SMTP_TLS", "true").lower() in ("1", "true", "yes")
 
+    # AI / LLM (optional — disabled by default)
+    AI_PROVIDER_URL: str = os.getenv("AI_PROVIDER_URL", "")
+    AI_MODEL: str = os.getenv("AI_MODEL", "")
+    AI_SEARCH_PROVIDER: str = os.getenv("AI_SEARCH_PROVIDER", "")
+    AI_SEARCH_URL: str = os.getenv("AI_SEARCH_URL", "")
+    AI_AUTO_CONFIGURE: bool = os.getenv("AI_AUTO_CONFIGURE", "").lower() in ("1", "true", "yes")
+
     @property
     def database_url(self) -> str:
         return (

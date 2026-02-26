@@ -39,6 +39,7 @@ Esta guía está diseñada para **directivos y tomadores de decisiones** que nec
 - **Toma de decisiones informada**: Informes visuales que facilitan la evaluación del estado actual de la infraestructura tecnológica.
 - **Gestión del ciclo de vida**: Seguimiento del estado de cada componente tecnológico, desde su implementación hasta su retiro.
 - **Colaboración**: Múltiples usuarios pueden trabajar simultáneamente, con roles y permisos configurables.
+- **Descripciones con IA**: Genere descripciones de fichas con un solo clic usando búsqueda web y un LLM local — consciente del tipo, privacidad primero, y completamente controlado por administradores.
 - **Multi-idioma**: Disponible en español, inglés, francés, alemán, italiano, portugués y chino.
 
 ### Conceptos Clave
@@ -175,7 +176,32 @@ El panel lateral izquierdo permite **filtrar** las fichas por diferentes criteri
    - Seleccione el **Tipo** de ficha (Aplicación, Proceso, Objetivo, etc.)
    - Ingrese el **Nombre** del componente
    - Opcionalmente, agregue una **Descripción**
-3. Haga clic en **CREAR**
+3. Opcionalmente, haga clic en **Sugerir con IA** para generar una descripción automáticamente (consulte [Sugerencias de Descripción con IA](#sugerencias-de-descripción-con-ia) a continuación)
+4. Haga clic en **CREAR**
+
+### Sugerencias de Descripción con IA
+
+Turbo EA puede usar **IA para generar una descripción** para cualquier ficha. Esto funciona tanto en el diálogo de creación como en las páginas de detalle de fichas existentes.
+
+**Cómo funciona:**
+
+1. Ingrese un nombre de ficha y seleccione un tipo
+2. Haga clic en el **icono de destello** (✨) en el encabezado de la ficha, o en el botón **Sugerir con IA** en el diálogo de creación
+3. El sistema realiza una **búsqueda web** del nombre del elemento (usando contexto según el tipo — por ejemplo, «SAP S/4HANA software application»), y luego envía los resultados a un **LLM local** (Ollama) para generar una descripción concisa y factual
+4. Aparece un panel de sugerencias con:
+   - **Descripción editable** — revise y modifique el texto antes de aplicarlo
+   - **Puntuación de confianza** — indica qué tan segura está la IA (Alta / Media / Baja)
+   - **Enlaces a fuentes** — las páginas web de las que se extrajo la descripción
+   - **Nombre del modelo** — qué LLM generó la sugerencia
+5. Haga clic en **Aplicar descripción** para guardar, o **Ignorar** para descartar
+
+**Características principales:**
+
+- **Consciente del tipo**: La IA entiende el contexto del tipo de ficha. Una búsqueda de «Aplicación» agrega «software application», un «Proveedor» agrega «technology vendor», una «Organización» agrega «company», etc.
+- **Privacidad primero**: El LLM se ejecuta localmente vía Ollama — sus datos nunca salen de su infraestructura
+- **Controlado por administradores**: Las sugerencias de IA deben ser habilitadas por un administrador en Configuración → IA Cards. Los administradores pueden elegir qué tipos de fichas muestran el botón de sugerencia, configurar la URL del proveedor de LLM y el modelo, y seleccionar el proveedor de búsqueda web (DuckDuckGo, Google Custom Search o SearXNG)
+- **Basado en permisos**: Solo los usuarios con el permiso `ai.suggest` pueden usar esta función (habilitado por defecto para los roles Admin, BPM Admin y Miembro)
+6. Haga clic en **CREAR**
 
 ---
 
@@ -190,6 +216,7 @@ Al hacer clic en cualquier ficha del inventario, se abre la **vista de detalle**
 #### Pestaña "Detalle" (Principal)
 
 - **Nombre y tipo** de la ficha (esquina superior izquierda)
+- **Botón de sugerencia IA** (✨): Haga clic para generar una descripción con IA (visible cuando la IA está habilitada y el usuario tiene permiso de edición)
 - **Estado de aprobación**: Insignia verde "Aprobado" o estado pendiente
 - **Descripción**: Texto descriptivo sobre el componente
 - **Atributos personalizados**: Campos específicos según el tipo de ficha
@@ -368,6 +395,6 @@ Gestione usuarios (Nombre, Correo, Rol, Autenticación, Estado) e invite nuevos 
 
 ---
 
-**Turbo EA v0.17.4** | Plataforma de Gestión de Arquitectura Empresarial
+**Turbo EA v0.21.0** | Plataforma de Gestión de Arquitectura Empresarial
 
 *Este manual fue generado para la evaluación de la plataforma por directivos.*

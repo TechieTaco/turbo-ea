@@ -22,6 +22,7 @@ import { useTranslation } from "react-i18next";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import ApprovalStatusBadge from "@/components/ApprovalStatusBadge";
 import LifecycleBadge from "@/components/LifecycleBadge";
+import AiSuggestPanel from "@/components/AiSuggestPanel";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useResolveMetaLabel } from "@/hooks/useResolveLabel";
 import { api } from "@/api/client";
@@ -30,6 +31,8 @@ import CardDetailContent from "@/features/cards/CardDetailContent";
 import type {
   Card,
   CardEffectivePermissions,
+  AiStatus,
+  AiSuggestResponse,
 } from "@/types";
 
 // ── Default permissions (allow everything until loaded) ─────────
@@ -68,6 +71,12 @@ export default function CardDetail() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [actionsMenuAnchor, setActionsMenuAnchor] = useState<HTMLElement | null>(null);
 
+  // AI suggestions state
+  const [aiStatus, setAiStatus] = useState<AiStatus | null>(null);
+  const [aiResponse, setAiResponse] = useState<AiSuggestResponse | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState("");
+
   // Fetch effective permissions for this card
   useEffect(() => {
     if (!id) return;
@@ -77,6 +86,14 @@ export default function CardDetail() {
       .then((res) => setPerms(res.effective))
       .catch(() => {}); // keep defaults on error
   }, [id]);
+
+  // Fetch AI status (once)
+  useEffect(() => {
+    api
+      .get<AiStatus>("/ai/status")
+      .then(setAiStatus)
+      .catch(() => {}); // AI feature simply won't show
+  }, []);
 
   useEffect(() => {
     if (!id) return;
@@ -140,6 +157,36 @@ export default function CardDetail() {
     navigate("/inventory");
   };
 
+  // ── AI suggestions ──────────────────────────────────────────
+  const aiEnabled =
+    !!aiStatus?.enabled &&
+    !!aiStatus?.configured &&
+    aiStatus.enabled_types.includes(card.type);
+
+  const handleAiSuggest = async () => {
+    setAiError("");
+    setAiResponse(null);
+    setAiLoading(true);
+    try {
+      const res = await api.post<AiSuggestResponse>("/ai/suggest", {
+        type_key: card.type,
+        subtype: card.subtype || undefined,
+        name: card.name,
+      });
+      setAiResponse(res);
+    } catch (e: unknown) {
+      setAiError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
+  const handleAiApply = async (description: string) => {
+    const updated = await api.patch<Card>(`/cards/${card.id}`, { description });
+    setCard(updated);
+    setAiResponse(null);
+  };
+
   const isArchived = card.status === "ARCHIVED";
   const daysUntilPurge = card.archived_at
     ? Math.max(0, 30 - Math.floor((Date.now() - new Date(card.archived_at).getTime()) / 86400000))
@@ -193,6 +240,17 @@ export default function CardDetail() {
             canChange={perms.can_approval_status}
             onAction={handleApprovalAction}
           />
+          {aiEnabled && perms.can_edit && !isArchived && !aiLoading && !aiResponse && (
+            <Tooltip title={t("common:ai.buttonTooltip")}>
+              <IconButton
+                size="small"
+                onClick={handleAiSuggest}
+                sx={{ color: "#1976d2" }}
+              >
+                <MaterialSymbol icon="auto_awesome" size={20} />
+              </IconButton>
+            </Tooltip>
+          )}
           {!isArchived && (perms.can_archive || perms.can_delete) && (
             <>
               <Tooltip title={t("detail.actions.moreActions")}>
@@ -297,6 +355,19 @@ export default function CardDetail() {
               </Alert>
             )}
 
+            {/* AI Suggestion Panel */}
+            {(aiLoading || aiError || aiResponse) && (
+              <AiSuggestPanel
+                response={aiResponse}
+                loading={aiLoading}
+                error={aiError}
+                onApply={handleAiApply}
+                onDismiss={() => {
+                  setAiResponse(null);
+                  setAiError("");
+                }}
+              />
+            )}
           </>
         }
       />

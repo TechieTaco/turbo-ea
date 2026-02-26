@@ -172,6 +172,17 @@
   "portal.roles.technical_application_owner": "Proprietário técnico",
   "portal.roles.business_application_owner": "Proprietário de negócio",
 
+  "ai.suggestButton": "Sugerir com IA",
+  "ai.buttonTooltip": "Usar IA para sugerir uma descrição para este cartão",
+  "ai.searching": "Gerando descrição...",
+  "ai.searchingHint": "Pesquisando na web e gerando uma descrição com IA. Isso pode levar alguns segundos.",
+  "ai.error": "Falha na sugestão de IA",
+  "ai.suggestionsTitle": "Sugestão de descrição IA",
+  "ai.confidence": "Confiança",
+  "ai.sources": "Fontes",
+  "ai.dismiss": "Dispensar",
+  "ai.applyDescription": "Aplicar descrição",
+
   "iconPicker.searchPlaceholder": "Pesquisar ícones...",
   "iconPicker.resultCount_one": "{{count}} resultado",
   "iconPicker.resultCount_other": "{{count}} resultados",

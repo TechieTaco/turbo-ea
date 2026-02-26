@@ -39,6 +39,7 @@ This guide is designed for **executives and decision makers** who need to evalua
 - **Informed decision-making**: Visual reports that facilitate evaluation of the current state of technology infrastructure.
 - **Lifecycle management**: Track the status of every technology component, from implementation through retirement.
 - **Collaboration**: Multiple users can work simultaneously, with configurable roles and permissions.
+- **AI-powered descriptions**: Generate card descriptions with a single click using web search and a local LLM — type-aware, privacy-first, and fully admin-controlled.
 - **Multi-language**: Available in English, Spanish, French, German, Italian, Portuguese, and Chinese.
 
 ### Key Concepts
@@ -175,7 +176,32 @@ The left sidebar panel allows you to **filter** cards by different criteria:
    - Select the **Type** of card (Application, Process, Objective, etc.)
    - Enter the **Name** of the component
    - Optionally, add a **Description**
-3. Click **CREATE**
+3. Optionally, click **Suggest with AI** to generate a description automatically (see [AI Description Suggestions](#ai-description-suggestions) below)
+4. Click **CREATE**
+
+### AI Description Suggestions
+
+Turbo EA can use **AI to generate a description** for any card. This works on both the Create Card dialog and existing card detail pages.
+
+**How it works:**
+
+1. Enter a card name and select a type
+2. Click the **sparkle icon** (✨) in the card header, or the **Suggest with AI** button in the Create Card dialog
+3. The system performs a **web search** for the item name (using type-aware context — e.g., "SAP S/4HANA software application"), then sends the results to a **local LLM** (Ollama) to generate a concise, factual description
+4. A suggestion panel appears with:
+   - **Editable description** — review and modify the text before applying
+   - **Confidence score** — indicates how certain the AI is (High / Medium / Low)
+   - **Clickable source links** — the web pages the description was derived from
+   - **Model name** — which LLM generated the suggestion
+5. Click **Apply description** to save, or **Dismiss** to discard
+
+**Key characteristics:**
+
+- **Type-aware**: The AI understands the card type context. An "Application" search adds "software application", a "Provider" search adds "technology vendor", an "Organization" search adds "company", etc.
+- **Privacy-first**: The LLM runs locally via Ollama — your data never leaves your infrastructure
+- **Admin-controlled**: AI suggestions must be enabled by an administrator in Settings → AI Cards. Admins can choose which card types show the suggestion button, configure the LLM provider URL and model, and select the web search provider (DuckDuckGo, Google Custom Search, or SearXNG)
+- **Permission-based**: Only users with the `ai.suggest` permission can use this feature (enabled by default for Admin, BPM Admin, and Member roles)
+6. Click **CREATE**
 
 ---
 
@@ -190,6 +216,7 @@ Clicking on any card in the inventory opens the **detail view** where you can vi
 #### "Detail" Tab (Main)
 
 - **Name and type** of the card (top left corner)
+- **AI suggest button** (✨): Click to generate a description with AI (visible when AI is enabled and user has edit permission)
 - **Approval status**: Green "Approved" badge or pending status
 - **Description**: Descriptive text about the component
 - **Custom attributes**: Specific fields depending on the card type
@@ -368,6 +395,6 @@ Manage users (Name, Email, Role, Auth, Status) and invite new members. Roles: **
 
 ---
 
-**Turbo EA v0.17.4** | Enterprise Architecture Management Platform
+**Turbo EA v0.21.0** | Enterprise Architecture Management Platform
 
 *This manual was generated for platform evaluation by executives.*
