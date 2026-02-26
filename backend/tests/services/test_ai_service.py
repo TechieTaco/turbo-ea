@@ -12,6 +12,9 @@ import pytest
 
 from app.services.ai_service import (
     _build_field_schema_description,
+    _get_llm_item_description,
+    _get_search_suffix,
+    _is_field_suggestible,
     _search_duckduckgo,
     _search_google,
     _search_searxng,
@@ -86,6 +89,24 @@ class TestBuildFieldSchemaDescription:
         assert '"vendor"' in result
         assert '"cost"' not in result
 
+    def test_ai_suggest_never_excluded(self):
+        schema = [
+            {
+                "fields": [
+                    {"key": "vendor", "label": "Vendor", "type": "text"},
+                    {
+                        "key": "criticality",
+                        "label": "Criticality",
+                        "type": "single_select",
+                        "ai_suggest": "never",
+                    },
+                ]
+            }
+        ]
+        result = _build_field_schema_description(schema)
+        assert '"vendor"' in result
+        assert '"criticality"' not in result
+
     def test_ai_suggest_true_included(self):
         schema = [
             {"fields": [{"key": "vendor", "label": "Vendor", "type": "text", "ai_suggest": True}]}
@@ -97,6 +118,60 @@ class TestBuildFieldSchemaDescription:
         schema = [{"fields": [{"key": "vendor", "label": "Vendor", "type": "text"}]}]
         result = _build_field_schema_description(schema)
         assert '"vendor"' in result
+
+
+# ---------------------------------------------------------------------------
+# _is_field_suggestible
+# ---------------------------------------------------------------------------
+
+
+class TestIsFieldSuggestible:
+    def test_absent_flag_is_suggestible(self):
+        assert _is_field_suggestible({"key": "vendor", "type": "text"}) is True
+
+    def test_true_flag_is_suggestible(self):
+        assert _is_field_suggestible({"key": "vendor", "ai_suggest": True}) is True
+
+    def test_false_flag_not_suggestible(self):
+        assert _is_field_suggestible({"key": "cost", "ai_suggest": False}) is False
+
+    def test_never_flag_not_suggestible(self):
+        assert _is_field_suggestible({"key": "criticality", "ai_suggest": "never"}) is False
+
+
+# ---------------------------------------------------------------------------
+# Type-aware search & prompt context
+# ---------------------------------------------------------------------------
+
+
+class TestTypeAwareContext:
+    def test_application_search_suffix(self):
+        suffix = _get_search_suffix("Application", None)
+        assert "software" in suffix
+
+    def test_organization_search_suffix(self):
+        suffix = _get_search_suffix("Organization", None)
+        assert "company" in suffix or "organization" in suffix
+
+    def test_provider_search_suffix(self):
+        suffix = _get_search_suffix("Provider", None)
+        assert "vendor" in suffix
+
+    def test_unknown_type_falls_back(self):
+        suffix = _get_search_suffix("CustomType", None)
+        assert suffix == "customtype"
+
+    def test_llm_description_application(self):
+        desc = _get_llm_item_description("Application", "Application")
+        assert "software" in desc
+
+    def test_llm_description_organization(self):
+        desc = _get_llm_item_description("Organization", "Organization")
+        assert "company" in desc or "organizational" in desc
+
+    def test_llm_description_unknown_type(self):
+        desc = _get_llm_item_description("CustomWidget", "Custom Widget")
+        assert "custom widget" in desc
 
 
 # ---------------------------------------------------------------------------
@@ -208,6 +283,28 @@ class TestValidateSuggestions:
         assert "vendor" in result
         assert "cost" not in result
 
+    def test_ai_suggest_never_field_rejected(self):
+        schema = [
+            {
+                "fields": [
+                    {"key": "vendor", "type": "text"},
+                    {
+                        "key": "criticality",
+                        "type": "single_select",
+                        "ai_suggest": "never",
+                        "options": [{"key": "high"}, {"key": "low"}],
+                    },
+                ]
+            }
+        ]
+        raw = {
+            "vendor": {"value": "Acme", "confidence": 0.8},
+            "criticality": {"value": "high", "confidence": 0.9},
+        }
+        result = validate_suggestions(raw, schema)
+        assert "vendor" in result
+        assert "criticality" not in result
+
 
 # ---------------------------------------------------------------------------
 # build_llm_prompt
@@ -218,6 +315,7 @@ class TestBuildLLMPrompt:
     def test_returns_system_and_user_messages(self):
         messages = build_llm_prompt(
             name="PostgreSQL",
+            type_key="ITComponent",
             type_label="IT Component",
             subtype=None,
             fields_schema=[],
@@ -230,6 +328,7 @@ class TestBuildLLMPrompt:
     def test_name_in_user_message(self):
         messages = build_llm_prompt(
             name="PostgreSQL",
+            type_key="ITComponent",
             type_label="IT Component",
             subtype=None,
             fields_schema=[],
@@ -240,6 +339,7 @@ class TestBuildLLMPrompt:
     def test_subtype_in_user_message(self):
         messages = build_llm_prompt(
             name="Kafka",
+            type_key="ITComponent",
             type_label="IT Component",
             subtype="SaaS",
             fields_schema=[],
@@ -250,6 +350,7 @@ class TestBuildLLMPrompt:
     def test_context_in_user_message(self):
         messages = build_llm_prompt(
             name="Kafka",
+            type_key="ITComponent",
             type_label="IT Component",
             subtype=None,
             fields_schema=[],
@@ -264,6 +365,7 @@ class TestBuildLLMPrompt:
         ]
         messages = build_llm_prompt(
             name="Kafka",
+            type_key="ITComponent",
             type_label="IT Component",
             subtype=None,
             fields_schema=[],
@@ -275,6 +377,7 @@ class TestBuildLLMPrompt:
     def test_no_search_results_fallback(self):
         messages = build_llm_prompt(
             name="Kafka",
+            type_key="ITComponent",
             type_label="IT Component",
             subtype=None,
             fields_schema=[],
@@ -286,12 +389,47 @@ class TestBuildLLMPrompt:
         schema = [{"fields": [{"key": "vendor", "label": "Vendor", "type": "text"}]}]
         messages = build_llm_prompt(
             name="Test",
+            type_key="Application",
             type_label="Application",
             subtype=None,
             fields_schema=schema,
             search_results=[],
         )
         assert "vendor" in messages[0]["content"]
+
+    def test_type_aware_system_prompt_application(self):
+        messages = build_llm_prompt(
+            name="SAP",
+            type_key="Application",
+            type_label="Application",
+            subtype=None,
+            fields_schema=[],
+            search_results=[],
+        )
+        assert "software application" in messages[0]["content"]
+
+    def test_type_aware_system_prompt_organization(self):
+        messages = build_llm_prompt(
+            name="Acme Corp",
+            type_key="Organization",
+            type_label="Organization",
+            subtype=None,
+            fields_schema=[],
+            search_results=[],
+        )
+        system = messages[0]["content"]
+        assert "company" in system or "organizational" in system
+
+    def test_type_aware_system_prompt_custom_type(self):
+        messages = build_llm_prompt(
+            name="Something",
+            type_key="CustomWidget",
+            type_label="Custom Widget",
+            subtype=None,
+            fields_schema=[],
+            search_results=[],
+        )
+        assert "custom widget" in messages[0]["content"]
 
 
 # ---------------------------------------------------------------------------
@@ -683,6 +821,55 @@ class TestSuggestMetadata:
                 model="mistral",
             )
 
-            # Verify search query includes subtype
+            # Verify search query is type-aware and includes subtype
             search_call = mock_search.call_args
-            assert "Redis software SaaS" == search_call[0][0]
+            query = search_call[0][0]
+            assert "Redis" in query
+            assert "SaaS" in query
+            assert "technology product" in query
+
+    @pytest.mark.asyncio
+    async def test_search_query_type_aware_application(self):
+        with (
+            patch("app.services.ai_service.web_search") as mock_search,
+            patch("app.services.ai_service.call_llm") as mock_llm,
+        ):
+            mock_search.return_value = []
+            mock_llm.return_value = {}
+
+            await suggest_metadata(
+                name="SAP S/4HANA",
+                type_key="Application",
+                type_label="Application",
+                subtype=None,
+                fields_schema=[],
+                provider_url="http://ollama:11434",
+                model="mistral",
+            )
+
+            query = mock_search.call_args[0][0]
+            assert "SAP S/4HANA" in query
+            assert "software application" in query
+
+    @pytest.mark.asyncio
+    async def test_search_query_type_aware_organization(self):
+        with (
+            patch("app.services.ai_service.web_search") as mock_search,
+            patch("app.services.ai_service.call_llm") as mock_llm,
+        ):
+            mock_search.return_value = []
+            mock_llm.return_value = {}
+
+            await suggest_metadata(
+                name="Acme Corp",
+                type_key="Organization",
+                type_label="Organization",
+                subtype=None,
+                fields_schema=[],
+                provider_url="http://ollama:11434",
+                model="mistral",
+            )
+
+            query = mock_search.call_args[0][0]
+            assert "Acme Corp" in query
+            assert "company" in query or "organization" in query

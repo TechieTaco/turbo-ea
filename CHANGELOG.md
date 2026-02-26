@@ -5,6 +5,13 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.20.1] - 2026-02-26
+
+### Changed
+- AI web search queries are now type-aware — searches for Organizations use "company", Providers use "vendor", etc. instead of always appending "software"
+- AI LLM prompt describes the item contextually based on card type instead of always saying "software product or IT asset"
+- Decision fields (business criticality, suitability scores, maturity levels, costs, risk levels, etc.) are now permanently excluded from AI suggestions and cannot be re-enabled
+
 ## [0.20.0] - 2026-02-26
 
 ### Changed

@@ -188,21 +188,119 @@ async def web_search(
 
 
 # ---------------------------------------------------------------------------
+# Type-aware search & prompt context
+# ---------------------------------------------------------------------------
+
+# Maps card type keys to search keywords and LLM context descriptions.
+# Types not listed here fall back to the generic type label.
+_TYPE_SEARCH_CONTEXT: dict[str, dict[str, str]] = {
+    "Application": {
+        "search_suffix": "software application",
+        "llm_context": "a software application or digital product",
+    },
+    "ITComponent": {
+        "search_suffix": "technology product",
+        "llm_context": "an IT infrastructure component, software product, or cloud service",
+    },
+    "Interface": {
+        "search_suffix": "API integration",
+        "llm_context": "a software interface, API, or integration point",
+    },
+    "DataObject": {
+        "search_suffix": "data model",
+        "llm_context": "a data entity or information object",
+    },
+    "Organization": {
+        "search_suffix": "company organization",
+        "llm_context": "a company, business unit, or organizational entity",
+    },
+    "BusinessCapability": {
+        "search_suffix": "business capability",
+        "llm_context": "a business capability in an enterprise architecture context",
+    },
+    "BusinessContext": {
+        "search_suffix": "business process",
+        "llm_context": "a business context such as a value stream or customer journey",
+    },
+    "BusinessProcess": {
+        "search_suffix": "business process",
+        "llm_context": "a business process in an enterprise context",
+    },
+    "Provider": {
+        "search_suffix": "technology vendor",
+        "llm_context": "a technology vendor or service provider",
+    },
+    "Platform": {
+        "search_suffix": "technology platform",
+        "llm_context": "a technology or business platform",
+    },
+    "Initiative": {
+        "search_suffix": "project initiative",
+        "llm_context": "a strategic initiative, program, or project",
+    },
+    "Objective": {
+        "search_suffix": "strategic objective",
+        "llm_context": "a strategic objective or business goal",
+    },
+    "TechCategory": {
+        "search_suffix": "technology category",
+        "llm_context": "a technology category for classifying IT components",
+    },
+    "System": {
+        "search_suffix": "IT system",
+        "llm_context": "an IT system or technical platform",
+    },
+}
+
+
+def _get_search_suffix(type_key: str, subtype: str | None) -> str:
+    """Return a contextual search suffix based on card type."""
+    ctx = _TYPE_SEARCH_CONTEXT.get(type_key)
+    if ctx:
+        return ctx["search_suffix"]
+    # Fallback: use the type key as-is (e.g. custom types)
+    return type_key.lower()
+
+
+def _get_llm_item_description(type_key: str, type_label: str) -> str:
+    """Return an LLM-friendly description of what this item is."""
+    ctx = _TYPE_SEARCH_CONTEXT.get(type_key)
+    if ctx:
+        return ctx["llm_context"]
+    return f"a {type_label.lower()} in an enterprise architecture context"
+
+
+# ---------------------------------------------------------------------------
 # LLM prompt builder
 # ---------------------------------------------------------------------------
+
+
+def _is_field_suggestible(field: dict) -> bool:
+    """Check whether a field should be included in AI suggestions.
+
+    - ``"ai_suggest": "never"`` → permanently excluded (decision fields like
+      business criticality, suitability scores, maturity levels).  These are
+      internal organisational assessments that cannot be determined from any
+      external source.
+    - ``"ai_suggest": false`` → excluded by default (soft opt-out, admin could
+      override in the future).
+    - absent or ``true`` → included.
+    """
+    flag = field.get("ai_suggest")
+    if flag == "never" or flag is False:
+        return False
+    return True
 
 
 def _build_field_schema_description(fields_schema: list[dict]) -> str:
     """Build a human-readable field description for the LLM prompt.
 
-    Fields with ``"ai_suggest": false`` are excluded — these are internal
-    organisational assessments (e.g. business criticality, cost) that
-    cannot be determined from external sources.
+    Fields marked as non-suggestible are excluded.
     """
     lines: list[str] = []
     for section in fields_schema:
         for field in section.get("fields", []):
-            if field.get("ai_suggest") is False:
+            if not _is_field_suggestible(field):
                 continue
             key = field["key"]
             ftype = field.get("type", "text")
@@ -218,6 +316,7 @@ def _build_field_schema_description(fields_schema: list[dict]) -> str:
 
 def build_llm_prompt(
     name: str,
+    type_key: str,
     type_label: str,
     subtype: str | None,
     fields_schema: list[dict],
@@ -226,6 +325,7 @@ def build_llm_prompt(
 ) -> list[dict[str, str]]:
     """Build the chat messages for the LLM extraction prompt."""
     field_desc = _build_field_schema_description(fields_schema)
+    item_desc = _get_llm_item_description(type_key, type_label)
 
     snippets_text = ""
     for i, sr in enumerate(search_results, 1):
@@ -244,14 +344,14 @@ def build_llm_prompt(
     else:
         search_instruction = (
             "No web search results are available. Use your general knowledge about "
-            "this product/technology to fill in what you know with reasonable "
+            "this item to fill in what you know with reasonable "
             "confidence. Set confidence lower (0.4-0.6) when relying on general "
             'knowledge. Set "source" to "general knowledge".'
         )
 
     system_msg = (
         "You are a metadata extractor for an enterprise architecture management tool. "
-        "Given information about a software product or IT asset, extract structured "
+        f"Given information about {item_desc}, extract structured "
         "metadata for the fields listed below. Return ONLY valid JSON.\n\n"
         f"{search_instruction}\n\n"
         "Rules:\n"
@@ -340,11 +440,11 @@ def validate_suggestions(
 
     Drops invalid option keys, normalizes confidence scores, etc.
     """
-    # Build a lookup: field_key → field definition (skip ai_suggest=false)
+    # Build a lookup: field_key → field definition (skip non-suggestible fields)
     field_map: dict[str, dict] = {"description": {"key": "description", "type": "text"}}
     for section in fields_schema:
         for field in section.get("fields", []):
-            if field.get("ai_suggest") is False:
+            if not _is_field_suggestible(field):
                 continue
             field_map[field["key"]] = field
 
@@ -425,8 +525,9 @@ async def suggest_metadata(
     context: str | None = None,
 ) -> dict[str, Any]:
     """Full pipeline: web search → LLM extraction → validated suggestions."""
-    # Step 1: Web search
-    query = f"{name} software"
+    # Step 1: Web search (type-aware query)
+    search_suffix = _get_search_suffix(type_key, subtype)
+    query = f"{name} {search_suffix}"
     if subtype:
         query += f" {subtype}"
     logger.info("[ai] Searching for '%s' via %s", query, search_provider)
@@ -436,6 +537,7 @@ async def suggest_metadata(
     # Step 2: Build prompt and call LLM
     messages = build_llm_prompt(
         name=name,
+        type_key=type_key,
         type_label=type_label,
         subtype=subtype,
         fields_schema=fields_schema,
