@@ -75,7 +75,7 @@ def upgrade() -> None:
 
         if changed:
             conn.execute(
-                sa.text("UPDATE card_types SET fields_schema = :s::jsonb WHERE key = :k"),
+                sa.text("UPDATE card_types SET fields_schema = :s WHERE key = :k"),
                 {"s": json.dumps(schema), "k": type_key},
             )
 
@@ -100,6 +100,6 @@ def downgrade() -> None:
 
         if changed:
             conn.execute(
-                sa.text("UPDATE card_types SET fields_schema = :s::jsonb WHERE key = :k"),
+                sa.text("UPDATE card_types SET fields_schema = :s WHERE key = :k"),
                 {"s": json.dumps(schema), "k": type_key},
             )
