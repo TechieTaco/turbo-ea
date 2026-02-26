@@ -12,6 +12,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - AI LLM prompt describes the item contextually based on card type instead of always saying "software product or IT asset"
 - Decision fields (business criticality, suitability scores, maturity levels, costs, risk levels, etc.) are now permanently excluded from AI suggestions and cannot be re-enabled
 
+### Fixed
+- Added Alembic migration to backfill `ai_suggest: "never"` on decision fields in existing databases (seed.py alone only applies to fresh installs)
+
 ## [0.20.0] - 2026-02-26
 
 ### Changed
