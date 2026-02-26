@@ -172,6 +172,18 @@
   "portal.roles.technical_application_owner": "Responsable t\u00e9cnico",
   "portal.roles.business_application_owner": "Responsable de negocio",
 
+  "ai.suggestButton": "Sugerir con IA",
+  "ai.buttonTooltip": "Usar IA para buscar en la web y sugerir metadatos para esta tarjeta",
+  "ai.searching": "Buscando sugerencias...",
+  "ai.searchingHint": "Buscando en la web y extrayendo metadatos con IA. Esto puede tardar unos segundos.",
+  "ai.error": "Error en la sugerencia de IA",
+  "ai.suggestionsTitle": "Sugerencias de IA",
+  "ai.confidence": "Confianza",
+  "ai.sources": "Fuentes",
+  "ai.dismiss": "Descartar",
+  "ai.applySelected": "Aplicar {{count}} seleccionados",
+  "ai.selectedCount": "{{count}}/{{total}} seleccionados",
+
   "iconPicker.searchPlaceholder": "Buscar iconos...",
   "iconPicker.resultCount_one": "{{count}} resultado",
   "iconPicker.resultCount_other": "{{count}} resultados",

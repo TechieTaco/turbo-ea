@@ -172,6 +172,18 @@
   "portal.roles.technical_application_owner": "Technical Owner",
   "portal.roles.business_application_owner": "Business Owner",
 
+  "ai.suggestButton": "Suggest with AI",
+  "ai.buttonTooltip": "Use AI to search the web and suggest metadata for this card",
+  "ai.searching": "Searching for suggestions...",
+  "ai.searchingHint": "Searching the web and extracting metadata with AI. This may take a few seconds.",
+  "ai.error": "AI Suggestion Failed",
+  "ai.suggestionsTitle": "AI Suggestions",
+  "ai.confidence": "Confidence",
+  "ai.sources": "Sources",
+  "ai.dismiss": "Dismiss",
+  "ai.applySelected": "Apply {{count}} selected",
+  "ai.selectedCount": "{{count}}/{{total}} selected",
+
   "iconPicker.searchPlaceholder": "Search icons...",
   "iconPicker.resultCount_one": "{{count}} result",
   "iconPicker.resultCount_other": "{{count}} results",

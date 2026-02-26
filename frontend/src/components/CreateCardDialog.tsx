@@ -21,13 +21,15 @@ import Autocomplete from "@mui/material/Autocomplete";
 import CircularProgress from "@mui/material/CircularProgress";
 import Chip from "@mui/material/Chip";
 import LinearProgress from "@mui/material/LinearProgress";
+import Tooltip from "@mui/material/Tooltip";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import AiSuggestPanel from "@/components/AiSuggestPanel";
 import { EolLinkDialog } from "@/components/EolLinkSection";
 import VendorField from "@/components/VendorField";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useResolveLabel, useResolveMetaLabel } from "@/hooks/useResolveLabel";
 import { api } from "@/api/client";
-import type { FieldDef, Card, EolCycle, EolProductMatch } from "@/types";
+import type { FieldDef, Card, EolCycle, EolProductMatch, AiSuggestResponse, AiStatus } from "@/types";
 
 const EOL_ELIGIBLE_TYPES = ["Application", "ITComponent"];
 const VENDOR_ELIGIBLE_TYPES = ["Application", "ITComponent"];
@@ -84,6 +86,12 @@ export default function CreateCardDialog({
   const [eolSearching, setEolSearching] = useState(false);
   const [eolAutoSearchDone, setEolAutoSearchDone] = useState(false);
 
+  // AI suggestion state
+  const [aiStatus, setAiStatus] = useState<AiStatus | null>(null);
+  const [aiResponse, setAiResponse] = useState<AiSuggestResponse | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState("");
+
   const typeConfig = useMemo(
     () => types.find((t) => t.key === selectedType),
     [types, selectedType],
@@ -107,6 +115,14 @@ export default function CreateCardDialog({
     return fields;
   }, [typeConfig]);
 
+  // Fetch AI status on mount
+  useEffect(() => {
+    api
+      .get<AiStatus>("/ai/status")
+      .then(setAiStatus)
+      .catch(() => setAiStatus(null));
+  }, []);
+
   // Reset dependent fields when type changes
   useEffect(() => {
     setSubtype("");
@@ -119,6 +135,8 @@ export default function CreateCardDialog({
     setEolCycle("");
     setEolSuggestions([]);
     setEolAutoSearchDone(false);
+    setAiResponse(null);
+    setAiError("");
   }, [selectedType]);
 
   // Set initial type when dialog opens
@@ -146,6 +164,9 @@ export default function CreateCardDialog({
       setEolDialogOpen(false);
       setEolSuggestions([]);
       setEolAutoSearchDone(false);
+      setAiResponse(null);
+      setAiLoading(false);
+      setAiError("");
     }
   }, [open, initialType]);
 
@@ -214,6 +235,47 @@ export default function CreateCardDialog({
 
   const setAttr = (key: string, value: unknown) => {
     setAttributes((prev) => ({ ...prev, [key]: value }));
+  };
+
+  // Whether AI suggest button should be shown for the current type
+  const aiEnabled =
+    aiStatus?.enabled &&
+    aiStatus.configured &&
+    selectedType &&
+    (aiStatus.enabled_types.length === 0 || aiStatus.enabled_types.includes(selectedType));
+
+  const handleAiSuggest = async () => {
+    if (!selectedType || !name.trim()) return;
+    setAiLoading(true);
+    setAiError("");
+    setAiResponse(null);
+    try {
+      const res = await api.post<AiSuggestResponse>("/ai/suggest", {
+        type_key: selectedType,
+        subtype: subtype || undefined,
+        name: name.trim(),
+      });
+      setAiResponse(res);
+    } catch (err: unknown) {
+      setAiError(err instanceof Error ? err.message : t("common:errors.generic"));
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
+  const handleAiApply = (values: Record<string, unknown>) => {
+    const descValue = values.description;
+    if (typeof descValue === "string" && descValue) {
+      setDescription(descValue);
+    }
+    // Apply attribute values (everything except description)
+    const newAttrs = { ...attributes };
+    for (const [key, value] of Object.entries(values)) {
+      if (key === "description") continue;
+      newAttrs[key] = value;
+    }
+    setAttributes(newAttrs);
+    setAiResponse(null);
   };
 
   const handleSelectSuggestion = (productName: string) => {
@@ -517,6 +579,39 @@ export default function CreateCardDialog({
           rows={3}
           sx={{ mb: 2 }}
         />
+
+        {/* AI Suggest button */}
+        {aiEnabled && name.trim().length >= 2 && !aiResponse && !aiLoading && (
+          <Box sx={{ mb: 2, display: "flex", justifyContent: "flex-start" }}>
+            <Tooltip title={t("common:ai.buttonTooltip")}>
+              <Button
+                size="small"
+                variant="outlined"
+                onClick={handleAiSuggest}
+                startIcon={<MaterialSymbol icon="auto_awesome" size={16} />}
+                sx={{ textTransform: "none" }}
+              >
+                {t("common:ai.suggestButton")}
+              </Button>
+            </Tooltip>
+          </Box>
+        )}
+
+        {/* AI Suggestion Panel */}
+        {typeConfig && (aiLoading || aiError || aiResponse) && (
+          <AiSuggestPanel
+            typeConfig={typeConfig}
+            response={aiResponse}
+            loading={aiLoading}
+            error={aiError}
+            onApply={handleAiApply}
+            onDismiss={() => {
+              setAiResponse(null);
+              setAiError("");
+              setAiLoading(false);
+            }}
+          />
+        )}
 
         {/* EOL section - below description, with auto-search */}
         {isEolEligible && (

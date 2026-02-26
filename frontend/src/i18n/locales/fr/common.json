@@ -172,6 +172,18 @@
   "portal.roles.technical_application_owner": "Responsable technique",
   "portal.roles.business_application_owner": "Responsable m\u00e9tier",
 
+  "ai.suggestButton": "Sugg\u00e9rer avec l'IA",
+  "ai.buttonTooltip": "Utiliser l'IA pour rechercher sur le web et sugg\u00e9rer des m\u00e9tadonn\u00e9es",
+  "ai.searching": "Recherche de suggestions...",
+  "ai.searchingHint": "Recherche sur le web et extraction des m\u00e9tadonn\u00e9es par IA. Cela peut prendre quelques secondes.",
+  "ai.error": "\u00c9chec de la suggestion IA",
+  "ai.suggestionsTitle": "Suggestions IA",
+  "ai.confidence": "Confiance",
+  "ai.sources": "Sources",
+  "ai.dismiss": "Ignorer",
+  "ai.applySelected": "Appliquer {{count}} s\u00e9lectionn\u00e9s",
+  "ai.selectedCount": "{{count}}/{{total}} s\u00e9lectionn\u00e9s",
+
   "iconPicker.searchPlaceholder": "Rechercher des ic\u00f4nes\u2026",
   "iconPicker.resultCount_one": "{{count}} r\u00e9sultat",
   "iconPicker.resultCount_other": "{{count}} r\u00e9sultats",
