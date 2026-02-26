@@ -181,18 +181,8 @@ export default function CardDetail() {
     }
   };
 
-  const handleAiApply = async (values: Record<string, unknown>) => {
-    const updates: Record<string, unknown> = {};
-    const newAttrs = { ...(card.attributes || {}) };
-    for (const [key, val] of Object.entries(values)) {
-      if (key === "description") {
-        updates.description = val;
-      } else {
-        newAttrs[key] = val;
-      }
-    }
-    updates.attributes = newAttrs;
-    const updated = await api.patch<Card>(`/cards/${card.id}`, updates);
+  const handleAiApply = async (description: string) => {
+    const updated = await api.patch<Card>(`/cards/${card.id}`, { description });
     setCard(updated);
     setAiResponse(null);
   };
@@ -366,9 +356,8 @@ export default function CardDetail() {
             )}
 
             {/* AI Suggestion Panel */}
-            {typeConfig && (aiLoading || aiError || aiResponse) && (
+            {(aiLoading || aiError || aiResponse) && (
               <AiSuggestPanel
-                typeConfig={typeConfig}
                 response={aiResponse}
                 loading={aiLoading}
                 error={aiError}

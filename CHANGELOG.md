@@ -5,6 +5,13 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.21.0] - 2026-02-26
+
+### Changed
+- AI suggestions now generate only a description instead of populating multiple metadata fields
+- AI description suggestions are card-type-aware — the LLM prompt contextualizes the item based on its type (e.g., "software application", "technology vendor")
+- Removed per-field `ai_suggest` flag from the metamodel — no longer needed since only description is suggested
+
 ## [0.20.1] - 2026-02-26
 
 ### Changed

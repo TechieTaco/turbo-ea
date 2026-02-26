@@ -263,18 +263,10 @@ export default function CreateCardDialog({
     }
   };
 
-  const handleAiApply = (values: Record<string, unknown>) => {
-    const descValue = values.description;
-    if (typeof descValue === "string" && descValue) {
-      setDescription(descValue);
+  const handleAiApply = (description: string) => {
+    if (description) {
+      setDescription(description);
     }
-    // Apply attribute values (everything except description)
-    const newAttrs = { ...attributes };
-    for (const [key, value] of Object.entries(values)) {
-      if (key === "description") continue;
-      newAttrs[key] = value;
-    }
-    setAttributes(newAttrs);
     setAiResponse(null);
   };
 
@@ -598,9 +590,8 @@ export default function CreateCardDialog({
         )}
 
         {/* AI Suggestion Panel */}
-        {typeConfig && (aiLoading || aiError || aiResponse) && (
+        {(aiLoading || aiError || aiResponse) && (
           <AiSuggestPanel
-            typeConfig={typeConfig}
             response={aiResponse}
             loading={aiLoading}
             error={aiError}

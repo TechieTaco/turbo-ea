@@ -978,7 +978,6 @@ TYPES = [
                         "key": "objectiveType",
                         "label": "Objective Type",
                         "type": "single_select",
-                        "ai_suggest": "never",
                         "options": [
                             {
                                 "key": "strategic",
@@ -1045,7 +1044,6 @@ TYPES = [
                         "key": "progress",
                         "label": "Progress (%)",
                         "type": "number",
-                        "ai_suggest": "never",
                         "weight": 1,
                         "translations": {
                             "de": "Fortschritt (%)",
@@ -1266,7 +1264,6 @@ TYPES = [
                         "key": "initiativeStatus",
                         "label": "Status",
                         "type": "single_select",
-                        "ai_suggest": "never",
                         "options": INITIATIVE_STATUS_OPTIONS,
                         "weight": 2,
                         "translations": {
@@ -1282,7 +1279,6 @@ TYPES = [
                         "key": "businessValue",
                         "label": "Business Value",
                         "type": "single_select",
-                        "ai_suggest": "never",
                         "options": [
                             {
                                 "key": "high",
@@ -1338,7 +1334,6 @@ TYPES = [
                         "key": "effort",
                         "label": "Effort",
                         "type": "single_select",
-                        "ai_suggest": "never",
                         "options": [
                             {
                                 "key": "high",
@@ -1407,7 +1402,6 @@ TYPES = [
                         "key": "costBudget",
                         "label": "Budget",
                         "type": "cost",
-                        "ai_suggest": "never",
                         "weight": 1,
                         "translations": {
                             "de": "Budget",
@@ -1422,7 +1416,6 @@ TYPES = [
                         "key": "costActual",
                         "label": "Actual Cost",
                         "type": "cost",
-                        "ai_suggest": "never",
                         "weight": 0,
                         "translations": {
                             "de": "Ist-Kosten",
@@ -1571,7 +1564,6 @@ TYPES = [
                         "key": "headCount",
                         "label": "Head Count",
                         "type": "number",
-                        "ai_suggest": "never",
                         "weight": 0,
                         "translations": {
                             "de": "Mitarbeiterzahl",
@@ -1644,7 +1636,6 @@ TYPES = [
                         "key": "capabilityLevel",
                         "label": "Capability Level",
                         "type": "single_select",
-                        "ai_suggest": "never",
                         "readonly": True,
                         "options": [
                             {
@@ -1727,7 +1718,6 @@ TYPES = [
                         "key": "isCoreCapability",
                         "label": "Core Capability",
                         "type": "boolean",
-                        "ai_suggest": "never",
                         "weight": 0,
                         "translations": {
                             "de": "Kernfähigkeit",
@@ -1755,7 +1745,6 @@ TYPES = [
                         "key": "strategicImportance",
                         "label": "Strategic Importance",
                         "type": "single_select",
-                        "ai_suggest": "never",
                         "options": [
                             {
                                 "key": "low",
@@ -1824,7 +1813,6 @@ TYPES = [
                         "key": "maturity",
                         "label": "Capability Maturity",
                         "type": "single_select",
-                        "ai_suggest": "never",
                         "options": PROCESS_MATURITY_OPTIONS,
                         "weight": 1,
                         "translations": {
@@ -1945,7 +1933,6 @@ TYPES = [
                         "key": "maturity",
                         "label": "Maturity",
                         "type": "single_select",
-                        "ai_suggest": "never",
                         "options": [
                             {
                                 "key": "initial",
@@ -2109,7 +2096,6 @@ TYPES = [
                         "key": "processType",
                         "label": "Process Type",
                         "type": "single_select",
-                        "ai_suggest": "never",
                         "required": True,
                         "options": PROCESS_TYPE_OPTIONS,
                         "weight": 2,
@@ -2126,7 +2112,6 @@ TYPES = [
                         "key": "maturity",
                         "label": "Maturity (CMMI)",
                         "type": "single_select",
-                        "ai_suggest": "never",
                         "options": PROCESS_MATURITY_OPTIONS,
                         "weight": 2,
                         "translations": {
@@ -2142,7 +2127,6 @@ TYPES = [
                         "key": "automationLevel",
                         "label": "Automation Level",
                         "type": "single_select",
-                        "ai_suggest": "never",
                         "options": AUTOMATION_LEVEL_OPTIONS,
                         "weight": 1,
                         "translations": {
@@ -2158,7 +2142,6 @@ TYPES = [
                         "key": "riskLevel",
                         "label": "Risk Level",
                         "type": "single_select",
-                        "ai_suggest": "never",
                         "options": PROCESS_RISK_OPTIONS,
                         "weight": 1,
                         "translations": {
@@ -2187,7 +2170,6 @@ TYPES = [
                         "key": "frequency",
                         "label": "Execution Frequency",
                         "type": "single_select",
-                        "ai_suggest": "never",
                         "options": PROCESS_FREQUENCY_OPTIONS,
                         "weight": 1,
                         "translations": {
@@ -2217,7 +2199,6 @@ TYPES = [
                         "key": "regulatoryRelevance",
                         "label": "Regulatory Relevance",
                         "type": "boolean",
-                        "ai_suggest": "never",
                         "weight": 1,
                         "translations": {
                             "de": "Regulatorische Relevanz",
@@ -2332,7 +2313,6 @@ TYPES = [
                         "key": "businessCriticality",
                         "label": "Business Criticality",
                         "type": "single_select",
-                        "ai_suggest": "never",
                         "required": True,
                         "options": BUSINESS_CRITICALITY_OPTIONS,
                         "weight": 2,
@@ -2349,7 +2329,6 @@ TYPES = [
                         "key": "functionalSuitability",
                         "label": "Functional Suitability",
                         "type": "single_select",
-                        "ai_suggest": "never",
                         "options": FUNCTIONAL_SUITABILITY_OPTIONS,
                         "weight": 2,
                         "translations": {
@@ -2365,7 +2344,6 @@ TYPES = [
                         "key": "technicalSuitability",
                         "label": "Technical Suitability",
                         "type": "single_select",
-                        "ai_suggest": "never",
                         "options": TECHNICAL_SUITABILITY_OPTIONS,
                         "weight": 2,
                         "translations": {
@@ -2381,7 +2359,6 @@ TYPES = [
                         "key": "timeModel",
                         "label": "TIME Model",
                         "type": "single_select",
-                        "ai_suggest": "never",
                         "required": True,
                         "options": TIME_MODEL_OPTIONS,
                         "weight": 3,
@@ -2426,7 +2403,6 @@ TYPES = [
                         "key": "costTotalAnnual",
                         "label": "Total Annual Cost",
                         "type": "cost",
-                        "ai_suggest": "never",
                         "weight": 1,
                         "translations": {
                             "de": "Jährliche Gesamtkosten",
@@ -2441,7 +2417,6 @@ TYPES = [
                         "key": "numberOfUsers",
                         "label": "Number of Users",
                         "type": "number",
-                        "ai_suggest": "never",
                         "weight": 0,
                         "translations": {
                             "de": "Anzahl Benutzer",
@@ -2566,7 +2541,6 @@ TYPES = [
                         "key": "frequency",
                         "label": "Frequency",
                         "type": "single_select",
-                        "ai_suggest": "never",
                         "options": FREQUENCY_OPTIONS,
                         "weight": 1,
                         "translations": {
@@ -2655,7 +2629,6 @@ TYPES = [
                         "key": "dataSensitivity",
                         "label": "Data Sensitivity",
                         "type": "single_select",
-                        "ai_suggest": "never",
                         "options": DATA_SENSITIVITY_OPTIONS,
                         "weight": 1,
                         "translations": {
@@ -2685,7 +2658,6 @@ TYPES = [
                         "key": "isPersonalData",
                         "label": "Contains Personal Data",
                         "type": "boolean",
-                        "ai_suggest": "never",
                         "weight": 1,
                         "translations": {
                             "de": "Enthält personenbezogene Daten",
@@ -2831,7 +2803,6 @@ TYPES = [
                         "key": "technicalSuitability",
                         "label": "Technical Suitability",
                         "type": "single_select",
-                        "ai_suggest": "never",
                         "options": TECHNICAL_SUITABILITY_OPTIONS,
                         "weight": 2,
                         "translations": {
@@ -2847,7 +2818,6 @@ TYPES = [
                         "key": "resourceClassification",
                         "label": "Resource Classification",
                         "type": "single_select",
-                        "ai_suggest": "never",
                         "options": RESOURCE_CLASSIFICATION_OPTIONS,
                         "weight": 2,
                         "translations": {
@@ -2904,7 +2874,6 @@ TYPES = [
                         "key": "costTotalAnnual",
                         "label": "Total Annual Cost",
                         "type": "cost",
-                        "ai_suggest": "never",
                         "weight": 1,
                         "translations": {
                             "de": "Jährliche Gesamtkosten",

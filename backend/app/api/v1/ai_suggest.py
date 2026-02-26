@@ -88,7 +88,6 @@ async def suggest(
             type_key=body.type_key,
             type_label=card_type.label,
             subtype=body.subtype,
-            fields_schema=card_type.fields_schema or [],
             provider_url=ai_cfg["provider_url"],
             model=ai_cfg["model"],
             search_provider=ai_cfg["search_provider"],
