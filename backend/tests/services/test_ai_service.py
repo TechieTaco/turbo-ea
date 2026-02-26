@@ -226,7 +226,7 @@ class TestBuildLLMPrompt:
             fields_schema=[],
             search_results=search_results,
         )
-        assert "https://kafka.apache.org" in messages[1]["content"]
+        assert "Apache Kafka" in messages[1]["content"]
         assert "Streaming" in messages[1]["content"]
 
     def test_no_search_results_fallback(self):
