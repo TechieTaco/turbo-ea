@@ -172,6 +172,17 @@
   "portal.roles.technical_application_owner": "Responsable technique",
   "portal.roles.business_application_owner": "Responsable m\u00e9tier",
 
+  "ai.suggestButton": "Sugg\u00e9rer avec l'IA",
+  "ai.buttonTooltip": "Utiliser l'IA pour sugg\u00e9rer une description pour cette fiche",
+  "ai.searching": "G\u00e9n\u00e9ration de la description...",
+  "ai.searchingHint": "Recherche sur le web et g\u00e9n\u00e9ration d'une description avec l'IA. Cela peut prendre quelques secondes.",
+  "ai.error": "\u00c9chec de la suggestion IA",
+  "ai.suggestionsTitle": "Suggestion de description IA",
+  "ai.confidence": "Confiance",
+  "ai.sources": "Sources",
+  "ai.dismiss": "Ignorer",
+  "ai.applyDescription": "Appliquer la description",
+
   "iconPicker.searchPlaceholder": "Rechercher des ic\u00f4nes\u2026",
   "iconPicker.resultCount_one": "{{count}} r\u00e9sultat",
   "iconPicker.resultCount_other": "{{count}} r\u00e9sultats",

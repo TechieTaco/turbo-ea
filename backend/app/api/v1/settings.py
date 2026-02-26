@@ -563,6 +563,103 @@ async def update_registration_settings(
 # Enabled locales
 # ---------------------------------------------------------------------------
 
+# ---------------------------------------------------------------------------
+# AI settings
+# ---------------------------------------------------------------------------
+
+
+class AiSettingsPayload(BaseModel):
+    enabled: bool = False
+    provider_url: str = ""
+    model: str = ""
+    search_provider: str = "duckduckgo"
+    search_url: str = ""
+    enabled_types: list[str] = []
+
+
+@router.get("/ai")
+async def get_ai_settings(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Admin endpoint — get AI suggestion configuration."""
+    await PermissionService.require_permission(db, user, "admin.settings")
+    row = await _get_or_create_row(db)
+    await db.commit()
+    general = row.general_settings or {}
+    ai = general.get("ai", {})
+    return {
+        "enabled": ai.get("enabled", False),
+        "provider_url": ai.get("providerUrl", ""),
+        "model": ai.get("model", ""),
+        "search_provider": ai.get("searchProvider", "duckduckgo"),
+        "search_url": ai.get("searchUrl", ""),
+        "enabled_types": ai.get("enabledTypes", []),
+    }
+
+
+@router.patch("/ai")
+async def update_ai_settings(
+    body: AiSettingsPayload,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Admin endpoint — update AI suggestion configuration."""
+    await PermissionService.require_permission(db, user, "admin.settings")
+
+    row = await _get_or_create_row(db)
+    general = dict(row.general_settings or {})
+    general["ai"] = {
+        "enabled": body.enabled,
+        "providerUrl": body.provider_url,
+        "model": body.model,
+        "searchProvider": body.search_provider,
+        "searchUrl": body.search_url,
+        "enabledTypes": body.enabled_types,
+    }
+    row.general_settings = general
+    await db.commit()
+
+    return {"ok": True}
+
+
+@router.post("/ai/test")
+async def test_ai_connection(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Admin endpoint — test connectivity to the AI provider."""
+    import httpx as _httpx
+
+    await PermissionService.require_permission(db, user, "admin.settings")
+
+    row = await _get_or_create_row(db)
+    await db.commit()
+    general = row.general_settings or {}
+    ai = general.get("ai", {})
+    provider_url = ai.get("providerUrl", "")
+    model = ai.get("model", "")
+
+    if not provider_url:
+        raise HTTPException(400, "AI provider URL is not configured.")
+
+    try:
+        async with _httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.get(f"{provider_url.rstrip('/')}/api/tags")
+            resp.raise_for_status()
+            data = resp.json()
+            available_models = [m.get("name", "") for m in data.get("models", [])]
+            model_found = any(model in m for m in available_models) if model else False
+    except _httpx.HTTPError as exc:
+        raise HTTPException(502, f"Cannot reach AI provider at {provider_url}: {exc}") from exc
+
+    return {
+        "ok": True,
+        "available_models": available_models[:20],
+        "model_found": model_found,
+    }
+
+
 SUPPORTED_LOCALES = ["en", "de", "fr", "es", "it", "pt", "zh"]
 
 

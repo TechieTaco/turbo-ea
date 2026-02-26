@@ -5,6 +5,45 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.21.0] - 2026-02-26
+
+### Changed
+- AI suggestions now generate only a type-aware description instead of populating multiple metadata fields — cleaner, more reliable results
+- AI web search queries are type-aware: searches for Applications use "software application", Organizations use "company", Providers use "technology vendor", etc.
+- Simplified AI suggestion panel UI to show a single editable description with confidence score and clickable source links
+
+### Removed
+- Removed per-field `ai_suggest` flag from the metamodel — no longer needed since only description is suggested
+
+## [0.20.0] - 2026-02-26
+
+### Changed
+- AI settings moved to a dedicated tab in the admin settings page, organized under an "AI Cards" section to prepare for additional AI use cases
+
+## [0.19.1] - 2026-02-26
+
+### Added
+- Bundled Ollama container as an opt-in Docker Compose profile (`--profile ai`) with a persistent volume for model storage — no model re-download on rebuilds
+- AI status endpoint now returns the currently loaded Ollama model, displayed as a chip in the suggestion panel
+
+### Changed
+- AI suggestions now skip internal assessment fields (business criticality, technical suitability, costs, maturity, risk level, etc.) that cannot be determined from external sources — only externally verifiable metadata is suggested
+
+## [0.19.0] - 2026-02-26
+
+### Added
+- Auto-configuration of AI settings on startup when `AI_AUTO_CONFIGURE=true` is set, so pointing to an external Ollama instance requires only env vars — no manual admin setup
+- Background model pull on startup when the configured model is not yet available in Ollama
+
+## [0.18.0] - 2026-02-26
+
+### Added
+- AI-powered metadata suggestions for cards: search the web and use a local LLM (Ollama) to propose description, vendor, status, and other field values when creating or editing cards
+- Three web search provider options: DuckDuckGo (default, zero-config), Google Custom Search API, and SearXNG (self-hosted)
+- Admin settings panel for AI configuration: enable/disable, LLM provider URL, model selection, search provider, and per-card-type enablement
+- AI suggest button on card detail page header for populating metadata on existing cards
+- New `ai.suggest` permission key for controlling access to AI suggestions
+
 ## [0.17.4] - 2026-02-25
 
 ### Changed

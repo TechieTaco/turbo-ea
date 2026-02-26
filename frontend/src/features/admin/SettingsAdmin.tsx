@@ -27,8 +27,9 @@ import { SUPPORTED_LOCALES, LOCALE_LABELS, type SupportedLocale } from "@/i18n";
 const EolAdmin = lazy(() => import("./EolAdmin"));
 const WebPortalsAdmin = lazy(() => import("./WebPortalsAdmin"));
 const ServiceNowAdmin = lazy(() => import("./ServiceNowAdmin"));
+const AiAdmin = lazy(() => import("./AiAdmin"));
 
-const TAB_KEYS = ["general", "eol", "web-portals", "servicenow"];
+const TAB_KEYS = ["general", "ai", "eol", "web-portals", "servicenow"];
 
 function TabLoader() {
   return (
@@ -995,6 +996,7 @@ export default function SettingsAdmin() {
 
   const TAB_LABELS = [
     t("settings.tabs.general"),
+    t("settings.tabs.ai"),
     t("settings.tabs.eol"),
     t("settings.tabs.webPortals"),
     t("settings.tabs.servicenow"),
@@ -1033,15 +1035,20 @@ export default function SettingsAdmin() {
       {tabIndex === 0 && <GeneralTab />}
       {tabIndex === 1 && (
         <Suspense fallback={<TabLoader />}>
-          <EolAdmin />
+          <AiAdmin />
         </Suspense>
       )}
       {tabIndex === 2 && (
         <Suspense fallback={<TabLoader />}>
-          <WebPortalsAdmin />
+          <EolAdmin />
         </Suspense>
       )}
       {tabIndex === 3 && (
+        <Suspense fallback={<TabLoader />}>
+          <WebPortalsAdmin />
+        </Suspense>
+      )}
+      {tabIndex === 4 && (
         <Suspense fallback={<TabLoader />}>
           <ServiceNowAdmin />
         </Suspense>

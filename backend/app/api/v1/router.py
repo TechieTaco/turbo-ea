@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 
 from app.api.v1 import (
+    ai_suggest,
     auth,
     bookmarks,
     bpm,
@@ -62,3 +63,4 @@ api_router.include_router(roles.router)
 api_router.include_router(stakeholder_roles.router)
 api_router.include_router(calculations.router)
 api_router.include_router(servicenow.router)
+api_router.include_router(ai_suggest.router)
