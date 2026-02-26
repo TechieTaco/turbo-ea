@@ -904,8 +904,6 @@ export interface AiFieldSuggestion {
   value: string | number | boolean | null;
   confidence: number;
   source?: string;
-  alternatives?: string[];
-  note?: string;
 }
 
 export interface AiSourceRef {

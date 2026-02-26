@@ -16,8 +16,6 @@ class AiFieldSuggestion(BaseModel):
     value: str | float | bool | None = None
     confidence: float = Field(0.0, ge=0.0, le=1.0)
     source: str | None = None
-    alternatives: list[str] | None = None
-    note: str | None = None
 
 
 class AiSourceRef(BaseModel):

@@ -1,4 +1,4 @@
-"""Unit tests for the AI service — web search + LLM structured extraction.
+"""Unit tests for the AI service — web search + LLM description generation.
 
 These tests do NOT require a database — they test pure logic and mock HTTP calls.
 """
@@ -11,10 +11,8 @@ import httpx
 import pytest
 
 from app.services.ai_service import (
-    _build_field_schema_description,
     _get_llm_item_description,
     _get_search_suffix,
-    _is_field_suggestible,
     _search_duckduckgo,
     _search_google,
     _search_searxng,
@@ -25,119 +23,6 @@ from app.services.ai_service import (
     validate_suggestions,
     web_search,
 )
-
-# ---------------------------------------------------------------------------
-# _build_field_schema_description
-# ---------------------------------------------------------------------------
-
-
-class TestBuildFieldSchemaDescription:
-    def test_text_field(self):
-        schema = [{"fields": [{"key": "vendor", "label": "Vendor", "type": "text"}]}]
-        result = _build_field_schema_description(schema)
-        assert '"vendor" (Vendor): type=text' in result
-
-    def test_select_field_shows_options(self):
-        schema = [
-            {
-                "fields": [
-                    {
-                        "key": "status",
-                        "label": "Status",
-                        "type": "single_select",
-                        "options": [
-                            {"key": "active", "label": "Active"},
-                            {"key": "retired", "label": "Retired"},
-                        ],
-                    }
-                ]
-            }
-        ]
-        result = _build_field_schema_description(schema)
-        assert "allowed values:" in result
-        assert "'active'" in result
-        assert "'retired'" in result
-
-    def test_multiple_sections(self):
-        schema = [
-            {"fields": [{"key": "a", "label": "A", "type": "text"}]},
-            {"fields": [{"key": "b", "label": "B", "type": "number"}]},
-        ]
-        result = _build_field_schema_description(schema)
-        assert '"a"' in result
-        assert '"b"' in result
-
-    def test_empty_schema(self):
-        result = _build_field_schema_description([])
-        assert result == ""
-
-    def test_field_with_no_explicit_type(self):
-        schema = [{"fields": [{"key": "notes", "label": "Notes"}]}]
-        result = _build_field_schema_description(schema)
-        assert "type=text" in result
-
-    def test_ai_suggest_false_excluded(self):
-        schema = [
-            {
-                "fields": [
-                    {"key": "vendor", "label": "Vendor", "type": "text"},
-                    {"key": "cost", "label": "Cost", "type": "cost", "ai_suggest": False},
-                ]
-            }
-        ]
-        result = _build_field_schema_description(schema)
-        assert '"vendor"' in result
-        assert '"cost"' not in result
-
-    def test_ai_suggest_never_excluded(self):
-        schema = [
-            {
-                "fields": [
-                    {"key": "vendor", "label": "Vendor", "type": "text"},
-                    {
-                        "key": "criticality",
-                        "label": "Criticality",
-                        "type": "single_select",
-                        "ai_suggest": "never",
-                    },
-                ]
-            }
-        ]
-        result = _build_field_schema_description(schema)
-        assert '"vendor"' in result
-        assert '"criticality"' not in result
-
-    def test_ai_suggest_true_included(self):
-        schema = [
-            {"fields": [{"key": "vendor", "label": "Vendor", "type": "text", "ai_suggest": True}]}
-        ]
-        result = _build_field_schema_description(schema)
-        assert '"vendor"' in result
-
-    def test_ai_suggest_absent_defaults_to_included(self):
-        schema = [{"fields": [{"key": "vendor", "label": "Vendor", "type": "text"}]}]
-        result = _build_field_schema_description(schema)
-        assert '"vendor"' in result
-
-
-# ---------------------------------------------------------------------------
-# _is_field_suggestible
-# ---------------------------------------------------------------------------
-
-
-class TestIsFieldSuggestible:
-    def test_absent_flag_is_suggestible(self):
-        assert _is_field_suggestible({"key": "vendor", "type": "text"}) is True
-
-    def test_true_flag_is_suggestible(self):
-        assert _is_field_suggestible({"key": "vendor", "ai_suggest": True}) is True
-
-    def test_false_flag_not_suggestible(self):
-        assert _is_field_suggestible({"key": "cost", "ai_suggest": False}) is False
-
-    def test_never_flag_not_suggestible(self):
-        assert _is_field_suggestible({"key": "criticality", "ai_suggest": "never"}) is False
-
 
 # ---------------------------------------------------------------------------
 # Type-aware search & prompt context
@@ -175,139 +60,66 @@ class TestTypeAwareContext:
 
 
 # ---------------------------------------------------------------------------
-# validate_suggestions
+# validate_suggestions (description-only)
 # ---------------------------------------------------------------------------
 
 
 class TestValidateSuggestions:
-    SCHEMA = [
-        {
-            "fields": [
-                {
-                    "key": "status",
-                    "type": "single_select",
-                    "options": [
-                        {"key": "active", "label": "Active"},
-                        {"key": "retired", "label": "Retired"},
-                    ],
-                },
-                {"key": "vendor", "type": "text"},
-                {"key": "cost", "type": "cost"},
-            ]
-        }
-    ]
-
-    def test_valid_text_field(self):
-        raw = {"vendor": {"value": "Acme Corp", "confidence": 0.8, "source": "acme.com"}}
-        result = validate_suggestions(raw, self.SCHEMA)
-        assert result["vendor"]["value"] == "Acme Corp"
-        assert result["vendor"]["confidence"] == 0.8
-        assert result["vendor"]["source"] == "acme.com"
-
-    def test_valid_select_option(self):
-        raw = {"status": {"value": "active", "confidence": 0.9}}
-        result = validate_suggestions(raw, self.SCHEMA)
-        assert result["status"]["value"] == "active"
-
-    def test_invalid_select_option_skipped(self):
-        raw = {"status": {"value": "unknown_status", "confidence": 0.9}}
-        result = validate_suggestions(raw, self.SCHEMA)
-        assert "status" not in result
-
-    def test_case_insensitive_select_match(self):
-        raw = {"status": {"value": "ACTIVE", "confidence": 0.7}}
-        result = validate_suggestions(raw, self.SCHEMA)
-        assert result["status"]["value"] == "active"
+    def test_valid_description(self):
+        raw = {"description": {"value": "A great tool", "confidence": 0.8, "source": "acme.com"}}
+        result = validate_suggestions(raw)
+        assert result["description"]["value"] == "A great tool"
+        assert result["description"]["confidence"] == 0.8
+        assert result["description"]["source"] == "acme.com"
 
     def test_null_value_skipped(self):
-        raw = {"vendor": {"value": None, "confidence": 0.5}}
-        result = validate_suggestions(raw, self.SCHEMA)
-        assert "vendor" not in result
+        raw = {"description": {"value": None, "confidence": 0.5}}
+        result = validate_suggestions(raw)
+        assert "description" not in result
+
+    def test_empty_string_skipped(self):
+        raw = {"description": {"value": "  ", "confidence": 0.5}}
+        result = validate_suggestions(raw)
+        assert "description" not in result
 
     def test_plain_value_normalized(self):
-        raw = {"vendor": "Plain String"}
-        result = validate_suggestions(raw, self.SCHEMA)
-        assert result["vendor"]["value"] == "Plain String"
-        assert result["vendor"]["confidence"] == 0.5
+        raw = {"description": "Plain String"}
+        result = validate_suggestions(raw)
+        assert result["description"]["value"] == "Plain String"
+        assert result["description"]["confidence"] == 0.5
 
-    def test_unknown_field_ignored(self):
-        raw = {"nonexistent_field": {"value": "something", "confidence": 0.9}}
-        result = validate_suggestions(raw, self.SCHEMA)
-        assert "nonexistent_field" not in result
+    def test_non_description_keys_ignored(self):
+        raw = {
+            "vendor": {"value": "Acme Corp", "confidence": 0.9},
+            "description": {"value": "A great tool", "confidence": 0.8},
+        }
+        result = validate_suggestions(raw)
+        assert "vendor" not in result
+        assert "description" in result
 
     def test_confidence_clamped(self):
-        raw = {"vendor": {"value": "Test", "confidence": 1.5}}
-        result = validate_suggestions(raw, self.SCHEMA)
-        assert result["vendor"]["confidence"] == 1.0
+        raw = {"description": {"value": "Test", "confidence": 1.5}}
+        result = validate_suggestions(raw)
+        assert result["description"]["confidence"] == 1.0
 
     def test_confidence_floor(self):
-        raw = {"vendor": {"value": "Test", "confidence": -0.3}}
-        result = validate_suggestions(raw, self.SCHEMA)
-        assert result["vendor"]["confidence"] == 0.0
+        raw = {"description": {"value": "Test", "confidence": -0.3}}
+        result = validate_suggestions(raw)
+        assert result["description"]["confidence"] == 0.0
 
-    def test_description_field_always_valid(self):
-        raw = {"description": {"value": "A great tool", "confidence": 0.8}}
-        result = validate_suggestions(raw, self.SCHEMA)
-        assert result["description"]["value"] == "A great tool"
+    def test_missing_description_returns_empty(self):
+        raw = {"vendor": {"value": "Acme", "confidence": 0.8}}
+        result = validate_suggestions(raw)
+        assert result == {}
 
-    def test_alternatives_filtered_for_select(self):
-        raw = {
-            "status": {
-                "value": "active",
-                "confidence": 0.9,
-                "alternatives": ["retired", "invalid_one"],
-            }
-        }
-        result = validate_suggestions(raw, self.SCHEMA)
-        assert result["status"]["alternatives"] == ["retired"]
-
-    def test_note_preserved(self):
-        raw = {"vendor": {"value": "Acme", "confidence": 0.7, "note": "Founded in 1990"}}
-        result = validate_suggestions(raw, self.SCHEMA)
-        assert result["vendor"]["note"] == "Founded in 1990"
-
-    def test_ai_suggest_false_field_rejected(self):
-        schema = [
-            {
-                "fields": [
-                    {"key": "vendor", "type": "text"},
-                    {"key": "cost", "type": "cost", "ai_suggest": False},
-                ]
-            }
-        ]
-        raw = {
-            "vendor": {"value": "Acme", "confidence": 0.8},
-            "cost": {"value": 50000, "confidence": 0.6},
-        }
-        result = validate_suggestions(raw, schema)
-        assert "vendor" in result
-        assert "cost" not in result
-
-    def test_ai_suggest_never_field_rejected(self):
-        schema = [
-            {
-                "fields": [
-                    {"key": "vendor", "type": "text"},
-                    {
-                        "key": "criticality",
-                        "type": "single_select",
-                        "ai_suggest": "never",
-                        "options": [{"key": "high"}, {"key": "low"}],
-                    },
-                ]
-            }
-        ]
-        raw = {
-            "vendor": {"value": "Acme", "confidence": 0.8},
-            "criticality": {"value": "high", "confidence": 0.9},
-        }
-        result = validate_suggestions(raw, schema)
-        assert "vendor" in result
-        assert "criticality" not in result
+    def test_value_stripped(self):
+        raw = {"description": {"value": "  Trimmed text  ", "confidence": 0.7}}
+        result = validate_suggestions(raw)
+        assert result["description"]["value"] == "Trimmed text"
 
 
 # ---------------------------------------------------------------------------
-# build_llm_prompt
+# build_llm_prompt (description-only)
 # ---------------------------------------------------------------------------
 
 
@@ -318,7 +130,6 @@ class TestBuildLLMPrompt:
             type_key="ITComponent",
             type_label="IT Component",
             subtype=None,
-            fields_schema=[],
             search_results=[],
         )
         assert len(messages) == 2
@@ -331,7 +142,6 @@ class TestBuildLLMPrompt:
             type_key="ITComponent",
             type_label="IT Component",
             subtype=None,
-            fields_schema=[],
             search_results=[],
         )
         assert "PostgreSQL" in messages[1]["content"]
@@ -342,7 +152,6 @@ class TestBuildLLMPrompt:
             type_key="ITComponent",
             type_label="IT Component",
             subtype="SaaS",
-            fields_schema=[],
             search_results=[],
         )
         assert "SaaS" in messages[1]["content"]
@@ -353,7 +162,6 @@ class TestBuildLLMPrompt:
             type_key="ITComponent",
             type_label="IT Component",
             subtype=None,
-            fields_schema=[],
             search_results=[],
             context="Used for event streaming",
         )
@@ -368,7 +176,6 @@ class TestBuildLLMPrompt:
             type_key="ITComponent",
             type_label="IT Component",
             subtype=None,
-            fields_schema=[],
             search_results=search_results,
         )
         assert "Apache Kafka" in messages[1]["content"]
@@ -380,22 +187,19 @@ class TestBuildLLMPrompt:
             type_key="ITComponent",
             type_label="IT Component",
             subtype=None,
-            fields_schema=[],
             search_results=[],
         )
         assert "general knowledge" in messages[0]["content"]
 
-    def test_field_schema_in_system_prompt(self):
-        schema = [{"fields": [{"key": "vendor", "label": "Vendor", "type": "text"}]}]
+    def test_description_focus_in_system_prompt(self):
         messages = build_llm_prompt(
             name="Test",
             type_key="Application",
             type_label="Application",
             subtype=None,
-            fields_schema=schema,
             search_results=[],
         )
-        assert "vendor" in messages[0]["content"]
+        assert "description" in messages[0]["content"].lower()
 
     def test_type_aware_system_prompt_application(self):
         messages = build_llm_prompt(
@@ -403,7 +207,6 @@ class TestBuildLLMPrompt:
             type_key="Application",
             type_label="Application",
             subtype=None,
-            fields_schema=[],
             search_results=[],
         )
         assert "software application" in messages[0]["content"]
@@ -414,7 +217,6 @@ class TestBuildLLMPrompt:
             type_key="Organization",
             type_label="Organization",
             subtype=None,
-            fields_schema=[],
             search_results=[],
         )
         system = messages[0]["content"]
@@ -426,10 +228,22 @@ class TestBuildLLMPrompt:
             type_key="CustomWidget",
             type_label="Custom Widget",
             subtype=None,
-            fields_schema=[],
             search_results=[],
         )
         assert "custom widget" in messages[0]["content"]
+
+    def test_no_field_schema_in_prompt(self):
+        """Prompt should NOT contain field schema details — only asks for description."""
+        messages = build_llm_prompt(
+            name="Test",
+            type_key="Application",
+            type_label="Application",
+            subtype=None,
+            search_results=[],
+        )
+        system = messages[0]["content"]
+        assert "Available fields:" not in system
+        assert "select fields" not in system
 
 
 # ---------------------------------------------------------------------------
@@ -605,7 +419,9 @@ class TestCallLLM:
     @pytest.mark.asyncio
     async def test_successful_json_response(self):
         mock_resp = MagicMock()
-        mock_resp.json.return_value = {"message": {"content": '{"vendor": {"value": "Acme"}}'}}
+        mock_resp.json.return_value = {
+            "message": {"content": '{"description": {"value": "A great tool"}}'}
+        }
         mock_resp.raise_for_status = MagicMock()
 
         with patch("app.services.ai_service._get_llm_client") as mock_get:
@@ -616,12 +432,14 @@ class TestCallLLM:
             result = await call_llm(
                 "http://ollama:11434", "mistral", [{"role": "user", "content": "test"}]
             )
-            assert result == {"vendor": {"value": "Acme"}}
+            assert result == {"description": {"value": "A great tool"}}
 
     @pytest.mark.asyncio
     async def test_json_in_markdown_code_block(self):
         mock_resp = MagicMock()
-        mock_resp.json.return_value = {"message": {"content": '```json\n{"vendor": "Acme"}\n```'}}
+        mock_resp.json.return_value = {
+            "message": {"content": '```json\n{"description": "A tool"}\n```'}
+        }
         mock_resp.raise_for_status = MagicMock()
 
         with patch("app.services.ai_service._get_llm_client") as mock_get:
@@ -632,7 +450,7 @@ class TestCallLLM:
             result = await call_llm(
                 "http://ollama:11434", "mistral", [{"role": "user", "content": "test"}]
             )
-            assert result == {"vendor": "Acme"}
+            assert result == {"description": "A tool"}
 
     @pytest.mark.asyncio
     async def test_non_json_returns_empty(self):
@@ -745,27 +563,6 @@ class TestFetchRunningModels:
 class TestSuggestMetadata:
     @pytest.mark.asyncio
     async def test_full_pipeline(self):
-        schema = [
-            {
-                "fields": [
-                    {
-                        "key": "vendor",
-                        "label": "Vendor",
-                        "type": "text",
-                    },
-                    {
-                        "key": "status",
-                        "label": "Status",
-                        "type": "single_select",
-                        "options": [
-                            {"key": "active", "label": "Active"},
-                            {"key": "retired", "label": "Retired"},
-                        ],
-                    },
-                ]
-            }
-        ]
-
         with (
             patch("app.services.ai_service.web_search") as mock_search,
             patch("app.services.ai_service.call_llm") as mock_llm,
@@ -774,9 +571,11 @@ class TestSuggestMetadata:
                 {"url": "https://example.com", "title": "Example", "snippet": "Info"},
             ]
             mock_llm.return_value = {
-                "vendor": {"value": "Example Corp", "confidence": 0.9, "source": "example.com"},
-                "status": {"value": "active", "confidence": 0.7},
-                "description": {"value": "A great product", "confidence": 0.8},
+                "description": {
+                    "value": "A great product for enterprise use.",
+                    "confidence": 0.8,
+                    "source": "example.com",
+                },
             }
 
             result = await suggest_metadata(
@@ -784,7 +583,6 @@ class TestSuggestMetadata:
                 type_key="Application",
                 type_label="Application",
                 subtype=None,
-                fields_schema=schema,
                 provider_url="http://ollama:11434",
                 model="mistral",
             )
@@ -795,12 +593,39 @@ class TestSuggestMetadata:
             assert result["search_provider"] == "duckduckgo"
 
             suggestions = result["suggestions"]
-            assert suggestions["vendor"]["value"] == "Example Corp"
-            assert suggestions["status"]["value"] == "active"
-            assert suggestions["description"]["value"] == "A great product"
+            assert suggestions["description"]["value"] == "A great product for enterprise use."
+            assert suggestions["description"]["confidence"] == 0.8
 
             assert len(result["sources"]) == 1
             assert result["sources"][0]["url"] == "https://example.com"
+
+    @pytest.mark.asyncio
+    async def test_only_description_returned(self):
+        """Non-description fields from LLM response are dropped."""
+        with (
+            patch("app.services.ai_service.web_search") as mock_search,
+            patch("app.services.ai_service.call_llm") as mock_llm,
+        ):
+            mock_search.return_value = []
+            mock_llm.return_value = {
+                "vendor": {"value": "Example Corp", "confidence": 0.9},
+                "status": {"value": "active", "confidence": 0.7},
+                "description": {"value": "A great product", "confidence": 0.8},
+            }
+
+            result = await suggest_metadata(
+                name="Test App",
+                type_key="Application",
+                type_label="Application",
+                subtype=None,
+                provider_url="http://ollama:11434",
+                model="mistral",
+            )
+
+            suggestions = result["suggestions"]
+            assert "description" in suggestions
+            assert "vendor" not in suggestions
+            assert "status" not in suggestions
 
     @pytest.mark.asyncio
     async def test_search_query_includes_subtype(self):
@@ -816,7 +641,6 @@ class TestSuggestMetadata:
                 type_key="ITComponent",
                 type_label="IT Component",
                 subtype="SaaS",
-                fields_schema=[],
                 provider_url="http://ollama:11434",
                 model="mistral",
             )
@@ -842,7 +666,6 @@ class TestSuggestMetadata:
                 type_key="Application",
                 type_label="Application",
                 subtype=None,
-                fields_schema=[],
                 provider_url="http://ollama:11434",
                 model="mistral",
             )
@@ -865,7 +688,6 @@ class TestSuggestMetadata:
                 type_key="Organization",
                 type_label="Organization",
                 subtype=None,
-                fields_schema=[],
                 provider_url="http://ollama:11434",
                 model="mistral",
             )

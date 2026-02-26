@@ -1,8 +1,8 @@
-"""AI service — web search + local LLM structured extraction for card metadata.
+"""AI service — web search + local LLM description generation for cards.
 
 Two-step pipeline:
   1. Web search (DuckDuckGo HTML scrape or SearXNG) for the card name
-  2. LLM prompt with search snippets + field schema → structured JSON
+  2. LLM prompt with search snippets → card description (type-aware)
 """
 
 from __future__ import annotations
@@ -271,47 +271,8 @@ def _get_llm_item_description(type_key: str, type_label: str) -> str:
 
 
 # ---------------------------------------------------------------------------
-# LLM prompt builder
+# LLM prompt builder (description-only)
 # ---------------------------------------------------------------------------
-
-
-def _is_field_suggestible(field: dict) -> bool:
-    """Check whether a field should be included in AI suggestions.
-
-    - ``"ai_suggest": "never"`` → permanently excluded (decision fields like
-      business criticality, suitability scores, maturity levels).  These are
-      internal organisational assessments that cannot be determined from any
-      external source.
-    - ``"ai_suggest": false`` → excluded by default (soft opt-out, admin could
-      override in the future).
-    - absent or ``true`` → included.
-    """
-    flag = field.get("ai_suggest")
-    if flag == "never" or flag is False:
-        return False
-    return True
-
-
-def _build_field_schema_description(fields_schema: list[dict]) -> str:
-    """Build a human-readable field description for the LLM prompt.
-
-    Fields marked as non-suggestible are excluded.
-    """
-    lines: list[str] = []
-    for section in fields_schema:
-        for field in section.get("fields", []):
-            if not _is_field_suggestible(field):
-                continue
-            key = field["key"]
-            ftype = field.get("type", "text")
-            label = field.get("label", key)
-            desc = f'- "{key}" ({label}): type={ftype}'
-            if ftype in ("single_select", "multiple_select"):
-                options = field.get("options", [])
-                option_keys = [o["key"] for o in options]
-                desc += f", allowed values: {option_keys}"
-            lines.append(desc)
-    return "\n".join(lines)
 
 
 def build_llm_prompt(
@@ -319,12 +280,10 @@ def build_llm_prompt(
     type_key: str,
     type_label: str,
     subtype: str | None,
-    fields_schema: list[dict],
     search_results: list[dict[str, str]],
     context: str | None = None,
 ) -> list[dict[str, str]]:
-    """Build the chat messages for the LLM extraction prompt."""
-    field_desc = _build_field_schema_description(fields_schema)
+    """Build the chat messages for a description-only LLM prompt."""
     item_desc = _get_llm_item_description(type_key, type_label)
 
     snippets_text = ""
@@ -338,33 +297,34 @@ def build_llm_prompt(
     if has_search:
         search_instruction = (
             "Use the web search results below as your primary source. "
-            "For each populated field, include the domain the info came from in "
+            "Include the domain the information came from in "
             '"source".'
         )
     else:
         search_instruction = (
             "No web search results are available. Use your general knowledge about "
-            "this item to fill in what you know with reasonable "
-            "confidence. Set confidence lower (0.4-0.6) when relying on general "
+            "this item. Set confidence lower (0.4-0.6) when relying on general "
             'knowledge. Set "source" to "general knowledge".'
         )
 
     system_msg = (
-        "You are a metadata extractor for an enterprise architecture management tool. "
-        f"Given information about {item_desc}, extract structured "
-        "metadata for the fields listed below. Return ONLY valid JSON.\n\n"
+        "You are a description writer for an enterprise architecture management tool. "
+        f"Given information about {item_desc}, write a concise, factual description. "
+        "Return ONLY valid JSON.\n\n"
         f"{search_instruction}\n\n"
         "Rules:\n"
-        "- For select fields, use ONLY the allowed option keys listed.\n"
-        "- Set a field to null if you truly have no information.\n"
-        '- Include a "description" field with a 2-3 sentence summary.\n'
-        '- For each populated field, include "confidence" (0.0-1.0) and "source".\n\n'
-        f"Available fields:\n{field_desc}\n\n"
+        "- Write a 2-4 sentence description that explains what this item is, "
+        "its purpose, and key characteristics.\n"
+        "- Be factual and objective — do not speculate.\n"
+        '- Include "confidence" (0.0-1.0) indicating how certain you are.\n'
+        '- Include "source" with the domain where you found the info.\n\n'
         "Response format (JSON):\n"
         "{\n"
-        '  "fieldKey": {"value": ..., "confidence": 0.9, "source": "example.com"},\n'
-        '  "description": {"value": "...", "confidence": 0.8, "source": "example.com"},\n'
-        "  ...\n"
+        '  "description": {\n'
+        '    "value": "2-4 sentence description...",\n'
+        '    "confidence": 0.8,\n'
+        '    "source": "example.com"\n'
+        "  }\n"
         "}"
     )
 
@@ -434,76 +394,34 @@ async def call_llm(
 
 def validate_suggestions(
     raw: dict[str, Any],
-    fields_schema: list[dict],
 ) -> dict[str, dict]:
-    """Validate and normalize LLM suggestions against the field schema.
-
-    Drops invalid option keys, normalizes confidence scores, etc.
-    """
-    # Build a lookup: field_key → field definition (skip non-suggestible fields)
-    field_map: dict[str, dict] = {"description": {"key": "description", "type": "text"}}
-    for section in fields_schema:
-        for field in section.get("fields", []):
-            if not _is_field_suggestible(field):
-                continue
-            field_map[field["key"]] = field
-
+    """Validate and normalize the LLM description suggestion."""
     validated: dict[str, dict] = {}
 
-    for key, suggestion in raw.items():
-        if key not in field_map:
-            continue
+    suggestion = raw.get("description")
+    if suggestion is None:
+        return validated
 
-        field_def = field_map[key]
+    if isinstance(suggestion, dict):
+        value = suggestion.get("value")
+        confidence = min(1.0, max(0.0, float(suggestion.get("confidence", 0.5))))
+        source = suggestion.get("source")
+    else:
+        value = suggestion
+        confidence = 0.5
+        source = None
 
-        # Normalize: suggestion might be a plain value or a dict
-        if isinstance(suggestion, dict):
-            value = suggestion.get("value")
-            confidence = min(1.0, max(0.0, float(suggestion.get("confidence", 0.5))))
-            source = suggestion.get("source")
-            alternatives = suggestion.get("alternatives")
-            note = suggestion.get("note")
-        else:
-            value = suggestion
-            confidence = 0.5
-            source = None
-            alternatives = None
-            note = None
+    if value is None or not str(value).strip():
+        return validated
 
-        if value is None:
-            continue
+    entry: dict[str, Any] = {
+        "value": str(value).strip(),
+        "confidence": round(confidence, 2),
+    }
+    if source:
+        entry["source"] = source
 
-        # Validate select field values
-        ftype = field_def.get("type", "text")
-        if ftype in ("single_select", "multiple_select"):
-            valid_keys = {o["key"] for o in field_def.get("options", [])}
-            if isinstance(value, str) and value not in valid_keys:
-                # Try case-insensitive match
-                lower_map = {k.lower(): k for k in valid_keys}
-                if value.lower() in lower_map:
-                    value = lower_map[value.lower()]
-                else:
-                    # Skip invalid option
-                    continue
-
-        entry: dict[str, Any] = {
-            "value": value,
-            "confidence": round(confidence, 2),
-        }
-        if source:
-            entry["source"] = source
-        if alternatives:
-            # Filter alternatives to valid keys for select fields
-            if ftype in ("single_select", "multiple_select"):
-                valid_keys = {o["key"] for o in field_def.get("options", [])}
-                alternatives = [a for a in alternatives if a in valid_keys]
-            if alternatives:
-                entry["alternatives"] = alternatives
-        if note:
-            entry["note"] = note
-
-        validated[key] = entry
-
+    validated["description"] = entry
     return validated
 
 
@@ -517,14 +435,13 @@ async def suggest_metadata(
     type_key: str,
     type_label: str,
     subtype: str | None,
-    fields_schema: list[dict],
     provider_url: str,
     model: str,
     search_provider: str = "duckduckgo",
     search_url: str = "",
     context: str | None = None,
 ) -> dict[str, Any]:
-    """Full pipeline: web search → LLM extraction → validated suggestions."""
+    """Full pipeline: web search → LLM description → validated suggestion."""
     # Step 1: Web search (type-aware query)
     search_suffix = _get_search_suffix(type_key, subtype)
     query = f"{name} {search_suffix}"
@@ -540,7 +457,6 @@ async def suggest_metadata(
         type_key=type_key,
         type_label=type_label,
         subtype=subtype,
-        fields_schema=fields_schema,
         search_results=search_results,
         context=context,
     )
@@ -548,8 +464,8 @@ async def suggest_metadata(
     raw_response = await call_llm(provider_url, model, messages)
     logger.info("[ai] LLM returned %d raw keys", len(raw_response))
 
-    # Step 3: Validate
-    suggestions = validate_suggestions(raw_response, fields_schema)
+    # Step 3: Validate (description only)
+    suggestions = validate_suggestions(raw_response)
     logger.info("[ai] Validated to %d suggestions", len(suggestions))
 
     # Build source list from search results
