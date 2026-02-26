@@ -237,7 +237,7 @@ class TestBuildLLMPrompt:
             fields_schema=[],
             search_results=[],
         )
-        assert "No web search results available" in messages[1]["content"]
+        assert "general knowledge" in messages[0]["content"]
 
     def test_field_schema_in_system_prompt(self):
         schema = [{"fields": [{"key": "vendor", "label": "Vendor", "type": "text"}]}]
@@ -267,7 +267,7 @@ class TestSearchDuckDuckGo:
         mock_resp.text = html
         mock_resp.raise_for_status = MagicMock()
 
-        with patch("app.services.ai_service._get_client") as mock_get:
+        with patch("app.services.ai_service._get_search_client") as mock_get:
             mock_client = AsyncMock()
             mock_get.return_value = mock_client
             mock_client.get = AsyncMock(return_value=mock_resp)
@@ -280,7 +280,7 @@ class TestSearchDuckDuckGo:
 
     @pytest.mark.asyncio
     async def test_http_error_returns_empty(self):
-        with patch("app.services.ai_service._get_client") as mock_get:
+        with patch("app.services.ai_service._get_search_client") as mock_get:
             mock_client = AsyncMock()
             mock_get.return_value = mock_client
             mock_client.get = AsyncMock(side_effect=httpx.HTTPError("Network error"))
@@ -301,7 +301,7 @@ class TestSearchDuckDuckGo:
         mock_resp.text = html
         mock_resp.raise_for_status = MagicMock()
 
-        with patch("app.services.ai_service._get_client") as mock_get:
+        with patch("app.services.ai_service._get_search_client") as mock_get:
             mock_client = AsyncMock()
             mock_get.return_value = mock_client
             mock_client.get = AsyncMock(return_value=mock_resp)
@@ -321,7 +321,7 @@ class TestSearchSearXNG:
         }
         mock_resp.raise_for_status = MagicMock()
 
-        with patch("app.services.ai_service._get_client") as mock_get:
+        with patch("app.services.ai_service._get_search_client") as mock_get:
             mock_client = AsyncMock()
             mock_get.return_value = mock_client
             mock_client.get = AsyncMock(return_value=mock_resp)
@@ -333,7 +333,7 @@ class TestSearchSearXNG:
 
     @pytest.mark.asyncio
     async def test_http_error_returns_empty(self):
-        with patch("app.services.ai_service._get_client") as mock_get:
+        with patch("app.services.ai_service._get_search_client") as mock_get:
             mock_client = AsyncMock()
             mock_get.return_value = mock_client
             mock_client.get = AsyncMock(side_effect=httpx.HTTPError("Error"))
@@ -353,7 +353,7 @@ class TestSearchGoogle:
         }
         mock_resp.raise_for_status = MagicMock()
 
-        with patch("app.services.ai_service._get_client") as mock_get:
+        with patch("app.services.ai_service._get_search_client") as mock_get:
             mock_client = AsyncMock()
             mock_get.return_value = mock_client
             mock_client.get = AsyncMock(return_value=mock_resp)
@@ -365,7 +365,7 @@ class TestSearchGoogle:
 
     @pytest.mark.asyncio
     async def test_http_error_returns_empty(self):
-        with patch("app.services.ai_service._get_client") as mock_get:
+        with patch("app.services.ai_service._get_search_client") as mock_get:
             mock_client = AsyncMock()
             mock_get.return_value = mock_client
             mock_client.get = AsyncMock(side_effect=httpx.HTTPError("Error"))
@@ -427,7 +427,7 @@ class TestCallLLM:
         mock_resp.json.return_value = {"message": {"content": '{"vendor": {"value": "Acme"}}'}}
         mock_resp.raise_for_status = MagicMock()
 
-        with patch("app.services.ai_service._get_client") as mock_get:
+        with patch("app.services.ai_service._get_llm_client") as mock_get:
             mock_client = AsyncMock()
             mock_get.return_value = mock_client
             mock_client.post = AsyncMock(return_value=mock_resp)
@@ -443,7 +443,7 @@ class TestCallLLM:
         mock_resp.json.return_value = {"message": {"content": '```json\n{"vendor": "Acme"}\n```'}}
         mock_resp.raise_for_status = MagicMock()
 
-        with patch("app.services.ai_service._get_client") as mock_get:
+        with patch("app.services.ai_service._get_llm_client") as mock_get:
             mock_client = AsyncMock()
             mock_get.return_value = mock_client
             mock_client.post = AsyncMock(return_value=mock_resp)
@@ -459,7 +459,7 @@ class TestCallLLM:
         mock_resp.json.return_value = {"message": {"content": "This is not JSON at all"}}
         mock_resp.raise_for_status = MagicMock()
 
-        with patch("app.services.ai_service._get_client") as mock_get:
+        with patch("app.services.ai_service._get_llm_client") as mock_get:
             mock_client = AsyncMock()
             mock_get.return_value = mock_client
             mock_client.post = AsyncMock(return_value=mock_resp)
@@ -471,7 +471,7 @@ class TestCallLLM:
 
     @pytest.mark.asyncio
     async def test_http_error_raises(self):
-        with patch("app.services.ai_service._get_client") as mock_get:
+        with patch("app.services.ai_service._get_llm_client") as mock_get:
             mock_client = AsyncMock()
             mock_get.return_value = mock_client
             mock_client.post = AsyncMock(side_effect=httpx.HTTPError("Connection refused"))
@@ -487,7 +487,7 @@ class TestCallLLM:
         mock_resp.json.return_value = {"message": {"content": "{}"}}
         mock_resp.raise_for_status = MagicMock()
 
-        with patch("app.services.ai_service._get_client") as mock_get:
+        with patch("app.services.ai_service._get_llm_client") as mock_get:
             mock_client = AsyncMock()
             mock_get.return_value = mock_client
             mock_client.post = AsyncMock(return_value=mock_resp)

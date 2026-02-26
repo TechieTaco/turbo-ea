@@ -18,17 +18,30 @@ import httpx
 logger = logging.getLogger("turboea.ai")
 
 # ---------------------------------------------------------------------------
-# Module-level HTTP client (reused across requests)
+# Module-level HTTP clients (reused across requests)
 # ---------------------------------------------------------------------------
 
-_client: httpx.AsyncClient | None = None
+_search_client: httpx.AsyncClient | None = None
+_llm_client: httpx.AsyncClient | None = None
 
 
+async def _get_search_client() -> httpx.AsyncClient:
+    global _search_client  # noqa: N816
+    if _search_client is None or _search_client.is_closed:
+        _search_client = httpx.AsyncClient(timeout=20.0)
+    return _search_client
+
+
+async def _get_llm_client() -> httpx.AsyncClient:
+    global _llm_client  # noqa: N816
+    if _llm_client is None or _llm_client.is_closed:
+        _llm_client = httpx.AsyncClient(timeout=120.0)
+    return _llm_client
+
+
+# Keep backward-compatible alias used by tests
 async def _get_client() -> httpx.AsyncClient:
-    global _client  # noqa: N816
-    if _client is None or _client.is_closed:
-        _client = httpx.AsyncClient(timeout=20.0)
-    return _client
+    return await _get_search_client()
 
 
 # ---------------------------------------------------------------------------
@@ -38,7 +51,7 @@ async def _get_client() -> httpx.AsyncClient:
 
 async def _search_duckduckgo(query: str, limit: int = 8) -> list[dict[str, str]]:
     """Scrape DuckDuckGo HTML for search snippets (zero-dependency fallback)."""
-    client = await _get_client()
+    client = await _get_search_client()
     try:
         resp = await client.get(
             "https://html.duckduckgo.com/html/",
@@ -73,7 +86,7 @@ async def _search_duckduckgo(query: str, limit: int = 8) -> list[dict[str, str]]
 
 async def _search_searxng(base_url: str, query: str, limit: int = 8) -> list[dict[str, str]]:
     """Search via a SearXNG instance (JSON API)."""
-    client = await _get_client()
+    client = await _get_search_client()
     try:
         resp = await client.get(
             f"{base_url.rstrip('/')}/search",
@@ -104,7 +117,7 @@ async def _search_google(api_key: str, cx: str, query: str, limit: int = 8) -> l
     The search_url field stores them as "KEY:CX" or the admin can put the
     API key in the field and the CX in the search_url after a colon.
     """
-    client = await _get_client()
+    client = await _get_search_client()
     try:
         resp = await client.get(
             "https://www.googleapis.com/customsearch/v1",
@@ -183,23 +196,36 @@ def build_llm_prompt(
     snippets_text = ""
     for i, sr in enumerate(search_results, 1):
         snippets_text += (
-            f"[{i}] {sr.get('title', '')} ({sr.get('url', '')})\n    {sr.get('snippet', '')}\n\n"
+            f"[{i}] {sr.get('title', '')} ({sr.get('url', '')})\n"
+            f"    {sr.get('snippet', '')}\n\n"
         )
 
-    if not snippets_text.strip():
-        snippets_text = "(No web search results available)\n"
+    has_search = bool(snippets_text.strip())
+
+    if has_search:
+        search_instruction = (
+            "Use the web search results below as your primary source. "
+            "For each populated field, include the domain the info came from in "
+            '"source".'
+        )
+    else:
+        search_instruction = (
+            "No web search results are available. Use your general knowledge about "
+            "this product/technology to fill in what you know with reasonable "
+            "confidence. Set confidence lower (0.4-0.6) when relying on general "
+            'knowledge. Set "source" to "general knowledge".'
+        )
 
     system_msg = (
         "You are a metadata extractor for an enterprise architecture management tool. "
-        "Given web search results about a software product or IT asset, extract structured "
+        "Given information about a software product or IT asset, extract structured "
         "metadata for the fields listed below. Return ONLY valid JSON.\n\n"
+        f"{search_instruction}\n\n"
         "Rules:\n"
         "- For select fields, use ONLY the allowed option keys listed.\n"
-        "- Set a field to null if the information is not available.\n"
-        "- Do not guess — only extract what is clearly supported by the search results.\n"
+        "- Set a field to null if you truly have no information.\n"
         '- Include a "description" field with a 2-3 sentence summary.\n'
-        '- For each populated field, include "confidence" (0.0-1.0) and "source" '
-        "(the domain the info came from).\n\n"
+        '- For each populated field, include "confidence" (0.0-1.0) and "source".\n\n'
         f"Available fields:\n{field_desc}\n\n"
         "Response format (JSON):\n"
         "{\n"
@@ -214,7 +240,8 @@ def build_llm_prompt(
         user_msg += f"\nSubtype: {subtype}"
     if context:
         user_msg += f"\nAdditional context: {context}"
-    user_msg += f"\n\nWeb search results:\n{snippets_text}"
+    if has_search:
+        user_msg += f"\n\nWeb search results:\n{snippets_text}"
 
     return [
         {"role": "system", "content": system_msg},
@@ -233,7 +260,7 @@ async def call_llm(
     messages: list[dict[str, str]],
 ) -> dict[str, Any]:
     """Call the LLM API (Ollama-compatible /api/chat endpoint)."""
-    client = await _get_client()
+    client = await _get_llm_client()
     url = f"{provider_url.rstrip('/')}/api/chat"
 
     payload = {
@@ -245,7 +272,7 @@ async def call_llm(
     }
 
     try:
-        resp = await client.post(url, json=payload, timeout=60.0)
+        resp = await client.post(url, json=payload)
         resp.raise_for_status()
     except httpx.HTTPError as exc:
         logger.warning("LLM API call failed: %s", exc)
@@ -367,7 +394,9 @@ async def suggest_metadata(
     query = f"{name} software"
     if subtype:
         query += f" {subtype}"
+    logger.info("[ai] Searching for '%s' via %s", query, search_provider)
     search_results = await web_search(query, search_provider, search_url)
+    logger.info("[ai] Search returned %d results", len(search_results))
 
     # Step 2: Build prompt and call LLM
     messages = build_llm_prompt(
@@ -378,10 +407,13 @@ async def suggest_metadata(
         search_results=search_results,
         context=context,
     )
+    logger.info("[ai] Calling LLM %s at %s", model, provider_url)
     raw_response = await call_llm(provider_url, model, messages)
+    logger.info("[ai] LLM returned %d raw keys", len(raw_response))
 
     # Step 3: Validate
     suggestions = validate_suggestions(raw_response, fields_schema)
+    logger.info("[ai] Validated to %d suggestions", len(suggestions))
 
     # Build source list from search results
     sources = [
