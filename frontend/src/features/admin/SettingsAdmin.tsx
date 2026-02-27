@@ -24,12 +24,13 @@ import { useMetamodel } from "@/hooks/useMetamodel";
 import { useEnabledLocales } from "@/hooks/useEnabledLocales";
 import { SUPPORTED_LOCALES, LOCALE_LABELS, type SupportedLocale } from "@/i18n";
 
+const AuthAdmin = lazy(() => import("./AuthAdmin"));
 const EolAdmin = lazy(() => import("./EolAdmin"));
 const WebPortalsAdmin = lazy(() => import("./WebPortalsAdmin"));
 const ServiceNowAdmin = lazy(() => import("./ServiceNowAdmin"));
 const AiAdmin = lazy(() => import("./AiAdmin"));
 
-const TAB_KEYS = ["general", "ai", "eol", "web-portals", "servicenow"];
+const TAB_KEYS = ["general", "authentication", "ai", "eol", "web-portals", "servicenow"];
 
 function TabLoader() {
   return (
@@ -87,13 +88,6 @@ interface FaviconInfo {
   mime_type: string;
 }
 
-interface SsoSettings {
-  enabled: boolean;
-  client_id: string;
-  client_secret: string;
-  tenant_id: string;
-}
-
 function SectionHeader({ children }: { children: React.ReactNode }) {
   return (
     <Typography
@@ -145,21 +139,10 @@ function GeneralTab() {
   const [bpmEnabled, setBpmEnabled] = useState(true);
   const [savingBpm, setSavingBpm] = useState(false);
 
-  // Registration toggle state
-  const [registrationEnabled, setRegistrationEnabled] = useState(true);
-  const [savingRegistration, setSavingRegistration] = useState(false);
-
   // Enabled locales state
   const { enabledLocales: cachedLocales, invalidateEnabledLocales } = useEnabledLocales();
   const [enabledLocales, setEnabledLocales] = useState<SupportedLocale[]>([...SUPPORTED_LOCALES]);
   const [savingLocales, setSavingLocales] = useState(false);
-
-  // SSO state
-  const [ssoEnabled, setSsoEnabled] = useState(false);
-  const [ssoClientId, setSsoClientId] = useState("");
-  const [ssoClientSecret, setSsoClientSecret] = useState("");
-  const [ssoTenantId, setSsoTenantId] = useState("organizations");
-  const [savingSso, setSavingSso] = useState(false);
 
   const [smtpHost, setSmtpHost] = useState("");
   const [smtpPort, setSmtpPort] = useState(587);
@@ -181,11 +164,9 @@ function GeneralTab() {
       api.get<FaviconInfo>("/settings/favicon/info"),
       api.get<{ currency: string }>("/settings/currency"),
       api.get<{ enabled: boolean }>("/settings/bpm-enabled"),
-      api.get<SsoSettings>("/settings/sso"),
-      api.get<{ enabled: boolean }>("/settings/registration"),
       api.get<{ locales: string[] }>("/settings/enabled-locales"),
     ])
-      .then(([emailData, logoData, faviconData, currencyData, bpmData, ssoData, regData, localesData]) => {
+      .then(([emailData, logoData, faviconData, currencyData, bpmData, localesData]) => {
         setSmtpHost(emailData.smtp_host);
         setSmtpPort(emailData.smtp_port);
         setSmtpUser(emailData.smtp_user);
@@ -198,11 +179,6 @@ function GeneralTab() {
         setHasCustomFavicon(faviconData.has_custom_favicon);
         setSelectedCurrency(currencyData.currency);
         setBpmEnabled(bpmData.enabled);
-        setSsoEnabled(ssoData.enabled);
-        setSsoClientId(ssoData.client_id);
-        setSsoClientSecret(ssoData.client_secret);
-        setSsoTenantId(ssoData.tenant_id);
-        setRegistrationEnabled(regData.enabled);
         const validLocales = (localesData.locales || []).filter((l: string): l is SupportedLocale =>
           (SUPPORTED_LOCALES as readonly string[]).includes(l),
         );
@@ -339,38 +315,6 @@ function GeneralTab() {
       setError(e instanceof Error ? e.message : t("common:errors.generic"));
     } finally {
       setSavingBpm(false);
-    }
-  };
-
-  const handleRegistrationToggle = async (enabled: boolean) => {
-    setSavingRegistration(true);
-    setError("");
-    try {
-      await api.patch("/settings/registration", { enabled });
-      setRegistrationEnabled(enabled);
-      setSnack(enabled ? t("settings.registration.enabledSuccess") : t("settings.registration.disabledSuccess"));
-    } catch (e) {
-      setError(e instanceof Error ? e.message : t("common:errors.generic"));
-    } finally {
-      setSavingRegistration(false);
-    }
-  };
-
-  const handleSsoSave = async () => {
-    setSavingSso(true);
-    setError("");
-    try {
-      await api.patch("/settings/sso", {
-        enabled: ssoEnabled,
-        client_id: ssoClientId,
-        client_secret: ssoClientSecret,
-        tenant_id: ssoTenantId,
-      });
-      setSnack(t("settings.sso.savedSuccess"));
-    } catch (e) {
-      setError(e instanceof Error ? e.message : t("common:errors.generic"));
-    } finally {
-      setSavingSso(false);
     }
   };
 
@@ -733,125 +677,6 @@ function GeneralTab() {
         />
       </Paper>
 
-      {/* ── Authentication ────────────────────────────────────────── */}
-      <SectionHeader>{t("settings.section.authentication")}</SectionHeader>
-
-      {/* Self-Registration Toggle */}
-      <Paper sx={{ p: 3, mb: 3 }}>
-        <Box sx={{ display: "flex", alignItems: "center", mb: 2, gap: 1 }}>
-          <MaterialSymbol icon="person_add" size={22} color="#555" />
-          <Typography variant="h6" fontWeight={600}>
-            {t("settings.registration.title")}
-          </Typography>
-          <Chip
-            label={registrationEnabled ? t("settings.bpm.enabled") : t("settings.bpm.disabled")}
-            size="small"
-            color={registrationEnabled ? "success" : "default"}
-            sx={{ ml: 1 }}
-          />
-        </Box>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          {t("settings.registration.description")}
-        </Typography>
-        <FormControlLabel
-          control={
-            <Switch
-              checked={registrationEnabled}
-              onChange={(e) => handleRegistrationToggle(e.target.checked)}
-              disabled={savingRegistration || ssoEnabled}
-            />
-          }
-          label={
-            ssoEnabled
-              ? t("settings.registration.managedBySso")
-              : registrationEnabled
-                ? t("settings.registration.usersCanRegister")
-                : t("settings.registration.onlyAdmins")
-          }
-        />
-      </Paper>
-
-      {/* SSO / Entra ID Settings */}
-      <Paper sx={{ p: 3, mb: 3 }}>
-        <Box sx={{ display: "flex", alignItems: "center", mb: 2, gap: 1 }}>
-          <MaterialSymbol icon="shield_person" size={22} color="#555" />
-          <Typography variant="h6" fontWeight={600}>
-            {t("settings.sso.title")}
-          </Typography>
-          <Chip
-            label={ssoEnabled ? t("settings.bpm.enabled") : t("settings.bpm.disabled")}
-            size="small"
-            color={ssoEnabled ? "success" : "default"}
-            sx={{ ml: 1 }}
-          />
-        </Box>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-          {t("settings.sso.description")}
-        </Typography>
-
-        <FormControlLabel
-          control={
-            <Switch
-              checked={ssoEnabled}
-              onChange={(e) => setSsoEnabled(e.target.checked)}
-            />
-          }
-          label={ssoEnabled ? t("settings.sso.enabled") : t("settings.sso.disabled")}
-          sx={{ mb: 2 }}
-        />
-
-        {ssoEnabled && (
-          <>
-            <TextField
-              label={t("settings.sso.clientId")}
-              fullWidth
-              value={ssoClientId}
-              onChange={(e) => setSsoClientId(e.target.value)}
-              placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
-              helperText={t("settings.sso.clientIdHelper")}
-              sx={{ mb: 2 }}
-            />
-            <TextField
-              label={t("settings.sso.clientSecret")}
-              fullWidth
-              type="password"
-              value={ssoClientSecret}
-              onChange={(e) => setSsoClientSecret(e.target.value)}
-              helperText={t("settings.sso.clientSecretHelper")}
-              sx={{ mb: 2 }}
-            />
-            <TextField
-              label={t("settings.sso.tenantId")}
-              fullWidth
-              value={ssoTenantId}
-              onChange={(e) => setSsoTenantId(e.target.value)}
-              placeholder="organizations"
-              helperText={t("settings.sso.tenantIdHelper")}
-              sx={{ mb: 2 }}
-            />
-            <Alert severity="info" sx={{ mb: 2 }}>
-              <Typography variant="body2">
-                <strong>{t("settings.sso.redirectUri")}</strong>: {t("settings.sso.redirectUriHint")}{" "}
-                <code>{window.location.origin}/auth/callback</code>
-              </Typography>
-            </Alert>
-          </>
-        )}
-
-        <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
-          <Button
-            variant="contained"
-            size="small"
-            startIcon={<MaterialSymbol icon="save" size={18} />}
-            sx={{ textTransform: "none" }}
-            onClick={handleSsoSave}
-            disabled={savingSso}
-          >
-            {savingSso ? t("common:labels.loading") : t("common:actions.save")}
-          </Button>
-        </Box>
-      </Paper>
-
       {/* ── Email ─────────────────────────────────────────────────── */}
       <SectionHeader>{t("settings.section.email")}</SectionHeader>
 
@@ -996,6 +821,7 @@ export default function SettingsAdmin() {
 
   const TAB_LABELS = [
     t("settings.tabs.general"),
+    t("settings.tabs.authentication"),
     t("settings.tabs.ai"),
     t("settings.tabs.eol"),
     t("settings.tabs.webPortals"),
@@ -1035,20 +861,25 @@ export default function SettingsAdmin() {
       {tabIndex === 0 && <GeneralTab />}
       {tabIndex === 1 && (
         <Suspense fallback={<TabLoader />}>
-          <AiAdmin />
+          <AuthAdmin />
         </Suspense>
       )}
       {tabIndex === 2 && (
         <Suspense fallback={<TabLoader />}>
-          <EolAdmin />
+          <AiAdmin />
         </Suspense>
       )}
       {tabIndex === 3 && (
         <Suspense fallback={<TabLoader />}>
-          <WebPortalsAdmin />
+          <EolAdmin />
         </Suspense>
       )}
       {tabIndex === 4 && (
+        <Suspense fallback={<TabLoader />}>
+          <WebPortalsAdmin />
+        </Suspense>
+      )}
+      {tabIndex === 5 && (
         <Suspense fallback={<TabLoader />}>
           <ServiceNowAdmin />
         </Suspense>

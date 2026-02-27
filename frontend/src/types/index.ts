@@ -73,9 +73,13 @@ export interface CardEffectivePermissions {
 
 export interface SsoConfig {
   enabled: boolean;
+  provider?: string;
+  provider_name?: string;
   client_id?: string;
   tenant_id?: string;
   authorization_endpoint?: string;
+  scopes?: string;
+  extra_auth_params?: Record<string, string>;
   registration_enabled?: boolean;
 }
 

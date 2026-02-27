@@ -5,14 +5,31 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.22.1] - 2026-02-27
+
+### Fixed
+- Auth cookie now detects HTTPS via X-Forwarded-Proto header instead of hardcoding Secure flag based on ENVIRONMENT, fixing login failures on HTTP deployments (e.g. local networks without TLS)
+
+### Added
+- Manual OIDC endpoint configuration (authorization, token, JWKS URI) as fallback when the backend cannot reach the provider's discovery document (e.g. Docker networking or self-signed certificates)
+- Admin ability to change a user's authentication method (Local / SSO) in the edit dialog, enabling linking of existing local accounts to SSO
+- Invitation email now uses the actual configured SSO provider name instead of hardcoded provider references
+
 ## [0.22.0] - 2026-02-27
 
 ### Added
+- Support for multiple SSO identity providers: Google Workspace, Okta, and Generic OIDC, in addition to the existing Microsoft Entra ID
+- Dedicated Authentication tab in admin settings for SSO and registration configuration
+- Provider-specific login button with appropriate branding on the sign-in page
+- Google hosted domain restriction and Okta domain configuration options
+- Generic OIDC provider with automatic discovery document support
 - Support for commercial LLM providers (OpenAI, Google Gemini, Azure OpenAI, OpenRouter, Anthropic Claude) for AI description suggestions
 - Encrypted API key storage for commercial LLM providers
 - Provider type selector in AI admin settings with conditional form fields
 
 ### Changed
+- SSO and self-registration settings moved from the General tab to a new Authentication tab
+- SSO login button now shows the configured provider name instead of always displaying Microsoft
 - Simplified AI search provider — DuckDuckGo is always used automatically for web context
 - AI admin UI now shows provider-specific fields (URL, API key, model placeholders) based on selected provider type
 

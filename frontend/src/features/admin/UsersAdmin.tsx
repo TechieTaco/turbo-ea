@@ -54,6 +54,7 @@ interface EditFormState {
   display_name: string;
   password: string;
   role: string;
+  auth_provider: string;
 }
 
 export default function UsersAdmin() {
@@ -77,6 +78,7 @@ export default function UsersAdmin() {
     display_name: "",
     password: "",
     role: "member",
+    auth_provider: "local",
   });
   const [editError, setEditError] = useState<string | null>(null);
   const [editSubmitting, setEditSubmitting] = useState(false);
@@ -220,6 +222,7 @@ export default function UsersAdmin() {
       display_name: user.display_name,
       password: "",
       role: user.role,
+      auth_provider: user.auth_provider || "local",
     });
     setEditError(null);
     setEditOpen(true);
@@ -235,6 +238,7 @@ export default function UsersAdmin() {
       email: editForm.email.trim(),
       display_name: editForm.display_name.trim(),
       role: editForm.role,
+      auth_provider: editForm.auth_provider,
     };
     if (editForm.password) {
       payload.password = editForm.password;
@@ -306,7 +310,7 @@ export default function UsersAdmin() {
     return <Chip size="small" label={roleKey} variant="outlined" />;
   };
 
-  const isEditingSsoUser = editingUser?.auth_provider === "sso";
+  const isEditingSsoUser = editForm.auth_provider === "sso";
 
   // Helper to get auth status chip
   const getAuthChip = (u: User) => {
@@ -715,6 +719,25 @@ export default function UsersAdmin() {
               required
               size="small"
             />
+            {ssoEnabled && (
+              <FormControl fullWidth size="small">
+                <InputLabel>{t("users.edit.authMethod")}</InputLabel>
+                <Select
+                  label={t("users.edit.authMethod")}
+                  value={editForm.auth_provider}
+                  onChange={(e) =>
+                    setEditForm((p) => ({
+                      ...p,
+                      auth_provider: e.target.value as string,
+                      password: "",
+                    }))
+                  }
+                >
+                  <MenuItem value="local">{t("users.auth.local")}</MenuItem>
+                  <MenuItem value="sso">{t("users.auth.sso")}</MenuItem>
+                </Select>
+              </FormControl>
+            )}
             {!isEditingSsoUser && (
               <TextField
                 label={t("users.edit.passwordKeep")}
