@@ -253,9 +253,7 @@ async def login(
         raise HTTPException(401, "Invalid credentials")
     # Block password login for SSO-only users
     if user.auth_provider == "sso":
-        raise HTTPException(
-            403, "This account uses SSO authentication. Please sign in via SSO."
-        )
+        raise HTTPException(403, "This account uses SSO authentication. Please sign in via SSO.")
     if not user.password_hash:
         if user.password_setup_token:
             raise HTTPException(
