@@ -5,6 +5,15 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.22.0] - 2026-02-27
+
+### Added
+- MCP server for AI tool integration — allows Claude, Copilot, Cursor, and other AI tools to query Turbo EA data with per-user RBAC
+- SSO-delegated OAuth 2.1 authentication for MCP — users authenticate via their existing corporate SSO provider (Entra ID, Google, Okta, or generic OIDC)
+- Automatic token refresh for MCP sessions — users stay connected without re-authentication
+- Admin MCP integration settings with enable/disable toggle and setup instructions
+- `admin.mcp` permission key for managing MCP settings
+
 ## [0.21.0] - 2026-02-26
 
 ### Changed
