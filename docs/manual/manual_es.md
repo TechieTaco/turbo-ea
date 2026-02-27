@@ -19,6 +19,9 @@
 9. [Entrega EA](#9-entrega-ea)
 10. [Tareas y Encuestas](#10-tareas-y-encuestas)
 11. [Administración](#11-administración)
+    - [Metamodelo](#111-metamodelo)
+    - [Usuarios y Roles](#112-usuarios-y-roles)
+    - [Autenticación y SSO](#113-autenticación-y-sso)
 12. [Glosario de Términos](#12-glosario-de-términos)
 
 ---
@@ -70,9 +73,26 @@ Al acceder a la plataforma, se muestra la pantalla de inicio de sesión donde de
 
 **Nota importante:** El primer usuario que se registre en la plataforma recibirá automáticamente el rol de **Administrador**, lo que le permite configurar todo el sistema.
 
+### Inicio de Sesión con SSO (Single Sign-On)
+
+Si su organización ha configurado SSO, aparecerá un botón **Iniciar sesión con [Proveedor]** en la página de inicio de sesión debajo del formulario de contraseña. La etiqueta del botón muestra el nombre del proveedor configurado (por ejemplo, "Iniciar sesión con Microsoft", "Iniciar sesión con Okta", "Iniciar sesión con SSO").
+
+**Pasos para iniciar sesión con SSO:**
+
+1. Abra su navegador web e ingrese la URL de la plataforma
+2. Haga clic en el botón **Iniciar sesión con [Proveedor]**
+3. Será redirigido a la página de inicio de sesión de su proveedor de identidad (por ejemplo, Microsoft Entra ID, Google Workspace, Okta o el proveedor OIDC de su organización)
+4. Autentíquese con sus credenciales corporativas
+5. Después de la autenticación exitosa, será redirigido de vuelta a Turbo EA e iniciará sesión automáticamente
+
+**Notas:**
+- Si su cuenta aún no existe en Turbo EA, se creará automáticamente en el primer inicio de sesión con SSO (si el auto-registro está habilitado) o se vinculará a una invitación previamente creada
+- Si un administrador ya lo ha invitado por correo electrónico, su inicio de sesión con SSO se vinculará a esa cuenta y heredará el rol preasignado
+- Los usuarios de SSO pueden tener una contraseña local como respaldo, si lo configura el administrador
+
 ### Registro de Nuevos Usuarios
 
-Si es la primera vez que accede a la plataforma, puede registrarse haciendo clic en "Registrarse". Los administradores también pueden invitar usuarios desde el panel de administración.
+Si es la primera vez que accede a la plataforma, puede registrarse haciendo clic en "Registrarse". Los administradores también pueden invitar usuarios desde el panel de administración (consulte [Usuarios y Roles](#112-usuarios-y-roles)).
 
 ### Cambio de Idioma
 
@@ -373,7 +393,125 @@ El **Metamodelo** define la estructura de la plataforma. Pestañas: **Tipos de F
 
 ![Gestión de Usuarios y Roles](img/es/21_admin_usuarios.png)
 
-Gestione usuarios (Nombre, Correo, Rol, Autenticación, Estado) e invite nuevos miembros. Roles: **Administrador** (acceso total), **Editor** (crear/modificar), **Visor** (solo lectura), y roles personalizados.
+La página **Usuarios y Roles** tiene dos pestañas: **Usuarios** (gestionar cuentas) y **Roles** (gestionar permisos).
+
+#### Tabla de Usuarios
+
+La lista de usuarios muestra todas las cuentas registradas con las siguientes columnas:
+
+| Columna | Descripción |
+|---------|-------------|
+| **Nombre** | Nombre visible del usuario |
+| **Correo** | Dirección de correo electrónico (utilizada para iniciar sesión) |
+| **Rol** | Rol asignado (seleccionable directamente mediante un desplegable) |
+| **Autenticación** | Método de autenticación: "Local", "SSO", "SSO + Contraseña" o "Configuración pendiente" |
+| **Estado** | Activo o Desactivado |
+| **Acciones** | Editar, activar/desactivar o eliminar el usuario |
+
+#### Invitar a un Nuevo Usuario
+
+1. Haga clic en el botón **Invitar usuario** (esquina superior derecha)
+2. Complete el formulario:
+   - **Nombre** (obligatorio): El nombre completo del usuario
+   - **Correo electrónico** (obligatorio): La dirección de correo que utilizará para iniciar sesión
+   - **Contraseña** (opcional): Si se deja en blanco y SSO está deshabilitado, el usuario recibe un correo con un enlace para configurar su contraseña. Si SSO está habilitado, el usuario puede iniciar sesión a través de su proveedor SSO sin contraseña
+   - **Rol**: Seleccione el rol a asignar (Administrador, Miembro, Visor o cualquier rol personalizado)
+   - **Enviar correo de invitación**: Marque esta opción para enviar un correo de notificación al usuario con instrucciones de acceso
+3. Haga clic en **Invitar usuario** para crear la cuenta
+
+**Lo que sucede internamente:**
+- Se crea una cuenta de usuario en el sistema
+- También se crea un registro de invitación SSO, de modo que si el usuario inicia sesión a través de SSO, recibirá automáticamente el rol preasignado
+- Si no se establece una contraseña y SSO está deshabilitado, se genera un token de configuración de contraseña. El usuario puede configurar su contraseña siguiendo el enlace en el correo de invitación
+
+#### Editar un Usuario
+
+Haga clic en el **icono de edición** en cualquier fila de usuario para abrir el diálogo de edición. Puede cambiar:
+
+- **Nombre** y **Correo electrónico**
+- **Método de autenticación** (visible solo cuando SSO está habilitado): Cambiar entre "Local" y "SSO". Esto permite a los administradores convertir una cuenta local existente a SSO, o viceversa. Al cambiar a SSO, la cuenta se vinculará automáticamente cuando el usuario inicie sesión a través de su proveedor SSO
+- **Contraseña** (solo para usuarios locales): Establecer una nueva contraseña. Dejar en blanco para mantener la contraseña actual
+- **Rol**: Cambiar el rol del usuario a nivel de aplicación
+
+#### Vincular una Cuenta Local Existente a SSO
+
+Si un usuario ya tiene una cuenta local y su organización habilita SSO, el usuario verá el error "Ya existe una cuenta local con este correo electrónico" cuando intente iniciar sesión a través de SSO. Para resolver esto:
+
+1. Vaya a **Admin > Usuarios**
+2. Haga clic en el **icono de edición** junto al usuario
+3. Cambie el **Método de autenticación** de "Local" a "SSO"
+4. Haga clic en **Guardar cambios**
+5. El usuario ahora puede iniciar sesión a través de SSO. Su cuenta se vinculará automáticamente en el primer inicio de sesión con SSO
+
+#### Invitaciones Pendientes
+
+Debajo de la tabla de usuarios, una sección de **Invitaciones pendientes** muestra todas las invitaciones que aún no han sido aceptadas. Cada invitación muestra el correo electrónico, el rol preasignado y la fecha de invitación. Puede revocar una invitación haciendo clic en el icono de eliminar.
+
+#### Roles
+
+La pestaña **Roles** permite gestionar los roles a nivel de aplicación. Cada rol define un conjunto de permisos que controlan lo que los usuarios con ese rol pueden hacer. Roles predeterminados:
+
+| Rol | Descripción |
+|-----|-------------|
+| **Administrador** | Acceso total a todas las funciones y administración |
+| **BPM Admin** | Permisos completos de BPM más acceso al inventario, sin configuración de administración |
+| **Miembro** | Crear, editar y gestionar fichas, relaciones y comentarios. Sin acceso de administración |
+| **Visor** | Acceso de solo lectura en todas las áreas |
+
+Se pueden crear roles personalizados con control granular de permisos sobre inventario, relaciones, partes interesadas, comentarios, documentos, diagramas, BPM, informes y más.
+
+### 11.3 Autenticación y SSO
+
+La pestaña **Autenticación** en Configuración permite a los administradores configurar cómo los usuarios inician sesión en la plataforma.
+
+#### Auto-registro
+
+- **Permitir auto-registro**: Cuando está habilitado, los nuevos usuarios pueden crear cuentas haciendo clic en "Registrarse" en la página de inicio de sesión. Cuando está deshabilitado, solo los administradores pueden crear cuentas a través del flujo de Invitar usuario.
+
+#### Configuración de SSO (Single Sign-On)
+
+SSO permite a los usuarios iniciar sesión utilizando su proveedor de identidad corporativo en lugar de una contraseña local. Turbo EA soporta cuatro proveedores de SSO:
+
+| Proveedor | Descripción |
+|-----------|-------------|
+| **Microsoft Entra ID** | Para organizaciones que utilizan Microsoft 365 / Azure AD |
+| **Google Workspace** | Para organizaciones que utilizan Google Workspace |
+| **Okta** | Para organizaciones que utilizan Okta como plataforma de identidad |
+| **OIDC Genérico** | Para cualquier proveedor compatible con OpenID Connect (por ejemplo, Authentik, Keycloak, Auth0) |
+
+**Pasos para configurar SSO:**
+
+1. Vaya a **Admin > Configuración > Autenticación**
+2. Active **Habilitar SSO**
+3. Seleccione su **Proveedor SSO** en el desplegable
+4. Ingrese las credenciales requeridas de su proveedor de identidad:
+   - **Client ID**: El ID de aplicación/cliente de su proveedor de identidad
+   - **Client Secret**: El secreto de la aplicación (almacenado cifrado en la base de datos)
+   - Campos específicos del proveedor:
+     - **Microsoft**: Tenant ID (por ejemplo, `su-tenant-id` o `common` para multi-tenant)
+     - **Google**: Dominio alojado (opcional, restringe el inicio de sesión a un dominio específico de Google Workspace)
+     - **Okta**: Dominio de Okta (por ejemplo, `su-org.okta.com`)
+     - **OIDC Genérico**: URL del emisor (por ejemplo, `https://auth.ejemplo.com/application/o/mi-app/`). Para OIDC genérico, el sistema intenta el descubrimiento automático a través del endpoint `.well-known/openid-configuration`
+5. Haga clic en **Guardar**
+
+**Endpoints OIDC manuales (Avanzado):**
+
+Si el backend no puede acceder al documento de descubrimiento de su proveedor de identidad (por ejemplo, debido a la red de Docker o certificados autofirmados), puede especificar manualmente los endpoints OIDC:
+
+- **Authorization Endpoint**: La URL donde los usuarios son redirigidos para autenticarse
+- **Token Endpoint**: La URL utilizada para intercambiar el código de autorización por tokens
+- **JWKS URI**: La URL del JSON Web Key Set utilizado para verificar las firmas de los tokens
+
+Estos campos son opcionales. Si se dejan en blanco, el sistema utiliza el descubrimiento automático. Cuando se completan, anulan los valores descubiertos automáticamente.
+
+**Probar SSO:**
+
+Después de guardar, abra una nueva pestaña del navegador (o ventana de incógnito) y verifique que el botón de inicio de sesión con SSO aparece en la página de inicio de sesión y que la autenticación funciona de extremo a extremo.
+
+**Notas importantes:**
+- El **Client Secret** se almacena cifrado en la base de datos y nunca se expone en las respuestas de la API
+- Cuando SSO está habilitado, el inicio de sesión con contraseña local permanece disponible como respaldo
+- Puede configurar la URI de redirección en su proveedor de identidad como: `https://su-dominio-turbo-ea/auth/callback`
 
 ---
 
@@ -395,6 +533,6 @@ Gestione usuarios (Nombre, Correo, Rol, Autenticación, Estado) e invite nuevos 
 
 ---
 
-**Turbo EA v0.21.0** | Plataforma de Gestión de Arquitectura Empresarial
+**Turbo EA v0.22.1** | Plataforma de Gestión de Arquitectura Empresarial
 
 *Este manual fue generado para la evaluación de la plataforma por directivos.*
