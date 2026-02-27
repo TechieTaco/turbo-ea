@@ -19,6 +19,9 @@
 9. [EA Delivery](#9-ea-delivery)
 10. [Tasks and Surveys](#10-tasks-and-surveys)
 11. [Administration](#11-administration)
+    - [Metamodel](#111-metamodel)
+    - [Users & Roles](#112-users--roles)
+    - [Authentication & SSO](#113-authentication--sso)
 12. [Glossary of Terms](#12-glossary-of-terms)
 
 ---
@@ -70,9 +73,26 @@ When accessing the platform, the login screen is displayed where you must enter 
 
 **Important note:** The first user to register on the platform automatically receives the **Administrator** role, which allows them to configure the entire system.
 
+### Logging In with SSO (Single Sign-On)
+
+If your organization has configured SSO, a **Sign in with [Provider]** button appears on the login page below the password form. The button label shows the configured provider name (e.g., "Sign in with Microsoft", "Sign in with Okta", "Sign in with SSO").
+
+**Steps to log in with SSO:**
+
+1. Open your web browser and enter the platform URL
+2. Click the **Sign in with [Provider]** button
+3. You will be redirected to your identity provider's login page (e.g., Microsoft Entra ID, Google Workspace, Okta, or your organization's OIDC provider)
+4. Authenticate with your corporate credentials
+5. After successful authentication, you are redirected back to Turbo EA and logged in automatically
+
+**Notes:**
+- If your account does not yet exist in Turbo EA, it will be created automatically on first SSO login (if self-registration is enabled) or matched to a pre-created invitation
+- If an administrator has already invited you by email, your SSO login will be linked to that account and you will inherit the pre-assigned role
+- SSO users can still have a local password set as a fallback, if configured by the administrator
+
 ### Registering New Users
 
-If this is your first time accessing the platform, you can register by clicking "Sign Up". Administrators can also invite users from the administration panel.
+If this is your first time accessing the platform, you can register by clicking "Sign Up". Administrators can also invite users from the administration panel (see [Users & Roles](#112-users--roles)).
 
 ### Changing Language
 
@@ -373,7 +393,125 @@ The **Metamodel** defines the platform's structure. Tabs: **Card Types**, **Rela
 
 ![User and Role Management](img/en/21_admin_users.png)
 
-Manage users (Name, Email, Role, Auth, Status) and invite new members. Roles: **Admin** (full access), **Editor** (create/modify), **Viewer** (read-only), and custom roles.
+The **Users & Roles** page has two tabs: **Users** (manage accounts) and **Roles** (manage permissions).
+
+#### User Table
+
+The user list displays all registered accounts with the following columns:
+
+| Column | Description |
+|--------|-------------|
+| **Name** | User's display name |
+| **Email** | Email address (used for login) |
+| **Role** | Assigned role (selectable inline via dropdown) |
+| **Auth** | Authentication method: "Local", "SSO", "SSO + Password", or "Pending Setup" |
+| **Status** | Active or Disabled |
+| **Actions** | Edit, activate/deactivate, or delete the user |
+
+#### Inviting a New User
+
+1. Click the **Invite User** button (top right)
+2. Fill in the form:
+   - **Display Name** (required): The user's full name
+   - **Email** (required): The email address they will use to log in
+   - **Password** (optional): If left blank and SSO is disabled, the user receives an email with a password setup link. If SSO is enabled, the user can sign in via their SSO provider without a password
+   - **Role**: Select the role to assign (Admin, Member, Viewer, or any custom role)
+   - **Send invitation email**: Check this to send an email notification to the user with login instructions
+3. Click **Invite User** to create the account
+
+**What happens behind the scenes:**
+- A user account is created in the system
+- An SSO invitation record is also created, so if the user logs in via SSO, they automatically receive the pre-assigned role
+- If no password is set and SSO is disabled, a password setup token is generated. The user can set their password by following the link in the invitation email
+
+#### Editing a User
+
+Click the **edit icon** on any user row to open the Edit User dialog. You can change:
+
+- **Display Name** and **Email**
+- **Authentication Method** (visible only when SSO is enabled): Switch between "Local" and "SSO". This allows administrators to convert an existing local account to SSO, or vice versa. When switching to SSO, the account will be automatically linked when the user next logs in via their SSO provider
+- **Password** (only for Local users): Set a new password. Leave blank to keep the current password
+- **Role**: Change the user's application-level role
+
+#### Linking an Existing Local Account to SSO
+
+If a user already has a local account and your organization enables SSO, the user will see the error "A local account with this email already exists" when they try to log in via SSO. To resolve this:
+
+1. Go to **Admin > Users**
+2. Click the **edit icon** next to the user
+3. Change the **Authentication Method** from "Local" to "SSO"
+4. Click **Save Changes**
+5. The user can now log in via SSO. Their account will be automatically linked on first SSO login
+
+#### Pending Invitations
+
+Below the user table, a **Pending Invitations** section shows all invitations that have not yet been accepted. Each invitation shows the email, pre-assigned role, and invitation date. You can revoke an invitation by clicking the delete icon.
+
+#### Roles
+
+The **Roles** tab allows managing application-level roles. Each role defines a set of permissions that control what users with that role can do. Default roles:
+
+| Role | Description |
+|------|-------------|
+| **Admin** | Full access to all features and administration |
+| **BPM Admin** | Full BPM permissions plus inventory access, no admin settings |
+| **Member** | Create, edit, and manage cards, relations, and comments. No admin access |
+| **Viewer** | Read-only access across all areas |
+
+Custom roles can be created with granular permission control over inventory, relations, stakeholders, comments, documents, diagrams, BPM, reports, and more.
+
+### 11.3 Authentication & SSO
+
+The **Authentication** tab in Settings allows administrators to configure how users sign in to the platform.
+
+#### Self-Registration
+
+- **Allow self-registration**: When enabled, new users can create accounts by clicking "Sign Up" on the login page. When disabled, only administrators can create accounts via the Invite User flow.
+
+#### SSO (Single Sign-On) Configuration
+
+SSO allows users to sign in using their corporate identity provider instead of a local password. Turbo EA supports four SSO providers:
+
+| Provider | Description |
+|----------|-------------|
+| **Microsoft Entra ID** | For organizations using Microsoft 365 / Azure AD |
+| **Google Workspace** | For organizations using Google Workspace |
+| **Okta** | For organizations using Okta as their identity platform |
+| **Generic OIDC** | For any OpenID Connect-compatible provider (e.g., Authentik, Keycloak, Auth0) |
+
+**Steps to configure SSO:**
+
+1. Go to **Admin > Settings > Authentication**
+2. Toggle **Enable SSO** to on
+3. Select your **SSO Provider** from the dropdown
+4. Enter the required credentials from your identity provider:
+   - **Client ID**: The application/client ID from your identity provider
+   - **Client Secret**: The application secret (stored encrypted in the database)
+   - Provider-specific fields:
+     - **Microsoft**: Tenant ID (e.g., `your-tenant-id` or `common` for multi-tenant)
+     - **Google**: Hosted Domain (optional, restricts login to a specific Google Workspace domain)
+     - **Okta**: Okta Domain (e.g., `your-org.okta.com`)
+     - **Generic OIDC**: Issuer URL (e.g., `https://auth.example.com/application/o/my-app/`). For Generic OIDC, the system attempts auto-discovery via the `.well-known/openid-configuration` endpoint
+5. Click **Save**
+
+**Manual OIDC Endpoints (Advanced):**
+
+If the backend cannot reach your identity provider's discovery document (e.g., due to Docker networking or self-signed certificates), you can manually specify the OIDC endpoints:
+
+- **Authorization Endpoint**: The URL where users are redirected to authenticate
+- **Token Endpoint**: The URL used to exchange the authorization code for tokens
+- **JWKS URI**: The URL for the JSON Web Key Set used to verify token signatures
+
+These fields are optional. If left blank, the system uses auto-discovery. When filled in, they override the auto-discovered values.
+
+**Testing SSO:**
+
+After saving, open a new browser tab (or incognito window) and verify that the SSO login button appears on the login page and that authentication works end-to-end.
+
+**Important notes:**
+- The **Client Secret** is stored encrypted in the database and never exposed in API responses
+- When SSO is enabled, local password login remains available as a fallback
+- You can configure the redirect URI in your identity provider as: `https://your-turbo-ea-domain/auth/callback`
 
 ---
 
@@ -395,6 +533,6 @@ Manage users (Name, Email, Role, Auth, Status) and invite new members. Roles: **
 
 ---
 
-**Turbo EA v0.21.0** | Enterprise Architecture Management Platform
+**Turbo EA v0.22.1** | Enterprise Architecture Management Platform
 
 *This manual was generated for platform evaluation by executives.*
