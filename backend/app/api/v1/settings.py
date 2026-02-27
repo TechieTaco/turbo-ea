@@ -45,9 +45,12 @@ class CurrencyPayload(BaseModel):
 
 class SsoSettingsPayload(BaseModel):
     enabled: bool = False
+    provider: str = "microsoft"  # microsoft | google | okta | oidc
     client_id: str = ""
     client_secret: str = ""
-    tenant_id: str = "organizations"  # "organizations" for multi-tenant, or a specific tenant ID
+    tenant_id: str = "organizations"  # Microsoft: "organizations" or specific tenant ID
+    domain: str = ""  # Google: hosted domain filter; Okta: Okta domain (e.g. dev-12345.okta.com)
+    issuer_url: str = ""  # Generic OIDC: issuer URL (e.g. https://auth.example.com/realms/myapp)
 
 
 DEFAULT_CURRENCY = "USD"
@@ -478,9 +481,12 @@ async def get_sso_settings(
     sso = general.get("sso", {})
     return {
         "enabled": sso.get("enabled", False),
+        "provider": sso.get("provider", "microsoft"),
         "client_id": sso.get("client_id", ""),
         "client_secret": "••••••••" if sso.get("client_secret") else "",
         "tenant_id": sso.get("tenant_id", "organizations"),
+        "domain": sso.get("domain", ""),
+        "issuer_url": sso.get("issuer_url", ""),
     }
 
 
@@ -498,6 +504,12 @@ async def update_sso_settings(
     sso = dict(general.get("sso", {}))
 
     payload = body.model_dump()
+
+    # Validate provider
+    valid_providers = {"microsoft", "google", "okta", "oidc"}
+    if payload.get("provider") and payload["provider"] not in valid_providers:
+        opts = ", ".join(valid_providers)
+        raise HTTPException(400, f"Invalid SSO provider: {opts}")
 
     # Only overwrite client_secret if the caller sends a real value
     if payload.get("client_secret") in ("", "••••••••"):

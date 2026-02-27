@@ -79,28 +79,109 @@ async def _get_sso_config(db: AsyncSession) -> dict:
     return general.get("sso", {})
 
 
-# ── C5: Verify Microsoft id_token signature via JWKS ──
+# ── C5: Verify id_token signature via JWKS (supports multiple providers) ──
 
-_jwks_client: PyJWKClient | None = None
+_jwks_clients: dict[str, PyJWKClient] = {}
 
-
-def _get_jwks_client(tenant: str) -> PyJWKClient:
-    global _jwks_client
-    jwks_url = f"https://login.microsoftonline.com/{tenant}/discovery/v2.0/keys"
-    if _jwks_client is None:
-        _jwks_client = PyJWKClient(jwks_url, cache_keys=True)
-    return _jwks_client
+# OpenID Connect discovery document cache (for Generic OIDC)
+_oidc_discovery_cache: dict[str, dict] = {}
 
 
-def _verify_id_token(token: str, client_id: str, tenant: str) -> dict:
-    jwks_client = _get_jwks_client(tenant)
+def _get_jwks_client(jwks_url: str) -> PyJWKClient:
+    if jwks_url not in _jwks_clients:
+        _jwks_clients[jwks_url] = PyJWKClient(jwks_url, cache_keys=True)
+    return _jwks_clients[jwks_url]
+
+
+async def _discover_oidc(issuer_url: str) -> dict:
+    """Fetch and cache the OpenID Connect discovery document."""
+    if issuer_url in _oidc_discovery_cache:
+        return _oidc_discovery_cache[issuer_url]
+    discovery_url = f"{issuer_url.rstrip('/')}/.well-known/openid-configuration"
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        resp = await client.get(discovery_url)
+        resp.raise_for_status()
+        doc = resp.json()
+        _oidc_discovery_cache[issuer_url] = doc
+        return doc
+
+
+def _get_provider_config(sso: dict) -> dict:
+    """Build provider-specific URLs and settings from the SSO configuration.
+
+    Returns a dict with: authorization_endpoint, token_endpoint, jwks_uri,
+    issuer, scopes, extra_auth_params, subject_claim.
+    """
+    provider = sso.get("provider", "microsoft")
+    tenant = sso.get("tenant_id", "organizations")
+    domain = sso.get("domain", "")
+    issuer_url = sso.get("issuer_url", "")
+
+    if provider == "microsoft":
+        base = f"https://login.microsoftonline.com/{tenant}"
+        return {
+            "authorization_endpoint": f"{base}/oauth2/v2.0/authorize",
+            "token_endpoint": f"{base}/oauth2/v2.0/token",
+            "jwks_uri": f"{base}/discovery/v2.0/keys",
+            "issuer": f"{base}/v2.0",
+            "scopes": "openid email profile",
+            "extra_auth_params": {},
+            "subject_claim": "oid",  # fallback to "sub"
+        }
+    elif provider == "google":
+        cfg = {
+            "authorization_endpoint": "https://accounts.google.com/o/oauth2/v2/auth",
+            "token_endpoint": "https://oauth2.googleapis.com/token",
+            "jwks_uri": "https://www.googleapis.com/oauth2/v3/certs",
+            "issuer": "https://accounts.google.com",
+            "scopes": "openid email profile",
+            "extra_auth_params": {},
+            "subject_claim": "sub",
+        }
+        if domain:
+            cfg["extra_auth_params"]["hd"] = domain
+        return cfg
+    elif provider == "okta":
+        if not domain:
+            raise ValueError("Okta domain is required")
+        base = f"https://{domain}/oauth2/default"
+        return {
+            "authorization_endpoint": f"{base}/v1/authorize",
+            "token_endpoint": f"{base}/v1/token",
+            "jwks_uri": f"{base}/v1/keys",
+            "issuer": base,
+            "scopes": "openid email profile",
+            "extra_auth_params": {},
+            "subject_claim": "sub",
+        }
+    elif provider == "oidc":
+        if not issuer_url:
+            raise ValueError("Issuer URL is required for Generic OIDC")
+        # For OIDC, we return partial config; the discovery document
+        # fills in the actual endpoints at callback time.
+        return {
+            "authorization_endpoint": "",  # filled from discovery
+            "token_endpoint": "",  # filled from discovery
+            "jwks_uri": "",  # filled from discovery
+            "issuer": issuer_url.rstrip("/"),
+            "scopes": "openid email profile",
+            "extra_auth_params": {},
+            "subject_claim": "sub",
+            "discovery_required": True,
+        }
+    else:
+        raise ValueError(f"Unknown SSO provider: {provider}")
+
+
+def _verify_id_token(token: str, client_id: str, jwks_uri: str, issuer: str) -> dict:
+    jwks_client = _get_jwks_client(jwks_uri)
     signing_key = jwks_client.get_signing_key_from_jwt(token)
     return jwt.decode(
         token,
         signing_key.key,
         algorithms=["RS256"],
         audience=client_id,
-        issuer=f"https://login.microsoftonline.com/{tenant}/v2.0",
+        issuer=issuer,
     )
 
 
@@ -132,7 +213,7 @@ async def register(
         sso_config = general.get("sso", {})
         if sso_config.get("enabled"):
             raise HTTPException(
-                403, "Registration is disabled when SSO is enabled. Sign in with Microsoft."
+                403, "Registration is disabled when SSO is enabled. Sign in via SSO."
             )
 
         # Block registration when admin has disabled self-registration
@@ -173,7 +254,7 @@ async def login(
     # Block password login for SSO-only users
     if user.auth_provider == "sso":
         raise HTTPException(
-            403, "This account uses SSO authentication. Please sign in with Microsoft."
+            403, "This account uses SSO authentication. Please sign in via SSO."
         )
     if not user.password_hash:
         if user.password_setup_token:
@@ -246,10 +327,18 @@ async def refresh_token(
 # ---------------------------------------------------------------------------
 
 
+PROVIDER_LABELS = {
+    "microsoft": "Microsoft",
+    "google": "Google",
+    "okta": "Okta",
+    "oidc": "SSO",
+}
+
+
 @router.get("/sso/config")
 async def sso_config_endpoint(db: AsyncSession = Depends(get_db)):
     """Public endpoint — returns SSO configuration needed by the frontend to
-    build the Microsoft authorization URL. No secrets are exposed.
+    build the authorization URL. No secrets are exposed.
     Also includes registration_enabled so the login page knows whether to
     show the Register tab."""
     general = await _get_general_settings(db)
@@ -259,18 +348,42 @@ async def sso_config_endpoint(db: AsyncSession = Depends(get_db)):
     if not sso.get("enabled"):
         return {"enabled": False, "registration_enabled": registration_enabled}
 
-    tenant = sso.get("tenant_id", "organizations")
+    provider = sso.get("provider", "microsoft")
     client_id = sso.get("client_id", "")
 
-    return {
+    try:
+        provider_cfg = _get_provider_config(sso)
+    except ValueError as exc:
+        logger.error("SSO provider config error: %s", exc)
+        return {"enabled": False, "registration_enabled": registration_enabled}
+
+    auth_endpoint = provider_cfg["authorization_endpoint"]
+
+    # For Generic OIDC, fetch discovery document to get the authorization endpoint
+    if provider_cfg.get("discovery_required"):
+        issuer_url = sso.get("issuer_url", "")
+        try:
+            discovery = await _discover_oidc(issuer_url)
+            auth_endpoint = discovery["authorization_endpoint"]
+        except Exception:
+            logger.exception("Failed to fetch OIDC discovery document")
+            return {"enabled": False, "registration_enabled": registration_enabled}
+
+    result = {
         "enabled": True,
+        "provider": provider,
+        "provider_name": PROVIDER_LABELS.get(provider, provider),
         "client_id": client_id,
-        "tenant_id": tenant,
-        "authorization_endpoint": (
-            f"https://login.microsoftonline.com/{tenant}/oauth2/v2.0/authorize"
-        ),
+        "authorization_endpoint": auth_endpoint,
+        "scopes": provider_cfg["scopes"],
         "registration_enabled": registration_enabled,
     }
+
+    # Include extra auth params (e.g. Google hd parameter)
+    if provider_cfg.get("extra_auth_params"):
+        result["extra_auth_params"] = provider_cfg["extra_auth_params"]
+
+    return result
 
 
 class SsoCallbackRequest(BaseModel):
@@ -286,19 +399,40 @@ async def sso_callback(
     body: SsoCallbackRequest,
     db: AsyncSession = Depends(get_db),
 ):
-    """Exchange an authorization code from Microsoft Entra ID for a Turbo EA JWT."""
+    """Exchange an authorization code from an SSO provider for a Turbo EA JWT."""
     sso = await _get_sso_config(db)
     if not sso.get("enabled"):
         raise HTTPException(400, "SSO is not enabled")
 
+    provider = sso.get("provider", "microsoft")
     client_id = sso.get("client_id", "")
     client_secret = decrypt_value(sso.get("client_secret", ""))
-    tenant = sso.get("tenant_id", "organizations")
 
     if not client_id or not client_secret:
         raise HTTPException(500, "SSO is not properly configured")
 
-    token_url = f"https://login.microsoftonline.com/{tenant}/oauth2/v2.0/token"
+    try:
+        provider_cfg = _get_provider_config(sso)
+    except ValueError as exc:
+        raise HTTPException(500, f"SSO provider misconfigured: {exc}")
+
+    token_url = provider_cfg["token_endpoint"]
+    jwks_uri = provider_cfg["jwks_uri"]
+    issuer = provider_cfg["issuer"]
+    subject_claim = provider_cfg.get("subject_claim", "sub")
+
+    # For Generic OIDC, resolve endpoints from discovery document
+    if provider_cfg.get("discovery_required"):
+        try:
+            discovery = await _discover_oidc(sso.get("issuer_url", ""))
+            token_url = discovery["token_endpoint"]
+            jwks_uri = discovery["jwks_uri"]
+            issuer = discovery.get("issuer", issuer)
+        except Exception:
+            logger.exception("Failed to fetch OIDC discovery document")
+            raise HTTPException(
+                502, "SSO authentication failed. Could not reach identity provider."
+            )
 
     # Exchange the authorization code for tokens
     try:
@@ -311,7 +445,7 @@ async def sso_callback(
                     "client_secret": client_secret,
                     "code": body.code,
                     "redirect_uri": body.redirect_uri,
-                    "scope": "openid email profile",
+                    "scope": provider_cfg["scopes"],
                 },
                 headers={"Content-Type": "application/x-www-form-urlencoded"},
             )
@@ -327,25 +461,34 @@ async def sso_callback(
             else {}
         )
         error_desc = error_data.get("error_description", "Token exchange failed")
-        logger.error("SSO token exchange failed: %s", error_desc)
+        logger.error("SSO token exchange failed (%s): %s", provider, error_desc)
         raise HTTPException(401, "SSO authentication failed. Please try again.")
 
     tokens = token_response.json()
     id_token = tokens.get("id_token")
     if not id_token:
-        raise HTTPException(401, "No id_token received from Microsoft")
+        raise HTTPException(401, "No id_token received from identity provider")
 
     # ── C5: Verify the id_token signature ──
     try:
-        claims = _verify_id_token(id_token, client_id, tenant)
+        claims = _verify_id_token(id_token, client_id, jwks_uri, issuer)
     except Exception:
-        logger.exception("Failed to verify SSO id_token")
+        logger.exception("Failed to verify SSO id_token (%s)", provider)
         raise HTTPException(401, "Failed to verify SSO token")
 
-    # Extract user info from claims
-    sso_subject_id = claims.get("oid") or claims.get("sub")
+    # Extract user info from claims (provider-aware)
+    sso_subject_id = claims.get(subject_claim) or claims.get("sub")
     email = claims.get("email") or claims.get("preferred_username", "")
     display_name = claims.get("name", "")
+
+    # Google: validate hosted domain if configured
+    if provider == "google" and sso.get("domain"):
+        token_hd = claims.get("hd", "")
+        if token_hd != sso["domain"]:
+            raise HTTPException(
+                403,
+                f"Sign-in restricted to {sso['domain']} accounts.",
+            )
 
     if not email:
         raise HTTPException(401, "No email claim in SSO token. Ensure email scope is granted.")
