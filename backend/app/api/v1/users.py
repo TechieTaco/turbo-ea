@@ -8,7 +8,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
-from app.api.v1.auth import _get_sso_config, generate_setup_token
+from app.api.v1.auth import PROVIDER_LABELS, _get_sso_config, generate_setup_token
 from app.core.security import hash_password
 from app.database import get_db
 from app.models.role import Role
@@ -36,6 +36,7 @@ class UserUpdate(BaseModel):
     is_active: bool | None = None
     password: str | None = None
     locale: str | None = None
+    auth_provider: str | None = None  # admin only: "local" or "sso"
 
 
 class NotificationPreferencesUpdate(BaseModel):
@@ -231,14 +232,16 @@ async def create_user(
                     link=f"/auth/set-password?token={setup_token}",
                 )
             elif sso_enabled:
-                # SSO enabled: tell them to sign in with Microsoft
+                # SSO enabled: tell them to sign in via their provider
+                provider = sso_cfg.get("provider", "microsoft")
+                provider_name = PROVIDER_LABELS.get(provider, "SSO")
                 await send_notification_email(
                     to=email,
                     title="You've been invited to Turbo EA",
                     message=(
                         "You have been invited to join Turbo EA. "
-                        "Click the button below to sign in with your "
-                        "Microsoft account."
+                        "Click the button below to sign in with "
+                        f"{provider_name}."
                     ),
                     link="/",
                 )
@@ -307,6 +310,18 @@ async def update_user(
     if "locale" in data:
         if data["locale"] not in SUPPORTED_LOCALES:
             raise HTTPException(400, f"Unsupported locale '{data['locale']}'")
+
+    if "auth_provider" in data:
+        new_provider = data.pop("auth_provider")
+        if new_provider not in ("local", "sso"):
+            raise HTTPException(400, "auth_provider must be 'local' or 'sso'")
+        if new_provider != u.auth_provider:
+            u.auth_provider = new_provider
+            if new_provider == "sso":
+                # Clear sso_subject_id so it gets linked on next SSO login
+                u.sso_subject_id = None
+            elif new_provider == "local":
+                u.sso_subject_id = None
 
     if "password" in data:
         # Block password changes for SSO users

@@ -28,7 +28,7 @@ export default function SsoCallback({ onSsoCallback }: Props) {
     }
 
     if (!code) {
-      setError(t("sso.noCode"));
+      setError(t("sso.noCodeGeneric"));
       return;
     }
 

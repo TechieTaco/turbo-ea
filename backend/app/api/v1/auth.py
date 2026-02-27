@@ -29,34 +29,44 @@ logger = logging.getLogger(__name__)
 AUTH_COOKIE = "access_token"
 
 
-def _set_auth_cookie(response: Response, token: str) -> None:
+def _is_secure_request(request: Request) -> bool:
+    """Detect whether the original client connection used HTTPS.
+
+    Checks X-Forwarded-Proto (set by reverse proxies / TLS terminators)
+    and falls back to the request URL scheme. This avoids hardcoding
+    Secure=True for 'production' environments that run behind plain HTTP
+    (e.g. local-network deployments without TLS).
+    """
+    forwarded_proto = request.headers.get("x-forwarded-proto", "")
+    return forwarded_proto == "https" or request.url.scheme == "https"
+
+
+def _set_auth_cookie(response: Response, token: str, *, secure: bool) -> None:
     """Set an httpOnly cookie carrying the JWT.
 
     - httponly: prevents JS from reading the token (XSS-safe)
     - samesite "lax": sent on same-site navigations, blocked cross-site
-    - secure: only over HTTPS (disabled in development for http://localhost)
+    - secure: only over HTTPS (auto-detected from the request)
     - path restricted to /api so the cookie isn't sent for static assets
     """
-    is_prod = settings.ENVIRONMENT != "development"
     response.set_cookie(
         key=AUTH_COOKIE,
         value=token,
         httponly=True,
         samesite="lax",
-        secure=is_prod,
+        secure=secure,
         path="/api",
         max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
     )
 
 
-def _clear_auth_cookie(response: Response) -> None:
+def _clear_auth_cookie(response: Response, *, secure: bool) -> None:
     """Delete the auth cookie."""
-    is_prod = settings.ENVIRONMENT != "development"
     response.delete_cookie(
         key=AUTH_COOKIE,
         httponly=True,
         samesite="lax",
-        secure=is_prod,
+        secure=secure,
         path="/api",
     )
 
@@ -79,29 +89,127 @@ async def _get_sso_config(db: AsyncSession) -> dict:
     return general.get("sso", {})
 
 
-# ── C5: Verify Microsoft id_token signature via JWKS ──
+# ── C5: Verify id_token signature via JWKS (supports multiple providers) ──
 
-_jwks_client: PyJWKClient | None = None
+_jwks_clients: dict[str, PyJWKClient] = {}
 
-
-def _get_jwks_client(tenant: str) -> PyJWKClient:
-    global _jwks_client
-    jwks_url = f"https://login.microsoftonline.com/{tenant}/discovery/v2.0/keys"
-    if _jwks_client is None:
-        _jwks_client = PyJWKClient(jwks_url, cache_keys=True)
-    return _jwks_client
+# OpenID Connect discovery document cache (for Generic OIDC)
+_oidc_discovery_cache: dict[str, dict] = {}
 
 
-def _verify_id_token(token: str, client_id: str, tenant: str) -> dict:
-    jwks_client = _get_jwks_client(tenant)
+def _get_jwks_client(jwks_url: str) -> PyJWKClient:
+    if jwks_url not in _jwks_clients:
+        _jwks_clients[jwks_url] = PyJWKClient(jwks_url, cache_keys=True)
+    return _jwks_clients[jwks_url]
+
+
+async def _discover_oidc(issuer_url: str) -> dict:
+    """Fetch and cache the OpenID Connect discovery document."""
+    if issuer_url in _oidc_discovery_cache:
+        return _oidc_discovery_cache[issuer_url]
+    discovery_url = f"{issuer_url.rstrip('/')}/.well-known/openid-configuration"
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        resp = await client.get(discovery_url)
+        resp.raise_for_status()
+        doc = resp.json()
+        _oidc_discovery_cache[issuer_url] = doc
+        return doc
+
+
+def _get_provider_config(sso: dict) -> dict:
+    """Build provider-specific URLs and settings from the SSO configuration.
+
+    Returns a dict with: authorization_endpoint, token_endpoint, jwks_uri,
+    issuer, scopes, extra_auth_params, subject_claim.
+    """
+    provider = sso.get("provider", "microsoft")
+    tenant = sso.get("tenant_id", "organizations")
+    domain = sso.get("domain", "")
+    issuer_url = sso.get("issuer_url", "")
+
+    if provider == "microsoft":
+        base = f"https://login.microsoftonline.com/{tenant}"
+        return {
+            "authorization_endpoint": f"{base}/oauth2/v2.0/authorize",
+            "token_endpoint": f"{base}/oauth2/v2.0/token",
+            "jwks_uri": f"{base}/discovery/v2.0/keys",
+            "issuer": f"{base}/v2.0",
+            "scopes": "openid email profile",
+            "extra_auth_params": {},
+            "subject_claim": "oid",  # fallback to "sub"
+        }
+    elif provider == "google":
+        cfg = {
+            "authorization_endpoint": "https://accounts.google.com/o/oauth2/v2/auth",
+            "token_endpoint": "https://oauth2.googleapis.com/token",
+            "jwks_uri": "https://www.googleapis.com/oauth2/v3/certs",
+            "issuer": "https://accounts.google.com",
+            "scopes": "openid email profile",
+            "extra_auth_params": {},
+            "subject_claim": "sub",
+        }
+        if domain:
+            cfg["extra_auth_params"]["hd"] = domain
+        return cfg
+    elif provider == "okta":
+        if not domain:
+            raise ValueError("Okta domain is required")
+        base = f"https://{domain}/oauth2/default"
+        return {
+            "authorization_endpoint": f"{base}/v1/authorize",
+            "token_endpoint": f"{base}/v1/token",
+            "jwks_uri": f"{base}/v1/keys",
+            "issuer": base,
+            "scopes": "openid email profile",
+            "extra_auth_params": {},
+            "subject_claim": "sub",
+        }
+    elif provider == "oidc":
+        if not issuer_url:
+            raise ValueError("Issuer URL is required for Generic OIDC")
+        # Use manually-configured endpoints if provided; otherwise
+        # flag that auto-discovery is required.
+        manual_auth = sso.get("authorization_endpoint", "")
+        manual_token = sso.get("token_endpoint", "")
+        manual_jwks = sso.get("jwks_uri", "")
+        has_manual_endpoints = bool(manual_auth and manual_token and manual_jwks)
+        return {
+            "authorization_endpoint": manual_auth,
+            "token_endpoint": manual_token,
+            "jwks_uri": manual_jwks,
+            "issuer": issuer_url.rstrip("/"),
+            "scopes": "openid email profile",
+            "extra_auth_params": {},
+            "subject_claim": "sub",
+            "discovery_required": not has_manual_endpoints,
+        }
+    else:
+        raise ValueError(f"Unknown SSO provider: {provider}")
+
+
+def _verify_id_token(token: str, client_id: str, jwks_uri: str, issuer: str) -> dict:
+    jwks_client = _get_jwks_client(jwks_uri)
     signing_key = jwks_client.get_signing_key_from_jwt(token)
-    return jwt.decode(
-        token,
-        signing_key.key,
-        algorithms=["RS256"],
-        audience=client_id,
-        issuer=f"https://login.microsoftonline.com/{tenant}/v2.0",
-    )
+    algorithms = ["RS256", "RS384", "RS512", "ES256", "ES384", "ES512", "PS256"]
+    try:
+        return jwt.decode(
+            token,
+            signing_key.key,
+            algorithms=algorithms,
+            audience=client_id,
+            issuer=issuer,
+        )
+    except jwt.InvalidIssuerError:
+        # Retry with opposite trailing-slash variant — providers like
+        # Authentik may include/omit a trailing slash in the iss claim.
+        alt_issuer = issuer + "/" if not issuer.endswith("/") else issuer.rstrip("/")
+        return jwt.decode(
+            token,
+            signing_key.key,
+            algorithms=algorithms,
+            audience=client_id,
+            issuer=alt_issuer,
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -132,7 +240,7 @@ async def register(
         sso_config = general.get("sso", {})
         if sso_config.get("enabled"):
             raise HTTPException(
-                403, "Registration is disabled when SSO is enabled. Sign in with Microsoft."
+                403, "Registration is disabled when SSO is enabled. Sign in via SSO."
             )
 
         # Block registration when admin has disabled self-registration
@@ -154,7 +262,7 @@ async def register(
     await db.commit()
     await db.refresh(user)
     token = create_access_token(user.id, user.role)
-    _set_auth_cookie(response, token)
+    _set_auth_cookie(response, token, secure=_is_secure_request(request))
     return TokenResponse(access_token=token)
 
 
@@ -172,9 +280,7 @@ async def login(
         raise HTTPException(401, "Invalid credentials")
     # Block password login for SSO-only users
     if user.auth_provider == "sso":
-        raise HTTPException(
-            403, "This account uses SSO authentication. Please sign in with Microsoft."
-        )
+        raise HTTPException(403, "This account uses SSO authentication. Please sign in via SSO.")
     if not user.password_hash:
         if user.password_setup_token:
             raise HTTPException(
@@ -204,7 +310,7 @@ async def login(
     await db.commit()
 
     token = create_access_token(user.id, user.role)
-    _set_auth_cookie(response, token)
+    _set_auth_cookie(response, token, secure=_is_secure_request(request))
     return TokenResponse(access_token=token)
 
 
@@ -229,6 +335,7 @@ async def me(user: User = Depends(get_current_user), db: AsyncSession = Depends(
 # ── H3: Token refresh endpoint ──
 @router.post("/refresh", response_model=TokenResponse)
 async def refresh_token(
+    request: Request,
     response: Response,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
@@ -237,7 +344,7 @@ async def refresh_token(
     if not user.is_active:
         raise HTTPException(403, "Account disabled")
     token = create_access_token(user.id, user.role)
-    _set_auth_cookie(response, token)
+    _set_auth_cookie(response, token, secure=_is_secure_request(request))
     return TokenResponse(access_token=token)
 
 
@@ -246,10 +353,18 @@ async def refresh_token(
 # ---------------------------------------------------------------------------
 
 
+PROVIDER_LABELS = {
+    "microsoft": "Microsoft",
+    "google": "Google",
+    "okta": "Okta",
+    "oidc": "SSO",
+}
+
+
 @router.get("/sso/config")
 async def sso_config_endpoint(db: AsyncSession = Depends(get_db)):
     """Public endpoint — returns SSO configuration needed by the frontend to
-    build the Microsoft authorization URL. No secrets are exposed.
+    build the authorization URL. No secrets are exposed.
     Also includes registration_enabled so the login page knows whether to
     show the Register tab."""
     general = await _get_general_settings(db)
@@ -259,18 +374,49 @@ async def sso_config_endpoint(db: AsyncSession = Depends(get_db)):
     if not sso.get("enabled"):
         return {"enabled": False, "registration_enabled": registration_enabled}
 
-    tenant = sso.get("tenant_id", "organizations")
+    provider = sso.get("provider", "microsoft")
     client_id = sso.get("client_id", "")
 
-    return {
+    try:
+        provider_cfg = _get_provider_config(sso)
+    except ValueError as exc:
+        logger.error("SSO provider config error: %s", exc)
+        return {"enabled": False, "registration_enabled": registration_enabled}
+
+    auth_endpoint = provider_cfg["authorization_endpoint"]
+
+    # For Generic OIDC, fetch discovery document to get the authorization endpoint
+    if provider_cfg.get("discovery_required"):
+        issuer_url = sso.get("issuer_url", "")
+        discovery_url = f"{issuer_url.rstrip('/')}/.well-known/openid-configuration"
+        try:
+            discovery = await _discover_oidc(issuer_url)
+            auth_endpoint = discovery["authorization_endpoint"]
+        except Exception:
+            logger.exception(
+                "Failed to fetch OIDC discovery document from %s. "
+                "Ensure the backend container can reach this URL, or configure "
+                "manual endpoints (authorization_endpoint, token_endpoint, jwks_uri) "
+                "in SSO settings.",
+                discovery_url,
+            )
+            return {"enabled": False, "registration_enabled": registration_enabled}
+
+    result = {
         "enabled": True,
+        "provider": provider,
+        "provider_name": PROVIDER_LABELS.get(provider, provider),
         "client_id": client_id,
-        "tenant_id": tenant,
-        "authorization_endpoint": (
-            f"https://login.microsoftonline.com/{tenant}/oauth2/v2.0/authorize"
-        ),
+        "authorization_endpoint": auth_endpoint,
+        "scopes": provider_cfg["scopes"],
         "registration_enabled": registration_enabled,
     }
+
+    # Include extra auth params (e.g. Google hd parameter)
+    if provider_cfg.get("extra_auth_params"):
+        result["extra_auth_params"] = provider_cfg["extra_auth_params"]
+
+    return result
 
 
 class SsoCallbackRequest(BaseModel):
@@ -286,23 +432,45 @@ async def sso_callback(
     body: SsoCallbackRequest,
     db: AsyncSession = Depends(get_db),
 ):
-    """Exchange an authorization code from Microsoft Entra ID for a Turbo EA JWT."""
+    """Exchange an authorization code from an SSO provider for a Turbo EA JWT."""
     sso = await _get_sso_config(db)
     if not sso.get("enabled"):
         raise HTTPException(400, "SSO is not enabled")
 
+    provider = sso.get("provider", "microsoft")
     client_id = sso.get("client_id", "")
     client_secret = decrypt_value(sso.get("client_secret", ""))
-    tenant = sso.get("tenant_id", "organizations")
 
     if not client_id or not client_secret:
         raise HTTPException(500, "SSO is not properly configured")
 
-    token_url = f"https://login.microsoftonline.com/{tenant}/oauth2/v2.0/token"
+    try:
+        provider_cfg = _get_provider_config(sso)
+    except ValueError as exc:
+        raise HTTPException(500, f"SSO provider misconfigured: {exc}")
+
+    token_url = provider_cfg["token_endpoint"]
+    jwks_uri = provider_cfg["jwks_uri"]
+    issuer = provider_cfg["issuer"]
+    subject_claim = provider_cfg.get("subject_claim", "sub")
+
+    # For Generic OIDC, resolve endpoints from discovery document
+    if provider_cfg.get("discovery_required"):
+        try:
+            discovery = await _discover_oidc(sso.get("issuer_url", ""))
+            token_url = discovery["token_endpoint"]
+            jwks_uri = discovery["jwks_uri"]
+            issuer = discovery.get("issuer", issuer)
+        except Exception:
+            logger.exception("Failed to fetch OIDC discovery document")
+            raise HTTPException(
+                502, "SSO authentication failed. Could not reach identity provider."
+            )
 
     # Exchange the authorization code for tokens
+    logger.info("SSO token exchange: POST %s (provider=%s)", token_url, provider)
     try:
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=15.0) as client:
             token_response = await client.post(
                 token_url,
                 data={
@@ -311,41 +479,102 @@ async def sso_callback(
                     "client_secret": client_secret,
                     "code": body.code,
                     "redirect_uri": body.redirect_uri,
-                    "scope": "openid email profile",
+                    "scope": provider_cfg["scopes"],
                 },
                 headers={"Content-Type": "application/x-www-form-urlencoded"},
             )
+    except httpx.ConnectError:
+        logger.exception(
+            "SSO token exchange: cannot connect to %s — check Docker networking", token_url
+        )
+        raise HTTPException(
+            502,
+            "Cannot reach identity provider for token exchange. "
+            "Check that the backend container can reach the token endpoint.",
+        )
     except httpx.HTTPError:
-        logger.exception("SSO token exchange request failed")
+        logger.exception("SSO token exchange request failed to %s", token_url)
         raise HTTPException(502, "SSO authentication failed. Identity provider is unavailable.")
 
     if token_response.status_code != 200:
-        # ── H8: Don't leak error details to the client ──
         error_data = (
             token_response.json()
             if token_response.headers.get("content-type", "").startswith("application/json")
             else {}
         )
         error_desc = error_data.get("error_description", "Token exchange failed")
-        logger.error("SSO token exchange failed: %s", error_desc)
-        raise HTTPException(401, "SSO authentication failed. Please try again.")
+        error_code = error_data.get("error", "unknown")
+        logger.error(
+            "SSO token exchange failed (%s): status=%s error=%s desc=%s",
+            provider,
+            token_response.status_code,
+            error_code,
+            error_desc,
+        )
+        raise HTTPException(
+            401,
+            f"SSO authentication failed: {error_desc}",
+        )
 
     tokens = token_response.json()
     id_token = tokens.get("id_token")
     if not id_token:
-        raise HTTPException(401, "No id_token received from Microsoft")
+        logger.error(
+            "SSO token response missing id_token (%s). Keys received: %s",
+            provider,
+            list(tokens.keys()),
+        )
+        raise HTTPException(401, "No id_token received from identity provider")
 
     # ── C5: Verify the id_token signature ──
     try:
-        claims = _verify_id_token(id_token, client_id, tenant)
+        claims = _verify_id_token(id_token, client_id, jwks_uri, issuer)
+    except jwt.InvalidIssuerError:
+        # Decode without verification to log the actual issuer
+        unverified = jwt.decode(id_token, options={"verify_signature": False})
+        actual_issuer = unverified.get("iss", "unknown")
+        logger.error(
+            "SSO id_token issuer mismatch (%s): expected=%s actual=%s",
+            provider,
+            issuer,
+            actual_issuer,
+        )
+        raise HTTPException(
+            401,
+            f"SSO token issuer mismatch: expected {issuer!r}, "
+            f"got {actual_issuer!r}. Check issuer URL in SSO settings.",
+        )
+    except jwt.InvalidAudienceError:
+        unverified = jwt.decode(id_token, options={"verify_signature": False})
+        actual_aud = unverified.get("aud", "unknown")
+        logger.error(
+            "SSO id_token audience mismatch (%s): expected=%s actual=%s",
+            provider,
+            client_id,
+            actual_aud,
+        )
+        raise HTTPException(401, "SSO token audience mismatch. Check Client ID in SSO settings.")
     except Exception:
-        logger.exception("Failed to verify SSO id_token")
-        raise HTTPException(401, "Failed to verify SSO token")
+        logger.exception("Failed to verify SSO id_token (%s, jwks=%s)", provider, jwks_uri)
+        raise HTTPException(
+            401,
+            "Failed to verify SSO token signature. "
+            "Check JWKS URI and that the backend can reach it.",
+        )
 
-    # Extract user info from claims
-    sso_subject_id = claims.get("oid") or claims.get("sub")
+    # Extract user info from claims (provider-aware)
+    sso_subject_id = claims.get(subject_claim) or claims.get("sub")
     email = claims.get("email") or claims.get("preferred_username", "")
     display_name = claims.get("name", "")
+
+    # Google: validate hosted domain if configured
+    if provider == "google" and sso.get("domain"):
+        token_hd = claims.get("hd", "")
+        if token_hd != sso["domain"]:
+            raise HTTPException(
+                403,
+                f"Sign-in restricted to {sso['domain']} accounts.",
+            )
 
     if not email:
         raise HTTPException(401, "No email claim in SSO token. Ensure email scope is granted.")
@@ -363,7 +592,7 @@ async def sso_callback(
         if not user.is_active:
             raise HTTPException(403, "Account disabled")
         tk = create_access_token(user.id, user.role)
-        _set_auth_cookie(response, tk)
+        _set_auth_cookie(response, tk, secure=_is_secure_request(request))
         return TokenResponse(access_token=tk)
 
     # ── M11: Don't auto-merge local accounts with SSO ──
@@ -386,7 +615,7 @@ async def sso_callback(
         if not user.is_active:
             raise HTTPException(403, "Account disabled")
         tk = create_access_token(user.id, user.role)
-        _set_auth_cookie(response, tk)
+        _set_auth_cookie(response, tk, secure=_is_secure_request(request))
         return TokenResponse(access_token=tk)
 
     # New user — check for an invitation to determine the role
@@ -412,7 +641,7 @@ async def sso_callback(
     await db.refresh(user)
 
     tk = create_access_token(user.id, user.role)
-    _set_auth_cookie(response, tk)
+    _set_auth_cookie(response, tk, secure=_is_secure_request(request))
     return TokenResponse(access_token=tk)
 
 
@@ -438,7 +667,10 @@ async def validate_setup_token(token: str, db: AsyncSession = Depends(get_db)):
 
 @router.post("/set-password", response_model=TokenResponse)
 async def set_password(
-    response: Response, body: SetPasswordRequest, db: AsyncSession = Depends(get_db)
+    request: Request,
+    response: Response,
+    body: SetPasswordRequest,
+    db: AsyncSession = Depends(get_db),
 ):
     """Set a password for an invited user using a one-time setup token."""
     from app.schemas.auth import _validate_password_strength
@@ -465,14 +697,14 @@ async def set_password(
     await db.commit()
 
     token = create_access_token(user.id, user.role)
-    _set_auth_cookie(response, token)
+    _set_auth_cookie(response, token, secure=_is_secure_request(request))
     return TokenResponse(access_token=token)
 
 
 @router.post("/logout")
-async def logout(response: Response):
+async def logout(request: Request, response: Response):
     """Clear the auth cookie."""
-    _clear_auth_cookie(response)
+    _clear_auth_cookie(response, secure=_is_secure_request(request))
     return {"ok": True}
 
 

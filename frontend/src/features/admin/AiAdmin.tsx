@@ -18,12 +18,16 @@ import { useMetamodel } from "@/hooks/useMetamodel";
 
 interface AiSettings {
   enabled: boolean;
+  provider_type: string;
   provider_url: string;
+  api_key: string;
   model: string;
   search_provider: string;
   search_url: string;
   enabled_types: string[];
 }
+
+const AI_KEY_MASK = "\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022";
 
 export default function AiAdmin() {
   const { t } = useTranslation(["admin", "common"]);
@@ -33,10 +37,10 @@ export default function AiAdmin() {
 
   // AI settings state
   const [aiEnabled, setAiEnabled] = useState(false);
+  const [aiProviderType, setAiProviderType] = useState("ollama");
   const [aiProviderUrl, setAiProviderUrl] = useState("");
+  const [aiApiKey, setAiApiKey] = useState("");
   const [aiModel, setAiModel] = useState("");
-  const [aiSearchProvider, setAiSearchProvider] = useState("duckduckgo");
-  const [aiSearchUrl, setAiSearchUrl] = useState("");
   const [aiEnabledTypes, setAiEnabledTypes] = useState<string[]>([]);
   const [savingAi, setSavingAi] = useState(false);
   const [testingAi, setTestingAi] = useState(false);
@@ -50,10 +54,10 @@ export default function AiAdmin() {
       .get<AiSettings>("/settings/ai")
       .then((data) => {
         setAiEnabled(data.enabled);
+        setAiProviderType(data.provider_type || "ollama");
         setAiProviderUrl(data.provider_url);
+        setAiApiKey(data.api_key || "");
         setAiModel(data.model);
-        setAiSearchProvider(data.search_provider);
-        setAiSearchUrl(data.search_url);
         setAiEnabledTypes(data.enabled_types);
       })
       .catch((e) => setError(e instanceof Error ? e.message : t("common:errors.generic")))
@@ -66,10 +70,12 @@ export default function AiAdmin() {
     try {
       await api.patch("/settings/ai", {
         enabled: aiEnabled,
+        provider_type: aiProviderType,
         provider_url: aiProviderUrl,
+        api_key: aiApiKey,
         model: aiModel,
-        search_provider: aiSearchProvider,
-        search_url: aiSearchUrl,
+        search_provider: "duckduckgo",
+        search_url: "",
         enabled_types: aiEnabledTypes,
       });
       setSnack(t("settings.ai.savedSuccess"));
@@ -95,7 +101,11 @@ export default function AiAdmin() {
           t("settings.ai.testNoModel", { models: res.available_models.slice(0, 5).join(", ") }),
         );
       } else {
-        setSnack(t("settings.ai.testNoModels"));
+        if (aiProviderType === "ollama") {
+          setSnack(t("settings.ai.testNoModels"));
+        } else {
+          setSnack(t("settings.ai.testSuccess"));
+        }
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : t("common:errors.generic"));
@@ -111,6 +121,36 @@ export default function AiAdmin() {
       setAiEnabledTypes((prev) => prev.filter((k) => k !== typeKey));
     }
   };
+
+  const handleProviderTypeChange = (newType: string) => {
+    setAiProviderType(newType);
+    setAiAvailableModels([]);
+    // Reset fields when switching providers
+    if (newType === "anthropic") {
+      setAiProviderUrl("");
+    }
+  };
+
+  const showProviderUrl = aiProviderType !== "anthropic";
+  const showApiKey = aiProviderType !== "ollama";
+  const hasApiKeySet = aiApiKey === AI_KEY_MASK;
+
+  const providerUrlPlaceholder =
+    aiProviderType === "openai" ? "https://api.openai.com" : "http://localhost:11434";
+
+  const modelPlaceholder =
+    aiProviderType === "openai"
+      ? "gpt-4o-mini"
+      : aiProviderType === "anthropic"
+        ? "claude-sonnet-4-20250514"
+        : "gemma3:4b";
+
+  const modelHelper =
+    aiProviderType === "openai"
+      ? t("settings.ai.modelHelperOpenai")
+      : aiProviderType === "anthropic"
+        ? t("settings.ai.modelHelperAnthropic")
+        : t("settings.ai.modelHelper");
 
   if (loading) {
     return (
@@ -166,16 +206,64 @@ export default function AiAdmin() {
 
         {aiEnabled && (
           <>
+            {/* Provider Type */}
             <TextField
-              label={t("settings.ai.providerUrl")}
+              select
+              label={t("settings.ai.providerType")}
               fullWidth
-              value={aiProviderUrl}
-              onChange={(e) => setAiProviderUrl(e.target.value)}
-              placeholder="http://localhost:11434"
-              helperText={t("settings.ai.providerUrlHelper")}
-              sx={{ mb: 2 }}
-            />
-            {aiAvailableModels.length > 0 ? (
+              value={aiProviderType}
+              onChange={(e) => handleProviderTypeChange(e.target.value)}
+              sx={{ mb: 1 }}
+            >
+              <MenuItem value="ollama">{t("settings.ai.providerOllama")}</MenuItem>
+              <MenuItem value="openai">{t("settings.ai.providerOpenai")}</MenuItem>
+              <MenuItem value="anthropic">{t("settings.ai.providerAnthropic")}</MenuItem>
+            </TextField>
+            <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 2 }}>
+              {aiProviderType === "ollama"
+                ? t("settings.ai.providerOllamaDesc")
+                : aiProviderType === "openai"
+                  ? t("settings.ai.providerOpenaiDesc")
+                  : t("settings.ai.providerAnthropicDesc")}
+            </Typography>
+
+            {/* Provider URL (hidden for Anthropic) */}
+            {showProviderUrl && (
+              <TextField
+                label={t("settings.ai.providerUrl")}
+                fullWidth
+                value={aiProviderUrl}
+                onChange={(e) => setAiProviderUrl(e.target.value)}
+                placeholder={providerUrlPlaceholder}
+                helperText={
+                  aiProviderType === "openai"
+                    ? t("settings.ai.providerUrlHelperOpenai")
+                    : t("settings.ai.providerUrlHelper")
+                }
+                sx={{ mb: 2 }}
+              />
+            )}
+
+            {/* API Key (hidden for Ollama) */}
+            {showApiKey && (
+              <TextField
+                label={t("settings.ai.apiKey")}
+                fullWidth
+                type="password"
+                value={aiApiKey}
+                onChange={(e) => setAiApiKey(e.target.value)}
+                placeholder={hasApiKeySet ? "" : "sk-..."}
+                helperText={
+                  hasApiKeySet
+                    ? t("settings.ai.apiKeySet")
+                    : t("settings.ai.apiKeyHelper")
+                }
+                sx={{ mb: 2 }}
+              />
+            )}
+
+            {/* Model */}
+            {aiProviderType === "ollama" && aiAvailableModels.length > 0 ? (
               <TextField
                 select
                 label={t("settings.ai.model")}
@@ -196,53 +284,45 @@ export default function AiAdmin() {
                   </MenuItem>
                 ))}
               </TextField>
+            ) : aiProviderType === "openai" && aiAvailableModels.length > 0 ? (
+              <TextField
+                select
+                label={t("settings.ai.model")}
+                fullWidth
+                value={aiModel}
+                onChange={(e) => setAiModel(e.target.value)}
+                helperText={modelHelper}
+                sx={{ mb: 2 }}
+              >
+                {!aiModel && (
+                  <MenuItem value="" disabled>
+                    {t("settings.ai.selectModel")}
+                  </MenuItem>
+                )}
+                {aiAvailableModels.map((m) => (
+                  <MenuItem key={m} value={m}>
+                    {m}
+                  </MenuItem>
+                ))}
+              </TextField>
             ) : (
               <TextField
                 label={t("settings.ai.model")}
                 fullWidth
                 value={aiModel}
                 onChange={(e) => setAiModel(e.target.value)}
-                placeholder="gemma3:4b"
-                helperText={t("settings.ai.modelHelper")}
+                placeholder={modelPlaceholder}
+                helperText={modelHelper}
                 sx={{ mb: 2 }}
               />
             )}
-            <TextField
-              select
-              label={t("settings.ai.searchProvider")}
-              fullWidth
-              value={aiSearchProvider}
-              onChange={(e) => setAiSearchProvider(e.target.value)}
-              helperText={t("settings.ai.searchProviderHelper")}
-              sx={{ mb: 2 }}
-            >
-              <MenuItem value="duckduckgo">DuckDuckGo</MenuItem>
-              <MenuItem value="google">Google Custom Search</MenuItem>
-              <MenuItem value="searxng">SearXNG</MenuItem>
-            </TextField>
-            {(aiSearchProvider === "searxng" || aiSearchProvider === "google") && (
-              <TextField
-                label={
-                  aiSearchProvider === "google"
-                    ? t("settings.ai.googleCredentials")
-                    : t("settings.ai.searxngUrl")
-                }
-                fullWidth
-                value={aiSearchUrl}
-                onChange={(e) => setAiSearchUrl(e.target.value)}
-                placeholder={
-                  aiSearchProvider === "google"
-                    ? "API_KEY:SEARCH_ENGINE_ID"
-                    : "http://localhost:8888"
-                }
-                helperText={
-                  aiSearchProvider === "google"
-                    ? t("settings.ai.googleCredentialsHelper")
-                    : t("settings.ai.searxngUrlHelper")
-                }
-                sx={{ mb: 2 }}
-              />
-            )}
+
+            {/* Search Info */}
+            <Alert severity="info" icon={false} sx={{ mb: 2, py: 0.5 }}>
+              <Typography variant="caption">{t("settings.ai.searchInfo")}</Typography>
+            </Alert>
+
+            {/* Enabled Types */}
             <Typography variant="body2" fontWeight={600} sx={{ mb: 1 }}>
               {t("settings.ai.enabledTypes")}
             </Typography>
@@ -269,7 +349,7 @@ export default function AiAdmin() {
         )}
 
         <Box sx={{ display: "flex", gap: 1, justifyContent: "flex-end" }}>
-          {aiEnabled && aiProviderUrl && (
+          {aiEnabled && (aiProviderUrl || aiProviderType === "anthropic") && (
             <Button
               variant="outlined"
               size="small"
