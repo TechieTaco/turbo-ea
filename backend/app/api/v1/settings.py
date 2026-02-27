@@ -45,9 +45,18 @@ class CurrencyPayload(BaseModel):
 
 class SsoSettingsPayload(BaseModel):
     enabled: bool = False
+    provider: str = "microsoft"  # microsoft | google | okta | oidc
     client_id: str = ""
     client_secret: str = ""
-    tenant_id: str = "organizations"  # "organizations" for multi-tenant, or a specific tenant ID
+    tenant_id: str = "organizations"  # Microsoft: "organizations" or specific tenant ID
+    domain: str = ""  # Google: hosted domain filter; Okta: Okta domain (e.g. dev-12345.okta.com)
+    issuer_url: str = ""  # Generic OIDC: issuer URL (e.g. https://auth.example.com/realms/myapp)
+    # Optional manual OIDC endpoints — override auto-discovery when the backend
+    # cannot reach the provider's /.well-known/openid-configuration endpoint
+    # (e.g. Docker networking issues, self-signed certificates on local network).
+    authorization_endpoint: str = ""
+    token_endpoint: str = ""
+    jwks_uri: str = ""
 
 
 DEFAULT_CURRENCY = "USD"
@@ -478,9 +487,15 @@ async def get_sso_settings(
     sso = general.get("sso", {})
     return {
         "enabled": sso.get("enabled", False),
+        "provider": sso.get("provider", "microsoft"),
         "client_id": sso.get("client_id", ""),
         "client_secret": "••••••••" if sso.get("client_secret") else "",
         "tenant_id": sso.get("tenant_id", "organizations"),
+        "domain": sso.get("domain", ""),
+        "issuer_url": sso.get("issuer_url", ""),
+        "authorization_endpoint": sso.get("authorization_endpoint", ""),
+        "token_endpoint": sso.get("token_endpoint", ""),
+        "jwks_uri": sso.get("jwks_uri", ""),
     }
 
 
@@ -498,6 +513,12 @@ async def update_sso_settings(
     sso = dict(general.get("sso", {}))
 
     payload = body.model_dump()
+
+    # Validate provider
+    valid_providers = {"microsoft", "google", "okta", "oidc"}
+    if payload.get("provider") and payload["provider"] not in valid_providers:
+        opts = ", ".join(valid_providers)
+        raise HTTPException(400, f"Invalid SSO provider: {opts}")
 
     # Only overwrite client_secret if the caller sends a real value
     if payload.get("client_secret") in ("", "••••••••"):
@@ -568,9 +589,15 @@ async def update_registration_settings(
 # ---------------------------------------------------------------------------
 
 
+_AI_KEY_MASK = "\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022"
+_VALID_PROVIDER_TYPES = {"ollama", "openai", "anthropic"}
+
+
 class AiSettingsPayload(BaseModel):
     enabled: bool = False
+    provider_type: str = "ollama"
     provider_url: str = ""
+    api_key: str = ""
     model: str = ""
     search_provider: str = "duckduckgo"
     search_url: str = ""
@@ -588,9 +615,12 @@ async def get_ai_settings(
     await db.commit()
     general = row.general_settings or {}
     ai = general.get("ai", {})
+    api_key_stored = ai.get("apiKey", "")
     return {
         "enabled": ai.get("enabled", False),
+        "provider_type": ai.get("providerType", "ollama"),
         "provider_url": ai.get("providerUrl", ""),
+        "api_key": _AI_KEY_MASK if api_key_stored else "",
         "model": ai.get("model", ""),
         "search_provider": ai.get("searchProvider", "duckduckgo"),
         "search_url": ai.get("searchUrl", ""),
@@ -607,14 +637,40 @@ async def update_ai_settings(
     """Admin endpoint — update AI suggestion configuration."""
     await PermissionService.require_permission(db, user, "admin.settings")
 
+    provider_type = body.provider_type
+    if provider_type not in _VALID_PROVIDER_TYPES:
+        raise HTTPException(
+            400,
+            f"Invalid provider_type '{provider_type}'. "
+            f"Must be one of: {', '.join(sorted(_VALID_PROVIDER_TYPES))}",
+        )
+
     row = await _get_or_create_row(db)
     general = dict(row.general_settings or {})
+    prev_ai = general.get("ai", {})
+
+    # Encrypt API key (preserve existing if masked or empty)
+    new_api_key = body.api_key
+    if new_api_key == _AI_KEY_MASK or (not new_api_key and prev_ai.get("apiKey")):
+        encrypted_key = prev_ai.get("apiKey", "")
+    elif new_api_key:
+        encrypted_key = encrypt_value(new_api_key)
+    else:
+        encrypted_key = ""
+
+    # Default Anthropic URL if not provided
+    provider_url = body.provider_url
+    if provider_type == "anthropic" and not provider_url:
+        provider_url = "https://api.anthropic.com"
+
     general["ai"] = {
         "enabled": body.enabled,
-        "providerUrl": body.provider_url,
+        "providerType": provider_type,
+        "providerUrl": provider_url,
+        "apiKey": encrypted_key,
         "model": body.model,
-        "searchProvider": body.search_provider,
-        "searchUrl": body.search_url,
+        "searchProvider": "duckduckgo",
+        "searchUrl": "",
         "enabledTypes": body.enabled_types,
     }
     row.general_settings = general
@@ -631,33 +687,43 @@ async def test_ai_connection(
     """Admin endpoint — test connectivity to the AI provider."""
     import httpx as _httpx
 
+    from app.services.ai_service import check_provider_connection
+
     await PermissionService.require_permission(db, user, "admin.settings")
 
     row = await _get_or_create_row(db)
     await db.commit()
     general = row.general_settings or {}
     ai = general.get("ai", {})
+    provider_type = ai.get("providerType", "ollama")
     provider_url = ai.get("providerUrl", "")
     model = ai.get("model", "")
+    encrypted_key = ai.get("apiKey", "")
 
-    if not provider_url:
+    if not provider_url and provider_type != "anthropic":
         raise HTTPException(400, "AI provider URL is not configured.")
 
-    try:
-        async with _httpx.AsyncClient(timeout=10.0) as client:
-            resp = await client.get(f"{provider_url.rstrip('/')}/api/tags")
-            resp.raise_for_status()
-            data = resp.json()
-            available_models = [m.get("name", "") for m in data.get("models", [])]
-            model_found = any(model in m for m in available_models) if model else False
-    except _httpx.HTTPError as exc:
-        raise HTTPException(502, f"Cannot reach AI provider at {provider_url}: {exc}") from exc
+    # Use default Anthropic URL if not set
+    if provider_type == "anthropic" and not provider_url:
+        provider_url = "https://api.anthropic.com"
 
-    return {
-        "ok": True,
-        "available_models": available_models[:20],
-        "model_found": model_found,
-    }
+    # Decrypt API key for the test
+    api_key = decrypt_value(encrypted_key) if encrypted_key else ""
+
+    if provider_type in ("openai", "anthropic") and not api_key:
+        raise HTTPException(400, "API key is required for commercial LLM providers.")
+
+    try:
+        result = await check_provider_connection(
+            provider_url=provider_url,
+            provider_type=provider_type,
+            api_key=api_key,
+            model=model,
+        )
+    except _httpx.HTTPError as exc:
+        raise HTTPException(502, str(exc)) from exc
+
+    return result
 
 
 SUPPORTED_LOCALES = ["en", "de", "fr", "es", "it", "pt", "zh"]
