@@ -61,6 +61,8 @@ describe("LoginPage", () => {
   it("hides Register tab when SSO is enabled", async () => {
     vi.mocked(auth.ssoConfig).mockResolvedValueOnce({
       enabled: true,
+      provider: "microsoft",
+      provider_name: "Microsoft",
       client_id: "abc",
       authorization_endpoint: "https://login.example.com/authorize",
     });
@@ -136,6 +138,8 @@ describe("LoginPage", () => {
   it("shows SSO button when SSO is configured", async () => {
     vi.mocked(auth.ssoConfig).mockResolvedValueOnce({
       enabled: true,
+      provider: "microsoft",
+      provider_name: "Microsoft",
       client_id: "my-client-id",
       authorization_endpoint: "https://login.microsoftonline.com/authorize",
     });
