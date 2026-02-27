@@ -13,10 +13,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Provider-specific login button with appropriate branding on the sign-in page
 - Google hosted domain restriction and Okta domain configuration options
 - Generic OIDC provider with automatic discovery document support
+- Support for commercial LLM providers (OpenAI, Google Gemini, Azure OpenAI, OpenRouter, Anthropic Claude) for AI description suggestions
+- Encrypted API key storage for commercial LLM providers
+- Provider type selector in AI admin settings with conditional form fields
 
 ### Changed
 - SSO and self-registration settings moved from the General tab to a new Authentication tab
 - SSO login button now shows the configured provider name instead of always displaying Microsoft
+- Simplified AI search provider — DuckDuckGo is always used automatically for web context
+- AI admin UI now shows provider-specific fields (URL, API key, model placeholders) based on selected provider type
 
 ## [0.21.1] - 2026-02-27
 
