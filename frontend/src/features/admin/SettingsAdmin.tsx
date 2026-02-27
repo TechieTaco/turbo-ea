@@ -161,6 +161,11 @@ function GeneralTab() {
   const [ssoTenantId, setSsoTenantId] = useState("organizations");
   const [savingSso, setSavingSso] = useState(false);
 
+  // MCP integration state
+  const [mcpEnabled, setMcpEnabled] = useState(false);
+  const [mcpSsoConfigured, setMcpSsoConfigured] = useState(false);
+  const [savingMcp, setSavingMcp] = useState(false);
+
   const [smtpHost, setSmtpHost] = useState("");
   const [smtpPort, setSmtpPort] = useState(587);
   const [smtpUser, setSmtpUser] = useState("");
@@ -184,8 +189,9 @@ function GeneralTab() {
       api.get<SsoSettings>("/settings/sso"),
       api.get<{ enabled: boolean }>("/settings/registration"),
       api.get<{ locales: string[] }>("/settings/enabled-locales"),
+      api.get<{ enabled: boolean; sso_configured: boolean }>("/settings/mcp").catch(() => ({ enabled: false, sso_configured: false })),
     ])
-      .then(([emailData, logoData, faviconData, currencyData, bpmData, ssoData, regData, localesData]) => {
+      .then(([emailData, logoData, faviconData, currencyData, bpmData, ssoData, regData, localesData, mcpData]) => {
         setSmtpHost(emailData.smtp_host);
         setSmtpPort(emailData.smtp_port);
         setSmtpUser(emailData.smtp_user);
@@ -203,6 +209,8 @@ function GeneralTab() {
         setSsoClientSecret(ssoData.client_secret);
         setSsoTenantId(ssoData.tenant_id);
         setRegistrationEnabled(regData.enabled);
+        setMcpEnabled(mcpData.enabled);
+        setMcpSsoConfigured(mcpData.sso_configured);
         const validLocales = (localesData.locales || []).filter((l: string): l is SupportedLocale =>
           (SUPPORTED_LOCALES as readonly string[]).includes(l),
         );
@@ -371,6 +379,19 @@ function GeneralTab() {
       setError(e instanceof Error ? e.message : t("common:errors.generic"));
     } finally {
       setSavingSso(false);
+    }
+  };
+
+  const handleMcpSave = async () => {
+    setSavingMcp(true);
+    setError("");
+    try {
+      await api.patch("/settings/mcp", { enabled: mcpEnabled });
+      setSnack(t("settings.mcp.savedSuccess"));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t("common:errors.generic"));
+    } finally {
+      setSavingMcp(false);
     }
   };
 
@@ -848,6 +869,79 @@ function GeneralTab() {
             disabled={savingSso}
           >
             {savingSso ? t("common:labels.loading") : t("common:actions.save")}
+          </Button>
+        </Box>
+      </Paper>
+
+      {/* MCP Integration Settings */}
+      <Paper sx={{ p: 3, mb: 3 }}>
+        <Box sx={{ display: "flex", alignItems: "center", mb: 2, gap: 1 }}>
+          <MaterialSymbol icon="smart_toy" size={22} color="#555" />
+          <Typography variant="h6" fontWeight={600}>
+            {t("settings.mcp.title")}
+          </Typography>
+          <Chip
+            label={mcpEnabled ? t("settings.bpm.enabled") : t("settings.bpm.disabled")}
+            size="small"
+            color={mcpEnabled ? "success" : "default"}
+            sx={{ ml: 1 }}
+          />
+        </Box>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+          {t("settings.mcp.description")}
+        </Typography>
+
+        {!mcpSsoConfigured && (
+          <Alert severity="warning" sx={{ mb: 2 }}>
+            {t("settings.mcp.requiresSso")}
+          </Alert>
+        )}
+
+        <FormControlLabel
+          control={
+            <Switch
+              checked={mcpEnabled}
+              onChange={(e) => setMcpEnabled(e.target.checked)}
+              disabled={!mcpSsoConfigured}
+            />
+          }
+          label={mcpEnabled ? t("settings.mcp.enabled") : t("settings.mcp.disabled")}
+          sx={{ mb: 2 }}
+        />
+
+        {mcpEnabled && mcpSsoConfigured && (
+          <>
+            <Alert severity="info" sx={{ mb: 2 }}>
+              <Typography variant="body2" sx={{ mb: 1 }}>
+                <strong>{t("settings.mcp.setupTitle")}</strong>
+              </Typography>
+              <Typography variant="body2" component="div">
+                1. {t("settings.mcp.setupStep1")}{" "}
+                <code>{window.location.origin}/mcp/oauth/callback</code>
+              </Typography>
+              <Typography variant="body2" component="div">
+                2. {t("settings.mcp.setupStep2")}
+              </Typography>
+            </Alert>
+            <Alert severity="success" icon={false} sx={{ mb: 2 }}>
+              <Typography variant="body2" sx={{ mb: 0.5 }}>
+                <strong>{t("settings.mcp.serverUrl")}</strong>
+              </Typography>
+              <code>{window.location.origin}/mcp</code>
+            </Alert>
+          </>
+        )}
+
+        <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
+          <Button
+            variant="contained"
+            size="small"
+            startIcon={<MaterialSymbol icon="save" size={18} />}
+            sx={{ textTransform: "none" }}
+            onClick={handleMcpSave}
+            disabled={savingMcp}
+          >
+            {savingMcp ? t("common:labels.loading") : t("common:actions.save")}
           </Button>
         </Box>
       </Paper>

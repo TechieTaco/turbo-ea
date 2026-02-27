@@ -1,0 +1,74 @@
+"""HTTP client wrapper for the Turbo EA REST API."""
+
+from __future__ import annotations
+
+import httpx
+
+from turbo_ea_mcp.config import TURBO_EA_URL
+
+
+class TurboEAClient:
+    """Thin wrapper around httpx for authenticated Turbo EA API calls."""
+
+    def __init__(self, token: str) -> None:
+        self._token = token
+        self._base = TURBO_EA_URL.rstrip("/") + "/api/v1"
+
+    def _headers(self) -> dict[str, str]:
+        return {"Authorization": f"Bearer {self._token}"}
+
+    async def get(self, path: str, params: dict | None = None) -> dict | list:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            resp = await client.get(
+                f"{self._base}{path}",
+                headers=self._headers(),
+                params=params,
+            )
+            resp.raise_for_status()
+            if resp.status_code == 204:
+                return {}
+            return resp.json()
+
+    async def refresh_token(self) -> str | None:
+        """Call POST /auth/refresh to get a new JWT. Returns the new token
+        or None if the current token is expired/invalid."""
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.post(
+                f"{self._base}/auth/refresh",
+                headers=self._headers(),
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                new_token = data.get("access_token")
+                if new_token:
+                    self._token = new_token
+                    return new_token
+        return None
+
+
+async def get_sso_config() -> dict:
+    """Fetch SSO configuration (public, no auth needed)."""
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        resp = await client.get(f"{TURBO_EA_URL}/api/v1/auth/sso/config")
+        resp.raise_for_status()
+        return resp.json()
+
+
+async def get_mcp_status() -> dict:
+    """Fetch MCP status (public, no auth needed)."""
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        resp = await client.get(f"{TURBO_EA_URL}/api/v1/settings/mcp/status")
+        resp.raise_for_status()
+        return resp.json()
+
+
+async def exchange_sso_code(code: str, redirect_uri: str) -> dict:
+    """Exchange an SSO authorization code for a Turbo EA JWT via the
+    existing SSO callback endpoint."""
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        resp = await client.post(
+            f"{TURBO_EA_URL}/api/v1/auth/sso/callback",
+            json={"code": code, "redirect_uri": redirect_uri},
+        )
+        resp.raise_for_status()
+        return resp.json()

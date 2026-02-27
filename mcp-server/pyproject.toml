@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "turbo-ea-mcp"
+version = "0.0.0"
+description = "MCP server for Turbo EA — provides read-only AI tool access to EA data"
+requires-python = ">=3.11"
+dependencies = [
+    "mcp>=1.9.0",
+    "httpx>=0.28.0",
+    "pyjwt>=2.9.0",
+    "starlette>=0.45.0",
+    "uvicorn>=0.34.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.24.0",
+]
