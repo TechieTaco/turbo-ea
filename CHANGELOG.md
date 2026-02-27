@@ -5,6 +5,17 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.22.0] - 2026-02-27
+
+### Added
+- Support for commercial LLM providers (OpenAI, Google Gemini, Azure OpenAI, OpenRouter, Anthropic Claude) for AI description suggestions
+- Encrypted API key storage for commercial LLM providers
+- Provider type selector in AI admin settings with conditional form fields
+
+### Changed
+- Simplified AI search provider — DuckDuckGo is always used automatically for web context
+- AI admin UI now shows provider-specific fields (URL, API key, model placeholders) based on selected provider type
+
 ## [0.21.1] - 2026-02-27
 
 ### Changed
