@@ -5,6 +5,19 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.22.0] - 2026-02-27
+
+### Added
+- Support for multiple SSO identity providers: Google Workspace, Okta, and Generic OIDC, in addition to the existing Microsoft Entra ID
+- Dedicated Authentication tab in admin settings for SSO and registration configuration
+- Provider-specific login button with appropriate branding on the sign-in page
+- Google hosted domain restriction and Okta domain configuration options
+- Generic OIDC provider with automatic discovery document support
+
+### Changed
+- SSO and self-registration settings moved from the General tab to a new Authentication tab
+- SSO login button now shows the configured provider name instead of always displaying Microsoft
+
 ## [0.21.1] - 2026-02-27
 
 ### Changed
