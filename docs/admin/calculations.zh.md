@@ -72,7 +72,7 @@ IF(riskLevel == "critical", 100, IF(riskLevel == "high", 75, IF(riskLevel == "me
 COUNT(FILTER(related_interfaces, "status", "ACTIVE"))
 ```
 
-**注释**使用 `#` 支持：
+支持使用 `#` 添加**注释**：
 ```
 # Calculate weighted risk score
 IF(businessCriticality == "missionCritical", riskScore * 2, riskScore)

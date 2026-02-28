@@ -13,7 +13,7 @@ La lista de usuarios muestra todas las cuentas registradas con las siguientes co
 | **Nombre** | Nombre visible del usuario |
 | **Correo** | Dirección de correo electrónico (utilizada para iniciar sesión) |
 | **Rol** | Rol asignado (seleccionable directamente mediante un desplegable) |
-| **Autenticación** | Método de autenticación: "Local", "SSO", "SSO + Contraseña" o "Configuración pendiente" |
+| **Autenticación** | Método de autenticación: «Local», «SSO», «SSO + Contraseña» o «Configuración pendiente» |
 | **Estado** | Activo o Desactivado |
 | **Acciones** | Editar, activar/desactivar o eliminar el usuario |
 
@@ -38,17 +38,17 @@ La lista de usuarios muestra todas las cuentas registradas con las siguientes co
 Haga clic en el **icono de edición** en cualquier fila de usuario para abrir el diálogo de edición. Puede cambiar:
 
 - **Nombre** y **Correo electrónico**
-- **Método de autenticación** (visible solo cuando SSO está habilitado): Cambiar entre "Local" y "SSO". Esto permite a los administradores convertir una cuenta local existente a SSO, o viceversa. Al cambiar a SSO, la cuenta se vinculará automáticamente cuando el usuario inicie sesión a través de su proveedor SSO
+- **Método de autenticación** (visible solo cuando SSO está habilitado): Cambiar entre «Local» y «SSO». Esto permite a los administradores convertir una cuenta local existente a SSO, o viceversa. Al cambiar a SSO, la cuenta se vinculará automáticamente cuando el usuario inicie sesión a través de su proveedor SSO
 - **Contraseña** (solo para usuarios locales): Establecer una nueva contraseña. Dejar en blanco para mantener la contraseña actual
 - **Rol**: Cambiar el rol del usuario a nivel de aplicación
 
 #### Vincular una Cuenta Local Existente a SSO
 
-Si un usuario ya tiene una cuenta local y su organización habilita SSO, el usuario verá el error "Ya existe una cuenta local con este correo electrónico" cuando intente iniciar sesión a través de SSO. Para resolver esto:
+Si un usuario ya tiene una cuenta local y su organización habilita SSO, el usuario verá el error «Ya existe una cuenta local con este correo electrónico» cuando intente iniciar sesión a través de SSO. Para resolver esto:
 
 1. Vaya a **Admin > Usuarios**
 2. Haga clic en el **icono de edición** junto al usuario
-3. Cambie el **Método de autenticación** de "Local" a "SSO"
+3. Cambie el **Método de autenticación** de «Local» a «SSO»
 4. Haga clic en **Guardar cambios**
 5. El usuario ahora puede iniciar sesión a través de SSO. Su cuenta se vinculará automáticamente en el primer inicio de sesión con SSO
 

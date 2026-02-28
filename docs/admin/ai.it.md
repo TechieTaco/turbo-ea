@@ -4,7 +4,7 @@
 
 Turbo EA può generare automaticamente le descrizioni delle card utilizzando una combinazione di **ricerca web** e un **Large Language Model (LLM)**. Quando un utente clicca il pulsante di suggerimento AI su una card, il sistema cerca sul web informazioni rilevanti sul componente, poi utilizza un LLM per produrre una descrizione concisa e contestualizzata per tipo — completa di punteggio di affidabilità e link alle fonti cliccabili.
 
-Questa funzionalità e **opzionale** e **completamente controllata dall'amministratore**. Può funzionare interamente sulla vostra infrastruttura utilizzando un'istanza Ollama locale, oppure collegarsi a provider LLM commerciali.
+Questa funzionalità è **opzionale** e **completamente controllata dall'amministratore**. Può funzionare interamente sulla vostra infrastruttura utilizzando un'istanza Ollama locale, oppure collegarsi a provider LLM commerciali.
 
 ---
 
@@ -151,7 +151,7 @@ Una volta configurato da un amministratore, gli utenti con il permesso `ai.sugge
 | **Member** | Utilizza i suggerimenti |
 | **Viewer** | Nessun accesso ai suggerimenti AI |
 
-La chiave del permesso e `ai.suggest`. I ruoli personalizzati possono ricevere questo permesso attraverso la pagina di amministrazione dei Ruoli.
+La chiave del permesso è`ai.suggest`. I ruoli personalizzati possono ricevere questo permesso attraverso la pagina di amministrazione dei Ruoli.
 
 ---
 

@@ -6,7 +6,7 @@
 | **Segnalibro / Vista salvata** | Una configurazione salvata di filtri, colonne e ordinamento nell'Inventario che può essere ricaricata con un clic |
 | **BPM** | Business Process Management — la disciplina della modellazione, analisi e miglioramento dei processi aziendali |
 | **BPMN** | Business Process Model and Notation — la notazione standard per la modellazione dei processi aziendali (versione 2.0) |
-| **Business Capability** | Cio che un'organizzazione può fare, indipendentemente da come lo fa |
+| **Business Capability** | Ciò che un'organizzazione può fare, indipendentemente da come lo fa |
 | **Calcolo** | Una formula definita dall'amministratore che calcola automaticamente il valore di un campo quando una card viene salvata |
 | **Card** | L'unità base di informazione in Turbo EA che rappresenta qualsiasi componente architetturale |
 | **Tipo di card** | La categoria a cui appartiene una card (es. Application, Business Process, Organization) |

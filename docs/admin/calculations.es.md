@@ -57,7 +57,7 @@ Las fórmulas utilizan un lenguaje de expresiones seguro y aislado. Puede hacer 
 
 ### Ejemplos de Fórmulas
 
-**Coste anual total de las aplicaciones relacionadas:**
+**Costo anual total de las aplicaciones relacionadas:**
 ```
 SUM(PLUCK(related_applications, "costTotalAnnual"))
 ```

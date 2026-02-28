@@ -1,6 +1,6 @@
 # Notifiche
 
-Turbo EA vi tiene informati sulle modifiche a card, attività e documenti che vi interessano. Le notifiche vengono consegnate **in-app** (tramite la campanella delle notifiche) e opzionalmente **via email** se SMTP e configurato.
+Turbo EA vi tiene informati sulle modifiche a card, attività e documenti che vi interessano. Le notifiche vengono consegnate **in-app** (tramite la campanella delle notifiche) e opzionalmente **via email** se SMTP è configurato.
 
 ## Campanella delle notifiche
 

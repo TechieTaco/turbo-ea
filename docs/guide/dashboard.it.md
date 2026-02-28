@@ -1,6 +1,6 @@
 # Dashboard
 
-La Dashboard e la prima schermata visualizzata dopo il login. Fornisce una **panoramica rapida** dell'intero stato dell'enterprise architecture.
+La Dashboard è la prima schermata visualizzata dopo il login. Fornisce una **panoramica rapida** dell'intero stato dell'enterprise architecture.
 
 ![Dashboard - Vista superiore](../assets/img/en/01_dashboard.png)
 
@@ -40,4 +40,4 @@ Nella sezione inferiore della Dashboard troverete:
 - **Grafico di distribuzione per tipo**: Mostra la proporzione di ciascun tipo di card nel vostro panorama
 - **Stato di approvazione**: Indica quante card sono approvate, in attesa, interrotte o rifiutate
 - **Qualità dei dati**: Percentuale complessiva di completezza delle informazioni su tutte le card
-- **Attività recente**: Un feed delle ultime modifiche — chi ha modificato cosa è quando
+- **Attività recente**: Un feed delle ultime modifiche — chi ha modificato cosa e quando

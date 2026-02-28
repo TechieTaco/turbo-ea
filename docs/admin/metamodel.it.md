@@ -82,10 +82,10 @@ I tipi di relazione definiscono le connessioni consentite tra i tipi di card. Og
 |-------|-------------|
 | **Key** | Identificatore univoco |
 | **Etichetta** | Etichetta della direzione in avanti (es. "utilizza") |
-| **Etichetta inversa** | Etichetta della direzione inversa (es. "e utilizzato da") |
+| **Etichetta inversa** | Etichetta della direzione inversa (es. "è utilizzato da") |
 | **Tipo sorgente** | Il tipo di card sul lato "da" |
 | **Tipo destinazione** | Il tipo di card sul lato "a" |
-| **Cardinalita** | n:m (molti-a-molti) o 1:n (uno-a-molti) |
+| **Cardinalità** | n:m (molti-a-molti) o 1:n (uno-a-molti) |
 
 Cliccate su **+ Nuovo tipo di relazione** per creare una relazione, o cliccate su una esistente per modificare le etichette e gli attributi.
 

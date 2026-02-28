@@ -4,7 +4,7 @@ La funzionalità **Tag** (**Admin > Metamodello > scheda Tag**) consente di crea
 
 ## Gruppi di tag
 
-Un gruppo di tag e una categoria di tag. Ad esempio, potreste creare gruppi come "Dominio aziendale", "Framework di conformità" o "Proprietà del team".
+Un gruppo di tag è una categoria di tag. Ad esempio, potreste creare gruppi come "Dominio aziendale", "Framework di conformità" o "Proprietà del team".
 
 ### Creazione di un gruppo di tag
 
