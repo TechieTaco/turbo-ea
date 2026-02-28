@@ -35,7 +35,7 @@ services:
       interval: 30s
       timeout: 5s
       retries: 3
-      start_period: 30s
+      start_period: 60s
     # L1: Backend only exposed via internal Docker network, not to host
     expose:
       - "8000"
@@ -60,6 +60,42 @@ services:
         condition: service_healthy
     ports:
       - "${HOST_PORT:-8920}:80"
+
+  # Optional: MCP server for AI tool integration (Claude, Copilot, Cursor, etc.)
+  # Activate with:  docker compose --profile mcp up -d
+  # Requires SSO to be enabled + MCP toggled on in admin settings.
+  mcp-server:
+    build:
+      context: .
+      dockerfile: mcp-server/Dockerfile
+    profiles: ["mcp"]
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+    networks:
+      - guac-net
+    environment:
+      TURBO_EA_URL: http://backend:8000
+      TURBO_EA_PUBLIC_URL: ${TURBO_EA_PUBLIC_URL:-http://localhost:8920}
+      MCP_PUBLIC_URL: ${MCP_PUBLIC_URL:-http://localhost:8920/mcp}
+      MCP_PORT: "8001"
+    depends_on:
+      backend:
+        condition: service_healthy
+    expose:
+      - "8001"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8001/health')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
 
   # Optional: bundled Ollama for AI suggestions.
   # Activate with:  docker compose --profile ai up -d

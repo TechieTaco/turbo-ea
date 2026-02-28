@@ -764,3 +764,65 @@ async def update_enabled_locales(
     await db.commit()
 
     return {"locales": valid}
+
+
+# ---------------------------------------------------------------------------
+# MCP integration settings
+# ---------------------------------------------------------------------------
+
+
+class McpSettingsPayload(BaseModel):
+    enabled: bool = False
+
+
+@router.get("/mcp")
+async def get_mcp_settings(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Admin endpoint — get MCP integration configuration."""
+    await PermissionService.require_permission(db, user, "admin.mcp")
+    row = await _get_or_create_row(db)
+    await db.commit()
+    general = row.general_settings or {}
+    mcp = general.get("mcp", {})
+    sso = general.get("sso", {})
+    return {
+        "enabled": mcp.get("enabled", False),
+        "sso_configured": bool(sso.get("enabled")),
+    }
+
+
+@router.patch("/mcp")
+async def update_mcp_settings(
+    body: McpSettingsPayload,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Admin endpoint — enable or disable MCP integration."""
+    await PermissionService.require_permission(db, user, "admin.mcp")
+
+    row = await _get_or_create_row(db)
+    general = dict(row.general_settings or {})
+    mcp = dict(general.get("mcp", {}))
+    mcp["enabled"] = body.enabled
+    general["mcp"] = mcp
+    row.general_settings = general
+    await db.commit()
+
+    return {"ok": True}
+
+
+@router.get("/mcp/status")
+async def get_mcp_status(db: AsyncSession = Depends(get_db)):
+    """Public endpoint — returns MCP + SSO availability (no secrets exposed).
+    Used by the MCP server to check if it should operate."""
+    result = await db.execute(select(AppSettings).where(AppSettings.id == "default"))
+    row = result.scalar_one_or_none()
+    general = (row.general_settings if row else None) or {}
+    mcp = general.get("mcp", {})
+    sso = general.get("sso", {})
+    return {
+        "enabled": mcp.get("enabled", False),
+        "sso_configured": bool(sso.get("enabled")),
+    }
