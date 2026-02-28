@@ -8,7 +8,7 @@ Self-hosted Enterprise Architecture Management platform that creates a **digital
 [![React 18](https://img.shields.io/badge/react-18-61DAFB.svg)](https://react.dev/)
 [![Ko-fi](https://img.shields.io/badge/Ko--fi-Support%20this%20project-FF5E5B?logo=ko-fi&logoColor=white)](https://ko-fi.com/vincentmakes)
 
-[Website](https://www.turbo-ea.org) | [User Guide](https://docs.turbo-ea.org) | [Blog](https://www.turbo-ea.org/blog) | [Business Case / Pitch](https://github.com/vincentmakes/turbo-ea/blob/10b9a0409ae801c92581443b69b87fd337da7ead/business%20case/turbo%20ea%20pitch%20business%20case.pdf)
+[Website](https://www.turbo-ea.org) | [User Guide](https://docs.turbo-ea.org) | [Blog](https://www.turbo-ea.org/blog) | [Business Case / Pitch](https://github.com/vincentmakes/turbo-ea/blob/main/business%20case/turbo%20ea%20pitch%20business%20case.pdf)
 
 ![Dashboard](marketing-site/assets/screenshots/dashboard.png)
 
