@@ -229,6 +229,9 @@ async def lifespan(app: FastAPI):
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.drop_all)
             await conn.run_sync(Base.metadata.create_all)
+        # Stamp in a separate connection so Alembic can manage its own
+        # transaction (avoids SAVEPOINT deadlock through greenlet bridge).
+        async with engine.connect() as conn:
             await conn.run_sync(
                 lambda sc: _alembic_stamp_sync(sc, alembic_cfg)
             )
@@ -255,24 +258,39 @@ async def lifespan(app: FastAPI):
             logger.info("[startup] Fresh DB — running create_all + stamp...")
             async with engine.begin() as conn:
                 await conn.run_sync(Base.metadata.create_all)
-                logger.info("[startup] create_all done, stamping head...")
+            logger.info("[startup] create_all done, stamping head...")
+            async with engine.connect() as conn:
                 await conn.run_sync(
                     lambda sc: _alembic_stamp_sync(sc, alembic_cfg)
                 )
             logger.info("[startup] Stamp complete")
         else:
-            # Existing DB: run migrations FIRST (they may rename tables),
-            # then create_all to pick up any genuinely new tables.
-            logger.info("[startup] Existing DB — running alembic upgrade head...")
-            try:
-                async with engine.begin() as conn:
-                    await conn.run_sync(
-                        lambda sc: _alembic_upgrade_sync(sc, alembic_cfg)
-                    )
-            except Exception:
-                logger.exception("Alembic migration failed")
-                raise
-            logger.info("[startup] Alembic upgrade complete, running create_all...")
+            # Existing DB: run migrations, then create_all for new tables.
+            # Use engine.connect() (not engine.begin()) so Alembic manages
+            # its own transaction — avoids SAVEPOINT deadlock via greenlet.
+            from alembic.script import ScriptDirectory
+
+            head_rev = ScriptDirectory.from_config(alembic_cfg).get_current_head()
+            if alembic_version == head_rev:
+                logger.info(
+                    "[startup] Already at head revision %s, skipping upgrade",
+                    head_rev,
+                )
+            else:
+                logger.info(
+                    "[startup] Upgrading from %s to %s...",
+                    alembic_version, head_rev,
+                )
+                try:
+                    async with engine.connect() as conn:
+                        await conn.run_sync(
+                            lambda sc: _alembic_upgrade_sync(sc, alembic_cfg)
+                        )
+                except Exception:
+                    logger.exception("Alembic migration failed")
+                    raise
+                logger.info("[startup] Alembic upgrade complete")
+            logger.info("[startup] Running create_all for any new tables...")
             async with engine.begin() as conn:
                 await conn.run_sync(Base.metadata.create_all)
             logger.info("[startup] create_all complete")
