@@ -83,7 +83,7 @@ mkdocs build --strict
 
 ## Maintaining the User Manual
 
-The user manual lives in the `docs/` directory and is built with **MkDocs Material** + **mkdocs-static-i18n**. It deploys automatically to Cloudflare Pages on every push to `main`. See [`DOCS-SETUP.md`](DOCS-SETUP.md) for full setup and deployment details.
+The user manual lives in the `docs/` directory and is built with **MkDocs Material** + **mkdocs-static-i18n**. It deploys automatically to Cloudflare Pages on every push to `main`.
 
 ### Structure
 
