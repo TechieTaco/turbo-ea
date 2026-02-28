@@ -60,27 +60,30 @@ plugins:
         - locale: es
           name: Español
           build: true
-        # ── Add more languages here ──────────────────────────────────
-        # - locale: de
-        #   name: Deutsch
-        #   build: true
-        # - locale: fr
-        #   name: Français
-        #   build: true
-        # - locale: it
-        #   name: Italiano
-        #   build: true
-        # - locale: pt
-        #   name: Português
-        #   build: true
-        # - locale: zh
-        #   name: 中文
-        #   build: true
+        - locale: de
+          name: Deutsch
+          build: true
+        - locale: fr
+          name: Français
+          build: true
+        - locale: it
+          name: Italiano
+          build: true
+        - locale: pt
+          name: Português
+          build: true
+        - locale: zh
+          name: 中文
+          build: true
 
   - search:
       lang:
         - en
         - es
+        - de
+        - fr
+        - it
+        - pt
 
 # ---------------------------------------------------------------------------
 # Markdown extensions
@@ -143,6 +146,21 @@ extra:
     - name: Español
       link: /es/
       lang: es
+    - name: Deutsch
+      link: /de/
+      lang: de
+    - name: Français
+      link: /fr/
+      lang: fr
+    - name: Italiano
+      link: /it/
+      lang: it
+    - name: Português
+      link: /pt/
+      lang: pt
+    - name: 中文
+      link: /zh/
+      lang: zh
 
   # Optional: version banner
   # version:

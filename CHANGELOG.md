@@ -5,6 +5,13 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.22.5] - 2026-02-28
+
+### Added
+- User manual translations for 5 new languages: French, German, Italian, Portuguese, and Chinese (125 translated documentation files)
+- Enabled French, German, Italian, Portuguese, and Chinese in mkdocs i18n plugin, search, and language selector
+- Placeholder screenshot directories for all 5 new locales (using English images as baseline)
+
 ## [0.22.4] - 2026-02-28
 
 ### Added
