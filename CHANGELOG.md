@@ -14,6 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ### Changed
 - User manual introduction rewritten for all users (architects, analysts, admins) instead of only executives and decision makers
 - Expanded AI-powered descriptions benefit to cover commercial LLM providers and confidence scoring
+- README AI section updated to list all supported LLM providers and admin controls
+- README SSO section updated to list all supported identity providers (Microsoft Entra ID, Google Workspace, Okta, Generic OIDC) and removed outdated untested warning
 
 ## [0.22.1] - 2026-02-27
 

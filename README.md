@@ -49,7 +49,7 @@ Self-hosted Enterprise Architecture Management platform that creates a **digital
 
 ### AI-Powered Assistance
 
-- **AI Description Suggestions** — Generate card descriptions with a single click using a two-step pipeline: web search (DuckDuckGo, Google Custom Search, or SearXNG) followed by local LLM extraction (Ollama). Suggestions are type-aware — the prompt contextualizes each card based on its type (e.g., "software application", "technology vendor", "business process"). Results include a confidence score, editable text, and clickable source links. Requires a local Ollama instance; optionally bundled via Docker Compose profile (`--profile ai`).
+- **AI Description Suggestions** — Generate card descriptions with a single click using a two-step pipeline: web search (DuckDuckGo, Google Custom Search, or SearXNG) followed by LLM extraction. Supports self-hosted Ollama (optionally bundled via Docker Compose `--profile ai`) and commercial providers (OpenAI, Google Gemini, Azure OpenAI, OpenRouter, Anthropic Claude) with encrypted API key storage. Suggestions are type-aware — the prompt contextualizes each card based on its type (e.g., "software application", "technology vendor", "business process"). Results include a confidence score, editable text, and clickable source links. Admins control which card types get suggestions, the search provider, and the LLM model.
 
 ### Data Governance
 
@@ -70,13 +70,11 @@ Self-hosted Enterprise Architecture Management platform that creates a **digital
 ### Integrations
 
 > [!IMPORTANT]
-> At this stage (v0.5.0) the SSO and ServiceNow integration are implemented but untested.  
-> I'm looking for volunteer testers for this who would have access to such integration end point.
+> The ServiceNow integration is implemented but looking for volunteer testers with access to a ServiceNow instance.
 > If you are interested, please check the discussions or raise an issue.
 
-
-- **ServiceNow Integration** — Bidirectional sync with ServiceNow. Connection management, field mapping with transform rules, direction control (Turbo EA → SNOW, SNOW → Turbo EA, or bidirectional), staged record review before applying, and encrypted credential storage.
-- **SSO / Single Sign-On** — SSO callback handling with password setup flow for invited users.
+- **SSO / Single Sign-On** — Support for multiple identity providers: **Microsoft Entra ID**, **Google Workspace**, **Okta**, and any **Generic OIDC** provider with automatic discovery document support. Provider-specific branded login buttons, Google hosted domain restriction, Okta domain configuration, manual OIDC endpoint configuration as fallback, and admin ability to link existing local accounts to SSO. Dedicated Authentication tab in admin settings.
+- **ServiceNow Integration** — Bidirectional sync with ServiceNow CMDB. Connection management, field mapping with transform rules, direction control (Turbo EA → SNOW, SNOW → Turbo EA, or bidirectional), staged record review before applying, and encrypted credential storage.
 - **Web Portals** — Public, slug-based views of your EA landscape (no login required). Configurable card type display, field selection, card layout, per-portal logo toggle, and relation-based filtering.
 - **OData Feeds** — Generate OData-compatible feeds from saved views and saved reports for consumption by external tools (Excel, Power BI, etc.).
 
