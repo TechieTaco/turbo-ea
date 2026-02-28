@@ -20,18 +20,20 @@ configure_logging(environment=settings.ENVIRONMENT)
 logger = logging.getLogger(__name__)
 
 
-def _run_alembic_stamp(alembic_cfg, revision):
-    """Run alembic stamp in a thread-safe way."""
+def _alembic_stamp_sync(sync_connection, alembic_cfg):
+    """Stamp alembic_version using an existing sync connection."""
     from alembic import command
 
-    command.stamp(alembic_cfg, revision)
+    alembic_cfg.attributes["connection"] = sync_connection
+    command.stamp(alembic_cfg, "head")
 
 
-def _run_alembic_upgrade(alembic_cfg, revision):
-    """Run alembic upgrade in a thread-safe way."""
+def _alembic_upgrade_sync(sync_connection, alembic_cfg):
+    """Run alembic upgrade using an existing sync connection."""
     from alembic import command
 
-    command.upgrade(alembic_cfg, revision)
+    alembic_cfg.attributes["connection"] = sync_connection
+    command.upgrade(alembic_cfg, "head")
 
 
 _PURGE_INTERVAL_SECONDS = 3600  # Run once per hour
@@ -225,8 +227,9 @@ async def lifespan(app: FastAPI):
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.drop_all)
             await conn.run_sync(Base.metadata.create_all)
-        # Stamp so future non-reset runs just upgrade
-        await asyncio.to_thread(_run_alembic_stamp, alembic_cfg, "head")
+            await conn.run_sync(
+                lambda sc: _alembic_stamp_sync(sc, alembic_cfg)
+            )
     else:
         # Determine DB state before touching anything
         async with engine.connect() as conn:
@@ -243,12 +246,17 @@ async def lifespan(app: FastAPI):
             # Fresh DB or pre-Alembic: create tables from models, then stamp
             async with engine.begin() as conn:
                 await conn.run_sync(Base.metadata.create_all)
-            await asyncio.to_thread(_run_alembic_stamp, alembic_cfg, "head")
+                await conn.run_sync(
+                    lambda sc: _alembic_stamp_sync(sc, alembic_cfg)
+                )
         else:
             # Existing DB: run migrations FIRST (they may rename tables),
             # then create_all to pick up any genuinely new tables.
             try:
-                await asyncio.to_thread(_run_alembic_upgrade, alembic_cfg, "head")
+                async with engine.begin() as conn:
+                    await conn.run_sync(
+                        lambda sc: _alembic_upgrade_sync(sc, alembic_cfg)
+                    )
             except Exception:
                 logger.exception("Alembic migration failed")
                 raise

@@ -5,6 +5,12 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.23.1] - 2026-02-28
+
+### Fixed
+- Backend startup hang caused by nested asyncio event loops during Alembic migrations — now passes the existing engine connection directly to Alembic
+- Increased Docker health check start_period from 30s to 60s to accommodate slower first-run migrations
+
 ## [0.23.0] - 2026-02-28
 
 ### Added
