@@ -45,9 +45,9 @@ El modelo de ciclo de vida rastrea un componente a través de cinco fases:
 | Fase | Descripción |
 |------|-------------|
 | **Plan** | En consideración, aún no iniciado |
-| **Entrada en Fase** | En proceso de implementación o despliegue |
+| **Fase de Entrada** | En proceso de implementación o despliegue |
 | **Activo** | Actualmente operativo |
-| **Salida de Fase** | En proceso de descomisión |
+| **Fase de Salida** | En proceso de retirada |
 | **Fin de Vida** | Ya no está en uso ni tiene soporte |
 
 Cada fase tiene un **selector de fecha** para registrar cuándo el componente entró o entrará en esa fase. Una barra de línea temporal visual muestra la posición del componente en su ciclo de vida.

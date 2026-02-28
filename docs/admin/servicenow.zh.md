@@ -1,6 +1,6 @@
 # ServiceNow 集成
 
-ServiceNow 集成（**管理 > 设置 > ServiceNow**）实现 Turbo EA 与 ServiceNow CMDB 之间的双向同步。本指南涵盖从初始设置到高级配方和运维最佳实践的所有内容。
+ServiceNow 集成（**管理 > 设置 > ServiceNow**）实现 Turbo EA 与 ServiceNow CMDB 之间的双向同步。本指南涵盖从初始设置到高级方案和运维最佳实践的所有内容。
 
 ## 为什么要将 ServiceNow 与 Turbo EA 集成？
 
@@ -18,7 +18,7 @@ ServiceNow CMDB 和企业架构工具服务于不同但互补的目的：
 ### 您可以做什么
 
 - **拉取同步** —— 从 ServiceNow 向 Turbo EA 导入 CI，然后接管所有权。后续拉取仅更新 SNOW 自动发现的运维字段（IP、状态、SLA）
-- **推送同步** —— 将 EA 策划的数据推回 ServiceNow（名称、描述、评估、生命周期计划），以便 ITSM 团队看到 EA 上下文
+- **推送同步** —— 将 EA 维护的数据推回 ServiceNow（名称、描述、评估、生命周期计划），以便 ITSM 团队看到 EA 上下文
 - **双向同步** —— Turbo EA 主导大多数字段；SNOW 主导一小部分运维/技术字段。两个系统保持同步
 - **身份映射** —— 持久的交叉引用跟踪（sys_id <-> card UUID）确保记录在同步之间保持链接
 
@@ -60,13 +60,13 @@ ServiceNow CMDB 和企业架构工具服务于不同但互补的目的：
 
 ### 2. 每个字段的权威来源是哪个系统？
 
-这是最重要的决策。默认应该是 **Turbo EA 主导** —— EA 工具是架构的权威记录系统。ServiceNow 应该仅对来自自动发现或 ITSM 工作流的少量运维和技术字段拥有主导权。其他所有内容 —— 名称、描述、评估、生命周期规划、成本 —— 由 EA 团队在 Turbo EA 中拥有和策划。
+这是最重要的决策。默认应该是 **Turbo EA 主导** —— EA 工具是架构的权威记录系统。ServiceNow 应该仅对来自自动发现或 ITSM 工作流的少量运维和技术字段拥有主导权。其他所有内容 —— 名称、描述、评估、生命周期规划、成本 —— 由 EA 团队在 Turbo EA 中拥有和维护。
 
 **推荐模型 —— 「Turbo EA 主导，SNOW 补充」：**
 
 | 字段类型 | 权威来源 | 原因 |
 |----------|----------|------|
-| **名称和描述** | **Turbo 主导** | EA 团队策划权威名称并编写战略描述；CMDB 名称可能混乱或自动生成 |
+| **名称和描述** | **Turbo 主导** | EA 团队维护权威名称并编写战略描述；CMDB 名称可能混乱或自动生成 |
 | **业务关键性** | **Turbo 主导** | EA 团队的战略评估 —— 不是运维数据 |
 | **功能/技术适用性** | **Turbo 主导** | TIME 模型评分是 EA 关注的事项 |
 | **生命周期（所有阶段）** | **Turbo 主导** | 规划、引入、活跃、淘汰、生命周期结束 —— 都是 EA 规划数据 |
@@ -358,7 +358,7 @@ active=true^install_statusNOT IN7,8
 
 | 字段 | 方向 | 拉取执行... | 推送执行... |
 |------|------|------------|------------|
-| `name` | **Turbo 主导** | 跳过（EA 策划名称） | 推送 EA 名称 -> SNOW |
+| `name` | **Turbo 主导** | 跳过（EA 维护名称） | 推送 EA 名称 -> SNOW |
 | `description` | **Turbo 主导** | 跳过（EA 编写描述） | 推送描述 -> SNOW |
 | `lifecycle.active` | **Turbo 主导** | 跳过（EA 管理生命周期） | 推送上线日期 -> SNOW |
 | `attributes.businessCriticality` | **Turbo 主导** | 跳过（EA 评估） | 推送评估 -> SNOW 自定义字段 |
@@ -373,7 +373,7 @@ active=true^install_statusNOT IN7,8
 
 | 数据类别 | 推荐方向 | 理由 |
 |----------|----------|------|
-| **名称、显示标签** | **Turbo 主导** | EA 团队策划权威、清晰的名称 —— CMDB 名称通常是自动生成或不一致的 |
+| **名称、显示标签** | **Turbo 主导** | EA 团队维护权威、清晰的名称 —— CMDB 名称通常是自动生成或不一致的 |
 | **描述** | **Turbo 主导** | EA 描述捕获战略上下文、业务价值和架构意义 |
 | **业务关键性（TIME 模型）** | **Turbo 主导** | 核心 EA 评估 —— 不是运维数据 |
 | **功能/技术适用性** | **Turbo 主导** | EA 特定的评分和路线图分类 |
@@ -477,9 +477,9 @@ deletions / total_linked > max_deletion_ratio  ->  跳过所有删除
 
 ---
 
-## 按类型推荐配方
+## 按类型推荐方案
 
-### 配方 1：从 CMDB 导入应用程序（最常见）
+### 方案 1：从 CMDB 导入应用程序（最常见）
 
 **目标**：从 ServiceNow 导入应用程序架构，然后在 Turbo EA 中接管名称、描述、评估和生命周期的所有权。SNOW 仅主导运维字段。
 
@@ -525,7 +525,7 @@ deletions / total_linked > max_deletion_ratio  ->  跳过所有删除
 
 ---
 
-### 配方 2：IT 组件（服务器）
+### 方案 2：IT 组件（服务器）
 
 **目标**：导入服务器基础设施用于基础设施映射和依赖分析。服务器比应用程序更偏运维，因此更多字段来自 SNOW —— 但 Turbo EA 仍然主导名称和描述。
 
@@ -557,7 +557,7 @@ deletions / total_linked > max_deletion_ratio  ->  跳过所有删除
 
 ---
 
-### 配方 3：带 EOL 跟踪的软件产品
+### 方案 3：带 EOL 跟踪的软件产品
 
 **目标**：导入软件产品并与 Turbo EA 的 endoflife.date 集成结合。Turbo EA 主导名称、描述和供应商 —— 版本是事实字段，SNOW 可以主导。
 
@@ -584,7 +584,7 @@ deletions / total_linked > max_deletion_ratio  ->  跳过所有删除
 
 ---
 
-### 配方 4：供应商（双向）
+### 方案 4：供应商（双向）
 
 **目标**：保持供应商注册表同步。Turbo EA 拥有供应商名称、描述和战略上下文。SNOW 用运维联系数据补充。
 
@@ -607,11 +607,11 @@ deletions / total_linked > max_deletion_ratio  ->  跳过所有删除
 | `attributes.website` | `website` | **Turbo 主导** | 直接 | |
 | `attributes.contactEmail` | `email` | SNOW 主导 | 直接 | |
 
-**为什么大多数字段 Turbo 主导**：EA 团队策划供应商战略、管理关系和跟踪风险 —— 这包括供应商的显示名称、描述和网站。SNOW 仅对可能由采购或资产管理团队更新的运维联系数据主导。
+**为什么大多数字段 Turbo 主导**：EA 团队制定供应商战略、管理关系和跟踪风险 —— 这包括供应商的显示名称、描述和网站。SNOW 仅对可能由采购或资产管理团队更新的运维联系数据主导。
 
 ---
 
-### 配方 5：将 EA 评估推回 ServiceNow
+### 方案 5：将 EA 评估推回 ServiceNow
 
 **目标**：将 EA 特定的评估导出到 ServiceNow 自定义字段，以便 ITSM 团队看到 EA 上下文。
 

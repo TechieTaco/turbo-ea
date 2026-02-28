@@ -37,7 +37,7 @@ El **Informe de Ciclo de Vida** muestra una **visualización de línea temporal*
 - **Planificación de inversión** — Identifique brechas donde se necesita nueva tecnología
 - **Coordinación de migración** — Visualice períodos superpuestos de entrada y salida de fase
 
-Los componentes se muestran como barras horizontales que abarcan sus fases de ciclo de vida: Plan, Entrada en Fase, Activo, Salida de Fase y Fin de Vida.
+Los componentes se muestran como barras horizontales que abarcan sus fases de ciclo de vida: Plan, Fase de Entrada, Activo, Fase de Salida y Fin de Vida.
 
 ## Informe de Dependencias
 

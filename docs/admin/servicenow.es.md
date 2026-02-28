@@ -143,7 +143,7 @@ El motor **omite todas las eliminaciones** si la cantidad excede el ratio config
 
 ## Mejores Prácticas de Seguridad
 
-- **Cifrado en reposo** — Todas las credenciales cifradas via Fernet derivado de `SECRET_KEY`
+- **Cifrado en reposo** — Todas las credenciales cifradas vía Fernet derivado de `SECRET_KEY`
 - **Privilegio mínimo** — Cuenta de servicio SNOW dedicada con acceso de solo lectura a tablas específicas
 - **OAuth 2.0 preferido** — Tokens de corta duración con restricciones de alcance
 - **HTTPS obligatorio** — Las URLs HTTP se rechazan en tiempo de validación

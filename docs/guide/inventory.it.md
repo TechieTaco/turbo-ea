@@ -1,6 +1,6 @@
 # Inventario
 
-L'**Inventario** e il cuore di Turbo EA. Qui sono elencate tutte le **card** (componenti) dell'enterprise architecture: applicazioni, processi, business capability, organizzazioni, fornitori, interfacce e altro.
+L'**Inventario** è il cuore di Turbo EA. Qui sono elencate tutte le **card** (componenti) dell'enterprise architecture: applicazioni, processi, business capability, organizzazioni, fornitori, interfacce e altro.
 
 ![Vista inventario con pannello filtri](../assets/img/en/23_inventory_filters.png)
 

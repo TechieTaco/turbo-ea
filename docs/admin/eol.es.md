@@ -53,4 +53,4 @@ Una vez vinculada, la página de detalle de la ficha muestra una **sección EOL*
 
 ## Informe EOL
 
-Los datos EOL vinculados alimentan el [Informe EOL](../guide/reports.md), que proporciona una vista de panel de control del estado de soporte de su panorama tecnológico a través de todas las fichas vinculadas.
+Los datos EOL vinculados alimentan el [Informe EOL](../guide/reports.es.md), que proporciona una vista de panel de control del estado de soporte de su panorama tecnológico a través de todas las fichas vinculadas.

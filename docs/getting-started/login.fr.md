@@ -1,10 +1,10 @@
-# Acces à la plateforme
+# Accès à la plateforme
 
 ## Connexion
 
-![Ecran de connexion](../assets/img/en/24_login.png)
+![Écran de connexion](../assets/img/en/24_login.png)
 
-Lors de l'acces à la plateforme, l'écran de connexion s'affiche et vous devez saisir votre adresse e-mail et votre mot de passe.
+Lors de l'accès à la plateforme, l'écran de connexion s'affiche et vous devez saisir votre adresse e-mail et votre mot de passe.
 
 **Étapes pour se connecter :**
 
@@ -13,7 +13,7 @@ Lors de l'acces à la plateforme, l'écran de connexion s'affiche et vous devez 
 3. Dans le champ **Mot de passe**, entrez votre mot de passe
 4. Cliquez sur le bouton **Se connecter**
 
-**Note importante :** Le premier utilisateur a s'inscrire sur la plateforme reçoit automatiquement le rôle **Administrateur**, ce qui lui permet de configurer l'ensemble du système.
+**Note importante :** Le premier utilisateur à s'inscrire sur la plateforme reçoit automatiquement le rôle **Administrateur**, ce qui lui permet de configurer l'ensemble du système.
 
 ## Connexion avec SSO (Single Sign-On)
 
@@ -25,12 +25,12 @@ Si votre organisation a configuré le SSO, un bouton **Se connecter avec [Fourni
 2. Cliquez sur le bouton **Se connecter avec [Fournisseur]**
 3. Vous serez redirigé vers la page de connexion de votre fournisseur d'identité (par ex. Microsoft Entra ID, Google Workspace, Okta, ou le fournisseur OIDC de votre organisation)
 4. Authentifiez-vous avec vos identifiants d'entreprise
-5. Après une authentification réussie, vous etes redirigé vers Turbo EA et connecté automatiquement
+5. Après une authentification réussie, vous êtes redirigé vers Turbo EA et connecté automatiquement
 
 **Notes :**
 
 - Si votre compte n'existe pas encore dans Turbo EA, il sera créé automatiquement lors de la première connexion SSO (si l'auto-inscription est activée) ou associé à une invitation précréée
-- Si un administrateur vous a déjà invite par e-mail, votre connexion SSO sera liée à ce compte et vous hériterez du rôle pré-attribué
+- Si un administrateur vous a déjà invité par e-mail, votre connexion SSO sera liée à ce compte et vous hériterez du rôle pré-attribué
 - Les utilisateurs SSO peuvent toujours avoir un mot de passe local défini comme solution de secours, si configuré par l'administrateur
 
 ## Inscription de nouveaux utilisateurs

@@ -8,7 +8,7 @@ Las encuestas ayudan a mantener actualizados los datos de arquitectura contactan
 
 - Solicitar a los responsables de aplicaciones que confirmen la criticidad de negocio y las fechas de ciclo de vida anualmente
 - Recopilar evaluaciones de idoneidad técnica de los equipos de TI
-- Obtener actualizaciones de costes de los responsables de presupuesto
+- Obtener actualizaciones de costos de los responsables de presupuesto
 
 ## Ciclo de Vida de la Encuesta
 
@@ -55,7 +55,7 @@ Una vez que su encuesta está en estado **Activa**:
 
 1. Haga clic en **Enviar** para distribuir la encuesta
 2. Cada ficha objetivo genera una tarea para las partes interesadas asignadas
-3. Las partes interesadas ven la encuesta en su pestaña **Mis Encuestas** en la [página de Tareas](../guide/tasks.md)
+3. Las partes interesadas ven la encuesta en su pestaña **Mis Encuestas** en la [página de Tareas](../guide/tasks.es.md)
 
 ## Visualización de Resultados
 
