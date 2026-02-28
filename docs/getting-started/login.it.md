@@ -35,7 +35,7 @@ Se la vostra organizzazione ha configurato SSO, un pulsante **Accedi con [Provid
 
 ## Registrazione di nuovi utenti
 
-Se e la prima volta che accedete alla piattaforma, potete registrarvi cliccando su "Registrati". Gli amministratori possono anche invitare utenti dal pannello di amministrazione (vedi [Utenti e ruoli](../admin/users.md)).
+Se è la prima volta che accedete alla piattaforma, potete registrarvi cliccando su "Registrati". Gli amministratori possono anche invitare utenti dal pannello di amministrazione (vedi [Utenti e ruoli](../admin/users.md)).
 
 ## Cambio della lingua
 

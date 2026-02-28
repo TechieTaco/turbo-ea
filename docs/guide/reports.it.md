@@ -45,7 +45,7 @@ I componenti sono visualizzati come barre orizzontali che attraversano le fasi d
 
 Il **Report Dipendenze** visualizza le **connessioni tra componenti** come un grafo a rete. I nodi rappresentano le card e gli archi rappresentano le relazioni. Funzionalità:
 
-- **Controllo della profondita** — Limitate quanti salti dal nodo centrale visualizzare (limitazione della profondita BFS)
+- **Controllo della profondità** — Limitate quanti salti dal nodo centrale visualizzare (limitazione della profondità BFS)
 - **Filtro per tipo** — Mostrate solo specifici tipi di card e tipi di relazione
 - **Esplorazione interattiva** — Cliccate su qualsiasi nodo per ricentrare il grafo su quella card
 - **Analisi dell'impatto** — Comprendete il raggio d'azione delle modifiche a un componente specifico
@@ -74,9 +74,9 @@ Questo è utile per identificare lacune di copertura (capability senza applicazi
 
 ## Report Qualità dei Dati
 
-![Report Qualita dei Dati](../assets/img/en/33_report_data_quality.png)
+![Report Qualità dei Dati](../assets/img/en/33_report_data_quality.png)
 
-Il **Report Qualità dei Dati** e una **dashboard di completezza** che mostra quanto bene i vostri dati architetturali sono compilati. Basato sui pesi dei campi configurati nel metamodello:
+Il **Report Qualità dei Dati** è una **dashboard di completezza** che mostra quanto bene i vostri dati architetturali sono compilati. Basato sui pesi dei campi configurati nel metamodello:
 
 - **Punteggio complessivo** — Qualità media dei dati su tutte le card
 - **Per tipo** — Dettaglio che mostra quali tipi di card hanno la migliore/peggiore completezza

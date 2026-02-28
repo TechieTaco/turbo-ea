@@ -14,7 +14,7 @@ El panel lateral izquierdo permite **filtrar** las fichas por diferentes criteri
 - **Tipos** — Filtrar por uno o más tipos de ficha: Objetivo, Plataforma, Iniciativa, Organización, Capacidad de Negocio, Contexto de Negocio, Proceso de Negocio, Aplicación, Interfaz, Objeto de Datos, Componente TI, Categoría Tecnológica, Proveedor, Sistema
 - **Subtipos** — Cuando se selecciona un tipo, permite filtrar por subtipo (por ejemplo, Aplicación → Aplicación de Negocio, Microservicio, Agente IA, Despliegue)
 - **Estado de Aprobación** — Borrador, Aprobado, Roto o Rechazado
-- **Ciclo de Vida** — Filtrar por fase del ciclo de vida: Plan, Entrada en Fase, Activo, Salida de Fase, Fin de Vida
+- **Ciclo de Vida** — Filtrar por fase del ciclo de vida: Plan, Fase de Entrada, Activo, Fase de Salida, Fin de Vida
 - **Calidad de Datos** — Filtrado por umbral: Buena (80%+), Media (50–79%), Baja (menos del 50%)
 - **Etiquetas** — Filtrar por etiquetas de cualquier grupo de etiquetas
 - **Relaciones** — Filtrar por fichas relacionadas a través de tipos de relación
@@ -129,5 +129,5 @@ Haga clic en **Exportar** para descargar la vista actual del inventario como un 
 
 - **Exportación multi-tipo** — Exporta todas las fichas visibles con columnas principales (nombre, tipo, descripción, subtipo, ciclo de vida, estado de aprobación)
 - **Exportación de tipo único** — Cuando se filtra por un solo tipo, la exportación incluye columnas expandidas de atributos personalizados (una columna por campo)
-- **Expansión del ciclo de vida** — Columnas separadas para cada fecha de fase del ciclo de vida (Plan, Entrada en Fase, Activo, Salida de Fase, Fin de Vida)
+- **Expansión del ciclo de vida** — Columnas separadas para cada fecha de fase del ciclo de vida (Plan, Fase de Entrada, Activo, Fase de Salida, Fin de Vida)
 - **Nombre de archivo con fecha** — El archivo se nombra con la fecha de exportación para facilitar la organización

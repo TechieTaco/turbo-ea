@@ -41,7 +41,7 @@ Configure a entrega de e-mail para convites, notificações de pesquisas e outra
 Após configurar, clique em **Enviar E-mail de Teste** para verificar se as configurações funcionam corretamente.
 
 !!! note
-    E-mail é opcional. Se o SMTP não estiver configurado, recursos que enviam e-mails (convites, notificações de pesquisa) irão pular graciosamente a entrega de e-mail.
+    E-mail é opcional. Se o SMTP não estiver configurado, recursos que enviam e-mails (convites, notificações de pesquisa) simplesmente ignorarão a entrega de e-mail.
 
 ## Módulo BPM
 

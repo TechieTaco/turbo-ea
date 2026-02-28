@@ -2,7 +2,7 @@
 
 ![KI-Vorschlagseinstellungen](../assets/img/en/26_admin_settings_ai.png)
 
-Turbo EA kann Kartenbeschreibungen automatisch generieren, indem eine Kombination aus **Websuche** und einem **Large Language Model (LLM)** verwendet wird. Wenn ein Benutzer die KI-Vorschlags-Schaltfläche auf einer Karte klickt, durchsucht das System das Web nach relevanten Informationen über die Komponente und verwendet dann ein LLM, um eine prägnante, typbezogene Beschreibung zu erstellen — komplett mit einem Konfidenzwert und klickbaren Quellenlinks.
+Turbo EA kann Kartenbeschreibungen automatisch generieren, indem eine Kombination aus **Websuche** und einem **Large Language Model (LLM)** verwendet wird. Wenn ein Benutzer auf die KI-Vorschlags-Schaltfläche einer Karte klickt, durchsucht das System das Web nach relevanten Informationen über die Komponente und verwendet dann ein LLM, um eine prägnante, typbezogene Beschreibung zu erstellen — komplett mit einem Konfidenzwert und klickbaren Quellenlinks.
 
 Diese Funktion ist **optional** und **vollständig vom Administrator steuerbar**. Sie kann vollständig auf Ihrer eigenen Infrastruktur mit einer lokalen Ollama-Instanz laufen oder mit kommerziellen LLM-Anbietern verbunden werden.
 
@@ -183,7 +183,7 @@ Diese Umgebungsvariablen bieten eine initiale KI-Konfiguration. Sobald sie über
 
 | Variable | Standard | Beschreibung |
 |----------|---------|-------------|
-| `AI_PROVIDER_URL` | *(leer)* | Ollama-kompatibler LLM-Anbieter-URL |
+| `AI_PROVIDER_URL` | *(leer)* | Ollama-kompatible LLM-Anbieter-URL |
 | `AI_MODEL` | *(leer)* | LLM-Modellname (z.B. `gemma3:4b`, `mistral`) |
 | `AI_SEARCH_PROVIDER` | `duckduckgo` | Websuchanbieter: `duckduckgo`, `google` oder `searxng` |
 | `AI_SEARCH_URL` | *(leer)* | Suchanbieter-URL oder API-Anmeldedaten |

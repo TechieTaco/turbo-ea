@@ -8,12 +8,12 @@ O ServiceNow CMDB e as ferramentas de Arquitetura Empresarial servem a propósit
 
 | | ServiceNow CMDB | Turbo EA |
 |--|-----------------|----------|
-| **Foco** | Operações de TI — o que está em execução, quem é responsável, quais incidentes ocorreram | Planejamento estratégico — como a paisagem deve ser daqui a 3 anos? |
+| **Foco** | Operações de TI — o que está em execução, quem é responsável, quais incidentes ocorreram | Planejamento estratégico — como a cenário deve ser daqui a 3 anos? |
 | **Mantido por** | Operações de TI, Gestão de Ativos | Equipe de EA, Arquitetos de Negócio |
 | **Ponto forte** | Descoberta automatizada, fluxos de trabalho ITSM, precisão operacional | Contexto de negócio, mapeamento de capacidades, planejamento de ciclo de vida, avaliações |
 | **Dados típicos** | Nomes de host, IPs, status de instalação, grupos de atribuição, contratos | Criticidade de negócio, adequação funcional, débito técnico, roadmap estratégico |
 
-**O Turbo EA é o sistema de registro** para sua paisagem de arquitetura — nomes, descrições, planos de ciclo de vida, avaliações e contexto de negócio residem aqui. O ServiceNow complementa o Turbo EA com metadados operacionais e técnicos (nomes de host, IPs, dados de SLA, status de instalação) provenientes de descoberta automatizada e fluxos de trabalho ITSM. A integração mantém os dois sistemas conectados, respeitando que o Turbo EA lidera.
+**O Turbo EA é o sistema de registro** para sua cenário de arquitetura — nomes, descrições, planos de ciclo de vida, avaliações e contexto de negócio residem aqui. O ServiceNow complementa o Turbo EA com metadados operacionais e técnicos (nomes de host, IPs, dados de SLA, status de instalação) provenientes de descoberta automatizada e fluxos de trabalho ITSM. A integração mantém os dois sistemas conectados, respeitando que o Turbo EA lidera.
 
 ### O que Você Pode Fazer
 
@@ -60,7 +60,7 @@ Comece pequeno. Os pontos de integração mais comuns são:
 
 ### 2. Qual sistema é a fonte da verdade para cada campo?
 
-Esta é a decisão mais importante. O padrão deve ser **Turbo EA lidera** — a ferramenta de EA é o sistema de registro para sua paisagem de arquitetura. O ServiceNow deve liderar apenas para um conjunto restrito de campos operacionais e técnicos provenientes de descoberta automatizada ou fluxos de trabalho ITSM. Todo o resto — nomes, descrições, avaliações, planejamento de ciclo de vida, custos — é de propriedade e curadoria da equipe de EA no Turbo EA.
+Esta é a decisão mais importante. O padrão deve ser **Turbo EA lidera** — a ferramenta de EA é o sistema de registro para sua cenário de arquitetura. O ServiceNow deve liderar apenas para um conjunto restrito de campos operacionais e técnicos provenientes de descoberta automatizada ou fluxos de trabalho ITSM. Todo o resto — nomes, descrições, avaliações, planejamento de ciclo de vida, custos — é de propriedade e curadoria da equipe de EA no Turbo EA.
 
 **Modelo recomendado — "Turbo EA lidera, SNOW complementa":**
 
@@ -82,7 +82,7 @@ Esta é a decisão mais importante. O padrão deve ser **Turbo EA lidera** — a
 | Cenário | Frequência | Observações |
 |---------|------------|-------------|
 | Importação inicial | Uma vez | Modo aditivo, revise cuidadosamente |
-| Gestão ativa da paisagem | Diariamente | Automatizado via cron fora do horário de pico |
+| Gestão ativa da cenário | Diariamente | Automatizado via cron fora do horário de pico |
 | Relatórios de conformidade | Semanalmente | Antes de gerar relatórios |
 | Ad-hoc | Conforme necessário | Antes de grandes revisões ou apresentações de EA |
 
@@ -214,7 +214,7 @@ active=true^assignment_group.name=IT Operations
 active=true^install_statusNOT IN7,8
 ```
 
-**Melhor prática**: Sempre inclua `active=true` no mínimo. Tabelas do CMDB frequentemente contêm milhares de registros desativados ou descomissionados que não devem ser importados para sua paisagem de EA.
+**Melhor prática**: Sempre inclua `active=true` no mínimo. Tabelas do CMDB frequentemente contêm milhares de registros desativados ou descomissionados que não devem ser importados para sua cenário de EA.
 
 ---
 
@@ -482,7 +482,7 @@ Mês 2+:       Modo CONSERVADOR, staging DESATIVADO (pular), cron diário automa
 
 ### Receita 1: Aplicações do CMDB (Mais Comum)
 
-**Objetivo**: Importar a paisagem de aplicações do ServiceNow e depois assumir a propriedade de nomes, descrições, avaliações e ciclo de vida no Turbo EA. O SNOW lidera apenas campos operacionais.
+**Objetivo**: Importar a cenário de aplicações do ServiceNow e depois assumir a propriedade de nomes, descrições, avaliações e ciclo de vida no Turbo EA. O SNOW lidera apenas campos operacionais.
 
 **Mapeamento:**
 

@@ -146,7 +146,7 @@ Uma vez configurado por um admin, usuários com a permissão `ai.suggest` (conce
 
 | Papel | Acesso |
 |-------|--------|
-| **Admin** | Acesso total: configurar configurações de IA e usar sugestões |
+| **Admin** | Acesso total: gerenciar configurações de IA e usar sugestões |
 | **BPM Admin** | Usar sugestões |
 | **Membro** | Usar sugestões |
 | **Visualizador** | Sem acesso a sugestões de IA |
