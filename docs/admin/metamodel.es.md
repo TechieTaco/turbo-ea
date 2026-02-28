@@ -101,7 +101,7 @@ Los grupos de etiquetas y etiquetas se pueden gestionar desde esta pestaña. Ver
 
 La pestaña **Grafo del Metamodelo** muestra un diagrama SVG visual de todos los tipos de fichas y sus tipos de relación. Esta es una visualización de solo lectura que ayuda a comprender las conexiones en su metamodelo de un vistazo.
 
-## Editor de Diseño de Fichas
+## Editor de Disposición de Fichas
 
 Para cada tipo de ficha, la sección **Diseño** en el panel del tipo controla cómo se estructura la página de detalle:
 

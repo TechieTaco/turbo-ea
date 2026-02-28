@@ -43,7 +43,7 @@ Progettate le vostre domande. Ogni domanda può essere:
 - **Selezione multipla** — Scegliete più opzioni
 - **Numero** — Input numerico
 - **Data** — Selettore di data
-- **Booleano** — Interruttore Si/No
+- **Booleano** — Interruttore Sì/No
 
 ### Auto-azioni
 
@@ -51,7 +51,7 @@ Configurate regole che aggiornano automaticamente gli attributi della card in ba
 
 ## Invio di un sondaggio
 
-Una volta che il vostro sondaggio e in stato **Active**:
+Una volta che il vostro sondaggio è in stato **Active**:
 
 1. Cliccate su **Invia** per distribuire il sondaggio
 2. Ogni card target genera un todo per gli stakeholder assegnati

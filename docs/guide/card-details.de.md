@@ -12,7 +12,7 @@ Der obere Bereich der Karte zeigt:
 - **Kartenname** — Inline bearbeitbar
 - **Subtyp** — Sekundäre Klassifizierung (falls zutreffend)
 - **Genehmigungsstatus-Badge** — Entwurf, Genehmigt, Ungültig oder Abgelehnt
-- **KI-Vorschlags-Schaltfläche** — Klicken, um eine Beschreibung mit KI zu generieren (sichtbar wenn KI für diesen Kartentyp aktiviert ist und der Benutzer Bearbeitungsrechte hat)
+- **KI-Vorschlags-Schaltfläche** — Klicken, um eine Beschreibung mit KI zu generieren (sichtbar, wenn KI für diesen Kartentyp aktiviert ist und der Benutzer Bearbeitungsrechte hat)
 - **Datenqualitätsring** — Visueller Indikator der Informationsvollständigkeit (0–100%)
 - **Aktionsmenü** — Archivieren, Löschen und Genehmigungsaktionen
 
@@ -137,7 +137,7 @@ Stakeholder-Zuweisungen beeinflussen **Berechtigungen**: Die effektiven Berechti
 
 ![Kartenänderungsverlauf](../assets/img/en/08_card_history.png)
 
-Zeigt die **vollständige Änderungshistorie** der an der Karte vorgenommenen Änderungen: **Wer** hat die Änderung vorgenommen, **wann** wurde sie durchgeführt und **was** wurde geändert (vorheriger Wert vs. neuer Wert). Dies ermöglicht die vollständige Nachverfolgbarkeit aller Änderungen über die Zeit.
+Zeigt die **vollständige Historie** der an der Karte vorgenommenen Änderungen: **Wer** hat die Änderung vorgenommen, **wann** wurde sie durchgeführt und **was** wurde geändert (vorheriger Wert vs. neuer Wert). Dies ermöglicht die vollständige Nachverfolgbarkeit aller Änderungen über die Zeit.
 
 ## Prozessfluss-Tab (nur für Geschäftsprozess-Karten)
 

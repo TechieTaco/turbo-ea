@@ -17,13 +17,13 @@
 | **Arquitetura Empresarial (EA)** | A disciplina que organiza e documenta a estrutura de negócios e tecnologia de uma organização |
 | **EOL (End of Life)** | A data em que um produto tecnológico perde o suporte do fornecedor. Rastreado via integração com endoflife.date |
 | **Iniciativa** | Um projeto ou programa envolvendo mudanças na arquitetura |
-| **Ciclo de Vida** | As cinco fases pelas quais um componente passa: Planejar, Introduzir, Ativo, Descontinuar, Fim de Vida |
+| **Ciclo de Vida** | As cinco fases pelas quais um componente passa: Planejamento, Implantação, Ativo, Desativação, Fim de Vida |
 | **LLM** | Large Language Model (Modelo de Linguagem de Grande Escala) — um modelo de IA que gera texto (ex.: Ollama, OpenAI, Anthropic Claude, Google Gemini) |
 | **Metamodelo** | O modelo orientado a dados que define a estrutura da plataforma: tipos de card, campos, relações e papéis |
 | **Notificação** | Um alerta no aplicativo ou por e-mail disparado por eventos do sistema (tarefa atribuída, card atualizado, comentário adicionado, etc.) |
 | **Ollama** | Uma ferramenta de código aberto para executar LLMs localmente em seu próprio hardware |
 | **Portfólio** | Uma coleção de aplicações ou tecnologias gerenciadas como um grupo |
-| **Relação** | Uma conexão entre dois cards que descreve como eles se relacionam (ex.: "utiliza", "depende de", "executa em") |
+| **Relacionamento** | Uma conexão entre dois cards que descreve como eles se relacionam (ex.: "utiliza", "depende de", "executa em") |
 | **Relatório Salvo** | Uma configuração de relatório persistida com filtros, eixos e configurações de visualização que pode ser recarregada |
 | **Seção** | Uma área agrupável da página de detalhes do card contendo campos relacionados, configurável por tipo de card |
 | **SoAW** | Statement of Architecture Work — um documento formal TOGAF que define o escopo e as entregas de uma iniciativa |

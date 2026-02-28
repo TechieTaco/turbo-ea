@@ -6,7 +6,7 @@ La pestaña **Autenticación** en Configuración permite a los administradores c
 
 #### Auto-registro
 
-- **Permitir auto-registro**: Cuando está habilitado, los nuevos usuarios pueden crear cuentas haciendo clic en "Registrarse" en la página de inicio de sesión. Cuando está deshabilitado, solo los administradores pueden crear cuentas a través del flujo de Invitar usuario.
+- **Permitir auto-registro**: Cuando está habilitado, los nuevos usuarios pueden crear cuentas haciendo clic en «Registrarse» en la página de inicio de sesión. Cuando está deshabilitado, solo los administradores pueden crear cuentas a través del flujo de Invitar usuario.
 
 #### Configuración de SSO (Single Sign-On)
 

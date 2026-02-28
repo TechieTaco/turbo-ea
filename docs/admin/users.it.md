@@ -44,7 +44,7 @@ Cliccate sull'**icona di modifica** su qualsiasi riga utente per aprire la fines
 
 #### Collegamento di un account locale esistente a SSO
 
-Se un utente ha già un account locale e la vostra organizzazione abilita SSO, l'utente vedra l'errore "Un account locale con questa email esiste già" quando tenta di accedere tramite SSO. Per risolvere:
+Se un utente ha già un account locale e la vostra organizzazione abilita SSO, l'utente vedrà l'errore "Un account locale con questa email esiste già" quando tenta di accedere tramite SSO. Per risolvere:
 
 1. Andate su **Admin > Utenti**
 2. Cliccate sull'**icona di modifica** accanto all'utente
