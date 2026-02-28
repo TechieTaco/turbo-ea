@@ -222,6 +222,8 @@ async def lifespan(app: FastAPI):
 
     alembic_cfg = Config("alembic.ini")
 
+    logger.info("[startup] RESET_DB=%s, checking database state...", settings.RESET_DB)
+
     if settings.RESET_DB:
         # Full reset: drop everything and recreate
         async with engine.begin() as conn:
@@ -230,6 +232,7 @@ async def lifespan(app: FastAPI):
             await conn.run_sync(
                 lambda sc: _alembic_stamp_sync(sc, alembic_cfg)
             )
+        logger.info("[startup] RESET_DB complete")
     else:
         # Determine DB state before touching anything
         async with engine.connect() as conn:
@@ -242,16 +245,25 @@ async def lifespan(app: FastAPI):
                 first = row.first()
                 alembic_version = first[0] if first else None
 
+        logger.info(
+            "[startup] has_alembic=%s, alembic_version=%s",
+            has_alembic, alembic_version,
+        )
+
         if not has_alembic or alembic_version is None:
             # Fresh DB or pre-Alembic: create tables from models, then stamp
+            logger.info("[startup] Fresh DB — running create_all + stamp...")
             async with engine.begin() as conn:
                 await conn.run_sync(Base.metadata.create_all)
+                logger.info("[startup] create_all done, stamping head...")
                 await conn.run_sync(
                     lambda sc: _alembic_stamp_sync(sc, alembic_cfg)
                 )
+            logger.info("[startup] Stamp complete")
         else:
             # Existing DB: run migrations FIRST (they may rename tables),
             # then create_all to pick up any genuinely new tables.
+            logger.info("[startup] Existing DB — running alembic upgrade head...")
             try:
                 async with engine.begin() as conn:
                     await conn.run_sync(
@@ -260,9 +272,12 @@ async def lifespan(app: FastAPI):
             except Exception:
                 logger.exception("Alembic migration failed")
                 raise
+            logger.info("[startup] Alembic upgrade complete, running create_all...")
             async with engine.begin() as conn:
                 await conn.run_sync(Base.metadata.create_all)
+            logger.info("[startup] create_all complete")
 
+    logger.info("[startup] Loading email settings...")
     # Load DB-persisted email settings into runtime config
     from sqlalchemy import select as _sel
 
@@ -289,11 +304,13 @@ async def lifespan(app: FastAPI):
             if _email.get("app_base_url"):
                 settings._app_base_url = _email["app_base_url"]
 
+    logger.info("[startup] Email settings loaded, seeding metamodel...")
     # Seed default metamodel
     from app.services.seed import seed_metamodel
 
     async with async_session() as db:
         await seed_metamodel(db)
+    logger.info("[startup] Metamodel seed complete")
 
     # Optionally seed demo data (NexaTech Industries dataset)
     if settings.SEED_DEMO:
