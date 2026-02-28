@@ -5,6 +5,32 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.23.2] - 2026-02-28
+
+### Added
+- MCP Integration admin documentation page with full setup guide, tool reference, security details, and troubleshooting (all 7 locales)
+- MCP Server section in README with feature description and project structure entry
+- MCP glossary term added to all 7 locale glossaries
+- Navigation entry for MCP Integration in mkdocs.yml with translated labels for all 6 non-English locales
+
+### Fixed
+- Frontend nginx crash on startup when MCP server is not running — deferred DNS resolution to request time so missing upstream returns 502 instead of crashing
+
+## [0.23.1] - 2026-02-28
+
+### Fixed
+- Backend startup hang caused by nested asyncio event loops during Alembic migrations — now passes the existing engine connection directly to Alembic
+- Increased Docker health check start_period from 30s to 60s to accommodate slower first-run migrations
+
+## [0.23.0] - 2026-02-28
+
+### Added
+- MCP server for AI tool integration — allows Claude, Copilot, Cursor, and other AI tools to query Turbo EA data with per-user RBAC
+- SSO-delegated OAuth 2.1 authentication for MCP — users authenticate via their existing corporate SSO provider (Entra ID, Google, Okta, or generic OIDC)
+- Automatic token refresh for MCP sessions — users stay connected without re-authentication
+- Admin MCP integration settings with enable/disable toggle and setup instructions
+- `admin.mcp` permission key for managing MCP settings
+
 ## [0.22.6] - 2026-02-28
 
 ### Fixed
