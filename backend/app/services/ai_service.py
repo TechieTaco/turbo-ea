@@ -292,7 +292,7 @@ def _get_search_suffix(type_key: str, subtype: str | None) -> str:
     """Return a contextual search suffix based on card type."""
     ctx = _TYPE_SEARCH_CONTEXT.get(type_key)
     if ctx:
-        return ctx["search_suffix"]
+        return str(ctx["search_suffix"])
     # Fallback: use the type key as-is (e.g. custom types)
     return type_key.lower()
 
@@ -301,7 +301,7 @@ def _get_llm_item_description(type_key: str, type_label: str) -> str:
     """Return an LLM-friendly description of what this item is."""
     ctx = _TYPE_SEARCH_CONTEXT.get(type_key)
     if ctx:
-        return ctx["llm_context"]
+        return str(ctx["llm_context"])
     return f"a {type_label.lower()} in an enterprise architecture context"
 
 
