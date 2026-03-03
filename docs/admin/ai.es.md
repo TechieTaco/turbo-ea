@@ -137,8 +137,17 @@ Una vez configurado por un administrador, los usuarios con el permiso `ai.sugges
 2. Después de ingresar el nombre de la ficha, el botón de sugerencia IA estará disponible.
 3. Haga clic para pre-llenar la descripción antes de guardar.
 
+### Sugerencias Específicas de Aplicación
+
+Para fichas de **Aplicación**, la IA también puede sugerir campos adicionales cuando encuentra evidencia en los resultados de búsqueda web:
+
+- **Aplicación Comercial** — se activa si se encuentran páginas de precios, información de licencias o contacto de ventas
+- **Tipo de Alojamiento** — se sugiere como On-Premise, Cloud (SaaS), Cloud (PaaS), Cloud (IaaS) o Híbrido según el modelo de despliegue del producto
+
+Estos campos solo se sugieren cuando la IA encuentra evidencia clara — no se especula. El usuario puede revisar y ajustar los valores antes de aplicarlos.
+
 !!! note
-    Las sugerencias de IA solo generan el campo de **descripción**. No completan otros atributos como ciclo de vida, costo o campos personalizados.
+    Aparte de los campos específicos de Aplicación, las sugerencias de IA generan principalmente el campo de **descripción**. Los campos personalizados para otros tipos de fichas aún no están cubiertos.
 
 ---
 

@@ -1,16 +1,25 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
+import FormControlLabel from "@mui/material/FormControlLabel";
 import LinearProgress from "@mui/material/LinearProgress";
 import Link from "@mui/material/Link";
+import MenuItem from "@mui/material/MenuItem";
 import Paper from "@mui/material/Paper";
+import Switch from "@mui/material/Switch";
 import TextField from "@mui/material/TextField";
 import Tooltip from "@mui/material/Tooltip";
 import MaterialSymbol from "@/components/MaterialSymbol";
-import type { AiSuggestResponse } from "@/types";
+import type { AiSuggestResponse, FieldDef, SectionDef } from "@/types";
+
+/** Resolved field suggestions: description + any extra attribute suggestions. */
+export interface AiApplyPayload {
+  description: string;
+  fields?: Record<string, unknown>;
+}
 
 interface Props {
   /** AI suggestion response from the API */
@@ -19,10 +28,12 @@ interface Props {
   loading: boolean;
   /** Error message if the suggestion failed */
   error: string;
-  /** Called when user accepts the description */
-  onApply: (description: string) => void;
+  /** Called when user accepts the suggestions */
+  onApply: (payload: AiApplyPayload) => void;
   /** Called when user dismisses the panel */
   onDismiss: () => void;
+  /** Field definitions from the card type (to resolve labels/options for extra fields) */
+  fieldsSchema?: SectionDef[];
 }
 
 /** Confidence level label and color */
@@ -32,18 +43,42 @@ function confidenceBadge(confidence: number) {
   return { label: "Low", color: "#f44336" };
 }
 
+/** Resolve a FieldDef from fieldsSchema by key */
+function findField(fieldsSchema: SectionDef[] | undefined, key: string): FieldDef | null {
+  if (!fieldsSchema) return null;
+  for (const section of fieldsSchema) {
+    for (const field of section.fields) {
+      if (field.key === key) return field;
+    }
+  }
+  return null;
+}
+
 export default function AiSuggestPanel({
   response,
   loading,
   error,
   onApply,
   onDismiss,
+  fieldsSchema,
 }: Props) {
   const { t } = useTranslation(["common"]);
 
   const [editedDescription, setEditedDescription] = useState<string | null>(null);
+  const [fieldOverrides, setFieldOverrides] = useState<Record<string, unknown>>({});
+
+  // Reset overrides when response changes
+  useEffect(() => {
+    setEditedDescription(null);
+    setFieldOverrides({});
+  }, [response]);
 
   const suggestion = response?.suggestions?.description;
+
+  // Collect non-description suggestions
+  const extraSuggestions = Object.entries(response?.suggestions ?? {}).filter(
+    ([k]) => k !== "description",
+  );
 
   // Loading state
   if (loading) {
@@ -89,11 +124,25 @@ export default function AiSuggestPanel({
     );
   }
 
-  // No response or no description suggestion
-  if (!response || !suggestion) return null;
+  // No response or no suggestions at all
+  if (!response || (!suggestion && extraSuggestions.length === 0)) return null;
 
-  const badge = confidenceBadge(suggestion.confidence);
-  const currentValue = editedDescription ?? (suggestion.value as string) ?? "";
+  const badge = suggestion ? confidenceBadge(suggestion.confidence) : null;
+  const currentValue = editedDescription ?? (suggestion?.value as string) ?? "";
+
+  const handleApply = () => {
+    const fields: Record<string, unknown> = {};
+    for (const [key, s] of extraSuggestions) {
+      fields[key] = key in fieldOverrides ? fieldOverrides[key] : s.value;
+    }
+    onApply({
+      description: currentValue,
+      fields: Object.keys(fields).length > 0 ? fields : undefined,
+    });
+  };
+
+  const hasDescription = !!suggestion;
+  const buttonLabel = extraSuggestions.length > 0 ? t("ai.applySuggestions") : t("ai.applyDescription");
 
   return (
     <Paper
@@ -107,44 +156,123 @@ export default function AiSuggestPanel({
         </Typography>
       </Box>
 
-      {/* Description label + confidence */}
-      <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 0.5 }}>
-        <Typography variant="body2" fontWeight={600}>
-          {t("labels.description")}
-        </Typography>
-        <Tooltip
-          title={`${t("ai.confidence")}: ${Math.round(suggestion.confidence * 100)}%`}
-        >
-          <Chip
-            label={`${Math.round(suggestion.confidence * 100)}%`}
-            size="small"
-            sx={{
-              height: 18,
-              fontSize: "0.65rem",
-              fontWeight: 700,
-              bgcolor: badge.color + "20",
-              color: badge.color,
-            }}
-          />
-        </Tooltip>
-        {suggestion.source && (
-          <Typography variant="caption" color="text.secondary">
-            {suggestion.source}
-          </Typography>
-        )}
-      </Box>
+      {/* Description */}
+      {hasDescription && badge && (
+        <>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 0.5 }}>
+            <Typography variant="body2" fontWeight={600}>
+              {t("labels.description")}
+            </Typography>
+            <Tooltip
+              title={`${t("ai.confidence")}: ${Math.round(suggestion.confidence * 100)}%`}
+            >
+              <Chip
+                label={`${Math.round(suggestion.confidence * 100)}%`}
+                size="small"
+                sx={{
+                  height: 18,
+                  fontSize: "0.65rem",
+                  fontWeight: 700,
+                  bgcolor: badge.color + "20",
+                  color: badge.color,
+                }}
+              />
+            </Tooltip>
+            {suggestion.source && (
+              <Typography variant="caption" color="text.secondary">
+                {suggestion.source}
+              </Typography>
+            )}
+          </Box>
 
-      {/* Editable description */}
-      <TextField
-        fullWidth
-        multiline
-        minRows={2}
-        maxRows={6}
-        size="small"
-        value={currentValue}
-        onChange={(e) => setEditedDescription(e.target.value)}
-        sx={{ mt: 0.5 }}
-      />
+          <TextField
+            fullWidth
+            multiline
+            minRows={2}
+            maxRows={6}
+            size="small"
+            value={currentValue}
+            onChange={(e) => setEditedDescription(e.target.value)}
+            sx={{ mt: 0.5 }}
+          />
+        </>
+      )}
+
+      {/* Extra field suggestions */}
+      {extraSuggestions.map(([key, s]) => {
+        const fieldDef = findField(fieldsSchema, key);
+        if (!fieldDef) return null;
+        const fBadge = confidenceBadge(s.confidence);
+        const currentFieldVal = key in fieldOverrides ? fieldOverrides[key] : s.value;
+
+        return (
+          <Box key={key} sx={{ mt: hasDescription ? 2 : 0 }}>
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 0.5 }}>
+              <Typography variant="body2" fontWeight={600}>
+                {fieldDef.label}
+              </Typography>
+              <Tooltip
+                title={`${t("ai.confidence")}: ${Math.round(s.confidence * 100)}%`}
+              >
+                <Chip
+                  label={`${Math.round(s.confidence * 100)}%`}
+                  size="small"
+                  sx={{
+                    height: 18,
+                    fontSize: "0.65rem",
+                    fontWeight: 700,
+                    bgcolor: fBadge.color + "20",
+                    color: fBadge.color,
+                  }}
+                />
+              </Tooltip>
+              {s.source && (
+                <Typography variant="caption" color="text.secondary">
+                  {s.source}
+                </Typography>
+              )}
+            </Box>
+
+            {fieldDef.type === "boolean" && (
+              <FormControlLabel
+                control={
+                  <Switch
+                    size="small"
+                    checked={!!currentFieldVal}
+                    onChange={(e) =>
+                      setFieldOverrides((prev) => ({ ...prev, [key]: e.target.checked }))
+                    }
+                  />
+                }
+                label={
+                  <Typography variant="body2">
+                    {currentFieldVal ? t("labels.yes") : t("labels.no")}
+                  </Typography>
+                }
+              />
+            )}
+
+            {fieldDef.type === "single_select" && fieldDef.options && (
+              <TextField
+                select
+                fullWidth
+                size="small"
+                value={currentFieldVal ?? ""}
+                onChange={(e) =>
+                  setFieldOverrides((prev) => ({ ...prev, [key]: e.target.value }))
+                }
+                sx={{ mt: 0.5 }}
+              >
+                {fieldDef.options.map((opt) => (
+                  <MenuItem key={opt.key} value={opt.key}>
+                    {opt.label}
+                  </MenuItem>
+                ))}
+              </TextField>
+            )}
+          </Box>
+        );
+      })}
 
       {/* Sources & model */}
       {(response.sources?.length || response.model) && (
@@ -195,11 +323,11 @@ export default function AiSuggestPanel({
         <Button
           size="small"
           variant="contained"
-          onClick={() => onApply(currentValue)}
-          disabled={!currentValue.trim()}
+          onClick={handleApply}
+          disabled={hasDescription && !currentValue.trim()}
           startIcon={<MaterialSymbol icon="check" size={16} />}
         >
-          {t("ai.applyDescription")}
+          {buttonLabel}
         </Button>
       </Box>
     </Paper>

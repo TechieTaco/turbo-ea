@@ -137,8 +137,17 @@ Once configured by an admin, users with the `ai.suggest` permission (granted to 
 2. After entering the card name, the AI suggest button becomes available.
 3. Click it to pre-fill the description before saving.
 
+### Application-specific Suggestions
+
+For **Application** cards, the AI can also suggest additional fields when it finds evidence in web search results:
+
+- **Commercial Application** — toggled on if pricing, license information, or sales contact pages are found
+- **Hosting Type** — suggested as On-Premise, Cloud (SaaS), Cloud (PaaS), Cloud (IaaS), or Hybrid based on the product's deployment model
+
+These fields are only suggested when the AI finds clear evidence — they are not speculated. The user can review and adjust the values before applying.
+
 !!! note
-    AI suggestions only generate the **description** field. They do not populate other attributes like lifecycle, cost, or custom fields.
+    Apart from Application-specific fields, AI suggestions primarily generate the **description** field. Custom fields for other card types are not yet covered.
 
 ---
 
