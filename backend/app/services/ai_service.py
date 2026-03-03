@@ -379,8 +379,7 @@ def build_llm_prompt(
                     f'{{ "value": "{first_opt}", "confidence": 0.8, "source": "example.com" }}'
                 )
         extra_field_instructions = (
-            "\n\nYou MUST also include these fields in your JSON response:\n"
-            + "\n".join(lines)
+            "\n\nYou MUST also include these fields in your JSON response:\n" + "\n".join(lines)
         )
         extra_field_json = ",\n" + ",\n".join(json_lines)
 
