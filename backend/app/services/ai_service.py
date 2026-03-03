@@ -695,9 +695,11 @@ def validate_suggestions(
         # Validate by field type
         if ef["type"] == "boolean":
             if not isinstance(fval, bool):
-                # Coerce strings like "true"/"false"
-                if isinstance(fval, str) and fval.lower() in ("true", "false"):
-                    fval = fval.lower() == "true"
+                # Coerce common LLM representations to bool
+                if isinstance(fval, str) and fval.lower() in ("true", "false", "yes", "no"):
+                    fval = fval.lower() in ("true", "yes")
+                elif isinstance(fval, (int, float)):
+                    fval = bool(fval)
                 else:
                     continue
         elif ef["type"] == "single_select":
