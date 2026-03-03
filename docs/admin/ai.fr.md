@@ -137,8 +137,17 @@ Une fois configuré par un administrateur, les utilisateurs disposant de la perm
 2. Après avoir entré le nom de la fiche, le bouton de suggestion IA devient disponible.
 3. Cliquez dessus pour pré-remplir la description avant la sauvegarde.
 
+### Suggestions spécifiques aux Applications
+
+Pour les fiches **Application**, l'IA peut également suggérer des champs supplémentaires lorsqu'elle trouve des preuves dans les résultats de recherche web :
+
+- **Application commerciale** — activé si des pages de tarification, d'informations de licence ou de contact commercial sont trouvées
+- **Type d'hébergement** — suggéré comme On-Premise, Cloud (SaaS), Cloud (PaaS), Cloud (IaaS) ou Hybride selon le modèle de déploiement du produit
+
+Ces champs ne sont suggérés que lorsque l'IA trouve des preuves claires — ils ne sont pas spéculés. L'utilisateur peut examiner et ajuster les valeurs avant de les appliquer.
+
 !!! note
-    Les suggestions IA ne génèrent que le champ **description**. Elles ne remplissent pas d'autres attributs comme le cycle de vie, le coût ou les champs personnalisés.
+    En dehors des champs spécifiques aux Applications, les suggestions IA génèrent principalement le champ **description**. Les champs personnalisés pour les autres types de fiches ne sont pas encore couverts.
 
 ---
 

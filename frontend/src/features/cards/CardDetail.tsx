@@ -22,7 +22,7 @@ import { useTranslation } from "react-i18next";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import ApprovalStatusBadge from "@/components/ApprovalStatusBadge";
 import LifecycleBadge from "@/components/LifecycleBadge";
-import AiSuggestPanel from "@/components/AiSuggestPanel";
+import AiSuggestPanel, { type AiApplyPayload } from "@/components/AiSuggestPanel";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useResolveMetaLabel } from "@/hooks/useResolveLabel";
 import { api } from "@/api/client";
@@ -181,8 +181,13 @@ export default function CardDetail() {
     }
   };
 
-  const handleAiApply = async (description: string) => {
-    const updated = await api.patch<Card>(`/cards/${card.id}`, { description });
+  const handleAiApply = async (payload: AiApplyPayload) => {
+    const patch: Record<string, unknown> = {};
+    if (payload.description) patch.description = payload.description;
+    if (payload.fields) {
+      patch.attributes = { ...(card.attributes ?? {}), ...payload.fields };
+    }
+    const updated = await api.patch<Card>(`/cards/${card.id}`, patch);
     setCard(updated);
     setAiResponse(null);
   };
@@ -366,6 +371,7 @@ export default function CardDetail() {
                   setAiResponse(null);
                   setAiError("");
                 }}
+                fieldsSchema={typeConfig?.fields_schema}
               />
             )}
           </>

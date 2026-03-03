@@ -102,6 +102,7 @@ async def suggest(
             context=body.context,
             provider_type=ai_cfg["provider_type"],
             api_key=ai_cfg["api_key"],
+            fields_schema=card_type.fields_schema or [],
         )
     except httpx.HTTPError as exc:
         logger.warning("AI suggestion failed for '%s': %s", body.name, exc)
