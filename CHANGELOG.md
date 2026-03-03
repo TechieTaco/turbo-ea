@@ -5,6 +5,12 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.24.0] - 2026-03-03
+
+### Added
+- AI suggestions now recommend Commercial Application and Hosting Type fields for Application cards when evidence is found in web search results
+- Commercial Application boolean field added to Application card type
+
 ## [0.23.3] - 2026-03-03
 
 ### Added

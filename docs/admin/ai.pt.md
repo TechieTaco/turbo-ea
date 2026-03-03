@@ -137,8 +137,17 @@ Uma vez configurado por um admin, usuários com a permissão `ai.suggest` (conce
 2. Após inserir o nome do card, o botão de sugestão de IA fica disponível.
 3. Clique nele para pré-preencher a descrição antes de salvar.
 
+### Sugestões Específicas de Aplicação
+
+Para cards de **Aplicação**, a IA também pode sugerir campos adicionais quando encontra evidências nos resultados de busca na web:
+
+- **Aplicação Comercial** — ativado se páginas de preços, informações de licença ou contato de vendas forem encontradas
+- **Tipo de Hospedagem** — sugerido como On-Premise, Cloud (SaaS), Cloud (PaaS), Cloud (IaaS) ou Híbrido com base no modelo de implantação do produto
+
+Esses campos só são sugeridos quando a IA encontra evidências claras — não são especulados. O usuário pode revisar e ajustar os valores antes de aplicar.
+
 !!! note
-    Sugestões de IA geram apenas o campo **descrição**. Elas não preenchem outros atributos como ciclo de vida, custo ou campos personalizados.
+    Além dos campos específicos de Aplicação, as sugestões de IA geram principalmente o campo **descrição**. Campos personalizados para outros tipos de cards ainda não são cobertos.
 
 ---
 

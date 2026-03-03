@@ -198,10 +198,40 @@ async def web_search(
 
 # Maps card type keys to search keywords and LLM context descriptions.
 # Types not listed here fall back to the generic type label.
-_TYPE_SEARCH_CONTEXT: dict[str, dict[str, str]] = {
+_TYPE_SEARCH_CONTEXT: dict[str, dict[str, Any]] = {
     "Application": {
         "search_suffix": "software application",
         "llm_context": "a software application or digital product",
+        "extra_fields": [
+            {
+                "key": "commercialApplication",
+                "type": "boolean",
+                "prompt": (
+                    '"commercialApplication": set to true if the application is a commercial '
+                    "product (has pricing, licenses, or sales contact). "
+                    "Only suggest if you find clear evidence (pricing pages, "
+                    "license information, or vendor sales contact). "
+                    "Omit if uncertain."
+                ),
+            },
+            {
+                "key": "hostingType",
+                "type": "single_select",
+                "options": ["onPremise", "cloudSaaS", "cloudPaaS", "cloudIaaS", "hybrid"],
+                "option_labels": {
+                    "onPremise": "On-Premise",
+                    "cloudSaaS": "Cloud (SaaS)",
+                    "cloudPaaS": "Cloud (PaaS)",
+                    "cloudIaaS": "Cloud (IaaS)",
+                    "hybrid": "Hybrid",
+                },
+                "prompt": (
+                    '"hostingType": suggest the hosting model if clearly indicated. '
+                    "Use one of: onPremise, cloudSaaS, cloudPaaS, cloudIaaS, hybrid. "
+                    "Omit if uncertain."
+                ),
+            },
+        ],
     },
     "ITComponent": {
         "search_suffix": "technology product",
@@ -280,6 +310,22 @@ def _get_llm_item_description(type_key: str, type_label: str) -> str:
 # ---------------------------------------------------------------------------
 
 
+def _get_extra_fields(type_key: str, fields_schema: list[dict] | None) -> list[dict]:
+    """Return the extra field prompts for a type, filtering to fields that exist."""
+    ctx = _TYPE_SEARCH_CONTEXT.get(type_key)
+    if not ctx or "extra_fields" not in ctx:
+        return []
+    if not fields_schema:
+        return []
+    # Collect all field keys present in the card type's schema
+    existing_keys: set[str] = set()
+    for section in fields_schema:
+        for field in section.get("fields", []):
+            existing_keys.add(field.get("key", ""))
+    # Only include extra fields whose key exists in the schema
+    return [ef for ef in ctx["extra_fields"] if ef["key"] in existing_keys]
+
+
 def build_llm_prompt(
     name: str,
     type_key: str,
@@ -287,6 +333,7 @@ def build_llm_prompt(
     subtype: str | None,
     search_results: list[dict[str, str]],
     context: str | None = None,
+    fields_schema: list[dict] | None = None,
 ) -> list[dict[str, str]]:
     """Build the chat messages for a description-only LLM prompt."""
     item_desc = _get_llm_item_description(type_key, type_label)
@@ -312,6 +359,32 @@ def build_llm_prompt(
             'knowledge. Set "source" to "general knowledge".'
         )
 
+    # Build extra field instructions if applicable
+    extra_fields = _get_extra_fields(type_key, fields_schema)
+    extra_field_instructions = ""
+    extra_field_json = ""
+    if extra_fields:
+        lines = []
+        json_lines = []
+        for ef in extra_fields:
+            lines.append(f"- {ef['prompt']}")
+            if ef["type"] == "boolean":
+                json_lines.append(
+                    f'  "{ef["key"]}": '
+                    '{ "value": true, "confidence": 0.8, "source": "example.com" }'
+                )
+            elif ef["type"] == "single_select":
+                first_opt = ef.get("options", ["value"])[0]
+                json_lines.append(
+                    f'  "{ef["key"]}": '
+                    f'{{ "value": "{first_opt}", "confidence": 0.8, "source": "example.com" }}'
+                )
+        extra_field_instructions = (
+            "\n\nAdditional fields (optional — only include if evidence is found):\n"
+            + "\n".join(lines)
+        )
+        extra_field_json = ",\n" + ",\n".join(json_lines)
+
     system_msg = (
         "You are a description writer for an enterprise architecture management tool. "
         f"Given information about {item_desc}, write a concise, factual description. "
@@ -322,14 +395,16 @@ def build_llm_prompt(
         "its purpose, and key characteristics.\n"
         "- Be factual and objective — do not speculate.\n"
         '- Include "confidence" (0.0-1.0) indicating how certain you are.\n'
-        '- Include "source" with the domain where you found the info.\n\n'
+        '- Include "source" with the domain where you found the info.\n'
+        f"{extra_field_instructions}\n\n"
         "Response format (JSON):\n"
         "{\n"
         '  "description": {\n'
         '    "value": "2-4 sentence description...",\n'
         '    "confidence": 0.8,\n'
         '    "source": "example.com"\n'
-        "  }\n"
+        "  }"
+        f"{extra_field_json}\n"
         "}"
     )
 
@@ -571,34 +646,74 @@ async def check_provider_connection(
 
 def validate_suggestions(
     raw: dict[str, Any],
+    type_key: str = "",
+    fields_schema: list[dict] | None = None,
 ) -> dict[str, dict]:
-    """Validate and normalize the LLM description suggestion."""
+    """Validate and normalize LLM suggestions (description + extra fields)."""
     validated: dict[str, dict] = {}
 
+    # ── Description (always) ──
     suggestion = raw.get("description")
-    if suggestion is None:
-        return validated
+    if suggestion is not None:
+        if isinstance(suggestion, dict):
+            value = suggestion.get("value")
+            confidence = min(1.0, max(0.0, float(suggestion.get("confidence", 0.5))))
+            source = suggestion.get("source")
+        else:
+            value = suggestion
+            confidence = 0.5
+            source = None
 
-    if isinstance(suggestion, dict):
-        value = suggestion.get("value")
-        confidence = min(1.0, max(0.0, float(suggestion.get("confidence", 0.5))))
-        source = suggestion.get("source")
-    else:
-        value = suggestion
-        confidence = 0.5
-        source = None
+        if value is not None and str(value).strip():
+            entry: dict[str, Any] = {
+                "value": str(value).strip(),
+                "confidence": round(confidence, 2),
+            }
+            if source:
+                entry["source"] = source
+            validated["description"] = entry
 
-    if value is None or not str(value).strip():
-        return validated
+    # ── Extra fields (type-specific) ──
+    extra_fields = _get_extra_fields(type_key, fields_schema)
+    for ef in extra_fields:
+        key = ef["key"]
+        field_raw = raw.get(key)
+        if field_raw is None:
+            continue
 
-    entry: dict[str, Any] = {
-        "value": str(value).strip(),
-        "confidence": round(confidence, 2),
-    }
-    if source:
-        entry["source"] = source
+        if isinstance(field_raw, dict):
+            fval = field_raw.get("value")
+            fconf = min(1.0, max(0.0, float(field_raw.get("confidence", 0.5))))
+            fsource = field_raw.get("source")
+        else:
+            fval = field_raw
+            fconf = 0.5
+            fsource = None
 
-    validated["description"] = entry
+        if fval is None:
+            continue
+
+        # Validate by field type
+        if ef["type"] == "boolean":
+            if not isinstance(fval, bool):
+                # Coerce strings like "true"/"false"
+                if isinstance(fval, str) and fval.lower() in ("true", "false"):
+                    fval = fval.lower() == "true"
+                else:
+                    continue
+        elif ef["type"] == "single_select":
+            valid_options = ef.get("options", [])
+            if fval not in valid_options:
+                continue
+
+        fentry: dict[str, Any] = {
+            "value": fval,
+            "confidence": round(fconf, 2),
+        }
+        if fsource:
+            fentry["source"] = fsource
+        validated[key] = fentry
+
     return validated
 
 
@@ -620,6 +735,7 @@ async def suggest_metadata(
     *,
     provider_type: str = "ollama",
     api_key: str = "",
+    fields_schema: list[dict] | None = None,
 ) -> dict[str, Any]:
     """Full pipeline: web search → LLM description → validated suggestion."""
     # Step 1: Web search (always DuckDuckGo — commercial APIs have no web access)
@@ -639,6 +755,7 @@ async def suggest_metadata(
         subtype=subtype,
         search_results=search_results,
         context=context,
+        fields_schema=fields_schema,
     )
     logger.info("[ai] Calling LLM")
     raw_response = await call_llm(
@@ -646,8 +763,8 @@ async def suggest_metadata(
     )
     logger.info("[ai] LLM returned %d raw keys", len(raw_response))
 
-    # Step 3: Validate (description only)
-    suggestions = validate_suggestions(raw_response)
+    # Step 3: Validate (description + type-specific extra fields)
+    suggestions = validate_suggestions(raw_response, type_key, fields_schema)
     logger.info("[ai] Validated to %d suggestions", len(suggestions))
 
     # Build source list from search results

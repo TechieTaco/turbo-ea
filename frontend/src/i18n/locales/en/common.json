@@ -177,11 +177,12 @@
   "ai.searching": "Generating description...",
   "ai.searchingHint": "Searching the web and generating a description with AI. This may take a few seconds.",
   "ai.error": "AI Suggestion Failed",
-  "ai.suggestionsTitle": "AI Description Suggestion",
+  "ai.suggestionsTitle": "AI Suggestions",
   "ai.confidence": "Confidence",
   "ai.sources": "Sources",
   "ai.dismiss": "Dismiss",
   "ai.applyDescription": "Apply description",
+  "ai.applySuggestions": "Apply suggestions",
 
   "iconPicker.searchPlaceholder": "Search icons...",
   "iconPicker.resultCount_one": "{{count}} result",

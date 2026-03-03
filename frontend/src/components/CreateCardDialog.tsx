@@ -23,7 +23,7 @@ import Chip from "@mui/material/Chip";
 import LinearProgress from "@mui/material/LinearProgress";
 import Tooltip from "@mui/material/Tooltip";
 import MaterialSymbol from "@/components/MaterialSymbol";
-import AiSuggestPanel from "@/components/AiSuggestPanel";
+import AiSuggestPanel, { type AiApplyPayload } from "@/components/AiSuggestPanel";
 import { EolLinkDialog } from "@/components/EolLinkSection";
 import VendorField from "@/components/VendorField";
 import { useMetamodel } from "@/hooks/useMetamodel";
@@ -263,9 +263,12 @@ export default function CreateCardDialog({
     }
   };
 
-  const handleAiApply = (description: string) => {
-    if (description) {
-      setDescription(description);
+  const handleAiApply = (payload: AiApplyPayload) => {
+    if (payload.description) {
+      setDescription(payload.description);
+    }
+    if (payload.fields) {
+      setAttributes((prev) => ({ ...prev, ...payload.fields }));
     }
     setAiResponse(null);
   };
@@ -601,6 +604,7 @@ export default function CreateCardDialog({
               setAiError("");
               setAiLoading(false);
             }}
+            fieldsSchema={typeConfig?.fields_schema}
           />
         )}
 
