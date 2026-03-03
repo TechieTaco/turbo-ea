@@ -2386,6 +2386,20 @@ TYPES = [
                             "zh": "托管类型",
                         },
                     },
+                    {
+                        "key": "commercialApplication",
+                        "label": "Commercial Application",
+                        "type": "boolean",
+                        "weight": 0,
+                        "translations": {
+                            "de": "Kommerzielle Anwendung",
+                            "fr": "Application commerciale",
+                            "es": "Aplicación comercial",
+                            "it": "Applicazione commerciale",
+                            "pt": "Aplicação comercial",
+                            "zh": "商业应用",
+                        },
+                    },
                 ],
             },
             {

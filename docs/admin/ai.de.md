@@ -137,8 +137,17 @@ Sobald von einem Administrator konfiguriert, sehen Benutzer mit der Berechtigung
 2. Nach Eingabe des Kartennamens wird die KI-Vorschlags-Schaltfläche verfügbar.
 3. Klicken Sie darauf, um die Beschreibung vor dem Speichern vorauszufüllen.
 
+### Anwendungsspezifische Vorschläge
+
+Für **Anwendungs**-Karten kann die KI auch zusätzliche Felder vorschlagen, wenn sie Belege in den Websuchergebnissen findet:
+
+- **Kommerzielle Anwendung** — wird aktiviert, wenn Preis-, Lizenzinformations- oder Vertriebskontaktseiten gefunden werden
+- **Hosting-Typ** — wird als On-Premise, Cloud (SaaS), Cloud (PaaS), Cloud (IaaS) oder Hybrid basierend auf dem Bereitstellungsmodell des Produkts vorgeschlagen
+
+Diese Felder werden nur vorgeschlagen, wenn die KI eindeutige Belege findet — es wird nicht spekuliert. Der Benutzer kann die Werte vor dem Anwenden überprüfen und anpassen.
+
 !!! note
-    KI-Vorschläge generieren nur das **Beschreibungs**-Feld. Sie füllen keine anderen Attribute wie Lebenszyklus, Kosten oder benutzerdefinierte Felder aus.
+    Abgesehen von anwendungsspezifischen Feldern generieren KI-Vorschläge hauptsächlich das **Beschreibungs**-Feld. Benutzerdefinierte Felder für andere Kartentypen werden noch nicht abgedeckt.
 
 ---
 

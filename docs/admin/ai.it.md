@@ -137,8 +137,17 @@ Una volta configurato da un amministratore, gli utenti con il permesso `ai.sugge
 2. Dopo aver inserito il nome della card, il pulsante di suggerimento AI diventa disponibile.
 3. Cliccatelo per pre-compilare la descrizione prima del salvataggio.
 
+### Suggerimenti specifici per le Applicazioni
+
+Per le card **Application**, l'AI può anche suggerire campi aggiuntivi quando trova evidenze nei risultati della ricerca web:
+
+- **Applicazione commerciale** — attivato se vengono trovate pagine di prezzi, informazioni sulle licenze o contatti commerciali
+- **Tipo di hosting** — suggerito come On-Premise, Cloud (SaaS), Cloud (PaaS), Cloud (IaaS) o Ibrido in base al modello di distribuzione del prodotto
+
+Questi campi vengono suggeriti solo quando l'AI trova prove chiare — non vengono speculati. L'utente può rivedere e modificare i valori prima di applicarli.
+
 !!! note
-    I suggerimenti AI generano solo il campo **descrizione**. Non popolano altri attributi come ciclo di vita, costi o campi personalizzati.
+    A parte i campi specifici per le Applicazioni, i suggerimenti AI generano principalmente il campo **descrizione**. I campi personalizzati per altri tipi di card non sono ancora coperti.
 
 ---
 

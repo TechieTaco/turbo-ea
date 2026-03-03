@@ -177,11 +177,12 @@
   "ai.searching": "Gerando descrição...",
   "ai.searchingHint": "Pesquisando na web e gerando uma descrição com IA. Isso pode levar alguns segundos.",
   "ai.error": "Falha na sugestão de IA",
-  "ai.suggestionsTitle": "Sugestão de descrição IA",
+  "ai.suggestionsTitle": "Sugestões de IA",
   "ai.confidence": "Confiança",
   "ai.sources": "Fontes",
   "ai.dismiss": "Dispensar",
   "ai.applyDescription": "Aplicar descrição",
+  "ai.applySuggestions": "Aplicar sugestões",
 
   "iconPicker.searchPlaceholder": "Pesquisar ícones...",
   "iconPicker.resultCount_one": "{{count}} resultado",
