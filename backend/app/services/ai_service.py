@@ -722,6 +722,76 @@ def validate_suggestions(
 # ---------------------------------------------------------------------------
 
 
+async def generate_portfolio_insights(
+    summary: dict[str, Any],
+    provider_url: str,
+    model: str,
+    *,
+    provider_type: str = "ollama",
+    api_key: str = "",
+) -> dict[str, Any]:
+    """Analyse application portfolio summary data and return strategic insights."""
+    total = summary.get("total_apps", 0)
+    group_by = summary.get("group_by", "")
+    color_by = summary.get("color_by", "")
+    groups = summary.get("groups", [])
+    attr_summary = summary.get("attribute_summary", {})
+    lifecycle_summary = summary.get("lifecycle_summary", {})
+
+    data_block = f"Total applications: {total}\n"
+    if group_by:
+        data_block += f"Grouped by: {group_by}\n"
+    if color_by:
+        data_block += f"Colored by: {color_by}\n"
+    if groups:
+        data_block += "\nGroups:\n"
+        for g in groups[:30]:
+            line = f"  - {g.get('name', 'Unknown')}: {g.get('count', 0)} apps"
+            breakdown = g.get("breakdown")
+            if breakdown:
+                parts = [f"{k}={v}" for k, v in breakdown.items()]
+                line += f" ({', '.join(parts)})"
+            data_block += line + "\n"
+    if attr_summary:
+        data_block += "\nAttribute distributions:\n"
+        for field, counts in attr_summary.items():
+            if isinstance(counts, dict):
+                data_block += f"  {field}: {counts}\n"
+    if lifecycle_summary:
+        data_block += f"\nLifecycle phase counts: {lifecycle_summary}\n"
+
+    system_msg = (
+        "You are a senior enterprise architect analysing an application portfolio. "
+        "Given the portfolio summary data below, generate 3-5 concise, actionable "
+        "insights about the portfolio. Focus on:\n"
+        "- Concentration risks (too many apps in one group or state)\n"
+        "- Modernisation opportunities\n"
+        "- Portfolio balance and diversity\n"
+        "- Lifecycle concerns (apps nearing end-of-life)\n"
+        "- Cost or complexity drivers\n\n"
+        "Return ONLY valid JSON in this format:\n"
+        '{ "insights": ["insight 1", "insight 2", ...] }\n\n'
+        "Each insight should be 1-2 sentences. Be specific and reference actual "
+        "data from the summary. Do not speculate about data not provided."
+    )
+
+    messages = [
+        {"role": "system", "content": system_msg},
+        {"role": "user", "content": f"Portfolio summary:\n{data_block}"},
+    ]
+
+    raw = await call_llm(
+        provider_url, model, messages, provider_type=provider_type, api_key=api_key
+    )
+
+    insights = raw.get("insights", [])
+    if not isinstance(insights, list):
+        insights = []
+    insights = [str(i) for i in insights if i][:10]
+
+    return {"insights": insights, "model": model}
+
+
 async def suggest_metadata(
     name: str,
     type_key: str,

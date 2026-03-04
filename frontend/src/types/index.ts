@@ -929,4 +929,10 @@ export interface AiStatus {
   enabled_types: string[];
   running_models: string[];
   model?: string;
+  portfolio_insights_enabled?: boolean;
+}
+
+export interface PortfolioInsightsResponse {
+  insights: string[];
+  model?: string;
 }
