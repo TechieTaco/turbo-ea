@@ -810,9 +810,7 @@ async def generate_portfolio_insights(
             principles_block += "\n"
 
     has_principles = bool(principles)
-    insight_count = max(5, len(principles or [])) if has_principles else 5
-    # Cap at 8 to keep output manageable
-    insight_count = min(insight_count, 8)
+    insight_count = 5  # Always 5 insights — principles inform the analysis, not add extra
 
     # Build the lenses section
     lenses = (
@@ -840,11 +838,9 @@ async def generate_portfolio_insights(
 
     if has_principles:
         lenses += (
-            "\nAfter the five standard lenses, add one principle-compliance "
-            "insight for EACH EA principle listed above. For each principle:\n"
-            "- State whether the portfolio currently aligns with or violates it.\n"
-            "- Cite specific data points as evidence.\n"
-            "- Recommend concrete actions to improve compliance.\n"
+            "\nThe EA principles listed above should INFORM your five insights — "
+            "weave principle violations or alignment into the relevant lens "
+            "rather than adding separate principle-only insights.\n"
         )
 
     system_msg = (
