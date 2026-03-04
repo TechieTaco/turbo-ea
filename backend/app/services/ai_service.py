@@ -847,27 +847,38 @@ async def generate_portfolio_insights(
             "- Recommend concrete actions to improve compliance.\n"
         )
 
-    insight_list = ", ".join(f'"insight {i}"' for i in range(1, insight_count + 1))
-
     system_msg = (
         "You are a senior enterprise architect performing an Application Portfolio "
         "Management (APM) review using industry-standard EA and IT Strategy frameworks "
         "(TOGAF, Gartner TIME model, Wardley Mapping principles).\n\n"
         f"Given the portfolio summary data below, generate exactly {insight_count} "
-        "insights. Each insight MUST follow this structure:\n"
-        "  1. A concrete observation grounded in the data (cite numbers).\n"
-        "  2. The strategic implication or risk.\n"
-        "  3. A recommended action.\n\n"
+        "insights. Each insight MUST be a JSON object with these fields:\n"
+        '  - "title": A concise headline (max 10 words) summarising the finding.\n'
+        '  - "observation": 1-2 sentences describing what the data shows. '
+        "Cite specific numbers, group names, and percentages.\n"
+        '  - "risk": 1 sentence explaining the strategic implication or risk '
+        "if no action is taken.\n"
+        '  - "action": 1-2 sentences with a concrete, actionable recommendation. '
+        "Start with a verb (e.g. Consolidate, Migrate, Establish, Decommission). "
+        "Be specific about which groups, types, or applications to target.\n"
+        '  - "severity": one of "critical", "warning", or "info" based on urgency.\n\n'
         f"{lenses}\n"
         "Rules:\n"
-        "- Each insight must be 2-3 sentences.\n"
         "- Reference actual numbers and group names from the data.\n"
         "- Do NOT invent data that was not provided.\n"
         "- If a lens cannot be meaningfully assessed from the available data, "
         "say so briefly and suggest what data to capture.\n"
-        "- Use professional EA terminology.\n\n"
+        "- Use professional EA terminology.\n"
+        "- Actions must be specific and measurable — avoid vague advice like "
+        '"consider reviewing" or "think about". Instead say "Consolidate the 5 '
+        'CRM applications in the Sales group into 2 platforms within 12 months" '
+        'or "Migrate the 3 end-of-life applications to cloud SaaS alternatives '
+        'by Q3".\n\n'
         "Return ONLY valid JSON in this format:\n"
-        "{ " + f'"insights": [{insight_list}]' + " }"
+        '{ "insights": [\n'
+        '  { "title": "...", "observation": "...", "risk": "...", '
+        '"action": "...", "severity": "warning" }\n'
+        "] }"
     )
 
     user_content = f"Portfolio summary:\n{data_block}"
@@ -883,10 +894,31 @@ async def generate_portfolio_insights(
         provider_url, model, messages, provider_type=provider_type, api_key=api_key
     )
 
-    insights = raw.get("insights", [])
-    if not isinstance(insights, list):
-        insights = []
-    insights = [str(i).strip() for i in insights if i][:insight_count]
+    raw_insights = raw.get("insights", [])
+    if not isinstance(raw_insights, list):
+        raw_insights = []
+
+    insights: list[dict[str, str] | str] = []
+    for item in raw_insights[:insight_count]:
+        if not item:
+            continue
+        if isinstance(item, dict) and "observation" in item:
+            # Structured insight — validate and normalise
+            severity = item.get("severity", "info")
+            if severity not in ("critical", "warning", "info"):
+                severity = "info"
+            insights.append(
+                {
+                    "title": str(item.get("title", "")).strip(),
+                    "observation": str(item.get("observation", "")).strip(),
+                    "risk": str(item.get("risk", "")).strip(),
+                    "action": str(item.get("action", "")).strip(),
+                    "severity": severity,
+                }
+            )
+        else:
+            # Backward-compatible plain string
+            insights.append(str(item).strip())
 
     return {"insights": insights, "model": model}
 

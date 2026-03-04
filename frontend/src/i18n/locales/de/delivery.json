@@ -257,5 +257,12 @@
   "template.togaf.phaseF": "F – Migrationsplanung",
   "template.togaf.phaseG": "G – Implementierungs-Governance",
   "template.togaf.phaseH": "H – Architektur-Änderungsmanagement",
-  "template.togaf.phaseRM": "Anforderungsmanagement"
+  "template.togaf.phaseRM": "Anforderungsmanagement",
+
+  "tabs.initiatives": "Initiativen",
+  "tabs.principles": "EA-Prinzipien",
+
+  "principles.empty": "Es sind noch keine aktiven EA-Prinzipien definiert. Prinzipien können im Bereich Admin > Metamodell konfiguriert werden.",
+  "principles.rationale": "Begründung",
+  "principles.implications": "Auswirkungen"
 }

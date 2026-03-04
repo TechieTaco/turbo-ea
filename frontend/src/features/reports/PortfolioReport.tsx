@@ -36,7 +36,7 @@ import { useSavedReport } from "@/hooks/useSavedReport";
 import { useThumbnailCapture } from "@/hooks/useThumbnailCapture";
 import { useTimeline } from "@/hooks/useTimeline";
 import { useResolveLabel, useResolveMetaLabel } from "@/hooks/useResolveLabel";
-import type { AiStatus, PortfolioInsightsResponse } from "@/types";
+import type { AiStatus, PortfolioInsightsResponse, StructuredInsight } from "@/types";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -1292,12 +1292,67 @@ export default function PortfolioReport() {
           )}
 
           {aiInsights && aiInsights.insights.length > 0 && (
-            <Box component="ul" sx={{ m: 0, pl: 2.5 }}>
-              {aiInsights.insights.map((insight, i) => (
-                <Typography key={i} component="li" variant="body2" sx={{ mb: 0.5 }}>
-                  {insight}
-                </Typography>
-              ))}
+            <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
+              {aiInsights.insights.map((insight, i) => {
+                if (typeof insight === "string") {
+                  return (
+                    <Typography key={i} variant="body2" sx={{ mb: 0.5 }}>
+                      {insight}
+                    </Typography>
+                  );
+                }
+                const si = insight as StructuredInsight;
+                const severityColor =
+                  si.severity === "critical" ? "error" :
+                  si.severity === "warning" ? "warning" : "info";
+                const severityIcon =
+                  si.severity === "critical" ? "error" :
+                  si.severity === "warning" ? "warning" : "info";
+                return (
+                  <Paper
+                    key={i}
+                    variant="outlined"
+                    sx={{
+                      p: 1.5,
+                      borderLeft: 3,
+                      borderLeftColor: `${severityColor}.main`,
+                    }}
+                  >
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, mb: 0.75 }}>
+                      <MaterialSymbol icon={severityIcon} size={18} color={
+                        si.severity === "critical" ? "#d32f2f" :
+                        si.severity === "warning" ? "#ed6c02" : "#0288d1"
+                      } />
+                      <Typography variant="subtitle2" fontWeight={700} sx={{ flex: 1 }}>
+                        {si.title}
+                      </Typography>
+                      <Chip
+                        label={t(`portfolio.severity.${si.severity}`)}
+                        size="small"
+                        color={severityColor}
+                        variant="outlined"
+                        sx={{ height: 20, fontSize: "0.7rem" }}
+                      />
+                    </Box>
+                    <Typography variant="body2" sx={{ mb: 0.5 }}>
+                      {si.observation}
+                    </Typography>
+                    {si.risk && (
+                      <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5, fontStyle: "italic" }}>
+                        <strong>{t("portfolio.insightRisk")}:</strong> {si.risk}
+                      </Typography>
+                    )}
+                    {si.action && (
+                      <Box sx={{ display: "flex", alignItems: "flex-start", gap: 0.5, mt: 0.5 }}>
+                        <MaterialSymbol icon="arrow_forward" size={16} color={theme.palette.primary.main} style={{ marginTop: 2 }} />
+                        <Typography variant="body2" fontWeight={600} color="primary.main">
+                          {si.action}
+                        </Typography>
+                      </Box>
+                    )}
+                  </Paper>
+                );
+              })}
             </Box>
           )}
 
