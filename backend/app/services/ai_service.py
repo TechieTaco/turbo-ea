@@ -533,7 +533,7 @@ async def _call_anthropic(
     }
     payload: dict[str, Any] = {
         "model": model,
-        "max_tokens": 1024,
+        "max_tokens": 4096,
         "messages": chat_messages,
         "temperature": 0.1,
     }
@@ -794,10 +794,15 @@ async def generate_portfolio_insights(
     if principles:
         principles_block = "\n\nEA PRINCIPLES (defined by the organisation):\n"
         principles_block += (
-            "These are the governing architecture principles. Every insight MUST "
-            "evaluate whether the portfolio data aligns with or violates these "
-            "principles. When a principle is violated, call it out explicitly, "
-            "cite the relevant data, and recommend corrective action.\n\n"
+            "These are the organisation's governing architecture principles. "
+            "They define what GOOD looks like for this organisation. You MUST "
+            "interpret ALL portfolio data through the lens of these principles:\n"
+            "- If the data ALIGNS with a principle, acknowledge it positively.\n"
+            "- If the data VIOLATES a principle, flag it as a finding.\n"
+            "- NEVER flag something as a problem if it is actually consistent "
+            "with the stated principles. For example, if a principle promotes "
+            "reuse or single solutions, then having one application per "
+            "capability is a STRENGTH, not fragmentation.\n\n"
         )
         for i, p in enumerate(principles, 1):
             principles_block += f"  {i}. {p['title']}"
@@ -810,64 +815,67 @@ async def generate_portfolio_insights(
             principles_block += "\n"
 
     has_principles = bool(principles)
-    insight_count = max(5, len(principles or [])) if has_principles else 5
-    # Cap at 8 to keep output manageable
-    insight_count = min(insight_count, 8)
+    insight_count = 5  # Always 5 insights — principles inform the analysis, not add extra
 
     # Build the lenses section
     lenses = (
         "Cover these five analytical lenses — one insight per lens, in order:\n"
-        "1. **Rationalisation** — Identify redundancy, overlap, or fragmentation. "
-        "Look for multiple applications serving similar functions, groups with "
-        "disproportionately high app counts, or excessive diversity that raises "
-        "integration and maintenance cost.\n"
+        "1. **Rationalisation** — Assess application overlap and duplication. "
+        "Look for multiple applications serving the same function within a "
+        "capability group.\n"
         "2. **Technical health & lifecycle** — Assess lifecycle phase distribution. "
-        "Flag clusters in end-of-life or phase-out, missing lifecycle data, or "
-        "imbalance between plan/active/retire phases. Reference the Gartner TIME "
-        "model (Tolerate, Invest, Migrate, Eliminate) where appropriate.\n"
+        "Flag end-of-life clusters, missing lifecycle data, or retire/phase-out "
+        "imbalances.\n"
         "3. **Business alignment** — Evaluate how well the portfolio supports "
-        "strategic business capabilities. Identify under-served or over-served "
-        "groups, capability gaps, or misalignment between app investment and "
-        "business priority.\n"
-        "4. **Risk & concentration** — Highlight single points of failure, vendor "
-        "or technology concentration, hosting-model imbalance, or groups where a "
-        "single application dominates. Consider operational and compliance risk.\n"
+        "strategic capabilities. Identify under-served or over-served groups.\n"
+        "4. **Risk & concentration** — Highlight vendor or technology "
+        "concentration, hosting-model imbalance, or operational risk.\n"
         "5. **Modernisation roadmap** — Suggest a prioritised modernisation "
-        "sequence based on the data: which groups or categories should be "
-        "addressed first and why (e.g. high app count + high phase-out ratio, "
-        "or strategic capability with aging technology).\n"
+        "sequence: which groups or categories should be addressed first and why.\n"
     )
 
     if has_principles:
         lenses += (
-            "\nAfter the five standard lenses, add one principle-compliance "
-            "insight for EACH EA principle listed above. For each principle:\n"
-            "- State whether the portfolio currently aligns with or violates it.\n"
-            "- Cite specific data points as evidence.\n"
-            "- Recommend concrete actions to improve compliance.\n"
+            "\nCRITICAL: The EA principles above OVERRIDE generic best practices. "
+            "Interpret each lens through the organisation's own principles. "
+            "Do NOT contradict the principles — if two insights would conflict, "
+            "drop the weaker one and replace it with a genuinely distinct finding.\n"
         )
-
-    insight_list = ", ".join(f'"insight {i}"' for i in range(1, insight_count + 1))
 
     system_msg = (
         "You are a senior enterprise architect performing an Application Portfolio "
         "Management (APM) review using industry-standard EA and IT Strategy frameworks "
         "(TOGAF, Gartner TIME model, Wardley Mapping principles).\n\n"
         f"Given the portfolio summary data below, generate exactly {insight_count} "
-        "insights. Each insight MUST follow this structure:\n"
-        "  1. A concrete observation grounded in the data (cite numbers).\n"
-        "  2. The strategic implication or risk.\n"
-        "  3. A recommended action.\n\n"
+        "insights. Each insight MUST be a JSON object with these fields:\n"
+        '  - "title": A concise headline, max 8 words.\n'
+        '  - "observation": ONE sentence (max 30 words) stating what the data shows. '
+        "Cite one or two key numbers.\n"
+        '  - "risk": ONE sentence (max 20 words) on the implication if no action is taken.\n'
+        '  - "action": ONE sentence (max 25 words) with a specific recommendation. '
+        "Start with a verb (Consolidate, Migrate, Decommission, etc.).\n"
+        '  - "severity": "critical", "warning", or "info".\n\n'
+        "IMPORTANT: Keep each field SHORT. Avoid long explanations. "
+        "Brevity is more valuable than exhaustiveness.\n\n"
         f"{lenses}\n"
         "Rules:\n"
-        "- Each insight must be 2-3 sentences.\n"
         "- Reference actual numbers and group names from the data.\n"
         "- Do NOT invent data that was not provided.\n"
+        "- NO CONTRADICTIONS: Review all 5 insights together before responding. "
+        "If two insights make opposing claims about the same data, remove one.\n"
         "- If a lens cannot be meaningfully assessed from the available data, "
         "say so briefly and suggest what data to capture.\n"
-        "- Use professional EA terminology.\n\n"
+        "- Use professional EA terminology.\n"
+        "- Actions must be specific and measurable — avoid vague advice like "
+        '"consider reviewing" or "think about". Instead say "Consolidate the 5 '
+        'CRM applications in the Sales group into 2 platforms within 12 months" '
+        'or "Migrate the 3 end-of-life applications to cloud SaaS alternatives '
+        'by Q3".\n\n'
         "Return ONLY valid JSON in this format:\n"
-        "{ " + f'"insights": [{insight_list}]' + " }"
+        '{ "insights": [\n'
+        '  { "title": "...", "observation": "...", "risk": "...", '
+        '"action": "...", "severity": "warning" }\n'
+        "] }"
     )
 
     user_content = f"Portfolio summary:\n{data_block}"
@@ -883,10 +891,31 @@ async def generate_portfolio_insights(
         provider_url, model, messages, provider_type=provider_type, api_key=api_key
     )
 
-    insights = raw.get("insights", [])
-    if not isinstance(insights, list):
-        insights = []
-    insights = [str(i).strip() for i in insights if i][:insight_count]
+    raw_insights = raw.get("insights", [])
+    if not isinstance(raw_insights, list):
+        raw_insights = []
+
+    insights: list[dict[str, str] | str] = []
+    for item in raw_insights[:insight_count]:
+        if not item:
+            continue
+        if isinstance(item, dict) and "observation" in item:
+            # Structured insight — validate and normalise
+            severity = item.get("severity", "info")
+            if severity not in ("critical", "warning", "info"):
+                severity = "info"
+            insights.append(
+                {
+                    "title": str(item.get("title", "")).strip(),
+                    "observation": str(item.get("observation", "")).strip(),
+                    "risk": str(item.get("risk", "")).strip(),
+                    "action": str(item.get("action", "")).strip(),
+                    "severity": severity,
+                }
+            )
+        else:
+            # Backward-compatible plain string
+            insights.append(str(item).strip())
 
     return {"insights": insights, "model": model}
 

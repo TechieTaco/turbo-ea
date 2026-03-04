@@ -36,7 +36,7 @@ import { useSavedReport } from "@/hooks/useSavedReport";
 import { useThumbnailCapture } from "@/hooks/useThumbnailCapture";
 import { useTimeline } from "@/hooks/useTimeline";
 import { useResolveLabel, useResolveMetaLabel } from "@/hooks/useResolveLabel";
-import type { AiStatus, PortfolioInsightsResponse } from "@/types";
+import type { AiStatus, PortfolioInsightsResponse, StructuredInsight } from "@/types";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -1292,12 +1292,65 @@ export default function PortfolioReport() {
           )}
 
           {aiInsights && aiInsights.insights.length > 0 && (
-            <Box component="ul" sx={{ m: 0, pl: 2.5 }}>
-              {aiInsights.insights.map((insight, i) => (
-                <Typography key={i} component="li" variant="body2" sx={{ mb: 0.5 }}>
-                  {insight}
-                </Typography>
-              ))}
+            <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
+              {[...aiInsights.insights]
+                .filter((ins) => typeof ins !== "string")
+                .sort((a, b) => {
+                  const order = { critical: 0, warning: 1, info: 2 };
+                  const sa = (a as StructuredInsight).severity || "info";
+                  const sb = (b as StructuredInsight).severity || "info";
+                  return (order[sa] ?? 2) - (order[sb] ?? 2);
+                })
+                .map((insight, i) => {
+                const si = insight as StructuredInsight;
+                const severityIcon =
+                  si.severity === "critical" ? "priority_high" :
+                  si.severity === "warning" ? "trending_flat" : "check_circle";
+                return (
+                  <Paper
+                    key={i}
+                    variant="outlined"
+                    sx={{ p: 1.5 }}
+                  >
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, mb: 0.75 }}>
+                      <MaterialSymbol icon={severityIcon} size={18} color={
+                        si.severity === "critical" ? theme.palette.text.primary :
+                        si.severity === "warning" ? theme.palette.text.secondary : theme.palette.text.disabled
+                      } />
+                      <Typography variant="subtitle2" fontWeight={600} sx={{ flex: 1 }}>
+                        {si.title}
+                      </Typography>
+                      <Chip
+                        label={t(`portfolio.severity.${si.severity}`)}
+                        size="small"
+                        variant="outlined"
+                        sx={{
+                          height: 20,
+                          fontSize: "0.7rem",
+                          borderColor: "divider",
+                          color: "text.secondary",
+                        }}
+                      />
+                    </Box>
+                    <Typography variant="body2" sx={{ mb: 0.5 }}>
+                      {si.observation}
+                    </Typography>
+                    {si.risk && (
+                      <Typography variant="body2" color="primary.main" sx={{ mb: 0.5 }}>
+                        {si.risk}
+                      </Typography>
+                    )}
+                    {si.action && (
+                      <Box sx={{ display: "flex", alignItems: "flex-start", gap: 0.5, mt: 0.5 }}>
+                        <MaterialSymbol icon="subdirectory_arrow_right" size={16} color={theme.palette.primary.main} style={{ marginTop: 2 }} />
+                        <Typography variant="body2" color="primary.dark" fontWeight={500}>
+                          {si.action}
+                        </Typography>
+                      </Box>
+                    )}
+                  </Paper>
+                );
+              })}
             </Box>
           )}
 

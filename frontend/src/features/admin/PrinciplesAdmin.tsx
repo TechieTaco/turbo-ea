@@ -13,8 +13,10 @@ import DialogContent from "@mui/material/DialogContent";
 import DialogActions from "@mui/material/DialogActions";
 import TextField from "@mui/material/TextField";
 import Switch from "@mui/material/Switch";
+import FormControlLabel from "@mui/material/FormControlLabel";
 import Chip from "@mui/material/Chip";
 import Alert from "@mui/material/Alert";
+import Divider from "@mui/material/Divider";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import type { EAPrinciple } from "@/types";
@@ -40,6 +42,7 @@ export default function PrinciplesAdmin() {
   const [principles, setPrinciples] = useState<EAPrinciple[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [showInDelivery, setShowInDelivery] = useState(true);
 
   // Dialog state
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -50,8 +53,12 @@ export default function PrinciplesAdmin() {
   const fetchPrinciples = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await api.get<EAPrinciple[]>("/metamodel/principles");
+      const [data, displaySetting] = await Promise.all([
+        api.get<EAPrinciple[]>("/metamodel/principles"),
+        api.get<{ enabled: boolean }>("/settings/principles-display"),
+      ]);
       setPrinciples(data);
+      setShowInDelivery(displaySetting.enabled);
     } catch {
       setError(t("metamodel.principles.loadError"));
     } finally {
@@ -62,6 +69,15 @@ export default function PrinciplesAdmin() {
   useEffect(() => {
     fetchPrinciples();
   }, [fetchPrinciples]);
+
+  const handleToggleDisplay = async (checked: boolean) => {
+    setShowInDelivery(checked);
+    try {
+      await api.patch("/settings/principles-display", { enabled: checked });
+    } catch {
+      setShowInDelivery(!checked);
+    }
+  };
 
   const openCreate = () => {
     setEditingId(null);
@@ -133,7 +149,7 @@ export default function PrinciplesAdmin() {
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
-          mb: 2,
+          mb: 1,
         }}
       >
         <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 600 }}>
@@ -147,6 +163,25 @@ export default function PrinciplesAdmin() {
           {t("metamodel.principles.add")}
         </Button>
       </Box>
+
+      <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
+        <FormControlLabel
+          control={
+            <Switch
+              size="small"
+              checked={showInDelivery}
+              onChange={(_, v) => handleToggleDisplay(v)}
+            />
+          }
+          label={
+            <Typography variant="body2" color="text.secondary">
+              {t("metamodel.principles.showInDelivery")}
+            </Typography>
+          }
+        />
+      </Box>
+
+      <Divider sx={{ mb: 2 }} />
 
       {error && (
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError("")}>
@@ -206,16 +241,52 @@ export default function PrinciplesAdmin() {
                     </Typography>
                   )}
                   {(p.rationale || p.implications) && (
-                    <Box sx={{ display: "flex", gap: 2, mt: 0.5, flexWrap: "wrap" }}>
+                    <Box sx={{ display: "flex", gap: 3, mt: 0.5, flexWrap: "wrap" }}>
                       {p.rationale && (
-                        <Typography variant="caption" color="text.secondary">
-                          <strong>{t("metamodel.principles.rationale")}:</strong> {p.rationale}
-                        </Typography>
+                        <Box sx={{ flex: 1, minWidth: 200 }}>
+                          <Typography variant="caption" color="text.secondary" fontWeight={600}>
+                            {t("metamodel.principles.rationale")}:
+                          </Typography>
+                          <Box
+                            component="ul"
+                            sx={{ m: 0, pl: 2, listStyleType: "'•  '" }}
+                          >
+                            {p.rationale.split("\n").filter(Boolean).map((line, idx) => (
+                              <Typography
+                                key={idx}
+                                component="li"
+                                variant="caption"
+                                color="text.secondary"
+                                sx={{ py: 0.1 }}
+                              >
+                                {line}
+                              </Typography>
+                            ))}
+                          </Box>
+                        </Box>
                       )}
                       {p.implications && (
-                        <Typography variant="caption" color="text.secondary">
-                          <strong>{t("metamodel.principles.implications")}:</strong> {p.implications}
-                        </Typography>
+                        <Box sx={{ flex: 1, minWidth: 200 }}>
+                          <Typography variant="caption" color="text.secondary" fontWeight={600}>
+                            {t("metamodel.principles.implications")}:
+                          </Typography>
+                          <Box
+                            component="ul"
+                            sx={{ m: 0, pl: 2, listStyleType: "'•  '" }}
+                          >
+                            {p.implications.split("\n").filter(Boolean).map((line, idx) => (
+                              <Typography
+                                key={idx}
+                                component="li"
+                                variant="caption"
+                                color="text.secondary"
+                                sx={{ py: 0.1 }}
+                              >
+                                {line}
+                              </Typography>
+                            ))}
+                          </Box>
+                        </Box>
                       )}
                     </Box>
                   )}
