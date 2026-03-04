@@ -533,7 +533,7 @@ async def _call_anthropic(
     }
     payload: dict[str, Any] = {
         "model": model,
-        "max_tokens": 1024,
+        "max_tokens": 4096,
         "messages": chat_messages,
         "temperature": 0.1,
     }
