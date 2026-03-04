@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from pydantic import BaseModel, Field
 
 
@@ -50,9 +52,17 @@ class PortfolioInsightsRequest(BaseModel):
     )
 
 
+class StructuredInsight(BaseModel):
+    title: str = ""
+    observation: str = ""
+    risk: str = ""
+    action: str = ""
+    severity: str = "info"
+
+
 class PortfolioInsightsResponse(BaseModel):
-    insights: list[str] = Field(
+    insights: list[StructuredInsight | str | Any] = Field(
         default_factory=list,
-        description="List of actionable insight strings",
+        description="List of structured insight objects or plain strings",
     )
     model: str | None = None

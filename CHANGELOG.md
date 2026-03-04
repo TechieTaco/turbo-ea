@@ -5,6 +5,15 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.25.1] - 2026-03-04
+
+### Changed
+- EA Principles rationale and implications now render each new line as a bullet point for better readability
+- AI portfolio insights now return structured results with title, observation, risk, action, and severity for clearer actionable guidance
+
+### Added
+- EA Principles read-only tab in the EA Delivery page showing all active principles to all users
+
 ## [0.25.0] - 2026-03-04
 
 ### Added

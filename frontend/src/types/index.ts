@@ -944,7 +944,15 @@ export interface AiStatus {
   portfolio_insights_enabled?: boolean;
 }
 
+export interface StructuredInsight {
+  title: string;
+  observation: string;
+  risk: string;
+  action: string;
+  severity: "critical" | "warning" | "info";
+}
+
 export interface PortfolioInsightsResponse {
-  insights: string[];
+  insights: (string | StructuredInsight)[];
   model?: string;
 }

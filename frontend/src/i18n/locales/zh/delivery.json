@@ -257,5 +257,12 @@
   "template.togaf.phaseF": "F \u2013 迁移规划",
   "template.togaf.phaseG": "G \u2013 实施治理",
   "template.togaf.phaseH": "H \u2013 架构变更管理",
-  "template.togaf.phaseRM": "需求管理"
+  "template.togaf.phaseRM": "需求管理",
+
+  "tabs.initiatives": "倡议",
+  "tabs.principles": "EA原则",
+
+  "principles.empty": "尚未定义活跃的EA原则。可以在管理员 > 元模型中配置原则。",
+  "principles.rationale": "理由",
+  "principles.implications": "影响"
 }
