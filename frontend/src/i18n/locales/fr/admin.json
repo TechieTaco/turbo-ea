@@ -273,7 +273,7 @@
   "settings.bpm.hidden": "Les fonctionnalit\u00e9s BPM sont masqu\u00e9es",
   "settings.bpm.enabledSuccess": "Module BPM activ\u00e9",
   "settings.bpm.disabledSuccess": "Module BPM d\u00e9sactiv\u00e9",
-  "settings.ai.title": "Suggestions IA",
+  "settings.ai.title": "Fonctionnalités IA",
   "settings.ai.description": "Activer les suggestions de description par IA lors de la cr\u00e9ation ou modification de fiches. Choisissez entre une instance Ollama auto-h\u00e9berg\u00e9e ou un fournisseur LLM commercial.",
   "settings.ai.enabled": "Les suggestions IA sont activ\u00e9es",
   "settings.ai.disabled": "Les suggestions IA sont d\u00e9sactiv\u00e9es",
