@@ -794,10 +794,15 @@ async def generate_portfolio_insights(
     if principles:
         principles_block = "\n\nEA PRINCIPLES (defined by the organisation):\n"
         principles_block += (
-            "These are the governing architecture principles. Every insight MUST "
-            "evaluate whether the portfolio data aligns with or violates these "
-            "principles. When a principle is violated, call it out explicitly, "
-            "cite the relevant data, and recommend corrective action.\n\n"
+            "These are the organisation's governing architecture principles. "
+            "They define what GOOD looks like for this organisation. You MUST "
+            "interpret ALL portfolio data through the lens of these principles:\n"
+            "- If the data ALIGNS with a principle, acknowledge it positively.\n"
+            "- If the data VIOLATES a principle, flag it as a finding.\n"
+            "- NEVER flag something as a problem if it is actually consistent "
+            "with the stated principles. For example, if a principle promotes "
+            "reuse or single solutions, then having one application per "
+            "capability is a STRENGTH, not fragmentation.\n\n"
         )
         for i, p in enumerate(principles, 1):
             principles_block += f"  {i}. {p['title']}"
@@ -815,32 +820,26 @@ async def generate_portfolio_insights(
     # Build the lenses section
     lenses = (
         "Cover these five analytical lenses — one insight per lens, in order:\n"
-        "1. **Rationalisation** — Identify redundancy, overlap, or fragmentation. "
-        "Look for multiple applications serving similar functions, groups with "
-        "disproportionately high app counts, or excessive diversity that raises "
-        "integration and maintenance cost.\n"
+        "1. **Rationalisation** — Assess application overlap and duplication. "
+        "Look for multiple applications serving the same function within a "
+        "capability group.\n"
         "2. **Technical health & lifecycle** — Assess lifecycle phase distribution. "
-        "Flag clusters in end-of-life or phase-out, missing lifecycle data, or "
-        "imbalance between plan/active/retire phases. Reference the Gartner TIME "
-        "model (Tolerate, Invest, Migrate, Eliminate) where appropriate.\n"
+        "Flag end-of-life clusters, missing lifecycle data, or retire/phase-out "
+        "imbalances.\n"
         "3. **Business alignment** — Evaluate how well the portfolio supports "
-        "strategic business capabilities. Identify under-served or over-served "
-        "groups, capability gaps, or misalignment between app investment and "
-        "business priority.\n"
-        "4. **Risk & concentration** — Highlight single points of failure, vendor "
-        "or technology concentration, hosting-model imbalance, or groups where a "
-        "single application dominates. Consider operational and compliance risk.\n"
+        "strategic capabilities. Identify under-served or over-served groups.\n"
+        "4. **Risk & concentration** — Highlight vendor or technology "
+        "concentration, hosting-model imbalance, or operational risk.\n"
         "5. **Modernisation roadmap** — Suggest a prioritised modernisation "
-        "sequence based on the data: which groups or categories should be "
-        "addressed first and why (e.g. high app count + high phase-out ratio, "
-        "or strategic capability with aging technology).\n"
+        "sequence: which groups or categories should be addressed first and why.\n"
     )
 
     if has_principles:
         lenses += (
-            "\nThe EA principles listed above should INFORM your five insights — "
-            "weave principle violations or alignment into the relevant lens "
-            "rather than adding separate principle-only insights.\n"
+            "\nCRITICAL: The EA principles above OVERRIDE generic best practices. "
+            "Interpret each lens through the organisation's own principles. "
+            "Do NOT contradict the principles — if two insights would conflict, "
+            "drop the weaker one and replace it with a genuinely distinct finding.\n"
         )
 
     system_msg = (
@@ -862,6 +861,8 @@ async def generate_portfolio_insights(
         "Rules:\n"
         "- Reference actual numbers and group names from the data.\n"
         "- Do NOT invent data that was not provided.\n"
+        "- NO CONTRADICTIONS: Review all 5 insights together before responding. "
+        "If two insights make opposing claims about the same data, remove one.\n"
         "- If a lens cannot be meaningfully assessed from the available data, "
         "say so briefly and suggest what data to capture.\n"
         "- Use professional EA terminology.\n"
