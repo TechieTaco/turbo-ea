@@ -300,8 +300,8 @@ export default function MetamodelAdmin() {
         <Tab label={t("metamodel.tabs.relationTypes")} />
         <Tab label={t("metamodel.tabs.calculations")} />
         <Tab label={t("metamodel.tabs.tags")} />
-        <Tab label={t("metamodel.tabs.principles")} />
         <Tab label={t("metamodel.tabs.graph")} />
+        <Tab label={t("metamodel.tabs.principles")} />
       </Tabs>
 
       {/* ============================================================ */}
@@ -711,20 +711,20 @@ export default function MetamodelAdmin() {
       {tab === 3 && <TagsAdmin />}
 
       {/* ============================================================ */}
-      {/*  TAB 4 -- EA Principles                                      */}
+      {/*  TAB 4 -- Metamodel Graph                                    */}
       {/* ============================================================ */}
-      {tab === 4 && <PrinciplesAdmin />}
-
-      {/* ============================================================ */}
-      {/*  TAB 5 -- Metamodel Graph                                    */}
-      {/* ============================================================ */}
-      {tab === 5 && (
+      {tab === 4 && (
         <MetamodelGraph
           types={types}
           relationTypes={relationTypes}
           onNodeClick={handleNodeClick}
         />
       )}
+
+      {/* ============================================================ */}
+      {/*  TAB 5 -- EA Principles                                      */}
+      {/* ============================================================ */}
+      {tab === 5 && <PrinciplesAdmin />}
 
       {/* ============================================================ */}
       {/*  Type Detail Dialog                                          */}
