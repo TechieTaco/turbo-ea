@@ -738,41 +738,94 @@ async def generate_portfolio_insights(
     attr_summary = summary.get("attribute_summary", {})
     lifecycle_summary = summary.get("lifecycle_summary", {})
 
-    data_block = f"Total applications: {total}\n"
+    data_block = f"Total applications in scope: {total}\n"
     if group_by:
         data_block += f"Grouped by: {group_by}\n"
     if color_by:
         data_block += f"Colored by: {color_by}\n"
+
     if groups:
-        data_block += "\nGroups:\n"
-        for g in groups[:30]:
-            line = f"  - {g.get('name', 'Unknown')}: {g.get('count', 0)} apps"
+        data_block += "\nGroup breakdown:\n"
+        # Sort by count descending so LLM sees largest groups first
+        sorted_groups = sorted(groups, key=lambda g: g.get("count", 0), reverse=True)
+        for g in sorted_groups[:30]:
+            name = g.get("name", "Unknown")
+            count = g.get("count", 0)
+            pct = round(count / total * 100, 1) if total else 0
+            line = f"  - {name}: {count} apps ({pct}%)"
             breakdown = g.get("breakdown")
             if breakdown:
                 parts = [f"{k}={v}" for k, v in breakdown.items()]
-                line += f" ({', '.join(parts)})"
+                line += f"  [{', '.join(parts)}]"
             data_block += line + "\n"
+
     if attr_summary:
         data_block += "\nAttribute distributions:\n"
         for field, counts in attr_summary.items():
             if isinstance(counts, dict):
-                data_block += f"  {field}: {counts}\n"
+                total_vals = sum(counts.values())
+                entries = ", ".join(
+                    f"{k}: {v} ({round(v / total_vals * 100)}%)" if total_vals else f"{k}: {v}"
+                    for k, v in sorted(counts.items(), key=lambda x: -x[1])
+                )
+                data_block += f"  {field}: {entries}\n"
+
     if lifecycle_summary:
-        data_block += f"\nLifecycle phase counts: {lifecycle_summary}\n"
+        phase_labels = {
+            "plan": "Plan",
+            "phaseIn": "Phase In",
+            "active": "Active",
+            "phaseOut": "Phase Out",
+            "endOfLife": "End of Life",
+            "No lifecycle": "No lifecycle data",
+            "Unknown": "Unknown phase",
+        }
+        lc_total = sum(lifecycle_summary.values())
+        lc_parts = []
+        for phase, count in lifecycle_summary.items():
+            label = phase_labels.get(phase, phase)
+            pct = round(count / lc_total * 100) if lc_total else 0
+            lc_parts.append(f"{label}: {count} ({pct}%)")
+        data_block += f"\nLifecycle distribution: {', '.join(lc_parts)}\n"
 
     system_msg = (
-        "You are a senior enterprise architect analysing an application portfolio. "
-        "Given the portfolio summary data below, generate 3-5 concise, actionable "
-        "insights about the portfolio. Focus on:\n"
-        "- Concentration risks (too many apps in one group or state)\n"
-        "- Modernisation opportunities\n"
-        "- Portfolio balance and diversity\n"
-        "- Lifecycle concerns (apps nearing end-of-life)\n"
-        "- Cost or complexity drivers\n\n"
+        "You are a senior enterprise architect performing an Application Portfolio "
+        "Management (APM) review using industry-standard EA and IT Strategy frameworks "
+        "(TOGAF, Gartner TIME model, Wardley Mapping principles).\n\n"
+        "Given the portfolio summary data below, generate exactly 5 insights. "
+        "Each insight MUST follow this structure:\n"
+        "  1. A concrete observation grounded in the data (cite numbers).\n"
+        "  2. The strategic implication or risk.\n"
+        "  3. A recommended action.\n\n"
+        "Cover these five lenses — one insight per lens, in order:\n"
+        "1. **Rationalisation** — Identify redundancy, overlap, or fragmentation. "
+        "Look for multiple applications serving similar functions, groups with "
+        "disproportionately high app counts, or excessive diversity that raises "
+        "integration and maintenance cost.\n"
+        "2. **Technical health & lifecycle** — Assess lifecycle phase distribution. "
+        "Flag clusters in end-of-life or phase-out, missing lifecycle data, or "
+        "imbalance between plan/active/retire phases. Reference the Gartner TIME "
+        "model (Tolerate, Invest, Migrate, Eliminate) where appropriate.\n"
+        "3. **Business alignment** — Evaluate how well the portfolio supports "
+        "strategic business capabilities. Identify under-served or over-served "
+        "groups, capability gaps, or misalignment between app investment and "
+        "business priority.\n"
+        "4. **Risk & concentration** — Highlight single points of failure, vendor "
+        "or technology concentration, hosting-model imbalance, or groups where a "
+        "single application dominates. Consider operational and compliance risk.\n"
+        "5. **Modernisation roadmap** — Suggest a prioritised modernisation "
+        "sequence based on the data: which groups or categories should be "
+        "addressed first and why (e.g. high app count + high phase-out ratio, "
+        "or strategic capability with aging technology).\n\n"
+        "Rules:\n"
+        "- Each insight must be 2-3 sentences.\n"
+        "- Reference actual numbers and group names from the data.\n"
+        "- Do NOT invent data that was not provided.\n"
+        "- If a lens cannot be meaningfully assessed from the available data, "
+        "say so briefly and suggest what data to capture.\n"
+        "- Use professional EA terminology.\n\n"
         "Return ONLY valid JSON in this format:\n"
-        '{ "insights": ["insight 1", "insight 2", ...] }\n\n'
-        "Each insight should be 1-2 sentences. Be specific and reference actual "
-        "data from the summary. Do not speculate about data not provided."
+        '{ "insights": ["insight 1", "insight 2", "insight 3", "insight 4", "insight 5"] }'
     )
 
     messages = [
@@ -787,7 +840,7 @@ async def generate_portfolio_insights(
     insights = raw.get("insights", [])
     if not isinstance(insights, list):
         insights = []
-    insights = [str(i) for i in insights if i][:10]
+    insights = [str(i).strip() for i in insights if i][:5]
 
     return {"insights": insights, "model": model}
 
