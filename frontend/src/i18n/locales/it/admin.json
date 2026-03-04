@@ -274,7 +274,7 @@
   "settings.bpm.hidden": "Le funzionalit\u00e0 BPM sono nascoste",
   "settings.bpm.enabledSuccess": "Modulo BPM abilitato",
   "settings.bpm.disabledSuccess": "Modulo BPM disabilitato",
-  "settings.ai.title": "Suggerimenti IA",
+  "settings.ai.title": "Funzionalità IA",
   "settings.ai.description": "Abilita i suggerimenti di descrizione basati su IA durante la creazione o modifica delle schede. Scegli tra un\u2019istanza Ollama self-hosted o un fornitore LLM commerciale.",
   "settings.ai.enabled": "I suggerimenti IA sono abilitati",
   "settings.ai.disabled": "I suggerimenti IA sono disabilitati",

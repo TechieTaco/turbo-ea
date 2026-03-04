@@ -274,7 +274,7 @@
   "settings.bpm.hidden": "BPM features are hidden",
   "settings.bpm.enabledSuccess": "BPM module enabled",
   "settings.bpm.disabledSuccess": "BPM module disabled",
-  "settings.ai.title": "AI Suggestions",
+  "settings.ai.title": "AI Capabilities",
   "settings.ai.description": "Enable AI-powered description suggestions when creating or editing cards. Choose between a self-hosted Ollama instance or a commercial LLM provider.",
   "settings.ai.enabled": "AI suggestions are enabled",
   "settings.ai.disabled": "AI suggestions are disabled",

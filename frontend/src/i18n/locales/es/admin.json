@@ -273,7 +273,7 @@
   "settings.bpm.hidden": "Las funciones BPM est\u00e1n ocultas",
   "settings.bpm.enabledSuccess": "M\u00f3dulo BPM habilitado",
   "settings.bpm.disabledSuccess": "M\u00f3dulo BPM deshabilitado",
-  "settings.ai.title": "Sugerencias de IA",
+  "settings.ai.title": "Capacidades de IA",
   "settings.ai.description": "Habilitar sugerencias de descripci\u00f3n con IA al crear o editar tarjetas. Elija entre una instancia Ollama autohospedada o un proveedor LLM comercial.",
   "settings.ai.enabled": "Las sugerencias de IA est\u00e1n habilitadas",
   "settings.ai.disabled": "Las sugerencias de IA est\u00e1n deshabilitadas",
