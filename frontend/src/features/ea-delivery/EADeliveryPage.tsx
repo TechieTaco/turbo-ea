@@ -5,6 +5,7 @@ import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Button from "@mui/material/Button";
 import MuiCard from "@mui/material/Card";
+import CardContent from "@mui/material/CardContent";
 import CardActionArea from "@mui/material/CardActionArea";
 import Chip from "@mui/material/Chip";
 import Checkbox from "@mui/material/Checkbox";
@@ -26,6 +27,8 @@ import ListItemButton from "@mui/material/ListItemButton";
 import ListItemIcon from "@mui/material/ListItemIcon";
 import ListItemText from "@mui/material/ListItemText";
 import InputAdornment from "@mui/material/InputAdornment";
+import Tab from "@mui/material/Tab";
+import Tabs from "@mui/material/Tabs";
 import ToggleButton from "@mui/material/ToggleButton";
 import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import Table from "@mui/material/Table";
@@ -39,7 +42,7 @@ import MaterialSymbol from "@/components/MaterialSymbol";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useResolveMetaLabel, useResolveLabel } from "@/hooks/useResolveLabel";
 import { api } from "@/api/client";
-import type { Card, SoAW, DiagramSummary, Relation } from "@/types";
+import type { Card, SoAW, DiagramSummary, Relation, EAPrinciple } from "@/types";
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
@@ -66,6 +69,7 @@ interface InitiativeGroup {
 
 type ViewMode = "cards" | "list";
 type StatusFilter = "ACTIVE" | "ARCHIVED" | "";
+type PageTab = "initiatives" | "principles";
 
 // ─── component ──────────────────────────────────────────────────────────────
 
@@ -91,6 +95,7 @@ export default function EADeliveryPage() {
     completed: t("initiativeStatus.completed"),
   };
 
+  const [pageTab, setPageTab] = useState<PageTab>("initiatives");
   const [initiatives, setInitiatives] = useState<Card[]>([]);
   const [diagrams, setDiagrams] = useState<DiagramSummary[]>([]);
   const [soaws, setSoaws] = useState<SoAW[]>([]);
@@ -98,6 +103,10 @@ export default function EADeliveryPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+
+  // Principles tab state
+  const [principles, setPrinciples] = useState<EAPrinciple[]>([]);
+  const [principlesLoading, setPrinciplesLoading] = useState(false);
 
   // filters
   const [search, setSearch] = useState("");
@@ -162,6 +171,24 @@ export default function EADeliveryPage() {
   useEffect(() => {
     fetchAll();
   }, [fetchAll]);
+
+  // Fetch principles when the tab is selected
+  useEffect(() => {
+    if (pageTab !== "principles") return;
+    let cancelled = false;
+    setPrinciplesLoading(true);
+    (async () => {
+      try {
+        const data = await api.get<EAPrinciple[]>("/metamodel/principles");
+        if (!cancelled) setPrinciples(data.filter((p) => p.is_active));
+      } catch {
+        // non-critical
+      } finally {
+        if (!cancelled) setPrinciplesLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [pageTab]);
 
   // Fetch relations for initiatives (for list view)
   useEffect(() => {
@@ -753,34 +780,184 @@ export default function EADeliveryPage() {
     );
   }
 
+  // ── Principles read-only panel ────────────────────────────────────────
+
+  const renderPrinciplesTab = () => {
+    if (principlesLoading) {
+      return (
+        <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>
+          <CircularProgress />
+        </Box>
+      );
+    }
+    if (principles.length === 0) {
+      return (
+        <Box
+          sx={{
+            py: 6,
+            textAlign: "center",
+            border: "1px dashed",
+            borderColor: "divider",
+            borderRadius: 2,
+          }}
+        >
+          <MaterialSymbol icon="gavel" size={40} color="#bbb" />
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+            {t("principles.empty")}
+          </Typography>
+        </Box>
+      );
+    }
+    return (
+      <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
+        {principles.map((p, idx) => (
+          <MuiCard key={p.id} variant="outlined">
+            <CardContent sx={{ py: 2, "&:last-child": { pb: 2 } }}>
+              <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1.5 }}>
+                <Typography
+                  variant="caption"
+                  sx={{
+                    bgcolor: "primary.main",
+                    color: "#fff",
+                    borderRadius: "50%",
+                    width: 24,
+                    height: 24,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontWeight: 700,
+                    flexShrink: 0,
+                    mt: 0.25,
+                  }}
+                >
+                  {idx + 1}
+                </Typography>
+                <Box sx={{ flex: 1, minWidth: 0 }}>
+                  <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 0.25 }}>
+                    {p.title}
+                  </Typography>
+                  {p.description && (
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                      {p.description}
+                    </Typography>
+                  )}
+                  {(p.rationale || p.implications) && (
+                    <Box sx={{ display: "flex", gap: 3, mt: 0.5, flexWrap: "wrap" }}>
+                      {p.rationale && (
+                        <Box sx={{ flex: 1, minWidth: 200 }}>
+                          <Typography variant="caption" color="text.secondary" fontWeight={600}>
+                            {t("principles.rationale")}:
+                          </Typography>
+                          <Box
+                            component="ul"
+                            sx={{ m: 0, pl: 2, listStyleType: "'•  '" }}
+                          >
+                            {p.rationale.split("\n").filter(Boolean).map((line, i) => (
+                              <Typography
+                                key={i}
+                                component="li"
+                                variant="caption"
+                                color="text.secondary"
+                                sx={{ py: 0.1 }}
+                              >
+                                {line}
+                              </Typography>
+                            ))}
+                          </Box>
+                        </Box>
+                      )}
+                      {p.implications && (
+                        <Box sx={{ flex: 1, minWidth: 200 }}>
+                          <Typography variant="caption" color="text.secondary" fontWeight={600}>
+                            {t("principles.implications")}:
+                          </Typography>
+                          <Box
+                            component="ul"
+                            sx={{ m: 0, pl: 2, listStyleType: "'•  '" }}
+                          >
+                            {p.implications.split("\n").filter(Boolean).map((line, i) => (
+                              <Typography
+                                key={i}
+                                component="li"
+                                variant="caption"
+                                color="text.secondary"
+                                sx={{ py: 0.1 }}
+                              >
+                                {line}
+                              </Typography>
+                            ))}
+                          </Box>
+                        </Box>
+                      )}
+                    </Box>
+                  )}
+                </Box>
+              </Box>
+            </CardContent>
+          </MuiCard>
+        ))}
+      </Box>
+    );
+  };
+
   return (
     <Box>
       {/* Header */}
-      <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
+      <Box sx={{ display: "flex", alignItems: "center", mb: 1 }}>
         <MaterialSymbol icon="architecture" size={28} color="#1976d2" />
         <Typography variant="h5" sx={{ ml: 1, fontWeight: 700 }}>
           {t("page.title")}
         </Typography>
         <Box sx={{ flex: 1 }} />
-        <Button
-          variant="contained"
-          size="small"
-          startIcon={<MaterialSymbol icon="add" size={18} />}
-          sx={{ textTransform: "none" }}
-          onClick={() => {
-            setNewInitiativeId("");
-            setCreateOpen(true);
-          }}
-        >
-          {t("header.newSoaw")}
-        </Button>
+        {pageTab === "initiatives" && (
+          <Button
+            variant="contained"
+            size="small"
+            startIcon={<MaterialSymbol icon="add" size={18} />}
+            sx={{ textTransform: "none" }}
+            onClick={() => {
+              setNewInitiativeId("");
+              setCreateOpen(true);
+            }}
+          >
+            {t("header.newSoaw")}
+          </Button>
+        )}
       </Box>
+
+      {/* Tabs */}
+      <Tabs
+        value={pageTab}
+        onChange={(_, v) => setPageTab(v)}
+        sx={{ mb: 2, borderBottom: 1, borderColor: "divider" }}
+      >
+        <Tab
+          value="initiatives"
+          icon={<MaterialSymbol icon="rocket_launch" size={18} />}
+          iconPosition="start"
+          label={t("tabs.initiatives")}
+          sx={{ textTransform: "none", minHeight: 48 }}
+        />
+        <Tab
+          value="principles"
+          icon={<MaterialSymbol icon="gavel" size={18} />}
+          iconPosition="start"
+          label={t("tabs.principles")}
+          sx={{ textTransform: "none", minHeight: 48 }}
+        />
+      </Tabs>
 
       {error && (
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError("")}>
           {error}
         </Alert>
       )}
+
+      {/* Principles tab */}
+      {pageTab === "principles" && renderPrinciplesTab()}
+
+      {/* Initiatives tab — Filter bar */}
+      {pageTab === "initiatives" && (<>
 
       {/* Filter bar */}
       <Box
@@ -1073,6 +1250,8 @@ export default function EADeliveryPage() {
           )}
         </>
       )}
+
+      </>)}
 
       {/* Context menu for SoAW */}
       <Menu

@@ -257,5 +257,12 @@
   "template.togaf.phaseF": "F \u2013 Planification de la migration",
   "template.togaf.phaseG": "G \u2013 Gouvernance de la mise en \u0153uvre",
   "template.togaf.phaseH": "H \u2013 Gestion du changement d\u2019architecture",
-  "template.togaf.phaseRM": "Gestion des exigences"
+  "template.togaf.phaseRM": "Gestion des exigences",
+
+  "tabs.initiatives": "Initiatives",
+  "tabs.principles": "Principes EA",
+
+  "principles.empty": "Aucun principe EA actif n'est encore défini. Les principes peuvent être configurés dans Admin > Métamodèle.",
+  "principles.rationale": "Justification",
+  "principles.implications": "Implications"
 }

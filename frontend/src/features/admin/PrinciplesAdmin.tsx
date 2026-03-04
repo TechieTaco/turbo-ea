@@ -206,16 +206,52 @@ export default function PrinciplesAdmin() {
                     </Typography>
                   )}
                   {(p.rationale || p.implications) && (
-                    <Box sx={{ display: "flex", gap: 2, mt: 0.5, flexWrap: "wrap" }}>
+                    <Box sx={{ display: "flex", gap: 3, mt: 0.5, flexWrap: "wrap" }}>
                       {p.rationale && (
-                        <Typography variant="caption" color="text.secondary">
-                          <strong>{t("metamodel.principles.rationale")}:</strong> {p.rationale}
-                        </Typography>
+                        <Box sx={{ flex: 1, minWidth: 200 }}>
+                          <Typography variant="caption" color="text.secondary" fontWeight={600}>
+                            {t("metamodel.principles.rationale")}:
+                          </Typography>
+                          <Box
+                            component="ul"
+                            sx={{ m: 0, pl: 2, listStyleType: "'•  '" }}
+                          >
+                            {p.rationale.split("\n").filter(Boolean).map((line, idx) => (
+                              <Typography
+                                key={idx}
+                                component="li"
+                                variant="caption"
+                                color="text.secondary"
+                                sx={{ py: 0.1 }}
+                              >
+                                {line}
+                              </Typography>
+                            ))}
+                          </Box>
+                        </Box>
                       )}
                       {p.implications && (
-                        <Typography variant="caption" color="text.secondary">
-                          <strong>{t("metamodel.principles.implications")}:</strong> {p.implications}
-                        </Typography>
+                        <Box sx={{ flex: 1, minWidth: 200 }}>
+                          <Typography variant="caption" color="text.secondary" fontWeight={600}>
+                            {t("metamodel.principles.implications")}:
+                          </Typography>
+                          <Box
+                            component="ul"
+                            sx={{ m: 0, pl: 2, listStyleType: "'•  '" }}
+                          >
+                            {p.implications.split("\n").filter(Boolean).map((line, idx) => (
+                              <Typography
+                                key={idx}
+                                component="li"
+                                variant="caption"
+                                color="text.secondary"
+                                sx={{ py: 0.1 }}
+                              >
+                                {line}
+                              </Typography>
+                            ))}
+                          </Box>
+                        </Box>
                       )}
                     </Box>
                   )}
