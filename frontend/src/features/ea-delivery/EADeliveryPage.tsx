@@ -1117,7 +1117,7 @@ export default function EADeliveryPage() {
             borderRadius: 2,
           }}
         >
-          <MaterialSymbol icon="gavel" size={40} color="#bbb" />
+          <MaterialSymbol icon="bookmark_star" size={40} color="#bbb" />
           <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
             {t("principles.empty")}
           </Typography>
@@ -1257,7 +1257,7 @@ export default function EADeliveryPage() {
         {principlesTabEnabled && (
           <Tab
             value="principles"
-            icon={<MaterialSymbol icon="gavel" size={18} />}
+            icon={<MaterialSymbol icon="bookmark_star" size={18} />}
             iconPosition="start"
             label={t("tabs.principles")}
             sx={{ textTransform: "none", minHeight: 48 }}
