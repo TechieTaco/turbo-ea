@@ -211,6 +211,9 @@ class PermissionService:
             "can_bpm_approve": is_admin
             or app_perms.get("bpm.approve_flows", False)
             or card_level.get("card.bpm_approve", False),
+            "can_manage_adr_links": is_admin
+            or app_perms.get("adr.manage", False)
+            or card_level.get("card.manage_adr_links", False),
         }
 
         return {

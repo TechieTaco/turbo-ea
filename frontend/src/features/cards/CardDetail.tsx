@@ -50,6 +50,7 @@ const DEFAULT_PERMISSIONS: CardEffectivePermissions["effective"] = {
   can_bpm_edit: true,
   can_bpm_manage_drafts: true,
   can_bpm_approve: true,
+  can_manage_adr_links: true,
 };
 
 // ── Main Detail Page ────────────────────────────────────────────

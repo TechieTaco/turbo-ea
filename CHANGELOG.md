@@ -5,6 +5,21 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.26.0] - 2026-03-08
+
+### Added
+- Architecture Decision Records (ADR) with TOGAF-style approval workflow (draft, in review, signed)
+- ADR editor with rich text sections: Context, Decision, Alternatives Considered, Consequences
+- ADR reference numbering (ADR-001, ADR-002, ...) with duplication and revision chain support
+- Architecture Decisions tab in EA Delivery panel with search, status, and initiative filters
+- ADRs linkable to Initiatives in EA Delivery and visible under initiative artefacts
+- Resources tab on card detail with three sections: Architecture Decisions, File Attachments, Document Links
+- File attachment uploads (up to 10 MB) stored in database with download support
+- Document link management on card detail
+- ADR signing workflow reusing SoAW pattern (request signatures, sign, revise)
+- Read-only ADR preview page
+- New permissions: adr.view, adr.manage, adr.sign, adr.delete, card.manage_adr_links
+
 ## [0.25.2] - 2026-03-04
 
 ### Changed

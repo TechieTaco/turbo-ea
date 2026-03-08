@@ -68,6 +68,7 @@ export interface CardEffectivePermissions {
     can_bpm_edit: boolean;
     can_bpm_manage_drafts: boolean;
     can_bpm_approve: boolean;
+    can_manage_adr_links: boolean;
   };
 }
 
@@ -496,6 +497,44 @@ export interface SoAW {
   parent_id: string | null;
   signatories: SoAWSignatory[];
   signed_at: string | null;
+}
+
+// ---------------------------------------------------------------------------
+// Architecture Decision Records
+// ---------------------------------------------------------------------------
+
+export interface ArchitectureDecision {
+  id: string;
+  reference_number: string;
+  title: string;
+  status: "draft" | "in_review" | "signed";
+  initiative_id: string | null;
+  initiative_name?: string | null;
+  context: string | null;
+  decision: string | null;
+  consequences: string | null;
+  alternatives_considered: string | null;
+  related_decisions: string[];
+  created_by: string | null;
+  creator_name?: string | null;
+  signatories: SoAWSignatory[];
+  signed_at: string | null;
+  revision_number: number;
+  parent_id: string | null;
+  linked_cards?: { id: string; name: string; type: string }[];
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface FileAttachment {
+  id: string;
+  card_id: string;
+  name: string;
+  mime_type: string;
+  size: number;
+  created_by: string | null;
+  creator_name?: string | null;
+  created_at: string | null;
 }
 
 // ---------------------------------------------------------------------------
