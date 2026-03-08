@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 
 from app.api.v1 import (
+    adr,
     ai_suggest,
     auth,
     bookmarks,
@@ -15,6 +16,7 @@ from app.api.v1 import (
     documents,
     eol,
     events,
+    file_attachments,
     metamodel,
     notifications,
     relations,
@@ -64,3 +66,5 @@ api_router.include_router(stakeholder_roles.router)
 api_router.include_router(calculations.router)
 api_router.include_router(servicenow.router)
 api_router.include_router(ai_suggest.router)
+api_router.include_router(adr.router)
+api_router.include_router(file_attachments.router)

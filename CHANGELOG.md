@@ -5,6 +5,41 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.26.2] - 2026-03-08
+
+### Fixed
+- ADRs not shown in artifacts column of EA Delivery initiatives table view
+
+## [0.26.1] - 2026-03-08
+
+### Changed
+- ADR initiative linking now uses standard card links instead of a dedicated field — initiatives are linked like any other card
+- ADR list view now shows all linked cards as chips instead of a single initiative name
+- Initiative filter on Decisions tab works via linked cards, supporting ADRs linked to multiple initiatives
+- Create ADR and Signature Request dialogs no longer resize when search results appear or disappear
+
+### Removed
+- Dedicated initiative dropdown from ADR editor and create dialog (use card linking instead)
+- `initiative_id` column from architecture decisions (migrated to card link junction table)
+
+## [0.26.0] - 2026-03-08
+
+### Added
+- Architecture Decision Records (ADR) with TOGAF-style approval workflow (draft, in review, signed)
+- ADR editor with rich text sections: Context, Decision, Alternatives Considered, Consequences
+- ADR reference numbering (ADR-001, ADR-002, ...) with duplication and revision chain support
+- Architecture Decisions tab in EA Delivery panel with search, status, and initiative filters
+- ADRs linkable to Initiatives in EA Delivery and visible under initiative artefacts
+- Resources tab on card detail with three sections: Architecture Decisions, File Attachments, Document Links
+- Create ADR with inline card linking from Resources tab, EA Delivery, or initiative context
+- Initiative-level create button offers choice between SoAW and ADR
+- File attachment uploads (up to 10 MB) stored in database with download support
+- Document link management on card detail
+- ADR signing workflow reusing SoAW pattern (request signatures, sign, revise)
+- Search-based signature request dialog for both SoAW and ADR (replaces flat user list)
+- Read-only ADR preview page
+- New permissions: adr.view, adr.manage, adr.sign, adr.delete, card.manage_adr_links
+
 ## [0.25.2] - 2026-03-04
 
 ### Changed

@@ -1,4 +1,6 @@
 from app.models.app_settings import AppSettings
+from app.models.architecture_decision import ArchitectureDecision
+from app.models.architecture_decision_card import ArchitectureDecisionCard
 from app.models.base import Base
 from app.models.bookmark import Bookmark
 from app.models.calculation import Calculation
@@ -9,6 +11,7 @@ from app.models.diagram import Diagram
 from app.models.document import Document
 from app.models.ea_principle import EAPrinciple
 from app.models.event import Event
+from app.models.file_attachment import FileAttachment
 from app.models.notification import Notification
 from app.models.process_assessment import ProcessAssessment
 from app.models.process_diagram import ProcessDiagram
@@ -37,7 +40,10 @@ from app.models.user import User
 from app.models.web_portal import WebPortal
 
 __all__ = [
+    "ArchitectureDecision",
+    "ArchitectureDecisionCard",
     "Base",
+    "FileAttachment",
     "User",
     "Role",
     "StakeholderRoleDefinition",

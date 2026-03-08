@@ -49,9 +49,76 @@ The editor provides:
 
 ### Sign-off Workflow
 
-Once a SoAW is approved, you can request sign-offs from stakeholders. The system tracks who has signed and sends notifications to pending signers.
+Once a SoAW is approved, you can request sign-offs from stakeholders. Click **Request Signatures**, then use the search field to find and add signatories by name or email. The system tracks who has signed and sends notifications to pending signers.
 
 ### Preview and Export
 
 - **Preview mode** — Read-only view of the complete SoAW document
 - **DOCX export** — Download the SoAW as a formatted Word document for offline sharing or printing
+
+## Architecture Decision Records (ADR)
+
+An **Architecture Decision Record (ADR)** documents important architecture decisions along with their context, consequences, and alternatives considered. ADRs provide a traceable history of why key design choices were made.
+
+### ADR Overview
+
+The EA Delivery page has a dedicated **Decisions** tab that lists all ADRs. Each ADR shows:
+
+- Reference number (auto-generated: ADR-001, ADR-002, etc.)
+- Title
+- Status (Draft, In Review, Signed)
+- Linked initiatives (via card linking)
+- Signatories and their status
+
+You can filter by status and search by title or reference number.
+
+### Creating an ADR
+
+ADRs can be created from three places:
+
+1. **EA Delivery → Decisions tab**: Click **+ New ADR**, fill in the title and optionally link cards (including initiatives).
+2. **Initiative "+" button** (Initiatives tab): Choose **New Architecture Decision** from the menu — the initiative is pre-linked as a card link.
+3. **Card Resources tab**: Click **Create ADR** — the current card is pre-linked.
+
+In all cases, you can search and link additional cards during creation. Initiatives are linked through the same card linking mechanism as any other card, which means an ADR can be linked to multiple initiatives. The editor opens with sections for Context, Decision, Consequences, and Alternatives Considered.
+
+### The ADR Editor
+
+The editor provides:
+
+- Rich text editing for each section (Context, Decision, Consequences, Alternatives Considered)
+- Card linking — connect the ADR to relevant cards (applications, IT components, initiatives, etc.). Initiatives are linked through the standard card linking feature, not a dedicated field, so an ADR can reference multiple initiatives
+- Related decisions — reference other ADRs
+
+### Sign-off Workflow
+
+ADRs support a formal sign-off process:
+
+1. Create the ADR in **Draft** status
+2. Click **Request Signatures** and search for signatories by name or email
+3. The ADR moves to **In Review** — each signatory receives a notification and a task
+4. Signatories review and click **Sign**
+5. When all signatories have signed, the ADR automatically moves to **Signed** status
+
+Signed ADRs are locked and cannot be edited. To make changes, create a **new revision**.
+
+### Revisions
+
+Signed ADRs can be revised:
+
+1. Open a signed ADR
+2. Click **Revise** to create a new draft based on the signed version
+3. The new revision inherits the content and card links
+4. Each revision has an incrementing revision number
+
+### ADR Preview
+
+Click the preview icon to view a read-only, formatted version of the ADR — useful for reviewing before signing.
+
+## Resources Tab
+
+Cards now include a **Resources** tab that consolidates:
+
+- **Architecture Decisions** — ADRs linked to this card. You can link existing ADRs or create a new ADR directly from the Resources tab — the new ADR is automatically linked to the card.
+- **File Attachments** — Upload and manage files (PDF, DOCX, XLSX, images, up to 10 MB)
+- **Document Links** — URL-based document references
