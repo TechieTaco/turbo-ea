@@ -351,5 +351,10 @@
   "adr.createDialog.searchCards": "Rechercher des cartes...",
   "adr.createDialog.noResults": "Aucune carte trouv\u00e9e",
   "adr.createDialog.alreadyAdded": "D\u00e9j\u00e0 ajout\u00e9e",
-  "adr.createDialog.error": "\u00c9chec de la cr\u00e9ation de la d\u00e9cision d\u2019architecture"
+  "adr.createDialog.error": "\u00c9chec de la cr\u00e9ation de la d\u00e9cision d\u2019architecture",
+  "signatureDialog.searchPlaceholder": "Rechercher des utilisateurs...",
+  "signatureDialog.noResults": "Aucun utilisateur trouvé",
+  "signatureDialog.sending": "Envoi en cours...",
+  "signatureDialog.requestCount_one": "Demander {{count}} signature",
+  "signatureDialog.requestCount_other": "Demander {{count}} signatures"
 }

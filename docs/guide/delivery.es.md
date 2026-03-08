@@ -49,7 +49,7 @@ El editor proporciona:
 
 ### Flujo de Firma
 
-Una vez que un SoAW es aprobado, puede solicitar firmas de las partes interesadas. El sistema rastrea quién ha firmado y envía notificaciones a los firmantes pendientes.
+Una vez que un SoAW es aprobado, puede solicitar firmas de las partes interesadas. Haga clic en **Solicitar Firmas** y use el campo de búsqueda para encontrar y agregar firmantes por nombre o correo electrónico. El sistema rastrea quién ha firmado y envía notificaciones a los firmantes pendientes.
 
 ### Vista Previa y Exportación
 
@@ -96,7 +96,7 @@ El editor proporciona:
 Los ADR soportan un proceso formal de firma:
 
 1. Cree el ADR en estado **Borrador**
-2. Haga clic en **Solicitar Firmas** y seleccione los firmantes
+2. Haga clic en **Solicitar Firmas** y busque firmantes por nombre o correo electrónico
 3. El ADR pasa a **En Revisión** — cada firmante recibe una notificación y una tarea
 4. Los firmantes revisan y hacen clic en **Firmar**
 5. Cuando todos los firmantes han firmado, el ADR pasa automáticamente al estado **Firmado**

@@ -49,7 +49,7 @@ Der Editor bietet:
 
 ### Abzeichnungsworkflow
 
-Sobald ein SoAW genehmigt ist, können Sie Abzeichnungen von Stakeholdern anfordern. Das System verfolgt, wer unterschrieben hat, und sendet Benachrichtigungen an ausstehende Unterzeichner.
+Sobald ein SoAW genehmigt ist, können Sie Abzeichnungen von Stakeholdern anfordern. Klicken Sie auf **Unterschriften anfordern** und verwenden Sie das Suchfeld, um Unterzeichner nach Name oder E-Mail zu finden und hinzuzufügen. Das System verfolgt, wer unterschrieben hat, und sendet Benachrichtigungen an ausstehende Unterzeichner.
 
 ### Vorschau und Export
 
@@ -96,7 +96,7 @@ Der Editor bietet:
 ADRs unterstützen einen formalen Abzeichnungsprozess:
 
 1. Erstellen Sie das ADR im Status **Entwurf**
-2. Klicken Sie auf **Unterschriften anfordern** und wählen Sie die Unterzeichner aus
+2. Klicken Sie auf **Unterschriften anfordern** und suchen Sie Unterzeichner nach Name oder E-Mail
 3. Das ADR wechselt zu **In Überprüfung** — jeder Unterzeichner erhält eine Benachrichtigung und eine Aufgabe
 4. Unterzeichner prüfen und klicken auf **Unterschreiben**
 5. Wenn alle Unterzeichner unterschrieben haben, wechselt das ADR automatisch zum Status **Unterschrieben**

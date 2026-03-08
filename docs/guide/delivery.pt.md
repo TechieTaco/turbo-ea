@@ -49,7 +49,7 @@ O editor oferece:
 
 ### Fluxo de Assinatura
 
-Uma vez que um SoAW é aprovado, você pode solicitar assinaturas das partes interessadas. O sistema rastreia quem assinou e envia notificações para os signatários pendentes.
+Uma vez que um SoAW é aprovado, você pode solicitar assinaturas das partes interessadas. Clique em **Solicitar Assinaturas** e use o campo de pesquisa para encontrar e adicionar signatários por nome ou e-mail. O sistema rastreia quem assinou e envia notificações para os signatários pendentes.
 
 ### Pré-visualização e Exportação
 
@@ -96,7 +96,7 @@ O editor oferece:
 Os ADR suportam um processo formal de assinatura:
 
 1. Crie o ADR com status **Rascunho**
-2. Clique em **Solicitar Assinaturas** e selecione os signatários
+2. Clique em **Solicitar Assinaturas** e pesquise signatários por nome ou e-mail
 3. O ADR passa para **Em Revisão** — cada signatário recebe uma notificação e uma tarefa
 4. Os signatários revisam e clicam em **Assinar**
 5. Quando todos os signatários tiverem assinado, o ADR passa automaticamente para o status **Assinado**
