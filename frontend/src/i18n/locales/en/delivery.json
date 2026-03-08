@@ -33,6 +33,7 @@
   "empty.linkDiagram": "Link a diagram",
   "empty.or": " or ",
   "empty.createSoaw": "create a Statement of Architecture Work",
+  "empty.createAdr": "create an Architecture Decision",
 
   "list.name": "Name",
   "list.subtype": "Subtype",
@@ -63,7 +64,10 @@
   "card.artefactCount_other": "{{count}} artefacts",
   "card.linkDiagramsTooltip": "Link diagrams to this initiative",
   "card.createSoawTooltip": "Create SoAW for this initiative",
+  "card.createArtefactTooltip": "Create artefact for this initiative",
   "card.createSoaw": "Create SoAW",
+  "card.createSoawForInitiative": "New Statement of Architecture Work",
+  "card.createAdrForInitiative": "New Architecture Decision",
   "card.linkDiagrams": "Link diagrams",
 
   "unlinked.title": "Not linked to an Initiative",
@@ -341,5 +345,11 @@
   "adr.createDialog.decisionTitle": "Decision title",
   "adr.createDialog.initiative": "Initiative",
   "adr.createDialog.initiativeHelper": "Link this decision to an initiative (optional)",
-  "adr.createDialog.creating": "Creating..."
+  "adr.createDialog.creating": "Creating...",
+  "adr.createDialog.linkedCards": "Linked Cards",
+  "adr.createDialog.addCard": "Add Card",
+  "adr.createDialog.searchCards": "Search cards...",
+  "adr.createDialog.noResults": "No cards found",
+  "adr.createDialog.alreadyAdded": "Already added",
+  "adr.createDialog.error": "Failed to create architecture decision"
 }

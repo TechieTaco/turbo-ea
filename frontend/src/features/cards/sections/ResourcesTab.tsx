@@ -23,6 +23,7 @@ import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
+import CreateAdrDialog from "@/features/ea-delivery/CreateAdrDialog";
 import type {
   ArchitectureDecision,
   FileAttachment,
@@ -60,10 +61,14 @@ function formatFileSize(bytes: number): string {
 // ── ResourcesTab ────────────────────────────────────────────────
 function ResourcesTab({
   fsId,
+  cardName,
+  cardType,
   canManageDocuments,
   canManageAdrLinks,
 }: {
   fsId: string;
+  cardName: string;
+  cardType: string;
   canManageDocuments: boolean;
   canManageAdrLinks: boolean;
 }) {
@@ -82,8 +87,6 @@ function ResourcesTab({
 
   // ADR create dialog
   const [createAdrOpen, setCreateAdrOpen] = useState(false);
-  const [createAdrTitle, setCreateAdrTitle] = useState("");
-  const [creatingAdr, setCreatingAdr] = useState(false);
 
   // Document link dialog
   const [addLinkOpen, setAddLinkOpen] = useState(false);
@@ -149,25 +152,6 @@ function ResourcesTab({
       loadAdrs();
     } catch {
       setError(t("resources.error.unlinkFailed"));
-    }
-  };
-
-  // ── ADR Create + Link ──
-  const handleCreateAdr = async () => {
-    if (!createAdrTitle.trim()) return;
-    setCreatingAdr(true);
-    try {
-      const created = await api.post<ArchitectureDecision>("/adr", {
-        title: createAdrTitle.trim(),
-      });
-      await api.post(`/adr/${created.id}/cards`, { card_id: fsId });
-      setCreateAdrOpen(false);
-      setCreateAdrTitle("");
-      loadAdrs();
-    } catch {
-      setError(t("resources.error.createFailed"));
-    } finally {
-      setCreatingAdr(false);
     }
   };
 
@@ -582,39 +566,12 @@ function ResourcesTab({
       </Dialog>
 
       {/* ── Create ADR Dialog ── */}
-      <Dialog
+      <CreateAdrDialog
         open={createAdrOpen}
         onClose={() => setCreateAdrOpen(false)}
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogTitle>{t("resources.createAdrDialog.title")}</DialogTitle>
-        <DialogContent>
-          <TextField
-            autoFocus
-            label={t("resources.createAdrDialog.titleLabel")}
-            fullWidth
-            value={createAdrTitle}
-            onChange={(e) => setCreateAdrTitle(e.target.value)}
-            sx={{ mt: 1 }}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && createAdrTitle.trim()) handleCreateAdr();
-            }}
-          />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setCreateAdrOpen(false)}>
-            {t("common:actions.cancel")}
-          </Button>
-          <Button
-            variant="contained"
-            disabled={!createAdrTitle.trim() || creatingAdr}
-            onClick={handleCreateAdr}
-          >
-            {t("common:actions.create")}
-          </Button>
-        </DialogActions>
-      </Dialog>
+        onCreated={() => loadAdrs()}
+        preLinkedCards={[{ id: fsId, name: cardName, type: cardType }]}
+      />
 
       {/* ── Add Link Dialog ── */}
       <Dialog

@@ -74,10 +74,13 @@ You can filter by status and search by title or reference number.
 
 ### Creating an ADR
 
-1. Navigate to **EA Delivery** → **Decisions** tab
-2. Click **+ New ADR**
-3. Fill in the title and optionally link to an initiative
-4. The editor opens with sections for Context, Decision, Consequences, and Alternatives Considered
+ADRs can be created from three places:
+
+1. **EA Delivery → Decisions tab**: Click **+ New ADR**, fill in the title and optionally link to an initiative.
+2. **Initiative "+" button** (Initiatives tab): Choose **New Architecture Decision** from the menu — the initiative is pre-linked.
+3. **Card Resources tab**: Click **Create ADR** — the current card is pre-linked.
+
+In all cases, you can search and link additional cards during creation. The editor opens with sections for Context, Decision, Consequences, and Alternatives Considered.
 
 ### The ADR Editor
 

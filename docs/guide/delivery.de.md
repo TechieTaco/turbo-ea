@@ -74,10 +74,13 @@ Sie können nach Status filtern und nach Titel oder Referenznummer suchen.
 
 ### Ein ADR erstellen
 
-1. Navigieren Sie zu **EA Delivery** → **Entscheidungen**-Tab
-2. Klicken Sie auf **+ Neues ADR**
-3. Geben Sie den Titel ein und verknüpfen Sie optional eine Initiative
-4. Der Editor öffnet sich mit Abschnitten für Kontext, Entscheidung, Konsequenzen und Erwogene Alternativen
+ADRs können von drei Stellen aus erstellt werden:
+
+1. **EA Delivery → Entscheidungen-Tab**: Klicken Sie auf **+ Neues ADR**, geben Sie den Titel ein und verknüpfen Sie optional eine Initiative.
+2. **Initiative-„+"-Knopf** (Initiativen-Tab): Wählen Sie **Neue Architekturentscheidung** aus dem Menü — die Initiative wird automatisch verknüpft.
+3. **Karten-Ressourcen-Tab**: Klicken Sie auf **ADR erstellen** — die aktuelle Karte wird automatisch verknüpft.
+
+In allen Fällen können Sie während der Erstellung weitere Karten suchen und verknüpfen. Der Editor öffnet sich mit Abschnitten für Kontext, Entscheidung, Konsequenzen und Erwogene Alternativen.
 
 ### Der ADR-Editor
 
