@@ -89,6 +89,15 @@ APP_PERMISSIONS: dict[str, dict] = {
             "soaw.sign": "Sign and approve SoAW documents",
         },
     },
+    "adr": {
+        "label": "Architecture Decisions",
+        "permissions": {
+            "adr.view": "View architecture decision records",
+            "adr.manage": "Create, edit, and duplicate architecture decisions",
+            "adr.sign": "Sign architecture decisions",
+            "adr.delete": "Delete architecture decisions",
+        },
+    },
     "tags": {
         "label": "Tags",
         "permissions": {
@@ -179,6 +188,7 @@ CARD_PERMISSIONS: dict[str, str] = {
     "card.bpm_edit": "Edit BPM diagram and elements (process types only)",
     "card.bpm_manage_drafts": "Create, edit, and submit BPMN flow drafts",
     "card.bpm_approve": "Approve or reject submitted BPMN flow versions",
+    "card.manage_adr_links": "Link or unlink architecture decisions on this card",
 }
 
 ALL_CARD_PERMISSION_KEYS: set[str] = set(CARD_PERMISSIONS.keys())
@@ -201,6 +211,7 @@ APP_TO_CARD_PERMISSION_MAP: dict[str, str] = {
     "bpm.edit": "card.bpm_edit",
     "bpm.manage_drafts": "card.bpm_manage_drafts",
     "bpm.approve_flows": "card.bpm_approve",
+    "adr.manage": "card.manage_adr_links",
 }
 
 # Reverse: card-level → app-level (for check_permission convenience)
@@ -245,6 +256,10 @@ BPM_ADMIN_PERMISSIONS: dict[str, bool] = {
     "soaw.view": True,
     "soaw.manage": True,
     "soaw.sign": True,
+    "adr.view": True,
+    "adr.manage": True,
+    "adr.sign": True,
+    "adr.delete": False,
     "tags.manage": True,
     "bookmarks.manage": True,
     "bookmarks.share": True,
@@ -300,6 +315,10 @@ MEMBER_PERMISSIONS: dict[str, bool] = {
     "soaw.view": True,
     "soaw.manage": True,
     "soaw.sign": True,
+    "adr.view": True,
+    "adr.manage": True,
+    "adr.sign": True,
+    "adr.delete": False,
     "tags.manage": True,
     "bookmarks.manage": True,
     "bookmarks.share": True,
@@ -355,6 +374,10 @@ VIEWER_PERMISSIONS: dict[str, bool] = {
     "soaw.view": True,
     "soaw.manage": False,
     "soaw.sign": False,
+    "adr.view": True,
+    "adr.manage": False,
+    "adr.sign": False,
+    "adr.delete": False,
     "tags.manage": False,
     "bookmarks.manage": True,
     "bookmarks.share": False,
@@ -395,6 +418,7 @@ RESPONSIBLE_CARD_PERMISSIONS: dict[str, bool] = {
     "card.bpm_edit": True,
     "card.bpm_manage_drafts": True,
     "card.bpm_approve": False,
+    "card.manage_adr_links": True,
 }
 
 OBSERVER_CARD_PERMISSIONS: dict[str, bool] = {
@@ -411,6 +435,7 @@ OBSERVER_CARD_PERMISSIONS: dict[str, bool] = {
     "card.bpm_edit": False,
     "card.bpm_manage_drafts": False,
     "card.bpm_approve": False,
+    "card.manage_adr_links": False,
 }
 
 PROCESS_OWNER_CARD_PERMISSIONS: dict[str, bool] = {
@@ -427,6 +452,7 @@ PROCESS_OWNER_CARD_PERMISSIONS: dict[str, bool] = {
     "card.bpm_edit": True,
     "card.bpm_manage_drafts": True,
     "card.bpm_approve": True,
+    "card.manage_adr_links": True,
 }
 
 TECH_APP_OWNER_CARD_PERMISSIONS: dict[str, bool] = {
@@ -443,6 +469,7 @@ TECH_APP_OWNER_CARD_PERMISSIONS: dict[str, bool] = {
     "card.bpm_edit": False,
     "card.bpm_manage_drafts": False,
     "card.bpm_approve": False,
+    "card.manage_adr_links": True,
 }
 
 BIZ_APP_OWNER_CARD_PERMISSIONS: dict[str, bool] = {
@@ -459,6 +486,7 @@ BIZ_APP_OWNER_CARD_PERMISSIONS: dict[str, bool] = {
     "card.bpm_edit": False,
     "card.bpm_manage_drafts": False,
     "card.bpm_approve": False,
+    "card.manage_adr_links": True,
 }
 
 # Map stakeholder role key → default permissions
