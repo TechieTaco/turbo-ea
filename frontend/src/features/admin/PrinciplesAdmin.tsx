@@ -199,7 +199,7 @@ export default function PrinciplesAdmin() {
             borderRadius: 2,
           }}
         >
-          <MaterialSymbol icon="gavel" size={40} color="#bbb" />
+          <MaterialSymbol icon="bookmark_star" size={40} color="#bbb" />
           <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
             {t("metamodel.principles.empty")}
           </Typography>
@@ -218,7 +218,7 @@ export default function PrinciplesAdmin() {
             <CardContent sx={{ py: 2, "&:last-child": { pb: 2 } }}>
               <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1.5 }}>
                 <MaterialSymbol
-                  icon="gavel"
+                  icon="bookmark_star"
                   size={22}
                   color={p.is_active ? "#1976d2" : "#bbb"}
                 />
