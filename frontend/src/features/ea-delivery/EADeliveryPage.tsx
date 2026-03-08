@@ -776,6 +776,16 @@ export default function EADeliveryPage() {
                             sx={{ height: 22, fontSize: "0.75rem" }}
                           />
                         )}
+                        {aCount > 0 && (
+                          <Chip
+                            icon={<MaterialSymbol icon="gavel" size={14} />}
+                            label={t("list.adrCount", { count: aCount })}
+                            size="small"
+                            variant="outlined"
+                            color="primary"
+                            sx={{ height: 22, fontSize: "0.75rem" }}
+                          />
+                        )}
                         {artefactCount === 0 && (
                           <Typography variant="body2" color="text.secondary">-</Typography>
                         )}

@@ -47,6 +47,8 @@
   "list.soawCount": "{{count}} SoAW",
   "list.diagramCount_one": "{{count}} diagrama",
   "list.diagramCount_other": "{{count}} diagramas",
+  "list.adrCount_one": "{{count}} ADR",
+  "list.adrCount_other": "{{count}} ADRs",
 
   "diagram.label": "Diagrama",
   "diagram.linkedToInitiatives": "Vinculado a {{count}} iniciativas",
