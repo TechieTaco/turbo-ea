@@ -25,12 +25,12 @@ import ListItem from "@mui/material/ListItem";
 import ListItemButton from "@mui/material/ListItemButton";
 import ListItemIcon from "@mui/material/ListItemIcon";
 import ListItemText from "@mui/material/ListItemText";
-import Checkbox from "@mui/material/Checkbox";
 import Link from "@mui/material/Link";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import RichTextEditor from "./RichTextEditor";
+import SignatureRequestDialog from "./SignatureRequestDialog";
 import { api } from "@/api/client";
-import type { Card, ArchitectureDecision, SoAWSignatory, User } from "@/types";
+import type { Card, ArchitectureDecision, SoAWSignatory } from "@/types";
 
 const STATUS_COLORS: Record<string, "default" | "warning" | "success"> = {
   draft: "default",
@@ -69,8 +69,6 @@ export default function ADREditor() {
 
   // Sign dialog
   const [signDialogOpen, setSignDialogOpen] = useState(false);
-  const [allUsers, setAllUsers] = useState<User[]>([]);
-  const [selectedSigners, setSelectedSigners] = useState<string[]>([]);
   const [requestingSignatures, setRequestingSignatures] = useState(false);
 
   // Card link dialog
@@ -170,24 +168,13 @@ export default function ADREditor() {
   };
 
   // Request signatures
-  const openSignDialog = async () => {
-    setSignDialogOpen(true);
-    setSelectedSigners([]);
-    try {
-      const users = await api.get<User[]>("/users");
-      setAllUsers(users.filter((u) => u.is_active));
-    } catch {
-      /* ignore */
-    }
-  };
-
-  const handleRequestSignatures = async () => {
-    if (!id || selectedSigners.length === 0) return;
+  const handleRequestSignatures = async (userIds: string[]) => {
+    if (!id || userIds.length === 0) return;
     setRequestingSignatures(true);
     try {
       const updated = await api.post<ArchitectureDecision>(
         `/adr/${id}/request-signatures`,
-        { user_ids: selectedSigners },
+        { user_ids: userIds },
       );
       setSignatories(updated.signatories || []);
       setStatus(updated.status);
@@ -281,14 +268,6 @@ export default function ADREditor() {
     } catch {
       setError(t("resources.error.unlinkFailed"));
     }
-  };
-
-  const toggleSigner = (userId: string) => {
-    setSelectedSigners((prev) =>
-      prev.includes(userId)
-        ? prev.filter((id) => id !== userId)
-        : [...prev, userId],
-    );
   };
 
   const currentUserSignatory = signatories.find(
@@ -391,7 +370,7 @@ export default function ADREditor() {
           <Button
             variant="outlined"
             startIcon={<MaterialSymbol icon="send" size={18} />}
-            onClick={openSignDialog}
+            onClick={() => setSignDialogOpen(true)}
             sx={{ textTransform: "none" }}
           >
             {t("adr.editor.requestSignatures")}
@@ -640,56 +619,14 @@ export default function ADREditor() {
       )}
 
       {/* ── Sign Dialog ── */}
-      <Dialog
+      <SignatureRequestDialog
         open={signDialogOpen}
         onClose={() => setSignDialogOpen(false)}
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogTitle>{t("adr.editor.signDialog.title")}</DialogTitle>
-        <DialogContent>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            {t("adr.editor.signDialog.description")}
-          </Typography>
-          <List dense>
-            {allUsers.map((u) => (
-              <ListItemButton
-                key={u.id}
-                onClick={() => toggleSigner(u.id)}
-                dense
-              >
-                <ListItemIcon sx={{ minWidth: 36 }}>
-                  <Checkbox
-                    edge="start"
-                    checked={selectedSigners.includes(u.id)}
-                    disableRipple
-                  />
-                </ListItemIcon>
-                <ListItemText
-                  primary={u.display_name}
-                  secondary={u.email}
-                />
-              </ListItemButton>
-            ))}
-          </List>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setSignDialogOpen(false)}>
-            {t("common:actions.cancel")}
-          </Button>
-          <Button
-            variant="contained"
-            disabled={selectedSigners.length === 0 || requestingSignatures}
-            onClick={handleRequestSignatures}
-          >
-            {requestingSignatures
-              ? t("adr.editor.signDialog.sending")
-              : t("adr.editor.signDialog.requestCount", {
-                  count: selectedSigners.length,
-                })}
-          </Button>
-        </DialogActions>
-      </Dialog>
+        onRequest={handleRequestSignatures}
+        title={t("adr.editor.signDialog.title")}
+        description={t("adr.editor.signDialog.description")}
+        requesting={requestingSignatures}
+      />
 
       {/* ── Card Link Dialog ── */}
       <Dialog

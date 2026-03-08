@@ -27,16 +27,12 @@ import TableBody from "@mui/material/TableBody";
 import TableCell from "@mui/material/TableCell";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
-import List from "@mui/material/List";
-import ListItemButton from "@mui/material/ListItemButton";
-import ListItemIcon from "@mui/material/ListItemIcon";
-import ListItemText from "@mui/material/ListItemText";
-import Checkbox from "@mui/material/Checkbox";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import { useTheme } from "@mui/material/styles";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import RichTextEditor from "./RichTextEditor";
 import EditableTable from "./EditableTable";
+import SignatureRequestDialog from "./SignatureRequestDialog";
 import {
   getTemplateSections,
   getTogafPhases,
@@ -45,7 +41,7 @@ import {
 } from "./soawTemplate";
 import { exportToDocx, exportToPdf } from "./soawExport";
 import { api } from "@/api/client";
-import type { Card, SoAW, SoAWSectionData, SoAWSignatory, User } from "@/types";
+import type { Card, SoAW, SoAWSectionData, SoAWSignatory } from "@/types";
 
 // ─── constants ──────────────────────────────────────────────────────────────
 
@@ -112,8 +108,6 @@ export default function SoAWEditor() {
   const [signedAt, setSignedAt] = useState<string | null>(null);
   const [revisionNumber, setRevisionNumber] = useState(1);
   const [signDialogOpen, setSignDialogOpen] = useState(false);
-  const [users, setUsers] = useState<User[]>([]);
-  const [selectedSignatories, setSelectedSignatories] = useState<string[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string>("");
   const isSigned = status === "signed";
 
@@ -130,14 +124,6 @@ export default function SoAWEditor() {
         /* non-critical */
       }
     };
-    const loadUsers = async () => {
-      try {
-        const res = await api.get<User[]>("/users");
-        setUsers(res);
-      } catch {
-        /* non-critical */
-      }
-    };
     const loadCurrentUser = async () => {
       try {
         const res = await api.get<{ id: string }>("/auth/me");
@@ -147,7 +133,6 @@ export default function SoAWEditor() {
       }
     };
     loadInitiatives();
-    loadUsers();
     loadCurrentUser();
   }, []);
 
@@ -314,19 +299,18 @@ export default function SoAWEditor() {
 
   // ── signing helpers ────────────────────────────────────────────────────
 
-  const handleRequestSignatures = async () => {
-    if (!soawIdRef.current || selectedSignatories.length === 0) return;
+  const handleRequestSignatures = async (userIds: string[]) => {
+    if (!soawIdRef.current || userIds.length === 0) return;
     setSaving(true);
     setError("");
     try {
       const data = await api.post<SoAW>(
         `/soaw/${soawIdRef.current}/request-signatures`,
-        { user_ids: selectedSignatories }
+        { user_ids: userIds },
       );
       setSignatories(data.signatories ?? []);
       setStatus(data.status);
       setSignDialogOpen(false);
-      setSelectedSignatories([]);
       setSnack(t("editor.signatureRequestsSent"));
     } catch (e) {
       setError(e instanceof Error ? e.message : t("editor.error.requestSignaturesFailed"));
@@ -1155,63 +1139,14 @@ export default function SoAWEditor() {
       </Box>
 
       {/* Request Signatures dialog */}
-      <Dialog
+      <SignatureRequestDialog
         open={signDialogOpen}
         onClose={() => setSignDialogOpen(false)}
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogTitle>{t("editor.signDialog.title")}</DialogTitle>
-        <DialogContent>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            {t("editor.signDialog.description")}
-          </Typography>
-          <List dense sx={{ maxHeight: 400, overflow: "auto" }}>
-            {users
-              .filter((u) => u.is_active)
-              .map((u) => {
-                const checked = selectedSignatories.includes(u.id);
-                return (
-                  <ListItemButton
-                    key={u.id}
-                    onClick={() =>
-                      setSelectedSignatories((prev) =>
-                        checked
-                          ? prev.filter((id) => id !== u.id)
-                          : [...prev, u.id]
-                      )
-                    }
-                    dense
-                  >
-                    <ListItemIcon sx={{ minWidth: 36 }}>
-                      <Checkbox
-                        edge="start"
-                        checked={checked}
-                        tabIndex={-1}
-                        disableRipple
-                        size="small"
-                      />
-                    </ListItemIcon>
-                    <ListItemText
-                      primary={u.display_name}
-                      secondary={u.email}
-                    />
-                  </ListItemButton>
-                );
-              })}
-          </List>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setSignDialogOpen(false)}>{t("common:actions.cancel")}</Button>
-          <Button
-            variant="contained"
-            disabled={saving || selectedSignatories.length === 0}
-            onClick={handleRequestSignatures}
-          >
-            {saving ? t("editor.signDialog.sending") : t("editor.signDialog.requestCount", { count: selectedSignatories.length })}
-          </Button>
-        </DialogActions>
-      </Dialog>
+        onRequest={handleRequestSignatures}
+        title={t("editor.signDialog.title")}
+        description={t("editor.signDialog.description")}
+        requesting={saving}
+      />
 
       {/* Snackbar */}
       <Snackbar

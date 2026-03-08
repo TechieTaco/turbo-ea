@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - File attachment uploads (up to 10 MB) stored in database with download support
 - Document link management on card detail
 - ADR signing workflow reusing SoAW pattern (request signatures, sign, revise)
+- Search-based signature request dialog for both SoAW and ADR (replaces flat user list)
 - Read-only ADR preview page
 - New permissions: adr.view, adr.manage, adr.sign, adr.delete, card.manage_adr_links
 

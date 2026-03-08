@@ -351,5 +351,10 @@
   "adr.createDialog.searchCards": "Pesquisar cards...",
   "adr.createDialog.noResults": "Nenhum card encontrado",
   "adr.createDialog.alreadyAdded": "J\u00e1 adicionado",
-  "adr.createDialog.error": "Falha ao criar decis\u00e3o de arquitetura"
+  "adr.createDialog.error": "Falha ao criar decis\u00e3o de arquitetura",
+  "signatureDialog.searchPlaceholder": "Pesquisar utilizadores...",
+  "signatureDialog.noResults": "Nenhum utilizador encontrado",
+  "signatureDialog.sending": "A enviar...",
+  "signatureDialog.requestCount_one": "Solicitar {{count}} assinatura",
+  "signatureDialog.requestCount_other": "Solicitar {{count}} assinaturas"
 }

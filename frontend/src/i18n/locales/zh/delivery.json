@@ -351,5 +351,10 @@
   "adr.createDialog.searchCards": "搜索卡片...",
   "adr.createDialog.noResults": "未找到卡片",
   "adr.createDialog.alreadyAdded": "已添加",
-  "adr.createDialog.error": "创建架构决策失败"
+  "adr.createDialog.error": "创建架构决策失败",
+  "signatureDialog.searchPlaceholder": "搜索用户...",
+  "signatureDialog.noResults": "未找到用户",
+  "signatureDialog.sending": "发送中...",
+  "signatureDialog.requestCount_one": "请求 {{count}} 个签名",
+  "signatureDialog.requestCount_other": "请求 {{count}} 个签名"
 }

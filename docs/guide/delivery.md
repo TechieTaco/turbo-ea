@@ -49,7 +49,7 @@ The editor provides:
 
 ### Sign-off Workflow
 
-Once a SoAW is approved, you can request sign-offs from stakeholders. The system tracks who has signed and sends notifications to pending signers.
+Once a SoAW is approved, you can request sign-offs from stakeholders. Click **Request Signatures**, then use the search field to find and add signatories by name or email. The system tracks who has signed and sends notifications to pending signers.
 
 ### Preview and Export
 
@@ -96,7 +96,7 @@ The editor provides:
 ADRs support a formal sign-off process:
 
 1. Create the ADR in **Draft** status
-2. Click **Request Signatures** and select the signatories
+2. Click **Request Signatures** and search for signatories by name or email
 3. The ADR moves to **In Review** — each signatory receives a notification and a task
 4. Signatories review and click **Sign**
 5. When all signatories have signed, the ADR automatically moves to **Signed** status
