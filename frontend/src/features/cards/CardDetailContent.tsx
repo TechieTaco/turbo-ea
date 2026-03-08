@@ -23,6 +23,7 @@ import {
   CommentsTab,
   TodosTab,
   StakeholdersTab,
+  ResourcesTab,
   HistoryTab,
 } from "@/features/cards/sections";
 import type { Card, CardEffectivePermissions } from "@/types";
@@ -238,7 +239,8 @@ export default function CardDetailContent({
   const commentsIdx = isBpm ? 3 : 1;
   const todosIdx = isBpm ? 4 : 2;
   const stakeholdersIdx = isBpm ? 5 : 3;
-  const historyIdx = isBpm ? 6 : 4;
+  const resourcesIdx = isBpm ? 6 : 4;
+  const historyIdx = isBpm ? 7 : 5;
 
   return (
     <>
@@ -257,6 +259,7 @@ export default function CardDetailContent({
         <Tab label={t("tabs.comments")} />
         <Tab label={t("tabs.todos")} />
         <Tab label={t("tabs.stakeholders")} />
+        <Tab label={t("tabs.resources")} />
         <Tab label={t("tabs.history")} />
       </Tabs>
 
@@ -319,6 +322,19 @@ export default function CardDetailContent({
                   api.get<Card>(`/cards/${card.id}`).then(onCardUpdate)
                 }
                 canManageStakeholders={perms.can_manage_stakeholders}
+              />
+            </CardContent>
+          </MuiCard>
+        </ErrorBoundary>
+      )}
+      {tab === resourcesIdx && (
+        <ErrorBoundary label="Resources">
+          <MuiCard>
+            <CardContent>
+              <ResourcesTab
+                fsId={card.id}
+                canManageDocuments={perms.can_manage_documents}
+                canManageAdrLinks={perms.can_manage_adr_links}
               />
             </CardContent>
           </MuiCard>

@@ -32,6 +32,7 @@ const DEFAULT_PERMISSIONS: CardEffectivePermissions["effective"] = {
   can_create_comments: true,
   can_bpm_edit: true,
   can_bpm_manage_drafts: true,
+  can_manage_adr_links: true,
   can_bpm_approve: true,
 };
 

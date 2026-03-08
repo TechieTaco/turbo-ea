@@ -42,7 +42,7 @@ import MaterialSymbol from "@/components/MaterialSymbol";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useResolveMetaLabel, useResolveLabel } from "@/hooks/useResolveLabel";
 import { api } from "@/api/client";
-import type { Card, SoAW, DiagramSummary, Relation, EAPrinciple } from "@/types";
+import type { Card, SoAW, DiagramSummary, Relation, EAPrinciple, ArchitectureDecision } from "@/types";
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
@@ -65,11 +65,12 @@ interface InitiativeGroup {
   initiative: Card;
   diagrams: DiagramSummary[];
   soaws: SoAW[];
+  adrs: ArchitectureDecision[];
 }
 
 type ViewMode = "cards" | "list";
 type StatusFilter = "ACTIVE" | "ARCHIVED" | "";
-type PageTab = "initiatives" | "principles";
+type PageTab = "initiatives" | "principles" | "decisions";
 
 // ─── component ──────────────────────────────────────────────────────────────
 
@@ -109,6 +110,20 @@ export default function EADeliveryPage() {
   const [principlesLoading, setPrinciplesLoading] = useState(false);
   const [principlesTabEnabled, setPrinciplesTabEnabled] = useState<boolean | null>(null);
 
+  // Decisions tab state
+  const [adrs, setAdrs] = useState<ArchitectureDecision[]>([]);
+  const [adrSearch, setAdrSearch] = useState("");
+  const [adrStatusFilter, setAdrStatusFilter] = useState("");
+  const [adrInitiativeFilter, setAdrInitiativeFilter] = useState("");
+  const [adrCreateOpen, setAdrCreateOpen] = useState(false);
+  const [adrNewTitle, setAdrNewTitle] = useState("");
+  const [adrNewInitiativeId, setAdrNewInitiativeId] = useState("");
+  const [adrCreating, setAdrCreating] = useState(false);
+  const [adrCtxMenu, setAdrCtxMenu] = useState<{
+    anchor: HTMLElement;
+    adr: ArchitectureDecision;
+  } | null>(null);
+
   // filters
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("ACTIVE");
@@ -147,16 +162,18 @@ export default function EADeliveryPage() {
     setError("");
     try {
       const statusParam = statusFilter ? `&status=${statusFilter}` : "&status=ACTIVE,ARCHIVED";
-      const [initRes, diagRes, soawRes] = await Promise.all([
+      const [initRes, diagRes, soawRes, adrRes] = await Promise.all([
         api.get<{ items: Card[] }>(
           `/cards?type=Initiative&page_size=500${statusParam}`,
         ),
         api.get<DiagramSummary[]>("/diagrams"),
         api.get<SoAW[]>("/soaw"),
+        api.get<ArchitectureDecision[]>("/adr"),
       ]);
       setInitiatives(initRes.items);
       setDiagrams(diagRes);
       setSoaws(soawRes);
+      setAdrs(adrRes);
       // Auto-expand first initiative on initial load
       if (initRes.items.length > 0 && Object.keys(expanded).length === 0) {
         setExpanded({ [initRes.items[0].id]: true });
@@ -258,8 +275,9 @@ export default function EADeliveryPage() {
       initiative: init,
       diagrams: diagrams.filter((d) => d.initiative_ids.includes(init.id)),
       soaws: soaws.filter((s) => s.initiative_id === init.id),
+      adrs: adrs.filter((a) => a.initiative_id === init.id),
     }));
-  }, [filteredInitiatives, diagrams, soaws]);
+  }, [filteredInitiatives, diagrams, soaws, adrs]);
 
   const unlinkedSoaws = useMemo(
     () => soaws.filter((s) => !s.initiative_id),
@@ -269,6 +287,11 @@ export default function EADeliveryPage() {
   const unlinkedDiagrams = useMemo(
     () => diagrams.filter((d) => d.initiative_ids.length === 0),
     [diagrams],
+  );
+
+  const unlinkedAdrs = useMemo(
+    () => adrs.filter((a) => !a.initiative_id),
+    [adrs],
   );
 
   // ── helpers for list view ─────────────────────────────────────────────
@@ -503,6 +526,33 @@ export default function EADeliveryPage() {
     </MuiCard>
   );
 
+  const renderAdrCard = (a: ArchitectureDecision) => (
+    <MuiCard key={`a-${a.id}`} variant="outlined" sx={{ mb: 1 }}>
+      <CardActionArea
+        onClick={() => navigate(`/ea-delivery/adr/${a.id}`)}
+        sx={{ p: 1.5, display: "flex", justifyContent: "flex-start" }}
+      >
+        <MaterialSymbol icon="gavel" size={20} color="#1976d2" />
+        <Chip
+          label={a.reference_number}
+          size="small"
+          variant="outlined"
+          sx={{ ml: 1, fontFamily: "monospace", fontSize: "0.7rem" }}
+        />
+        <Typography sx={{ ml: 1, fontSize: "0.9rem", flex: 1 }}>
+          {a.title}
+        </Typography>
+        <Chip
+          label={SOAW_STATUS_LABELS[a.status] ?? a.status}
+          size="small"
+          color={SOAW_STATUS_COLORS[a.status] ?? "default"}
+          sx={{ mr: 0.5 }}
+        />
+        <Chip label={t("tabs.decisions")} size="small" variant="outlined" color="primary" />
+      </CardActionArea>
+    </MuiCard>
+  );
+
   // ── list view renderer ────────────────────────────────────────────────
 
   const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({});
@@ -514,6 +564,8 @@ export default function EADeliveryPage() {
       diagrams.filter((d) => d.initiative_ids.includes(id));
     const getInitSoaws = (id: string) =>
       soaws.filter((s) => s.initiative_id === id);
+    const getInitAdrs = (id: string) =>
+      adrs.filter((a) => a.initiative_id === id);
 
     const totalCols = 9;
 
@@ -550,9 +602,11 @@ export default function EADeliveryPage() {
               const endDate = attrs.endDate as string | undefined;
               const initDiagrams = getInitDiagrams(init.id);
               const initSoaws = getInitSoaws(init.id);
+              const initAdrs = getInitAdrs(init.id);
               const dCount = initDiagrams.length;
               const sCount = initSoaws.length;
-              const artefactCount = dCount + sCount;
+              const aCount = initAdrs.length;
+              const artefactCount = dCount + sCount + aCount;
               const relatedGroups = getRelatedSummary(init.id);
               const isRowOpen = expandedRows[init.id] ?? false;
 
@@ -769,6 +823,7 @@ export default function EADeliveryPage() {
                           <Box sx={{ py: 1.5, px: 1 }}>
                             {initDiagrams.map((d) => renderDiagramCard(d, init.id))}
                             {initSoaws.map(renderSoawCard)}
+                            {initAdrs.map(renderAdrCard)}
                           </Box>
                         </Collapse>
                       </TableCell>
@@ -792,6 +847,237 @@ export default function EADeliveryPage() {
       </Box>
     );
   }
+
+  // ── ADR helpers ──────────────────────────────────────────────────────
+
+  const filteredAdrs = useMemo(() => {
+    let list = adrs;
+    if (adrSearch) {
+      const q = adrSearch.toLowerCase();
+      list = list.filter(
+        (a) =>
+          a.title.toLowerCase().includes(q) ||
+          a.reference_number.toLowerCase().includes(q),
+      );
+    }
+    if (adrStatusFilter) {
+      list = list.filter((a) => a.status === adrStatusFilter);
+    }
+    if (adrInitiativeFilter) {
+      list = list.filter((a) => a.initiative_id === adrInitiativeFilter);
+    }
+    return list;
+  }, [adrs, adrSearch, adrStatusFilter, adrInitiativeFilter]);
+
+  const handleCreateAdr = async () => {
+    if (!adrNewTitle.trim()) return;
+    setAdrCreating(true);
+    try {
+      const created = await api.post<ArchitectureDecision>("/adr", {
+        title: adrNewTitle.trim(),
+        initiative_id: adrNewInitiativeId || null,
+      });
+      setAdrCreateOpen(false);
+      setAdrNewTitle("");
+      setAdrNewInitiativeId("");
+      navigate(`/ea-delivery/adr/${created.id}`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t("error.createSoaw"));
+    } finally {
+      setAdrCreating(false);
+    }
+  };
+
+  const handleDeleteAdr = async (id: string) => {
+    if (!confirm(t("adr.confirm.delete"))) return;
+    try {
+      await api.delete(`/adr/${id}`);
+      setAdrs((prev) => prev.filter((a) => a.id !== id));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t("error.deleteSoaw"));
+    }
+    setAdrCtxMenu(null);
+  };
+
+  const handleDuplicateAdr = async (id: string) => {
+    try {
+      const dup = await api.post<ArchitectureDecision>(`/adr/${id}/duplicate`);
+      navigate(`/ea-delivery/adr/${dup.id}`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t("adr.editor.error.duplicateFailed"));
+    }
+    setAdrCtxMenu(null);
+  };
+
+  // ── Decisions tab panel ─────────────────────────────────────────────
+
+  const renderDecisionsTab = () => {
+    return (
+      <>
+        {/* Filter bar */}
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, mb: 2, flexWrap: "wrap" }}>
+          <TextField
+            size="small"
+            placeholder={t("adr.searchPlaceholder")}
+            value={adrSearch}
+            onChange={(e) => setAdrSearch(e.target.value)}
+            sx={{ minWidth: 220 }}
+            slotProps={{
+              input: {
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <MaterialSymbol icon="search" size={20} />
+                  </InputAdornment>
+                ),
+              },
+            }}
+          />
+          <TextField
+            select
+            size="small"
+            label={t("adr.filter.status")}
+            value={adrStatusFilter}
+            onChange={(e) => setAdrStatusFilter(e.target.value)}
+            sx={{ minWidth: 130 }}
+          >
+            <MenuItem value="">{t("adr.filter.all")}</MenuItem>
+            <MenuItem value="draft">{t("status.draft")}</MenuItem>
+            <MenuItem value="in_review">{t("status.inReview")}</MenuItem>
+            <MenuItem value="signed">{t("status.signed")}</MenuItem>
+          </TextField>
+          <TextField
+            select
+            size="small"
+            label={t("adr.filter.initiative")}
+            value={adrInitiativeFilter}
+            onChange={(e) => setAdrInitiativeFilter(e.target.value)}
+            sx={{ minWidth: 160 }}
+          >
+            <MenuItem value="">{t("adr.filter.allInitiatives")}</MenuItem>
+            {initiatives.map((init) => (
+              <MenuItem key={init.id} value={init.id}>
+                {init.name}
+              </MenuItem>
+            ))}
+          </TextField>
+          <Box sx={{ flex: 1 }} />
+          <Button
+            variant="contained"
+            size="small"
+            startIcon={<MaterialSymbol icon="add" size={18} />}
+            sx={{ textTransform: "none" }}
+            onClick={() => {
+              setAdrNewInitiativeId("");
+              setAdrCreateOpen(true);
+            }}
+          >
+            {t("adr.new")}
+          </Button>
+        </Box>
+
+        {/* Empty state */}
+        {adrs.length === 0 && (
+          <Box
+            sx={{
+              py: 6,
+              textAlign: "center",
+              border: "1px dashed",
+              borderColor: "divider",
+              borderRadius: 2,
+            }}
+          >
+            <MaterialSymbol icon="gavel" size={40} color="#bbb" />
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+              {t("adr.empty")}
+            </Typography>
+          </Box>
+        )}
+
+        {/* No match */}
+        {adrs.length > 0 && filteredAdrs.length === 0 && (
+          <Alert severity="info" sx={{ mb: 2 }}>
+            {t("adr.noMatch")}
+          </Alert>
+        )}
+
+        {/* ADR cards */}
+        <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+          {filteredAdrs.map((adr) => (
+            <MuiCard key={adr.id} variant="outlined">
+              <CardActionArea
+                onClick={() => navigate(`/ea-delivery/adr/${adr.id}`)}
+                sx={{ p: 1.5, display: "flex", justifyContent: "flex-start" }}
+              >
+                <MaterialSymbol icon="gavel" size={20} color="#1976d2" />
+                <Chip
+                  label={adr.reference_number}
+                  size="small"
+                  variant="outlined"
+                  sx={{ ml: 1, fontFamily: "monospace", fontSize: "0.75rem" }}
+                />
+                <Typography sx={{ ml: 1, fontSize: "0.9rem", flex: 1 }}>
+                  {adr.title}
+                  {adr.revision_number > 1 && (
+                    <Typography
+                      component="span"
+                      sx={{ ml: 0.5, fontSize: "0.8rem", color: "text.secondary" }}
+                    >
+                      {t("adr.editor.revisionLabel", { number: adr.revision_number })}
+                    </Typography>
+                  )}
+                </Typography>
+                {adr.initiative_id && (
+                  <Chip
+                    label={initiatives.find((i) => i.id === adr.initiative_id)?.name ?? ""}
+                    size="small"
+                    variant="outlined"
+                    sx={{ mr: 0.5, fontSize: "0.75rem" }}
+                  />
+                )}
+                <Chip
+                  label={SOAW_STATUS_LABELS[adr.status] ?? adr.status}
+                  size="small"
+                  color={SOAW_STATUS_COLORS[adr.status] ?? "default"}
+                  sx={{ mr: 0.5 }}
+                />
+                {(adr.linked_cards ?? []).length > 0 && (
+                  <Chip
+                    label={t("adr.linkedCardCount", { count: adr.linked_cards!.length })}
+                    size="small"
+                    variant="outlined"
+                    sx={{ mr: 0.5, fontSize: "0.75rem" }}
+                  />
+                )}
+                <Tooltip title={t("adr.preview")}>
+                  <IconButton
+                    size="small"
+                    sx={{ ml: 0.5 }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      e.preventDefault();
+                      navigate(`/ea-delivery/adr/${adr.id}/preview`);
+                    }}
+                  >
+                    <MaterialSymbol icon="visibility" size={18} />
+                  </IconButton>
+                </Tooltip>
+                <IconButton
+                  size="small"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    setAdrCtxMenu({ anchor: e.currentTarget, adr });
+                  }}
+                >
+                  <MaterialSymbol icon="more_vert" size={18} />
+                </IconButton>
+              </CardActionArea>
+            </MuiCard>
+          ))}
+        </Box>
+      </>
+    );
+  };
 
   // ── Principles read-only panel ────────────────────────────────────────
 
@@ -960,6 +1246,13 @@ export default function EADeliveryPage() {
             sx={{ textTransform: "none", minHeight: 48 }}
           />
         )}
+        <Tab
+          value="decisions"
+          icon={<MaterialSymbol icon="gavel" size={18} />}
+          iconPosition="start"
+          label={t("tabs.decisions")}
+          sx={{ textTransform: "none", minHeight: 48 }}
+        />
       </Tabs>
 
       {error && (
@@ -970,6 +1263,9 @@ export default function EADeliveryPage() {
 
       {/* Principles tab */}
       {pageTab === "principles" && renderPrinciplesTab()}
+
+      {/* Decisions tab */}
+      {pageTab === "decisions" && renderDecisionsTab()}
 
       {/* Initiatives tab — Filter bar */}
       {pageTab === "initiatives" && (<>
@@ -1084,9 +1380,9 @@ export default function EADeliveryPage() {
           )}
 
           {/* Initiative groups */}
-          {groups.map(({ initiative, soaws: initSoaws, diagrams: initDiagrams }) => {
+          {groups.map(({ initiative, soaws: initSoaws, diagrams: initDiagrams, adrs: initAdrs }) => {
             const isOpen = expanded[initiative.id] ?? false;
-            const artefactCount = initSoaws.length + initDiagrams.length;
+            const artefactCount = initSoaws.length + initDiagrams.length + initAdrs.length;
 
             return (
               <MuiCard
@@ -1217,6 +1513,9 @@ export default function EADeliveryPage() {
 
                     {/* SoAW cards */}
                     {initSoaws.map(renderSoawCard)}
+
+                    {/* ADR cards */}
+                    {initAdrs.map(renderAdrCard)}
                   </Box>
                 </Collapse>
               </MuiCard>
@@ -1224,7 +1523,7 @@ export default function EADeliveryPage() {
           })}
 
           {/* Unlinked artefacts */}
-          {(unlinkedSoaws.length > 0 || unlinkedDiagrams.length > 0) && (
+          {(unlinkedSoaws.length > 0 || unlinkedDiagrams.length > 0 || unlinkedAdrs.length > 0) && (
             <MuiCard sx={{ mb: 2, borderLeft: "4px solid #999" }}>
               <Box
                 sx={{
@@ -1250,7 +1549,7 @@ export default function EADeliveryPage() {
                   {t("unlinked.title")}
                 </Typography>
                 <Chip
-                  label={t("card.artefactCount", { count: unlinkedSoaws.length + unlinkedDiagrams.length })}
+                  label={t("card.artefactCount", { count: unlinkedSoaws.length + unlinkedDiagrams.length + unlinkedAdrs.length })}
                   size="small"
                   variant="outlined"
                 />
@@ -1259,6 +1558,7 @@ export default function EADeliveryPage() {
                 <Box sx={{ px: 2, pb: 2 }}>
                   {unlinkedDiagrams.map((d) => renderDiagramCard(d))}
                   {unlinkedSoaws.map(renderSoawCard)}
+                  {unlinkedAdrs.map(renderAdrCard)}
                 </Box>
               </Collapse>
             </MuiCard>
@@ -1351,6 +1651,101 @@ export default function EADeliveryPage() {
             onClick={handleCreate}
           >
             {creating ? t("createDialog.creating") : t("common:actions.create")}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* ADR context menu */}
+      <Menu
+        anchorEl={adrCtxMenu?.anchor}
+        open={!!adrCtxMenu}
+        onClose={() => setAdrCtxMenu(null)}
+      >
+        <MenuItem
+          onClick={() => {
+            if (adrCtxMenu) navigate(`/ea-delivery/adr/${adrCtxMenu.adr.id}/preview`);
+            setAdrCtxMenu(null);
+          }}
+        >
+          <ListItemIcon>
+            <MaterialSymbol icon="visibility" size={18} />
+          </ListItemIcon>
+          <ListItemText>{t("adr.preview")}</ListItemText>
+        </MenuItem>
+        <MenuItem
+          onClick={() => {
+            if (adrCtxMenu) navigate(`/ea-delivery/adr/${adrCtxMenu.adr.id}`);
+            setAdrCtxMenu(null);
+          }}
+        >
+          <ListItemIcon>
+            <MaterialSymbol icon="edit" size={18} />
+          </ListItemIcon>
+          <ListItemText>{t("adr.edit")}</ListItemText>
+        </MenuItem>
+        <MenuItem
+          onClick={() => adrCtxMenu && handleDuplicateAdr(adrCtxMenu.adr.id)}
+        >
+          <ListItemIcon>
+            <MaterialSymbol icon="content_copy" size={18} />
+          </ListItemIcon>
+          <ListItemText>{t("adr.duplicate")}</ListItemText>
+        </MenuItem>
+        <MenuItem
+          onClick={() => adrCtxMenu && handleDeleteAdr(adrCtxMenu.adr.id)}
+          sx={{ color: "error.main" }}
+        >
+          <ListItemIcon>
+            <MaterialSymbol icon="delete" size={18} color="#d32f2f" />
+          </ListItemIcon>
+          <ListItemText>{t("adr.delete")}</ListItemText>
+        </MenuItem>
+      </Menu>
+
+      {/* Create ADR dialog */}
+      <Dialog
+        open={adrCreateOpen}
+        onClose={() => setAdrCreateOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>{t("adr.createDialog.title")}</DialogTitle>
+        <DialogContent>
+          <TextField
+            autoFocus
+            label={t("adr.createDialog.decisionTitle")}
+            fullWidth
+            value={adrNewTitle}
+            onChange={(e) => setAdrNewTitle(e.target.value)}
+            sx={{ mt: 1, mb: 2 }}
+            onKeyDown={(e) => e.key === "Enter" && handleCreateAdr()}
+          />
+          <TextField
+            select
+            label={t("adr.createDialog.initiative")}
+            fullWidth
+            value={adrNewInitiativeId}
+            onChange={(e) => setAdrNewInitiativeId(e.target.value)}
+            helperText={t("adr.createDialog.initiativeHelper")}
+          >
+            <MenuItem value="">
+              <em>{t("common:labels.none")}</em>
+            </MenuItem>
+            {initiatives.map((init) => (
+              <MenuItem key={init.id} value={init.id}>
+                {init.name}
+              </MenuItem>
+            ))}
+          </TextField>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setAdrCreateOpen(false)}>{t("common:actions.cancel")}</Button>
+          <Button
+            variant="contained"
+            disabled={!adrNewTitle.trim() || adrCreating}
+            onClick={handleCreateAdr}
+          >
+            {adrCreating ? t("adr.createDialog.creating") : t("common:actions.create")}
           </Button>
         </DialogActions>
       </Dialog>
