@@ -162,7 +162,7 @@ describe("EADeliveryPage", () => {
   it("shows artefact counts on initiative cards", async () => {
     renderPage();
     await waitFor(() => {
-      expect(screen.getByText("2 artefacts")).toBeInTheDocument(); // Cloud Migration has 1 diagram + 1 soaw
+      expect(screen.getByText("3 artefacts")).toBeInTheDocument(); // Cloud Migration has 1 diagram + 1 soaw + 1 adr
       expect(screen.getByText("0 artefacts")).toBeInTheDocument(); // API Gateway has none
     });
   });
@@ -185,7 +185,7 @@ describe("EADeliveryPage", () => {
     renderPage();
     await waitFor(() => {
       expect(screen.getByText("Not linked to an Initiative")).toBeInTheDocument();
-      expect(screen.getByText("1 artefact")).toBeInTheDocument();
+      expect(screen.getByText("2 artefacts")).toBeInTheDocument();
     });
   });
 
