@@ -42,6 +42,7 @@ import MaterialSymbol from "@/components/MaterialSymbol";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useResolveMetaLabel, useResolveLabel } from "@/hooks/useResolveLabel";
 import { api } from "@/api/client";
+import CreateAdrDialog from "./CreateAdrDialog";
 import type { Card, SoAW, DiagramSummary, Relation, EAPrinciple, ArchitectureDecision } from "@/types";
 
 // ─── helpers ────────────────────────────────────────────────────────────────
@@ -116,9 +117,10 @@ export default function EADeliveryPage() {
   const [adrStatusFilter, setAdrStatusFilter] = useState("");
   const [adrInitiativeFilter, setAdrInitiativeFilter] = useState("");
   const [adrCreateOpen, setAdrCreateOpen] = useState(false);
-  const [adrNewTitle, setAdrNewTitle] = useState("");
-  const [adrNewInitiativeId, setAdrNewInitiativeId] = useState("");
-  const [adrCreating, setAdrCreating] = useState(false);
+  const [adrCreateInitiativeId, setAdrCreateInitiativeId] = useState("");
+  const [adrCreatePreLinkedCards, setAdrCreatePreLinkedCards] = useState<
+    { id: string; name: string; type: string }[]
+  >([]);
   const [adrCtxMenu, setAdrCtxMenu] = useState<{
     anchor: HTMLElement;
     adr: ArchitectureDecision;
@@ -141,6 +143,10 @@ export default function EADeliveryPage() {
   const [linkInitiativeId, setLinkInitiativeId] = useState("");
   const [linkSelected, setLinkSelected] = useState<string[]>([]);
   const [linking, setLinking] = useState(false);
+
+  // initiative create artefact menu
+  const [createMenuAnchor, setCreateMenuAnchor] = useState<HTMLElement | null>(null);
+  const [createMenuInitiativeId, setCreateMenuInitiativeId] = useState("");
 
   // context menu for SoAW card
   const [ctxMenu, setCtxMenu] = useState<{
@@ -358,9 +364,20 @@ export default function EADeliveryPage() {
     }
   };
 
-  const handleCreateForInitiative = (initiativeId: string) => {
+  const handleCreateSoawForInitiative = (initiativeId: string) => {
     setNewInitiativeId(initiativeId);
     setCreateOpen(true);
+  };
+
+  const openCreateMenu = (e: React.MouseEvent<HTMLElement>, initiativeId: string) => {
+    e.stopPropagation();
+    setCreateMenuAnchor(e.currentTarget);
+    setCreateMenuInitiativeId(initiativeId);
+  };
+
+  const closeCreateMenu = () => {
+    setCreateMenuAnchor(null);
+    setCreateMenuInitiativeId("");
   };
 
   // ── link diagram dialog ────────────────────────────────────────────────
@@ -792,10 +809,10 @@ export default function EADeliveryPage() {
                     {/* Actions */}
                     <TableCell onClick={(e) => e.stopPropagation()}>
                       <Box sx={{ display: "flex" }}>
-                        <Tooltip title={t("card.createSoaw")}>
+                        <Tooltip title={t("card.createArtefactTooltip")}>
                           <IconButton
                             size="small"
-                            onClick={() => handleCreateForInitiative(init.id)}
+                            onClick={(e) => openCreateMenu(e, init.id)}
                           >
                             <MaterialSymbol icon="add_circle_outline" size={18} />
                           </IconButton>
@@ -869,23 +886,10 @@ export default function EADeliveryPage() {
     );
   }
 
-  const handleCreateAdr = async () => {
-    if (!adrNewTitle.trim()) return;
-    setAdrCreating(true);
-    try {
-      const created = await api.post<ArchitectureDecision>("/adr", {
-        title: adrNewTitle.trim(),
-        initiative_id: adrNewInitiativeId || null,
-      });
-      setAdrCreateOpen(false);
-      setAdrNewTitle("");
-      setAdrNewInitiativeId("");
-      navigate(`/ea-delivery/adr/${created.id}`);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : t("error.createSoaw"));
-    } finally {
-      setAdrCreating(false);
-    }
+  const openAdrCreateDialog = (initId = "", preLinked: { id: string; name: string; type: string }[] = []) => {
+    setAdrCreateInitiativeId(initId);
+    setAdrCreatePreLinkedCards(preLinked);
+    setAdrCreateOpen(true);
   };
 
   const handleDeleteAdr = async (id: string) => {
@@ -966,10 +970,7 @@ export default function EADeliveryPage() {
             size="small"
             startIcon={<MaterialSymbol icon="add" size={18} />}
             sx={{ textTransform: "none" }}
-            onClick={() => {
-              setAdrNewInitiativeId("");
-              setAdrCreateOpen(true);
-            }}
+            onClick={() => openAdrCreateDialog()}
           >
             {t("adr.new")}
           </Button>
@@ -1458,13 +1459,10 @@ export default function EADeliveryPage() {
                       <MaterialSymbol icon="link" size={20} />
                     </IconButton>
                   </Tooltip>
-                  <Tooltip title={t("card.createSoawTooltip")}>
+                  <Tooltip title={t("card.createArtefactTooltip")}>
                     <IconButton
                       size="small"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleCreateForInitiative(initiative.id);
-                      }}
+                      onClick={(e) => openCreateMenu(e, initiative.id)}
                     >
                       <MaterialSymbol icon="add_circle_outline" size={20} />
                     </IconButton>
@@ -1500,9 +1498,29 @@ export default function EADeliveryPage() {
                             cursor: "pointer",
                             "&:hover": { textDecoration: "underline" },
                           }}
-                          onClick={() => handleCreateForInitiative(initiative.id)}
+                          onClick={() => {
+                            handleCreateSoawForInitiative(initiative.id);
+                          }}
                         >
                           {t("empty.createSoaw")}
+                        </Box>
+                        {t("empty.or")}
+                        <Box
+                          component="span"
+                          sx={{
+                            color: "primary.main",
+                            cursor: "pointer",
+                            "&:hover": { textDecoration: "underline" },
+                          }}
+                          onClick={() => {
+                            const init = initiatives.find((i) => i.id === initiative.id);
+                            openAdrCreateDialog(
+                              initiative.id,
+                              init ? [{ id: init.id, name: init.name, type: init.type }] : [],
+                            );
+                          }}
+                        >
+                          {t("empty.createAdr")}
                         </Box>
                         .
                       </Typography>
@@ -1703,52 +1721,53 @@ export default function EADeliveryPage() {
       </Menu>
 
       {/* Create ADR dialog */}
-      <Dialog
+      <CreateAdrDialog
         open={adrCreateOpen}
         onClose={() => setAdrCreateOpen(false)}
-        maxWidth="sm"
-        fullWidth
+        onCreated={(adr) => {
+          fetchAll();
+          navigate(`/ea-delivery/adr/${adr.id}`);
+        }}
+        initiatives={initiatives}
+        initiativeId={adrCreateInitiativeId}
+        preLinkedCards={adrCreatePreLinkedCards}
+      />
+
+      {/* Create artefact menu (SoAW or ADR) for initiative "+" button */}
+      <Menu
+        anchorEl={createMenuAnchor}
+        open={Boolean(createMenuAnchor)}
+        onClose={closeCreateMenu}
       >
-        <DialogTitle>{t("adr.createDialog.title")}</DialogTitle>
-        <DialogContent>
-          <TextField
-            autoFocus
-            label={t("adr.createDialog.decisionTitle")}
-            fullWidth
-            value={adrNewTitle}
-            onChange={(e) => setAdrNewTitle(e.target.value)}
-            sx={{ mt: 1, mb: 2 }}
-            onKeyDown={(e) => e.key === "Enter" && handleCreateAdr()}
-          />
-          <TextField
-            select
-            label={t("adr.createDialog.initiative")}
-            fullWidth
-            value={adrNewInitiativeId}
-            onChange={(e) => setAdrNewInitiativeId(e.target.value)}
-            helperText={t("adr.createDialog.initiativeHelper")}
-          >
-            <MenuItem value="">
-              <em>{t("common:labels.none")}</em>
-            </MenuItem>
-            {initiatives.map((init) => (
-              <MenuItem key={init.id} value={init.id}>
-                {init.name}
-              </MenuItem>
-            ))}
-          </TextField>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setAdrCreateOpen(false)}>{t("common:actions.cancel")}</Button>
-          <Button
-            variant="contained"
-            disabled={!adrNewTitle.trim() || adrCreating}
-            onClick={handleCreateAdr}
-          >
-            {adrCreating ? t("adr.createDialog.creating") : t("common:actions.create")}
-          </Button>
-        </DialogActions>
-      </Dialog>
+        <MenuItem
+          onClick={() => {
+            const initId = createMenuInitiativeId;
+            closeCreateMenu();
+            handleCreateSoawForInitiative(initId);
+          }}
+        >
+          <ListItemIcon>
+            <MaterialSymbol icon="description" size={18} />
+          </ListItemIcon>
+          <ListItemText>{t("card.createSoawForInitiative")}</ListItemText>
+        </MenuItem>
+        <MenuItem
+          onClick={() => {
+            const initId = createMenuInitiativeId;
+            const init = initiatives.find((i) => i.id === initId);
+            closeCreateMenu();
+            openAdrCreateDialog(
+              initId,
+              init ? [{ id: init.id, name: init.name, type: init.type }] : [],
+            );
+          }}
+        >
+          <ListItemIcon>
+            <MaterialSymbol icon="gavel" size={18} />
+          </ListItemIcon>
+          <ListItemText>{t("card.createAdrForInitiative")}</ListItemText>
+        </MenuItem>
+      </Menu>
 
       {/* Link diagrams dialog */}
       <Dialog

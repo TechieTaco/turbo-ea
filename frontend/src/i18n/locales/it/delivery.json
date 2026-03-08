@@ -27,6 +27,7 @@
   "empty.linkDiagram": "Collega un diagramma",
   "empty.or": " oppure ",
   "empty.createSoaw": "crea uno Statement of Architecture Work",
+  "empty.createAdr": "creare una decisione architetturale",
   "list.name": "Nome",
   "list.subtype": "Sottotipo",
   "list.status": "Stato",
@@ -52,7 +53,10 @@
   "card.artefactCount_other": "{{count}} artefatti",
   "card.linkDiagramsTooltip": "Collega diagrammi a questa iniziativa",
   "card.createSoawTooltip": "Crea SoAW per questa iniziativa",
+  "card.createArtefactTooltip": "Crea artefatto per questa iniziativa",
   "card.createSoaw": "Crea SoAW",
+  "card.createSoawForInitiative": "Nuovo Statement of Architecture Work",
+  "card.createAdrForInitiative": "Nuova decisione architetturale",
   "card.linkDiagrams": "Collega diagrammi",
   "unlinked.title": "Non collegato a un'iniziativa",
   "createDialog.title": "Nuovo Statement of Architecture Work",
@@ -319,5 +323,11 @@
   "adr.createDialog.decisionTitle": "Titolo della decisione",
   "adr.createDialog.initiative": "Iniziativa",
   "adr.createDialog.initiativeHelper": "Collegare questa decisione a un\u2019iniziativa (opzionale)",
-  "adr.createDialog.creating": "Creazione in corso..."
+  "adr.createDialog.creating": "Creazione in corso...",
+  "adr.createDialog.linkedCards": "Card collegate",
+  "adr.createDialog.addCard": "Aggiungi card",
+  "adr.createDialog.searchCards": "Cerca card...",
+  "adr.createDialog.noResults": "Nessuna card trovata",
+  "adr.createDialog.alreadyAdded": "Gi\u00e0 aggiunta",
+  "adr.createDialog.error": "Impossibile creare la decisione architetturale"
 }

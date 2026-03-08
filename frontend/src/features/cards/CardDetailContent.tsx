@@ -333,6 +333,8 @@ export default function CardDetailContent({
             <CardContent>
               <ResourcesTab
                 fsId={card.id}
+                cardName={card.name}
+                cardType={card.type}
                 canManageDocuments={perms.can_manage_documents}
                 canManageAdrLinks={perms.can_manage_adr_links}
               />

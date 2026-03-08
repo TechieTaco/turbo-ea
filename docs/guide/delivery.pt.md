@@ -74,10 +74,13 @@ Você pode filtrar por status e pesquisar por título ou número de referência.
 
 ### Criando um ADR
 
-1. Navegue até **Entregas de EA** → aba **Decisões**
-2. Clique em **+ Novo ADR**
-3. Preencha o título e opcionalmente vincule a uma iniciativa
-4. O editor abre com seções para Contexto, Decisão, Consequências e Alternativas Consideradas
+Os ADR podem ser criados a partir de três locais:
+
+1. **Entregas de EA → aba Decisões**: Clique em **+ Novo ADR**, preencha o título e opcionalmente vincule a uma iniciativa.
+2. **Botão «+» da iniciativa** (aba Iniciativas): Escolha **Nova Decisão de Arquitetura** no menu — a iniciativa é pré-vinculada.
+3. **Aba Recursos do cartão**: Clique em **Criar ADR** — o cartão atual é pré-vinculado.
+
+Em todos os casos, você pode pesquisar e vincular cartões adicionais durante a criação. O editor abre com seções para Contexto, Decisão, Consequências e Alternativas Consideradas.
 
 ### O Editor de ADR
 

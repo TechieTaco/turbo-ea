@@ -33,6 +33,7 @@
   "empty.linkDiagram": "Ein Diagramm verknüpfen",
   "empty.or": " oder ",
   "empty.createSoaw": "ein Statement of Architecture Work erstellen",
+  "empty.createAdr": "eine Architekturentscheidung erstellen",
 
   "list.name": "Name",
   "list.subtype": "Subtyp",
@@ -63,7 +64,10 @@
   "card.artefactCount_other": "{{count}} Artefakte",
   "card.linkDiagramsTooltip": "Diagramme mit dieser Initiative verknüpfen",
   "card.createSoawTooltip": "SoAW für diese Initiative erstellen",
+  "card.createArtefactTooltip": "Artefakt für diese Initiative erstellen",
   "card.createSoaw": "SoAW erstellen",
+  "card.createSoawForInitiative": "Neues Statement of Architecture Work",
+  "card.createAdrForInitiative": "Neue Architekturentscheidung",
   "card.linkDiagrams": "Diagramme verknüpfen",
 
   "unlinked.title": "Nicht mit einer Initiative verknüpft",
@@ -341,5 +345,11 @@
   "adr.createDialog.decisionTitle": "Titel der Entscheidung",
   "adr.createDialog.initiative": "Initiative",
   "adr.createDialog.initiativeHelper": "Diese Entscheidung mit einer Initiative verknüpfen (optional)",
-  "adr.createDialog.creating": "Wird erstellt..."
+  "adr.createDialog.creating": "Wird erstellt...",
+  "adr.createDialog.linkedCards": "Verknüpfte Karten",
+  "adr.createDialog.addCard": "Karte hinzufügen",
+  "adr.createDialog.searchCards": "Karten suchen...",
+  "adr.createDialog.noResults": "Keine Karten gefunden",
+  "adr.createDialog.alreadyAdded": "Bereits hinzugefügt",
+  "adr.createDialog.error": "Architekturentscheidung konnte nicht erstellt werden"
 }

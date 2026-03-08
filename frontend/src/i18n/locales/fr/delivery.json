@@ -33,6 +33,7 @@
   "empty.linkDiagram": "Lier un diagramme",
   "empty.or": " ou ",
   "empty.createSoaw": "cr\u00e9er un Statement of Architecture Work",
+  "empty.createAdr": "cr\u00e9er une d\u00e9cision d\u2019architecture",
 
   "list.name": "Nom",
   "list.subtype": "Sous-type",
@@ -63,7 +64,10 @@
   "card.artefactCount_other": "{{count}} artefacts",
   "card.linkDiagramsTooltip": "Lier des diagrammes \u00e0 cette initiative",
   "card.createSoawTooltip": "Cr\u00e9er un SoAW pour cette initiative",
+  "card.createArtefactTooltip": "Cr\u00e9er un artefact pour cette initiative",
   "card.createSoaw": "Cr\u00e9er un SoAW",
+  "card.createSoawForInitiative": "Nouveau Statement of Architecture Work",
+  "card.createAdrForInitiative": "Nouvelle d\u00e9cision d\u2019architecture",
   "card.linkDiagrams": "Lier des diagrammes",
 
   "unlinked.title": "Non li\u00e9 \u00e0 une initiative",
@@ -341,5 +345,11 @@
   "adr.createDialog.decisionTitle": "Titre de la d\u00e9cision",
   "adr.createDialog.initiative": "Initiative",
   "adr.createDialog.initiativeHelper": "Lier cette d\u00e9cision \u00e0 une initiative (facultatif)",
-  "adr.createDialog.creating": "Cr\u00e9ation\u2026"
+  "adr.createDialog.creating": "Cr\u00e9ation\u2026",
+  "adr.createDialog.linkedCards": "Cartes li\u00e9es",
+  "adr.createDialog.addCard": "Ajouter une carte",
+  "adr.createDialog.searchCards": "Rechercher des cartes...",
+  "adr.createDialog.noResults": "Aucune carte trouv\u00e9e",
+  "adr.createDialog.alreadyAdded": "D\u00e9j\u00e0 ajout\u00e9e",
+  "adr.createDialog.error": "\u00c9chec de la cr\u00e9ation de la d\u00e9cision d\u2019architecture"
 }

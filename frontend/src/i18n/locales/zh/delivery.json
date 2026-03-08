@@ -33,6 +33,7 @@
   "empty.linkDiagram": "关联图表",
   "empty.or": " 或 ",
   "empty.createSoaw": "创建架构工作说明书",
+  "empty.createAdr": "创建架构决策",
 
   "list.name": "名称",
   "list.subtype": "子类型",
@@ -63,7 +64,10 @@
   "card.artefactCount_other": "{{count}} 个工件",
   "card.linkDiagramsTooltip": "将图表关联到此举措",
   "card.createSoawTooltip": "为此举措创建 SoAW",
+  "card.createArtefactTooltip": "为此倡议创建工件",
   "card.createSoaw": "创建 SoAW",
+  "card.createSoawForInitiative": "新建架构工作声明",
+  "card.createAdrForInitiative": "新建架构决策",
   "card.linkDiagrams": "关联图表",
 
   "unlinked.title": "未关联到举措",
@@ -341,5 +345,11 @@
   "adr.createDialog.decisionTitle": "决策标题",
   "adr.createDialog.initiative": "举措",
   "adr.createDialog.initiativeHelper": "将此决策关联到一个举措（可选）",
-  "adr.createDialog.creating": "正在创建..."
+  "adr.createDialog.creating": "正在创建...",
+  "adr.createDialog.linkedCards": "关联卡片",
+  "adr.createDialog.addCard": "添加卡片",
+  "adr.createDialog.searchCards": "搜索卡片...",
+  "adr.createDialog.noResults": "未找到卡片",
+  "adr.createDialog.alreadyAdded": "已添加",
+  "adr.createDialog.error": "创建架构决策失败"
 }
