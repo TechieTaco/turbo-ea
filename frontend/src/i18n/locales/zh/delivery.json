@@ -47,6 +47,8 @@
   "list.soawCount": "{{count}} 个 SoAW",
   "list.diagramCount_one": "{{count}} 个图表",
   "list.diagramCount_other": "{{count}} 个图表",
+  "list.adrCount_one": "{{count}} 个 ADR",
+  "list.adrCount_other": "{{count}} 个 ADR",
 
   "diagram.label": "图表",
   "diagram.linkedToInitiatives": "已关联到 {{count}} 个举措",

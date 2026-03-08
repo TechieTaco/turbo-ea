@@ -40,6 +40,8 @@
   "list.soawCount": "{{count}} SoAW",
   "list.diagramCount_one": "{{count}} diagramma",
   "list.diagramCount_other": "{{count}} diagrammi",
+  "list.adrCount_one": "{{count}} ADR",
+  "list.adrCount_other": "{{count}} ADR",
   "diagram.label": "Diagramma",
   "diagram.linkedToInitiatives": "Collegato a {{count}} iniziative",
   "diagram.unlinkTooltip": "Scollega da questa iniziativa",
