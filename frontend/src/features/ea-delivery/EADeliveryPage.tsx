@@ -838,16 +838,6 @@ export default function EADeliveryPage() {
     );
   };
 
-  // ── render ─────────────────────────────────────────────────────────────
-
-  if (loading) {
-    return (
-      <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>
-        <CircularProgress />
-      </Box>
-    );
-  }
-
   // ── ADR helpers ──────────────────────────────────────────────────────
 
   const filteredAdrs = useMemo(() => {
@@ -868,6 +858,16 @@ export default function EADeliveryPage() {
     }
     return list;
   }, [adrs, adrSearch, adrStatusFilter, adrInitiativeFilter]);
+
+  // ── render ─────────────────────────────────────────────────────────────
+
+  if (loading) {
+    return (
+      <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
 
   const handleCreateAdr = async () => {
     if (!adrNewTitle.trim()) return;
