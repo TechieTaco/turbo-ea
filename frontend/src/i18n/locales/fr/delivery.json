@@ -23,6 +23,9 @@
   "filter.all": "Tous",
   "filter.subtype": "Sous-type",
   "filter.allSubtypes": "Tous les sous-types",
+  "filter.artefacts": "Artefacts",
+  "filter.withArtefacts": "Avec artefacts",
+  "filter.withoutArtefacts": "Sans artefacts",
 
   "view.cardView": "Vue carte",
   "view.listView": "Vue liste",
@@ -86,7 +89,9 @@
   "linkDialog.noDiagrams": "Aucun diagramme disponible. Cr\u00e9ez-en un depuis la page Diagrammes d\u2019abord.",
   "linkDialog.linkedToCardCount_one": "Li\u00e9 \u00e0 {{count}} fiche",
   "linkDialog.linkedToCardCount_other": "Li\u00e9 \u00e0 {{count}} fiches",
-  "linkDialog.notLinked": "Non li\u00e9",
+  "linkDialog.searchPlaceholder": "Rechercher des diagrammes...",
+  "linkDialog.noSearchResults": "Aucun diagramme ne correspond à votre recherche.",
+  "linkDialog.notLinked": "Non lié",
   "linkDialog.saving": "Enregistrement\u2026",
   "linkDialog.saveLinks": "Enregistrer les liens",
 

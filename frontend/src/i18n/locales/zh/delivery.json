@@ -23,6 +23,9 @@
   "filter.all": "全部",
   "filter.subtype": "子类型",
   "filter.allSubtypes": "所有子类型",
+  "filter.artefacts": "工件",
+  "filter.withArtefacts": "有工件",
+  "filter.withoutArtefacts": "无工件",
 
   "view.cardView": "卡片视图",
   "view.listView": "列表视图",
@@ -86,6 +89,8 @@
   "linkDialog.noDiagrams": "没有可用的图表。请先在图表页面中创建一个。",
   "linkDialog.linkedToCardCount_one": "已关联到 {{count}} 张卡片",
   "linkDialog.linkedToCardCount_other": "已关联到 {{count}} 张卡片",
+  "linkDialog.searchPlaceholder": "搜索图表...",
+  "linkDialog.noSearchResults": "没有匹配的图表。",
   "linkDialog.notLinked": "未关联",
   "linkDialog.saving": "正在保存...",
   "linkDialog.saveLinks": "保存关联",

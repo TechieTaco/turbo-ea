@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [0.29.0] - 2026-03-09
 
+### Added
+- Artefact filter toggle (with/without artefacts) on Initiatives tab
+- Search field in Link Diagrams dialog for quick filtering
+- Linked initiative names shown as chips on each diagram in the Link Diagrams dialog
+
 ### Changed
 - Redesigned Initiatives tab in EA Delivery with cleaner two-row card headers, parent-child hierarchy visualization, and 3-column artefact layout (SoAW / Diagrams / ADRs)
 - Streamlined Initiatives list view from 9 columns to 7 with hierarchy indentation and artefact-focused layout
