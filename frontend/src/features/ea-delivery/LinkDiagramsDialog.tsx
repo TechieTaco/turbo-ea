@@ -72,11 +72,19 @@ export default function LinkDiagramsDialog({
   return (
     <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
       <DialogTitle>{t("linkDialog.title")}</DialogTitle>
-      <DialogContent>
+      <DialogContent
+        sx={{
+          display: "flex",
+          flexDirection: "column",
+          minHeight: 400,
+          overflow: "hidden",
+          pb: 0,
+        }}
+      >
         <Typography
           variant="body2"
           color="text.secondary"
-          sx={{ mb: 2 }}
+          sx={{ mb: 1.5, flexShrink: 0 }}
           dangerouslySetInnerHTML={{
             __html: t("linkDialog.description", {
               name: initiativeName,
@@ -91,7 +99,7 @@ export default function LinkDiagramsDialog({
           placeholder={t("linkDialog.searchPlaceholder")}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          sx={{ mb: 1 }}
+          sx={{ mb: 1, flexShrink: 0 }}
           slotProps={{
             input: {
               startAdornment: (
@@ -103,76 +111,82 @@ export default function LinkDiagramsDialog({
           }}
         />
 
-        {diagrams.length === 0 ? (
-          <Typography
-            variant="body2"
-            color="text.secondary"
-            sx={{ py: 2, textAlign: "center" }}
-          >
-            {t("linkDialog.noDiagrams")}
-          </Typography>
-        ) : filteredDiagrams.length === 0 ? (
-          <Typography
-            variant="body2"
-            color="text.secondary"
-            sx={{ py: 2, textAlign: "center" }}
-          >
-            {t("linkDialog.noSearchResults")}
-          </Typography>
-        ) : (
-          <List dense sx={{ maxHeight: 400, overflow: "auto" }}>
-            {filteredDiagrams.map((d) => {
-              const isChecked = linkSelected.includes(d.id);
-              // Resolve linked card names (excluding the current initiative)
-              const linkedNames = d.card_ids
-                .filter((id) => id !== linkInitiativeId)
-                .map((id) => cardNameMap.get(id))
-                .filter(Boolean) as string[];
+        <Box sx={{ flex: 1, overflow: "auto", minHeight: 0 }}>
+          {diagrams.length === 0 ? (
+            <Typography
+              variant="body2"
+              color="text.secondary"
+              sx={{ py: 2, textAlign: "center" }}
+            >
+              {t("linkDialog.noDiagrams")}
+            </Typography>
+          ) : filteredDiagrams.length === 0 ? (
+            <Typography
+              variant="body2"
+              color="text.secondary"
+              sx={{ py: 2, textAlign: "center" }}
+            >
+              {t("linkDialog.noSearchResults")}
+            </Typography>
+          ) : (
+            <List dense disablePadding>
+              {filteredDiagrams.map((d) => {
+                const isChecked = linkSelected.includes(d.id);
+                const linkedNames = d.card_ids
+                  .filter((id) => id !== linkInitiativeId)
+                  .map((id) => cardNameMap.get(id))
+                  .filter(Boolean) as string[];
 
-              return (
-                <ListItem key={d.id} disablePadding>
-                  <ListItemButton onClick={() => onToggle(d.id)} dense>
-                    <ListItemIcon sx={{ minWidth: 36 }}>
-                      <Checkbox
-                        edge="start"
-                        checked={isChecked}
-                        tabIndex={-1}
-                        disableRipple
-                        size="small"
+                return (
+                  <ListItem key={d.id} disablePadding>
+                    <ListItemButton onClick={() => onToggle(d.id)} dense>
+                      <ListItemIcon sx={{ minWidth: 36 }}>
+                        <Checkbox
+                          edge="start"
+                          checked={isChecked}
+                          tabIndex={-1}
+                          disableRipple
+                          size="small"
+                        />
+                      </ListItemIcon>
+                      <ListItemIcon sx={{ minWidth: 32 }}>
+                        <MaterialSymbol icon="schema" size={18} color="#1976d2" />
+                      </ListItemIcon>
+                      <ListItemText
+                        primary={d.name}
+                        secondary={
+                          linkedNames.length > 0 ? (
+                            <Box
+                              component="span"
+                              sx={{
+                                display: "flex",
+                                gap: 0.5,
+                                flexWrap: "wrap",
+                                mt: 0.5,
+                              }}
+                            >
+                              {linkedNames.map((name) => (
+                                <Chip
+                                  key={name}
+                                  label={name}
+                                  size="small"
+                                  variant="outlined"
+                                  sx={{ height: 20, fontSize: "0.7rem" }}
+                                />
+                              ))}
+                            </Box>
+                          ) : (
+                            t("linkDialog.notLinked")
+                          )
+                        }
                       />
-                    </ListItemIcon>
-                    <ListItemIcon sx={{ minWidth: 32 }}>
-                      <MaterialSymbol icon="schema" size={18} color="#1976d2" />
-                    </ListItemIcon>
-                    <ListItemText
-                      primary={d.name}
-                      secondary={
-                        linkedNames.length > 0 ? (
-                          <Box
-                            component="span"
-                            sx={{ display: "flex", gap: 0.5, flexWrap: "wrap", mt: 0.5 }}
-                          >
-                            {linkedNames.map((name) => (
-                              <Chip
-                                key={name}
-                                label={name}
-                                size="small"
-                                variant="outlined"
-                                sx={{ height: 20, fontSize: "0.7rem" }}
-                              />
-                            ))}
-                          </Box>
-                        ) : (
-                          t("linkDialog.notLinked")
-                        )
-                      }
-                    />
-                  </ListItemButton>
-                </ListItem>
-              );
-            })}
-          </List>
-        )}
+                    </ListItemButton>
+                  </ListItem>
+                );
+              })}
+            </List>
+          )}
+        </Box>
       </DialogContent>
       <DialogActions>
         <Button onClick={handleClose}>{t("common:actions.cancel")}</Button>
