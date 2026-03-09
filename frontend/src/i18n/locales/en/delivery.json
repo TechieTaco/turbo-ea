@@ -23,6 +23,9 @@
   "filter.all": "All",
   "filter.subtype": "Subtype",
   "filter.allSubtypes": "All Subtypes",
+  "filter.artefacts": "Artefacts",
+  "filter.withArtefacts": "With artefacts",
+  "filter.withoutArtefacts": "Without artefacts",
 
   "view.cardView": "Card view",
   "view.listView": "List view",
@@ -86,6 +89,8 @@
   "linkDialog.noDiagrams": "No diagrams available. Create one from the Diagrams page first.",
   "linkDialog.linkedToCardCount_one": "Linked to {{count}} card",
   "linkDialog.linkedToCardCount_other": "Linked to {{count}} cards",
+  "linkDialog.searchPlaceholder": "Search diagrams...",
+  "linkDialog.noSearchResults": "No diagrams match your search.",
   "linkDialog.notLinked": "Not linked",
   "linkDialog.saving": "Saving...",
   "linkDialog.saveLinks": "Save Links",
@@ -378,5 +383,14 @@
   "signatureDialog.noResults": "No users found",
   "signatureDialog.sending": "Sending...",
   "signatureDialog.requestCount_one": "Request {{count}} Signature",
-  "signatureDialog.requestCount_other": "Request {{count}} Signatures"
+  "signatureDialog.requestCount_other": "Request {{count}} Signatures",
+
+  "artefactGroup.soaws": "Statements of Architecture Work",
+  "artefactGroup.diagrams": "Diagrams",
+  "artefactGroup.adrs": "Architecture Decisions",
+  "artefactGroup.noSoaws": "No statements of architecture work",
+  "artefactGroup.noDiagrams": "No diagrams",
+  "artefactGroup.noAdrs": "No architecture decisions",
+  "hierarchy.children_one": "{{count}} child",
+  "hierarchy.children_other": "{{count}} children"
 }

@@ -23,6 +23,9 @@
   "filter.all": "Todos",
   "filter.subtype": "Subtipo",
   "filter.allSubtypes": "Todos los Subtipos",
+  "filter.artefacts": "Artefactos",
+  "filter.withArtefacts": "Con artefactos",
+  "filter.withoutArtefacts": "Sin artefactos",
 
   "view.cardView": "Vista de tarjetas",
   "view.listView": "Vista de lista",
@@ -86,6 +89,8 @@
   "linkDialog.noDiagrams": "No hay diagramas disponibles. Cree uno primero desde la p\u00e1gina de Diagramas.",
   "linkDialog.linkedToCardCount_one": "Vinculado a {{count}} ficha",
   "linkDialog.linkedToCardCount_other": "Vinculado a {{count}} fichas",
+  "linkDialog.searchPlaceholder": "Buscar diagramas...",
+  "linkDialog.noSearchResults": "Ningún diagrama coincide con su búsqueda.",
   "linkDialog.notLinked": "No vinculado",
   "linkDialog.saving": "Guardando...",
   "linkDialog.saveLinks": "Guardar V\u00ednculos",
@@ -378,5 +383,13 @@
   "signatureDialog.noResults": "No se encontraron usuarios",
   "signatureDialog.sending": "Enviando...",
   "signatureDialog.requestCount_one": "Solicitar {{count}} firma",
-  "signatureDialog.requestCount_other": "Solicitar {{count}} firmas"
+  "signatureDialog.requestCount_other": "Solicitar {{count}} firmas",
+  "artefactGroup.soaws": "Declaraciones de trabajo de arquitectura",
+  "artefactGroup.diagrams": "Diagramas",
+  "artefactGroup.adrs": "Decisiones de arquitectura",
+  "artefactGroup.noSoaws": "Sin declaraciones de trabajo de arquitectura",
+  "artefactGroup.noDiagrams": "Sin diagramas",
+  "artefactGroup.noAdrs": "Sin decisiones de arquitectura",
+  "hierarchy.children_one": "{{count}} elemento hijo",
+  "hierarchy.children_other": "{{count}} elementos hijos"
 }

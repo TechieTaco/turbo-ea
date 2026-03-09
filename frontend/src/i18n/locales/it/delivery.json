@@ -19,6 +19,9 @@
   "filter.all": "Tutti",
   "filter.subtype": "Sottotipo",
   "filter.allSubtypes": "Tutti i sottotipi",
+  "filter.artefacts": "Artefatti",
+  "filter.withArtefacts": "Con artefatti",
+  "filter.withoutArtefacts": "Senza artefatti",
   "view.cardView": "Vista a schede",
   "view.listView": "Vista a elenco",
   "empty.noInitiatives": "Nessuna iniziativa trovata. Creare prima le iniziative nell'Inventario, poi tornare qui per gestire gli artefatti.",
@@ -72,6 +75,8 @@
   "linkDialog.noDiagrams": "Nessun diagramma disponibile. Crearne uno dalla pagina Diagrammi.",
   "linkDialog.linkedToCardCount_one": "Collegato a {{count}} scheda",
   "linkDialog.linkedToCardCount_other": "Collegato a {{count}} schede",
+  "linkDialog.searchPlaceholder": "Cerca diagrammi...",
+  "linkDialog.noSearchResults": "Nessun diagramma corrisponde alla ricerca.",
   "linkDialog.notLinked": "Non collegato",
   "linkDialog.saving": "Salvataggio...",
   "linkDialog.saveLinks": "Salva collegamenti",
@@ -356,5 +361,13 @@
   "signatureDialog.noResults": "Nessun utente trovato",
   "signatureDialog.sending": "Invio in corso...",
   "signatureDialog.requestCount_one": "Richiedi {{count}} firma",
-  "signatureDialog.requestCount_other": "Richiedi {{count}} firme"
+  "signatureDialog.requestCount_other": "Richiedi {{count}} firme",
+  "artefactGroup.soaws": "Dichiarazioni di lavoro di architettura",
+  "artefactGroup.diagrams": "Diagrammi",
+  "artefactGroup.adrs": "Decisioni di architettura",
+  "artefactGroup.noSoaws": "Nessuna dichiarazione di lavoro di architettura",
+  "artefactGroup.noDiagrams": "Nessun diagramma",
+  "artefactGroup.noAdrs": "Nessuna decisione di architettura",
+  "hierarchy.children_one": "{{count}} elemento figlio",
+  "hierarchy.children_other": "{{count}} elementi figli"
 }
