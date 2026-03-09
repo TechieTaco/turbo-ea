@@ -34,6 +34,7 @@ import Autocomplete from "@mui/material/Autocomplete";
 import ListItemIcon from "@mui/material/ListItemIcon";
 import ListItemText from "@mui/material/ListItemText";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import { useMetamodel } from "@/hooks/useMetamodel";
 import { api } from "@/api/client";
 import type { Card, DiagramSummary } from "@/types";
 
@@ -42,13 +43,14 @@ type ViewMode = "card" | "list";
 export default function DiagramsPage() {
   const { t } = useTranslation(["diagrams", "common"]);
   const navigate = useNavigate();
+  const { types: metamodelTypes } = useMetamodel();
   const [diagrams, setDiagrams] = useState<DiagramSummary[]>([]);
   const [viewMode, setViewMode] = useState<ViewMode>(
     () => (localStorage.getItem("diagrams_view") as ViewMode) || "card"
   );
 
-  // Initiatives for linking
-  const [initiatives, setInitiatives] = useState<Card[]>([]);
+  // Cards for linking
+  const [allCards, setAllCards] = useState<Card[]>([]);
 
   // Create dialog
   const [createOpen, setCreateOpen] = useState(false);
@@ -72,6 +74,11 @@ export default function DiagramsPage() {
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
   const [menuDiagram, setMenuDiagram] = useState<DiagramSummary | null>(null);
 
+  // Build type color/icon maps from metamodel
+  const typeMap = Object.fromEntries(
+    metamodelTypes.map((mt) => [mt.key, { color: mt.color, icon: mt.icon, label: mt.label }]),
+  );
+
   const loadDiagrams = useCallback(() => {
     api.get<DiagramSummary[]>("/diagrams").then(setDiagrams);
   }, []);
@@ -79,8 +86,8 @@ export default function DiagramsPage() {
   useEffect(() => {
     loadDiagrams();
     api
-      .get<{ items: Card[] }>("/cards?type=Initiative&page_size=500")
-      .then((res) => setInitiatives(res.items))
+      .get<{ items: Card[] }>("/cards?page_size=500")
+      .then((res) => setAllCards(res.items))
       .catch(() => {});
   }, [loadDiagrams]);
 
@@ -153,10 +160,10 @@ export default function DiagramsPage() {
   const fmtDate = (iso?: string) =>
     iso ? new Date(iso).toLocaleDateString() : "";
 
-  // Helper: resolve initiative names from IDs
-  const initiativeNames = (ids: string[]) =>
+  // Helper: resolve linked card names from IDs
+  const linkedCardNames = (ids: string[]) =>
     ids
-      .map((id) => initiatives.find((i) => i.id === id)?.name)
+      .map((id) => allCards.find((c) => c.id === id)?.name)
       .filter(Boolean)
       .join(", ");
 
@@ -302,7 +309,7 @@ export default function DiagramsPage() {
                         <Chip
                           size="small"
                           icon={<MaterialSymbol icon="link" size={14} />}
-                          label={t("gallery.initiativeCount", { count: d.card_ids.length })}
+                          label={t("gallery.linkedCardCount", { count: d.card_ids.length })}
                           variant="outlined"
                           color="success"
                         />
@@ -359,7 +366,7 @@ export default function DiagramsPage() {
                 <TableCell sx={{ fontWeight: 600 }}>{t("common:labels.name")}</TableCell>
                 <TableCell sx={{ fontWeight: 600 }}>{t("common:labels.description")}</TableCell>
                 <TableCell sx={{ fontWeight: 600, width: 120 }}>{t("common:labels.type")}</TableCell>
-                <TableCell sx={{ fontWeight: 600, width: 180 }}>{t("gallery.initiatives")}</TableCell>
+                <TableCell sx={{ fontWeight: 600, width: 180 }}>{t("gallery.linkedCards")}</TableCell>
                 <TableCell sx={{ fontWeight: 600, width: 100 }} align="center">
                   {t("common:labels.cards")}
                 </TableCell>
@@ -405,8 +412,8 @@ export default function DiagramsPage() {
                   </TableCell>
                   <TableCell>
                     {d.card_ids.length > 0 ? (
-                      <Typography variant="body2" noWrap sx={{ maxWidth: 160 }} title={initiativeNames(d.card_ids)}>
-                        {initiativeNames(d.card_ids) || t("gallery.linked", { count: d.card_ids.length })}
+                      <Typography variant="body2" noWrap sx={{ maxWidth: 160 }} title={linkedCardNames(d.card_ids)}>
+                        {linkedCardNames(d.card_ids) || t("gallery.linked", { count: d.card_ids.length })}
                       </Typography>
                     ) : (
                       <Typography variant="body2" color="text.secondary">{"\u2014"}</Typography>
@@ -526,22 +533,28 @@ export default function DiagramsPage() {
           </FormControl>
           <Autocomplete
             multiple
-            options={initiatives}
+            options={allCards}
             getOptionLabel={(opt) => opt.name}
-            value={initiatives.filter((i) => createCardIds.includes(i.id))}
+            groupBy={(opt) => typeMap[opt.type]?.label || opt.type}
+            value={allCards.filter((c) => createCardIds.includes(c.id))}
             onChange={(_, newVal) => setCreateCardIds(newVal.map((v) => v.id))}
             disableCloseOnSelect
             renderOption={(props, option, { selected }) => (
               <li {...props} key={option.id}>
                 <Checkbox size="small" checked={selected} sx={{ mr: 1 }} />
-                {option.name}
+                <MaterialSymbol
+                  icon={typeMap[option.type]?.icon || "apps"}
+                  size={18}
+                  color={typeMap[option.type]?.color}
+                />
+                <Box component="span" sx={{ ml: 0.5 }}>{option.name}</Box>
               </li>
             )}
             renderInput={(params) => (
               <TextField
                 {...params}
-                label={t("gallery.initiatives")}
-                helperText={t("gallery.initiativesHelperText")}
+                label={t("gallery.linkedCards")}
+                helperText={t("gallery.linkedCardsHelperText")}
               />
             )}
           />
@@ -589,22 +602,28 @@ export default function DiagramsPage() {
           />
           <Autocomplete
             multiple
-            options={initiatives}
+            options={allCards}
             getOptionLabel={(opt) => opt.name}
-            value={initiatives.filter((i) => editCardIds.includes(i.id))}
+            groupBy={(opt) => typeMap[opt.type]?.label || opt.type}
+            value={allCards.filter((c) => editCardIds.includes(c.id))}
             onChange={(_, newVal) => setEditCardIds(newVal.map((v) => v.id))}
             disableCloseOnSelect
             renderOption={(props, option, { selected }) => (
               <li {...props} key={option.id}>
                 <Checkbox size="small" checked={selected} sx={{ mr: 1 }} />
-                {option.name}
+                <MaterialSymbol
+                  icon={typeMap[option.type]?.icon || "apps"}
+                  size={18}
+                  color={typeMap[option.type]?.color}
+                />
+                <Box component="span" sx={{ ml: 0.5 }}>{option.name}</Box>
               </li>
             )}
             renderInput={(params) => (
               <TextField
                 {...params}
-                label={t("gallery.initiatives")}
-                helperText={t("gallery.initiativesHelperText")}
+                label={t("gallery.linkedCards")}
+                helperText={t("gallery.linkedCardsHelperText")}
               />
             )}
           />
