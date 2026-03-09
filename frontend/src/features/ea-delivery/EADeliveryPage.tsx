@@ -43,6 +43,8 @@ import { useMetamodel } from "@/hooks/useMetamodel";
 import { useResolveMetaLabel, useResolveLabel } from "@/hooks/useResolveLabel";
 import { api } from "@/api/client";
 import CreateAdrDialog from "./CreateAdrDialog";
+import AdrGrid from "./AdrGrid";
+import AdrFilterSidebar, { type AdrFilters, EMPTY_ADR_FILTERS } from "./AdrFilterSidebar";
 import type { Card, SoAW, DiagramSummary, Relation, EAPrinciple, ArchitectureDecision } from "@/types";
 
 // ─── helpers ────────────────────────────────────────────────────────────────
@@ -114,16 +116,13 @@ export default function EADeliveryPage() {
   // Decisions tab state
   const [adrs, setAdrs] = useState<ArchitectureDecision[]>([]);
   const [adrSearch, setAdrSearch] = useState("");
-  const [adrStatusFilter, setAdrStatusFilter] = useState("");
-  const [adrInitiativeFilter, setAdrInitiativeFilter] = useState("");
+  const [adrFilters, setAdrFilters] = useState<AdrFilters>({ ...EMPTY_ADR_FILTERS });
+  const [adrSidebarCollapsed, setAdrSidebarCollapsed] = useState(false);
+  const [adrSidebarWidth, setAdrSidebarWidth] = useState(280);
   const [adrCreateOpen, setAdrCreateOpen] = useState(false);
   const [adrCreatePreLinkedCards, setAdrCreatePreLinkedCards] = useState<
     { id: string; name: string; type: string }[]
   >([]);
-  const [adrCtxMenu, setAdrCtxMenu] = useState<{
-    anchor: HTMLElement;
-    adr: ArchitectureDecision;
-  } | null>(null);
 
   // filters
   const [search, setSearch] = useState("");
@@ -873,24 +872,50 @@ export default function EADeliveryPage() {
 
   const filteredAdrs = useMemo(() => {
     let list = adrs;
-    if (adrSearch) {
-      const q = adrSearch.toLowerCase();
-      list = list.filter(
-        (a) =>
-          a.title.toLowerCase().includes(q) ||
-          a.reference_number.toLowerCase().includes(q),
-      );
+    if (adrFilters.statuses.length > 0) {
+      list = list.filter((a) => adrFilters.statuses.includes(a.status));
     }
-    if (adrStatusFilter) {
-      list = list.filter((a) => a.status === adrStatusFilter);
-    }
-    if (adrInitiativeFilter) {
+    if (adrFilters.cardTypes.length > 0) {
       list = list.filter((a) =>
-        (a.linked_cards ?? []).some((c) => c.id === adrInitiativeFilter),
+        (a.linked_cards ?? []).some((c) => adrFilters.cardTypes.includes(c.type)),
       );
+    }
+    if (adrFilters.dateCreatedFrom) {
+      list = list.filter((a) => a.created_at && a.created_at >= adrFilters.dateCreatedFrom);
+    }
+    if (adrFilters.dateCreatedTo) {
+      list = list.filter((a) => a.created_at && a.created_at <= adrFilters.dateCreatedTo + "T23:59:59");
+    }
+    if (adrFilters.dateModifiedFrom) {
+      list = list.filter((a) => a.updated_at && a.updated_at >= adrFilters.dateModifiedFrom);
+    }
+    if (adrFilters.dateModifiedTo) {
+      list = list.filter((a) => a.updated_at && a.updated_at <= adrFilters.dateModifiedTo + "T23:59:59");
+    }
+    if (adrFilters.dateSignedFrom) {
+      list = list.filter((a) => a.signed_at && a.signed_at >= adrFilters.dateSignedFrom);
+    }
+    if (adrFilters.dateSignedTo) {
+      list = list.filter((a) => a.signed_at && a.signed_at <= adrFilters.dateSignedTo + "T23:59:59");
     }
     return list;
-  }, [adrs, adrSearch, adrStatusFilter, adrInitiativeFilter]);
+  }, [adrs, adrFilters]);
+
+  // Compute available card types from linked cards across all ADRs
+  const availableCardTypes = useMemo(() => {
+    const typeKeys = new Set<string>();
+    for (const adr of adrs) {
+      for (const c of adr.linked_cards ?? []) typeKeys.add(c.type);
+    }
+    return [...typeKeys].map((key) => {
+      const mt = metamodelTypes.find((t) => t.key === key);
+      return {
+        key,
+        label: rml(key, mt?.translations, "label") || key,
+        color: mt?.color ?? "#666",
+      };
+    });
+  }, [adrs, metamodelTypes, rml]);
 
   // ── render ─────────────────────────────────────────────────────────────
 
@@ -915,7 +940,6 @@ export default function EADeliveryPage() {
     } catch (e) {
       setError(e instanceof Error ? e.message : t("error.deleteSoaw"));
     }
-    setAdrCtxMenu(null);
   };
 
   const handleDuplicateAdr = async (id: string) => {
@@ -925,16 +949,15 @@ export default function EADeliveryPage() {
     } catch (e) {
       setError(e instanceof Error ? e.message : t("adr.editor.error.duplicateFailed"));
     }
-    setAdrCtxMenu(null);
   };
 
   // ── Decisions tab panel ─────────────────────────────────────────────
 
   const renderDecisionsTab = () => {
     return (
-      <>
-        {/* Filter bar */}
-        <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, mb: 2, flexWrap: "wrap" }}>
+      <Box sx={{ display: "flex", flexDirection: "column", height: "calc(100vh - 180px)" }}>
+        {/* Toolbar */}
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, mb: 1, flexWrap: "wrap" }}>
           <TextField
             size="small"
             placeholder={t("adr.searchPlaceholder")}
@@ -951,34 +974,6 @@ export default function EADeliveryPage() {
               },
             }}
           />
-          <TextField
-            select
-            size="small"
-            label={t("adr.filter.status")}
-            value={adrStatusFilter}
-            onChange={(e) => setAdrStatusFilter(e.target.value)}
-            sx={{ minWidth: 130 }}
-          >
-            <MenuItem value="">{t("adr.filter.all")}</MenuItem>
-            <MenuItem value="draft">{t("status.draft")}</MenuItem>
-            <MenuItem value="in_review">{t("status.inReview")}</MenuItem>
-            <MenuItem value="signed">{t("status.signed")}</MenuItem>
-          </TextField>
-          <TextField
-            select
-            size="small"
-            label={t("adr.filter.initiative")}
-            value={adrInitiativeFilter}
-            onChange={(e) => setAdrInitiativeFilter(e.target.value)}
-            sx={{ minWidth: 160 }}
-          >
-            <MenuItem value="">{t("adr.filter.allInitiatives")}</MenuItem>
-            {initiatives.map((init) => (
-              <MenuItem key={init.id} value={init.id}>
-                {init.name}
-              </MenuItem>
-            ))}
-          </TextField>
           <Box sx={{ flex: 1 }} />
           <Button
             variant="contained"
@@ -991,108 +986,31 @@ export default function EADeliveryPage() {
           </Button>
         </Box>
 
-        {/* Empty state */}
-        {adrs.length === 0 && (
-          <Box
-            sx={{
-              py: 6,
-              textAlign: "center",
-              border: "1px dashed",
-              borderColor: "divider",
-              borderRadius: 2,
-            }}
-          >
-            <MaterialSymbol icon="gavel" size={40} color="#bbb" />
-            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-              {t("adr.empty")}
-            </Typography>
+        {/* Sidebar + Grid */}
+        <Box sx={{ display: "flex", flex: 1, minHeight: 0, border: 1, borderColor: "divider", borderRadius: 1, overflow: "hidden" }}>
+          <AdrFilterSidebar
+            filters={adrFilters}
+            onFiltersChange={setAdrFilters}
+            collapsed={adrSidebarCollapsed}
+            onToggleCollapse={() => setAdrSidebarCollapsed((p) => !p)}
+            width={adrSidebarWidth}
+            onWidthChange={setAdrSidebarWidth}
+            availableCardTypes={availableCardTypes}
+          />
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <AdrGrid
+              adrs={filteredAdrs}
+              metamodelTypes={metamodelTypes}
+              loading={loading}
+              quickFilterText={adrSearch}
+              onEdit={(adr) => navigate(`/ea-delivery/adr/${adr.id}`)}
+              onPreview={(adr) => navigate(`/ea-delivery/adr/${adr.id}/preview`)}
+              onDuplicate={(adr) => handleDuplicateAdr(adr.id)}
+              onDelete={(adr) => handleDeleteAdr(adr.id)}
+            />
           </Box>
-        )}
-
-        {/* No match */}
-        {adrs.length > 0 && filteredAdrs.length === 0 && (
-          <Alert severity="info" sx={{ mb: 2 }}>
-            {t("adr.noMatch")}
-          </Alert>
-        )}
-
-        {/* ADR cards */}
-        <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
-          {filteredAdrs.map((adr) => (
-            <MuiCard key={adr.id} variant="outlined">
-              <CardActionArea
-                onClick={() => navigate(`/ea-delivery/adr/${adr.id}`)}
-                sx={{ p: 1.5, display: "flex", justifyContent: "flex-start" }}
-              >
-                <MaterialSymbol icon="gavel" size={20} color="#1976d2" />
-                <Chip
-                  label={adr.reference_number}
-                  size="small"
-                  variant="outlined"
-                  sx={{ ml: 1, fontFamily: "monospace", fontSize: "0.75rem" }}
-                />
-                <Typography sx={{ ml: 1, fontSize: "0.9rem", flex: 1 }}>
-                  {adr.title}
-                  {adr.revision_number > 1 && (
-                    <Typography
-                      component="span"
-                      sx={{ ml: 0.5, fontSize: "0.8rem", color: "text.secondary" }}
-                    >
-                      {t("adr.editor.revisionLabel", { number: adr.revision_number })}
-                    </Typography>
-                  )}
-                </Typography>
-                <Chip
-                  label={SOAW_STATUS_LABELS[adr.status] ?? adr.status}
-                  size="small"
-                  color={SOAW_STATUS_COLORS[adr.status] ?? "default"}
-                  sx={{ mr: 0.5 }}
-                />
-                {(adr.linked_cards ?? []).slice(0, 3).map((lc) => (
-                  <Chip
-                    key={lc.id}
-                    label={lc.name}
-                    size="small"
-                    variant="outlined"
-                    sx={{ mr: 0.5, fontSize: "0.75rem", maxWidth: 150 }}
-                  />
-                ))}
-                {(adr.linked_cards ?? []).length > 3 && (
-                  <Chip
-                    label={`+${(adr.linked_cards ?? []).length - 3}`}
-                    size="small"
-                    variant="outlined"
-                    sx={{ mr: 0.5, fontSize: "0.75rem" }}
-                  />
-                )}
-                <Tooltip title={t("adr.preview")}>
-                  <IconButton
-                    size="small"
-                    sx={{ ml: 0.5 }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      e.preventDefault();
-                      navigate(`/ea-delivery/adr/${adr.id}/preview`);
-                    }}
-                  >
-                    <MaterialSymbol icon="visibility" size={18} />
-                  </IconButton>
-                </Tooltip>
-                <IconButton
-                  size="small"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    e.preventDefault();
-                    setAdrCtxMenu({ anchor: e.currentTarget, adr });
-                  }}
-                >
-                  <MaterialSymbol icon="more_vert" size={18} />
-                </IconButton>
-              </CardActionArea>
-            </MuiCard>
-          ))}
         </Box>
-      </>
+      </Box>
     );
   };
 
@@ -1687,53 +1605,6 @@ export default function EADeliveryPage() {
           </Button>
         </DialogActions>
       </Dialog>
-
-      {/* ADR context menu */}
-      <Menu
-        anchorEl={adrCtxMenu?.anchor}
-        open={!!adrCtxMenu}
-        onClose={() => setAdrCtxMenu(null)}
-      >
-        <MenuItem
-          onClick={() => {
-            if (adrCtxMenu) navigate(`/ea-delivery/adr/${adrCtxMenu.adr.id}/preview`);
-            setAdrCtxMenu(null);
-          }}
-        >
-          <ListItemIcon>
-            <MaterialSymbol icon="visibility" size={18} />
-          </ListItemIcon>
-          <ListItemText>{t("adr.preview")}</ListItemText>
-        </MenuItem>
-        <MenuItem
-          onClick={() => {
-            if (adrCtxMenu) navigate(`/ea-delivery/adr/${adrCtxMenu.adr.id}`);
-            setAdrCtxMenu(null);
-          }}
-        >
-          <ListItemIcon>
-            <MaterialSymbol icon="edit" size={18} />
-          </ListItemIcon>
-          <ListItemText>{t("adr.edit")}</ListItemText>
-        </MenuItem>
-        <MenuItem
-          onClick={() => adrCtxMenu && handleDuplicateAdr(adrCtxMenu.adr.id)}
-        >
-          <ListItemIcon>
-            <MaterialSymbol icon="content_copy" size={18} />
-          </ListItemIcon>
-          <ListItemText>{t("adr.duplicate")}</ListItemText>
-        </MenuItem>
-        <MenuItem
-          onClick={() => adrCtxMenu && handleDeleteAdr(adrCtxMenu.adr.id)}
-          sx={{ color: "error.main" }}
-        >
-          <ListItemIcon>
-            <MaterialSymbol icon="delete" size={18} color="#d32f2f" />
-          </ListItemIcon>
-          <ListItemText>{t("adr.delete")}</ListItemText>
-        </MenuItem>
-      </Menu>
 
       {/* Create ADR dialog */}
       <CreateAdrDialog
