@@ -6,7 +6,6 @@ import Typography from "@mui/material/Typography";
 import Button from "@mui/material/Button";
 import MuiCard from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
-import Checkbox from "@mui/material/Checkbox";
 import CircularProgress from "@mui/material/CircularProgress";
 import Dialog from "@mui/material/Dialog";
 import DialogTitle from "@mui/material/DialogTitle";
@@ -16,9 +15,6 @@ import TextField from "@mui/material/TextField";
 import MenuItem from "@mui/material/MenuItem";
 import Alert from "@mui/material/Alert";
 import Menu from "@mui/material/Menu";
-import List from "@mui/material/List";
-import ListItem from "@mui/material/ListItem";
-import ListItemButton from "@mui/material/ListItemButton";
 import ListItemIcon from "@mui/material/ListItemIcon";
 import ListItemText from "@mui/material/ListItemText";
 import Tab from "@mui/material/Tab";
@@ -27,6 +23,7 @@ import MaterialSymbol from "@/components/MaterialSymbol";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useResolveMetaLabel } from "@/hooks/useResolveLabel";
 import { api } from "@/api/client";
+import LinkDiagramsDialog from "./LinkDiagramsDialog";
 import CreateAdrDialog from "./CreateAdrDialog";
 import AdrGrid from "./AdrGrid";
 import AdrFilterSidebar, { type AdrFilters, EMPTY_ADR_FILTERS } from "./AdrFilterSidebar";
@@ -812,85 +809,17 @@ export default function EADeliveryPage() {
       </Menu>
 
       {/* Link diagrams dialog */}
-      <Dialog
+      <LinkDiagramsDialog
         open={linkOpen}
         onClose={() => setLinkOpen(false)}
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogTitle>{t("linkDialog.title")}</DialogTitle>
-        <DialogContent>
-          <Typography
-            variant="body2"
-            color="text.secondary"
-            sx={{ mb: 2 }}
-            dangerouslySetInnerHTML={{
-              __html: t("linkDialog.description", {
-                name:
-                  dataRef.current?.initiatives.find((i) => i.id === linkInitiativeId)
-                    ?.name ?? "",
-                interpolation: { escapeValue: true },
-              }),
-            }}
-          />
-
-          {(dataRef.current?.diagrams ?? []).length === 0 ? (
-            <Typography
-              variant="body2"
-              color="text.secondary"
-              sx={{ py: 2, textAlign: "center" }}
-            >
-              {t("linkDialog.noDiagrams")}
-            </Typography>
-          ) : (
-            <List dense sx={{ maxHeight: 400, overflow: "auto" }}>
-              {(dataRef.current?.diagrams ?? []).map((d) => {
-                const isChecked = linkSelected.includes(d.id);
-                return (
-                  <ListItem key={d.id} disablePadding>
-                    <ListItemButton onClick={() => toggleLinkDiagram(d.id)} dense>
-                      <ListItemIcon sx={{ minWidth: 36 }}>
-                        <Checkbox
-                          edge="start"
-                          checked={isChecked}
-                          tabIndex={-1}
-                          disableRipple
-                          size="small"
-                        />
-                      </ListItemIcon>
-                      <ListItemIcon sx={{ minWidth: 32 }}>
-                        <MaterialSymbol icon="schema" size={18} color="#1976d2" />
-                      </ListItemIcon>
-                      <ListItemText
-                        primary={d.name}
-                        secondary={
-                          d.card_ids.length > 0
-                            ? t("linkDialog.linkedToCardCount", {
-                                count: d.card_ids.length,
-                              })
-                            : t("linkDialog.notLinked")
-                        }
-                      />
-                    </ListItemButton>
-                  </ListItem>
-                );
-              })}
-            </List>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setLinkOpen(false)}>
-            {t("common:actions.cancel")}
-          </Button>
-          <Button
-            variant="contained"
-            disabled={linking}
-            onClick={handleLinkDiagrams}
-          >
-            {linking ? t("linkDialog.saving") : t("linkDialog.saveLinks")}
-          </Button>
-        </DialogActions>
-      </Dialog>
+        diagrams={dataRef.current?.diagrams ?? []}
+        initiatives={dataRef.current?.initiatives ?? []}
+        linkInitiativeId={linkInitiativeId}
+        linkSelected={linkSelected}
+        linking={linking}
+        onToggle={toggleLinkDiagram}
+        onSave={handleLinkDiagrams}
+      />
     </Box>
   );
 }

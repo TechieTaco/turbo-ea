@@ -63,6 +63,8 @@ export default function InitiativesTab({
     setStatusFilter,
     subtypeFilter,
     setSubtypeFilter,
+    artefactFilter,
+    setArtefactFilter,
     unlinkedSoaws,
     unlinkedDiagrams,
     unlinkedAdrs,
@@ -152,6 +154,20 @@ export default function InitiativesTab({
               {rl(st.key, st.translations)}
             </MenuItem>
           ))}
+        </TextField>
+        <TextField
+          select
+          size="small"
+          label={t("filter.artefacts")}
+          value={artefactFilter}
+          onChange={(e) =>
+            setArtefactFilter(e.target.value as "" | "with" | "without")
+          }
+          sx={{ minWidth: 150 }}
+        >
+          <MenuItem value="">{t("filter.all")}</MenuItem>
+          <MenuItem value="with">{t("filter.withArtefacts")}</MenuItem>
+          <MenuItem value="without">{t("filter.withoutArtefacts")}</MenuItem>
         </TextField>
 
         <Box sx={{ flex: 1 }} />

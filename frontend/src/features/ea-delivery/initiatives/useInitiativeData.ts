@@ -20,6 +20,7 @@ export interface InitiativeTreeNode {
 }
 
 type StatusFilter = "ACTIVE" | "ARCHIVED" | "";
+type ArtefactFilter = "" | "with" | "without";
 
 interface UseInitiativeDataResult {
   tree: InitiativeTreeNode[];
@@ -39,6 +40,8 @@ interface UseInitiativeDataResult {
   setStatusFilter: (s: StatusFilter) => void;
   subtypeFilter: string;
   setSubtypeFilter: (s: string) => void;
+  artefactFilter: ArtefactFilter;
+  setArtefactFilter: (f: ArtefactFilter) => void;
   unlinkedSoaws: SoAW[];
   unlinkedDiagrams: DiagramSummary[];
   unlinkedAdrs: ArchitectureDecision[];
@@ -111,6 +114,7 @@ export function useInitiativeData(): UseInitiativeDataResult {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("ACTIVE");
   const [subtypeFilter, setSubtypeFilter] = useState("");
+  const [artefactFilter, setArtefactFilter] = useState<ArtefactFilter>("");
 
   const fetchAll = useCallback(async () => {
     setLoading(true);
@@ -152,8 +156,19 @@ export function useInitiativeData(): UseInitiativeDataResult {
     if (subtypeFilter) {
       list = list.filter((i) => i.subtype === subtypeFilter);
     }
+    if (artefactFilter) {
+      list = list.filter((init) => {
+        const hasSoaw = soaws.some((s) => s.initiative_id === init.id);
+        const hasDiagram = diagrams.some((d) => d.card_ids.includes(init.id));
+        const hasAdr = adrs.some((a) =>
+          (a.linked_cards ?? []).some((c) => c.id === init.id),
+        );
+        const hasAny = hasSoaw || hasDiagram || hasAdr;
+        return artefactFilter === "with" ? hasAny : !hasAny;
+      });
+    }
     return list;
-  }, [initiatives, search, subtypeFilter]);
+  }, [initiatives, search, subtypeFilter, artefactFilter, soaws, diagrams, adrs]);
 
   const tree = useMemo(
     () => buildTree(filteredInitiatives, diagrams, soaws, adrs),
@@ -202,6 +217,8 @@ export function useInitiativeData(): UseInitiativeDataResult {
     setStatusFilter,
     subtypeFilter,
     setSubtypeFilter,
+    artefactFilter,
+    setArtefactFilter,
     unlinkedSoaws,
     unlinkedDiagrams,
     unlinkedAdrs,
