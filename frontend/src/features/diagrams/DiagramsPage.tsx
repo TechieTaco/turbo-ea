@@ -55,14 +55,14 @@ export default function DiagramsPage() {
   const [createName, setCreateName] = useState("");
   const [createDesc, setCreateDesc] = useState("");
   const [createType, setCreateType] = useState("free_draw");
-  const [createCardIds, setCreateInitiativeIds] = useState<string[]>([]);
+  const [createCardIds, setCreateCardIds] = useState<string[]>([]);
 
   // Edit dialog (rename + description + initiatives)
   const [editOpen, setEditOpen] = useState(false);
   const [editDiagram, setEditDiagram] = useState<DiagramSummary | null>(null);
   const [editName, setEditName] = useState("");
   const [editDesc, setEditDesc] = useState("");
-  const [editCardIds, setEditInitiativeIds] = useState<string[]>([]);
+  const [editCardIds, setEditCardIds] = useState<string[]>([]);
 
   // Delete confirmation
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -103,7 +103,7 @@ export default function DiagramsPage() {
     setCreateName("");
     setCreateDesc("");
     setCreateType("free_draw");
-    setCreateInitiativeIds([]);
+    setCreateCardIds([]);
     navigate(`/diagrams/${d.id}`);
   };
 
@@ -111,7 +111,7 @@ export default function DiagramsPage() {
     setEditDiagram(d);
     setEditName(d.name);
     setEditDesc(d.description || "");
-    setEditInitiativeIds(d.card_ids || []);
+    setEditCardIds(d.card_ids || []);
     setEditOpen(true);
     setMenuAnchor(null);
   };
@@ -529,7 +529,7 @@ export default function DiagramsPage() {
             options={initiatives}
             getOptionLabel={(opt) => opt.name}
             value={initiatives.filter((i) => createCardIds.includes(i.id))}
-            onChange={(_, newVal) => setCreateInitiativeIds(newVal.map((v) => v.id))}
+            onChange={(_, newVal) => setCreateCardIds(newVal.map((v) => v.id))}
             disableCloseOnSelect
             renderOption={(props, option, { selected }) => (
               <li {...props} key={option.id}>
@@ -592,7 +592,7 @@ export default function DiagramsPage() {
             options={initiatives}
             getOptionLabel={(opt) => opt.name}
             value={initiatives.filter((i) => editCardIds.includes(i.id))}
-            onChange={(_, newVal) => setEditInitiativeIds(newVal.map((v) => v.id))}
+            onChange={(_, newVal) => setEditCardIds(newVal.map((v) => v.id))}
             disableCloseOnSelect
             renderOption={(props, option, { selected }) => (
               <li {...props} key={option.id}>
