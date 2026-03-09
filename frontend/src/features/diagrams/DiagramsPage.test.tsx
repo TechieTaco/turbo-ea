@@ -13,6 +13,16 @@ vi.mock("react-router-dom", async () => {
 vi.mock("@/api/client", () => ({
   api: { get: vi.fn(), post: vi.fn(), patch: vi.fn(), delete: vi.fn() },
 }));
+vi.mock("@/hooks/useMetamodel", () => ({
+  useMetamodel: () => ({
+    types: [
+      { key: "Initiative", label: "Initiative", icon: "rocket_launch", color: "#33cc58" },
+      { key: "Application", label: "Application", icon: "apps", color: "#0f7eb5" },
+    ],
+    relationTypes: [],
+    loading: false,
+  }),
+}));
 
 import { api } from "@/api/client";
 import DiagramsPage from "./DiagramsPage";
@@ -38,8 +48,11 @@ const diagrams = [
   },
 ];
 
-const initiatives = {
-  items: [{ id: "i1", name: "Digital Transformation" }],
+const cards = {
+  items: [
+    { id: "i1", name: "Digital Transformation", type: "Initiative" },
+    { id: "a1", name: "NexaCore ERP", type: "Application" },
+  ],
 };
 
 function renderPage() {
@@ -54,7 +67,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(api.get).mockImplementation((url: string) => {
     if (url === "/diagrams") return Promise.resolve(diagrams);
-    if (url.startsWith("/cards?type=Initiative")) return Promise.resolve(initiatives);
+    if (url.startsWith("/cards?page_size=")) return Promise.resolve(cards);
     return Promise.reject(new Error("no mock"));
   });
 });
@@ -103,10 +116,10 @@ describe("DiagramsPage", () => {
     });
   });
 
-  it("shows initiative count chip", async () => {
+  it("shows linked card count chip", async () => {
     renderPage();
     await waitFor(() => {
-      expect(screen.getByText("1 initiative")).toBeInTheDocument();
+      expect(screen.getByText("1 linked card")).toBeInTheDocument();
     });
   });
 
