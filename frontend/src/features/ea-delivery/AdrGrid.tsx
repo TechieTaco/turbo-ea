@@ -18,10 +18,11 @@ import type { ArchitectureDecision, CardType } from "@/types";
 import "ag-grid-community/styles/ag-grid.css";
 import "ag-grid-community/styles/ag-theme-quartz.css";
 
-/** Strip HTML tags for plain-text display */
+/** Extract plain text from HTML using the browser's DOM parser */
 function stripHtml(html: string | null | undefined): string {
   if (!html) return "";
-  return html.replace(/<[^>]*>/g, "").trim();
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  return (doc.body.textContent ?? "").trim();
 }
 
 interface Props {
