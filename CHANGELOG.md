@@ -5,6 +5,18 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.32.0] - 2026-03-10
+
+### Added
+- Project Portfolio Management (PPM) module with enable/disable toggle in admin settings
+- Portfolio dashboard with KPI cards, health pie charts, and status distribution
+- Gantt chart with quarterly ticks, timeline bars, RAG health indicators, and budget progress
+- Per-initiative detail view with overview, monthly status reports, and task management tabs
+- Status reports with RAG health tracking (schedule/cost/scope), cost line items (CapEx/OpEx), and risk register
+- AG Grid-based task manager with filter sidebar, inline editing, and assignee management
+- New permissions: `ppm.view`, `ppm.manage`, `reports.ppm_dashboard`
+- Database tables: `ppm_status_reports`, `ppm_tasks`
+
 ## [0.31.0] - 2026-03-10
 
 ### Added
