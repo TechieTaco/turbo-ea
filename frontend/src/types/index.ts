@@ -995,3 +995,89 @@ export interface PortfolioInsightsResponse {
   insights: (string | StructuredInsight)[];
   model?: string;
 }
+
+// ── PPM ─────────────────────────────────────────────────────────
+
+export interface PpmCostLine {
+  description: string;
+  category: "capex" | "opex";
+  planned: number;
+  actual: number;
+}
+
+export interface PpmStatusReport {
+  id: string;
+  initiative_id: string;
+  reporter_id: string;
+  reporter: { id: string; display_name: string } | null;
+  report_date: string;
+  schedule_health: string;
+  cost_health: string;
+  scope_health: string;
+  percent_complete: number;
+  cost_lines: PpmCostLine[];
+  summary: string | null;
+  risks: { description: string; severity: string }[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PpmGanttStakeholder {
+  user_id: string;
+  display_name: string;
+  role_key: string;
+}
+
+export interface PpmGanttItem {
+  id: string;
+  name: string;
+  subtype: string | null;
+  status: string | null;
+  parent_id: string | null;
+  start_date: string | null;
+  end_date: string | null;
+  cost_budget: number | null;
+  cost_actual: number | null;
+  latest_report: PpmStatusReport | null;
+  stakeholders: PpmGanttStakeholder[];
+}
+
+export type PpmHealthValue = "onTrack" | "atRisk" | "offTrack";
+
+export interface PpmHealthCounts {
+  onTrack: number;
+  atRisk: number;
+  offTrack: number;
+  noReport: number;
+}
+
+export type PpmTaskStatus = "todo" | "in_progress" | "done" | "blocked";
+export type PpmTaskPriority = "critical" | "high" | "medium" | "low";
+
+export interface PpmTask {
+  id: string;
+  initiative_id: string;
+  title: string;
+  description: string | null;
+  status: PpmTaskStatus;
+  priority: PpmTaskPriority;
+  assignee_id: string | null;
+  assignee_name: string | null;
+  due_date: string | null;
+  start_date: string | null;
+  sort_order: number;
+  tags: string[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PpmDashboardData {
+  total_initiatives: number;
+  by_subtype: Record<string, number>;
+  by_status: Record<string, number>;
+  total_budget: number;
+  total_actual: number;
+  health_schedule: PpmHealthCounts;
+  health_cost: PpmHealthCounts;
+  health_scope: PpmHealthCounts;
+}

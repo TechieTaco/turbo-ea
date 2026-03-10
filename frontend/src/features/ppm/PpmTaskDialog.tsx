@@ -1,0 +1,179 @@
+import { useState, useEffect } from "react";
+import Dialog from "@mui/material/Dialog";
+import DialogTitle from "@mui/material/DialogTitle";
+import DialogContent from "@mui/material/DialogContent";
+import DialogActions from "@mui/material/DialogActions";
+import Button from "@mui/material/Button";
+import TextField from "@mui/material/TextField";
+import FormControl from "@mui/material/FormControl";
+import InputLabel from "@mui/material/InputLabel";
+import Select from "@mui/material/Select";
+import MenuItem from "@mui/material/MenuItem";
+import Box from "@mui/material/Box";
+import CircularProgress from "@mui/material/CircularProgress";
+import { useTranslation } from "react-i18next";
+import { api } from "@/api/client";
+import type { PpmTask, PpmTaskStatus, PpmTaskPriority } from "@/types";
+
+interface UserOption {
+  id: string;
+  display_name: string;
+}
+
+interface Props {
+  initiativeId: string;
+  task?: PpmTask;
+  onClose: () => void;
+  onSaved: () => void;
+}
+
+export default function PpmTaskDialog({ initiativeId, task, onClose, onSaved }: Props) {
+  const { t } = useTranslation("ppm");
+  const isEdit = !!task;
+
+  const [title, setTitle] = useState(task?.title || "");
+  const [description, setDescription] = useState(task?.description || "");
+  const [status, setStatus] = useState<PpmTaskStatus>(task?.status || "todo");
+  const [priority, setPriority] = useState<PpmTaskPriority>(task?.priority || "medium");
+  const [assigneeId, setAssigneeId] = useState(task?.assignee_id || "");
+  const [startDate, setStartDate] = useState(task?.start_date || "");
+  const [dueDate, setDueDate] = useState(task?.due_date || "");
+  const [saving, setSaving] = useState(false);
+  const [users, setUsers] = useState<UserOption[]>([]);
+
+  useEffect(() => {
+    api
+      .get<{ items: UserOption[] }>("/users?page_size=200")
+      .then((res) => setUsers(res.items || []))
+      .catch(() => {});
+  }, []);
+
+  const handleSave = async () => {
+    if (!title.trim()) return;
+    setSaving(true);
+    try {
+      const payload = {
+        title: title.trim(),
+        description: description.trim() || null,
+        status,
+        priority,
+        assignee_id: assigneeId || null,
+        start_date: startDate || null,
+        due_date: dueDate || null,
+      };
+      if (isEdit) {
+        await api.patch(`/ppm/tasks/${task.id}`, payload);
+      } else {
+        await api.post(`/ppm/initiatives/${initiativeId}/tasks`, payload);
+      }
+      onSaved();
+    } catch {
+      // ignore
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Dialog open onClose={onClose} maxWidth="sm" fullWidth disableRestoreFocus>
+      <DialogTitle>{isEdit ? t("editTask") : t("createTask")}</DialogTitle>
+      <DialogContent>
+        <Box display="flex" flexDirection="column" gap={2} mt={1}>
+          <TextField
+            label={t("taskTitle")}
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            fullWidth
+            required
+            autoFocus
+          />
+          <TextField
+            label={t("taskDescription")}
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            fullWidth
+            multiline
+            rows={3}
+          />
+
+          <Box display="flex" gap={2}>
+            <FormControl fullWidth size="small">
+              <InputLabel>{t("taskStatus")}</InputLabel>
+              <Select
+                value={status}
+                label={t("taskStatus")}
+                onChange={(e) => setStatus(e.target.value as PpmTaskStatus)}
+              >
+                <MenuItem value="todo">{t("statusTodo")}</MenuItem>
+                <MenuItem value="in_progress">{t("statusInProgress")}</MenuItem>
+                <MenuItem value="done">{t("statusDone")}</MenuItem>
+                <MenuItem value="blocked">{t("statusBlocked")}</MenuItem>
+              </Select>
+            </FormControl>
+            <FormControl fullWidth size="small">
+              <InputLabel>{t("taskPriority")}</InputLabel>
+              <Select
+                value={priority}
+                label={t("taskPriority")}
+                onChange={(e) => setPriority(e.target.value as PpmTaskPriority)}
+              >
+                <MenuItem value="critical">{t("priorityCritical")}</MenuItem>
+                <MenuItem value="high">{t("priorityHigh")}</MenuItem>
+                <MenuItem value="medium">{t("priorityMedium")}</MenuItem>
+                <MenuItem value="low">{t("priorityLow")}</MenuItem>
+              </Select>
+            </FormControl>
+          </Box>
+
+          <FormControl fullWidth size="small">
+            <InputLabel>{t("taskAssignee")}</InputLabel>
+            <Select
+              value={assigneeId}
+              label={t("taskAssignee")}
+              onChange={(e) => setAssigneeId(e.target.value)}
+            >
+              <MenuItem value="">&mdash;</MenuItem>
+              {users.map((u) => (
+                <MenuItem key={u.id} value={u.id}>
+                  {u.display_name}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+
+          <Box display="flex" gap={2}>
+            <TextField
+              label={t("taskStartDate")}
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              fullWidth
+              size="small"
+              slotProps={{ inputLabel: { shrink: true } }}
+            />
+            <TextField
+              label={t("taskDueDate")}
+              type="date"
+              value={dueDate}
+              onChange={(e) => setDueDate(e.target.value)}
+              fullWidth
+              size="small"
+              slotProps={{ inputLabel: { shrink: true } }}
+            />
+          </Box>
+        </Box>
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onClose}>{t("common:actions.cancel", "Cancel")}</Button>
+        <Button
+          variant="contained"
+          onClick={handleSave}
+          disabled={saving || !title.trim()}
+          startIcon={saving ? <CircularProgress size={16} /> : undefined}
+        >
+          {isEdit ? t("common:actions.save", "Save") : t("createTask")}
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+}
