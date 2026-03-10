@@ -998,13 +998,6 @@ export interface PortfolioInsightsResponse {
 
 // ── PPM ─────────────────────────────────────────────────────────
 
-export interface PpmCostLine {
-  description: string;
-  category: "capex" | "opex";
-  planned: number;
-  actual: number;
-}
-
 export interface PpmStatusReport {
   id: string;
   initiative_id: string;
@@ -1014,10 +1007,36 @@ export interface PpmStatusReport {
   schedule_health: string;
   cost_health: string;
   scope_health: string;
-  percent_complete: number;
-  cost_lines: PpmCostLine[];
   summary: string | null;
-  risks: { description: string; severity: string }[];
+  accomplishments: string | null;
+  next_steps: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PpmCostLine {
+  id: string;
+  initiative_id: string;
+  description: string;
+  category: "capex" | "opex";
+  planned: number;
+  actual: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PpmRisk {
+  id: string;
+  initiative_id: string;
+  title: string;
+  description: string | null;
+  probability: number;
+  impact: number;
+  risk_score: number;
+  mitigation: string | null;
+  owner_id: string | null;
+  owner_name: string | null;
+  status: "open" | "mitigating" | "mitigated" | "closed" | "accepted";
   created_at: string;
   updated_at: string;
 }
@@ -1038,7 +1057,10 @@ export interface PpmGanttItem {
   end_date: string | null;
   cost_budget: number | null;
   cost_actual: number | null;
+  group_id: string | null;
+  group_name: string | null;
   latest_report: PpmStatusReport | null;
+  latest_report_id: string | null;
   stakeholders: PpmGanttStakeholder[];
 }
 
@@ -1064,11 +1086,15 @@ export interface PpmTask {
   assignee_id: string | null;
   assignee_name: string | null;
   due_date: string | null;
-  start_date: string | null;
   sort_order: number;
   tags: string[];
   created_at: string;
   updated_at: string;
+}
+
+export interface PpmGroupOption {
+  type_key: string;
+  type_label: string;
 }
 
 export interface PpmDashboardData {

@@ -13,6 +13,8 @@ from app.models.ea_principle import EAPrinciple
 from app.models.event import Event
 from app.models.file_attachment import FileAttachment
 from app.models.notification import Notification
+from app.models.ppm_cost_line import PpmCostLine
+from app.models.ppm_risk import PpmRisk
 from app.models.ppm_status_report import PpmStatusReport
 from app.models.ppm_task import PpmTask
 from app.models.process_assessment import ProcessAssessment
@@ -68,6 +70,8 @@ __all__ = [
     "Diagram",
     "SoAW",
     "Notification",
+    "PpmCostLine",
+    "PpmRisk",
     "PpmStatusReport",
     "PpmTask",
     "AppSettings",
