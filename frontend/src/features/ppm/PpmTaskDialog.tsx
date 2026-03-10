@@ -36,7 +36,6 @@ export default function PpmTaskDialog({ initiativeId, task, onClose, onSaved }: 
   const [status, setStatus] = useState<PpmTaskStatus>(task?.status || "todo");
   const [priority, setPriority] = useState<PpmTaskPriority>(task?.priority || "medium");
   const [assigneeId, setAssigneeId] = useState(task?.assignee_id || "");
-  const [startDate, setStartDate] = useState(task?.start_date || "");
   const [dueDate, setDueDate] = useState(task?.due_date || "");
   const [saving, setSaving] = useState(false);
   const [users, setUsers] = useState<UserOption[]>([]);
@@ -58,7 +57,6 @@ export default function PpmTaskDialog({ initiativeId, task, onClose, onSaved }: 
         status,
         priority,
         assignee_id: assigneeId || null,
-        start_date: startDate || null,
         due_date: dueDate || null,
       };
       if (isEdit) {
@@ -141,26 +139,15 @@ export default function PpmTaskDialog({ initiativeId, task, onClose, onSaved }: 
             </Select>
           </FormControl>
 
-          <Box display="flex" gap={2}>
-            <TextField
-              label={t("taskStartDate")}
-              type="date"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              fullWidth
-              size="small"
-              slotProps={{ inputLabel: { shrink: true } }}
-            />
-            <TextField
-              label={t("taskDueDate")}
-              type="date"
-              value={dueDate}
-              onChange={(e) => setDueDate(e.target.value)}
-              fullWidth
-              size="small"
-              slotProps={{ inputLabel: { shrink: true } }}
-            />
-          </Box>
+          <TextField
+            label={t("taskDueDate")}
+            type="date"
+            value={dueDate}
+            onChange={(e) => setDueDate(e.target.value)}
+            fullWidth
+            size="small"
+            slotProps={{ inputLabel: { shrink: true } }}
+          />
         </Box>
       </DialogContent>
       <DialogActions>

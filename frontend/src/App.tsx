@@ -43,7 +43,8 @@ const SurveyRespond = lazy(() => import("@/features/surveys/SurveyRespond"));
 const PortalViewer = lazy(() => import("@/features/web-portals/PortalViewer"));
 const BpmDashboard = lazy(() => import("@/features/bpm/BpmDashboard"));
 const ProcessFlowEditorPage = lazy(() => import("@/features/bpm/ProcessFlowEditorPage"));
-const PpmDashboard = lazy(() => import("@/features/ppm/PpmDashboard"));
+const PpmPortfolio = lazy(() => import("@/features/ppm/PpmPortfolio"));
+const PpmProjectDetail = lazy(() => import("@/features/ppm/PpmProjectDetail"));
 
 function buildTheme(mode: "light" | "dark") {
   return createTheme({
@@ -127,7 +128,8 @@ function AppRoutes() {
                 <Route path="/reports/saved" element={<SavedReportsPage />} />
                 <Route path="/bpm" element={<BpmDashboard />} />
                 <Route path="/bpm/processes/:id/flow" element={<ProcessFlowEditorPage />} />
-                <Route path="/ppm" element={<PpmDashboard />} />
+                <Route path="/ppm" element={<PpmPortfolio />} />
+                <Route path="/ppm/:id" element={<PpmProjectDetail />} />
                 <Route path="/diagrams" element={<DiagramsPage />} />
                 <Route path="/diagrams/:id" element={<DiagramEditor />} />
                 <Route path="/ea-delivery" element={<EADeliveryPage />} />

@@ -3,8 +3,8 @@ from __future__ import annotations
 import uuid
 from datetime import date
 
-from sqlalchemy import Date, ForeignKey, Integer, Text
-from sqlalchemy.dialects.postgresql import JSONB, UUID
+from sqlalchemy import Date, ForeignKey, Text
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base, TimestampMixin, UUIDMixin
@@ -26,7 +26,6 @@ class PpmStatusReport(Base, UUIDMixin, TimestampMixin):
     schedule_health: Mapped[str] = mapped_column(Text, nullable=False, default="onTrack")
     cost_health: Mapped[str] = mapped_column(Text, nullable=False, default="onTrack")
     scope_health: Mapped[str] = mapped_column(Text, nullable=False, default="onTrack")
-    percent_complete: Mapped[int] = mapped_column(Integer, default=0)
-    cost_lines: Mapped[list | None] = mapped_column(JSONB, default=list)
     summary: Mapped[str | None] = mapped_column(Text)
-    risks: Mapped[list | None] = mapped_column(JSONB, default=list)
+    accomplishments: Mapped[str | None] = mapped_column(Text)
+    next_steps: Mapped[str | None] = mapped_column(Text)

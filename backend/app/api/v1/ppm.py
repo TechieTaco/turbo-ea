@@ -1,4 +1,4 @@
-"""PPM — Per-initiative status reports and task management."""
+"""PPM — Per-initiative status reports, tasks, cost lines, and risks."""
 
 from __future__ import annotations
 
@@ -10,10 +10,18 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, get_db
 from app.models.card import Card
+from app.models.ppm_cost_line import PpmCostLine
+from app.models.ppm_risk import PpmRisk
 from app.models.ppm_status_report import PpmStatusReport
 from app.models.ppm_task import PpmTask
 from app.models.user import User
 from app.schemas.ppm import (
+    PpmCostLineCreate,
+    PpmCostLineOut,
+    PpmCostLineUpdate,
+    PpmRiskCreate,
+    PpmRiskOut,
+    PpmRiskUpdate,
     PpmStatusReportCreate,
     PpmStatusReportOut,
     PpmStatusReportUpdate,
@@ -37,6 +45,32 @@ async def _get_initiative_or_404(db: AsyncSession, initiative_id: str) -> Card:
     return card
 
 
+def _report_to_out(report: PpmStatusReport, reporter: ReporterOut | None) -> PpmStatusReportOut:
+    return PpmStatusReportOut(
+        id=str(report.id),
+        initiative_id=str(report.initiative_id),
+        reporter_id=str(report.reporter_id),
+        reporter=reporter,
+        report_date=report.report_date,
+        schedule_health=report.schedule_health,
+        cost_health=report.cost_health,
+        scope_health=report.scope_health,
+        summary=report.summary,
+        accomplishments=report.accomplishments,
+        next_steps=report.next_steps,
+        created_at=report.created_at,
+        updated_at=report.updated_at,
+    )
+
+
+async def _get_reporter(db: AsyncSession, reporter_id: uuid.UUID) -> ReporterOut | None:
+    u_result = await db.execute(select(User).where(User.id == reporter_id))
+    u = u_result.scalar_one_or_none()
+    if u:
+        return ReporterOut(id=str(u.id), display_name=u.display_name or u.email)
+    return None
+
+
 # ── Status Reports ──────────────────────────────────────────────────
 
 
@@ -56,29 +90,8 @@ async def list_reports(
     reports = result.scalars().all()
     out = []
     for r in reports:
-        reporter = None
-        u_result = await db.execute(select(User).where(User.id == r.reporter_id))
-        u = u_result.scalar_one_or_none()
-        if u:
-            reporter = ReporterOut(id=str(u.id), display_name=u.display_name or u.email)
-        out.append(
-            PpmStatusReportOut(
-                id=str(r.id),
-                initiative_id=str(r.initiative_id),
-                reporter_id=str(r.reporter_id),
-                reporter=reporter,
-                report_date=r.report_date,
-                schedule_health=r.schedule_health,
-                cost_health=r.cost_health,
-                scope_health=r.scope_health,
-                percent_complete=r.percent_complete,
-                cost_lines=r.cost_lines or [],
-                summary=r.summary,
-                risks=r.risks or [],
-                created_at=r.created_at,
-                updated_at=r.updated_at,
-            )
-        )
+        reporter = await _get_reporter(db, r.reporter_id)
+        out.append(_report_to_out(r, reporter))
     return out
 
 
@@ -99,30 +112,15 @@ async def create_report(
         schedule_health=body.schedule_health,
         cost_health=body.cost_health,
         scope_health=body.scope_health,
-        percent_complete=body.percent_complete,
-        cost_lines=[cl.model_dump() for cl in body.cost_lines],
         summary=body.summary,
-        risks=body.risks,
+        accomplishments=body.accomplishments,
+        next_steps=body.next_steps,
     )
     db.add(report)
     await db.commit()
     await db.refresh(report)
-    return PpmStatusReportOut(
-        id=str(report.id),
-        initiative_id=str(report.initiative_id),
-        reporter_id=str(report.reporter_id),
-        reporter=ReporterOut(id=str(user.id), display_name=user.display_name or user.email),
-        report_date=report.report_date,
-        schedule_health=report.schedule_health,
-        cost_health=report.cost_health,
-        scope_health=report.scope_health,
-        percent_complete=report.percent_complete,
-        cost_lines=report.cost_lines or [],
-        summary=report.summary,
-        risks=report.risks or [],
-        created_at=report.created_at,
-        updated_at=report.updated_at,
-    )
+    reporter = ReporterOut(id=str(user.id), display_name=user.display_name or user.email)
+    return _report_to_out(report, reporter)
 
 
 @router.patch("/reports/{report_id}", response_model=PpmStatusReportOut)
@@ -137,34 +135,12 @@ async def update_report(
     report = result.scalar_one_or_none()
     if not report:
         raise HTTPException(status_code=404, detail="Report not found")
-    data = body.model_dump(exclude_unset=True)
-    if "cost_lines" in data and data["cost_lines"] is not None:
-        data["cost_lines"] = [
-            cl.model_dump() if hasattr(cl, "model_dump") else cl for cl in data["cost_lines"]
-        ]
-    for key, val in data.items():
+    for key, val in body.model_dump(exclude_unset=True).items():
         setattr(report, key, val)
     await db.commit()
     await db.refresh(report)
-    u_result = await db.execute(select(User).where(User.id == report.reporter_id))
-    u = u_result.scalar_one_or_none()
-    reporter = ReporterOut(id=str(u.id), display_name=u.display_name or u.email) if u else None
-    return PpmStatusReportOut(
-        id=str(report.id),
-        initiative_id=str(report.initiative_id),
-        reporter_id=str(report.reporter_id),
-        reporter=reporter,
-        report_date=report.report_date,
-        schedule_health=report.schedule_health,
-        cost_health=report.cost_health,
-        scope_health=report.scope_health,
-        percent_complete=report.percent_complete,
-        cost_lines=report.cost_lines or [],
-        summary=report.summary,
-        risks=report.risks or [],
-        created_at=report.created_at,
-        updated_at=report.updated_at,
-    )
+    reporter = await _get_reporter(db, report.reporter_id)
+    return _report_to_out(report, reporter)
 
 
 @router.delete("/reports/{report_id}", status_code=204)
@@ -182,7 +158,245 @@ async def delete_report(
     await db.commit()
 
 
+# ── Cost Lines ─────────────────────────────────────────────────────
+
+
+@router.get("/initiatives/{initiative_id}/costs", response_model=list[PpmCostLineOut])
+async def list_cost_lines(
+    initiative_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    await PermissionService.require_permission(db, user, "ppm.view")
+    await _get_initiative_or_404(db, initiative_id)
+    result = await db.execute(
+        select(PpmCostLine)
+        .where(PpmCostLine.initiative_id == initiative_id)
+        .order_by(PpmCostLine.created_at)
+    )
+    return [
+        PpmCostLineOut(
+            id=str(cl.id),
+            initiative_id=str(cl.initiative_id),
+            description=cl.description,
+            category=cl.category,
+            planned=cl.planned,
+            actual=cl.actual,
+            created_at=cl.created_at,
+            updated_at=cl.updated_at,
+        )
+        for cl in result.scalars().all()
+    ]
+
+
+@router.post("/initiatives/{initiative_id}/costs", response_model=PpmCostLineOut)
+async def create_cost_line(
+    initiative_id: str,
+    body: PpmCostLineCreate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    await PermissionService.require_permission(db, user, "ppm.manage")
+    await _get_initiative_or_404(db, initiative_id)
+    cl = PpmCostLine(
+        id=uuid.uuid4(),
+        initiative_id=initiative_id,
+        description=body.description,
+        category=body.category,
+        planned=body.planned,
+        actual=body.actual,
+    )
+    db.add(cl)
+    await db.commit()
+    await db.refresh(cl)
+    return PpmCostLineOut(
+        id=str(cl.id),
+        initiative_id=str(cl.initiative_id),
+        description=cl.description,
+        category=cl.category,
+        planned=cl.planned,
+        actual=cl.actual,
+        created_at=cl.created_at,
+        updated_at=cl.updated_at,
+    )
+
+
+@router.patch("/costs/{cost_id}", response_model=PpmCostLineOut)
+async def update_cost_line(
+    cost_id: str,
+    body: PpmCostLineUpdate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    await PermissionService.require_permission(db, user, "ppm.manage")
+    result = await db.execute(select(PpmCostLine).where(PpmCostLine.id == cost_id))
+    cl = result.scalar_one_or_none()
+    if not cl:
+        raise HTTPException(status_code=404, detail="Cost line not found")
+    for key, val in body.model_dump(exclude_unset=True).items():
+        setattr(cl, key, val)
+    await db.commit()
+    await db.refresh(cl)
+    return PpmCostLineOut(
+        id=str(cl.id),
+        initiative_id=str(cl.initiative_id),
+        description=cl.description,
+        category=cl.category,
+        planned=cl.planned,
+        actual=cl.actual,
+        created_at=cl.created_at,
+        updated_at=cl.updated_at,
+    )
+
+
+@router.delete("/costs/{cost_id}", status_code=204)
+async def delete_cost_line(
+    cost_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    await PermissionService.require_permission(db, user, "ppm.manage")
+    result = await db.execute(select(PpmCostLine).where(PpmCostLine.id == cost_id))
+    cl = result.scalar_one_or_none()
+    if not cl:
+        raise HTTPException(status_code=404, detail="Cost line not found")
+    await db.delete(cl)
+    await db.commit()
+
+
+# ── Risks ──────────────────────────────────────────────────────────
+
+
+async def _risk_to_out(db: AsyncSession, risk: PpmRisk) -> PpmRiskOut:
+    owner_name = None
+    if risk.owner_id:
+        u_result = await db.execute(select(User).where(User.id == risk.owner_id))
+        u = u_result.scalar_one_or_none()
+        if u:
+            owner_name = u.display_name or u.email
+    return PpmRiskOut(
+        id=str(risk.id),
+        initiative_id=str(risk.initiative_id),
+        title=risk.title,
+        description=risk.description,
+        probability=risk.probability,
+        impact=risk.impact,
+        risk_score=risk.risk_score,
+        mitigation=risk.mitigation,
+        owner_id=str(risk.owner_id) if risk.owner_id else None,
+        owner_name=owner_name,
+        status=risk.status,
+        created_at=risk.created_at,
+        updated_at=risk.updated_at,
+    )
+
+
+@router.get("/initiatives/{initiative_id}/risks", response_model=list[PpmRiskOut])
+async def list_risks(
+    initiative_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    await PermissionService.require_permission(db, user, "ppm.view")
+    await _get_initiative_or_404(db, initiative_id)
+    result = await db.execute(
+        select(PpmRisk)
+        .where(PpmRisk.initiative_id == initiative_id)
+        .order_by(PpmRisk.risk_score.desc(), PpmRisk.created_at)
+    )
+    return [await _risk_to_out(db, r) for r in result.scalars().all()]
+
+
+@router.post("/initiatives/{initiative_id}/risks", response_model=PpmRiskOut)
+async def create_risk(
+    initiative_id: str,
+    body: PpmRiskCreate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    await PermissionService.require_permission(db, user, "ppm.manage")
+    await _get_initiative_or_404(db, initiative_id)
+    risk = PpmRisk(
+        id=uuid.uuid4(),
+        initiative_id=initiative_id,
+        title=body.title,
+        description=body.description,
+        probability=body.probability,
+        impact=body.impact,
+        risk_score=body.probability * body.impact,
+        mitigation=body.mitigation,
+        owner_id=body.owner_id,
+        status=body.status,
+    )
+    db.add(risk)
+    await db.commit()
+    await db.refresh(risk)
+    return await _risk_to_out(db, risk)
+
+
+@router.patch("/risks/{risk_id}", response_model=PpmRiskOut)
+async def update_risk(
+    risk_id: str,
+    body: PpmRiskUpdate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    await PermissionService.require_permission(db, user, "ppm.manage")
+    result = await db.execute(select(PpmRisk).where(PpmRisk.id == risk_id))
+    risk = result.scalar_one_or_none()
+    if not risk:
+        raise HTTPException(status_code=404, detail="Risk not found")
+    data = body.model_dump(exclude_unset=True)
+    for key, val in data.items():
+        setattr(risk, key, val)
+    # Recompute risk_score if probability or impact changed
+    if "probability" in data or "impact" in data:
+        risk.risk_score = risk.probability * risk.impact
+    await db.commit()
+    await db.refresh(risk)
+    return await _risk_to_out(db, risk)
+
+
+@router.delete("/risks/{risk_id}", status_code=204)
+async def delete_risk(
+    risk_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    await PermissionService.require_permission(db, user, "ppm.manage")
+    result = await db.execute(select(PpmRisk).where(PpmRisk.id == risk_id))
+    risk = result.scalar_one_or_none()
+    if not risk:
+        raise HTTPException(status_code=404, detail="Risk not found")
+    await db.delete(risk)
+    await db.commit()
+
+
 # ── Tasks ───────────────────────────────────────────────────────────
+
+
+async def _task_to_out(db: AsyncSession, task: PpmTask) -> PpmTaskOut:
+    assignee_name = None
+    if task.assignee_id:
+        u_result = await db.execute(select(User).where(User.id == task.assignee_id))
+        u = u_result.scalar_one_or_none()
+        if u:
+            assignee_name = u.display_name or u.email
+    return PpmTaskOut(
+        id=str(task.id),
+        initiative_id=str(task.initiative_id),
+        title=task.title,
+        description=task.description,
+        status=task.status,
+        priority=task.priority,
+        assignee_id=str(task.assignee_id) if task.assignee_id else None,
+        assignee_name=assignee_name,
+        due_date=task.due_date,
+        sort_order=task.sort_order,
+        tags=task.tags or [],
+        created_at=task.created_at,
+        updated_at=task.updated_at,
+    )
 
 
 @router.get("/initiatives/{initiative_id}/tasks", response_model=list[PpmTaskOut])
@@ -198,34 +412,7 @@ async def list_tasks(
         .where(PpmTask.initiative_id == initiative_id)
         .order_by(PpmTask.sort_order, PpmTask.created_at)
     )
-    tasks = result.scalars().all()
-    out = []
-    for t in tasks:
-        assignee_name = None
-        if t.assignee_id:
-            u_result = await db.execute(select(User).where(User.id == t.assignee_id))
-            u = u_result.scalar_one_or_none()
-            if u:
-                assignee_name = u.display_name or u.email
-        out.append(
-            PpmTaskOut(
-                id=str(t.id),
-                initiative_id=str(t.initiative_id),
-                title=t.title,
-                description=t.description,
-                status=t.status,
-                priority=t.priority,
-                assignee_id=str(t.assignee_id) if t.assignee_id else None,
-                assignee_name=assignee_name,
-                start_date=t.start_date,
-                due_date=t.due_date,
-                sort_order=t.sort_order,
-                tags=t.tags or [],
-                created_at=t.created_at,
-                updated_at=t.updated_at,
-            )
-        )
-    return out
+    return [await _task_to_out(db, t) for t in result.scalars().all()]
 
 
 @router.post("/initiatives/{initiative_id}/tasks", response_model=PpmTaskOut)
@@ -245,7 +432,6 @@ async def create_task(
         status=body.status,
         priority=body.priority,
         assignee_id=body.assignee_id,
-        start_date=body.start_date,
         due_date=body.due_date,
         sort_order=body.sort_order,
         tags=body.tags,
@@ -253,28 +439,7 @@ async def create_task(
     db.add(task)
     await db.commit()
     await db.refresh(task)
-    assignee_name = None
-    if task.assignee_id:
-        u_result = await db.execute(select(User).where(User.id == task.assignee_id))
-        u = u_result.scalar_one_or_none()
-        if u:
-            assignee_name = u.display_name or u.email
-    return PpmTaskOut(
-        id=str(task.id),
-        initiative_id=str(task.initiative_id),
-        title=task.title,
-        description=task.description,
-        status=task.status,
-        priority=task.priority,
-        assignee_id=str(task.assignee_id) if task.assignee_id else None,
-        assignee_name=assignee_name,
-        start_date=task.start_date,
-        due_date=task.due_date,
-        sort_order=task.sort_order,
-        tags=task.tags or [],
-        created_at=task.created_at,
-        updated_at=task.updated_at,
-    )
+    return await _task_to_out(db, task)
 
 
 @router.patch("/tasks/{task_id}", response_model=PpmTaskOut)
@@ -293,28 +458,7 @@ async def update_task(
         setattr(task, key, val)
     await db.commit()
     await db.refresh(task)
-    assignee_name = None
-    if task.assignee_id:
-        u_result = await db.execute(select(User).where(User.id == task.assignee_id))
-        u = u_result.scalar_one_or_none()
-        if u:
-            assignee_name = u.display_name or u.email
-    return PpmTaskOut(
-        id=str(task.id),
-        initiative_id=str(task.initiative_id),
-        title=task.title,
-        description=task.description,
-        status=task.status,
-        priority=task.priority,
-        assignee_id=str(task.assignee_id) if task.assignee_id else None,
-        assignee_name=assignee_name,
-        start_date=task.start_date,
-        due_date=task.due_date,
-        sort_order=task.sort_order,
-        tags=task.tags or [],
-        created_at=task.created_at,
-        updated_at=task.updated_at,
-    )
+    return await _task_to_out(db, task)
 
 
 @router.delete("/tasks/{task_id}", status_code=204)

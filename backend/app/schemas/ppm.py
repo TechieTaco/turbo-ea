@@ -5,14 +5,6 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-
-class CostLine(BaseModel):
-    description: str
-    category: Literal["capex", "opex"]
-    planned: float = 0
-    actual: float = 0
-
-
 # --- Status Reports ---
 
 
@@ -21,10 +13,9 @@ class PpmStatusReportCreate(BaseModel):
     schedule_health: Literal["onTrack", "atRisk", "offTrack"] = "onTrack"
     cost_health: Literal["onTrack", "atRisk", "offTrack"] = "onTrack"
     scope_health: Literal["onTrack", "atRisk", "offTrack"] = "onTrack"
-    percent_complete: int = Field(0, ge=0, le=100)
-    cost_lines: list[CostLine] = []
     summary: str | None = None
-    risks: list[dict] = []
+    accomplishments: str | None = None
+    next_steps: str | None = None
 
 
 class PpmStatusReportUpdate(BaseModel):
@@ -32,10 +23,9 @@ class PpmStatusReportUpdate(BaseModel):
     schedule_health: Literal["onTrack", "atRisk", "offTrack"] | None = None
     cost_health: Literal["onTrack", "atRisk", "offTrack"] | None = None
     scope_health: Literal["onTrack", "atRisk", "offTrack"] | None = None
-    percent_complete: int | None = Field(None, ge=0, le=100)
-    cost_lines: list[CostLine] | None = None
     summary: str | None = None
-    risks: list[dict] | None = None
+    accomplishments: str | None = None
+    next_steps: str | None = None
 
 
 class ReporterOut(BaseModel):
@@ -52,10 +42,76 @@ class PpmStatusReportOut(BaseModel):
     schedule_health: str
     cost_health: str
     scope_health: str
-    percent_complete: int
-    cost_lines: list[CostLine]
     summary: str | None
-    risks: list[dict]
+    accomplishments: str | None
+    next_steps: str | None
+    created_at: datetime
+    updated_at: datetime
+
+
+# --- Cost Lines ---
+
+
+class PpmCostLineCreate(BaseModel):
+    description: str
+    category: Literal["capex", "opex"]
+    planned: float = 0
+    actual: float = 0
+
+
+class PpmCostLineUpdate(BaseModel):
+    description: str | None = None
+    category: Literal["capex", "opex"] | None = None
+    planned: float | None = None
+    actual: float | None = None
+
+
+class PpmCostLineOut(BaseModel):
+    id: str
+    initiative_id: str
+    description: str
+    category: str
+    planned: float
+    actual: float
+    created_at: datetime
+    updated_at: datetime
+
+
+# --- Risks ---
+
+
+class PpmRiskCreate(BaseModel):
+    title: str
+    description: str | None = None
+    probability: int = Field(3, ge=1, le=5)
+    impact: int = Field(3, ge=1, le=5)
+    mitigation: str | None = None
+    owner_id: str | None = None
+    status: Literal["open", "mitigating", "mitigated", "closed", "accepted"] = "open"
+
+
+class PpmRiskUpdate(BaseModel):
+    title: str | None = None
+    description: str | None = None
+    probability: int | None = Field(None, ge=1, le=5)
+    impact: int | None = Field(None, ge=1, le=5)
+    mitigation: str | None = None
+    owner_id: str | None = None
+    status: Literal["open", "mitigating", "mitigated", "closed", "accepted"] | None = None
+
+
+class PpmRiskOut(BaseModel):
+    id: str
+    initiative_id: str
+    title: str
+    description: str | None
+    probability: int
+    impact: int
+    risk_score: int
+    mitigation: str | None
+    owner_id: str | None
+    owner_name: str | None = None
+    status: str
     created_at: datetime
     updated_at: datetime
 
@@ -69,7 +125,6 @@ class PpmTaskCreate(BaseModel):
     status: Literal["todo", "in_progress", "done", "blocked"] = "todo"
     priority: Literal["critical", "high", "medium", "low"] = "medium"
     assignee_id: str | None = None
-    start_date: date | None = None
     due_date: date | None = None
     sort_order: int = 0
     tags: list[str] = []
@@ -81,7 +136,6 @@ class PpmTaskUpdate(BaseModel):
     status: Literal["todo", "in_progress", "done", "blocked"] | None = None
     priority: Literal["critical", "high", "medium", "low"] | None = None
     assignee_id: str | None = None
-    start_date: date | None = None
     due_date: date | None = None
     sort_order: int | None = None
     tags: list[str] | None = None
@@ -96,7 +150,6 @@ class PpmTaskOut(BaseModel):
     priority: str
     assignee_id: str | None
     assignee_name: str | None = None
-    start_date: date | None
     due_date: date | None
     sort_order: int
     tags: list[str]
@@ -123,5 +176,13 @@ class PpmGanttItem(BaseModel):
     end_date: str | None
     cost_budget: float | None
     cost_actual: float | None
+    group_id: str | None = None
+    group_name: str | None = None
     latest_report: PpmStatusReportOut | None = None
+    latest_report_id: str | None = None
     stakeholders: list[PpmGanttStakeholder] = []
+
+
+class PpmGroupOption(BaseModel):
+    type_key: str
+    type_label: str

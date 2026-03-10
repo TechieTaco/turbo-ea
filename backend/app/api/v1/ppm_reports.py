@@ -1,17 +1,25 @@
-"""PPM — Portfolio-level dashboard KPIs and Gantt chart data."""
+"""PPM — Portfolio-level dashboard KPIs, Gantt chart data, and grouping options."""
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends
-from sqlalchemy import func, select
+from fastapi import APIRouter, Depends, Query
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, get_db
 from app.models.card import Card
 from app.models.ppm_status_report import PpmStatusReport
+from app.models.relation import Relation
+from app.models.relation_type import RelationType
 from app.models.stakeholder import Stakeholder
 from app.models.user import User
-from app.schemas.ppm import PpmGanttItem, PpmGanttStakeholder, PpmStatusReportOut, ReporterOut
+from app.schemas.ppm import (
+    PpmGanttItem,
+    PpmGanttStakeholder,
+    PpmGroupOption,
+    PpmStatusReportOut,
+    ReporterOut,
+)
 from app.services.permission_service import PermissionService
 
 router = APIRouter(prefix="/reports/ppm", tags=["ppm-reports"])
@@ -38,6 +46,35 @@ async def _latest_reports(db: AsyncSession) -> dict:
     return {r.initiative_id: r for r in reports}
 
 
+@router.get("/group-options", response_model=list[PpmGroupOption])
+async def ppm_group_options(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Return card types that Initiative has relation types to (for grouping dropdown)."""
+    await PermissionService.require_permission(db, user, "ppm.view")
+    result = await db.execute(
+        select(RelationType).where(
+            RelationType.is_hidden.is_(False),
+            or_(
+                RelationType.source_type_key == "Initiative",
+                RelationType.target_type_key == "Initiative",
+            ),
+        )
+    )
+    rel_types = result.scalars().all()
+    seen: set[str] = set()
+    options: list[PpmGroupOption] = []
+    for rt in rel_types:
+        # The "other" type is the one that isn't Initiative
+        other_key = rt.target_type_key if rt.source_type_key == "Initiative" else rt.source_type_key
+        if other_key == "Initiative" or other_key in seen:
+            continue
+        seen.add(other_key)
+        options.append(PpmGroupOption(type_key=other_key, type_label=other_key))
+    return sorted(options, key=lambda o: o.type_label)
+
+
 @router.get("/dashboard")
 async def ppm_dashboard(
     db: AsyncSession = Depends(get_db),
@@ -45,7 +82,6 @@ async def ppm_dashboard(
 ):
     await PermissionService.require_permission(db, user, "ppm.view")
 
-    # Get all active initiatives
     q = select(Card).where(Card.type == "Initiative", Card.status == "ACTIVE")
     result = await db.execute(q)
     initiatives = result.scalars().all()
@@ -94,10 +130,73 @@ async def ppm_dashboard(
     }
 
 
+async def _build_group_map(db: AsyncSession, initiative_ids: list, group_by: str) -> dict:
+    """Map initiative_id → (group_card_id, group_card_name)."""
+    # Find relation types where Initiative connects to the group_by type
+    rt_result = await db.execute(
+        select(RelationType).where(
+            RelationType.is_hidden.is_(False),
+            or_(
+                (RelationType.source_type_key == "Initiative")
+                & (RelationType.target_type_key == group_by),
+                (RelationType.source_type_key == group_by)
+                & (RelationType.target_type_key == "Initiative"),
+            ),
+        )
+    )
+    rel_types = rt_result.scalars().all()
+    if not rel_types:
+        return {}
+
+    rt_keys = [rt.key for rt in rel_types]
+
+    # Find relations for these initiatives and relation types
+    rel_result = await db.execute(
+        select(Relation).where(
+            Relation.type.in_(rt_keys),
+            or_(
+                Relation.source_id.in_(initiative_ids),
+                Relation.target_id.in_(initiative_ids),
+            ),
+        )
+    )
+    relations = rel_result.scalars().all()
+
+    # Determine which side is the initiative and which is the group card
+    # Build a set of group card IDs to batch-load
+    init_to_group_id: dict = {}
+    group_card_ids: set = set()
+    source_is_initiative = {rt.key: rt.source_type_key == "Initiative" for rt in rel_types}
+
+    for rel in relations:
+        is_src_init = source_is_initiative.get(rel.type, True)
+        if is_src_init:
+            init_id = rel.source_id
+            group_id = rel.target_id
+        else:
+            init_id = rel.target_id
+            group_id = rel.source_id
+
+        if init_id not in init_to_group_id:
+            init_to_group_id[init_id] = group_id
+            group_card_ids.add(group_id)
+
+    # Load group card names
+    if not group_card_ids:
+        return {}
+    gc_result = await db.execute(select(Card.id, Card.name).where(Card.id.in_(group_card_ids)))
+    group_names = {row[0]: row[1] for row in gc_result.all()}
+
+    return {
+        init_id: (gid, group_names.get(gid, "Unknown")) for init_id, gid in init_to_group_id.items()
+    }
+
+
 @router.get("/gantt", response_model=list[PpmGanttItem])
 async def ppm_gantt(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
+    group_by: str | None = Query(None, description="Card type key to group by"),
 ):
     await PermissionService.require_permission(db, user, "ppm.view")
 
@@ -106,6 +205,12 @@ async def ppm_gantt(
     initiatives = result.scalars().all()
 
     latest = await _latest_reports(db)
+
+    # Build group map if group_by is specified
+    group_map: dict = {}
+    if group_by and initiatives:
+        init_ids = [c.id for c in initiatives]
+        group_map = await _build_group_map(db, init_ids, group_by)
 
     items: list[PpmGanttItem] = []
     for card in initiatives:
@@ -127,10 +232,9 @@ async def ppm_gantt(
                 schedule_health=report.schedule_health,
                 cost_health=report.cost_health,
                 scope_health=report.scope_health,
-                percent_complete=report.percent_complete,
-                cost_lines=report.cost_lines or [],
                 summary=report.summary,
-                risks=report.risks or [],
+                accomplishments=report.accomplishments,
+                next_steps=report.next_steps,
                 created_at=report.created_at,
                 updated_at=report.updated_at,
             )
@@ -150,6 +254,11 @@ async def ppm_gantt(
             for sh, u in sh_result.all()
         ]
 
+        # Grouping
+        group_info = group_map.get(card.id)
+        group_id = str(group_info[0]) if group_info else None
+        group_name = group_info[1] if group_info else None
+
         items.append(
             PpmGanttItem(
                 id=str(card.id),
@@ -161,7 +270,10 @@ async def ppm_gantt(
                 end_date=attrs.get("endDate"),
                 cost_budget=float(attrs.get("costBudget") or 0) or None,
                 cost_actual=float(attrs.get("costActual") or 0) or None,
+                group_id=group_id,
+                group_name=group_name,
                 latest_report=report_out,
+                latest_report_id=str(report.id) if report else None,
                 stakeholders=stakeholders,
             )
         )
