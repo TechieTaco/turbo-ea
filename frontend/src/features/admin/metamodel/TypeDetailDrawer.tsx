@@ -81,6 +81,7 @@ export default function TypeDetailDrawer({
 
   /* --- Subtype template editor --- */
   const [editingSubtypeKey, setEditingSubtypeKey] = useState<string | null>(null);
+  const [draftHiddenFields, setDraftHiddenFields] = useState<Set<string>>(new Set());
 
   /* --- Translation dialog --- */
   const [translationDialogOpen, setTranslationDialogOpen] = useState(false);
@@ -207,7 +208,6 @@ export default function TypeDetailDrawer({
   const editingSubtype = editingSubtypeKey
     ? (cardTypeKey.subtypes || []).find((s) => s.key === editingSubtypeKey) ?? null
     : null;
-  const editingHiddenFields = new Set(editingSubtype?.hidden_fields ?? []);
   const allFields: { key: string; label: string; section: string }[] = [];
   for (const sec of cardTypeKey.fields_schema || []) {
     for (const f of sec.fields) {
@@ -219,18 +219,31 @@ export default function TypeDetailDrawer({
     return acc;
   }, {});
 
-  const handleToggleFieldVisibility = async (fieldKey: string) => {
+  const openSubtypeTemplate = (subKey: string) => {
+    const sub = (cardTypeKey.subtypes || []).find((s) => s.key === subKey);
+    setDraftHiddenFields(new Set(sub?.hidden_fields ?? []));
+    setEditingSubtypeKey(subKey);
+  };
+
+  const handleToggleFieldVisibility = (fieldKey: string) => {
+    setDraftHiddenFields((prev) => {
+      const next = new Set(prev);
+      if (next.has(fieldKey)) next.delete(fieldKey);
+      else next.add(fieldKey);
+      return next;
+    });
+  };
+
+  const handleSaveSubtypeTemplate = async () => {
     if (!editingSubtypeKey) return;
     const subtypes = (cardTypeKey.subtypes || []).map((s) => {
       if (s.key !== editingSubtypeKey) return s;
-      const hidden = new Set(s.hidden_fields ?? []);
-      if (hidden.has(fieldKey)) hidden.delete(fieldKey);
-      else hidden.add(fieldKey);
-      return { ...s, hidden_fields: [...hidden] };
+      return { ...s, hidden_fields: [...draftHiddenFields] };
     });
     try {
       await api.patch(`/metamodel/types/${cardTypeKey.key}`, { subtypes });
       onRefresh();
+      setEditingSubtypeKey(null);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : t("metamodel.typeDrawer.failedToSave"));
     }
@@ -536,7 +549,7 @@ export default function TypeDetailDrawer({
                           )}
                         </Box>
                       }
-                      onClick={() => setEditingSubtypeKey(s.key)}
+                      onClick={() => openSubtypeTemplate(s.key)}
                       onDelete={() => handleRemoveSubtype(s.key)}
                       variant={editingSubtypeKey === s.key ? "filled" : "outlined"}
                       color={editingSubtypeKey === s.key ? "primary" : "default"}
@@ -816,7 +829,7 @@ export default function TypeDetailDrawer({
                     control={
                       <Switch
                         size="small"
-                        checked={!editingHiddenFields.has(f.key)}
+                        checked={!draftHiddenFields.has(f.key)}
                         onChange={() => handleToggleFieldVisibility(f.key)}
                       />
                     }
@@ -835,7 +848,10 @@ export default function TypeDetailDrawer({
           )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setEditingSubtypeKey(null)}>{t("common:actions.close")}</Button>
+          <Button onClick={() => setEditingSubtypeKey(null)}>{t("common:actions.cancel")}</Button>
+          <Button variant="contained" onClick={handleSaveSubtypeTemplate}>
+            {t("common:actions.save")}
+          </Button>
         </DialogActions>
       </Dialog>
 
