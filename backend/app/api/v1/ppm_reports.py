@@ -142,7 +142,8 @@ async def ppm_gantt(
             .join(User, Stakeholder.user_id == User.id)
             .join(
                 StakeholderRoleDefinition,
-                Stakeholder.role_definition_id == StakeholderRoleDefinition.id,
+                (Stakeholder.role == StakeholderRoleDefinition.key)
+                & (StakeholderRoleDefinition.card_type_key == card.type),
             )
             .where(Stakeholder.card_id == card.id)
         )
