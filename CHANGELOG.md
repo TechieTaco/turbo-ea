@@ -5,6 +5,20 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.32.2] - 2026-03-11
+
+### Added
+- PPM budget/cost rollup: budget and cost line totals automatically sync to Initiative card attributes (costBudget/costActual)
+- Cost fields marked as auto-computed (readonly with badge) in Card Detail when PPM lines exist
+- New endpoint `GET /ppm/initiatives/{id}/has-costs` for lightweight PPM cost existence check
+
+### Changed
+- Portfolio dashboard group headers use darker background for better visual separation
+- Gantt bar resizing no longer jumps to week/month boundaries — custom `roundDate` ensures smooth 1-day snapping
+
+### Fixed
+- Gantt bar drag/resize caused bars to snap to week or month boundaries instead of individual days
+
 ## [0.32.1] - 2026-03-11
 
 ### Changed

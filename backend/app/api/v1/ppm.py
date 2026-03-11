@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, get_db
 from app.models.card import Card
+from app.models.card_type import CardType
 from app.models.ppm_cost_line import PpmBudgetLine, PpmCostLine
 from app.models.ppm_risk import PpmRisk
 from app.models.ppm_status_report import PpmStatusReport
@@ -56,6 +57,75 @@ async def _get_initiative_or_404(db: AsyncSession, initiative_id: str) -> Card:
     if not card:
         raise HTTPException(status_code=404, detail="Initiative not found")
     return card
+
+
+async def _sync_initiative_costs(db: AsyncSession, initiative_id: str) -> None:
+    """Roll up PPM budget/cost line totals into the Initiative card attributes."""
+    result = await db.execute(
+        select(Card).where(Card.id == initiative_id, Card.type == "Initiative")
+    )
+    card = result.scalar_one_or_none()
+    if not card:
+        return
+
+    # Sum budget lines
+    budget_result = await db.execute(
+        select(func.coalesce(func.sum(PpmBudgetLine.amount), 0)).where(
+            PpmBudgetLine.initiative_id == initiative_id
+        )
+    )
+    total_budget = float(budget_result.scalar())
+
+    # Sum cost line actuals
+    cost_result = await db.execute(
+        select(func.coalesce(func.sum(PpmCostLine.actual), 0)).where(
+            PpmCostLine.initiative_id == initiative_id
+        )
+    )
+    total_actual = float(cost_result.scalar())
+
+    # Update card attributes
+    attrs = dict(card.attributes or {})
+    attrs["costBudget"] = total_budget if total_budget else None
+    attrs["costActual"] = total_actual if total_actual else None
+    card.attributes = attrs
+
+    # Recalculate data quality
+    ct_result = await db.execute(
+        select(CardType.fields_schema, CardType.subtypes).where(CardType.key == card.type)
+    )
+    ct_row = ct_result.one_or_none()
+    if ct_row:
+        schema, subtypes = ct_row
+        hidden_keys: set[str] = set()
+        if card.subtype and subtypes:
+            for st in subtypes:
+                if st.get("key") == card.subtype:
+                    hidden_keys = set(st.get("hidden_fields", []))
+                    break
+        total_w = 0.0
+        filled_w = 0.0
+        for section in schema:
+            for field in section.get("fields", []):
+                if field["key"] in hidden_keys:
+                    continue
+                weight = field.get("weight", 1)
+                if weight <= 0:
+                    continue
+                total_w += weight
+                val = attrs.get(field["key"])
+                if val is not None and val != "" and val is not False:
+                    filled_w += weight
+        total_w += 1  # description
+        if card.description and card.description.strip():
+            filled_w += 1
+        total_w += 1  # lifecycle
+        lc = card.lifecycle or {}
+        if any(lc.get(k) for k in ("plan", "phaseIn", "active", "phaseOut", "endOfLife")):
+            filled_w += 1
+        card.data_quality = round((filled_w / total_w * 100) if total_w > 0 else 0, 1)
+
+    await db.commit()
 
 
 def _report_to_out(report: PpmStatusReport, reporter: ReporterOut | None) -> PpmStatusReportOut:
@@ -225,6 +295,7 @@ async def create_cost_line(
     db.add(cl)
     await db.commit()
     await db.refresh(cl)
+    await _sync_initiative_costs(db, initiative_id)
     return _cost_line_out(cl)
 
 
@@ -240,10 +311,12 @@ async def update_cost_line(
     cl = result.scalar_one_or_none()
     if not cl:
         raise HTTPException(status_code=404, detail="Cost line not found")
+    initiative_id = str(cl.initiative_id)
     for key, val in body.model_dump(exclude_unset=True).items():
         setattr(cl, key, val)
     await db.commit()
     await db.refresh(cl)
+    await _sync_initiative_costs(db, initiative_id)
     return _cost_line_out(cl)
 
 
@@ -258,8 +331,10 @@ async def delete_cost_line(
     cl = result.scalar_one_or_none()
     if not cl:
         raise HTTPException(status_code=404, detail="Cost line not found")
+    initiative_id = str(cl.initiative_id)
     await db.delete(cl)
     await db.commit()
+    await _sync_initiative_costs(db, initiative_id)
 
 
 # ── Budget Lines ──────────────────────────────────────────────────
@@ -318,6 +393,7 @@ async def create_budget_line(
     db.add(bl)
     await db.commit()
     await db.refresh(bl)
+    await _sync_initiative_costs(db, initiative_id)
     return _budget_line_out(bl)
 
 
@@ -333,10 +409,12 @@ async def update_budget_line(
     bl = result.scalar_one_or_none()
     if not bl:
         raise HTTPException(status_code=404, detail="Budget line not found")
+    initiative_id = str(bl.initiative_id)
     for key, val in body.model_dump(exclude_unset=True).items():
         setattr(bl, key, val)
     await db.commit()
     await db.refresh(bl)
+    await _sync_initiative_costs(db, initiative_id)
     return _budget_line_out(bl)
 
 
@@ -351,8 +429,37 @@ async def delete_budget_line(
     bl = result.scalar_one_or_none()
     if not bl:
         raise HTTPException(status_code=404, detail="Budget line not found")
+    initiative_id = str(bl.initiative_id)
     await db.delete(bl)
     await db.commit()
+    await _sync_initiative_costs(db, initiative_id)
+
+
+# ── Has Costs (lightweight check for frontend auto-field logic) ──
+
+
+@router.get("/initiatives/{initiative_id}/has-costs")
+async def has_costs(
+    initiative_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    await PermissionService.require_permission(db, user, "ppm.view")
+    await _get_initiative_or_404(db, initiative_id)
+    budget_result = await db.execute(
+        select(func.count())
+        .select_from(PpmBudgetLine)
+        .where(PpmBudgetLine.initiative_id == initiative_id)
+    )
+    cost_result = await db.execute(
+        select(func.count())
+        .select_from(PpmCostLine)
+        .where(PpmCostLine.initiative_id == initiative_id)
+    )
+    return {
+        "has_budget_lines": budget_result.scalar() > 0,
+        "has_cost_lines": cost_result.scalar() > 0,
+    }
 
 
 # ── Risks ──────────────────────────────────────────────────────────
