@@ -144,6 +144,10 @@ Muestra el **registro completo de auditoría** de los cambios realizados en la f
 
 Para las fichas de **Proceso de Negocio**, aparece una pestaña adicional de **Flujo de Proceso** con un visor/editor de diagramas BPMN integrado. Consulte [BPM](bpm.es.md) para más detalles sobre la gestión de flujos de proceso.
 
+## Pestaña PPM (solo para fichas de Iniciativa)
+
+Cuando el [módulo PPM](ppm.md) está activado, las fichas de **Iniciativa** muestran una pestaña **PPM** adicional como última pestaña. Al hacer clic en esta pestaña, se navega a la vista detallada PPM de la iniciativa, donde puede gestionar informes de estado, presupuestos, riesgos, tareas y diagramas de Gantt.
+
 ## Archivado
 
 Las fichas pueden ser **archivadas** (eliminación temporal) a través del menú de acciones. Las fichas archivadas:

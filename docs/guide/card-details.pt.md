@@ -144,6 +144,10 @@ Mostra a **trilha de auditoria completa** das alterações feitas no card: **que
 
 Para cards de **Processo de Negócio**, uma aba adicional de **Fluxo de Processo** aparece com um visualizador/editor de diagrama BPMN integrado. Veja [BPM](bpm.md) para detalhes sobre gerenciamento de fluxos de processo.
 
+## Aba PPM (apenas cards de Iniciativa)
+
+Quando o [módulo PPM](ppm.md) está ativado, os cards de **Iniciativa** exibem uma aba **PPM** adicional como última aba. Ao clicar nesta aba, você é direcionado à visualização detalhada PPM da iniciativa, onde pode gerenciar relatórios de status, orçamentos, riscos, tarefas e cronogramas Gantt.
+
 ## Arquivamento
 
 Cards podem ser **arquivados** (exclusão temporária) através do menu de ações. Cards arquivados:

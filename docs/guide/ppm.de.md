@@ -109,6 +109,12 @@ Der PSP bietet eine hierarchische Zerlegung des Projektumfangs:
 - **Hierarchie** — Eltern-Kind-Beziehungen zwischen PSP-Elementen
 - **Auto-Fertigstellung** — Der Fertigstellungsgrad wird automatisch aus dem Verhältnis erledigter/gesamter Aufgaben berechnet
 
+## Kartendetail-Integration
+
+Wenn PPM aktiviert ist, zeigen **Initiativ**-Karten einen **PPM**-Tab als letzten Tab in der [Kartendetailansicht](card-details.md). Ein Klick auf diesen Tab navigiert direkt zur PPM-Initiativ-Detailansicht (Übersicht-Tab). Dies bietet einen schnellen Einstiegspunkt von jeder Initiativ-Karte zu ihrer vollständigen PPM-Projektseite.
+
+Umgekehrt zeigt der **Kartendetails**-Tab innerhalb der PPM-Initiativ-Detailansicht die Standardabschnitte der Kartendetails ohne den PPM-Tab, um zirkuläre Navigation zu vermeiden.
+
 ## Berechtigungen
 
 | Berechtigung | Beschreibung |
