@@ -526,6 +526,17 @@ async def update_card(
     if "attributes" in updates and updates["attributes"]:
         await _validate_url_attributes(db, card.type, updates["attributes"])
 
+    # Preserve PPM-managed cost fields so the frontend payload doesn't wipe them
+    if card.type == "Initiative" and "attributes" in updates:
+        ppm_excl = await _get_ppm_exclusions(db, card)
+        if ppm_excl:
+            old_attrs = dict(card.attributes or {})
+            new_attrs = dict(updates["attributes"] or {})
+            for key in ppm_excl:
+                if key in old_attrs:
+                    new_attrs[key] = old_attrs[key]
+            updates["attributes"] = new_attrs
+
     # Guard: hierarchy depth limit before applying parent change
     if "parent_id" in updates:
         new_pid = uuid.UUID(updates["parent_id"]) if updates["parent_id"] else None
