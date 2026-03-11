@@ -3,7 +3,6 @@ import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import ToggleButton from "@mui/material/ToggleButton";
 import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
-import Typography from "@mui/material/Typography";
 import CircularProgress from "@mui/material/CircularProgress";
 import IconButton from "@mui/material/IconButton";
 import Tooltip from "@mui/material/Tooltip";
@@ -34,18 +33,32 @@ import type { PpmWbs, PpmTask } from "@/types";
 
 interface Props {
   initiativeId: string;
+  card?: { attributes?: Record<string, unknown> };
 }
 
-/** Default date range when items have no dates set. */
-function defaultStart(): Date {
-  const d = new Date();
-  d.setDate(d.getDate() - 7);
-  return d;
-}
-function defaultEnd(): Date {
-  const d = new Date();
-  d.setDate(d.getDate() + 30);
-  return d;
+/** Derive timeline range from initiative card dates or sensible defaults. */
+function deriveRange(card?: { attributes?: Record<string, unknown> }): {
+  start: Date;
+  end: Date;
+} {
+  const now = new Date();
+  let start = new Date(now);
+  start.setDate(start.getDate() - 14);
+  let end = new Date(now);
+  end.setDate(end.getDate() + 90);
+  if (card?.attributes) {
+    const s = card.attributes.startDate;
+    const e = card.attributes.endDate;
+    if (typeof s === "string" && s) {
+      const d = new Date(s);
+      if (!isNaN(d.getTime())) start = d;
+    }
+    if (typeof e === "string" && e) {
+      const d = new Date(e);
+      if (!isNaN(d.getTime())) end = d;
+    }
+  }
+  return { start, end };
 }
 
 function parseDate(s: string | null, fallback: Date): Date {
@@ -65,7 +78,7 @@ function roundToDay(date: Date): Date {
   return d;
 }
 
-export default function PpmGanttTab({ initiativeId }: Props) {
+export default function PpmGanttTab({ initiativeId, card }: Props) {
   const { t } = useTranslation("ppm");
   const theme = useTheme();
 
@@ -87,8 +100,19 @@ export default function PpmGanttTab({ initiativeId }: Props) {
   const [editingTask, setEditingTask] = useState<PpmTask | undefined>();
   const [preselectedWbsId, setPreselectedWbsId] = useState<string>("");
 
+  /** Compute a sensible default start date for new items: today if in range, else range start. */
+  const defaultNewDate = useMemo(() => {
+    const now = new Date();
+    const range = deriveRange(card);
+    if (now >= range.start && now <= range.end) return toIso(now);
+    return toIso(range.start);
+  }, [card]);
+
   // Today button → scroll gantt to current date
   const [viewDate, setViewDate] = useState<Date | undefined>();
+
+  // Initiative timeline range
+  const timelineRange = useMemo(() => deriveRange(card), [card]);
 
   const loadData = useCallback(async () => {
     try {
@@ -107,11 +131,11 @@ export default function PpmGanttTab({ initiativeId }: Props) {
     loadData();
   }, [loadData]);
 
-  /** Map WBS + Tasks → gantt-task-react Task[] */
-  const ganttTasks: Task[] = useMemo(() => {
-    const items: Task[] = [];
-    const defStart = defaultStart();
-    const defEnd = defaultEnd();
+  /** Map WBS + Tasks → gantt-task-react Task[] with trailing empty row. */
+  const ganttTasks: TaskOrEmpty[] = useMemo(() => {
+    const items: TaskOrEmpty[] = [];
+    const defStart = timelineRange.start;
+    const defEnd = timelineRange.end;
 
     // WBS items as "project" or "milestone" type
     for (const w of wbsList) {
@@ -181,8 +205,15 @@ export default function PpmGanttTab({ initiativeId }: Props) {
       });
     }
 
+    // Always add an empty row at the bottom for creating new items
+    items.push({
+      id: "__empty__",
+      type: "empty",
+      name: "",
+    });
+
     return items;
-  }, [wbsList, tasks, collapsed, theme]);
+  }, [wbsList, tasks, collapsed, theme, timelineRange]);
 
   const handleDateChange: OnDateChange = useCallback(
     async (task) => {
@@ -224,6 +255,13 @@ export default function PpmGanttTab({ initiativeId }: Props) {
   const handleClick = useCallback(
     (task: TaskOrEmpty) => {
       const id = task.id;
+      if (id === "__empty__") {
+        // Click on empty row → create new WBS
+        setEditingWbs(undefined);
+        setMilestoneDefault(false);
+        setWbsDialogOpen(true);
+        return;
+      }
       if (id.startsWith("wbs-")) {
         const realId = id.slice(4);
         const wbs = wbsList.find((w) => w.id === realId);
@@ -412,64 +450,55 @@ export default function PpmGanttTab({ initiativeId }: Props) {
         </ToggleButtonGroup>
       </Box>
 
-      {/* Gantt Chart or Empty State */}
-      {ganttTasks.length === 0 ? (
-        <Box textAlign="center" py={8}>
-          <MaterialSymbol icon="account_tree" size={48} color="disabled" />
-          <Typography color="text.secondary" mt={1}>
-            {t("noWbsItems")}
-          </Typography>
-          <Button
-            variant="outlined"
-            sx={{ mt: 2 }}
-            onClick={() => {
-              setEditingWbs(undefined);
-              setWbsDialogOpen(true);
-            }}
-          >
-            {t("addWbs")}
-          </Button>
-        </Box>
-      ) : (
-        <Box
-          sx={{
-            mx: -3,
-            "& .ganttTable": { fontFamily: theme.typography.fontFamily },
-            "& .ganttTable_Header": {
-              borderBottom: `1px solid ${theme.palette.divider}`,
-            },
+      {/* Gantt Chart — always shown, with empty row at bottom */}
+      <Box
+        sx={{
+          mx: -3,
+          "& .ganttTable": { fontFamily: theme.typography.fontFamily },
+          "& .ganttTable_Header": {
+            borderBottom: `1px solid ${theme.palette.divider}`,
+          },
+          /* White text on bar labels only (SVG), not on table list */
+          "& [class*='barLabel_']": { fill: "#fff !important" },
+          "& [class*='barLabelOutside_']": {
+            fill: `${theme.palette.text.primary} !important`,
+          },
+          /* Pointer cursor on clickable table rows */
+          "& [class*='taskListTableRow_']": { cursor: "pointer" },
+          /* Remove 45-degree angled ends on project (WBS) bars — make them rectangular */
+          "& [class*='projectTop_']": { display: "none" },
+          "& [class*='projectBackground_']": { opacity: "1 !important" },
+        }}
+      >
+        <Gantt
+          tasks={ganttTasks}
+          viewMode={viewMode}
+          viewDate={viewDate}
+          columns={ganttColumns}
+          canResizeColumns
+          onClick={handleClick}
+          onDateChange={handleDateChange}
+          onProgressChange={handleProgressChange}
+          onChangeExpandState={handleExpanderClick}
+          contextMenuOptions={contextMenuOptions}
+          enableTableListContextMenu={2}
+          roundDate={roundToDay}
+          dateMoveStep={{ value: 1, timeUnit: GanttDateRoundingTimeUnit.DAY }}
+          colors={{
+            selectedTaskBackgroundColor: "rgba(25, 118, 210, 0.08)",
+            todayColor: "rgba(25, 118, 210, 0.08)",
           }}
-        >
-          <Gantt
-            tasks={ganttTasks}
-            viewMode={viewMode}
-            viewDate={viewDate}
-            columns={ganttColumns}
-            canResizeColumns
-            onClick={handleClick}
-            onDateChange={handleDateChange}
-            onProgressChange={handleProgressChange}
-            onChangeExpandState={handleExpanderClick}
-            contextMenuOptions={contextMenuOptions}
-            enableTableListContextMenu={2}
-            roundDate={roundToDay}
-            dateMoveStep={{ value: 1, timeUnit: GanttDateRoundingTimeUnit.DAY }}
-            colors={{
-              barLabelColor: "#fff",
-              barLabelWhenOutsideColor: theme.palette.text.primary,
-            }}
-            dateFormats={{
-              dateColumnFormat: "dd MMM ''yy",
-            }}
-            distances={{
-              columnWidth,
-              rowHeight: 40,
-              headerHeight: 50,
-              barCornerRadius: 4,
-            }}
-          />
-        </Box>
-      )}
+          dateFormats={{
+            dateColumnFormat: "dd MMM ''yy",
+          }}
+          distances={{
+            columnWidth,
+            rowHeight: 40,
+            headerHeight: 50,
+            barCornerRadius: 4,
+          }}
+        />
+      </Box>
 
       {/* WBS Dialog */}
       {wbsDialogOpen && (
@@ -478,6 +507,7 @@ export default function PpmGanttTab({ initiativeId }: Props) {
           wbs={editingWbs}
           wbsList={wbsList}
           defaultMilestone={milestoneDefault}
+          defaultStartDate={editingWbs ? undefined : defaultNewDate}
           onClose={() => {
             setWbsDialogOpen(false);
             setMilestoneDefault(false);
@@ -497,6 +527,7 @@ export default function PpmGanttTab({ initiativeId }: Props) {
           task={editingTask}
           wbsList={wbsList}
           defaultWbsId={preselectedWbsId}
+          defaultStartDate={editingTask ? undefined : defaultNewDate}
           onClose={() => {
             setTaskDialogOpen(false);
             setEditingTask(undefined);

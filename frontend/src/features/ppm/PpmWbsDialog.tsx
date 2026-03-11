@@ -25,6 +25,7 @@ interface Props {
   wbs?: PpmWbs;
   wbsList: PpmWbs[];
   defaultMilestone?: boolean;
+  defaultStartDate?: string;
   onClose: () => void;
   onSaved: () => void;
 }
@@ -50,6 +51,7 @@ export default function PpmWbsDialog({
   wbs,
   wbsList,
   defaultMilestone,
+  defaultStartDate,
   onClose,
   onSaved,
 }: Props) {
@@ -59,7 +61,9 @@ export default function PpmWbsDialog({
   const [title, setTitle] = useState(wbs?.title || "");
   const [description, setDescription] = useState(wbs?.description || "");
   const [parentId, setParentId] = useState(wbs?.parent_id || "");
-  const [startDate, setStartDate] = useState(wbs?.start_date || "");
+  const [startDate, setStartDate] = useState(
+    wbs?.start_date || defaultStartDate || "",
+  );
   const [endDate, setEndDate] = useState(wbs?.end_date || "");
   const [isMilestone, setIsMilestone] = useState(
     wbs?.is_milestone || defaultMilestone || false,
