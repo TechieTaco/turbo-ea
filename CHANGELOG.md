@@ -5,6 +5,17 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.32.4] - 2026-03-11
+
+### Added
+- URL persistence for PPM tab selection, task board filters, and portfolio grouping across page refreshes
+- Backend integration tests for all PPM API endpoints (status reports, costs, budgets, risks, tasks, WBS, task comments, completion)
+- Backend integration tests for PPM portfolio report endpoints (dashboard, gantt, group-options)
+- Frontend unit tests for the `usePpmEnabled` hook
+- PPM user guide documentation page in all 8 supported languages
+- PPM-related terms added to the glossary in all 8 supported languages
+- PPM screenshot definitions added to the automated screenshot capture script
+
 ## [0.32.3] - 2026-03-11
 
 ### Added
