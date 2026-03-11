@@ -11,7 +11,6 @@ import { useTranslation } from "react-i18next";
 import {
   Gantt,
   ViewMode,
-  TitleColumn,
   DateStartColumn,
   DateEndColumn,
   GanttDateRoundingTimeUnit,
@@ -309,57 +308,9 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
     [loadData, parentIds],
   );
 
-  /**
-   * Drag/click guard. The library fires onClick **synchronously inside
-   * onMouseDown** for task-list rows, so a simple flag check doesn't work —
-   * we must defer the dialog open with a timer and cancel it if mouse
-   * movement is detected.  For SVG bar clicks (native click event after
-   * mouseup), we also check whether a drag ended recently.
-   */
-  const dragGuard = useRef({ x: 0, y: 0, dragging: false, dragEndAt: 0 });
-  const clickTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const ganttRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    const el = ganttRef.current;
-    if (!el) return;
-    const onDown = (e: MouseEvent) => {
-      dragGuard.current.x = e.clientX;
-      dragGuard.current.y = e.clientY;
-      dragGuard.current.dragging = false;
-    };
-    const onMove = (e: MouseEvent) => {
-      const g = dragGuard.current;
-      if (!g.dragging) {
-        const dx = Math.abs(e.clientX - g.x);
-        const dy = Math.abs(e.clientY - g.y);
-        if (dx > 5 || dy > 5) {
-          g.dragging = true;
-          // Cancel any pending deferred click
-          if (clickTimer.current) {
-            clearTimeout(clickTimer.current);
-            clickTimer.current = null;
-          }
-        }
-      }
-    };
-    const onUp = () => {
-      if (dragGuard.current.dragging) {
-        dragGuard.current.dragEndAt = Date.now();
-      }
-      dragGuard.current.dragging = false;
-    };
-    el.addEventListener("mousedown", onDown, true);
-    el.addEventListener("mousemove", onMove, true);
-    el.addEventListener("mouseup", onUp, true);
-    return () => {
-      el.removeEventListener("mousedown", onDown, true);
-      el.removeEventListener("mousemove", onMove, true);
-      el.removeEventListener("mouseup", onUp, true);
-    };
-  }, []);
-
-  /** Open dialog for a given task id (deferred to allow drag cancellation). */
+  /** Open dialog for a given gantt task id. */
   const openDialogForId = useCallback(
     (id: string) => {
       if (id.startsWith("wbs-")) {
@@ -382,37 +333,12 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
   );
 
   /**
-   * onClick handler — defers dialog open by 150ms so mousemove detection
-   * can cancel it during a drag. Also suppresses if a drag just ended
-   * (covers the SVG bar native click path).
+   * Double-click on SVG bar opens the edit dialog.
+   * We intentionally do NOT use onClick — the library fires it synchronously
+   * inside onMouseDown, making it impossible to distinguish clicks from drags.
    */
-  const handleClick = useCallback(
-    (task: TaskOrEmpty) => {
-      // Cancel any previously pending click
-      if (clickTimer.current) {
-        clearTimeout(clickTimer.current);
-        clickTimer.current = null;
-      }
-
-      const id = task.id;
-      // Empty row: always open immediately (no drag concern)
-      if (id === "__empty__") {
-        setEditingWbs(undefined);
-        setMilestoneDefault(false);
-        setWbsDialogOpen(true);
-        return;
-      }
-
-      // If a SVG bar drag just ended, suppress immediately
-      const g = dragGuard.current;
-      if (g.dragging || Date.now() - g.dragEndAt < 300) return;
-
-      // Defer open — mousemove will cancel this timer if a drag starts
-      clickTimer.current = setTimeout(() => {
-        clickTimer.current = null;
-        openDialogForId(id);
-      }, 150);
-    },
+  const handleDoubleClick = useCallback(
+    (task: Task) => openDialogForId(task.id),
     [openDialogForId],
   );
 
@@ -518,6 +444,73 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
     [completionEditId, loadData],
   );
 
+  /** Custom title column: name is clickable (opens edit dialog), plus
+   *  expander arrow for WBS parents. Avoids the library's broken onClick. */
+  const NameCell = useMemo(() => {
+    const Cell = ({ data }: ColumnProps) => {
+      const {
+        task,
+        hasChildren,
+        isClosed,
+        depth,
+        onExpanderClick,
+        distances: { expandIconWidth, nestedTaskNameOffset },
+      } = data;
+      const handleExpand = () => {
+        if (task.type !== "empty") onExpanderClick(task as Task);
+      };
+      const handleNameClick = (e: { stopPropagation: () => void }) => {
+        e.stopPropagation();
+        if (task.id === "__empty__") {
+          setEditingWbs(undefined);
+          setMilestoneDefault(false);
+          setWbsDialogOpen(true);
+          return;
+        }
+        openDialogForId(task.id);
+      };
+      return (
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            paddingLeft: depth * nestedTaskNameOffset,
+            height: "100%",
+            minWidth: 0,
+          }}
+        >
+          <div
+            style={{
+              width: expandIconWidth,
+              flexShrink: 0,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              cursor: hasChildren ? "pointer" : "default",
+            }}
+            onClick={handleExpand}
+          >
+            {hasChildren ? (isClosed ? "▶" : "▼") : ""}
+          </div>
+          <div
+            style={{
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+              cursor: "pointer",
+            }}
+            onClick={handleNameClick}
+            title={task.name}
+          >
+            {task.name || (task.id === "__empty__" ? "+" : "")}
+          </div>
+        </div>
+      );
+    };
+    Cell.displayName = "NameCell";
+    return Cell;
+  }, [openDialogForId]);
+
   /** Custom column: completion % chip — click to edit with slider popover.
    *  Parent WBS items (with children) show a read-only calculated value. */
   const CompletionCell = useMemo(() => {
@@ -596,7 +589,7 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
     () => [
       {
         id: "title",
-        Cell: TitleColumn,
+        Cell: NameCell,
         width: 200,
         title: t("wbsTitle"),
         canResize: true,
@@ -630,7 +623,7 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
         canResize: true,
       },
     ],
-    [t, CompletionCell, AssigneeCell],
+    [t, NameCell, CompletionCell, AssigneeCell],
   );
 
   const columnWidth = useMemo(() => {
@@ -649,29 +642,44 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
   /**
    * Context menu dismiss workaround: the library's ContextMenu component uses
    * floating-ui's useDismiss but doesn't wire onOpenChange, so escape / outside
-   * clicks don't actually close it. We add our own global listeners.
+   * clicks don't actually close it. We find the floating context menu container
+   * and force-hide it by moving it off-screen.
    */
   useEffect(() => {
     const el = ganttRef.current;
     if (!el) return;
 
+    /** Find the context menu floating container inside the gantt wrapper. */
+    const findMenuContainer = (): HTMLElement | null => {
+      // The context menu items have a class containing "menuOption_"
+      const opt = el.querySelector('[class*="menuOption_"]');
+      if (!opt) return null;
+      // Walk up to the floating container (has position: absolute/fixed)
+      let parent = opt.parentElement;
+      while (parent && parent !== el) {
+        const pos = parent.style.position;
+        if (pos === "absolute" || pos === "fixed") return parent;
+        parent = parent.parentElement;
+      }
+      return null;
+    };
+
     const hideContextMenu = () => {
-      const menuOpts = el.querySelectorAll('[class*="menuOption_"]');
-      if (!menuOpts.length) return;
-      const floatingParent = menuOpts[0].closest(
-        'div[style*="position"]',
-      ) as HTMLElement | null;
-      if (floatingParent) floatingParent.style.display = "none";
+      const container = findMenuContainer();
+      if (container) {
+        // Move off-screen and make invisible — more robust than display:none
+        // because React won't override these specific properties
+        container.style.left = "-9999px";
+        container.style.top = "-9999px";
+        container.style.visibility = "hidden";
+      }
     };
 
     const onMouseDown = (e: MouseEvent) => {
-      const menuOpts = el.querySelectorAll('[class*="menuOption_"]');
-      if (!menuOpts.length) return;
-      const floatingParent = menuOpts[0].closest(
-        'div[style*="position"]',
-      ) as HTMLElement;
-      if (floatingParent && !floatingParent.contains(e.target as Node)) {
-        floatingParent.style.display = "none";
+      const container = findMenuContainer();
+      if (!container) return;
+      if (!container.contains(e.target as Node)) {
+        hideContextMenu();
       }
     };
 
@@ -679,11 +687,22 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
       if (e.key === "Escape") hideContextMenu();
     };
 
-    document.addEventListener("mousedown", onMouseDown);
-    document.addEventListener("keydown", onKeyDown);
+    // Also dismiss on left-click anywhere (not just mousedown)
+    const onClickAnywhere = (e: MouseEvent) => {
+      const container = findMenuContainer();
+      if (!container) return;
+      if (!container.contains(e.target as Node)) {
+        hideContextMenu();
+      }
+    };
+
+    document.addEventListener("mousedown", onMouseDown, true);
+    document.addEventListener("keydown", onKeyDown, true);
+    document.addEventListener("click", onClickAnywhere, true);
     return () => {
-      document.removeEventListener("mousedown", onMouseDown);
-      document.removeEventListener("keydown", onKeyDown);
+      document.removeEventListener("mousedown", onMouseDown, true);
+      document.removeEventListener("keydown", onKeyDown, true);
+      document.removeEventListener("click", onClickAnywhere, true);
     };
   }, []);
 
@@ -795,7 +814,7 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
           viewDate={viewDate}
           columns={ganttColumns}
           canResizeColumns
-          onClick={handleClick}
+          onDoubleClick={handleDoubleClick}
           onDateChange={handleDateChange}
           onProgressChange={handleProgressChange}
           onChangeExpandState={handleExpanderClick}
