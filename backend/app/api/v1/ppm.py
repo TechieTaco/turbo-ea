@@ -74,7 +74,7 @@ async def _sync_initiative_costs(db: AsyncSession, initiative_id: str) -> None:
             PpmBudgetLine.initiative_id == initiative_id
         )
     )
-    total_budget = float(budget_result.scalar())
+    total_budget = float(budget_result.scalar() or 0)
 
     # Sum cost line actuals
     cost_result = await db.execute(
@@ -82,7 +82,7 @@ async def _sync_initiative_costs(db: AsyncSession, initiative_id: str) -> None:
             PpmCostLine.initiative_id == initiative_id
         )
     )
-    total_actual = float(cost_result.scalar())
+    total_actual = float(cost_result.scalar() or 0)
 
     # Update card attributes
     attrs = dict(card.attributes or {})
@@ -457,8 +457,8 @@ async def has_costs(
         .where(PpmCostLine.initiative_id == initiative_id)
     )
     return {
-        "has_budget_lines": budget_result.scalar() > 0,
-        "has_cost_lines": cost_result.scalar() > 0,
+        "has_budget_lines": (budget_result.scalar() or 0) > 0,
+        "has_cost_lines": (cost_result.scalar() or 0) > 0,
     }
 
 
