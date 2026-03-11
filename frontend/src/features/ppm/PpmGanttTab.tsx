@@ -46,10 +46,10 @@ const TASK_STATUS_BAR_COLORS: Record<
   }
 > = {
   todo: {
-    barBackgroundColor: "#e0e0e0",
-    barProgressColor: "#9e9e9e",
-    barBackgroundSelectedColor: "#bdbdbd",
-    barProgressSelectedColor: "#9e9e9e",
+    barBackgroundColor: "#9e9e9e",
+    barProgressColor: "#757575",
+    barBackgroundSelectedColor: "#757575",
+    barProgressSelectedColor: "#616161",
   },
   in_progress: {
     barBackgroundColor: "#90caf9",
@@ -64,10 +64,10 @@ const TASK_STATUS_BAR_COLORS: Record<
     barProgressSelectedColor: "#2e7d32",
   },
   blocked: {
-    barBackgroundColor: "#ef9a9a",
-    barProgressColor: "#d32f2f",
-    barBackgroundSelectedColor: "#c62828",
-    barProgressSelectedColor: "#d32f2f",
+    barBackgroundColor: "#d32f2f",
+    barProgressColor: "#c62828",
+    barBackgroundSelectedColor: "#b71c1c",
+    barProgressSelectedColor: "#c62828",
   },
 };
 
