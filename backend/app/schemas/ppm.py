@@ -1,6 +1,5 @@
-from __future__ import annotations
-
-from datetime import date, datetime
+from datetime import date as date_type
+from datetime import datetime
 from typing import Literal
 
 from pydantic import BaseModel, Field
@@ -9,7 +8,7 @@ from pydantic import BaseModel, Field
 
 
 class PpmStatusReportCreate(BaseModel):
-    report_date: date
+    report_date: date_type
     schedule_health: Literal["onTrack", "atRisk", "offTrack"] = "onTrack"
     cost_health: Literal["onTrack", "atRisk", "offTrack"] = "onTrack"
     scope_health: Literal["onTrack", "atRisk", "offTrack"] = "onTrack"
@@ -19,7 +18,7 @@ class PpmStatusReportCreate(BaseModel):
 
 
 class PpmStatusReportUpdate(BaseModel):
-    report_date: date | None = None
+    report_date: date_type | None = None
     schedule_health: Literal["onTrack", "atRisk", "offTrack"] | None = None
     cost_health: Literal["onTrack", "atRisk", "offTrack"] | None = None
     scope_health: Literal["onTrack", "atRisk", "offTrack"] | None = None
@@ -38,7 +37,7 @@ class PpmStatusReportOut(BaseModel):
     initiative_id: str
     reporter_id: str
     reporter: ReporterOut | None = None
-    report_date: date
+    report_date: date_type
     schedule_health: str
     cost_health: str
     scope_health: str
@@ -57,7 +56,7 @@ class PpmCostLineCreate(BaseModel):
     category: Literal["capex", "opex"]
     planned: float = 0
     actual: float = 0
-    date: date | None = None
+    date: date_type | None = None
 
 
 class PpmCostLineUpdate(BaseModel):
@@ -65,7 +64,7 @@ class PpmCostLineUpdate(BaseModel):
     category: Literal["capex", "opex"] | None = None
     planned: float | None = None
     actual: float | None = None
-    date: date | None = None
+    date: date_type | None = None
 
 
 class PpmCostLineOut(BaseModel):
@@ -75,7 +74,7 @@ class PpmCostLineOut(BaseModel):
     category: str
     planned: float
     actual: float
-    date: date | None = None
+    date: date_type | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -153,7 +152,7 @@ class PpmTaskCreate(BaseModel):
     status: Literal["todo", "in_progress", "done", "blocked"] = "todo"
     priority: Literal["critical", "high", "medium", "low"] = "medium"
     assignee_id: str | None = None
-    due_date: date | None = None
+    due_date: date_type | None = None
     sort_order: int = 0
     tags: list[str] = []
 
@@ -164,7 +163,7 @@ class PpmTaskUpdate(BaseModel):
     status: Literal["todo", "in_progress", "done", "blocked"] | None = None
     priority: Literal["critical", "high", "medium", "low"] | None = None
     assignee_id: str | None = None
-    due_date: date | None = None
+    due_date: date_type | None = None
     sort_order: int | None = None
     tags: list[str] | None = None
 
@@ -178,7 +177,7 @@ class PpmTaskOut(BaseModel):
     priority: str
     assignee_id: str | None
     assignee_name: str | None = None
-    due_date: date | None
+    due_date: date_type | None
     sort_order: int
     tags: list[str]
     comment_count: int = 0
