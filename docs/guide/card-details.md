@@ -144,6 +144,10 @@ Shows the **complete audit trail** of changes made to the card: **who** made the
 
 For **Business Process** cards, an additional **Process Flow** tab appears with an embedded BPMN diagram viewer/editor. See [BPM](bpm.md) for details on process flow management.
 
+## PPM Tab (Initiative cards only)
+
+When the [PPM module](ppm.md) is enabled, **Initiative** cards display an additional **PPM** tab as the last tab. Clicking this tab navigates to the PPM Initiative Detail View where you can manage status reports, budgets, risks, tasks, and Gantt timelines.
+
 ## Archiving
 
 Cards can be **archived** (soft-deleted) via the actions menu. Archived cards:
