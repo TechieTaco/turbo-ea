@@ -38,6 +38,7 @@ interface Props {
   task?: PpmTask;
   wbsList?: PpmWbs[];
   defaultWbsId?: string;
+  defaultStartDate?: string;
   onClose: () => void;
   onSaved: () => void;
 }
@@ -56,6 +57,7 @@ export default function PpmTaskDialog({
   task,
   wbsList,
   defaultWbsId,
+  defaultStartDate,
   onClose,
   onSaved,
 }: Props) {
@@ -71,7 +73,9 @@ export default function PpmTaskDialog({
     task?.priority || "medium",
   );
   const [assigneeId, setAssigneeId] = useState(task?.assignee_id || "");
-  const [startDate, setStartDate] = useState(task?.start_date || "");
+  const [startDate, setStartDate] = useState(
+    task?.start_date || defaultStartDate || "",
+  );
   const [dueDate, setDueDate] = useState(task?.due_date || "");
   const [wbsId, setWbsId] = useState(task?.wbs_id || defaultWbsId || "");
   const [saving, setSaving] = useState(false);

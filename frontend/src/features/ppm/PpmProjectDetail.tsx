@@ -182,7 +182,7 @@ export default function PpmProjectDetail() {
         />
       )}
       {tab === 4 && <PpmTaskBoard initiativeId={id!} />}
-      {tab === 5 && <PpmGanttTab initiativeId={id!} />}
+      {tab === 5 && <PpmGanttTab initiativeId={id!} card={card ?? undefined} />}
       {tab === 6 && (
         <CardDetailContent
           card={card}
