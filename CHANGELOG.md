@@ -5,6 +5,17 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.32.1] - 2026-03-11
+
+### Changed
+- Gantt chart bar resizing is now 1-day granular regardless of zoom level (day/week/month)
+- PPM color palette aligned with MUI theme (primary, success, warning, error) across all components
+- Financials KPI and Budget/Costs cards merged into a single combined card in project overview
+- Card Details tab in PPM project detail now shows full card detail with all tabs (comments, todos, stakeholders, resources, history)
+
+### Removed
+- Standalone PpmCardDetailsTab component replaced by reusable CardDetailContent
+
 ## [0.32.0] - 2026-03-10
 
 ### Added

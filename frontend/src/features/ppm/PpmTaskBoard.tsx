@@ -48,9 +48,9 @@ const COLUMNS: PpmTaskStatus[] = ["todo", "in_progress", "done", "blocked"];
 
 const STATUS_COLORS: Record<string, string> = {
   todo: "#9e9e9e",
-  in_progress: "#2196f3",
-  done: "#4caf50",
-  blocked: "#f44336",
+  in_progress: "#1976d2",
+  done: "#2e7d32",
+  blocked: "#d32f2f",
 };
 
 const PRIORITY_COLORS: Record<string, string> = {

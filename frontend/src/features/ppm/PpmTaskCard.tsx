@@ -87,7 +87,7 @@ export default function PpmTaskCard({ task, wbsName, onClick, onMarkDone, isDrag
               <MaterialSymbol
                 icon={isDone ? "check_circle" : "circle"}
                 size={18}
-                style={{ color: isDone ? "#4caf50" : "#bdbdbd" }}
+                style={{ color: isDone ? "#2e7d32" : "#bdbdbd" }}
               />
             </IconButton>
           </Tooltip>

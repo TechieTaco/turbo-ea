@@ -7,6 +7,7 @@ import Chip from "@mui/material/Chip";
 import LinearProgress from "@mui/material/LinearProgress";
 import CircularProgress from "@mui/material/CircularProgress";
 import { useTranslation } from "react-i18next";
+import { useTheme } from "@mui/material/styles";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useResolveLabel } from "@/hooks/useResolveLabel";
@@ -14,13 +15,10 @@ import { api } from "@/api/client";
 import type { Card, PpmStatusReport, PpmCostLine, PpmBudgetLine } from "@/types";
 
 const RAG_COLORS: Record<string, string> = {
-  onTrack: "#4caf50",
-  atRisk: "#ff9800",
-  offTrack: "#f44336",
+  onTrack: "#2e7d32",
+  atRisk: "#ed6c02",
+  offTrack: "#d32f2f",
 };
-
-const BUDGET_BAR = "#5c6bc0";
-const OVER_BUDGET = "#b71c1c";
 
 interface Props {
   card: Card;
@@ -42,15 +40,19 @@ function BudgetBar({
   budget,
   actual,
   currency,
+  barColor,
+  overColor,
 }: {
   label: string;
   budget: number;
   actual: number;
   currency: string;
+  barColor: string;
+  overColor: string;
 }) {
   const pct = budget > 0 ? Math.min((actual / budget) * 100, 100) : 0;
   const over = actual > budget && budget > 0;
-  const barColor = over ? OVER_BUDGET : BUDGET_BAR;
+  const color = over ? overColor : barColor;
   const useK = Math.abs(budget) >= 1_000 || Math.abs(actual) >= 1_000;
   const unit = useK ? `k${currency}` : currency;
   const aVal = useK ? fmtK(actual) : String(Math.round(actual));
@@ -64,7 +66,7 @@ function BudgetBar({
         </Typography>
         <Typography
           variant="caption"
-          sx={{ color: over ? OVER_BUDGET : "text.secondary" }}
+          sx={{ color: over ? overColor : "text.secondary" }}
         >
           {aVal}/{pVal} {unit}
           {budget > 0 && ` (${Math.round((actual / budget) * 100)}%)`}
@@ -78,7 +80,7 @@ function BudgetBar({
           borderRadius: 5,
           bgcolor: "action.hover",
           "& .MuiLinearProgress-bar": {
-            bgcolor: barColor,
+            bgcolor: color,
             borderRadius: 5,
           },
         }}
@@ -94,10 +96,13 @@ export default function PpmOverviewTab({
   budgetLines,
 }: Props) {
   const { t } = useTranslation("ppm");
+  const theme = useTheme();
   const { fmt, currency } = useCurrency();
   const { getType } = useMetamodel();
   const rl = useResolveLabel();
   const attrs = card.attributes || {};
+  const budgetBarColor = theme.palette.primary.main;
+  const overBudgetColor = theme.palette.error.dark;
 
   // Fetch initiative completion
   const [completionPct, setCompletionPct] = useState<number | null>(null);
@@ -213,10 +218,10 @@ export default function PpmOverviewTab({
                   sx={{
                     color:
                       completionPct >= 80
-                        ? "#4caf50"
+                        ? theme.palette.success.main
                         : completionPct >= 40
-                          ? "#ff9800"
-                          : "#f44336",
+                          ? theme.palette.warning.main
+                          : theme.palette.error.main,
                   }}
                 />
                 <Box
@@ -254,13 +259,13 @@ export default function PpmOverviewTab({
         </Paper>
       </Grid>
 
-      {/* Budget Summary KPIs */}
+      {/* Financials — KPIs + Budget Bars combined */}
       <Grid item xs={12} md={6}>
         <Paper sx={{ p: 2.5 }}>
           <Typography variant="subtitle1" fontWeight={600} mb={2}>
             {t("financials")}
           </Typography>
-          <Box display="flex" gap={4}>
+          <Box display="flex" gap={4} mb={2.5}>
             <Box>
               <Typography variant="caption" color="text.secondary">
                 {t("totalBudget")}
@@ -290,32 +295,29 @@ export default function PpmOverviewTab({
               </Typography>
             </Box>
           </Box>
-        </Paper>
-      </Grid>
-
-      {/* Budget vs Actual Bars */}
-      <Grid item xs={12} md={6}>
-        <Paper sx={{ p: 2.5 }}>
-          <Typography variant="subtitle1" fontWeight={600} mb={2}>
-            {t("budgetAndCosts")}
-          </Typography>
           <BudgetBar
             label={t("totalBudget")}
             budget={totalBudget}
             actual={totalActual}
             currency={currency}
+            barColor={budgetBarColor}
+            overColor={overBudgetColor}
           />
           <BudgetBar
             label={t("capex")}
             budget={capexBudget}
             actual={capexActual}
             currency={currency}
+            barColor={budgetBarColor}
+            overColor={overBudgetColor}
           />
           <BudgetBar
             label={t("opex")}
             budget={opexBudget}
             actual={opexActual}
             currency={currency}
+            barColor={budgetBarColor}
+            overColor={overBudgetColor}
           />
         </Paper>
       </Grid>
