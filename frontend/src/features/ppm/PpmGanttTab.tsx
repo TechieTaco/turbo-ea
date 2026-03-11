@@ -61,31 +61,41 @@ function deriveRange(card?: { attributes?: Record<string, unknown> }): {
     const s = card.attributes.startDate;
     const e = card.attributes.endDate;
     if (typeof s === "string" && s) {
-      const d = new Date(s);
-      if (!isNaN(d.getTime())) start = d;
+      const d = parseDate(s, start);
+      if (d !== start) start = d;
     }
     if (typeof e === "string" && e) {
-      const d = new Date(e);
-      if (!isNaN(d.getTime())) end = d;
+      const d = parseDate(e, end);
+      if (d !== end) end = d;
     }
   }
   return { start, end };
 }
 
+/** Parse a "YYYY-MM-DD" string as a local-timezone date (noon to dodge DST edges). */
 function parseDate(s: string | null, fallback: Date): Date {
   if (!s) return fallback;
+  // "YYYY-MM-DD" → new Date() treats as UTC midnight, which can shift the day
+  // in positive timezones. Split and construct as local date instead.
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(s);
+  if (m) return new Date(+m[1], +m[2] - 1, +m[3], 12, 0, 0, 0);
   const d = new Date(s);
   return isNaN(d.getTime()) ? fallback : d;
 }
 
+/** Format a Date to "YYYY-MM-DD" using local date components (not UTC). */
 function toIso(d: Date): string {
-  return d.toISOString().slice(0, 10);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
 }
 
-/** Round any date to the start of that day — prevents snapping to week/month boundaries. */
+/** Round any date to noon of that day — prevents snapping to week/month boundaries
+ *  and avoids DST / timezone edge cases that can shift the date. */
 function roundToDay(date: Date): Date {
   const d = new Date(date);
-  d.setHours(0, 0, 0, 0);
+  d.setHours(12, 0, 0, 0);
   return d;
 }
 
