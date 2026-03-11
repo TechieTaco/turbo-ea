@@ -9,7 +9,7 @@ import IconButton from "@mui/material/IconButton";
 import Tooltip from "@mui/material/Tooltip";
 import { useTheme } from "@mui/material/styles";
 import { useTranslation } from "react-i18next";
-import { Gantt, ViewMode, TitleColumn } from "@wamra/gantt-task-react";
+import { Gantt, ViewMode, TitleColumn, GanttDateRoundingTimeUnit } from "@wamra/gantt-task-react";
 import type { Task, OnDateChange, TaskOrEmpty, Column } from "@wamra/gantt-task-react";
 import "@wamra/gantt-task-react/dist/style.css";
 import MaterialSymbol from "@/components/MaterialSymbol";
@@ -325,6 +325,7 @@ export default function PpmGanttTab({ initiativeId }: Props) {
             onClick={handleClick}
             onDateChange={handleDateChange}
             onChangeExpandState={handleExpanderClick}
+            dateMoveStep={{ value: 1, timeUnit: GanttDateRoundingTimeUnit.DAY }}
             distances={{
               columnWidth,
               rowHeight: 40,

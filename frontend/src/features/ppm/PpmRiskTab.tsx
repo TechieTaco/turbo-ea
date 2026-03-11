@@ -35,8 +35,8 @@ interface UserOption {
 
 function scoreColor(score: number): string {
   if (score >= 15) return "#d32f2f";
-  if (score >= 6) return "#f57c00";
-  return "#4caf50";
+  if (score >= 6) return "#ed6c02";
+  return "#2e7d32";
 }
 
 const STATUS_COLORS: Record<string, "default" | "error" | "warning" | "success" | "info"> = {

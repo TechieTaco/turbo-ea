@@ -30,9 +30,9 @@ import type {
 } from "@/types";
 
 const RAG: Record<string, string> = {
-  onTrack: "#4caf50",
-  atRisk: "#ff9800",
-  offTrack: "#f44336",
+  onTrack: "#2e7d32",
+  atRisk: "#ed6c02",
+  offTrack: "#d32f2f",
 };
 
 const RAG_LABEL: Record<string, string> = {
@@ -97,8 +97,9 @@ function costUnit(planned: number, actual: number, currency: string): string {
   return currency;
 }
 
-const COST_BAR_COLOR = "#5c6bc0";
-const COST_BAR_OVER = "#b71c1c";
+// Use MUI default primary and error colors — these match the app theme
+const COST_BAR_COLOR = "#1976d2";
+const COST_BAR_OVER = "#c62828";
 
 /** Mini cost bar matching the design: bar on top, label "578/1,350 kCHF" below */
 function CostBar({
@@ -321,9 +322,9 @@ export default function PpmPortfolio() {
     const width = Math.max(endPct - startPct, 0.5);
     const barColor =
       item.latest_report?.schedule_health === "offTrack"
-        ? "#ef5350"
+        ? RAG.offTrack
         : item.latest_report?.schedule_health === "atRisk"
-          ? "#ffa726"
+          ? RAG.atRisk
           : COST_BAR_COLOR;
     const clippedLeft = startPct <= 0;
     const clippedRight = endPct >= 100;

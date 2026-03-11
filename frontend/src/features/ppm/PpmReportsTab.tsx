@@ -12,9 +12,9 @@ import StatusReportDialog from "./StatusReportDialog";
 import type { PpmStatusReport } from "@/types";
 
 const RAG_COLORS: Record<string, string> = {
-  onTrack: "#4caf50",
-  atRisk: "#ff9800",
-  offTrack: "#f44336",
+  onTrack: "#2e7d32",
+  atRisk: "#ed6c02",
+  offTrack: "#d32f2f",
 };
 
 interface Props {

@@ -18,8 +18,8 @@ import PpmCostTab from "./PpmCostTab";
 import PpmRiskTab from "./PpmRiskTab";
 import PpmTaskBoard from "./PpmTaskBoard";
 import PpmGanttTab from "./PpmGanttTab";
-import PpmCardDetailsTab from "./PpmCardDetailsTab";
-import type { Card, PpmStatusReport, PpmCostLine, PpmBudgetLine, PpmRisk } from "@/types";
+import CardDetailContent from "@/features/cards/CardDetailContent";
+import type { Card, CardEffectivePermissions, PpmStatusReport, PpmCostLine, PpmBudgetLine, PpmRisk } from "@/types";
 
 const TAB_KEYS = ["overview", "reports", "cost", "risks", "tasks", "gantt", "details"];
 
@@ -38,6 +38,23 @@ export default function PpmProjectDetail() {
   const [costLines, setCostLines] = useState<PpmCostLine[]>([]);
   const [budgetLines, setBudgetLines] = useState<PpmBudgetLine[]>([]);
   const [risks, setRisks] = useState<PpmRisk[]>([]);
+  const [perms, setPerms] = useState<CardEffectivePermissions["effective"]>({
+    can_view: true,
+    can_edit: true,
+    can_archive: true,
+    can_delete: true,
+    can_approval_status: true,
+    can_manage_stakeholders: true,
+    can_manage_relations: true,
+    can_manage_documents: true,
+    can_manage_comments: true,
+    can_create_comments: true,
+    can_bpm_edit: true,
+    can_bpm_manage_drafts: true,
+    can_bpm_approve: true,
+    can_manage_adr_links: true,
+    can_manage_diagram_links: true,
+  });
   const [loading, setLoading] = useState(true);
 
   const loadData = useCallback(async () => {
@@ -55,6 +72,11 @@ export default function PpmProjectDetail() {
       setCostLines(cl);
       setBudgetLines(bl);
       setRisks(ri);
+      // Fetch effective permissions (non-blocking)
+      api
+        .get<CardEffectivePermissions>(`/cards/${id}/my-permissions`)
+        .then((res) => setPerms(res.effective))
+        .catch(() => {});
     } finally {
       setLoading(false);
     }
@@ -154,10 +176,11 @@ export default function PpmProjectDetail() {
       {tab === 4 && <PpmTaskBoard initiativeId={id!} />}
       {tab === 5 && <PpmGanttTab initiativeId={id!} />}
       {tab === 6 && (
-        <PpmCardDetailsTab
+        <CardDetailContent
           card={card}
-          canEdit
+          perms={perms}
           onCardUpdate={(updated) => setCard(updated)}
+          showBpmTabs={false}
         />
       )}
     </Box>
