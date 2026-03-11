@@ -123,6 +123,7 @@
   "wbsTitle": "Название",
   "wbsDescription": "Описание",
   "wbsParent": "Родительский рабочий пакет",
+  "wbsAssignee": "Ответственный",
   "wbsStartDate": "Дата начала",
   "wbsEndDate": "Дата окончания",
   "noWbsItems": "Рабочих пакетов пока нет",

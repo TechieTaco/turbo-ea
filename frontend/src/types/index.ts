@@ -1099,6 +1099,8 @@ export interface PpmWbs {
   sort_order: number;
   is_milestone: boolean;
   completion: number;
+  assignee_id: string | null;
+  assignee_name: string | null;
   progress: number;
   task_count: number;
   created_at: string;

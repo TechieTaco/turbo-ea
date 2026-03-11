@@ -224,6 +224,7 @@ class PpmWbsCreate(BaseModel):
     sort_order: int = 0
     is_milestone: bool = False
     completion: float = Field(0, ge=0, le=100)
+    assignee_id: str | None = None
 
 
 class PpmWbsUpdate(BaseModel):
@@ -235,6 +236,7 @@ class PpmWbsUpdate(BaseModel):
     sort_order: int | None = None
     is_milestone: bool | None = None
     completion: float | None = Field(None, ge=0, le=100)
+    assignee_id: str | None = None
 
 
 class PpmWbsOut(BaseModel):
@@ -248,6 +250,8 @@ class PpmWbsOut(BaseModel):
     sort_order: int
     is_milestone: bool = False
     completion: float = 0
+    assignee_id: str | None = None
+    assignee_name: str | None = None
     progress: float = 0
     task_count: int = 0
     created_at: datetime

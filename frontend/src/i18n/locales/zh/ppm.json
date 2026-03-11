@@ -123,6 +123,7 @@
   "wbsTitle": "标题",
   "wbsDescription": "描述",
   "wbsParent": "上级工作包",
+  "wbsAssignee": "负责人",
   "wbsStartDate": "开始日期",
   "wbsEndDate": "结束日期",
   "noWbsItems": "暂无工作包",

@@ -22,14 +22,23 @@ import type {
   OnProgressChange,
   TaskOrEmpty,
   Column,
+  ColumnProps,
   ContextMenuOptionType,
 } from "@wamra/gantt-task-react";
 import "@wamra/gantt-task-react/dist/style.css";
+import Chip from "@mui/material/Chip";
+import LinearProgress from "@mui/material/LinearProgress";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import PpmWbsDialog from "./PpmWbsDialog";
 import PpmTaskDialog from "./PpmTaskDialog";
 import type { PpmWbs, PpmTask } from "@/types";
+
+/** Extra metadata for Gantt rows, keyed by gantt task id (e.g. "wbs-xxx", "task-xxx"). */
+interface GanttRowMeta {
+  completion: number;
+  assigneeName: string | null;
+}
 
 interface Props {
   initiativeId: string;
@@ -214,6 +223,26 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
 
     return items;
   }, [wbsList, tasks, collapsed, theme, timelineRange]);
+
+  /** Metadata map for custom Gantt columns (completion, assignee). */
+  const rowMeta = useMemo(() => {
+    const map = new Map<string, GanttRowMeta>();
+    for (const w of wbsList) {
+      map.set(`wbs-${w.id}`, {
+        completion: w.completion,
+        assigneeName: w.assignee_name,
+      });
+    }
+    for (const tk of tasks) {
+      const pct =
+        tk.status === "done" ? 100 : tk.status === "in_progress" ? 50 : 0;
+      map.set(`task-${tk.id}`, {
+        completion: pct,
+        assigneeName: tk.assignee_name,
+      });
+    }
+    return map;
+  }, [wbsList, tasks]);
 
   const handleDateChange: OnDateChange = useCallback(
     async (task) => {
@@ -412,6 +441,73 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
     [t, handleClick, loadData],
   );
 
+  /** Custom column: completion % with progress bar pill. */
+  const CompletionCell = useMemo(() => {
+    const Cell = ({ data }: ColumnProps) => {
+      const meta = rowMeta.get(data.task.id);
+      if (!meta) return null;
+      const pct = Math.round(meta.completion);
+      return (
+        <Box
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            gap: 0.5,
+            px: 1,
+            height: "100%",
+          }}
+        >
+          <LinearProgress
+            variant="determinate"
+            value={pct}
+            sx={{
+              flex: 1,
+              height: 8,
+              borderRadius: 4,
+              bgcolor: "action.hover",
+              "& .MuiLinearProgress-bar": { borderRadius: 4 },
+            }}
+          />
+          <Chip
+            label={`${pct}%`}
+            size="small"
+            sx={{ height: 20, fontSize: 11, fontWeight: 600 }}
+            color={pct >= 100 ? "success" : pct > 0 ? "primary" : "default"}
+          />
+        </Box>
+      );
+    };
+    Cell.displayName = "CompletionCell";
+    return Cell;
+  }, [rowMeta]);
+
+  /** Custom column: assignee name. */
+  const AssigneeCell = useMemo(() => {
+    const Cell = ({ data }: ColumnProps) => {
+      const meta = rowMeta.get(data.task.id);
+      if (!meta?.assigneeName) return null;
+      return (
+        <Box
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            px: 1,
+            height: "100%",
+            fontSize: 13,
+            color: "text.secondary",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {meta.assigneeName}
+        </Box>
+      );
+    };
+    Cell.displayName = "AssigneeCell";
+    return Cell;
+  }, [rowMeta]);
+
   const ganttColumns: Column[] = useMemo(
     () => [
       {
@@ -419,6 +515,20 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
         Cell: TitleColumn,
         width: 200,
         title: t("wbsTitle"),
+        canResize: true,
+      },
+      {
+        id: "completion",
+        Cell: CompletionCell,
+        width: 120,
+        title: "%",
+        canResize: true,
+      },
+      {
+        id: "assignee",
+        Cell: AssigneeCell,
+        width: 120,
+        title: t("wbsAssignee"),
         canResize: true,
       },
       {
@@ -436,7 +546,7 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
         canResize: true,
       },
     ],
-    [t],
+    [t, CompletionCell, AssigneeCell],
   );
 
   const columnWidth = useMemo(() => {

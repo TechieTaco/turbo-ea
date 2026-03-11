@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Dialog from "@mui/material/Dialog";
 import DialogTitle from "@mui/material/DialogTitle";
 import DialogContent from "@mui/material/DialogContent";
@@ -12,6 +12,7 @@ import Select from "@mui/material/Select";
 import MenuItem from "@mui/material/MenuItem";
 import Switch from "@mui/material/Switch";
 import Slider from "@mui/material/Slider";
+import Autocomplete from "@mui/material/Autocomplete";
 import Typography from "@mui/material/Typography";
 import Box from "@mui/material/Box";
 import Alert from "@mui/material/Alert";
@@ -19,6 +20,11 @@ import CircularProgress from "@mui/material/CircularProgress";
 import { useTranslation } from "react-i18next";
 import { api } from "@/api/client";
 import type { PpmWbs } from "@/types";
+
+interface UserOption {
+  id: string;
+  display_name: string;
+}
 
 interface Props {
   initiativeId: string;
@@ -69,8 +75,22 @@ export default function PpmWbsDialog({
     wbs?.is_milestone || defaultMilestone || false,
   );
   const [completion, setCompletion] = useState(wbs?.completion ?? 0);
+  const [assigneeId, setAssigneeId] = useState(wbs?.assignee_id || "");
   const [saving, setSaving] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [users, setUsers] = useState<UserOption[]>([]);
+
+  useEffect(() => {
+    api
+      .get<UserOption[]>("/users")
+      .then((res) => {
+        const list = Array.isArray(res)
+          ? res
+          : ((res as unknown as { items: UserOption[] }).items || []);
+        setUsers(list.filter((u) => u.id && u.display_name));
+      })
+      .catch(() => {});
+  }, []);
 
   // Check if this WBS has children (completion will be auto-rolled up)
   const hasChildren = wbsList.some((w) => w.parent_id === wbs?.id);
@@ -92,6 +112,7 @@ export default function PpmWbsDialog({
         end_date: isMilestone ? startDate || null : endDate || null,
         is_milestone: isMilestone,
         completion,
+        assignee_id: assigneeId || null,
       };
       if (isEdit) {
         await api.patch(`/ppm/wbs/${wbs.id}`, payload);
@@ -148,6 +169,21 @@ export default function PpmWbsDialog({
               ))}
             </Select>
           </FormControl>
+          <Autocomplete
+            options={users}
+            getOptionLabel={(opt) => opt.display_name}
+            value={users.find((u) => u.id === assigneeId) || null}
+            onChange={(_e, val) => setAssigneeId(val?.id || "")}
+            isOptionEqualToValue={(opt, val) => opt.id === val.id}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                label={t("wbsAssignee")}
+                size="small"
+              />
+            )}
+            size="small"
+          />
           <FormControlLabel
             control={
               <Switch

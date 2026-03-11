@@ -31,3 +31,8 @@ class PpmWbs(Base, UUIDMixin, TimestampMixin):
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
     is_milestone: Mapped[bool] = mapped_column(Boolean, default=False)
     completion: Mapped[float] = mapped_column(Float, default=0)
+    assignee_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+    )

@@ -123,6 +123,7 @@
   "wbsTitle": "Titre",
   "wbsDescription": "Description",
   "wbsParent": "Lot de travail parent",
+  "wbsAssignee": "Responsable",
   "wbsStartDate": "Date de début",
   "wbsEndDate": "Date de fin",
   "noWbsItems": "Aucun lot de travail pour l'instant",
