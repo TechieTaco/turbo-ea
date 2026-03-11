@@ -86,6 +86,14 @@ export default function PpmProjectDetail() {
     loadData();
   }, [loadData]);
 
+  // When PPM has budget/cost lines, mark card cost fields as auto-computed
+  const ppmAutoFieldKeys = useMemo(() => {
+    const keys: string[] = [];
+    if (budgetLines.length > 0) keys.push("costBudget");
+    if (costLines.length > 0) keys.push("costActual");
+    return keys;
+  }, [budgetLines.length, costLines.length]);
+
   if (loading) {
     return (
       <Box display="flex" justifyContent="center" mt={8}>
@@ -97,14 +105,6 @@ export default function PpmProjectDetail() {
   if (!card) return null;
 
   const latestReport = reports[0] || null;
-
-  // When PPM has budget/cost lines, mark card cost fields as auto-computed
-  const ppmAutoFieldKeys = useMemo(() => {
-    const keys: string[] = [];
-    if (budgetLines.length > 0) keys.push("costBudget");
-    if (costLines.length > 0) keys.push("costActual");
-    return keys;
-  }, [budgetLines.length, costLines.length]);
 
   return (
     <Box sx={{ p: 3, maxWidth: 1400, mx: "auto" }}>
