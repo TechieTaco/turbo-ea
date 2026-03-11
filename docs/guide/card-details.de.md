@@ -144,6 +144,10 @@ Zeigt die **vollständige Historie** der an der Karte vorgenommenen Änderungen:
 
 Für **Geschäftsprozess**-Karten erscheint ein zusätzlicher **Prozessfluss**-Tab mit einem eingebetteten BPMN-Diagramm-Betrachter/-Editor. Siehe [BPM](bpm.md) für Details zum Prozessflussmanagement.
 
+## PPM-Tab (nur für Initiativ-Karten)
+
+Wenn das [PPM-Modul](ppm.md) aktiviert ist, zeigen **Initiativ**-Karten einen zusätzlichen **PPM**-Tab als letzten Tab an. Ein Klick auf diesen Tab navigiert zur PPM-Initiativ-Detailansicht, in der Sie Statusberichte, Budgets, Risiken, Aufgaben und Gantt-Zeitpläne verwalten können.
+
 ## Archivierung
 
 Karten können über das Aktionsmenü **archiviert** (weich gelöscht) werden. Archivierte Karten:

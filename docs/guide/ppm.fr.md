@@ -109,6 +109,12 @@ La WBS fournit une décomposition hiérarchique du périmètre du projet :
 - **Hiérarchie** — Relations parent-enfant entre les éléments WBS
 - **Auto-achèvement** — Le pourcentage d'achèvement est automatiquement calculé à partir des ratios de tâches terminées/totales
 
+## Intégration avec les détails de la fiche
+
+Lorsque le PPM est activé, les fiches **Initiative** affichent un onglet **PPM** en dernière position dans la [vue détaillée de la fiche](card-details.md). Cliquer sur cet onglet ouvre directement la vue détaillée PPM de l'initiative (onglet Aperçu). Cela offre un point d'accès rapide depuis n'importe quelle fiche Initiative vers sa page de projet PPM complète.
+
+Inversement, l'onglet **Détails de la fiche** dans la vue détaillée PPM de l'initiative affiche les sections standard sans l'onglet PPM, évitant ainsi une navigation circulaire.
+
 ## Permissions
 
 | Permission | Description |

@@ -122,6 +122,12 @@ The WBS provides a hierarchical decomposition of project scope:
 - **Hierarchy** — Parent-child relationships between WBS items
 - **Auto-completion** — Completion percentage is automatically calculated from child task done/total ratios, then rolled up to parent items
 
+## Card Detail Integration
+
+When PPM is enabled, **Initiative** cards display a **PPM** tab as the last tab in the [card detail view](card-details.md). Clicking this tab navigates directly to the PPM Initiative Detail View (Overview tab). This provides a quick entry point from any Initiative card to its full PPM project page.
+
+Conversely, the **Card Details** tab within the PPM Initiative Detail View shows the standard card detail sections without the PPM tab, avoiding circular navigation.
+
 ## Permissions
 
 | Permission | Description |

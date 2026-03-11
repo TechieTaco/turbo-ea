@@ -109,6 +109,12 @@ La WBS proporciona una descomposición jerárquica del alcance del proyecto:
 - **Jerarquía** — Relaciones padre-hijo entre elementos WBS
 - **Auto-finalización** — El porcentaje de finalización se calcula automáticamente a partir de las proporciones de tareas hechas/totales
 
+## Integración con los detalles de la ficha
+
+Cuando PPM está activado, las fichas de **Iniciativa** muestran una pestaña **PPM** como última pestaña en la [vista de detalle de la ficha](card-details.md). Al hacer clic en esta pestaña, se navega directamente a la vista detallada PPM de la iniciativa (pestaña Resumen). Esto proporciona un punto de acceso rápido desde cualquier ficha de Iniciativa a su página de proyecto PPM completa.
+
+A la inversa, la pestaña **Detalles de la ficha** dentro de la vista detallada PPM de la iniciativa muestra las secciones estándar de la ficha sin la pestaña PPM, evitando la navegación circular.
+
 ## Permisos
 
 | Permiso | Descripción |

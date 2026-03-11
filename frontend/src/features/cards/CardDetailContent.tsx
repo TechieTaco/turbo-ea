@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, type ReactNode } from "react";
+import { useNavigate } from "react-router-dom";
 import Box from "@mui/material/Box";
 import MuiCard from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
@@ -12,6 +13,7 @@ import ProcessAssessmentPanel from "@/features/bpm/ProcessAssessmentPanel";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useCalculatedFields } from "@/hooks/useCalculatedFields";
 import { useCurrency } from "@/hooks/useCurrency";
+import { usePpmEnabled } from "@/hooks/usePpmEnabled";
 import { api } from "@/api/client";
 import {
   DescriptionSection,
@@ -34,6 +36,8 @@ interface Props {
   onCardUpdate: (card: Card) => void;
   /** Show BPM tabs (Process Flow, Assessments) for BusinessProcess cards (default true) */
   showBpmTabs?: boolean;
+  /** Show PPM tab for Initiative cards (default true) */
+  showPpmTab?: boolean;
   /** Initial tab index (default 0) */
   initialTab?: number;
   /** Initial sub-tab for Process Flow tab */
@@ -49,15 +53,18 @@ export default function CardDetailContent({
   perms,
   onCardUpdate,
   showBpmTabs = true,
+  showPpmTab = true,
   initialTab = 0,
   initialSubTab,
   beforeTabs,
   autoFieldKeys = [],
 }: Props) {
   const { t } = useTranslation("cards");
+  const navigate = useNavigate();
   const { getType } = useMetamodel();
   const { isCalculated } = useCalculatedFields();
   const { fmt: currencyFmt } = useCurrency();
+  const { ppmEnabled } = usePpmEnabled();
 
   const [tab, setTab] = useState(initialTab);
   const [relRefresh, setRelRefresh] = useState(0);
@@ -258,13 +265,16 @@ export default function CardDetailContent({
   };
 
   const isBpm = showBpmTabs && card.type === "BusinessProcess";
+  const isPpm = showPpmTab && ppmEnabled && card.type === "Initiative";
 
-  // Tab indices differ based on BPM
-  const commentsIdx = isBpm ? 3 : 1;
-  const todosIdx = isBpm ? 4 : 2;
-  const stakeholdersIdx = isBpm ? 5 : 3;
-  const resourcesIdx = isBpm ? 6 : 4;
-  const historyIdx = isBpm ? 7 : 5;
+  // BPM adds 2 tabs after Card; PPM tab goes at the very end
+  const bpmOffset = isBpm ? 2 : 0;
+  const commentsIdx = 1 + bpmOffset;
+  const todosIdx = 2 + bpmOffset;
+  const stakeholdersIdx = 3 + bpmOffset;
+  const resourcesIdx = 4 + bpmOffset;
+  const historyIdx = 5 + bpmOffset;
+  const ppmTabIdx = isPpm ? historyIdx + 1 : -1;
 
   return (
     <>
@@ -272,7 +282,13 @@ export default function CardDetailContent({
 
       <Tabs
         value={tab}
-        onChange={(_, v) => setTab(v)}
+        onChange={(_, v) => {
+          if (isPpm && v === ppmTabIdx) {
+            navigate(`/ppm/${card.id}`);
+            return;
+          }
+          setTab(v);
+        }}
         variant="scrollable"
         scrollButtons="auto"
         allowScrollButtonsMobile
@@ -286,6 +302,7 @@ export default function CardDetailContent({
         <Tab label={t("tabs.stakeholders")} />
         <Tab label={t("tabs.resources")} />
         <Tab label={t("tabs.history")} />
+        {isPpm && <Tab label={t("tabs.ppm")} />}
       </Tabs>
 
       {tab === 0 && (
