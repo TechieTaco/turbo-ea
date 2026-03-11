@@ -33,7 +33,43 @@ import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import PpmWbsDialog from "./PpmWbsDialog";
 import PpmTaskDialog from "./PpmTaskDialog";
-import type { PpmWbs, PpmTask } from "@/types";
+import type { PpmWbs, PpmTask, PpmTaskStatus } from "@/types";
+
+/** Bar colors per task status — reuses the standard palette from PpmTaskBoard. */
+const TASK_STATUS_BAR_COLORS: Record<
+  PpmTaskStatus,
+  {
+    barBackgroundColor: string;
+    barProgressColor: string;
+    barBackgroundSelectedColor: string;
+    barProgressSelectedColor: string;
+  }
+> = {
+  todo: {
+    barBackgroundColor: "#e0e0e0",
+    barProgressColor: "#9e9e9e",
+    barBackgroundSelectedColor: "#bdbdbd",
+    barProgressSelectedColor: "#9e9e9e",
+  },
+  in_progress: {
+    barBackgroundColor: "#90caf9",
+    barProgressColor: "#1976d2",
+    barBackgroundSelectedColor: "#1565c0",
+    barProgressSelectedColor: "#1976d2",
+  },
+  done: {
+    barBackgroundColor: "#a5d6a7",
+    barProgressColor: "#2e7d32",
+    barBackgroundSelectedColor: "#1b5e20",
+    barProgressSelectedColor: "#2e7d32",
+  },
+  blocked: {
+    barBackgroundColor: "#ef9a9a",
+    barProgressColor: "#d32f2f",
+    barBackgroundSelectedColor: "#c62828",
+    barProgressSelectedColor: "#d32f2f",
+  },
+};
 
 /** Extra metadata for Gantt rows, keyed by gantt task id (e.g. "wbs-xxx", "task-xxx"). */
 interface GanttRowMeta {
@@ -253,7 +289,7 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
       }
       const progress =
         tk.status === "done" ? 100 : tk.status === "in_progress" ? 50 : 0;
-      const isBlocked = tk.status === "blocked";
+      const barColors = TASK_STATUS_BAR_COLORS[tk.status] ?? TASK_STATUS_BAR_COLORS.todo;
       items.push({
         id: `task-${tk.id}`,
         name: tk.title,
@@ -263,19 +299,7 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
         progress,
         parent: tk.wbs_id ? `wbs-${tk.wbs_id}` : undefined,
         isDisabled: false,
-        styles: isBlocked
-          ? {
-              barBackgroundColor: "#ef9a9a",
-              barProgressColor: "#d32f2f",
-              barBackgroundSelectedColor: "#c62828",
-              barProgressSelectedColor: "#d32f2f",
-            }
-          : {
-              barBackgroundColor: theme.palette.info.light,
-              barProgressColor: theme.palette.info.main,
-              barBackgroundSelectedColor: theme.palette.info.dark,
-              barProgressSelectedColor: theme.palette.info.main,
-            },
+        styles: barColors,
       });
     }
 
