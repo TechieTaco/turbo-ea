@@ -649,7 +649,7 @@ export default function PpmPortfolio() {
     <Box sx={{ p: { xs: 1.5, sm: 3 }, maxWidth: 1800, mx: "auto" }}>
       {/* Header */}
       <Box display="flex" alignItems="center" gap={1.5} mb={2}>
-        <MaterialSymbol icon="view_kanban" size={28} />
+        <MaterialSymbol icon="view_timeline" size={28} />
         <Typography variant="h5" fontWeight={700}>
           {t("title")}
         </Typography>
