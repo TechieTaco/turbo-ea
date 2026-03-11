@@ -252,22 +252,16 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
     [loadData],
   );
 
-  /** Single click: only handle the empty row (create WBS). */
+  /** Click: open edit dialog for WBS/task, or create dialog for empty row. */
   const handleClick = useCallback(
     (task: TaskOrEmpty) => {
-      if (task.id === "__empty__") {
+      const id = task.id;
+      if (id === "__empty__") {
         setEditingWbs(undefined);
         setMilestoneDefault(false);
         setWbsDialogOpen(true);
+        return;
       }
-    },
-    [],
-  );
-
-  /** Double-click: open edit dialog for WBS or task. */
-  const handleDoubleClick = useCallback(
-    (task: Task) => {
-      const id = task.id;
       if (id.startsWith("wbs-")) {
         const realId = id.slice(4);
         const wbs = wbsList.find((w) => w.id === realId);
@@ -305,9 +299,7 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
       {
         label: t("common:actions.edit", "Edit"),
         icon: <MaterialSymbol icon="edit" size={16} />,
-        action: (meta) => {
-          if ("start" in meta.task) handleDoubleClick(meta.task as Task);
-        },
+        action: (meta) => handleClick(meta.task),
       },
       {
         label: t("addTaskUnderWbs"),
@@ -318,6 +310,25 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
           setEditingTask(undefined);
           setPreselectedWbsId(wbsRealId);
           setTaskDialogOpen(true);
+        },
+        checkIsAvailable: (meta) => meta.task.id.startsWith("wbs-"),
+      },
+      {
+        label: t("addWbs"),
+        icon: <MaterialSymbol icon="add" size={16} />,
+        action: () => {
+          setEditingWbs(undefined);
+          setMilestoneDefault(false);
+          setWbsDialogOpen(true);
+        },
+      },
+      {
+        label: t("addMilestone"),
+        icon: <MaterialSymbol icon="flag" size={16} />,
+        action: () => {
+          setEditingWbs(undefined);
+          setMilestoneDefault(true);
+          setWbsDialogOpen(true);
         },
       },
       {
@@ -349,7 +360,7 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
         },
       },
     ],
-    [t, handleDoubleClick, loadData],
+    [t, handleClick, loadData],
   );
 
   const ganttColumns: Column[] = useMemo(
@@ -461,7 +472,6 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
       {/* Gantt Chart — always shown, with empty row at bottom */}
       <Box
         sx={{
-          mx: -3,
           "& .ganttTable": { fontFamily: theme.typography.fontFamily },
           "& .ganttTable_Header": {
             borderBottom: `1px solid ${theme.palette.divider}`,
@@ -485,7 +495,6 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
           columns={ganttColumns}
           canResizeColumns
           onClick={handleClick}
-          onDoubleClick={handleDoubleClick}
           onDateChange={handleDateChange}
           onProgressChange={handleProgressChange}
           onChangeExpandState={handleExpanderClick}
