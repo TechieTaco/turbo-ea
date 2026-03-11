@@ -133,5 +133,14 @@
   "progress": "进度",
   "taskStartDate": "开始日期",
   "confirmDeleteWbs": "删除此工作包？已分配的任务将被取消关联。",
-  "unassigned": "未分配的任务"
+  "unassigned": "未分配的任务",
+  "filterByWbs": "工作包",
+  "allTasks": "所有任务",
+  "milestone": "里程碑",
+  "milestoneDate": "里程碑日期",
+  "addMilestone": "添加里程碑",
+  "completion": "完成度",
+  "completionDesc": "各工作包的平均完成度",
+  "completionAutoRollup": "完成度根据子项自动计算",
+  "workPackage": "工作包"
 }

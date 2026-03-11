@@ -766,11 +766,44 @@ async def _wbs_to_out(db: AsyncSession, wbs: PpmWbs) -> PpmWbsOut:
         start_date=wbs.start_date,
         end_date=wbs.end_date,
         sort_order=wbs.sort_order,
+        is_milestone=wbs.is_milestone,
+        completion=wbs.completion,
         progress=progress,
         task_count=total,
         created_at=wbs.created_at,
         updated_at=wbs.updated_at,
     )
+
+
+async def _rollup_completion(db: AsyncSession, initiative_id: str) -> None:
+    """Recalculate completion for parent WBS items by averaging their children."""
+    result = await db.execute(
+        select(PpmWbs)
+        .where(PpmWbs.initiative_id == initiative_id)
+        .order_by(PpmWbs.sort_order, PpmWbs.created_at)
+    )
+    all_wbs = result.scalars().all()
+    by_id: dict[str, PpmWbs] = {str(w.id): w for w in all_wbs}
+    children_map: dict[str, list[str]] = {}
+    for w in all_wbs:
+        pid = str(w.parent_id) if w.parent_id else None
+        if pid:
+            children_map.setdefault(pid, []).append(str(w.id))
+
+    # Bottom-up: process leaves first, then parents
+    def compute(wid: str) -> float:
+        kids = children_map.get(wid, [])
+        if not kids:
+            return by_id[wid].completion
+        child_vals = [compute(c) for c in kids]
+        avg = sum(child_vals) / len(child_vals) if child_vals else 0
+        parent = by_id[wid]
+        parent.completion = round(avg, 1)
+        return avg
+
+    for w in all_wbs:
+        if not w.parent_id:
+            compute(str(w.id))
 
 
 @router.get("/initiatives/{initiative_id}/wbs", response_model=list[PpmWbsOut])
@@ -819,6 +852,8 @@ async def create_wbs(
         start_date=body.start_date,
         end_date=body.end_date,
         sort_order=body.sort_order,
+        is_milestone=body.is_milestone,
+        completion=body.completion,
     )
     db.add(wbs)
     await db.commit()
@@ -868,6 +903,9 @@ async def update_wbs(
             cursor = str(row[0]) if row and row[0] else None
     for key, val in data.items():
         setattr(wbs, key, val)
+    # Rollup completion to parents if completion changed
+    if "completion" in data:
+        await _rollup_completion(db, str(wbs.initiative_id))
     await db.commit()
     await db.refresh(wbs)
     return await _wbs_to_out(db, wbs)
@@ -886,3 +924,25 @@ async def delete_wbs(
         raise HTTPException(status_code=404, detail="WBS item not found")
     await db.delete(wbs)
     await db.commit()
+
+
+@router.get("/initiatives/{initiative_id}/completion")
+async def get_initiative_completion(
+    initiative_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Return overall completion % for an initiative (average of root WBS items)."""
+    await PermissionService.require_permission(db, user, "ppm.view")
+    await _get_initiative_or_404(db, initiative_id)
+    result = await db.execute(
+        select(PpmWbs).where(
+            PpmWbs.initiative_id == initiative_id,
+            PpmWbs.parent_id.is_(None),
+        )
+    )
+    roots = result.scalars().all()
+    if not roots:
+        return {"completion": 0}
+    avg = sum(w.completion for w in roots) / len(roots)
+    return {"completion": round(avg, 1)}

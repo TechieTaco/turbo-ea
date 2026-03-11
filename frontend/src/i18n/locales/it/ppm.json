@@ -133,5 +133,14 @@
   "progress": "Avanzamento",
   "taskStartDate": "Data di inizio",
   "confirmDeleteWbs": "Eliminare questo pacchetto di lavoro? Le attività assegnate saranno scollegate.",
-  "unassigned": "Attività non assegnate"
+  "unassigned": "Attività non assegnate",
+  "filterByWbs": "Pacchetto di lavoro",
+  "allTasks": "Tutte le attività",
+  "milestone": "Milestone",
+  "milestoneDate": "Data del milestone",
+  "addMilestone": "Aggiungi milestone",
+  "completion": "Completamento",
+  "completionDesc": "Completamento medio dei pacchetti di lavoro",
+  "completionAutoRollup": "Il completamento è calcolato automaticamente dagli elementi figli",
+  "workPackage": "Pacchetto di lavoro"
 }

@@ -133,5 +133,14 @@
   "progress": "Fortschritt",
   "taskStartDate": "Startdatum",
   "confirmDeleteWbs": "Dieses Arbeitspaket löschen? Zugewiesene Aufgaben werden entkoppelt.",
-  "unassigned": "Nicht zugewiesene Aufgaben"
+  "unassigned": "Nicht zugewiesene Aufgaben",
+  "filterByWbs": "Arbeitspaket",
+  "allTasks": "Alle Aufgaben",
+  "milestone": "Meilenstein",
+  "milestoneDate": "Meilensteindatum",
+  "addMilestone": "Meilenstein hinzufügen",
+  "completion": "Fertigstellung",
+  "completionDesc": "Durchschnittliche Fertigstellung über alle Arbeitspakete",
+  "completionAutoRollup": "Fertigstellung wird automatisch aus untergeordneten Elementen berechnet",
+  "workPackage": "Arbeitspaket"
 }

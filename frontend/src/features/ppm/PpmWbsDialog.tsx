@@ -6,9 +6,13 @@ import DialogActions from "@mui/material/DialogActions";
 import Button from "@mui/material/Button";
 import TextField from "@mui/material/TextField";
 import FormControl from "@mui/material/FormControl";
+import FormControlLabel from "@mui/material/FormControlLabel";
 import InputLabel from "@mui/material/InputLabel";
 import Select from "@mui/material/Select";
 import MenuItem from "@mui/material/MenuItem";
+import Switch from "@mui/material/Switch";
+import Slider from "@mui/material/Slider";
+import Typography from "@mui/material/Typography";
 import Box from "@mui/material/Box";
 import CircularProgress from "@mui/material/CircularProgress";
 import { useTranslation } from "react-i18next";
@@ -19,6 +23,7 @@ interface Props {
   initiativeId: string;
   wbs?: PpmWbs;
   wbsList: PpmWbs[];
+  defaultMilestone?: boolean;
   onClose: () => void;
   onSaved: () => void;
 }
@@ -43,6 +48,7 @@ export default function PpmWbsDialog({
   initiativeId,
   wbs,
   wbsList,
+  defaultMilestone,
   onClose,
   onSaved,
 }: Props) {
@@ -54,7 +60,14 @@ export default function PpmWbsDialog({
   const [parentId, setParentId] = useState(wbs?.parent_id || "");
   const [startDate, setStartDate] = useState(wbs?.start_date || "");
   const [endDate, setEndDate] = useState(wbs?.end_date || "");
+  const [isMilestone, setIsMilestone] = useState(
+    wbs?.is_milestone || defaultMilestone || false,
+  );
+  const [completion, setCompletion] = useState(wbs?.completion ?? 0);
   const [saving, setSaving] = useState(false);
+
+  // Check if this WBS has children (completion will be auto-rolled up)
+  const hasChildren = wbsList.some((w) => w.parent_id === wbs?.id);
 
   // Filter parent options: exclude self and descendants
   const excludeIds = wbs ? getDescendantIds(wbs.id, wbsList) : new Set<string>();
@@ -70,7 +83,9 @@ export default function PpmWbsDialog({
         description: description.trim() || null,
         parent_id: parentId || null,
         start_date: startDate || null,
-        end_date: endDate || null,
+        end_date: isMilestone ? startDate || null : endDate || null,
+        is_milestone: isMilestone,
+        completion,
       };
       if (isEdit) {
         await api.patch(`/ppm/wbs/${wbs.id}`, payload);
@@ -127,9 +142,18 @@ export default function PpmWbsDialog({
               ))}
             </Select>
           </FormControl>
+          <FormControlLabel
+            control={
+              <Switch
+                checked={isMilestone}
+                onChange={(e) => setIsMilestone(e.target.checked)}
+              />
+            }
+            label={t("milestone")}
+          />
           <Box display="flex" gap={2}>
             <TextField
-              label={t("wbsStartDate")}
+              label={isMilestone ? t("milestoneDate") : t("wbsStartDate")}
               type="date"
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
@@ -137,15 +161,37 @@ export default function PpmWbsDialog({
               size="small"
               slotProps={{ inputLabel: { shrink: true } }}
             />
-            <TextField
-              label={t("wbsEndDate")}
-              type="date"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              fullWidth
-              size="small"
-              slotProps={{ inputLabel: { shrink: true } }}
+            {!isMilestone && (
+              <TextField
+                label={t("wbsEndDate")}
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                fullWidth
+                size="small"
+                slotProps={{ inputLabel: { shrink: true } }}
+              />
+            )}
+          </Box>
+          <Box>
+            <Typography variant="body2" gutterBottom>
+              {t("completion")}: {Math.round(completion)}%
+            </Typography>
+            <Slider
+              value={completion}
+              onChange={(_, v) => setCompletion(v as number)}
+              min={0}
+              max={100}
+              step={5}
+              disabled={hasChildren}
+              valueLabelDisplay="auto"
+              valueLabelFormat={(v) => `${v}%`}
             />
+            {hasChildren && (
+              <Typography variant="caption" color="text.secondary">
+                {t("completionAutoRollup")}
+              </Typography>
+            )}
           </Box>
         </Box>
       </DialogContent>

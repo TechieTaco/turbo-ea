@@ -133,5 +133,14 @@
   "progress": "Progresso",
   "taskStartDate": "Data de início",
   "confirmDeleteWbs": "Excluir este pacote de trabalho? As tarefas atribuídas serão desvinculadas.",
-  "unassigned": "Tarefas não atribuídas"
+  "unassigned": "Tarefas não atribuídas",
+  "filterByWbs": "Pacote de trabalho",
+  "allTasks": "Todas as tarefas",
+  "milestone": "Marco",
+  "milestoneDate": "Data do marco",
+  "addMilestone": "Adicionar marco",
+  "completion": "Conclusão",
+  "completionDesc": "Conclusão média dos pacotes de trabalho",
+  "completionAutoRollup": "A conclusão é calculada automaticamente a partir dos itens filhos",
+  "workPackage": "Pacote de trabalho"
 }

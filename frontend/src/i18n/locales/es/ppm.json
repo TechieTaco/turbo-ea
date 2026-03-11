@@ -133,5 +133,14 @@
   "progress": "Progreso",
   "taskStartDate": "Fecha de inicio",
   "confirmDeleteWbs": "¿Eliminar este paquete de trabajo? Las tareas asignadas serán desvinculadas.",
-  "unassigned": "Tareas sin asignar"
+  "unassigned": "Tareas sin asignar",
+  "filterByWbs": "Paquete de trabajo",
+  "allTasks": "Todas las tareas",
+  "milestone": "Hito",
+  "milestoneDate": "Fecha del hito",
+  "addMilestone": "Agregar hito",
+  "completion": "Finalización",
+  "completionDesc": "Finalización promedio de los paquetes de trabajo",
+  "completionAutoRollup": "La finalización se calcula automáticamente a partir de los elementos hijos",
+  "workPackage": "Paquete de trabajo"
 }

@@ -1,13 +1,16 @@
+import { useState, useEffect } from "react";
 import Box from "@mui/material/Box";
 import Paper from "@mui/material/Paper";
 import Grid from "@mui/material/Grid";
 import Typography from "@mui/material/Typography";
 import Chip from "@mui/material/Chip";
 import LinearProgress from "@mui/material/LinearProgress";
+import CircularProgress from "@mui/material/CircularProgress";
 import { useTranslation } from "react-i18next";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useResolveLabel } from "@/hooks/useResolveLabel";
+import { api } from "@/api/client";
 import type { Card, PpmStatusReport, PpmCostLine, PpmBudgetLine } from "@/types";
 
 const RAG_COLORS: Record<string, string> = {
@@ -96,6 +99,15 @@ export default function PpmOverviewTab({
   const rl = useResolveLabel();
   const attrs = card.attributes || {};
 
+  // Fetch initiative completion
+  const [completionPct, setCompletionPct] = useState<number | null>(null);
+  useEffect(() => {
+    api
+      .get<{ completion: number }>(`/ppm/initiatives/${card.id}/completion`)
+      .then((r) => setCompletionPct(r.completion))
+      .catch(() => {});
+  }, [card.id]);
+
   // Budget totals (from budget lines)
   const totalBudget = budgetLines.reduce((s, bl) => s + bl.amount, 0);
   const capexBudget = budgetLines
@@ -179,6 +191,64 @@ export default function PpmOverviewTab({
           ) : (
             <Typography variant="body2" color="text.secondary">
               {t("noReportsYet")}
+            </Typography>
+          )}
+        </Paper>
+      </Grid>
+
+      {/* Completion KPI */}
+      <Grid item xs={12} md={6}>
+        <Paper sx={{ p: 2.5 }}>
+          <Typography variant="subtitle1" fontWeight={600} mb={2}>
+            {t("completion")}
+          </Typography>
+          {completionPct !== null ? (
+            <Box display="flex" alignItems="center" gap={2}>
+              <Box sx={{ position: "relative", display: "inline-flex" }}>
+                <CircularProgress
+                  variant="determinate"
+                  value={completionPct}
+                  size={64}
+                  thickness={5}
+                  sx={{
+                    color:
+                      completionPct >= 80
+                        ? "#4caf50"
+                        : completionPct >= 40
+                          ? "#ff9800"
+                          : "#f44336",
+                  }}
+                />
+                <Box
+                  sx={{
+                    top: 0,
+                    left: 0,
+                    bottom: 0,
+                    right: 0,
+                    position: "absolute",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <Typography
+                    variant="body2"
+                    fontWeight={700}
+                    color="text.primary"
+                  >
+                    {Math.round(completionPct)}%
+                  </Typography>
+                </Box>
+              </Box>
+              <Box>
+                <Typography variant="body2" color="text.secondary">
+                  {t("completionDesc")}
+                </Typography>
+              </Box>
+            </Box>
+          ) : (
+            <Typography variant="body2" color="text.secondary">
+              {t("noWbsItems")}
             </Typography>
           )}
         </Paper>

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import Box from "@mui/material/Box";
 import Paper from "@mui/material/Paper";
 import Typography from "@mui/material/Typography";
@@ -15,6 +15,10 @@ import TableRow from "@mui/material/TableRow";
 import Chip from "@mui/material/Chip";
 import TextField from "@mui/material/TextField";
 import Avatar from "@mui/material/Avatar";
+import FormControl from "@mui/material/FormControl";
+import InputLabel from "@mui/material/InputLabel";
+import Select from "@mui/material/Select";
+import MenuItem from "@mui/material/MenuItem";
 import { useTheme, alpha } from "@mui/material/styles";
 import { useTranslation } from "react-i18next";
 import {
@@ -38,7 +42,7 @@ import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import PpmTaskCard from "./PpmTaskCard";
 import PpmTaskDialog from "./PpmTaskDialog";
-import type { PpmTask, PpmTaskStatus } from "@/types";
+import type { PpmTask, PpmTaskStatus, PpmWbs } from "@/types";
 
 const COLUMNS: PpmTaskStatus[] = ["todo", "in_progress", "done", "blocked"];
 
@@ -99,6 +103,7 @@ function DroppableColumn({
 export default function PpmTaskBoard({ initiativeId }: Props) {
   const { t } = useTranslation("ppm");
   const [tasks, setTasks] = useState<PpmTask[]>([]);
+  const [wbsList, setWbsList] = useState<PpmWbs[]>([]);
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState<"kanban" | "list">("kanban");
   const [activeTask, setActiveTask] = useState<PpmTask | null>(null);
@@ -112,35 +117,64 @@ export default function PpmTaskBoard({ initiativeId }: Props) {
     title: string;
   } | null>(null);
 
+  // Filter & group state
+  const [filterWbs, setFilterWbs] = useState<string>("");
+  const [groupByWbs, setGroupByWbs] = useState(false);
+
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
     useSensor(KeyboardSensor),
   );
 
-  const loadTasks = useCallback(async () => {
+  const loadData = useCallback(async () => {
     try {
-      const data = await api.get<PpmTask[]>(
-        `/ppm/initiatives/${initiativeId}/tasks`,
-      );
-      setTasks(data);
+      const [taskData, wbsData] = await Promise.all([
+        api.get<PpmTask[]>(`/ppm/initiatives/${initiativeId}/tasks`),
+        api.get<PpmWbs[]>(`/ppm/initiatives/${initiativeId}/wbs`),
+      ]);
+      setTasks(taskData);
+      setWbsList(wbsData);
     } finally {
       setLoading(false);
     }
   }, [initiativeId]);
 
   useEffect(() => {
-    loadTasks();
-  }, [loadTasks]);
+    loadData();
+  }, [loadData]);
 
-  const tasksByStatus = useMemo(() => {
-    const map: Record<string, PpmTask[]> = {};
-    for (const col of COLUMNS) map[col] = [];
-    for (const task of tasks) {
-      if (map[task.status]) map[task.status].push(task);
-      else map.todo.push(task);
+  const wbsMap = useMemo(() => {
+    const m: Record<string, PpmWbs> = {};
+    for (const w of wbsList) m[w.id] = w;
+    return m;
+  }, [wbsList]);
+
+  // Filtered tasks
+  const filteredTasks = useMemo(() => {
+    if (!filterWbs) return tasks;
+    if (filterWbs === "__none__") return tasks.filter((t) => !t.wbs_id);
+    return tasks.filter((t) => t.wbs_id === filterWbs);
+  }, [tasks, filterWbs]);
+
+  // Group tasks by WBS for grouped views
+  const wbsGroups = useMemo(() => {
+    if (!groupByWbs) return null;
+    const groups: { wbs: PpmWbs | null; tasks: PpmTask[] }[] = [];
+    const byWbs: Record<string, PpmTask[]> = {};
+    const unassigned: PpmTask[] = [];
+    for (const task of filteredTasks) {
+      if (task.wbs_id) {
+        (byWbs[task.wbs_id] ??= []).push(task);
+      } else {
+        unassigned.push(task);
+      }
     }
-    return map;
-  }, [tasks]);
+    for (const w of wbsList) {
+      if (byWbs[w.id]) groups.push({ wbs: w, tasks: byWbs[w.id] });
+    }
+    if (unassigned.length) groups.push({ wbs: null, tasks: unassigned });
+    return groups;
+  }, [filteredTasks, wbsList, groupByWbs]);
 
   const handleDragStart = (event: DragStartEvent) => {
     const task = tasks.find((t) => t.id === event.active.id);
@@ -154,7 +188,6 @@ export default function PpmTaskBoard({ initiativeId }: Props) {
     const activeId = active.id as string;
     const overId = over.id as string;
 
-    // Determine the target status (column)
     const targetStatus = COLUMNS.includes(overId as PpmTaskStatus)
       ? (overId as PpmTaskStatus)
       : tasks.find((t) => t.id === overId)?.status;
@@ -176,8 +209,6 @@ export default function PpmTaskBoard({ initiativeId }: Props) {
     const activeId = active.id as string;
     const task = tasks.find((t) => t.id === activeId);
     if (!task) return;
-
-    // Persist the status change
     await api.patch(`/ppm/tasks/${activeId}`, { status: task.status });
   };
 
@@ -191,40 +222,42 @@ export default function PpmTaskBoard({ initiativeId }: Props) {
       status,
     });
     setQuickAdd(null);
-    loadTasks();
+    loadData();
   };
 
   const handleMarkDone = async (taskId: string) => {
     setTasks((prev) =>
-      prev.map((t) => (t.id === taskId ? { ...t, status: "done" as PpmTaskStatus } : t)),
+      prev.map((t) =>
+        t.id === taskId ? { ...t, status: "done" as PpmTaskStatus } : t,
+      ),
     );
     await api.patch(`/ppm/tasks/${taskId}`, { status: "done" });
   };
 
   const handleTaskSaved = () => {
     setTaskDialog({ open: false });
-    loadTasks();
+    loadData();
   };
 
-  // ── Kanban View ──
-  const renderKanban = () => (
-    <DndContext
-      sensors={sensors}
-      collisionDetection={closestCorners}
-      onDragStart={handleDragStart}
-      onDragOver={handleDragOver}
-      onDragEnd={handleDragEnd}
-    >
+  // ── Kanban Column (reused in grouped and ungrouped modes) ──
+  const renderKanbanColumns = (taskList: PpmTask[]) => {
+    const byStatus: Record<string, PpmTask[]> = {};
+    for (const col of COLUMNS) byStatus[col] = [];
+    for (const task of taskList) {
+      if (byStatus[task.status]) byStatus[task.status].push(task);
+      else byStatus.todo.push(task);
+    }
+    return (
       <Box
         sx={{
           display: "grid",
           gridTemplateColumns: `repeat(${COLUMNS.length}, 1fr)`,
           gap: 2,
-          minHeight: 400,
+          minHeight: 200,
         }}
       >
         {COLUMNS.map((status) => {
-          const columnTasks = tasksByStatus[status] || [];
+          const columnTasks = byStatus[status] || [];
           return (
             <Paper
               key={status}
@@ -235,7 +268,6 @@ export default function PpmTaskBoard({ initiativeId }: Props) {
                 borderTop: `3px solid ${STATUS_COLORS[status]}`,
               }}
             >
-              {/* Column Header */}
               <Box
                 sx={{
                   px: 1.5,
@@ -258,8 +290,6 @@ export default function PpmTaskBoard({ initiativeId }: Props) {
                   />
                 </Box>
               </Box>
-
-              {/* Cards */}
               <SortableContext
                 items={columnTasks.map((t) => t.id)}
                 strategy={verticalListSortingStrategy}
@@ -269,14 +299,15 @@ export default function PpmTaskBoard({ initiativeId }: Props) {
                     <PpmTaskCard
                       key={task.id}
                       task={task}
+                      wbsName={
+                        task.wbs_id ? wbsMap[task.wbs_id]?.title : undefined
+                      }
                       onClick={() => setTaskDialog({ open: true, task })}
                       onMarkDone={handleMarkDone}
                     />
                   ))}
                 </DroppableColumn>
               </SortableContext>
-
-              {/* Quick Add */}
               <Box sx={{ p: 1, mt: "auto" }}>
                 {quickAdd?.status === status ? (
                   <TextField
@@ -310,6 +341,42 @@ export default function PpmTaskBoard({ initiativeId }: Props) {
           );
         })}
       </Box>
+    );
+  };
+
+  // ── Kanban View ──
+  const renderKanban = () => (
+    <DndContext
+      sensors={sensors}
+      collisionDetection={closestCorners}
+      onDragStart={handleDragStart}
+      onDragOver={handleDragOver}
+      onDragEnd={handleDragEnd}
+    >
+      {groupByWbs && wbsGroups ? (
+        <Box display="flex" flexDirection="column" gap={3}>
+          {wbsGroups.map((g) => (
+            <Box key={g.wbs?.id ?? "__unassigned"}>
+              <Typography
+                variant="subtitle2"
+                fontWeight={700}
+                sx={{ mb: 1, display: "flex", alignItems: "center", gap: 0.5 }}
+              >
+                <MaterialSymbol icon="account_tree" size={16} />
+                {g.wbs?.title ?? t("unassigned")}
+                <Chip
+                  label={g.tasks.length}
+                  size="small"
+                  sx={{ height: 18, fontSize: "0.65rem", ml: 0.5 }}
+                />
+              </Typography>
+              {renderKanbanColumns(g.tasks)}
+            </Box>
+          ))}
+        </Box>
+      ) : (
+        renderKanbanColumns(filteredTasks)
+      )}
 
       <DragOverlay>
         {activeTask && (
@@ -320,6 +387,119 @@ export default function PpmTaskBoard({ initiativeId }: Props) {
   );
 
   // ── List View ──
+  const renderListRows = (taskList: PpmTask[]) =>
+    taskList.map((task) => {
+      const isOverdue =
+        task.due_date &&
+        new Date(task.due_date) < new Date() &&
+        task.status !== "done";
+      return (
+        <TableRow key={task.id} hover>
+          <TableCell>
+            <Typography variant="body2" fontWeight={500}>
+              {task.title}
+            </Typography>
+          </TableCell>
+          <TableCell>
+            <Chip
+              label={t(
+                `priority${task.priority.charAt(0).toUpperCase()}${task.priority.slice(1)}`,
+              )}
+              size="small"
+              variant="outlined"
+              sx={{
+                borderColor: PRIORITY_COLORS[task.priority],
+                color: PRIORITY_COLORS[task.priority],
+                fontWeight: 600,
+              }}
+            />
+          </TableCell>
+          <TableCell>
+            {task.assignee_name ? (
+              <Box display="flex" alignItems="center" gap={0.5}>
+                <Avatar
+                  sx={{
+                    width: 22,
+                    height: 22,
+                    fontSize: "0.6rem",
+                    bgcolor: "primary.main",
+                  }}
+                >
+                  {initials(task.assignee_name)}
+                </Avatar>
+                <Typography variant="caption">
+                  {task.assignee_name}
+                </Typography>
+              </Box>
+            ) : (
+              "\u2014"
+            )}
+          </TableCell>
+          <TableCell>
+            <Typography variant="caption" color="text.secondary">
+              {task.wbs_id && wbsMap[task.wbs_id]
+                ? wbsMap[task.wbs_id].title
+                : "\u2014"}
+            </Typography>
+          </TableCell>
+          <TableCell>
+            <Typography
+              variant="caption"
+              color={isOverdue ? "error" : "text.secondary"}
+              fontWeight={isOverdue ? 600 : 400}
+            >
+              {task.due_date
+                ? new Date(task.due_date).toLocaleDateString()
+                : "\u2014"}
+            </Typography>
+          </TableCell>
+          <TableCell>
+            <Chip
+              label={t(
+                `status${task.status.charAt(0).toUpperCase()}${task.status.slice(1).replace(/_([a-z])/g, (_, c: string) => c.toUpperCase())}`,
+              )}
+              size="small"
+              sx={{
+                bgcolor: STATUS_COLORS[task.status],
+                color: "#fff",
+                fontWeight: 600,
+                fontSize: "0.7rem",
+              }}
+            />
+          </TableCell>
+          <TableCell>
+            <Box display="flex" gap={0.5}>
+              {task.status !== "done" && (
+                <IconButton
+                  size="small"
+                  onClick={async () => {
+                    await handleMarkDone(task.id);
+                  }}
+                >
+                  <MaterialSymbol icon="check_circle" size={16} />
+                </IconButton>
+              )}
+              <IconButton
+                size="small"
+                onClick={() => setTaskDialog({ open: true, task })}
+              >
+                <MaterialSymbol icon="edit" size={16} />
+              </IconButton>
+              <IconButton
+                size="small"
+                onClick={async () => {
+                  await api.delete(`/ppm/tasks/${task.id}`);
+                  loadData();
+                }}
+              >
+                <MaterialSymbol icon="delete" size={16} />
+              </IconButton>
+            </Box>
+          </TableCell>
+        </TableRow>
+      );
+    });
+
   const renderList = () => (
     <TableContainer component={Paper} variant="outlined">
       <Table size="small">
@@ -328,119 +508,41 @@ export default function PpmTaskBoard({ initiativeId }: Props) {
             <TableCell>{t("taskTitle")}</TableCell>
             <TableCell>{t("taskPriority")}</TableCell>
             <TableCell>{t("taskAssignee")}</TableCell>
+            <TableCell>{t("wbs")}</TableCell>
             <TableCell>{t("taskDueDate")}</TableCell>
             <TableCell>{t("taskStatus")}</TableCell>
             <TableCell width={80} />
           </TableRow>
         </TableHead>
         <TableBody>
-          {tasks.map((task) => {
-            const isOverdue =
-              task.due_date &&
-              new Date(task.due_date) < new Date() &&
-              task.status !== "done";
-            return (
-              <TableRow key={task.id} hover>
-                <TableCell>
-                  <Typography variant="body2" fontWeight={500}>
-                    {task.title}
-                  </Typography>
-                </TableCell>
-                <TableCell>
-                  <Chip
-                    label={t(
-                      `priority${task.priority.charAt(0).toUpperCase()}${task.priority.slice(1)}`,
-                    )}
-                    size="small"
-                    variant="outlined"
-                    sx={{
-                      borderColor: PRIORITY_COLORS[task.priority],
-                      color: PRIORITY_COLORS[task.priority],
-                      fontWeight: 600,
-                    }}
-                  />
-                </TableCell>
-                <TableCell>
-                  {task.assignee_name ? (
-                    <Box display="flex" alignItems="center" gap={0.5}>
-                      <Avatar
-                        sx={{
-                          width: 22,
-                          height: 22,
-                          fontSize: "0.6rem",
-                          bgcolor: "primary.main",
-                        }}
-                      >
-                        {initials(task.assignee_name)}
-                      </Avatar>
-                      <Typography variant="caption">
-                        {task.assignee_name}
-                      </Typography>
-                    </Box>
-                  ) : (
-                    "\u2014"
-                  )}
-                </TableCell>
-                <TableCell>
-                  <Typography
-                    variant="caption"
-                    color={isOverdue ? "error" : "text.secondary"}
-                    fontWeight={isOverdue ? 600 : 400}
-                  >
-                    {task.due_date
-                      ? new Date(task.due_date).toLocaleDateString()
-                      : "\u2014"}
-                  </Typography>
-                </TableCell>
-                <TableCell>
-                  <Chip
-                    label={t(
-                      `status${task.status.charAt(0).toUpperCase()}${task.status.slice(1).replace(/_([a-z])/g, (_, c: string) => c.toUpperCase())}`,
-                    )}
-                    size="small"
-                    sx={{
-                      bgcolor: STATUS_COLORS[task.status],
-                      color: "#fff",
-                      fontWeight: 600,
-                      fontSize: "0.7rem",
-                    }}
-                  />
-                </TableCell>
-                <TableCell>
-                  <Box display="flex" gap={0.5}>
-                    {task.status !== "done" && (
-                      <IconButton
-                        size="small"
-                        onClick={async () => {
-                          await handleMarkDone(task.id);
-                        }}
-                      >
-                        <MaterialSymbol icon="check_circle" size={16} />
-                      </IconButton>
-                    )}
-                    <IconButton
-                      size="small"
-                      onClick={() => setTaskDialog({ open: true, task })}
+          {groupByWbs && wbsGroups
+            ? wbsGroups.map((g) => (
+                <React.Fragment key={g.wbs?.id ?? "__unassigned"}>
+                  <TableRow>
+                    <TableCell
+                      colSpan={7}
+                      sx={{ bgcolor: "action.hover", py: 0.75 }}
                     >
-                      <MaterialSymbol icon="edit" size={16} />
-                    </IconButton>
-                    <IconButton
-                      size="small"
-                      onClick={async () => {
-                        await api.delete(`/ppm/tasks/${task.id}`);
-                        loadTasks();
-                      }}
-                    >
-                      <MaterialSymbol icon="delete" size={16} />
-                    </IconButton>
-                  </Box>
-                </TableCell>
-              </TableRow>
-            );
-          })}
-          {tasks.length === 0 && (
+                      <Box display="flex" alignItems="center" gap={0.5}>
+                        <MaterialSymbol icon="account_tree" size={16} />
+                        <Typography variant="subtitle2" fontWeight={700}>
+                          {g.wbs?.title ?? t("unassigned")}
+                        </Typography>
+                        <Chip
+                          label={g.tasks.length}
+                          size="small"
+                          sx={{ height: 18, fontSize: "0.65rem", ml: 0.5 }}
+                        />
+                      </Box>
+                    </TableCell>
+                  </TableRow>
+                  {renderListRows(g.tasks)}
+                </React.Fragment>
+              ))
+            : renderListRows(filteredTasks)}
+          {filteredTasks.length === 0 && (
             <TableRow>
-              <TableCell colSpan={6} align="center" sx={{ py: 3 }}>
+              <TableCell colSpan={7} align="center" sx={{ py: 3 }}>
                 <Typography color="text.secondary">
                   {t("noTasks")}
                 </Typography>
@@ -454,16 +556,55 @@ export default function PpmTaskBoard({ initiativeId }: Props) {
 
   return (
     <Box>
+      {/* Header toolbar */}
       <Box
         display="flex"
         justifyContent="space-between"
         alignItems="center"
         mb={2}
+        flexWrap="wrap"
+        gap={1}
       >
         <Typography variant="subtitle1" fontWeight={600}>
-          {t("tasks")} ({tasks.length})
+          {t("tasks")} ({filteredTasks.length})
         </Typography>
-        <Box display="flex" gap={1}>
+        <Box display="flex" gap={1} alignItems="center" flexWrap="wrap">
+          {/* WBS Filter */}
+          {wbsList.length > 0 && (
+            <FormControl size="small" sx={{ minWidth: 160 }}>
+              <InputLabel>{t("filterByWbs")}</InputLabel>
+              <Select
+                value={filterWbs}
+                label={t("filterByWbs")}
+                onChange={(e) => setFilterWbs(e.target.value)}
+              >
+                <MenuItem value="">{t("allTasks")}</MenuItem>
+                <MenuItem value="__none__">{t("unassigned")}</MenuItem>
+                {wbsList.map((w) => (
+                  <MenuItem key={w.id} value={w.id}>
+                    {w.title}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          )}
+
+          {/* Group by WBS toggle */}
+          {wbsList.length > 0 && (
+            <ToggleButton
+              value="groupByWbs"
+              selected={groupByWbs}
+              onChange={() => setGroupByWbs((v) => !v)}
+              size="small"
+              sx={{ textTransform: "none", px: 1.5 }}
+            >
+              <MaterialSymbol icon="account_tree" size={18} />
+              <Typography variant="caption" sx={{ ml: 0.5 }}>
+                {t("groupBy")}
+              </Typography>
+            </ToggleButton>
+          )}
+
           <ToggleButtonGroup
             value={view}
             exclusive
@@ -494,6 +635,7 @@ export default function PpmTaskBoard({ initiativeId }: Props) {
         <PpmTaskDialog
           initiativeId={initiativeId}
           task={taskDialog.task}
+          wbsList={wbsList}
           onClose={() => setTaskDialog({ open: false })}
           onSaved={handleTaskSaved}
         />
@@ -501,3 +643,4 @@ export default function PpmTaskBoard({ initiativeId }: Props) {
     </Box>
   );
 }
+
