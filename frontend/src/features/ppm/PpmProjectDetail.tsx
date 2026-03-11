@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import Box from "@mui/material/Box";
 import Tabs from "@mui/material/Tabs";
@@ -98,6 +98,14 @@ export default function PpmProjectDetail() {
 
   const latestReport = reports[0] || null;
 
+  // When PPM has budget/cost lines, mark card cost fields as auto-computed
+  const ppmAutoFieldKeys = useMemo(() => {
+    const keys: string[] = [];
+    if (budgetLines.length > 0) keys.push("costBudget");
+    if (costLines.length > 0) keys.push("costActual");
+    return keys;
+  }, [budgetLines.length, costLines.length]);
+
   return (
     <Box sx={{ p: 3, maxWidth: 1400, mx: "auto" }}>
       {/* Header */}
@@ -181,6 +189,7 @@ export default function PpmProjectDetail() {
           perms={perms}
           onCardUpdate={(updated) => setCard(updated)}
           showBpmTabs={false}
+          autoFieldKeys={ppmAutoFieldKeys}
         />
       )}
     </Box>

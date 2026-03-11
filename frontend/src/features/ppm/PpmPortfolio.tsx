@@ -879,8 +879,8 @@ export default function PpmPortfolio() {
                   py: 0.75,
                   bgcolor:
                     theme.palette.mode === "dark"
-                      ? alpha(theme.palette.primary.main, 0.15)
-                      : alpha(theme.palette.primary.main, 0.85),
+                      ? alpha(theme.palette.primary.main, 0.2)
+                      : theme.palette.primary.dark,
                   borderBottom: `1px solid ${theme.palette.divider}`,
                   cursor: "pointer",
                 }}

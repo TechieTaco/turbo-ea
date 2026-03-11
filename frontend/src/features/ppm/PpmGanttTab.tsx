@@ -44,6 +44,13 @@ function toIso(d: Date): string {
   return d.toISOString().slice(0, 10);
 }
 
+/** Round any date to the start of that day — prevents snapping to week/month boundaries. */
+function roundToDay(date: Date): Date {
+  const d = new Date(date);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
 export default function PpmGanttTab({ initiativeId }: Props) {
   const { t } = useTranslation("ppm");
   const theme = useTheme();
@@ -325,6 +332,7 @@ export default function PpmGanttTab({ initiativeId }: Props) {
             onClick={handleClick}
             onDateChange={handleDateChange}
             onChangeExpandState={handleExpanderClick}
+            roundDate={roundToDay}
             dateMoveStep={{ value: 1, timeUnit: GanttDateRoundingTimeUnit.DAY }}
             distances={{
               columnWidth,
