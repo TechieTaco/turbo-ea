@@ -696,6 +696,9 @@ async def create_task(
             card_id=task.initiative_id,
             actor_id=user.id,
         )
+    # Recalculate WBS completion when a new task is added
+    if task.wbs_id:
+        await _rollup_wbs_from_tasks(db, initiative_id)
     await db.commit()
     await db.refresh(task)
     return await _task_to_out(db, task)
@@ -734,6 +737,9 @@ async def update_task(
             card_id=task.initiative_id,
             actor_id=user.id,
         )
+    # Recalculate WBS completion when task status changes
+    if "status" in data:
+        await _rollup_wbs_from_tasks(db, str(task.initiative_id))
     await db.commit()
     await db.refresh(task)
     return await _task_to_out(db, task)
@@ -756,7 +762,12 @@ async def delete_task(
     todo = todo_result.scalar_one_or_none()
     if todo:
         await db.delete(todo)
+    initiative_id = str(task.initiative_id)
+    had_wbs = task.wbs_id is not None
     await db.delete(task)
+    # Recalculate WBS completion after removing a task
+    if had_wbs:
+        await _rollup_wbs_from_tasks(db, initiative_id)
     await db.commit()
 
 
@@ -888,6 +899,26 @@ async def _wbs_to_out(db: AsyncSession, wbs: PpmWbs) -> PpmWbsOut:
         created_at=wbs.created_at,
         updated_at=wbs.updated_at,
     )
+
+
+async def _rollup_wbs_from_tasks(db: AsyncSession, initiative_id: str) -> None:
+    """Recalculate leaf WBS completion from their tasks' done/total ratio, then rollup."""
+    result = await db.execute(select(PpmWbs).where(PpmWbs.initiative_id == initiative_id))
+    all_wbs = result.scalars().all()
+    for wbs in all_wbs:
+        total = (
+            await db.scalar(select(func.count(PpmTask.id)).where(PpmTask.wbs_id == wbs.id))
+        ) or 0
+        if total > 0:
+            done = (
+                await db.scalar(
+                    select(func.count(PpmTask.id)).where(
+                        PpmTask.wbs_id == wbs.id, PpmTask.status == "done"
+                    )
+                )
+            ) or 0
+            wbs.completion = round((done / total) * 100, 1)
+    await _rollup_completion(db, initiative_id)
 
 
 async def _rollup_completion(db: AsyncSession, initiative_id: str) -> None:
