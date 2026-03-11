@@ -98,5 +98,15 @@
   "initiativeStatus": "Stato dell'iniziativa",
   "noReportAvailable": "Nessun rapporto disponibile",
   "planColumn": "Piano",
-  "lastReport": "Rapporto"
+  "lastReport": "Rapporto",
+  "budgetAndCosts": "Budget e costi",
+  "plannedBudget": "Budget pianificato",
+  "costItems": "Voci di costo",
+  "addBudgetLine": "Aggiungi riga di budget",
+  "editBudgetLine": "Modifica riga di budget",
+  "noBudgetLines": "Nessuna riga di budget",
+  "fiscalYear": "Anno fiscale",
+  "amount": "Importo",
+  "date": "Data",
+  "markDone": "Segna come completato"
 }

@@ -98,5 +98,15 @@
   "initiativeStatus": "Statut de l'initiative",
   "noReportAvailable": "Aucun rapport disponible",
   "planColumn": "Plan",
-  "lastReport": "Rapport"
+  "lastReport": "Rapport",
+  "budgetAndCosts": "Budget et coûts",
+  "plannedBudget": "Budget prévu",
+  "costItems": "Postes de coûts",
+  "addBudgetLine": "Ajouter une ligne budgétaire",
+  "editBudgetLine": "Modifier la ligne budgétaire",
+  "noBudgetLines": "Aucune ligne budgétaire",
+  "fiscalYear": "Exercice fiscal",
+  "amount": "Montant",
+  "date": "Date",
+  "markDone": "Marquer comme terminé"
 }

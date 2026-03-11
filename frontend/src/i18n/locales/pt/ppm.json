@@ -98,5 +98,15 @@
   "initiativeStatus": "Estado da iniciativa",
   "noReportAvailable": "Relatório não disponível",
   "planColumn": "Plano",
-  "lastReport": "Relatório"
+  "lastReport": "Relatório",
+  "budgetAndCosts": "Orçamento e custos",
+  "plannedBudget": "Orçamento planejado",
+  "costItems": "Itens de custo",
+  "addBudgetLine": "Adicionar linha de orçamento",
+  "editBudgetLine": "Editar linha de orçamento",
+  "noBudgetLines": "Nenhuma linha de orçamento",
+  "fiscalYear": "Ano fiscal",
+  "amount": "Valor",
+  "date": "Data",
+  "markDone": "Marcar como concluído"
 }

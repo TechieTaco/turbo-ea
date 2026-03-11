@@ -103,7 +103,7 @@ export default function PpmProjectDetail() {
       <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 3 }}>
         <Tab label={t("overview")} />
         <Tab label={t("statusReports")} />
-        <Tab label={t("costManagement")} />
+        <Tab label={t("budgetAndCosts")} />
         <Tab label={t("riskManagement")} />
         <Tab label={t("tasks")} />
         <Tab label={t("cardDetails")} />

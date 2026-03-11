@@ -57,6 +57,7 @@ class PpmCostLineCreate(BaseModel):
     category: Literal["capex", "opex"]
     planned: float = 0
     actual: float = 0
+    date: date | None = None
 
 
 class PpmCostLineUpdate(BaseModel):
@@ -64,6 +65,7 @@ class PpmCostLineUpdate(BaseModel):
     category: Literal["capex", "opex"] | None = None
     planned: float | None = None
     actual: float | None = None
+    date: date | None = None
 
 
 class PpmCostLineOut(BaseModel):
@@ -73,6 +75,32 @@ class PpmCostLineOut(BaseModel):
     category: str
     planned: float
     actual: float
+    date: date | None = None
+    created_at: datetime
+    updated_at: datetime
+
+
+# --- Budget Lines ---
+
+
+class PpmBudgetLineCreate(BaseModel):
+    fiscal_year: int
+    category: Literal["capex", "opex"]
+    amount: float = 0
+
+
+class PpmBudgetLineUpdate(BaseModel):
+    fiscal_year: int | None = None
+    category: Literal["capex", "opex"] | None = None
+    amount: float | None = None
+
+
+class PpmBudgetLineOut(BaseModel):
+    id: str
+    initiative_id: str
+    fiscal_year: int
+    category: str
+    amount: float
     created_at: datetime
     updated_at: datetime
 

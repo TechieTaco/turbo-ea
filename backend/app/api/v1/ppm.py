@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, get_db
 from app.models.card import Card
-from app.models.ppm_cost_line import PpmCostLine
+from app.models.ppm_cost_line import PpmBudgetLine, PpmCostLine
 from app.models.ppm_risk import PpmRisk
 from app.models.ppm_status_report import PpmStatusReport
 from app.models.ppm_task import PpmTask
@@ -18,6 +18,9 @@ from app.models.ppm_task_comment import PpmTaskComment
 from app.models.todo import Todo
 from app.models.user import User
 from app.schemas.ppm import (
+    PpmBudgetLineCreate,
+    PpmBudgetLineOut,
+    PpmBudgetLineUpdate,
     PpmCostLineCreate,
     PpmCostLineOut,
     PpmCostLineUpdate,
@@ -167,6 +170,20 @@ async def delete_report(
 # ── Cost Lines ─────────────────────────────────────────────────────
 
 
+def _cost_line_out(cl: PpmCostLine) -> PpmCostLineOut:
+    return PpmCostLineOut(
+        id=str(cl.id),
+        initiative_id=str(cl.initiative_id),
+        description=cl.description,
+        category=cl.category,
+        planned=cl.planned,
+        actual=cl.actual,
+        date=cl.date,
+        created_at=cl.created_at,
+        updated_at=cl.updated_at,
+    )
+
+
 @router.get("/initiatives/{initiative_id}/costs", response_model=list[PpmCostLineOut])
 async def list_cost_lines(
     initiative_id: str,
@@ -180,19 +197,7 @@ async def list_cost_lines(
         .where(PpmCostLine.initiative_id == initiative_id)
         .order_by(PpmCostLine.created_at)
     )
-    return [
-        PpmCostLineOut(
-            id=str(cl.id),
-            initiative_id=str(cl.initiative_id),
-            description=cl.description,
-            category=cl.category,
-            planned=cl.planned,
-            actual=cl.actual,
-            created_at=cl.created_at,
-            updated_at=cl.updated_at,
-        )
-        for cl in result.scalars().all()
-    ]
+    return [_cost_line_out(cl) for cl in result.scalars().all()]
 
 
 @router.post("/initiatives/{initiative_id}/costs", response_model=PpmCostLineOut)
@@ -211,20 +216,12 @@ async def create_cost_line(
         category=body.category,
         planned=body.planned,
         actual=body.actual,
+        date=body.date,
     )
     db.add(cl)
     await db.commit()
     await db.refresh(cl)
-    return PpmCostLineOut(
-        id=str(cl.id),
-        initiative_id=str(cl.initiative_id),
-        description=cl.description,
-        category=cl.category,
-        planned=cl.planned,
-        actual=cl.actual,
-        created_at=cl.created_at,
-        updated_at=cl.updated_at,
-    )
+    return _cost_line_out(cl)
 
 
 @router.patch("/costs/{cost_id}", response_model=PpmCostLineOut)
@@ -243,16 +240,7 @@ async def update_cost_line(
         setattr(cl, key, val)
     await db.commit()
     await db.refresh(cl)
-    return PpmCostLineOut(
-        id=str(cl.id),
-        initiative_id=str(cl.initiative_id),
-        description=cl.description,
-        category=cl.category,
-        planned=cl.planned,
-        actual=cl.actual,
-        created_at=cl.created_at,
-        updated_at=cl.updated_at,
-    )
+    return _cost_line_out(cl)
 
 
 @router.delete("/costs/{cost_id}", status_code=204)
@@ -267,6 +255,99 @@ async def delete_cost_line(
     if not cl:
         raise HTTPException(status_code=404, detail="Cost line not found")
     await db.delete(cl)
+    await db.commit()
+
+
+# ── Budget Lines ──────────────────────────────────────────────────
+
+
+def _budget_line_out(bl: PpmBudgetLine) -> PpmBudgetLineOut:
+    return PpmBudgetLineOut(
+        id=str(bl.id),
+        initiative_id=str(bl.initiative_id),
+        fiscal_year=bl.fiscal_year,
+        category=bl.category,
+        amount=bl.amount,
+        created_at=bl.created_at,
+        updated_at=bl.updated_at,
+    )
+
+
+@router.get(
+    "/initiatives/{initiative_id}/budgets",
+    response_model=list[PpmBudgetLineOut],
+)
+async def list_budget_lines(
+    initiative_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    await PermissionService.require_permission(db, user, "ppm.view")
+    await _get_initiative_or_404(db, initiative_id)
+    result = await db.execute(
+        select(PpmBudgetLine)
+        .where(PpmBudgetLine.initiative_id == initiative_id)
+        .order_by(PpmBudgetLine.fiscal_year, PpmBudgetLine.category)
+    )
+    return [_budget_line_out(bl) for bl in result.scalars().all()]
+
+
+@router.post(
+    "/initiatives/{initiative_id}/budgets",
+    response_model=PpmBudgetLineOut,
+)
+async def create_budget_line(
+    initiative_id: str,
+    body: PpmBudgetLineCreate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    await PermissionService.require_permission(db, user, "ppm.manage")
+    await _get_initiative_or_404(db, initiative_id)
+    bl = PpmBudgetLine(
+        id=uuid.uuid4(),
+        initiative_id=initiative_id,
+        fiscal_year=body.fiscal_year,
+        category=body.category,
+        amount=body.amount,
+    )
+    db.add(bl)
+    await db.commit()
+    await db.refresh(bl)
+    return _budget_line_out(bl)
+
+
+@router.patch("/budgets/{budget_id}", response_model=PpmBudgetLineOut)
+async def update_budget_line(
+    budget_id: str,
+    body: PpmBudgetLineUpdate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    await PermissionService.require_permission(db, user, "ppm.manage")
+    result = await db.execute(select(PpmBudgetLine).where(PpmBudgetLine.id == budget_id))
+    bl = result.scalar_one_or_none()
+    if not bl:
+        raise HTTPException(status_code=404, detail="Budget line not found")
+    for key, val in body.model_dump(exclude_unset=True).items():
+        setattr(bl, key, val)
+    await db.commit()
+    await db.refresh(bl)
+    return _budget_line_out(bl)
+
+
+@router.delete("/budgets/{budget_id}", status_code=204)
+async def delete_budget_line(
+    budget_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    await PermissionService.require_permission(db, user, "ppm.manage")
+    result = await db.execute(select(PpmBudgetLine).where(PpmBudgetLine.id == budget_id))
+    bl = result.scalar_one_or_none()
+    if not bl:
+        raise HTTPException(status_code=404, detail="Budget line not found")
+    await db.delete(bl)
     await db.commit()
 
 
@@ -517,18 +598,18 @@ async def update_task(
     task = result.scalar_one_or_none()
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
-    old_assignee_id = task.assignee_id
+    old_assignee_id = str(task.assignee_id) if task.assignee_id else None
     data = body.model_dump(exclude_unset=True)
     for key, val in data.items():
         setattr(task, key, val)
     card = await _get_initiative_or_404(db, str(task.initiative_id))
     await _sync_task_todo(db, task, card, user.id)
     # Notify new assignee when assignee changes
-    new_assignee = task.assignee_id
-    if "assignee_id" in data and new_assignee and new_assignee != old_assignee_id:
+    new_assignee_str = str(task.assignee_id) if task.assignee_id else None
+    if "assignee_id" in data and new_assignee_str and new_assignee_str != old_assignee_id:
         await notification_service.create_notification(
             db,
-            user_id=new_assignee,
+            user_id=task.assignee_id,
             notif_type="task_assigned",
             title="Task Assigned",
             message=(

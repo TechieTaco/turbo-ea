@@ -1021,6 +1021,17 @@ export interface PpmCostLine {
   category: "capex" | "opex";
   planned: number;
   actual: number;
+  date: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PpmBudgetLine {
+  id: string;
+  initiative_id: string;
+  fiscal_year: number;
+  category: "capex" | "opex";
+  amount: number;
   created_at: string;
   updated_at: string;
 }

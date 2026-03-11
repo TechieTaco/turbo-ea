@@ -98,5 +98,15 @@
   "initiativeStatus": "举措状态",
   "noReportAvailable": "无可用报告",
   "planColumn": "计划",
-  "lastReport": "报告"
+  "lastReport": "报告",
+  "budgetAndCosts": "预算与成本",
+  "plannedBudget": "计划预算",
+  "costItems": "成本项目",
+  "addBudgetLine": "添加预算行",
+  "editBudgetLine": "编辑预算行",
+  "noBudgetLines": "暂无预算行",
+  "fiscalYear": "财政年度",
+  "amount": "金额",
+  "date": "日期",
+  "markDone": "标记为完成"
 }

@@ -194,6 +194,13 @@ export default function PpmTaskBoard({ initiativeId }: Props) {
     loadTasks();
   };
 
+  const handleMarkDone = async (taskId: string) => {
+    setTasks((prev) =>
+      prev.map((t) => (t.id === taskId ? { ...t, status: "done" as PpmTaskStatus } : t)),
+    );
+    await api.patch(`/ppm/tasks/${taskId}`, { status: "done" });
+  };
+
   const handleTaskSaved = () => {
     setTaskDialog({ open: false });
     loadTasks();
@@ -263,6 +270,7 @@ export default function PpmTaskBoard({ initiativeId }: Props) {
                       key={task.id}
                       task={task}
                       onClick={() => setTaskDialog({ open: true, task })}
+                      onMarkDone={handleMarkDone}
                     />
                   ))}
                 </DroppableColumn>
@@ -400,6 +408,16 @@ export default function PpmTaskBoard({ initiativeId }: Props) {
                 </TableCell>
                 <TableCell>
                   <Box display="flex" gap={0.5}>
+                    {task.status !== "done" && (
+                      <IconButton
+                        size="small"
+                        onClick={async () => {
+                          await handleMarkDone(task.id);
+                        }}
+                      >
+                        <MaterialSymbol icon="check_circle" size={16} />
+                      </IconButton>
+                    )}
                     <IconButton
                       size="small"
                       onClick={() => setTaskDialog({ open: true, task })}
