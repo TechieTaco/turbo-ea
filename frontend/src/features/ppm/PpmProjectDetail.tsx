@@ -103,7 +103,14 @@ export default function PpmProjectDetail() {
       </Box>
 
       {/* Tabs */}
-      <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 3 }}>
+      <Tabs
+        value={tab}
+        onChange={(_, v) => setTab(v)}
+        variant="scrollable"
+        scrollButtons="auto"
+        allowScrollButtonsMobile
+        sx={{ mb: 3 }}
+      >
         <Tab label={t("overview")} />
         <Tab label={t("statusReports")} />
         <Tab label={t("budgetAndCosts")} />
