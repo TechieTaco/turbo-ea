@@ -109,6 +109,12 @@ A EAP fornece uma decomposição hierárquica do escopo do projeto:
 - **Hierarquia** — Relações pai-filho entre itens da EAP
 - **Auto-conclusão** — A porcentagem de conclusão é calculada automaticamente a partir das proporções de tarefas concluídas/totais
 
+## Integração com os detalhes do card
+
+Quando o PPM está ativado, os cards de **Iniciativa** exibem uma aba **PPM** como última aba na [visualização de detalhes do card](card-details.md). Ao clicar nesta aba, você é direcionado diretamente à visualização detalhada PPM da iniciativa (aba Visão Geral). Isso fornece um ponto de acesso rápido de qualquer card de Iniciativa à sua página completa do projeto PPM.
+
+Por outro lado, a aba **Detalhes do Card** dentro da visualização detalhada PPM da iniciativa mostra as seções padrão do card sem a aba PPM, evitando navegação circular.
+
 ## Permissões
 
 | Permissão | Descrição |

@@ -109,6 +109,12 @@ La WBS fornisce una scomposizione gerarchica dell'ambito del progetto:
 - **Gerarchia** — Relazioni genitore-figlio tra elementi WBS
 - **Auto-completamento** — La percentuale di completamento viene calcolata automaticamente dai rapporti attività completate/totali
 
+## Integrazione con i dettagli della card
+
+Quando il PPM è attivato, le card **Iniziativa** mostrano una scheda **PPM** come ultima scheda nella [vista dettagli della card](card-details.md). Cliccando su questa scheda si accede direttamente alla vista dettagliata PPM dell'iniziativa (scheda Panoramica). Questo offre un punto di accesso rapido da qualsiasi card Iniziativa alla sua pagina completa del progetto PPM.
+
+Al contrario, la scheda **Dettagli della card** all'interno della vista dettagliata PPM dell'iniziativa mostra le sezioni standard senza la scheda PPM, evitando la navigazione circolare.
+
 ## Permessi
 
 | Permesso | Descrizione |
