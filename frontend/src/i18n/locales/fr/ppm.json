@@ -133,5 +133,14 @@
   "progress": "Progression",
   "taskStartDate": "Date de début",
   "confirmDeleteWbs": "Supprimer ce lot de travail ? Les tâches assignées seront dissociées.",
-  "unassigned": "Tâches non assignées"
+  "unassigned": "Tâches non assignées",
+  "filterByWbs": "Lot de travail",
+  "allTasks": "Toutes les tâches",
+  "milestone": "Jalon",
+  "milestoneDate": "Date du jalon",
+  "addMilestone": "Ajouter un jalon",
+  "completion": "Achèvement",
+  "completionDesc": "Achèvement moyen sur l'ensemble des lots de travail",
+  "completionAutoRollup": "L'achèvement est calculé automatiquement à partir des éléments enfants",
+  "workPackage": "Lot de travail"
 }

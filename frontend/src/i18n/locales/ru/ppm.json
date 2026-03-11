@@ -133,5 +133,14 @@
   "progress": "Прогресс",
   "taskStartDate": "Дата начала",
   "confirmDeleteWbs": "Удалить этот рабочий пакет? Привязанные задачи будут отвязаны.",
-  "unassigned": "Неназначенные задачи"
+  "unassigned": "Неназначенные задачи",
+  "filterByWbs": "Рабочий пакет",
+  "allTasks": "Все задачи",
+  "milestone": "Веха",
+  "milestoneDate": "Дата вехи",
+  "addMilestone": "Добавить веху",
+  "completion": "Завершение",
+  "completionDesc": "Среднее завершение по рабочим пакетам",
+  "completionAutoRollup": "Завершение рассчитывается автоматически из дочерних элементов",
+  "workPackage": "Рабочий пакет"
 }

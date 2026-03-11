@@ -133,5 +133,14 @@
   "progress": "Progress",
   "taskStartDate": "Start Date",
   "confirmDeleteWbs": "Delete this work package? Tasks assigned to it will be unlinked.",
-  "unassigned": "Unassigned Tasks"
+  "unassigned": "Unassigned Tasks",
+  "filterByWbs": "Work Package",
+  "allTasks": "All Tasks",
+  "milestone": "Milestone",
+  "milestoneDate": "Milestone Date",
+  "addMilestone": "Add Milestone",
+  "completion": "Completion",
+  "completionDesc": "Average completion across work packages",
+  "completionAutoRollup": "Completion is auto-calculated from child items",
+  "workPackage": "Work Package"
 }

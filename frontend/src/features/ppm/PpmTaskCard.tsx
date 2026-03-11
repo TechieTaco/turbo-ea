@@ -28,12 +28,13 @@ function initials(name: string): string {
 
 interface Props {
   task: PpmTask;
+  wbsName?: string;
   onClick: () => void;
   onMarkDone?: (taskId: string) => void;
   isDragOverlay?: boolean;
 }
 
-export default function PpmTaskCard({ task, onClick, onMarkDone, isDragOverlay }: Props) {
+export default function PpmTaskCard({ task, wbsName, onClick, onMarkDone, isDragOverlay }: Props) {
   const { t } = useTranslation("ppm");
   const {
     attributes,
@@ -100,6 +101,22 @@ export default function PpmTaskCard({ task, onClick, onMarkDone, isDragOverlay }
           {task.title}
         </Typography>
       </Box>
+      {wbsName && (
+        <Typography
+          variant="caption"
+          color="text.secondary"
+          sx={{
+            mt: 0.5,
+            display: "flex",
+            alignItems: "center",
+            gap: 0.25,
+            fontSize: "0.65rem",
+          }}
+        >
+          <MaterialSymbol icon="account_tree" size={12} style={{ color: "#9e9e9e" }} />
+          {wbsName}
+        </Typography>
+      )}
       <Box display="flex" justifyContent="space-between" alignItems="center" mt={1}>
         <Box display="flex" alignItems="center" gap={0.5}>
           {task.assignee_name ? (

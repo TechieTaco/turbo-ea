@@ -58,6 +58,9 @@ export default function PpmGanttTab({ initiativeId }: Props) {
   const [wbsDialogOpen, setWbsDialogOpen] = useState(false);
   const [editingWbs, setEditingWbs] = useState<PpmWbs | undefined>();
 
+  // Milestone default for new WBS
+  const [milestoneDefault, setMilestoneDefault] = useState(false);
+
   // Task dialog state
   const [taskDialogOpen, setTaskDialogOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<PpmTask | undefined>();
@@ -85,31 +88,44 @@ export default function PpmGanttTab({ initiativeId }: Props) {
     const defStart = defaultStart();
     const defEnd = defaultEnd();
 
-    // WBS items as "project" type
+    // WBS items as "project" or "milestone" type
     for (const w of wbsList) {
       const start = parseDate(w.start_date, defStart);
-      let end = parseDate(w.end_date, defEnd);
-      if (end <= start) {
-        end = new Date(start);
-        end.setDate(end.getDate() + 7);
+      if (w.is_milestone) {
+        items.push({
+          id: `wbs-${w.id}`,
+          name: w.title,
+          type: "milestone",
+          start,
+          end: start,
+          progress: w.completion,
+          parent: w.parent_id ? `wbs-${w.parent_id}` : undefined,
+          isDisabled: false,
+        });
+      } else {
+        let end = parseDate(w.end_date, defEnd);
+        if (end <= start) {
+          end = new Date(start);
+          end.setDate(end.getDate() + 7);
+        }
+        items.push({
+          id: `wbs-${w.id}`,
+          name: w.title,
+          type: "project",
+          start,
+          end,
+          progress: w.completion,
+          parent: w.parent_id ? `wbs-${w.parent_id}` : undefined,
+          hideChildren: collapsed.has(w.id),
+          isDisabled: false,
+          styles: {
+            projectBackgroundColor: theme.palette.primary.light,
+            projectProgressColor: theme.palette.primary.main,
+            projectBackgroundSelectedColor: theme.palette.primary.dark,
+            projectProgressSelectedColor: theme.palette.primary.main,
+          },
+        });
       }
-      items.push({
-        id: `wbs-${w.id}`,
-        name: w.title,
-        type: "project",
-        start,
-        end,
-        progress: w.progress,
-        parent: w.parent_id ? `wbs-${w.parent_id}` : undefined,
-        hideChildren: collapsed.has(w.id),
-        isDisabled: false,
-        styles: {
-          projectBackgroundColor: theme.palette.primary.light,
-          projectProgressColor: theme.palette.primary.main,
-          projectBackgroundSelectedColor: theme.palette.primary.dark,
-          projectProgressSelectedColor: theme.palette.primary.main,
-        },
-      });
     }
 
     // Tasks as "task" type
@@ -239,10 +255,23 @@ export default function PpmGanttTab({ initiativeId }: Props) {
           startIcon={<MaterialSymbol icon="add" size={18} />}
           onClick={() => {
             setEditingWbs(undefined);
+            setMilestoneDefault(false);
             setWbsDialogOpen(true);
           }}
         >
           {t("addWbs")}
+        </Button>
+        <Button
+          variant="outlined"
+          size="small"
+          startIcon={<MaterialSymbol icon="flag" size={18} />}
+          onClick={() => {
+            setEditingWbs(undefined);
+            setMilestoneDefault(true);
+            setWbsDialogOpen(true);
+          }}
+        >
+          {t("addMilestone")}
         </Button>
         <Box flex={1} />
         <Tooltip title={t("today")}>
@@ -312,9 +341,14 @@ export default function PpmGanttTab({ initiativeId }: Props) {
           initiativeId={initiativeId}
           wbs={editingWbs}
           wbsList={wbsList}
-          onClose={() => setWbsDialogOpen(false)}
+          defaultMilestone={milestoneDefault}
+          onClose={() => {
+            setWbsDialogOpen(false);
+            setMilestoneDefault(false);
+          }}
           onSaved={() => {
             setWbsDialogOpen(false);
+            setMilestoneDefault(false);
             loadData();
           }}
         />
