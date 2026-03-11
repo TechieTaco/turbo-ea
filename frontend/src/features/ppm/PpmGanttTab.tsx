@@ -253,6 +253,7 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
       }
       const progress =
         tk.status === "done" ? 100 : tk.status === "in_progress" ? 50 : 0;
+      const isBlocked = tk.status === "blocked";
       items.push({
         id: `task-${tk.id}`,
         name: tk.title,
@@ -262,12 +263,19 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
         progress,
         parent: tk.wbs_id ? `wbs-${tk.wbs_id}` : undefined,
         isDisabled: false,
-        styles: {
-          barBackgroundColor: theme.palette.info.light,
-          barProgressColor: theme.palette.info.main,
-          barBackgroundSelectedColor: theme.palette.info.dark,
-          barProgressSelectedColor: theme.palette.info.main,
-        },
+        styles: isBlocked
+          ? {
+              barBackgroundColor: "#ef9a9a",
+              barProgressColor: "#d32f2f",
+              barBackgroundSelectedColor: "#c62828",
+              barProgressSelectedColor: "#d32f2f",
+            }
+          : {
+              barBackgroundColor: theme.palette.info.light,
+              barProgressColor: theme.palette.info.main,
+              barBackgroundSelectedColor: theme.palette.info.dark,
+              barProgressSelectedColor: theme.palette.info.main,
+            },
       });
     }
 
@@ -308,20 +316,27 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
       if (!("start" in task)) return;
       const t = task as Task;
       const id = t.id;
+      const newStart = toIso(t.start);
+      const newEnd = toIso(t.end);
+
+      // Optimistic local update — prevents the bar from jumping back to old dates
       if (id.startsWith("wbs-")) {
         const realId = id.slice(4);
-        await api.patch(`/ppm/wbs/${realId}`, {
-          start_date: toIso(t.start),
-          end_date: toIso(t.end),
-        });
+        setWbsList((prev) =>
+          prev.map((w) =>
+            w.id === realId ? { ...w, start_date: newStart, end_date: newEnd } : w,
+          ),
+        );
+        api.patch(`/ppm/wbs/${realId}`, { start_date: newStart, end_date: newEnd }).then(loadData);
       } else if (id.startsWith("task-")) {
         const realId = id.slice(5);
-        await api.patch(`/ppm/tasks/${realId}`, {
-          start_date: toIso(t.start),
-          due_date: toIso(t.end),
-        });
+        setTasks((prev) =>
+          prev.map((tk) =>
+            tk.id === realId ? { ...tk, start_date: newStart, due_date: newEnd } : tk,
+          ),
+        );
+        api.patch(`/ppm/tasks/${realId}`, { start_date: newStart, due_date: newEnd }).then(loadData);
       }
-      await loadData();
     },
     [loadData],
   );
