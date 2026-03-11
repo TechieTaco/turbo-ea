@@ -723,11 +723,12 @@ async def update_task(
     card = await _get_initiative_or_404(db, str(task.initiative_id))
     await _sync_task_todo(db, task, card, user.id)
     # Notify new assignee when assignee changes
-    new_assignee_str = str(task.assignee_id) if task.assignee_id else None
-    if "assignee_id" in data and new_assignee_str and new_assignee_str != old_assignee_id:
+    new_assignee_id = task.assignee_id
+    new_assignee_str = str(new_assignee_id) if new_assignee_id else None
+    if "assignee_id" in data and new_assignee_id and new_assignee_str != old_assignee_id:
         await notification_service.create_notification(
             db,
-            user_id=task.assignee_id,
+            user_id=new_assignee_id,
             notif_type="task_assigned",
             title="Task Assigned",
             message=(
