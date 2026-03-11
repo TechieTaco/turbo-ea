@@ -220,7 +220,7 @@ export default function PpmPortfolio() {
         ? "#ef5350"
         : item.latest_report?.schedule_health === "atRisk"
           ? "#ffa726"
-          : "#26a69a";
+          : COST_BAR_COLOR;
     // Round the start/end of the bar unless it is clipped at the window edge
     const clippedLeft = startPct <= 0;
     const clippedRight = endPct >= 100;

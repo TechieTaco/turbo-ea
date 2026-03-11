@@ -18,7 +18,7 @@ import PpmCostTab from "./PpmCostTab";
 import PpmRiskTab from "./PpmRiskTab";
 import PpmTaskBoard from "./PpmTaskBoard";
 import PpmCardDetailsTab from "./PpmCardDetailsTab";
-import type { Card, PpmStatusReport, PpmCostLine, PpmRisk } from "@/types";
+import type { Card, PpmStatusReport, PpmCostLine, PpmBudgetLine, PpmRisk } from "@/types";
 
 const TAB_KEYS = ["overview", "reports", "cost", "risks", "tasks", "details"];
 
@@ -35,21 +35,24 @@ export default function PpmProjectDetail() {
   const [card, setCard] = useState<Card | null>(null);
   const [reports, setReports] = useState<PpmStatusReport[]>([]);
   const [costLines, setCostLines] = useState<PpmCostLine[]>([]);
+  const [budgetLines, setBudgetLines] = useState<PpmBudgetLine[]>([]);
   const [risks, setRisks] = useState<PpmRisk[]>([]);
   const [loading, setLoading] = useState(true);
 
   const loadData = useCallback(async () => {
     if (!id) return;
     try {
-      const [c, r, cl, ri] = await Promise.all([
+      const [c, r, cl, bl, ri] = await Promise.all([
         api.get<Card>(`/cards/${id}`),
         api.get<PpmStatusReport[]>(`/ppm/initiatives/${id}/reports`),
         api.get<PpmCostLine[]>(`/ppm/initiatives/${id}/costs`),
+        api.get<PpmBudgetLine[]>(`/ppm/initiatives/${id}/budgets`),
         api.get<PpmRisk[]>(`/ppm/initiatives/${id}/risks`),
       ]);
       setCard(c);
       setReports(r);
       setCostLines(cl);
+      setBudgetLines(bl);
       setRisks(ri);
     } finally {
       setLoading(false);
@@ -115,6 +118,7 @@ export default function PpmProjectDetail() {
           card={card}
           latestReport={latestReport}
           costLines={costLines}
+          budgetLines={budgetLines}
         />
       )}
       {tab === 1 && (
