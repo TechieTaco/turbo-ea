@@ -98,5 +98,15 @@
   "initiativeStatus": "Статус инициативы",
   "noReportAvailable": "Отчёт недоступен",
   "planColumn": "План",
-  "lastReport": "Отчёт"
+  "lastReport": "Отчёт",
+  "budgetAndCosts": "Бюджет и затраты",
+  "plannedBudget": "Плановый бюджет",
+  "costItems": "Статьи затрат",
+  "addBudgetLine": "Добавить строку бюджета",
+  "editBudgetLine": "Редактировать строку бюджета",
+  "noBudgetLines": "Нет строк бюджета",
+  "fiscalYear": "Финансовый год",
+  "amount": "Сумма",
+  "date": "Дата",
+  "markDone": "Отметить как выполненное"
 }

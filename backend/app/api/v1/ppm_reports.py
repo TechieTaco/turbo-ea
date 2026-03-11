@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, get_db
 from app.models.card import Card
-from app.models.ppm_cost_line import PpmCostLine
+from app.models.ppm_cost_line import PpmBudgetLine, PpmCostLine
 from app.models.ppm_status_report import PpmStatusReport
 from app.models.relation import Relation
 from app.models.relation_type import RelationType
@@ -92,11 +92,11 @@ async def ppm_dashboard(
     total = len(initiatives)
     by_subtype: dict[str, int] = {}
     by_status: dict[str, int] = {}
-    total_budget = 0.0
-    total_actual = 0.0
     health_schedule = {"onTrack": 0, "atRisk": 0, "offTrack": 0, "noReport": 0}
     health_cost = {"onTrack": 0, "atRisk": 0, "offTrack": 0, "noReport": 0}
     health_scope = {"onTrack": 0, "atRisk": 0, "offTrack": 0, "noReport": 0}
+
+    init_ids = [c.id for c in initiatives]
 
     for card in initiatives:
         sub = card.subtype or "Other"
@@ -105,9 +105,6 @@ async def ppm_dashboard(
         attrs = card.attributes or {}
         init_status = attrs.get("initiativeStatus", "Unknown")
         by_status[init_status] = by_status.get(init_status, 0) + 1
-
-        total_budget += float(attrs.get("costBudget") or 0)
-        total_actual += float(attrs.get("costActual") or 0)
 
         report = latest.get(card.id)
         if report:
@@ -118,6 +115,24 @@ async def ppm_dashboard(
             health_schedule["noReport"] += 1
             health_cost["noReport"] += 1
             health_scope["noReport"] += 1
+
+    # Aggregate budget (planned) and cost (actual) from dedicated tables
+    total_budget = 0.0
+    total_actual = 0.0
+    if init_ids:
+        budget_sum = await db.execute(
+            select(func.coalesce(func.sum(PpmBudgetLine.amount), 0)).where(
+                PpmBudgetLine.initiative_id.in_(init_ids)
+            )
+        )
+        total_budget = float(budget_sum.scalar() or 0)
+
+        actual_sum = await db.execute(
+            select(func.coalesce(func.sum(PpmCostLine.actual), 0)).where(
+                PpmCostLine.initiative_id.in_(init_ids)
+            )
+        )
+        total_actual = float(actual_sum.scalar() or 0)
 
     return {
         "total_initiatives": total,
@@ -213,7 +228,7 @@ async def ppm_gantt(
         init_ids = [c.id for c in initiatives]
         group_map = await _build_group_map(db, init_ids, group_by)
 
-    # Batch-load cost line aggregations per initiative
+    # Batch-load cost line actuals per initiative
     init_ids = [c.id for c in initiatives]
     cost_agg: dict = {}
     if init_ids:
@@ -221,14 +236,13 @@ async def ppm_gantt(
             select(
                 PpmCostLine.initiative_id,
                 PpmCostLine.category,
-                func.coalesce(func.sum(PpmCostLine.planned), 0).label("planned"),
                 func.coalesce(func.sum(PpmCostLine.actual), 0).label("actual"),
             )
             .where(PpmCostLine.initiative_id.in_(init_ids))
             .group_by(PpmCostLine.initiative_id, PpmCostLine.category)
         )
         for row in cost_result.all():
-            key = row[0]  # initiative_id
+            key = row[0]
             if key not in cost_agg:
                 cost_agg[key] = {
                     "capex_planned": 0,
@@ -236,9 +250,30 @@ async def ppm_gantt(
                     "opex_planned": 0,
                     "opex_actual": 0,
                 }
-            cat = row[1]  # category
+            cat = row[1]
+            cost_agg[key][f"{cat}_actual"] = float(row[2])
+
+        # Batch-load budget line planned amounts per initiative
+        budget_result = await db.execute(
+            select(
+                PpmBudgetLine.initiative_id,
+                PpmBudgetLine.category,
+                func.coalesce(func.sum(PpmBudgetLine.amount), 0).label("amount"),
+            )
+            .where(PpmBudgetLine.initiative_id.in_(init_ids))
+            .group_by(PpmBudgetLine.initiative_id, PpmBudgetLine.category)
+        )
+        for row in budget_result.all():
+            key = row[0]
+            if key not in cost_agg:
+                cost_agg[key] = {
+                    "capex_planned": 0,
+                    "capex_actual": 0,
+                    "opex_planned": 0,
+                    "opex_actual": 0,
+                }
+            cat = row[1]
             cost_agg[key][f"{cat}_planned"] = float(row[2])
-            cost_agg[key][f"{cat}_actual"] = float(row[3])
 
     items: list[PpmGanttItem] = []
     for card in initiatives:

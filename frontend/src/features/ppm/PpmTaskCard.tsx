@@ -2,6 +2,9 @@ import Box from "@mui/material/Box";
 import Paper from "@mui/material/Paper";
 import Typography from "@mui/material/Typography";
 import Avatar from "@mui/material/Avatar";
+import IconButton from "@mui/material/IconButton";
+import Tooltip from "@mui/material/Tooltip";
+import { useTranslation } from "react-i18next";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import MaterialSymbol from "@/components/MaterialSymbol";
@@ -26,10 +29,12 @@ function initials(name: string): string {
 interface Props {
   task: PpmTask;
   onClick: () => void;
+  onMarkDone?: (taskId: string) => void;
   isDragOverlay?: boolean;
 }
 
-export default function PpmTaskCard({ task, onClick, isDragOverlay }: Props) {
+export default function PpmTaskCard({ task, onClick, onMarkDone, isDragOverlay }: Props) {
+  const { t } = useTranslation("ppm");
   const {
     attributes,
     listeners,
@@ -47,6 +52,7 @@ export default function PpmTaskCard({ task, onClick, isDragOverlay }: Props) {
 
   const isOverdue =
     task.due_date && new Date(task.due_date) < new Date() && task.status !== "done";
+  const isDone = task.status === "done";
 
   return (
     <Paper
@@ -63,11 +69,37 @@ export default function PpmTaskCard({ task, onClick, isDragOverlay }: Props) {
         borderLeft: `3px solid ${PRIORITY_COLORS[task.priority] || "#bdbdbd"}`,
         "&:hover": { elevation: 3, bgcolor: "action.hover" },
         userSelect: "none",
+        opacity: isDone ? 0.7 : 1,
       }}
     >
-      <Typography variant="body2" fontWeight={600} noWrap>
-        {task.title}
-      </Typography>
+      <Box display="flex" alignItems="flex-start" gap={0.5}>
+        {onMarkDone && !isDragOverlay && (
+          <Tooltip title={isDone ? t("statusDone") : t("markDone")}>
+            <IconButton
+              size="small"
+              sx={{ mt: -0.25, ml: -0.5, p: 0.25 }}
+              onClick={(e) => {
+                e.stopPropagation();
+                if (!isDone) onMarkDone(task.id);
+              }}
+            >
+              <MaterialSymbol
+                icon={isDone ? "check_circle" : "circle"}
+                size={18}
+                style={{ color: isDone ? "#4caf50" : "#bdbdbd" }}
+              />
+            </IconButton>
+          </Tooltip>
+        )}
+        <Typography
+          variant="body2"
+          fontWeight={600}
+          noWrap
+          sx={{ textDecoration: isDone ? "line-through" : "none", flex: 1 }}
+        >
+          {task.title}
+        </Typography>
+      </Box>
       <Box display="flex" justifyContent="space-between" alignItems="center" mt={1}>
         <Box display="flex" alignItems="center" gap={0.5}>
           {task.assignee_name ? (

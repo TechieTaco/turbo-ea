@@ -60,22 +60,30 @@ function getQuarters(startMonth: Date, months: number) {
   return qs;
 }
 
+/** Format a number in compact "k" notation */
+function fmtK(n: number): string {
+  if (Math.abs(n) >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (Math.abs(n) >= 1_000) return `${(n / 1_000).toFixed(0)}k`;
+  return String(Math.round(n));
+}
+
+const COST_BAR_COLOR = "#5c6bc0";
+const COST_BAR_OVER = "#b71c1c";
+
 /** Mini cost bar: actual vs planned with color coding */
 function CostBar({
   actual,
   planned,
   label,
-  color,
 }: {
   actual: number;
   planned: number;
   label: string;
-  color: string;
 }) {
   if (!planned && !actual) return <Typography variant="caption" color="text.disabled">&mdash;</Typography>;
   const pct = planned > 0 ? Math.min((actual / planned) * 100, 100) : 0;
   const overBudget = actual > planned && planned > 0;
-  const barColor = overBudget ? "#f44336" : color;
+  const barColor = overBudget ? COST_BAR_OVER : COST_BAR_COLOR;
 
   return (
     <Tooltip title={label}>
@@ -83,9 +91,9 @@ function CostBar({
         <Box sx={{ display: "flex", justifyContent: "center", mb: 0.25 }}>
           <Typography
             variant="caption"
-            sx={{ fontSize: "0.65rem", lineHeight: 1.2, color: overBudget ? "#f44336" : "text.secondary" }}
+            sx={{ fontSize: "0.65rem", lineHeight: 1.2, color: overBudget ? COST_BAR_OVER : "text.secondary" }}
           >
-            {Math.round(actual).toLocaleString()}/{Math.round(planned).toLocaleString()}
+            {fmtK(actual)}/{fmtK(planned)}
           </Typography>
         </Box>
         <Box sx={{ height: 6, bgcolor: "action.hover", borderRadius: 3, overflow: "hidden" }}>
@@ -209,10 +217,14 @@ export default function PpmPortfolio() {
     const width = Math.max(endPct - startPct, 0.5);
     const barColor =
       item.latest_report?.schedule_health === "offTrack"
-        ? "#f44336"
+        ? "#ef5350"
         : item.latest_report?.schedule_health === "atRisk"
-          ? "#ff9800"
-          : theme.palette.primary.main;
+          ? "#ffa726"
+          : "#26a69a";
+    // Round the start/end of the bar unless it is clipped at the window edge
+    const clippedLeft = startPct <= 0;
+    const clippedRight = endPct >= 100;
+    const borderRadius = `${clippedLeft ? 0 : 8}px ${clippedRight ? 0 : 8}px ${clippedRight ? 0 : 8}px ${clippedLeft ? 0 : 8}px`;
     return (
       <Tooltip title={`${item.start_date} \u2192 ${item.end_date}`}>
         <Box
@@ -221,9 +233,9 @@ export default function PpmPortfolio() {
             left: `${startPct}%`,
             width: `${width}%`,
             height: 16,
-            borderRadius: 1,
+            borderRadius,
             bgcolor: barColor,
-            opacity: 0.85,
+            opacity: 0.9,
             top: "50%",
             transform: "translateY(-50%)",
             cursor: "pointer",
@@ -322,8 +334,7 @@ export default function PpmPortfolio() {
           <CostBar
             actual={item.capex_actual}
             planned={item.capex_planned}
-            label={`${t("capex")}: ${Math.round(item.capex_actual).toLocaleString()} / ${Math.round(item.capex_planned).toLocaleString()}`}
-            color={theme.palette.primary.main}
+            label={`${t("capex")}: ${fmtK(item.capex_actual)} / ${fmtK(item.capex_planned)}`}
           />
         </Box>
 
@@ -332,8 +343,7 @@ export default function PpmPortfolio() {
           <CostBar
             actual={item.opex_actual}
             planned={item.opex_planned}
-            label={`${t("opex")}: ${Math.round(item.opex_actual).toLocaleString()} / ${Math.round(item.opex_planned).toLocaleString()}`}
-            color="#ff9800"
+            label={`${t("opex")}: ${fmtK(item.opex_actual)} / ${fmtK(item.opex_planned)}`}
           />
         </Box>
 
@@ -395,10 +405,10 @@ export default function PpmPortfolio() {
         <Box />
         <Box />
         <Box sx={{ px: 0.5, display: "flex", justifyContent: "center" }}>
-          <CostBar actual={totCapexA} planned={totCapexP} label={`${t("capex")} total`} color={theme.palette.primary.main} />
+          <CostBar actual={totCapexA} planned={totCapexP} label={`${t("capex")} total`} />
         </Box>
         <Box sx={{ px: 0.5, display: "flex", justifyContent: "center" }}>
-          <CostBar actual={totOpexA} planned={totOpexP} label={`${t("opex")} total`} color="#ff9800" />
+          <CostBar actual={totOpexA} planned={totOpexP} label={`${t("opex")} total`} />
         </Box>
         <Box />
       </Box>

@@ -98,5 +98,15 @@
   "initiativeStatus": "Initiative Status",
   "noReportAvailable": "No report available",
   "planColumn": "Plan",
-  "lastReport": "Report"
+  "lastReport": "Report",
+  "budgetAndCosts": "Budget & Costs",
+  "plannedBudget": "Planned Budget",
+  "costItems": "Cost Items",
+  "addBudgetLine": "Add Budget Line",
+  "editBudgetLine": "Edit Budget Line",
+  "noBudgetLines": "No budget lines yet",
+  "fiscalYear": "Fiscal Year",
+  "amount": "Amount",
+  "date": "Date",
+  "markDone": "Mark as done"
 }
