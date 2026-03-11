@@ -123,6 +123,7 @@
   "wbsTitle": "Title",
   "wbsDescription": "Description",
   "wbsParent": "Parent Work Package",
+  "wbsAssignee": "Responsible",
   "wbsStartDate": "Start Date",
   "wbsEndDate": "End Date",
   "noWbsItems": "No work packages yet",

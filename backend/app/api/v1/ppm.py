@@ -864,6 +864,12 @@ async def _wbs_to_out(db: AsyncSession, wbs: PpmWbs) -> PpmWbsOut:
         )
     ) or 0
     progress = round((done / total) * 100, 1) if total else 0
+    assignee_name = None
+    if wbs.assignee_id:
+        u_result = await db.execute(select(User).where(User.id == wbs.assignee_id))
+        u = u_result.scalar_one_or_none()
+        if u:
+            assignee_name = u.display_name or u.email
     return PpmWbsOut(
         id=str(wbs.id),
         initiative_id=str(wbs.initiative_id),
@@ -875,6 +881,8 @@ async def _wbs_to_out(db: AsyncSession, wbs: PpmWbs) -> PpmWbsOut:
         sort_order=wbs.sort_order,
         is_milestone=wbs.is_milestone,
         completion=wbs.completion,
+        assignee_id=str(wbs.assignee_id) if wbs.assignee_id else None,
+        assignee_name=assignee_name,
         progress=progress,
         task_count=total,
         created_at=wbs.created_at,
@@ -961,6 +969,7 @@ async def create_wbs(
         sort_order=body.sort_order,
         is_milestone=body.is_milestone,
         completion=body.completion,
+        assignee_id=body.assignee_id,
     )
     db.add(wbs)
     await db.commit()
