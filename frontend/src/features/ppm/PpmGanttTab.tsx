@@ -72,15 +72,32 @@ function deriveRange(card?: { attributes?: Record<string, unknown> }): {
   return { start, end };
 }
 
-/** Parse a "YYYY-MM-DD" string as a local-timezone date (noon to dodge DST edges). */
+/** Parse a "YYYY-MM-DD" string as a local-timezone date at start-of-day. */
 function parseDate(s: string | null, fallback: Date): Date {
   if (!s) return fallback;
   // "YYYY-MM-DD" → new Date() treats as UTC midnight, which can shift the day
   // in positive timezones. Split and construct as local date instead.
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(s);
-  if (m) return new Date(+m[1], +m[2] - 1, +m[3], 12, 0, 0, 0);
+  if (m) return new Date(+m[1], +m[2] - 1, +m[3], 0, 0, 0, 0);
   const d = new Date(s);
-  return isNaN(d.getTime()) ? fallback : d;
+  if (isNaN(d.getTime())) return fallback;
+  // Normalize to start-of-day local
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+/** Snap a Date to start-of-day (00:00) in local timezone. */
+function startOfDay(d: Date): Date {
+  const r = new Date(d);
+  r.setHours(0, 0, 0, 0);
+  return r;
+}
+
+/** Snap a Date to end-of-day (23:59:59.999) in local timezone. */
+function endOfDay(d: Date): Date {
+  const r = new Date(d);
+  r.setHours(23, 59, 59, 999);
+  return r;
 }
 
 /** Format a Date to "YYYY-MM-DD" using local date components (not UTC). */
@@ -91,12 +108,15 @@ function toIso(d: Date): string {
   return `${y}-${m}-${day}`;
 }
 
-/** Round any date to noon of that day — prevents snapping to week/month boundaries
- *  and avoids DST / timezone edge cases that can shift the date. */
-function roundToDay(date: Date): Date {
-  const d = new Date(date);
-  d.setHours(12, 0, 0, 0);
-  return d;
+/** Round a date to day boundaries during drag/resize.
+ *  The library passes (date, viewMode, dateExtremity, action). Snap start→00:00, end→23:59. */
+function roundToDay(
+  date: Date,
+  _viewMode?: ViewMode,
+  dateExtremity?: string,
+): Date {
+  if (dateExtremity === "endOfTask") return endOfDay(date);
+  return startOfDay(date);
 }
 
 /** Check if a date falls on Saturday or Sunday (unused params from library API). */
@@ -181,7 +201,7 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
 
     // WBS items as "project" or "milestone" type
     for (const w of wbsList) {
-      const start = parseDate(w.start_date, defStart);
+      const start = startOfDay(parseDate(w.start_date, defStart));
       if (w.is_milestone) {
         items.push({
           id: `wbs-${w.id}`,
@@ -194,9 +214,9 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
           isDisabled: false,
         });
       } else {
-        let end = parseDate(w.end_date, defEnd);
+        let end = endOfDay(parseDate(w.end_date, defEnd));
         if (end <= start) {
-          end = new Date(start);
+          end = endOfDay(new Date(start));
           end.setDate(end.getDate() + 7);
         }
         items.push({
@@ -221,10 +241,14 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
 
     // Tasks as "task" type
     for (const tk of tasks) {
-      const start = parseDate(tk.start_date, parseDate(tk.created_at, defStart));
-      let end = parseDate(tk.due_date, new Date(start.getTime() + 7 * 86400000));
+      const start = startOfDay(
+        parseDate(tk.start_date, parseDate(tk.created_at, defStart)),
+      );
+      let end = endOfDay(
+        parseDate(tk.due_date, new Date(start.getTime() + 7 * 86400000)),
+      );
       if (end <= start) {
-        end = new Date(start);
+        end = endOfDay(new Date(start));
         end.setDate(end.getDate() + 1);
       }
       const progress =
@@ -650,70 +674,112 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
   }, [viewMode]);
 
   /**
-   * Context menu dismiss workaround: the library's ContextMenu component uses
-   * floating-ui's useDismiss but doesn't wire onOpenChange, so escape / outside
-   * clicks don't actually close it. We find the floating context menu container
-   * and force-hide it by moving it off-screen.
+   * Context menu dismiss workaround: the library's ContextMenu uses floating-ui
+   * useDismiss but never wires onOpenChange, so outside clicks / escape don't
+   * close it. We inject a CSS class to hide it and use a MutationObserver to
+   * detect when the library re-renders the menu (which removes our class).
+   */
+  const ctxMenuHiddenClass = useRef<string>("");
+  useEffect(() => {
+    // Inject a one-time stylesheet rule for hiding
+    if (!ctxMenuHiddenClass.current) {
+      ctxMenuHiddenClass.current = "__gantt_ctx_hidden";
+      const style = document.createElement("style");
+      style.textContent = `
+        .${ctxMenuHiddenClass.current} {
+          visibility: hidden !important;
+          pointer-events: none !important;
+        }
+      `;
+      document.head.appendChild(style);
+    }
+
+    const el = ganttRef.current;
+    if (!el) return;
+
+    /** Find all visible context menu floating containers inside the gantt. */
+    const findMenuContainers = (): HTMLElement[] => {
+      const results: HTMLElement[] = [];
+      // The menu options have a class containing "menuOption_"
+      const opts = el.querySelectorAll('[class*="menuOption_"]');
+      const seen = new Set<HTMLElement>();
+      opts.forEach((opt) => {
+        let parent = opt.parentElement;
+        while (parent && parent !== el) {
+          if (
+            (parent.style.position === "fixed" ||
+              parent.style.position === "absolute") &&
+            parent.style.boxShadow
+          ) {
+            if (!seen.has(parent)) {
+              seen.add(parent);
+              results.push(parent);
+            }
+            break;
+          }
+          parent = parent.parentElement;
+        }
+      });
+      return results;
+    };
+
+    const hideContextMenu = () => {
+      const cls = ctxMenuHiddenClass.current;
+      for (const container of findMenuContainers()) {
+        container.classList.add(cls);
+      }
+    };
+
+    const isInsideMenu = (target: Node): boolean => {
+      for (const container of findMenuContainers()) {
+        if (
+          !container.classList.contains(ctxMenuHiddenClass.current) &&
+          container.contains(target)
+        ) {
+          return true;
+        }
+      }
+      return false;
+    };
+
+    const onMouseDown = (e: MouseEvent) => {
+      if (!isInsideMenu(e.target as Node)) hideContextMenu();
+    };
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") hideContextMenu();
+    };
+    // Also hide on scroll anywhere
+    const onScroll = () => hideContextMenu();
+
+    document.addEventListener("mousedown", onMouseDown, true);
+    document.addEventListener("keydown", onKeyDown, true);
+    document.addEventListener("scroll", onScroll, true);
+    return () => {
+      document.removeEventListener("mousedown", onMouseDown, true);
+      document.removeEventListener("keydown", onKeyDown, true);
+      document.removeEventListener("scroll", onScroll, true);
+    };
+  }, []);
+
+  /**
+   * When the library re-renders the ContextMenu (on right-click), it creates new
+   * DOM elements that don't have our hidden class. A MutationObserver detects this
+   * so the menu appears fresh each time it's opened.
+   * We also remove the hidden class proactively on contextmenu events.
    */
   useEffect(() => {
     const el = ganttRef.current;
     if (!el) return;
+    const cls = ctxMenuHiddenClass.current;
 
-    /** Find the context menu floating container inside the gantt wrapper. */
-    const findMenuContainer = (): HTMLElement | null => {
-      // The context menu items have a class containing "menuOption_"
-      const opt = el.querySelector('[class*="menuOption_"]');
-      if (!opt) return null;
-      // Walk up to the floating container (has position: absolute/fixed)
-      let parent = opt.parentElement;
-      while (parent && parent !== el) {
-        const pos = parent.style.position;
-        if (pos === "absolute" || pos === "fixed") return parent;
-        parent = parent.parentElement;
-      }
-      return null;
+    // On right-click inside the gantt, un-hide so the new menu is visible
+    const onContextMenu = () => {
+      el.querySelectorAll(`.${cls}`).forEach((node) => {
+        node.classList.remove(cls);
+      });
     };
-
-    const hideContextMenu = () => {
-      const container = findMenuContainer();
-      if (container) {
-        // Move off-screen and make invisible — more robust than display:none
-        // because React won't override these specific properties
-        container.style.left = "-9999px";
-        container.style.top = "-9999px";
-        container.style.visibility = "hidden";
-      }
-    };
-
-    const onMouseDown = (e: MouseEvent) => {
-      const container = findMenuContainer();
-      if (!container) return;
-      if (!container.contains(e.target as Node)) {
-        hideContextMenu();
-      }
-    };
-
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") hideContextMenu();
-    };
-
-    // Also dismiss on left-click anywhere (not just mousedown)
-    const onClickAnywhere = (e: MouseEvent) => {
-      const container = findMenuContainer();
-      if (!container) return;
-      if (!container.contains(e.target as Node)) {
-        hideContextMenu();
-      }
-    };
-
-    document.addEventListener("mousedown", onMouseDown, true);
-    document.addEventListener("keydown", onKeyDown, true);
-    document.addEventListener("click", onClickAnywhere, true);
-    return () => {
-      document.removeEventListener("mousedown", onMouseDown, true);
-      document.removeEventListener("keydown", onKeyDown, true);
-      document.removeEventListener("click", onClickAnywhere, true);
-    };
+    el.addEventListener("contextmenu", onContextMenu);
+    return () => el.removeEventListener("contextmenu", onContextMenu);
   }, []);
 
   if (loading) {
