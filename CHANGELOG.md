@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [0.32.6] - 2026-03-12
 
+### Added
+- Demo seed data for 3 SoAW documents and 4 additional ADRs in the EA Delivery module
+- Standalone script (`scripts/seed_soaw_adrs.py`) to seed SoAW and ADR demo data on existing databases
+
 ### Changed
 - Added MCP server conventions, ADR and file attachment routes, and missing env vars to CLAUDE.md
 - Fixed DrawIO version in README (v29.5.1 → v26.0.9) and expanded environment variables table
