@@ -16,6 +16,7 @@ import {
   type EdgeProps,
   type Node,
   getSmoothStepPath,
+  getBezierPath,
   BaseEdge,
   EdgeLabelRenderer,
   ReactFlowProvider,
@@ -157,77 +158,85 @@ const C4Group = memo(({ data }: NodeProps<Node<C4GroupData>>) => {
 C4Group.displayName = "C4Group";
 
 /* ------------------------------------------------------------------ */
-/*  Custom C4 Edge                                                     */
+/*  Shared edge label                                                  */
+/* ------------------------------------------------------------------ */
+
+function EdgeLabel({ label, x, y }: { label: string; x: number; y: number }) {
+  if (!label) return null;
+  return (
+    <EdgeLabelRenderer>
+      <Box
+        sx={{
+          position: "absolute",
+          transform: `translate(-50%, -50%) translate(${x}px,${y}px)`,
+          fontSize: "0.62rem",
+          color: "text.secondary",
+          bgcolor: "background.paper",
+          border: "1px solid",
+          borderColor: "divider",
+          px: 0.75,
+          py: 0.25,
+          borderRadius: 1,
+          pointerEvents: "none",
+          whiteSpace: "nowrap",
+          maxWidth: 160,
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+          lineHeight: 1.3,
+        }}
+        className="nodrag nopan"
+      >
+        {label}
+      </Box>
+    </EdgeLabelRenderer>
+  );
+}
+
+const edgeStyle = (color: string) => ({
+  stroke: color,
+  strokeWidth: 1.2,
+  strokeDasharray: "5 3",
+});
+
+/* ------------------------------------------------------------------ */
+/*  Intra-group edge (smoothstep — clean right-angle routing)          */
 /* ------------------------------------------------------------------ */
 
 const C4EdgeComponent = memo(
-  ({
-    id,
-    sourceX,
-    sourceY,
-    targetX,
-    targetY,
-    sourcePosition,
-    targetPosition,
-    data,
-    markerEnd,
-  }: EdgeProps) => {
+  ({ id, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, data, markerEnd }: EdgeProps) => {
     const theme = useTheme();
-    const edgeColor = theme.palette.mode === "dark" ? "#aaa" : "#777";
-
-    const [edgePath, labelX, labelY] = getSmoothStepPath({
-      sourceX,
-      sourceY,
-      targetX,
-      targetY,
-      sourcePosition,
-      targetPosition,
-      borderRadius: 8,
-    });
-
-    const edgeData = data as C4EdgeData | undefined;
-    const label = edgeData?.relLabel || "";
-
+    const color = theme.palette.mode === "dark" ? "#aaa" : "#777";
+    const [path, lx, ly] = getSmoothStepPath({ sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, borderRadius: 8 });
+    const label = (data as C4EdgeData | undefined)?.relLabel || "";
     return (
       <>
-        <BaseEdge
-          id={id}
-          path={edgePath}
-          markerEnd={markerEnd}
-          style={{ stroke: edgeColor, strokeWidth: 1.2, strokeDasharray: "5 3" }}
-        />
-        {label && (
-          <EdgeLabelRenderer>
-            <Box
-              sx={{
-                position: "absolute",
-                transform: `translate(-50%, -50%) translate(${labelX}px,${labelY}px)`,
-                fontSize: "0.62rem",
-                color: "text.secondary",
-                bgcolor: "background.paper",
-                border: "1px solid",
-                borderColor: "divider",
-                px: 0.75,
-                py: 0.25,
-                borderRadius: 1,
-                pointerEvents: "none",
-                whiteSpace: "nowrap",
-                maxWidth: 160,
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                lineHeight: 1.3,
-              }}
-              className="nodrag nopan"
-            >
-              {label}
-            </Box>
-          </EdgeLabelRenderer>
-        )}
+        <BaseEdge id={id} path={path} markerEnd={markerEnd} style={edgeStyle(color)} />
+        <EdgeLabel label={label} x={lx} y={ly} />
       </>
     );
   },
 );
 C4EdgeComponent.displayName = "C4EdgeComponent";
+
+/* ------------------------------------------------------------------ */
+/*  Cross-group edge (bezier — smooth diagonal, no stepped corridors)  */
+/* ------------------------------------------------------------------ */
+
+const C4CrossEdgeComponent = memo(
+  ({ id, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, data, markerEnd }: EdgeProps) => {
+    const theme = useTheme();
+    const color = theme.palette.mode === "dark" ? "#aaa" : "#777";
+    const [path, lx, ly] = getBezierPath({ sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition });
+    const label = (data as C4EdgeData | undefined)?.relLabel || "";
+    return (
+      <>
+        <BaseEdge id={id} path={path} markerEnd={markerEnd} style={edgeStyle(color)} />
+        <EdgeLabel label={label} x={lx} y={ly} />
+      </>
+    );
+  },
+);
+C4CrossEdgeComponent.displayName = "C4CrossEdgeComponent";
 
 /* ------------------------------------------------------------------ */
 /*  Node types registry                                                */
@@ -240,6 +249,7 @@ const nodeTypes = {
 
 const edgeTypes = {
   c4Edge: C4EdgeComponent,
+  c4CrossEdge: C4CrossEdgeComponent,
 };
 
 /* ------------------------------------------------------------------ */

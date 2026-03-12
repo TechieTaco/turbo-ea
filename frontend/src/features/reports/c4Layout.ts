@@ -316,10 +316,23 @@ export function buildC4Flow(
     yOffset += gl.groupH + GROUP_GAP;
   }
 
+  // Compute absolute center positions for each node (for edge routing)
+  const absPos = new Map<string, { x: number; y: number }>();
+  for (const n of rfNodes) {
+    if (n.type === "c4Node" && n.parentId) {
+      const parent = rfNodes.find((p) => p.id === n.parentId);
+      if (parent) {
+        absPos.set(n.id, {
+          x: parent.position.x + n.position.x + C4_NODE_W / 2,
+          y: parent.position.y + n.position.y + C4_NODE_H / 2,
+        });
+      }
+    }
+  }
+
   // Deduplicate edges: merge multiple edges between the same pair into one
   const edgePairMap = new Map<string, { labels: string[]; description?: string }>();
   for (const e of validEdges) {
-    // Normalize key so A→B and B→A collapse to the same pair
     const [lo, hi] = e.source < e.target ? [e.source, e.target] : [e.target, e.source];
     const key = `${lo}||${hi}`;
     const existing = edgePairMap.get(key);
@@ -331,7 +344,6 @@ export function buildC4Flow(
     }
   }
 
-  // Keep original direction from first occurrence
   const seen = new Set<string>();
   const dedupedEdges: typeof validEdges = [];
   for (const e of validEdges) {
@@ -342,17 +354,35 @@ export function buildC4Flow(
     dedupedEdges.push(e);
   }
 
-  // Build React Flow edges
+  // Orient edges to flow top-to-bottom (source above target)
+  // and choose appropriate edge type based on same-group vs cross-group
   const rfEdges: Edge[] = dedupedEdges.map((e, i) => {
     const [lo, hi] = e.source < e.target ? [e.source, e.target] : [e.target, e.source];
     const key = `${lo}||${hi}`;
     const merged = edgePairMap.get(key)!;
     const relLabel = merged.labels.join(" / ");
+
+    const srcPos = absPos.get(e.source);
+    const tgtPos = absPos.get(e.target);
+
+    // Orient edge so it flows downward (source on top, target below)
+    let source = e.source;
+    let target = e.target;
+    if (srcPos && tgtPos && tgtPos.y < srcPos.y) {
+      source = e.target;
+      target = e.source;
+    }
+
+    // Same group vs cross-group
+    const srcCat = nodeCatMap.get(source);
+    const tgtCat = nodeCatMap.get(target);
+    const sameGroup = srcCat === tgtCat;
+
     return {
       id: `c4e-${i}`,
-      source: e.source,
-      target: e.target,
-      type: "c4Edge",
+      source,
+      target,
+      type: sameGroup ? "c4Edge" : "c4CrossEdge",
       label: relLabel,
       data: {
         relLabel,
