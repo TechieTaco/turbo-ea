@@ -910,56 +910,6 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
     };
   }, []);
 
-  /**
-   * Calendar label clamp: In Month view the library positions the year label
-   * centered over the full year, even if only a few months are visible. This
-   * pushes the label to a negative x, clipping it. We post-render clamp the
-   * first top-header text so its left edge stays at x ≥ 4.
-   */
-  useEffect(() => {
-    const el = ganttRef.current;
-    if (!el) return;
-
-    const clampLabels = () => {
-      const calSvg = el.querySelector('[class*="calendarMain_"] > svg');
-      if (!calSvg) return;
-      const topTexts = calSvg.querySelectorAll(
-        '[class*="calendarTopText_"]',
-      ) as NodeListOf<SVGTextElement>;
-      topTexts.forEach((txt) => {
-        const x = parseFloat(txt.getAttribute("x") || "0");
-        // Measure rendered width via BBox
-        try {
-          const bbox = txt.getBBox();
-          const leftEdge = x - bbox.width / 2; // text-anchor: middle
-          if (leftEdge < 4) {
-            txt.setAttribute("x", String(bbox.width / 2 + 4));
-            txt.setAttribute("text-anchor", "middle");
-          }
-        } catch {
-          // getBBox fails if not rendered — skip
-        }
-      });
-    };
-
-    const timer = setTimeout(clampLabels, 80);
-    const observer = new MutationObserver(() =>
-      requestAnimationFrame(clampLabels),
-    );
-    const calEl = el.querySelector('[class*="calendarMain_"]');
-    if (calEl)
-      observer.observe(calEl, {
-        childList: true,
-        subtree: true,
-        attributes: true,
-      });
-
-    return () => {
-      clearTimeout(timer);
-      observer.disconnect();
-    };
-  }, [ganttTasks.length, viewMode]);
-
   if (loading) {
     return (
       <Box display="flex" justifyContent="center" mt={4}>
@@ -1080,16 +1030,6 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
               ${theme.palette.divider} 39px,
               ${theme.palette.divider} 40px
             ) !important`,
-          },
-          /* ── Calendar: prevent first label clipping ──
-             SVGs default to overflow:hidden. The first year/quarter label
-             is centered near x=0 so its left half gets clipped.
-             Allow the calendar SVG to paint outside its box. */
-          "& [class*='calendarMain_']": {
-            overflow: "visible",
-          },
-          "& [class*='calendarMain_'] > svg": {
-            overflow: "visible",
           },
           /* ── Touch scrolling: allow native pan gestures on all scroll containers ── */
           "& [class*='ganttTaskRoot_']": { touchAction: "pan-x pan-y" },
