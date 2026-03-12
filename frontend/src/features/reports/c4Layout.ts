@@ -354,8 +354,14 @@ export function buildC4Flow(
     dedupedEdges.push(e);
   }
 
-  // Orient edges to flow top-to-bottom (source above target)
-  // and choose appropriate edge type based on same-group vs cross-group
+  // Count outgoing/incoming edges per node to distribute across handles
+  // Handle IDs: bottom source = "b-l", "b-c", "b-r"; top target = "t-l", "t-c", "t-r"
+  const srcHandles = ["b-l", "b-c", "b-r"];
+  const tgtHandles = ["t-l", "t-c", "t-r"];
+  const srcCounter = new Map<string, number>(); // nodeId → next source handle index
+  const tgtCounter = new Map<string, number>(); // nodeId → next target handle index
+
+  // Orient edges top-to-bottom and assign spread handles
   const rfEdges: Edge[] = dedupedEdges.map((e, i) => {
     const [lo, hi] = e.source < e.target ? [e.source, e.target] : [e.target, e.source];
     const key = `${lo}||${hi}`;
@@ -373,16 +379,45 @@ export function buildC4Flow(
       target = e.source;
     }
 
-    // Same group vs cross-group
-    const srcCat = nodeCatMap.get(source);
-    const tgtCat = nodeCatMap.get(target);
-    const sameGroup = srcCat === tgtCat;
+    // Distribute handles: rotate through left/center/right for each node
+    const si = srcCounter.get(source) ?? 0;
+    srcCounter.set(source, si + 1);
+    const ti = tgtCounter.get(target) ?? 0;
+    tgtCounter.set(target, ti + 1);
+
+    // Pick handle based on relative horizontal position when possible
+    let sourceHandle: string;
+    let targetHandle: string;
+    const sPos = absPos.get(source);
+    const tPos = absPos.get(target);
+
+    if (sPos && tPos) {
+      const dx = tPos.x - sPos.x;
+      if (dx < -40) {
+        // Target is to the left → use left-side handles
+        sourceHandle = srcHandles[0]; // b-l
+        targetHandle = tgtHandles[2]; // t-r
+      } else if (dx > 40) {
+        // Target is to the right → use right-side handles
+        sourceHandle = srcHandles[2]; // b-r
+        targetHandle = tgtHandles[0]; // t-l
+      } else {
+        // Roughly aligned → rotate through center handles
+        sourceHandle = srcHandles[si % 3];
+        targetHandle = tgtHandles[ti % 3];
+      }
+    } else {
+      sourceHandle = srcHandles[si % 3];
+      targetHandle = tgtHandles[ti % 3];
+    }
 
     return {
       id: `c4e-${i}`,
       source,
       target,
-      type: sameGroup ? "c4Edge" : "c4CrossEdge",
+      sourceHandle,
+      targetHandle,
+      type: "c4Edge",
       label: relLabel,
       data: {
         relLabel,
