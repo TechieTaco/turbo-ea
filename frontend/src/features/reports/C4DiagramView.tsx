@@ -1,4 +1,4 @@
-import { useMemo, useCallback, useState, memo } from "react";
+import { useMemo, useCallback, useState, useRef, memo } from "react";
 import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import IconButton from "@mui/material/IconButton";
@@ -38,8 +38,16 @@ import {
 } from "./c4Layout";
 
 /* ------------------------------------------------------------------ */
+/*  Module-level long-press flag (shared between C4Node and click handler) */
+/* ------------------------------------------------------------------ */
+
+let _longPressFired = false;
+
+/* ------------------------------------------------------------------ */
 /*  Custom C4 Node                                                     */
 /* ------------------------------------------------------------------ */
+
+const LP_CIRCUMFERENCE = 2 * Math.PI * 15; // ~94.25
 
 const C4Node = memo(({ data }: NodeProps<Node<C4NodeData>>) => {
   const rml = useResolveMetaLabel();
@@ -60,8 +68,41 @@ const C4Node = memo(({ data }: NodeProps<Node<C4NodeData>>) => {
 
   const hs = { background: color, width: 5, height: 5, border: "none" } as const;
 
+  /* ---- Long-press detection (touch-friendly Shift+click alternative) ---- */
+  const showTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const fireTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [pressing, setPressing] = useState(false);
+
+  const clearTimer = useCallback(() => {
+    if (showTimerRef.current) {
+      clearTimeout(showTimerRef.current);
+      showTimerRef.current = null;
+    }
+    if (fireTimerRef.current) {
+      clearTimeout(fireTimerRef.current);
+      fireTimerRef.current = null;
+    }
+    setPressing(false);
+  }, []);
+
+  const handlePointerDown = useCallback(() => {
+    if (!data.onLongPress || !data.nodeId) return;
+    _longPressFired = false;
+    // Delay showing the ring so quick taps don't flash it
+    showTimerRef.current = setTimeout(() => setPressing(true), 150);
+    fireTimerRef.current = setTimeout(() => {
+      _longPressFired = true;
+      setPressing(false);
+      data.onLongPress!(data.nodeId!);
+    }, 1000);
+  }, [data]);
+
   return (
     <Box
+      onPointerDown={handlePointerDown}
+      onPointerUp={clearTimer}
+      onPointerCancel={clearTimer}
+      onPointerLeave={clearTimer}
       sx={{
         width: C4_NODE_W,
         height: C4_NODE_H,
@@ -74,10 +115,44 @@ const C4Node = memo(({ data }: NodeProps<Node<C4NodeData>>) => {
         justifyContent: "center",
         px: 1,
         cursor: "pointer",
+        position: "relative",
         transition: "box-shadow 0.15s",
+        touchAction: "none",
         "&:hover": { boxShadow: 4 },
       }}
     >
+      {/* Long-press radial progress ring */}
+      {pressing && (
+        <Box
+          sx={{
+            position: "absolute",
+            top: "50%",
+            left: "50%",
+            transform: "translate(-50%, -50%)",
+            pointerEvents: "none",
+          }}
+        >
+          <svg width={40} height={40} viewBox="0 0 40 40">
+            <circle
+              cx={20}
+              cy={20}
+              r={15}
+              fill="none"
+              stroke={color}
+              strokeWidth={5}
+              strokeLinecap="round"
+              strokeDasharray={LP_CIRCUMFERENCE}
+              strokeDashoffset={LP_CIRCUMFERENCE}
+              style={{
+                animation: "c4-lp-ring 850ms linear forwards",
+                transformOrigin: "center",
+                transform: "rotate(-90deg)",
+              }}
+            />
+          </svg>
+        </Box>
+      )}
+      <style>{`@keyframes c4-lp-ring{to{stroke-dashoffset:0}}`}</style>
       {/* Target handles along top edge (spread at 25%, 50%, 75%) */}
       <Handle type="target" position={Position.Top} id="t-l" style={{ ...hs, left: "25%" }} />
       <Handle type="target" position={Position.Top} id="t-c" style={{ ...hs, left: "50%" }} />
@@ -288,15 +363,29 @@ function C4DiagramInner({
   const { t } = useTranslation(["reports"]);
   const theme = useTheme();
 
-  const { nodes: rfNodes, edges: rfEdges } = useMemo(
+  const { nodes: builtNodes, edges: rfEdges } = useMemo(
     () => buildC4Flow(nodes, edges, types),
     [nodes, edges, types],
   );
 
+  // Inject long-press callback into c4Node data so C4Node can handle pointer events
+  const rfNodes = useMemo(
+    () =>
+      builtNodes.map((n) =>
+        n.type === "c4Node" && onNodeShiftClick
+          ? { ...n, data: { ...n.data, nodeId: n.id, onLongPress: onNodeShiftClick } }
+          : n,
+      ),
+    [builtNodes, onNodeShiftClick],
+  );
+
   const handleNodeClick = useCallback(
     (event: React.MouseEvent, node: Node) => {
-      // Only handle clicks on c4Node, not groups
       if (node.type === "c4Node") {
+        if (_longPressFired) {
+          _longPressFired = false;
+          return; // already handled by long-press
+        }
         if (event.shiftKey && onNodeShiftClick) {
           onNodeShiftClick(node.id);
         } else {
