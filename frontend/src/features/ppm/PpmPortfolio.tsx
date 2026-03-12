@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import TextField from "@mui/material/TextField";
@@ -228,7 +228,7 @@ export default function PpmPortfolio() {
   const [hoveredReport, setHoveredReport] = useState<PpmStatusReport | null>(null);
   const leaveTimer = useRef<ReturnType<typeof setTimeout>>();
   const timelineRef = useRef<HTMLDivElement>(null);
-  const [timelineWidth, setTimelineWidth] = useState(600);
+  const [timelineWidth, setTimelineWidth] = useState(0);
 
   const handleReportEnter = (
     e: React.MouseEvent<HTMLElement>,
@@ -270,7 +270,12 @@ export default function PpmPortfolio() {
       .finally(() => setLoading(false));
   }, [groupBy]);
 
-  // Measure actual timeline column width for quarter label spacing
+  // Measure actual timeline column width for quarter label spacing.
+  // useLayoutEffect ensures the first paint already has the correct width.
+  useLayoutEffect(() => {
+    const el = timelineRef.current;
+    if (el) setTimelineWidth(el.offsetWidth);
+  }, []);
   useEffect(() => {
     const el = timelineRef.current;
     if (!el) return;
