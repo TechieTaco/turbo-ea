@@ -834,12 +834,12 @@ export default function PpmPortfolio() {
                 quarters.length > 1 ? timelineWidth / quarters.length : timelineWidth;
               const step = pxPerQuarter >= 60 ? 1 : pxPerQuarter >= 30 ? 2 : 4;
 
-              return quarters
-                .filter((_, i) => i % step === 0)
-                .map((q, idx) => {
+              const visible = quarters.filter((_, i) => i % step === 0);
+              return visible.map((q, idx) => {
                   const left = pctOf(q.start.toISOString().slice(0, 10)) ?? 0;
-                  // Clamp first label so translateX(-50%) doesn't push it off-screen
-                  const clampedLeft = idx === 0 ? Math.max(3, left) : left;
+                  // First label: anchor to left edge so it doesn't clip
+                  const isFirst = idx === 0;
+                  const isLast = idx === visible.length - 1;
                   return (
                     <Typography
                       key={q.label}
@@ -847,11 +847,15 @@ export default function PpmPortfolio() {
                       fontWeight={600}
                       sx={{
                         position: "absolute",
-                        left: `${clampedLeft}%`,
+                        left: `${isFirst ? 0 : left}%`,
                         bottom: 2,
                         whiteSpace: "nowrap",
                         fontSize: "0.65rem",
-                        transform: "translateX(-50%)",
+                        transform: isFirst
+                          ? "none"
+                          : isLast
+                            ? "translateX(-100%)"
+                            : "translateX(-50%)",
                       }}
                     >
                       {q.label}
