@@ -441,7 +441,7 @@ export default function DependencyReport() {
   // C4 mode: BFS from center to get dependency neighborhood (all types)
   const c4Data = useMemo(() => {
     if (!center || !nodeMap.has(center)) return { nodes: [] as GNode[], edges: [] as GEdge[] };
-    const C4_DEPTH = 3;
+    const C4_DEPTH = 1;
     const visited = new Set<string>([center]);
     let frontier = new Set<string>([center]);
     for (let d = 0; d < C4_DEPTH; d++) {
