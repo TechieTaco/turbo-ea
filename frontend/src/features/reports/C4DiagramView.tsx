@@ -1,4 +1,4 @@
-import { useMemo, useCallback, useState, memo } from "react";
+import { useMemo, useCallback, useState, useRef, useEffect, memo } from "react";
 import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import IconButton from "@mui/material/IconButton";
@@ -293,10 +293,41 @@ function C4DiagramInner({
     [nodes, edges, types],
   );
 
+  /* ---- Long-press detection (touch-friendly Shift+click alternative) ---- */
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const longPressFired = useRef(false);
+
+  const cancelLongPress = useCallback(() => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+  }, []);
+
+  // Clean up timer on unmount
+  useEffect(() => cancelLongPress, [cancelLongPress]);
+
+  const handleNodeMouseDown = useCallback(
+    (_event: React.MouseEvent, node: Node) => {
+      if (node.type !== "c4Node" || !onNodeShiftClick) return;
+      longPressFired.current = false;
+      longPressTimer.current = setTimeout(() => {
+        longPressFired.current = true;
+        onNodeShiftClick(node.id);
+      }, 1000);
+    },
+    [onNodeShiftClick],
+  );
+
   const handleNodeClick = useCallback(
     (event: React.MouseEvent, node: Node) => {
+      cancelLongPress();
       // Only handle clicks on c4Node, not groups
       if (node.type === "c4Node") {
+        if (longPressFired.current) {
+          longPressFired.current = false;
+          return; // already handled by long-press
+        }
         if (event.shiftKey && onNodeShiftClick) {
           onNodeShiftClick(node.id);
         } else {
@@ -304,7 +335,7 @@ function C4DiagramInner({
         }
       }
     },
-    [onNodeClick, onNodeShiftClick],
+    [onNodeClick, onNodeShiftClick, cancelLongPress],
   );
 
   // Bring hovered edge to front by reordering
@@ -387,7 +418,9 @@ function C4DiagramInner({
           edges={orderedEdges}
           nodeTypes={nodeTypes}
           edgeTypes={edgeTypes}
+          onNodeMouseDown={handleNodeMouseDown}
           onNodeClick={handleNodeClick}
+          onMoveStart={cancelLongPress}
           onEdgeMouseEnter={handleEdgeMouseEnter}
           onEdgeMouseLeave={handleEdgeMouseLeave}
           fitView

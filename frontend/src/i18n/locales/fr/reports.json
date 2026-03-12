@@ -150,7 +150,7 @@
   "dependency.previousCard": "Carte précédente",
   "dependency.nextCard": "Carte suivante",
   "dependency.viewInC4": "Voir dans le diagramme C4",
-  "dependency.shiftClickHint": "Maj+clic sur une carte pour centrer le diagramme dessus",
+  "dependency.shiftClickHint": "Maj+clic ou appui long sur une carte pour centrer le diagramme dessus",
 
   "cost.title": "Analyse des co\u00fbts",
   "cost.cardType": "Type de fiche",
