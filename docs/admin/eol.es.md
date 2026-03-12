@@ -2,6 +2,8 @@
 
 La página de administración de **EOL** (**Administrador > Configuración > EOL**) le ayuda a realizar el seguimiento de los ciclos de vida de productos tecnológicos vinculando sus fichas a la base de datos pública [endoflife.date](https://endoflife.date/).
 
+![Configuración EOL](../assets/img/es/29_admin_config_eol.png)
+
 ## ¿Por Qué Realizar el Seguimiento de EOL?
 
 Saber cuándo los productos tecnológicos alcanzan el fin de vida o el fin de soporte es fundamental para:

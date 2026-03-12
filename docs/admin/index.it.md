@@ -1,6 +1,6 @@
 # Amministrazione
 
-![Menu utente con opzioni di amministrazione](../assets/img/en/19_user_menu.png)
+![Menu utente con opzioni di amministrazione](../assets/img/it/19_menu_utente.png)
 
 La sezione **Admin** è disponibile per gli utenti con il ruolo **Admin**. Fornisce strumenti per configurare il modello dati, l'accesso degli utenti, le integrazioni e le impostazioni di sistema.
 

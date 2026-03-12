@@ -1,6 +1,6 @@
 # Funzionalità IA
 
-![Impostazioni suggerimenti AI](../assets/img/en/26_admin_settings_ai.png)
+![Impostazioni suggerimenti AI](../assets/img/it/26_admin_impostazioni_ia.png)
 
 Turbo EA include funzionalità basate sull'IA che utilizzano un **Large Language Model (LLM)** per assistere gli utenti. Tutte le funzionalità IA condividono un'unica **configurazione del provider IA** — configurate una volta, utilizzate ovunque.
 
@@ -123,7 +123,7 @@ Per Ollama, l'interfaccia admin mostra tutti i modelli attualmente scaricati sul
 
 ## Utilizzo dei suggerimenti AI
 
-![Pannello suggerimento AI nel dettaglio card](../assets/img/en/27_ai_suggest_panel.png)
+![Pannello suggerimento AI nel dettaglio card](../assets/img/it/27_pannello_suggerimento_ia.png)
 
 Una volta configurato da un amministratore, gli utenti con il permesso `ai.suggest` (concesso ai ruoli Admin, BPM Admin e Member per impostazione predefinita) vedranno un pulsante scintilla nelle pagine di dettaglio delle card e nella finestra di creazione card.
 

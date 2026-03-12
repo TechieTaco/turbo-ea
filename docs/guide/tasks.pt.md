@@ -2,7 +2,7 @@
 
 A página de **Tarefas** centraliza todos os itens de trabalho pendentes em um único lugar. Ela tem duas abas: **Minhas Tarefas** e **Minhas Pesquisas**.
 
-![Seção Minhas Tarefas](../assets/img/en/18_tasks.png)
+![Seção Minhas Tarefas](../assets/img/pt/18_tarefas.png)
 
 ## Minhas Tarefas
 

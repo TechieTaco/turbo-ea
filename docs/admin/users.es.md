@@ -59,6 +59,8 @@ Debajo de la tabla de usuarios, una sección de **Invitaciones pendientes** mues
 
 #### Roles
 
+![Gestión de Roles](../assets/img/es/39_admin_roles.png)
+
 La pestaña **Roles** permite gestionar los roles a nivel de aplicación. Cada rol define un conjunto de permisos que controlan lo que los usuarios con ese rol pueden hacer. Roles predeterminados:
 
 | Rol | Descripción |

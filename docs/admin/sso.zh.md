@@ -1,6 +1,6 @@
 # 身份验证与 SSO
 
-![身份验证与 SSO 设置](../assets/img/en/25_admin_settings_auth.png)
+![身份验证与 SSO 设置](../assets/img/zh/25_admin_settings_auth.png)
 
 设置中的**身份验证**标签页允许管理员配置用户登录平台的方式。
 

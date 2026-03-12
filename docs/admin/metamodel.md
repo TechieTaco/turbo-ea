@@ -147,6 +147,8 @@ For example, a "Buy SaaS" principle would cause the AI to flag on-premise or Iaa
 
 ## Metamodel Graph
 
+![Metamodel Graph Visualization](../assets/img/en/38_metamodel_graph.png)
+
 The **Metamodel Graph** tab shows a visual SVG diagram of all card types and their relation types. This is a read-only visualization that helps you understand the connections in your metamodel at a glance.
 
 ## Card Layout Editor

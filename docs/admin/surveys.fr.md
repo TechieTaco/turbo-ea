@@ -2,6 +2,8 @@
 
 Le module **Enquêtes** (**Admin > Enquêtes**) permet aux administrateurs de créer des **enquêtes de maintenance de données** qui collectent des informations structurées auprès des parties prenantes sur des fiches spécifiques.
 
+![Administration des enquêtes](../assets/img/fr/37_admin_enquetes.png)
+
 ## Cas d'utilisation
 
 Les enquêtes aident à maintenir vos données d'architecture à jour en contactant les personnes les plus proches de chaque composant. Par exemple :

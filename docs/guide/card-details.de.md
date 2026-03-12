@@ -2,7 +2,7 @@
 
 Ein Klick auf eine beliebige Karte im Inventar öffnet die **Detailansicht**, in der Sie alle Informationen über die Komponente anzeigen und bearbeiten können.
 
-![Kartendetailansicht](../assets/img/en/04_card_detail.png)
+![Kartendetailansicht](../assets/img/de/04_karten_detail.png)
 
 ## Kartenkopf
 
@@ -107,7 +107,7 @@ Wenn die Karte mit einem [endoflife.date](https://endoflife.date/)-Produkt verkn
 
 ## Kommentare-Tab
 
-![Kartenkommentarbereich](../assets/img/en/05_card_comments.png)
+![Kartenkommentarbereich](../assets/img/de/05_karten_kommentare.png)
 
 - **Kommentare hinzufügen** — Notizen, Fragen oder Entscheidungen über die Komponente hinterlassen
 - **Verschachtelte Antworten** — Auf bestimmte Kommentare antworten, um Gesprächsfäden zu erstellen
@@ -115,7 +115,7 @@ Wenn die Karte mit einem [endoflife.date](https://endoflife.date/)-Produkt verkn
 
 ## Aufgaben-Tab
 
-![Aufgaben einer Karte zugeordnet](../assets/img/en/06_card_todos.png)
+![Aufgaben einer Karte zugeordnet](../assets/img/de/06_karten_aufgaben.png)
 
 - **Aufgaben erstellen** — Aufgaben erstellen, die mit dieser bestimmten Karte verknüpft sind
 - **Zuweisen** — Einen verantwortlichen Benutzer für jede Aufgabe festlegen
@@ -124,7 +124,7 @@ Wenn die Karte mit einem [endoflife.date](https://endoflife.date/)-Produkt verkn
 
 ## Stakeholder-Tab
 
-![Kartenstakeholder](../assets/img/en/07_card_stakeholders.png)
+![Kartenstakeholder](../assets/img/de/07_karten_stakeholder.png)
 
 Stakeholder sind Personen mit einer bestimmten **Rolle** auf dieser Karte. Die verfügbaren Rollen hängen vom Kartentyp ab (konfiguriert im [Metamodell](../admin/metamodel.md)). Häufige Rollen umfassen:
 
@@ -136,7 +136,7 @@ Stakeholder-Zuweisungen beeinflussen **Berechtigungen**: Die effektiven Berechti
 
 ## Verlauf-Tab
 
-![Kartenänderungsverlauf](../assets/img/en/08_card_history.png)
+![Kartenänderungsverlauf](../assets/img/de/08_karten_historie.png)
 
 Zeigt die **vollständige Historie** der an der Karte vorgenommenen Änderungen: **Wer** hat die Änderung vorgenommen, **wann** wurde sie durchgeführt und **was** wurde geändert (vorheriger Wert vs. neuer Wert). Dies ermöglicht die vollständige Nachverfolgbarkeit aller Änderungen über die Zeit.
 

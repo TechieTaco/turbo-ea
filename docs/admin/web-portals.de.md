@@ -2,6 +2,8 @@
 
 Die **Web-Portale**-Funktion (**Admin > Einstellungen > Web-Portale**) ermöglicht es Ihnen, **öffentliche, schreibgeschützte Ansichten** ausgewählter Kartendaten zu erstellen — zugänglich ohne Authentifizierung über eine eindeutige URL.
 
+![Web-Portale-Administration](../assets/img/de/30_admin_einstellungen_webportale.png)
+
 ## Anwendungsfall
 
 Web-Portale sind nützlich, um Architekturinformationen mit Stakeholdern zu teilen, die kein Turbo EA-Konto haben:

@@ -2,7 +2,7 @@
 
 La Dashboard è la prima schermata visualizzata dopo il login. Fornisce una **panoramica rapida** dell'intero stato dell'enterprise architecture.
 
-![Dashboard - Vista superiore](../assets/img/en/01_dashboard.png)
+![Dashboard - Vista superiore](../assets/img/it/01_dashboard.png)
 
 ## Barra di navigazione superiore
 
@@ -31,7 +31,7 @@ La sezione principale della Dashboard mostra **schede riepilogative** che indica
 
 Cliccando su una scheda di tipo si naviga all'[Inventario](inventory.md) pre-filtrato per quel tipo.
 
-![Dashboard - Vista inferiore con grafici](../assets/img/en/02_dashboard_bottom.png)
+![Dashboard - Vista inferiore con grafici](../assets/img/it/02_dashboard_inferiore.png)
 
 ## Grafici e statistiche
 

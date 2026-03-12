@@ -2,11 +2,11 @@
 
 Turbo EA include un potente modulo di **reportistica visiva** che consente di analizzare l'enterprise architecture da diverse prospettive. Tutti i report possono essere [salvati per il riutilizzo](saved-reports.md) con la configurazione attuale di filtri e assi.
 
-![Menu dei report disponibili](../assets/img/en/09_reports_menu.png)
+![Menu dei report disponibili](../assets/img/it/09_menu_report.png)
 
 ## Report Portfolio
 
-![Report Portfolio](../assets/img/en/10_report_portfolio.png)
+![Report Portfolio](../assets/img/it/10_report_portfolio.png)
 
 Il **Report Portfolio** mostra un **grafico a bolle** (o scatter plot) configurabile delle vostre card. Scegliete cosa rappresenta ogni asse:
 
@@ -23,7 +23,7 @@ Quando l'IA è configurata e le analisi del portafoglio sono abilitate da un amm
 
 ## Mappa delle Capability
 
-![Mappa delle Business Capability](../assets/img/en/11_capability_map.png)
+![Mappa delle Business Capability](../assets/img/it/11_mappa_capacita.png)
 
 La **Mappa delle Capability** mostra una **mappa di calore** gerarchica delle business capability dell'organizzazione. Ogni blocco rappresenta una capability, con:
 
@@ -33,7 +33,7 @@ La **Mappa delle Capability** mostra una **mappa di calore** gerarchica delle bu
 
 ## Report Ciclo di vita
 
-![Report Ciclo di vita](../assets/img/en/12_lifecycle.png)
+![Report Ciclo di vita](../assets/img/it/12_ciclo_vita.png)
 
 Il **Report Ciclo di vita** mostra una **visualizzazione temporale** di quando i componenti tecnologici sono stati introdotti e quando è previsto il loro ritiro. Fondamentale per:
 
@@ -45,7 +45,7 @@ I componenti sono visualizzati come barre orizzontali che attraversano le fasi d
 
 ## Report Dipendenze
 
-![Report Dipendenze](../assets/img/en/13_dependencies.png)
+![Report Dipendenze](../assets/img/it/13_dipendenze.png)
 
 Il **Report Dipendenze** visualizza le **connessioni tra componenti** come un grafo a rete. I nodi rappresentano le card e gli archi rappresentano le relazioni. Funzionalità:
 
@@ -56,7 +56,7 @@ Il **Report Dipendenze** visualizza le **connessioni tra componenti** come un gr
 
 ## Report Costi
 
-![Report Costi](../assets/img/en/34_report_cost.png)
+![Report Costi](../assets/img/it/34_report_costi.png)
 
 Il **Report Costi** fornisce un'analisi finanziaria del vostro panorama tecnologico:
 
@@ -66,7 +66,7 @@ Il **Report Costi** fornisce un'analisi finanziaria del vostro panorama tecnolog
 
 ## Report Matrice
 
-![Report Matrice](../assets/img/en/35_report_matrix.png)
+![Report Matrice](../assets/img/it/35_report_matrice.png)
 
 Il **Report Matrice** crea una **griglia di riferimento incrociato** tra due tipi di card. Ad esempio:
 
@@ -78,7 +78,7 @@ Questo è utile per identificare lacune di copertura (capability senza applicazi
 
 ## Report Qualità dei Dati
 
-![Report Qualità dei Dati](../assets/img/en/33_report_data_quality.png)
+![Report Qualità dei Dati](../assets/img/it/33_report_qualita_dati.png)
 
 Il **Report Qualità dei Dati** è una **dashboard di completezza** che mostra quanto bene i vostri dati architetturali sono compilati. Basato sui pesi dei campi configurati nel metamodello:
 
@@ -88,7 +88,7 @@ Il **Report Qualità dei Dati** è una **dashboard di completezza** che mostra q
 
 ## Report End of Life (EOL)
 
-![Report End of Life](../assets/img/en/32_report_eol.png)
+![Report End of Life](../assets/img/it/32_report_eol.png)
 
 Il **Report EOL** mostra lo stato di supporto dei prodotti tecnologici collegati tramite la funzionalità [Amministrazione EOL](../admin/eol.md):
 
@@ -98,7 +98,7 @@ Il **Report EOL** mostra lo stato di supporto dei prodotti tecnologici collegati
 
 ## Report salvati
 
-![Galleria dei report salvati](../assets/img/en/36_saved_reports.png)
+![Galleria dei report salvati](../assets/img/it/36_report_salvati.png)
 
 Salvate qualsiasi configurazione di report per un accesso rapido successivo. I report salvati includono un'anteprima in miniatura e possono essere condivisi nell'organizzazione.
 

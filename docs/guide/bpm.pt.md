@@ -7,7 +7,7 @@ O módulo **BPM** permite documentar, modelar e analisar os **processos de negó
 
 ## Navegador de Processos
 
-![Navegador de Processos de Negócio](../assets/img/en/14_bpm_navigator.png)
+![Navegador de Processos de Negócio](../assets/img/pt/14_bpm_navegador.png)
 
 O **Navegador de Processos** organiza processos em três categorias principais:
 
@@ -19,7 +19,7 @@ O **Navegador de Processos** organiza processos em três categorias principais:
 
 ## Painel BPM
 
-![Painel BPM com Estatísticas](../assets/img/en/15_bpm_dashboard.png)
+![Painel BPM com Estatísticas](../assets/img/pt/15_bpm_painel.png)
 
 O **Painel BPM** fornece uma visão executiva do status dos processos:
 
@@ -33,6 +33,8 @@ O **Painel BPM** fornece uma visão executiva do status dos processos:
 Gráficos mostram a distribuição por tipo de processo, nível de maturidade e nível de automação. Uma tabela de **processos de maior risco** ajuda a priorizar investimentos.
 
 ## Editor de Fluxo de Processo
+
+![Editor de Fluxo de Processo](../assets/img/pt/47_bpm_fluxo_processo.png)
 
 Cada card de Processo de Negócio pode ter um **diagrama de fluxo de processo BPMN 2.0**. O editor usa [bpmn-js](https://bpmn.io/) e oferece:
 

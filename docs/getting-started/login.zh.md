@@ -2,7 +2,7 @@
 
 ## 登录
 
-![登录界面](../assets/img/en/24_login.png)
+![登录界面](../assets/img/zh/24_login.png)
 
 访问平台时，系统会显示登录界面，您需要输入电子邮箱地址和密码。
 

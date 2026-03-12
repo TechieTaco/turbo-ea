@@ -147,6 +147,8 @@ Por ejemplo, un principio «Comprar SaaS» haría que la IA señale aplicaciones
 
 ## Grafo del Metamodelo
 
+![Grafo del Metamodelo](../assets/img/es/38_grafo_metamodelo.png)
+
 La pestaña **Grafo del Metamodelo** muestra un diagrama SVG visual de todos los tipos de fichas y sus tipos de relación. Esta es una visualización de solo lectura que ayuda a comprender las conexiones en su metamodelo de un vistazo.
 
 ## Editor de Disposición de Fichas

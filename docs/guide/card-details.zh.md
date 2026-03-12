@@ -2,7 +2,7 @@
 
 在清单中点击任何卡片将打开**详情视图**，您可以在此查看和编辑组件的所有信息。
 
-![卡片详情视图](../assets/img/en/04_card_detail.png)
+![卡片详情视图](../assets/img/zh/04_card_detail.png)
 
 ## 卡片标题
 
@@ -107,7 +107,7 @@
 
 ## 评论标签页
 
-![卡片评论区](../assets/img/en/05_card_comments.png)
+![卡片评论区](../assets/img/zh/05_card_comments.png)
 
 - **添加评论** —— 留下关于组件的注释、问题或决策
 - **线程回复** —— 回复特定评论以创建对话线程
@@ -115,7 +115,7 @@
 
 ## 待办标签页
 
-![与卡片关联的待办事项](../assets/img/en/06_card_todos.png)
+![与卡片关联的待办事项](../assets/img/zh/06_card_todos.png)
 
 - **创建待办** —— 添加与此特定卡片相关的任务
 - **分配** —— 为每个任务设置负责人
@@ -124,7 +124,7 @@
 
 ## 干系人标签页
 
-![卡片干系人](../assets/img/en/07_card_stakeholders.png)
+![卡片干系人](../assets/img/zh/07_card_stakeholders.png)
 
 干系人是在此卡片上具有特定**角色**的人员。可用角色取决于卡片类型（在[元模型](../admin/metamodel.md)中配置）。常见角色包括：
 
@@ -136,7 +136,7 @@
 
 ## 历史标签页
 
-![卡片变更历史](../assets/img/en/08_card_history.png)
+![卡片变更历史](../assets/img/zh/08_card_history.png)
 
 显示对卡片所做变更的**完整审计记录**：**谁**做了变更、**何时**做的以及**修改了什么**（旧值与新值）。这使得所有修改都可以追溯。
 

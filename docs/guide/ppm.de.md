@@ -7,6 +7,8 @@ Das **PPM**-Modul bietet eine vollständige Lösung für das Projektportfolioman
 
 ## Portfolio-Dashboard
 
+![PPM Portfolio-Dashboard](../assets/img/de/40_ppm_portfolio.png)
+
 Das **Portfolio-Dashboard** ist der Haupteinstiegspunkt für PPM. Es bietet:
 
 - **KPI-Karten** — Gesamtzahl der Initiativen, Gesamtbudget, tatsächliche Gesamtkosten und Zusammenfassungen des Gesundheitsstatus
@@ -30,6 +32,8 @@ Klicken Sie auf eine Initiative, um deren Detailseite mit sieben Tabs zu öffnen
 
 ### Übersicht-Tab
 
+![PPM Initiativ-Übersicht](../assets/img/de/41_ppm_uebersicht.png)
+
 Die Übersicht zeigt eine Zusammenfassung der Gesundheit und Finanzen der Initiative:
 
 - **Gesundheitsübersicht** — Zeitplan-, Kosten- und Umfangsindikatoren aus dem letzten Statusbericht
@@ -37,6 +41,8 @@ Die Übersicht zeigt eine Zusammenfassung der Gesundheit und Finanzen der Initia
 - **Letzte Aktivität** — Zusammenfassung des letzten Statusberichts
 
 ### Statusberichte-Tab
+
+![PPM Statusberichte](../assets/img/de/42_ppm_statusberichte.png)
 
 Monatliche Statusberichte verfolgen die Projektgesundheit über die Zeit. Jeder Bericht enthält:
 
@@ -52,6 +58,8 @@ Monatliche Statusberichte verfolgen die Projektgesundheit über die Zeit. Jeder 
 
 ### Budget & Kosten-Tab
 
+![PPM Budget und Kosten](../assets/img/de/43_ppm_budget_kosten.png)
+
 Finanzdaten verfolgen mit zwei Arten von Positionen:
 
 - **Budgetpositionen** — Geplantes Budget nach Geschäftsjahr und Kategorie (CapEx / OpEx). Budgetzeilen werden nach dem **Geschäftsjahresbeginn** gruppiert, der in den [Einstellungen](../admin/settings.md#beginn-des-geschäftsjahres) konfiguriert ist. Wenn das Geschäftsjahr beispielsweise im April beginnt, gehört eine Budgetzeile vom Juni 2026 zum GJ 2026–2027
@@ -60,6 +68,8 @@ Finanzdaten verfolgen mit zwei Arten von Positionen:
 Budget- und Kostensummen werden automatisch in die `costBudget`- und `costActual`-Attribute der Initiativ-Karte hochgerechnet.
 
 ### Risikomanagement-Tab
+
+![PPM Risikomanagement](../assets/img/de/44_ppm_risikomanagement.png)
 
 Das Risikoregister verfolgt Projektrisiken mit:
 
@@ -75,6 +85,8 @@ Das Risikoregister verfolgt Projektrisiken mit:
 
 ### Aufgaben-Tab
 
+![PPM Aufgaben-Board](../assets/img/de/45_ppm_aufgaben_board.png)
+
 Der Aufgabenmanager unterstützt **Kanban-Board** und **Listen**-Ansichten mit vier Statusspalten:
 
 - **Zu erledigen** — Noch nicht begonnene Aufgaben
@@ -87,6 +99,8 @@ Aufgaben können nach Projektstrukturplan (PSP)-Element gefiltert und gruppiert 
 Anzeigefilter (Ansichtsmodus, WBS-Filter, Gruppierungs-Umschalter) bleiben in der URL zwischen Seitenaktualisierungen erhalten.
 
 ### Gantt-Tab
+
+![PPM Gantt-Diagramm](../assets/img/de/46_ppm_gantt.png)
 
 Das Gantt-Diagramm visualisiert den Projektzeitplan mit:
 

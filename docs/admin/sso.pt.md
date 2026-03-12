@@ -1,6 +1,6 @@
 # Autenticação e SSO
 
-![Configurações de Autenticação e SSO](../assets/img/en/25_admin_settings_auth.png)
+![Configurações de Autenticação e SSO](../assets/img/pt/25_admin_config_autenticacao.png)
 
 A aba de **Autenticação** em Configurações permite que administradores configurem como os usuários fazem login na plataforma.
 

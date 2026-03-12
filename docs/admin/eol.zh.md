@@ -2,6 +2,8 @@
 
 **EOL** 管理页面（**管理 > 设置 > EOL**）帮助您通过将卡片链接到公共 [endoflife.date](https://endoflife.date/) 数据库来跟踪技术产品的生命周期。
 
+![生命周期终止管理](../assets/img/zh/29_admin_settings_eol.png)
+
 ## 为什么要跟踪 EOL？
 
 了解技术产品何时到达生命周期终止或停止支持对以下方面至关重要：
