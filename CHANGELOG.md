@@ -13,9 +13,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Added MCP server tests, docs build validation, and coverage threshold bump (40% → 50%) to CI
 - Added version bump, i18n, and docs update reminders to PR template checklist
 - Set mkdocs.yml site_url to actual docs domain instead of placeholder
-
-### Added
-- SECURITY.md with responsible disclosure process and security controls summary
+- Updated locale count from seven to eight across all documentation (Russian added in v0.30.0)
+- Expanded admin index page from stub to comprehensive overview of all admin pages (all 8 locales)
+- Added Fiscal Year Start, PPM Module toggle sections to admin settings docs (all 8 locales)
+- Added fiscal year budget grouping reference and WBS completion rollup details to PPM guide (all 8 locales)
+- Added metamodel translations section documenting the Translation Dialog (all 8 locales)
+- Completed Spanish translation of ServiceNow integration documentation
+- Added Fiscal Year, OData Feed, and BPM Row Order terms to glossary (all 8 locales)
 
 ## [0.32.5] - 2026-03-11
 
