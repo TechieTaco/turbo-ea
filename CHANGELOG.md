@@ -5,6 +5,12 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.32.6] - 2026-03-12
+
+### Added
+- Demo seed data for 3 SoAW documents and 4 additional ADRs in the EA Delivery module
+- Standalone script (`scripts/seed_soaw_adrs.py`) to seed SoAW and ADR demo data on existing databases
+
 ## [0.32.5] - 2026-03-11
 
 ### Changed
