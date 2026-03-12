@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.34.0] - 2026-03-12
+
+### Added
+- C4 diagram view toggle in the Dependency Report — switch between the existing tree view and a C4-notation diagram powered by React Flow, with nodes grouped by architectural layer, directional labeled edges, pan/zoom, and minimap
+
 ## [0.33.0] - 2026-03-12
 
 ### Added
