@@ -910,67 +910,6 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
     };
   }, []);
 
-  /**
-   * SVG row-stripe injection: the library does NOT render alternating row
-   * backgrounds in the SVG gantt area — it only sets a solid background color
-   * on the entire SVG. We post-render inject <rect> elements for even rows.
-   */
-  useEffect(() => {
-    const el = ganttRef.current;
-    if (!el) return;
-
-    const ROW_HEIGHT = 40; // must match distances.rowHeight
-    const HEADER_HEIGHT = 50; // must match distances.headerHeight
-    const evenColor =
-      theme.palette.mode === "dark" ? theme.palette.background.paper : "#f5f5f5";
-
-    const injectStripes = () => {
-      const svg = el.querySelector("svg");
-      if (!svg) return;
-      const svgHeight = parseFloat(svg.getAttribute("height") || "0");
-      if (svgHeight <= HEADER_HEIGHT) return;
-
-      // Remove previous stripes
-      const existing = svg.querySelector("#turbo-row-stripes");
-      if (existing) existing.remove();
-
-      const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
-      g.setAttribute("id", "turbo-row-stripes");
-
-      const contentHeight = svgHeight - HEADER_HEIGHT;
-      const rowCount = Math.ceil(contentHeight / ROW_HEIGHT);
-
-      for (let i = 0; i < rowCount; i++) {
-        if (i % 2 !== 0) continue; // only even rows (0-indexed)
-        const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-        rect.setAttribute("x", "0");
-        rect.setAttribute("y", String(HEADER_HEIGHT + i * ROW_HEIGHT));
-        rect.setAttribute("width", "100%");
-        rect.setAttribute("height", String(ROW_HEIGHT));
-        rect.setAttribute("fill", evenColor);
-        g.appendChild(rect);
-      }
-
-      // Insert as first child of SVG so stripes are behind everything
-      svg.insertBefore(g, svg.firstChild);
-    };
-
-    // Inject after initial render and on DOM mutations (expand/collapse/scroll)
-    const timer = setTimeout(injectStripes, 50);
-    const observer = new MutationObserver(() => {
-      requestAnimationFrame(injectStripes);
-    });
-    const svg = el.querySelector("svg");
-    if (svg) {
-      observer.observe(svg, { childList: true, subtree: true, attributes: true });
-    }
-
-    return () => {
-      clearTimeout(timer);
-      observer.disconnect();
-    };
-  }, [ganttTasks.length, theme.palette.mode, theme.palette.background.paper]);
-
   if (loading) {
     return (
       <Box display="flex" justifyContent="center" mt={4}>
@@ -1073,8 +1012,16 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
             },
           },
           /* ── Horizontal grid lines on the SVG gantt side ──
-             The library doesn't render row separators in the SVG area.
-             We use a repeating gradient to draw 1px lines every 40px (rowHeight). */
+             The library sets a solid background on the SVG and renders column
+             lines + alternating bands via a wrapper div's backgroundImage.
+             We override the wrapper div's gradient in dark mode and add 1px
+             horizontal dividers on the SVG itself. */
+          "& [class*='ganttTaskContent_'] > div": {
+            backgroundImage: `
+              linear-gradient(to right, ${theme.palette.divider} 1px, transparent 2px),
+              linear-gradient(to bottom, transparent 40px, ${theme.palette.mode === "dark" ? theme.palette.background.paper : "#f5f5f5"} 40px)
+            !important`,
+          },
           "& [class*='ganttTaskContent_'] > div > svg": {
             backgroundImage: `repeating-linear-gradient(
               to bottom,
