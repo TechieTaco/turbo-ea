@@ -18,6 +18,9 @@ from app.services.seed_demo import (
     BUSINESS_CAPABILITIES,
     BUSINESS_CONTEXTS,
     DATA_OBJECTS,
+    DEMO_ADR_EXTRA_CARD_LINKS,
+    DEMO_ADRS_EXTRA,
+    DEMO_SOAWS,
     INITIATIVES,
     INTERFACES,
     IT_COMPONENTS,
@@ -25,8 +28,10 @@ from app.services.seed_demo import (
     ORGANIZATIONS,
     PLATFORMS,
     PROVIDERS,
+    SOAW_INITIATIVE_REFS,
     TAG_GROUPS,
     TECH_CATEGORIES,
+    _id,
 )
 from app.services.seed_demo import (
     RELATIONS as DEMO_RELATIONS,
@@ -352,3 +357,98 @@ class TestPpmReferencesMatchDemoData:
     def test_all_referenced_initiatives_exist(self):
         missing = set(REFERENCED_INITIATIVE_NAMES) - _initiative_names
         assert not missing, f"PPM seed references initiatives not in seed_demo.py: {missing}"
+
+
+# ===========================================================================
+# Tests — SoAW + extra ADR demo data (seed_demo.py)
+# ===========================================================================
+
+# Build card-ref → id lookup from _id helper
+_all_card_ids = {c["id"] for c in ALL_DEMO_CARDS}
+
+# Valid SoAW section IDs per template
+_VALID_SOAW_SECTION_IDS = {
+    "1.1",
+    "1.2",
+    "2.1",
+    "2.2",
+    "2.3",
+    "3.1",
+    "4.1",
+    "4.2",
+    "4.3",
+    "5.1",
+    "5.2",
+    "5.3",
+    "6.1",
+    "6.2",
+    "6.3",
+    "7.0",
+    "7.1",
+    "7.2",
+}
+
+
+class TestSoawDemoData:
+    """SoAW demo data must reference valid initiatives and use correct section IDs."""
+
+    def test_soaw_initiative_refs_exist(self):
+        """All SoAW initiative refs must correspond to cards in the demo data."""
+        init_ids = {c["id"] for c in INITIATIVES}
+        for soaw in DEMO_SOAWS:
+            init_id = soaw.get("initiative_id")
+            if init_id is not None:
+                assert init_id in init_ids, (
+                    f"SoAW '{soaw['name']}': initiative_id not found in demo Initiatives"
+                )
+
+    def test_soaw_section_ids_valid(self):
+        """All SoAW section keys must match the template section IDs."""
+        for soaw in DEMO_SOAWS:
+            sections = soaw.get("sections", {})
+            unknown = set(sections.keys()) - _VALID_SOAW_SECTION_IDS
+            assert not unknown, f"SoAW '{soaw['name']}': unknown section IDs {unknown}"
+
+    def test_soaw_has_all_template_sections(self):
+        """Each SoAW should have entries for all template sections."""
+        for soaw in DEMO_SOAWS:
+            sections = soaw.get("sections", {})
+            missing = _VALID_SOAW_SECTION_IDS - set(sections.keys())
+            assert not missing, f"SoAW '{soaw['name']}': missing template sections {missing}"
+
+    def test_soaw_initiative_refs_constant(self):
+        """SOAW_INITIATIVE_REFS must reference Initiatives in the demo data."""
+        for ref in SOAW_INITIATIVE_REFS:
+            ref_id = _id(ref)
+            init_ids = {c["id"] for c in INITIATIVES}
+            assert ref_id in init_ids, (
+                f"SOAW_INITIATIVE_REFS: '{ref}' not found in demo Initiatives"
+            )
+
+
+class TestExtraAdrsDemoData:
+    """Extra ADR demo data must have valid card link refs."""
+
+    def test_extra_adr_card_links_valid(self):
+        """All card refs in DEMO_ADR_EXTRA_CARD_LINKS must exist in the demo data."""
+        errors = []
+        for link in DEMO_ADR_EXTRA_CARD_LINKS:
+            card_id = _id(link["card_ref"])
+            if card_id not in _all_card_ids:
+                errors.append(
+                    f"ADR card link: card_ref '{link['card_ref']}' not found in demo cards"
+                )
+        assert not errors, "\n".join(errors)
+
+    def test_extra_adr_refs_match_links(self):
+        """All extra ADR IDs must be referenced in the card links."""
+        extra_adr_ids = {a["id"] for a in DEMO_ADRS_EXTRA}
+        linked_adr_ids = {_id(lnk["adr_ref"]) for lnk in DEMO_ADR_EXTRA_CARD_LINKS}
+        unlinked = extra_adr_ids - linked_adr_ids
+        assert not unlinked, f"Extra ADRs without card links: {unlinked}"
+
+    def test_extra_adr_reference_numbers_sequential(self):
+        """Extra ADR reference numbers should continue from ADR-004."""
+        expected = {"ADR-004", "ADR-005", "ADR-006", "ADR-007"}
+        actual = {a["reference_number"] for a in DEMO_ADRS_EXTRA}
+        assert actual == expected, f"Expected {expected}, got {actual}"
