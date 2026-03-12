@@ -354,89 +354,101 @@ export function buildC4Flow(
     dedupedEdges.push(e);
   }
 
-  // Count outgoing/incoming edges per node to distribute across handles
-  // Handle IDs: bottom source = "b-l", "b-c", "b-r"; top target = "t-l", "t-c", "t-r"
-  const srcHandles = ["b-l", "b-c", "b-r"];
-  const tgtHandles = ["t-l", "t-c", "t-r"];
-  const srcCounter = new Map<string, number>(); // nodeId → next source handle index
-  const tgtCounter = new Map<string, number>(); // nodeId → next target handle index
-
-  // Orient edges top-to-bottom and assign spread handles
-  const rfEdges: Edge[] = dedupedEdges.map((e, i) => {
+  // Pre-orient edges and collect per-node fan-out/fan-in counts
+  interface OrientedEdge {
+    source: string;
+    target: string;
+    relLabel: string;
+    description?: string;
+  }
+  const oriented: OrientedEdge[] = dedupedEdges.map((e) => {
     const [lo, hi] = e.source < e.target ? [e.source, e.target] : [e.target, e.source];
     const key = `${lo}||${hi}`;
     const merged = edgePairMap.get(key)!;
-    const relLabel = merged.labels.join(" / ");
 
     const srcPos = absPos.get(e.source);
     const tgtPos = absPos.get(e.target);
-
-    // Orient edge so it flows downward (source on top, target below)
     let source = e.source;
     let target = e.target;
     if (srcPos && tgtPos && tgtPos.y < srcPos.y) {
       source = e.target;
       target = e.source;
     }
+    return { source, target, relLabel: merged.labels.join(" / "), description: merged.description };
+  });
 
-    // Distribute handles: rotate through left/center/right for each node
-    const si = srcCounter.get(source) ?? 0;
-    srcCounter.set(source, si + 1);
-    const ti = tgtCounter.get(target) ?? 0;
-    tgtCounter.set(target, ti + 1);
+  // Count how many outgoing / incoming edges each node has
+  const srcFan = new Map<string, number>();
+  const tgtFan = new Map<string, number>();
+  for (const e of oriented) {
+    srcFan.set(e.source, (srcFan.get(e.source) ?? 0) + 1);
+    tgtFan.set(e.target, (tgtFan.get(e.target) ?? 0) + 1);
+  }
 
-    // Pick handle based on relative position to spread edges apart
-    let sourceHandle: string;
-    let targetHandle: string;
-    const sPos = absPos.get(source);
-    const tPos = absPos.get(target);
-    const sameGroup = nodeCatMap.get(source) === nodeCatMap.get(target);
+  // Track per-node handle assignment index
+  const srcIdx = new Map<string, number>();
+  const tgtIdx = new Map<string, number>();
 
-    if (sPos && tPos) {
-      const dx = tPos.x - sPos.x;
-      const dy = tPos.y - sPos.y;
-      const absDx = Math.abs(dx);
+  // Handle pools: when a node has N outgoing edges, spread across these
+  // For fan=1: center. For fan=2: left+right sides. For fan=3+: left, center, right.
+  function pickSourceHandle(nodeId: string, dx: number): string {
+    const fan = srcFan.get(nodeId) ?? 1;
+    const idx = srcIdx.get(nodeId) ?? 0;
+    srcIdx.set(nodeId, idx + 1);
 
-      if (!sameGroup && absDx > C4_NODE_W * 0.8) {
-        // Large horizontal offset across groups → use side handles
-        // This routes the edge out sideways, creating better separation
-        if (dx < 0) {
-          sourceHandle = "left-src";
-          targetHandle = "right-tgt";
-        } else {
-          sourceHandle = "right";
-          targetHandle = "left";
-        }
-      } else if (absDx > 30 && Math.abs(dy) > 30) {
-        // Diagonal — use angled top/bottom handles
-        if (dx < 0) {
-          sourceHandle = srcHandles[0]; // b-l
-          targetHandle = tgtHandles[2]; // t-r
-        } else {
-          sourceHandle = srcHandles[2]; // b-r
-          targetHandle = tgtHandles[0]; // t-l
-        }
-      } else {
-        // Roughly aligned → rotate through handles
-        sourceHandle = srcHandles[si % 3];
-        targetHandle = tgtHandles[ti % 3];
-      }
-    } else {
-      sourceHandle = srcHandles[si % 3];
-      targetHandle = tgtHandles[ti % 3];
+    if (fan === 1) return "b-c";
+    if (fan === 2) {
+      // Two outgoing: use left-side and right-side to spread
+      if (dx < 0) return "left-src";
+      if (dx > 0) return "right";
+      return idx === 0 ? "left-src" : "right";
     }
+    // 3+ outgoing: cycle through left-side, bottom-center, right-side
+    const pool = ["left-src", "b-c", "right"];
+    return pool[idx % pool.length];
+  }
+
+  function pickTargetHandle(nodeId: string, dx: number): string {
+    const fan = tgtFan.get(nodeId) ?? 1;
+    const idx = tgtIdx.get(nodeId) ?? 0;
+    tgtIdx.set(nodeId, idx + 1);
+
+    if (fan === 1) return "t-c";
+    if (fan === 2) {
+      if (dx > 0) return "left";
+      if (dx < 0) return "right-tgt";
+      return idx === 0 ? "left" : "right-tgt";
+    }
+    // 3+ incoming: cycle through left, top-center, right
+    const pool = ["left", "t-c", "right-tgt"];
+    return pool[idx % pool.length];
+  }
+
+  // Sort edges so that left-to-right ordering is consistent
+  // (edges to leftward targets first, then center, then right)
+  oriented.sort((a, b) => {
+    const aPosT = absPos.get(a.target);
+    const bPosT = absPos.get(b.target);
+    if (aPosT && bPosT) return aPosT.x - bPosT.x;
+    return 0;
+  });
+
+  const rfEdges: Edge[] = oriented.map((e, i) => {
+    const sPos = absPos.get(e.source);
+    const tPos = absPos.get(e.target);
+    const dx = sPos && tPos ? tPos.x - sPos.x : 0;
 
     return {
       id: `c4e-${i}`,
-      source,
-      target,
-      sourceHandle,
-      targetHandle,
+      source: e.source,
+      target: e.target,
+      sourceHandle: pickSourceHandle(e.source, dx),
+      targetHandle: pickTargetHandle(e.target, dx),
       type: "c4Edge",
-      label: relLabel,
+      label: e.relLabel,
       data: {
-        relLabel,
-        description: merged.description,
+        relLabel: e.relLabel,
+        description: e.description,
       } satisfies C4EdgeData,
       animated: false,
       markerEnd: { type: "arrowclosed" as const, color: "#888" },
