@@ -1,6 +1,6 @@
 # Autenticazione e SSO
 
-![Impostazioni di autenticazione e SSO](../assets/img/en/25_admin_settings_auth.png)
+![Impostazioni di autenticazione e SSO](../assets/img/it/25_admin_impostazioni_auth.png)
 
 La scheda **Autenticazione** nelle Impostazioni consente agli amministratori di configurare come gli utenti accedono alla piattaforma.
 

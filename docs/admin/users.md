@@ -59,6 +59,8 @@ Below the user table, a **Pending Invitations** section shows all invitations th
 
 #### Roles
 
+![Roles and Permissions Management](../assets/img/en/39_admin_roles.png)
+
 The **Roles** tab allows managing application-level roles. Each role defines a set of permissions that control what users with that role can do. Default roles:
 
 | Role | Description |

@@ -2,6 +2,8 @@
 
 A página de **Configurações** (**Admin > Configurações**) fornece configuração centralizada para a aparência da plataforma, e-mail e alternâncias de módulos.
 
+![Configurações gerais](../assets/img/pt/28_admin_config_geral.png)
+
 ## Aparência
 
 ### Logo

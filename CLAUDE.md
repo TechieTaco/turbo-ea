@@ -179,8 +179,8 @@ Files use **suffix-based** i18n: `page.md` is English (default), `page.es.md` is
 Before marking a feature task as complete, verify:
 
 - [ ] **Guide page updated**: The relevant page under `docs/guide/` or `docs/admin/` describes the new/changed behavior in all supported languages.
-- [ ] **Screenshots updated**: Any new or changed UI is captured in `docs/assets/img/{locale}/` for all locales. Follow the `NN_short_description.png` naming convention.
-- [ ] **Screenshot script updated**: New pages/screens are added to `scripts/screenshots/pages.ts` (see section below).
+- [ ] **Screenshots updated**: Any new or changed UI is captured in `docs/assets/img/{locale}/` for all locales. Follow the `NN_short_description.png` naming convention. **Every screenshot added to `scripts/screenshots/pages.ts` MUST also be referenced in the corresponding documentation page** (`docs/guide/` or `docs/admin/`) in ALL 8 locale files — otherwise the screenshot is captured but never displayed.
+- [ ] **Screenshot script updated**: New pages/screens are added to `scripts/screenshots/pages.ts` (see section below). **Never add a screenshot to the script without also adding the `![Alt Text](../assets/img/{locale}/{filename}.png)` reference to the matching doc page in all locales.**
 - [ ] **Navigation updated**: New pages are added to `nav:` in `mkdocs.yml` with translated labels for all locales.
 - [ ] **Glossary updated**: New terms are added to `docs/reference/glossary.md` and all locale variants.
 - [ ] **Grammar checked**: All documentation text has correct grammar, spelling, and diacritical marks (accents, umlauts, cedillas, tildes) in every supported language. Do not strip or omit diacritics — use proper characters (e.g., `ä ö ü ß` for German, `é è ê ç à` for French, `á é í ó ú ñ` for Spanish, `è é à ù ò` for Italian, `á â ã ç é ê í ó ô õ ú` for Portuguese).
@@ -197,6 +197,10 @@ mkdocs serve
 ### Screenshot Automation
 
 The project includes a **Playwright-based screenshot capture script** at `scripts/screenshots/` that automatically generates all documentation and marketing screenshots. When you add a new page, UI feature, or change existing UI, you **must** update the screenshot definitions so that automated captures stay in sync.
+
+**IMPORTANT**: Screenshots and documentation are a **two-way contract**. Adding a screenshot to `pages.ts` without referencing it in the docs means it will be captured but never displayed. Adding an image reference in a doc without a `pages.ts` entry means it will never be auto-captured. Always update both together:
+1. Add/update the entry in `scripts/screenshots/pages.ts` (with `filenames` for all 8 locales)
+2. Add the `![Alt Text](../assets/img/{locale}/{filename}.png)` reference in the corresponding doc page in **all 8 locale files** (`.md`, `.de.md`, `.fr.md`, `.es.md`, `.it.md`, `.pt.md`, `.zh.md`, `.ru.md`)
 
 #### How It Works
 

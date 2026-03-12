@@ -2,7 +2,7 @@
 
 L'**Inventaire** est le cœur de Turbo EA. Toutes les **fiches** (composants) de l'architecture d'entreprise y sont listées : applications, processus, capacités métier, organisations, fournisseurs, interfaces, et plus encore.
 
-![Vue inventaire avec panneau de filtres](../assets/img/en/23_inventory_filters.png)
+![Vue inventaire avec panneau de filtres](../assets/img/fr/23_inventaire_filtres.png)
 
 ## Structure de l'écran d'inventaire
 
@@ -53,7 +53,7 @@ L'inventaire utilise un tableau de données **AG Grid** avec des fonctionnalité
 - **Importer** -- Chargement en masse de données depuis des fichiers Excel
 - **+ Créer** -- Créer une nouvelle fiche
 
-![Dialogue de création de fiche](../assets/img/en/22_create_card.png)
+![Dialogue de création de fiche](../assets/img/fr/22_creer_fiche.png)
 
 ## Comment créer une nouvelle fiche
 

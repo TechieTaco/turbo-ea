@@ -2,11 +2,11 @@
 
 Turbo EA enthält ein leistungsstarkes **visuelles Berichtsmodul**, das die Analyse der Unternehmensarchitektur aus verschiedenen Perspektiven ermöglicht. Alle Berichte können mit ihrer aktuellen Filter- und Achsenkonfiguration [zur Wiederverwendung gespeichert](saved-reports.md) werden.
 
-![Verfügbare Berichte - Menü](../assets/img/en/09_reports_menu.png)
+![Verfügbare Berichte - Menü](../assets/img/de/09_berichte_menu.png)
 
 ## Portfoliobericht
 
-![Portfoliobericht](../assets/img/en/10_report_portfolio.png)
+![Portfoliobericht](../assets/img/de/10_bericht_portfolio.png)
 
 Der **Portfoliobericht** zeigt ein konfigurierbares **Blasendiagramm** (oder Streudiagramm) Ihrer Karten. Sie wählen, was jede Achse darstellt:
 
@@ -23,7 +23,7 @@ Wenn KI konfiguriert und Portfolio-Erkenntnisse von einem Administrator aktivier
 
 ## Fähigkeitskarte
 
-![Geschäftsfähigkeitskarte](../assets/img/en/11_capability_map.png)
+![Geschäftsfähigkeitskarte](../assets/img/de/11_faehigkeiten_karte.png)
 
 Die **Fähigkeitskarte** zeigt eine hierarchische **Heatmap** der Geschäftsfähigkeiten der Organisation. Jeder Block repräsentiert eine Fähigkeit, mit:
 
@@ -33,7 +33,7 @@ Die **Fähigkeitskarte** zeigt eine hierarchische **Heatmap** der Geschäftsfäh
 
 ## Lebenszyklus-Bericht
 
-![Lebenszyklus-Bericht](../assets/img/en/12_lifecycle.png)
+![Lebenszyklus-Bericht](../assets/img/de/12_lebenszyklus.png)
 
 Der **Lebenszyklus-Bericht** zeigt eine **Zeitleisten-Visualisierung** darüber, wann Technologiekomponenten eingeführt wurden und wann ihre Stilllegung geplant ist. Kritisch für:
 
@@ -45,7 +45,7 @@ Komponenten werden als horizontale Balken dargestellt, die ihre Lebenszyklusphas
 
 ## Abhängigkeitsbericht
 
-![Abhängigkeitsbericht](../assets/img/en/13_dependencies.png)
+![Abhängigkeitsbericht](../assets/img/de/13_abhaengigkeiten.png)
 
 Der **Abhängigkeitsbericht** visualisiert **Verbindungen zwischen Komponenten** als Netzwerkgraph. Knoten repräsentieren Karten und Kanten repräsentieren Beziehungen. Funktionen:
 
@@ -67,7 +67,7 @@ Wechseln Sie über die Ansichtsmodus-Schaltflächen in der Symbolleiste zur **C4
 
 ## Kostenbericht
 
-![Kostenbericht](../assets/img/en/34_report_cost.png)
+![Kostenbericht](../assets/img/de/34_bericht_kosten.png)
 
 Der **Kostenbericht** bietet eine finanzielle Analyse Ihrer Technologielandschaft:
 
@@ -77,7 +77,7 @@ Der **Kostenbericht** bietet eine finanzielle Analyse Ihrer Technologielandschaf
 
 ## Matrixbericht
 
-![Matrixbericht](../assets/img/en/35_report_matrix.png)
+![Matrixbericht](../assets/img/de/35_bericht_matrix.png)
 
 Der **Matrixbericht** erstellt ein **Kreuzreferenzraster** zwischen zwei Kartentypen. Zum Beispiel:
 
@@ -89,7 +89,7 @@ Dies ist nützlich zur Identifizierung von Abdeckungslücken (Fähigkeiten ohne 
 
 ## Datenqualitätsbericht
 
-![Datenqualitätsbericht](../assets/img/en/33_report_data_quality.png)
+![Datenqualitätsbericht](../assets/img/de/33_bericht_datenqualitaet.png)
 
 Der **Datenqualitätsbericht** ist ein **Vollständigkeits-Dashboard**, das zeigt, wie gut Ihre Architekturdaten ausgefüllt sind. Basierend auf den im Metamodell konfigurierten Feldgewichtungen:
 
@@ -99,7 +99,7 @@ Der **Datenqualitätsbericht** ist ein **Vollständigkeits-Dashboard**, das zeig
 
 ## End-of-Life-Bericht (EOL)
 
-![End-of-Life-Bericht](../assets/img/en/32_report_eol.png)
+![End-of-Life-Bericht](../assets/img/de/32_bericht_eol.png)
 
 Der **EOL-Bericht** zeigt den Supportstatus von Technologieprodukten, die über die Funktion [EOL-Administration](../admin/eol.md) verknüpft sind:
 
@@ -109,7 +109,7 @@ Der **EOL-Bericht** zeigt den Supportstatus von Technologieprodukten, die über 
 
 ## Gespeicherte Berichte
 
-![Galerie gespeicherter Berichte](../assets/img/en/36_saved_reports.png)
+![Galerie gespeicherter Berichte](../assets/img/de/36_gespeicherte_berichte.png)
 
 Speichern Sie jede Berichtskonfiguration für schnellen späteren Zugriff. Gespeicherte Berichte enthalten eine Miniaturvorschau und können in der gesamten Organisation geteilt werden.
 

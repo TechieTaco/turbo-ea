@@ -2,7 +2,7 @@
 
 La page **Tâches** centralise tous les éléments de travail en attente en un seul endroit. Elle comporte deux onglets : **Mes tâches** et **Mes enquêtes**.
 
-![Section Mes tâches](../assets/img/en/18_tasks.png)
+![Section Mes tâches](../assets/img/fr/18_taches.png)
 
 ## Mes tâches
 

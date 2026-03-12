@@ -2,6 +2,8 @@
 
 Il modulo **Sondaggi** (**Admin > Sondaggi**) consente agli amministratori di creare **sondaggi di manutenzione dati** che raccolgono informazioni strutturate dagli stakeholder su card specifiche.
 
+![Gestione sondaggi](../assets/img/it/37_admin_sondaggi.png)
+
 ## Caso d'uso
 
 I sondaggi aiutano a mantenere aggiornati i dati architetturali contattando le persone più vicine a ciascun componente. Ad esempio:

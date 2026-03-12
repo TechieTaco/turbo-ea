@@ -2,7 +2,7 @@
 
 Das **Diagramme**-Modul ermöglicht die Erstellung **visueller Architekturdiagramme** mit einem eingebetteten [DrawIO](https://www.drawio.com/)-Editor — vollständig integriert mit Ihrem Karteninventar. Sie können Karten auf die Zeichenfläche ziehen, sie mit Beziehungen verbinden und das Diagramm mit Ihren EA-Daten synchron halten.
 
-![Diagramm-Galerie](../assets/img/en/16_diagrams.png)
+![Diagramm-Galerie](../assets/img/de/16_diagramme.png)
 
 ## Diagramm-Galerie
 

@@ -2,11 +2,11 @@
 
 Turbo EA inclut un puissant module de **rapports visuels** permettant d'analyser l'architecture d'entreprise sous différents angles. Tous les rapports peuvent être [sauvegardés pour réutilisation](saved-reports.md) avec leur configuration actuelle de filtres et d'axes.
 
-![Menu des rapports disponibles](../assets/img/en/09_reports_menu.png)
+![Menu des rapports disponibles](../assets/img/fr/09_menu_rapports.png)
 
 ## Rapport Portefeuille
 
-![Rapport Portefeuille](../assets/img/en/10_report_portfolio.png)
+![Rapport Portefeuille](../assets/img/fr/10_rapport_portfolio.png)
 
 Le **Rapport Portefeuille** affiche un **graphique à bulles** (ou nuage de points) configurable de vos fiches. Vous choisissez ce que chaque axe représente :
 
@@ -23,7 +23,7 @@ Lorsque l'IA est configurée et que les analyses de portefeuille sont activées 
 
 ## Carte de capacités
 
-![Carte de capacités métier](../assets/img/en/11_capability_map.png)
+![Carte de capacités métier](../assets/img/fr/11_carte_capacites.png)
 
 La **Carte de capacités** affiche une **carte thermique hiérarchique** des capacités métier de l'organisation. Chaque bloc représente une capacité, avec :
 
@@ -33,7 +33,7 @@ La **Carte de capacités** affiche une **carte thermique hiérarchique** des cap
 
 ## Rapport Cycle de vie
 
-![Rapport Cycle de vie](../assets/img/en/12_lifecycle.png)
+![Rapport Cycle de vie](../assets/img/fr/12_cycle_de_vie.png)
 
 Le **Rapport Cycle de vie** affiche une **visualisation chronologique** indiquant quand les composants technologiques ont été introduits et quand leur retrait est prévu. Essentiel pour :
 
@@ -45,7 +45,7 @@ Les composants sont affichés sous forme de barres horizontales couvrant leurs p
 
 ## Rapport Dépendances
 
-![Rapport Dépendances](../assets/img/en/13_dependencies.png)
+![Rapport Dépendances](../assets/img/fr/13_dependances.png)
 
 Le **Rapport Dépendances** visualise les **connexions entre composants** sous forme de graphe réseau. Les nœuds représentent les fiches et les arêtes représentent les relations. Fonctionnalités :
 
@@ -67,7 +67,7 @@ Basculez vers la vue **Diagramme C4** à l'aide des boutons de mode d'affichage 
 
 ## Rapport Coûts
 
-![Rapport Coûts](../assets/img/en/34_report_cost.png)
+![Rapport Coûts](../assets/img/fr/34_rapport_couts.png)
 
 Le **Rapport Coûts** fournit une analyse financière de votre paysage technologique :
 
@@ -77,7 +77,7 @@ Le **Rapport Coûts** fournit une analyse financière de votre paysage technolog
 
 ## Rapport Matrice
 
-![Rapport Matrice](../assets/img/en/35_report_matrix.png)
+![Rapport Matrice](../assets/img/fr/35_rapport_matrice.png)
 
 Le **Rapport Matrice** crée une **grille de références croisées** entre deux types de fiches. Par exemple :
 
@@ -89,7 +89,7 @@ Ceci est utile pour identifier les lacunes de couverture (capacités sans applic
 
 ## Rapport Qualité des données
 
-![Rapport Qualité des données](../assets/img/en/33_report_data_quality.png)
+![Rapport Qualité des données](../assets/img/fr/33_rapport_qualite_donnees.png)
 
 Le **Rapport Qualité des données** est un **tableau de bord de complétude** qui montre à quel point vos données d'architecture sont bien renseignées. Basé sur les poids des champs configurés dans le métamodèle :
 
@@ -99,7 +99,7 @@ Le **Rapport Qualité des données** est un **tableau de bord de complétude** q
 
 ## Rapport Fin de vie (EOL)
 
-![Rapport Fin de vie](../assets/img/en/32_report_eol.png)
+![Rapport Fin de vie](../assets/img/fr/32_rapport_eol.png)
 
 Le **Rapport EOL** affiche le statut de support des produits technologiques liés via la fonctionnalité [Administration EOL](../admin/eol.md) :
 
@@ -109,7 +109,7 @@ Le **Rapport EOL** affiche le statut de support des produits technologiques lié
 
 ## Rapports sauvegardés
 
-![Galerie de rapports sauvegardés](../assets/img/en/36_saved_reports.png)
+![Galerie de rapports sauvegardés](../assets/img/fr/36_rapports_sauvegardes.png)
 
 Sauvegardez n'importe quelle configuration de rapport pour un accès rapide ultérieur. Les rapports sauvegardés incluent un aperçu en miniature et peuvent être partagés dans toute l'organisation.
 

@@ -2,6 +2,8 @@
 
 The **EOL** administration page (**Admin > Settings > EOL**) helps you track technology product lifecycles by linking your cards to the public [endoflife.date](https://endoflife.date/) database.
 
+![EOL Administration](../assets/img/en/29_admin_settings_eol.png)
+
 ## Why Track EOL?
 
 Knowing when technology products reach end-of-life or end-of-support is critical for:

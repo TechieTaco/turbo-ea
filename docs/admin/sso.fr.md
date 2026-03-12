@@ -1,6 +1,6 @@
 # Authentification et SSO
 
-![Paramètres d'authentification et SSO](../assets/img/en/25_admin_settings_auth.png)
+![Paramètres d'authentification et SSO](../assets/img/fr/25_admin_parametres_auth.png)
 
 L'onglet **Authentification** dans les Paramètres permet aux administrateurs de configurer la manière dont les utilisateurs se connectent à la plateforme.
 

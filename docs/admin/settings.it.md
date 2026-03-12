@@ -2,6 +2,8 @@
 
 La pagina **Impostazioni** (**Admin > Impostazioni**) fornisce una configurazione centralizzata per l'aspetto, l'email e le attivazioni dei moduli della piattaforma.
 
+![Impostazioni generali](../assets/img/it/28_admin_impostazioni_generali.png)
+
 ## Aspetto
 
 ### Logo

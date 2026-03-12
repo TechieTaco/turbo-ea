@@ -2,7 +2,7 @@
 
 La pagina **Attività** centralizza tutti gli elementi di lavoro in sospeso in un unico luogo. Ha due schede: **I miei todo** e **I miei sondaggi**.
 
-![Sezione Le mie attività](../assets/img/en/18_tasks.png)
+![Sezione Le mie attività](../assets/img/it/18_attivita.png)
 
 ## I miei todo
 

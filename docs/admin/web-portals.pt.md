@@ -2,6 +2,8 @@
 
 O recurso de **Portais Web** (**Admin > Configurações > Portais Web**) permite criar **visualizações públicas e somente leitura** de dados selecionados de cards — acessíveis sem autenticação através de uma URL única.
 
+![Gestão de portais web](../assets/img/pt/30_admin_config_portais_web.png)
+
 ## Caso de Uso
 
 Portais web são úteis para compartilhar informações de arquitetura com partes interessadas que não possuem uma conta no Turbo EA:

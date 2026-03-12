@@ -7,6 +7,8 @@ Il modulo **PPM** fornisce una soluzione completa di gestione del portafoglio pr
 
 ## Dashboard del Portafoglio
 
+![Dashboard del Portafoglio PPM](../assets/img/it/40_ppm_portafoglio.png)
+
 Il **Dashboard del Portafoglio** è il punto di ingresso principale per PPM. Fornisce:
 
 - **Card KPI** — Totale iniziative, budget totale, costo effettivo totale e riepiloghi dello stato di salute
@@ -30,6 +32,8 @@ Cliccare su qualsiasi iniziativa per aprire la sua pagina di dettaglio con sette
 
 ### Scheda Panoramica
 
+![Scheda Panoramica PPM](../assets/img/it/41_ppm_panoramica.png)
+
 La panoramica mostra un riepilogo della salute e delle finanze dell'iniziativa:
 
 - **Riepilogo salute** — Indicatori di calendario, costi e ambito dall'ultimo report di stato
@@ -37,6 +41,8 @@ La panoramica mostra un riepilogo della salute e delle finanze dell'iniziativa:
 - **Attività recente** — Riepilogo dell'ultimo report di stato
 
 ### Scheda Report di Stato
+
+![Report di Stato PPM](../assets/img/it/42_ppm_rapporti_stato.png)
 
 I report di stato mensili monitorano la salute del progetto nel tempo. Ogni report include:
 
@@ -52,6 +58,8 @@ I report di stato mensili monitorano la salute del progetto nel tempo. Ogni repo
 
 ### Scheda Budget e Costi
 
+![Budget e Costi PPM](../assets/img/it/43_ppm_budget_costi.png)
+
 Monitoraggio dei dati finanziari con due tipi di voci:
 
 - **Voci di budget** — Budget pianificato per anno fiscale e categoria (CapEx / OpEx). Le linee di budget sono raggruppate in base al **mese di inizio dell'anno fiscale** configurato nelle [Impostazioni](../admin/settings.md#inizio-dellanno-fiscale). Ad esempio, se l'anno fiscale inizia ad aprile, una linea di budget di giugno 2026 appartiene all'AF 2026–2027
@@ -60,6 +68,8 @@ Monitoraggio dei dati finanziari con due tipi di voci:
 I totali di budget e costi vengono automaticamente aggregati negli attributi `costBudget` e `costActual` della card Iniziativa.
 
 ### Scheda Gestione dei Rischi
+
+![Gestione dei Rischi PPM](../assets/img/it/44_ppm_gestione_rischi.png)
 
 Il registro dei rischi monitora i rischi del progetto con:
 
@@ -75,6 +85,8 @@ Il registro dei rischi monitora i rischi del progetto con:
 
 ### Scheda Attività
 
+![Board Attività PPM](../assets/img/it/45_ppm_board_attivita.png)
+
 Il gestore delle attività supporta le viste **board Kanban** e **lista** con quattro colonne di stato:
 
 - **Da fare** — Attività non ancora iniziate
@@ -87,6 +99,8 @@ Le attività possono essere filtrate e raggruppate per elemento della Struttura 
 I filtri di visualizzazione (modalità vista, filtro WBS, interruttore raggruppamento) vengono mantenuti nell'URL tra gli aggiornamenti della pagina.
 
 ### Scheda Gantt
+
+![Diagramma di Gantt PPM](../assets/img/it/46_ppm_gantt.png)
 
 Il diagramma di Gantt visualizza la tempistica del progetto con:
 

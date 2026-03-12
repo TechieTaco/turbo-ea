@@ -7,6 +7,8 @@ El módulo **PPM** proporciona una solución completa de gestión de cartera de 
 
 ## Panel de Portafolio
 
+![Panel de Portafolio PPM](../assets/img/es/40_ppm_portafolio.png)
+
 El **Panel de Portafolio** es el punto de entrada principal para PPM. Proporciona:
 
 - **Tarjetas de KPI** — Total de iniciativas, presupuesto total, costo real total y resúmenes de estado de salud
@@ -30,6 +32,8 @@ Haga clic en cualquier iniciativa para abrir su página de detalle con siete pes
 
 ### Pestaña de visión general
 
+![Pestaña de visión general de la iniciativa](../assets/img/es/41_ppm_resumen.png)
+
 La visión general muestra un resumen de la salud y finanzas de la iniciativa:
 
 - **Resumen de salud** — Indicadores de cronograma, costo y alcance del último informe de estado
@@ -37,6 +41,8 @@ La visión general muestra un resumen de la salud y finanzas de la iniciativa:
 - **Actividad reciente** — Resumen del último informe de estado
 
 ### Pestaña de informes de estado
+
+![Pestaña de informes de estado](../assets/img/es/42_ppm_informes_estado.png)
 
 Los informes de estado mensuales rastrean la salud del proyecto a lo largo del tiempo. Cada informe incluye:
 
@@ -52,6 +58,8 @@ Los informes de estado mensuales rastrean la salud del proyecto a lo largo del t
 
 ### Pestaña de presupuesto y costos
 
+![Pestaña de presupuesto y costos](../assets/img/es/43_ppm_presupuesto_costes.png)
+
 Seguimiento de datos financieros con dos tipos de partidas:
 
 - **Líneas de presupuesto** — Presupuesto planificado por año fiscal y categoría (CapEx / OpEx). Las líneas de presupuesto se agrupan según el **mes de inicio del año fiscal** configurado en [Configuración](../admin/settings.md#inicio-del-año-fiscal). Por ejemplo, si el año fiscal comienza en abril, una línea de presupuesto de junio de 2026 pertenece al AF 2026–2027
@@ -60,6 +68,8 @@ Seguimiento de datos financieros con dos tipos de partidas:
 Los totales de presupuesto y costos se acumulan automáticamente en los atributos `costBudget` y `costActual` de la tarjeta de Iniciativa.
 
 ### Pestaña de gestión de riesgos
+
+![Pestaña de gestión de riesgos](../assets/img/es/44_ppm_gestion_riesgos.png)
 
 El registro de riesgos rastrea los riesgos del proyecto con:
 
@@ -75,6 +85,8 @@ El registro de riesgos rastrea los riesgos del proyecto con:
 
 ### Pestaña de tareas
 
+![Tablero de tareas PPM](../assets/img/es/45_ppm_tablero_tareas.png)
+
 El gestor de tareas admite vistas de **tablero Kanban** y **lista** con cuatro columnas de estado:
 
 - **Por hacer** — Tareas aún no iniciadas
@@ -87,6 +99,8 @@ Las tareas se pueden filtrar y agrupar por elemento de Estructura de Desglose de
 Los filtros de visualización (modo de vista, filtro WBS, alternancia de agrupación) se mantienen en la URL entre actualizaciones de página.
 
 ### Pestaña Gantt
+
+![Diagrama de Gantt PPM](../assets/img/es/46_ppm_gantt.png)
 
 El diagrama de Gantt visualiza el cronograma del proyecto con:
 

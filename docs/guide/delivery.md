@@ -58,6 +58,8 @@ Once a SoAW is approved, you can request sign-offs from stakeholders. Click **Re
 
 ## Architecture Decision Records (ADR)
 
+![EA Delivery Decisions Tab](../assets/img/en/17b_ea_delivery_decisions.png)
+
 An **Architecture Decision Record (ADR)** documents important architecture decisions along with their context, consequences, and alternatives considered. ADRs provide a traceable history of why key design choices were made.
 
 ### ADR Overview
@@ -137,6 +139,8 @@ Signed ADRs can be revised:
 Click the preview icon to view a read-only, formatted version of the ADR — useful for reviewing before signing.
 
 ## Resources Tab
+
+![Card Resources Tab](../assets/img/en/17c_card_resources.png)
 
 Cards now include a **Resources** tab that consolidates:
 

@@ -2,7 +2,7 @@
 
 O módulo de **Diagramas** permite criar **diagramas visuais de arquitetura** usando um editor [DrawIO](https://www.drawio.com/) integrado — totalmente integrado com seu inventário de cards. Você pode arrastar cards para a tela, conectá-los com relacionamentos e manter o diagrama sincronizado com seus dados de EA.
 
-![Galeria de Diagramas](../assets/img/en/16_diagrams.png)
+![Galeria de Diagramas](../assets/img/pt/16_diagramas.png)
 
 ## Galeria de Diagramas
 

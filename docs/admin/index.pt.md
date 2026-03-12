@@ -1,6 +1,6 @@
 # Administração
 
-![Menu de Usuário com Opções de Administração](../assets/img/en/19_user_menu.png)
+![Menu de Usuário com Opções de Administração](../assets/img/pt/19_menu_usuario.png)
 
 A seção **Admin** está disponível para usuários com o papel **Admin**. Ela fornece ferramentas para configurar o modelo de dados, acesso de usuários, integrações e configurações do sistema.
 

@@ -2,7 +2,7 @@
 
 ## Fazendo Login
 
-![Tela de Login](../assets/img/en/24_login.png)
+![Tela de Login](../assets/img/pt/24_login.png)
 
 Ao acessar a plataforma, a tela de login é exibida, onde você deve inserir seu endereço de e-mail e senha.
 

@@ -2,7 +2,7 @@
 
 Clicar em qualquer card no inventário abre a **visualização de detalhe** onde você pode ver e editar todas as informações sobre o componente.
 
-![Visualização de Detalhe do Card](../assets/img/en/04_card_detail.png)
+![Visualização de Detalhe do Card](../assets/img/pt/04_detalhe_ficha.png)
 
 ## Cabeçalho do Card
 
@@ -107,7 +107,7 @@ Se o card estiver vinculado a um produto do [endoflife.date](https://endoflife.d
 
 ## Aba de Comentários
 
-![Seção de Comentários do Card](../assets/img/en/05_card_comments.png)
+![Seção de Comentários do Card](../assets/img/pt/05_ficha_comentarios.png)
 
 - **Adicionar comentários** — Deixe notas, perguntas ou decisões sobre o componente
 - **Respostas em thread** — Responda a comentários específicos para criar conversações encadeadas
@@ -115,7 +115,7 @@ Se o card estiver vinculado a um produto do [endoflife.date](https://endoflife.d
 
 ## Aba de Tarefas
 
-![Tarefas Associadas a um Card](../assets/img/en/06_card_todos.png)
+![Tarefas Associadas a um Card](../assets/img/pt/06_ficha_tarefas.png)
 
 - **Criar tarefas** — Adicione tarefas vinculadas a este card específico
 - **Atribuir** — Defina uma pessoa responsável para cada tarefa
@@ -124,7 +124,7 @@ Se o card estiver vinculado a um produto do [endoflife.date](https://endoflife.d
 
 ## Aba de Partes Interessadas
 
-![Partes Interessadas do Card](../assets/img/en/07_card_stakeholders.png)
+![Partes Interessadas do Card](../assets/img/pt/07_ficha_partes_interessadas.png)
 
 Partes interessadas são pessoas com um **papel** específico neste card. Os papéis disponíveis dependem do tipo de card (configurado no [metamodelo](../admin/metamodel.md)). Papéis comuns incluem:
 
@@ -136,7 +136,7 @@ Atribuições de partes interessadas afetam **permissões**: as permissões efet
 
 ## Aba de Histórico
 
-![Histórico de Alterações do Card](../assets/img/en/08_card_history.png)
+![Histórico de Alterações do Card](../assets/img/pt/08_ficha_historico.png)
 
 Mostra a **trilha de auditoria completa** das alterações feitas no card: **quem** fez a alteração, **quando** foi feita e **o que** foi modificado (valor anterior vs. novo valor). Isso permite total rastreabilidade de todas as modificações ao longo do tempo.
 
