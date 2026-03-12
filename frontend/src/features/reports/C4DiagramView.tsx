@@ -10,6 +10,8 @@ import {
   Background,
   Controls,
   MiniMap,
+  Handle,
+  Position,
   type NodeProps,
   type EdgeProps,
   type Node,
@@ -53,6 +55,8 @@ const C4Node = memo(({ data }: NodeProps<Node<C4NodeData>>) => {
 
   const name = data.name.length > 26 ? data.name.slice(0, 25) + "\u2026" : data.name;
 
+  const handleStyle = { background: color, width: 6, height: 6, border: "none" };
+
   return (
     <Box
       sx={{
@@ -71,6 +75,20 @@ const C4Node = memo(({ data }: NodeProps<Node<C4NodeData>>) => {
         "&:hover": { boxShadow: 4 },
       }}
     >
+      <Handle type="target" position={Position.Top} style={handleStyle} />
+      <Handle type="source" position={Position.Bottom} style={handleStyle} />
+      <Handle
+        type="target"
+        position={Position.Left}
+        id="left"
+        style={handleStyle}
+      />
+      <Handle
+        type="source"
+        position={Position.Right}
+        id="right"
+        style={handleStyle}
+      />
       <Typography
         variant="body2"
         sx={{
