@@ -1,9 +1,10 @@
 /**
  * C4-notation layout engine for the Dependency Report.
  *
- * Converts GNode / GEdge data into React Flow nodes and edges,
- * using dagre for automatic graph layout. Nodes are grouped by
- * architectural-layer category using React Flow group nodes.
+ * Converts GNode / GEdge data into React Flow nodes and edges.
+ * Nodes are grouped by architectural-layer category using React Flow
+ * group nodes. Each category group is laid out independently using dagre,
+ * then groups are stacked vertically in C4 layer order so they never overlap.
  */
 
 import dagre from "@dagrejs/dagre";
@@ -79,6 +80,15 @@ const CATEGORY_COLORS: Record<string, string> = {
   "Technical Architecture": "#d29270",
 };
 
+/** Padding inside each group boundary */
+const PAD = 40;
+/** Height reserved for the category label at top of group */
+const LABEL_H = 36;
+/** Vertical gap between stacked category groups */
+const GROUP_GAP = 60;
+/** Max nodes per row when a category has many nodes with no intra-group edges */
+const MAX_COLS = 5;
+
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                            */
 /* ------------------------------------------------------------------ */
@@ -96,7 +106,98 @@ function typeCategory(key: string, types: CardType[]): string {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Build React Flow nodes + edges with dagre layout                   */
+/*  Layout one category group using dagre                              */
+/* ------------------------------------------------------------------ */
+
+interface PositionedNode {
+  id: string;
+  x: number;
+  y: number;
+}
+
+function layoutGroup(
+  catNodes: GNode[],
+  intraEdges: GEdge[],
+): { positioned: PositionedNode[]; width: number; height: number } {
+  if (catNodes.length === 0) return { positioned: [], width: 0, height: 0 };
+
+  const nodeIds = new Set(catNodes.map((n) => n.id));
+
+  // Filter edges to only intra-group ones
+  const edges = intraEdges.filter((e) => nodeIds.has(e.source) && nodeIds.has(e.target));
+
+  if (edges.length > 0) {
+    // Use dagre for connected nodes
+    const g = new dagre.graphlib.Graph();
+    g.setGraph({
+      rankdir: "TB",
+      ranksep: 60,
+      nodesep: 30,
+      marginx: 0,
+      marginy: 0,
+    });
+    g.setDefaultEdgeLabel(() => ({}));
+
+    for (const n of catNodes) {
+      g.setNode(n.id, { width: C4_NODE_W, height: C4_NODE_H });
+    }
+    for (const e of edges) {
+      g.setEdge(e.source, e.target);
+    }
+
+    dagre.layout(g);
+
+    const positioned: PositionedNode[] = [];
+    let minX = Infinity,
+      minY = Infinity,
+      maxX = -Infinity,
+      maxY = -Infinity;
+
+    for (const n of catNodes) {
+      const pos = g.node(n.id);
+      if (!pos) continue;
+      const x = pos.x - C4_NODE_W / 2;
+      const y = pos.y - C4_NODE_H / 2;
+      positioned.push({ id: n.id, x, y });
+      minX = Math.min(minX, x);
+      minY = Math.min(minY, y);
+      maxX = Math.max(maxX, x + C4_NODE_W);
+      maxY = Math.max(maxY, y + C4_NODE_H);
+    }
+
+    // Normalize to origin
+    for (const p of positioned) {
+      p.x -= minX;
+      p.y -= minY;
+    }
+
+    return {
+      positioned,
+      width: maxX - minX,
+      height: maxY - minY,
+    };
+  }
+
+  // No intra-group edges: grid layout
+  const cols = Math.min(catNodes.length, MAX_COLS);
+  const hGap = 24;
+  const vGap = 20;
+  const positioned: PositionedNode[] = catNodes.map((n, i) => ({
+    id: n.id,
+    x: (i % cols) * (C4_NODE_W + hGap),
+    y: Math.floor(i / cols) * (C4_NODE_H + vGap),
+  }));
+
+  const rows = Math.ceil(catNodes.length / cols);
+  return {
+    positioned,
+    width: cols * C4_NODE_W + (cols - 1) * hGap,
+    height: rows * C4_NODE_H + (rows - 1) * vGap,
+  };
+}
+
+/* ------------------------------------------------------------------ */
+/*  Build React Flow nodes + edges with per-group layout               */
 /* ------------------------------------------------------------------ */
 
 export function buildC4Flow(
@@ -106,98 +207,98 @@ export function buildC4Flow(
 ): { nodes: Node[]; edges: Edge[] } {
   if (gNodes.length === 0) return { nodes: [], edges: [] };
 
+  // Build node ID set for edge validation
+  const nodeIdSet = new Set(gNodes.map((n) => n.id));
+
+  // Map nodeId → category
+  const nodeCatMap = new Map<string, string>();
+  for (const n of gNodes) {
+    nodeCatMap.set(n.id, typeCategory(n.type, types));
+  }
+
   // Group nodes by category
   const groups = new Map<string, GNode[]>();
   for (const n of gNodes) {
-    const cat = typeCategory(n.type, types);
+    const cat = nodeCatMap.get(n.id)!;
     if (!groups.has(cat)) groups.set(cat, []);
     groups.get(cat)!.push(n);
   }
 
+  // Ordered categories
   const orderedCats = [
     ...CATEGORY_ORDER.filter((c) => groups.has(c)),
     ...[...groups.keys()].filter((c) => !CATEGORY_ORDER.includes(c)),
   ];
 
-  // Build dagre graph for layout
-  const g = new dagre.graphlib.Graph();
-  g.setGraph({ rankdir: "TB", ranksep: 80, nodesep: 40, marginx: 30, marginy: 30 });
-  g.setDefaultEdgeLabel(() => ({}));
+  // Valid edges (both endpoints exist)
+  const validEdges = gEdges.filter((e) => nodeIdSet.has(e.source) && nodeIdSet.has(e.target));
 
-  // Add nodes
-  const nodeIdSet = new Set<string>();
-  for (const n of gNodes) {
-    g.setNode(n.id, { width: C4_NODE_W, height: C4_NODE_H });
-    nodeIdSet.add(n.id);
+  // Pass 1: compute layout for each group independently
+  interface GroupLayout {
+    cat: string;
+    positioned: PositionedNode[];
+    groupW: number;
+    groupH: number;
   }
+  const groupLayouts: GroupLayout[] = [];
 
-  // Add edges (only between existing nodes)
-  for (const e of gEdges) {
-    if (nodeIdSet.has(e.source) && nodeIdSet.has(e.target)) {
-      g.setEdge(e.source, e.target);
-    }
-  }
+  for (const cat of orderedCats) {
+    const catNodes = groups.get(cat);
+    if (!catNodes || catNodes.length === 0) continue;
 
-  // Run dagre layout
-  dagre.layout(g);
+    const catNodeIds = new Set(catNodes.map((n) => n.id));
+    const intraEdges = validEdges.filter(
+      (e) => catNodeIds.has(e.source) && catNodeIds.has(e.target),
+    );
 
-  // Build React Flow nodes from dagre positions
-  const rfNodes: Node[] = [];
+    const { positioned, width: innerW, height: innerH } = layoutGroup(catNodes, intraEdges);
 
-  // Gather positioned nodes grouped by category for boundary computation
-  const categoryNodes = new Map<string, { id: string; x: number; y: number }[]>();
-
-  for (const n of gNodes) {
-    const pos = g.node(n.id);
-    if (!pos) continue;
-    const cat = typeCategory(n.type, types);
-    if (!categoryNodes.has(cat)) categoryNodes.set(cat, []);
-    categoryNodes.get(cat)!.push({
-      id: n.id,
-      x: pos.x - C4_NODE_W / 2,
-      y: pos.y - C4_NODE_H / 2,
+    groupLayouts.push({
+      cat,
+      positioned,
+      groupW: innerW + 2 * PAD,
+      groupH: innerH + LABEL_H + 2 * PAD,
     });
   }
 
-  // Create group (boundary) nodes for each category
-  const PAD = 30;
-  const LABEL_H = 36;
+  if (groupLayouts.length === 0) return { nodes: [], edges: [] };
 
-  for (const cat of orderedCats) {
-    const catNodes = categoryNodes.get(cat);
-    if (!catNodes || catNodes.length === 0) continue;
+  // Find max group width for horizontal centering
+  const maxGroupW = Math.max(...groupLayouts.map((gl) => gl.groupW));
 
-    const minX = Math.min(...catNodes.map((n) => n.x));
-    const minY = Math.min(...catNodes.map((n) => n.y));
-    const maxX = Math.max(...catNodes.map((n) => n.x + C4_NODE_W));
-    const maxY = Math.max(...catNodes.map((n) => n.y + C4_NODE_H));
+  // Pass 2: place groups vertically, centered horizontally
+  const rfNodes: Node[] = [];
+  let yOffset = 0;
 
-    const groupId = `group:${cat}`;
-    const gx = minX - PAD;
-    const gy = minY - PAD - LABEL_H;
-    const gw = maxX - minX + 2 * PAD;
-    const gh = maxY - minY + 2 * PAD + LABEL_H;
+  for (const gl of groupLayouts) {
+    const catNodes = groups.get(gl.cat)!;
+    const groupId = `group:${gl.cat}`;
+    const gx = Math.round((maxGroupW - gl.groupW) / 2);
+    const gy = yOffset;
 
     rfNodes.push({
       id: groupId,
       type: "c4Group",
       position: { x: gx, y: gy },
       data: {
-        label: cat,
-        color: CATEGORY_COLORS[cat] || "#999",
+        label: gl.cat,
+        color: CATEGORY_COLORS[gl.cat] || "#999",
       } satisfies C4GroupData,
-      style: { width: gw, height: gh },
+      style: { width: gl.groupW, height: gl.groupH },
       selectable: false,
       draggable: false,
     });
 
-    // Add child nodes relative to the group
-    for (const cn of catNodes) {
-      const nd = gNodes.find((n) => n.id === cn.id)!;
+    // Child nodes positioned relative to group
+    for (const p of gl.positioned) {
+      const nd = catNodes.find((n) => n.id === p.id)!;
+      const relX = PAD + p.x;
+      const relY = LABEL_H + PAD + p.y;
+
       rfNodes.push({
         id: nd.id,
         type: "c4Node",
-        position: { x: cn.x - gx, y: cn.y - gy },
+        position: { x: relX, y: relY },
         parentId: groupId,
         extent: "parent" as const,
         data: {
@@ -205,30 +306,30 @@ export function buildC4Flow(
           typeKey: nd.type,
           typeLabel: typeLabel(nd.type, types),
           typeColor: typeColor(nd.type, types),
-          category: cat,
+          category: gl.cat,
         } satisfies C4NodeData,
         style: { width: C4_NODE_W, height: C4_NODE_H },
         draggable: false,
       });
     }
+
+    yOffset += gl.groupH + GROUP_GAP;
   }
 
   // Build React Flow edges
-  const rfEdges: Edge[] = gEdges
-    .filter((e) => nodeIdSet.has(e.source) && nodeIdSet.has(e.target))
-    .map((e, i) => ({
-      id: `c4e-${i}`,
-      source: e.source,
-      target: e.target,
-      type: "c4Edge",
-      label: e.label || e.type,
-      data: {
-        relLabel: e.label || e.type,
-        description: e.description,
-      } satisfies C4EdgeData,
-      animated: false,
-      markerEnd: { type: "arrowclosed" as const, color: "#888" },
-    }));
+  const rfEdges: Edge[] = validEdges.map((e, i) => ({
+    id: `c4e-${i}`,
+    source: e.source,
+    target: e.target,
+    type: "c4Edge",
+    label: e.label || e.type,
+    data: {
+      relLabel: e.label || e.type,
+      description: e.description,
+    } satisfies C4EdgeData,
+    animated: false,
+    markerEnd: { type: "arrowclosed" as const, color: "#888" },
+  }));
 
   return { nodes: rfNodes, edges: rfEdges };
 }

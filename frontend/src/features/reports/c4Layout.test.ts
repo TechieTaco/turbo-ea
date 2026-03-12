@@ -129,6 +129,54 @@ describe("buildC4Flow", () => {
     expect((groups[0].data as { label: string }).label).toBe("Unknown Layer");
   });
 
+  it("stacks groups vertically without overlap", () => {
+    const nodes: GNode[] = [
+      { id: "a1", name: "App 1", type: "Application" },
+      { id: "a2", name: "App 2", type: "Application" },
+      { id: "it1", name: "Server 1", type: "ITComponent" },
+    ];
+    const result = buildC4Flow(nodes, [], TYPES);
+
+    const groups = result.nodes.filter((n) => n.type === "c4Group");
+    expect(groups).toHaveLength(2);
+
+    // Groups should not overlap vertically
+    const [g1, g2] = groups.sort((a, b) => a.position.y - b.position.y);
+    const g1Bottom = g1.position.y + ((g1.style as { height: number }).height || 0);
+    expect(g2.position.y).toBeGreaterThan(g1Bottom);
+  });
+
+  it("centers groups horizontally when they differ in width", () => {
+    const nodes: GNode[] = [
+      { id: "a1", name: "App 1", type: "Application" },
+      { id: "a2", name: "App 2", type: "Application" },
+      { id: "a3", name: "App 3", type: "Application" },
+      { id: "a4", name: "App 4", type: "Application" },
+      { id: "it1", name: "Server 1", type: "ITComponent" },
+    ];
+    const result = buildC4Flow(nodes, [], TYPES);
+
+    const groups = result.nodes.filter((n) => n.type === "c4Group");
+    expect(groups).toHaveLength(2);
+
+    // The wider group (4 apps) should start at x=0 or close to 0
+    // The narrower group (1 IT) should be offset to center
+    const appGroup = groups.find(
+      (g) => (g.data as { label: string }).label === "Application & Data",
+    )!;
+    const itGroup = groups.find(
+      (g) => (g.data as { label: string }).label === "Technical Architecture",
+    )!;
+
+    const appW = (appGroup.style as { width: number }).width;
+    const itW = (itGroup.style as { width: number }).width;
+
+    if (appW > itW) {
+      // Narrower group should be centered (x offset > 0)
+      expect(itGroup.position.x).toBeGreaterThan(appGroup.position.x);
+    }
+  });
+
   it("orders categories according to standard C4 layer order", () => {
     const nodes: GNode[] = [
       { id: "it1", name: "Server 1", type: "ITComponent" },
