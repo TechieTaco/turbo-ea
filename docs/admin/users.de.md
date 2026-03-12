@@ -1,6 +1,6 @@
 # Benutzer & Rollen
 
-![Benutzer- und Rollenverwaltung](../assets/img/en/21_admin_users.png)
+![Benutzer- und Rollenverwaltung](../assets/img/de/21_admin_benutzer.png)
 
 Die Seite **Benutzer & Rollen** hat zwei Tabs: **Benutzer** (Konten verwalten) und **Rollen** (Berechtigungen verwalten).
 
@@ -58,6 +58,8 @@ Wenn ein Benutzer bereits ein lokales Konto hat und Ihre Organisation SSO aktivi
 Unterhalb der Benutzertabelle zeigt ein Abschnitt **Ausstehende Einladungen** alle Einladungen, die noch nicht angenommen wurden. Jede Einladung zeigt die E-Mail, die zugewiesene Rolle und das Einladungsdatum. Sie können eine Einladung durch Klicken auf das Löschsymbol widerrufen.
 
 #### Rollen
+
+![Rollen- und Berechtigungsverwaltung](../assets/img/de/39_admin_rollen.png)
 
 Der **Rollen**-Tab ermöglicht die Verwaltung anwendungsweiter Rollen. Jede Rolle definiert eine Reihe von Berechtigungen, die steuern, was Benutzer mit dieser Rolle tun können. Standardrollen:
 

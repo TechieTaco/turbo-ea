@@ -2,6 +2,8 @@
 
 Die **Einstellungen**-Seite (**Admin > Einstellungen**) bietet eine zentrale Konfiguration für das Erscheinungsbild der Plattform, E-Mail und Modulumschaltungen.
 
+![Allgemeine Einstellungen](../assets/img/de/28_admin_einstellungen_allgemein.png)
+
 ## Erscheinungsbild
 
 ### Logo

@@ -2,7 +2,7 @@
 
 Il **Metamodello** definisce l'intera struttura dati della piattaforma — quali tipi di card esistono, quali campi hanno, come si relazionano tra loro e come sono strutturate le pagine di dettaglio delle card. Tutto è **guidato dai dati**: configurate il metamodello attraverso l'interfaccia di amministrazione, non modificando il codice.
 
-![Configurazione del metamodello](../assets/img/en/20_admin_metamodel.png)
+![Configurazione del metamodello](../assets/img/it/20_admin_metamodello.png)
 
 Navigate su **Admin > Metamodello** per accedere all'editor del metamodello. Ha sei schede: **Tipi di card**, **Tipi di relazione**, **Calcoli**, **Tag**, **Principi EA** e **Grafo del metamodello**.
 
@@ -146,6 +146,8 @@ Quando generate **Insight IA del portafoglio** nel [Report del portafoglio](../g
 Ad esempio, un principio «Acquistare SaaS» farebbe sì che l'IA segnali le applicazioni ospitate on-premise o in IaaS e suggerisca priorità di migrazione cloud.
 
 ## Grafo del metamodello
+
+![Grafo del metamodello](../assets/img/it/38_grafo_metamodello.png)
 
 La scheda **Grafo del metamodello** mostra un diagramma SVG visivo di tutti i tipi di card e i loro tipi di relazione. Questa è una visualizzazione di sola lettura che aiuta a comprendere le connessioni nel vostro metamodello a colpo d'occhio.
 

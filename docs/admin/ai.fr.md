@@ -1,6 +1,6 @@
 # Fonctionnalités IA
 
-![Paramètres de suggestion IA](../assets/img/en/26_admin_settings_ai.png)
+![Paramètres de suggestion IA](../assets/img/fr/26_admin_parametres_ia.png)
 
 Turbo EA inclut des fonctionnalités alimentées par l'IA qui utilisent un **grand modèle de langage (LLM)** pour aider les utilisateurs. Toutes les fonctionnalités IA partagent une seule **configuration de fournisseur IA** — configurez une fois, utilisez partout.
 
@@ -123,7 +123,7 @@ Pour Ollama, l'interface d'administration affiche tous les modèles actuellement
 
 ## Utilisation des suggestions IA
 
-![Panneau de suggestion IA sur le détail de la fiche](../assets/img/en/27_ai_suggest_panel.png)
+![Panneau de suggestion IA sur le détail de la fiche](../assets/img/fr/27_panneau_suggestion_ia.png)
 
 Une fois configuré par un administrateur, les utilisateurs disposant de la permission `ai.suggest` (accordée par défaut aux rôles Admin, Admin BPM et Membre) verront un bouton étincelle sur les pages de détail des fiches et dans le dialogue de création de fiche.
 

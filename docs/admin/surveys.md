@@ -2,6 +2,8 @@
 
 The **Surveys** module (**Admin > Surveys**) enables administrators to create **data-maintenance surveys** that collect structured information from stakeholders about specific cards.
 
+![Surveys Administration](../assets/img/en/37_admin_surveys.png)
+
 ## Use Case
 
 Surveys help keep your architecture data current by reaching out to the people closest to each component. For example:

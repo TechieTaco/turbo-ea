@@ -1,6 +1,6 @@
 # KI-Funktionen
 
-![KI-Vorschlagseinstellungen](../assets/img/en/26_admin_settings_ai.png)
+![KI-Vorschlagseinstellungen](../assets/img/de/26_admin_einstellungen_ki.png)
 
 Turbo EA enthält KI-gestützte Funktionen, die ein **Large Language Model (LLM)** nutzen, um Benutzer zu unterstützen. Alle KI-Funktionen teilen sich eine einzige **KI-Anbieterkonfiguration** — einmal einrichten, überall nutzen.
 
@@ -123,7 +123,7 @@ Für Ollama zeigt die Admin-Oberfläche alle aktuell auf der Ollama-Instanz heru
 
 ## KI-Vorschläge verwenden
 
-![KI-Vorschlags-Panel auf der Kartendetailseite](../assets/img/en/27_ai_suggest_panel.png)
+![KI-Vorschlags-Panel auf der Kartendetailseite](../assets/img/de/27_ki_vorschlag_panel.png)
 
 Sobald von einem Administrator konfiguriert, sehen Benutzer mit der Berechtigung `ai.suggest` (standardmäßig für Admin-, BPM-Admin- und Mitglieder-Rollen gewährt) eine Funkenschaltfläche auf Kartendetailseiten und im Karte-erstellen-Dialog.
 

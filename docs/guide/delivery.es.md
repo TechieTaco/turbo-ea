@@ -58,6 +58,8 @@ Una vez que un SoAW es aprobado, puede solicitar firmas de las partes interesada
 
 ## Registros de Decisiones de Arquitectura (ADR)
 
+![Registros de Decisiones de Arquitectura](../assets/img/es/17b_entrega_ea_decisiones.png)
+
 Un **Registro de Decisión de Arquitectura (ADR)** documenta decisiones de arquitectura importantes junto con su contexto, consecuencias y alternativas consideradas. Los ADR proporcionan un historial trazable de por qué se tomaron decisiones de diseño clave.
 
 ### Resumen de ADR
@@ -137,6 +139,8 @@ Los ADR firmados pueden revisarse:
 Haga clic en el icono de vista previa para ver una versión de solo lectura y formateada del ADR — útil para revisar antes de firmar.
 
 ## Pestaña de Recursos
+
+![Pestaña de Recursos](../assets/img/es/17c_ficha_recursos.png)
 
 Las tarjetas ahora incluyen una pestaña de **Recursos** que consolida:
 

@@ -34,6 +34,8 @@ Charts show distribution by process type, maturity level, and automation level. 
 
 ## Process Flow Editor
 
+![BPM Process Flow Editor](../assets/img/en/47_bpm_process_flow.png)
+
 Each Business Process card can have a **BPMN 2.0 process flow diagram**. The editor uses [bpmn-js](https://bpmn.io/) and provides:
 
 - **Visual modeling** — Drag and drop BPMN elements: tasks, events, gateways, lanes, and sub-processes

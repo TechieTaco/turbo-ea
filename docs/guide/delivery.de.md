@@ -2,7 +2,7 @@
 
 Das **EA Delivery**-Modul verwaltet **Architekturinitiativen und deren Artefakte** — Diagramme und Statements of Architecture Work (SoAW). Es bietet eine einheitliche Ansicht aller laufenden Architekturprojekte und ihrer Ergebnisse.
 
-![EA Delivery-Verwaltung](../assets/img/en/17_ea_delivery.png)
+![EA Delivery-Verwaltung](../assets/img/de/17_ea_lieferung.png)
 
 ## Initiativenübersicht
 
@@ -57,6 +57,8 @@ Sobald ein SoAW genehmigt ist, können Sie Abzeichnungen von Stakeholdern anford
 - **DOCX-Export** — Das SoAW als formatiertes Word-Dokument zum Offline-Teilen oder Drucken herunterladen
 
 ## Architecture Decision Records (ADR)
+
+![EA Delivery Entscheidungen-Tab](../assets/img/de/17b_ea_lieferung_entscheidungen.png)
 
 Ein **Architecture Decision Record (ADR)** dokumentiert wichtige Architekturentscheidungen zusammen mit ihrem Kontext, den Konsequenzen und den erwogenen Alternativen. ADRs bieten eine nachvollziehbare Historie, warum zentrale Designentscheidungen getroffen wurden.
 
@@ -137,6 +139,8 @@ Unterschriebene ADRs können überarbeitet werden:
 Klicken Sie auf das Vorschau-Symbol, um eine schreibgeschützte, formatierte Version des ADR anzuzeigen — nützlich zur Überprüfung vor der Unterschrift.
 
 ## Registerkarte Ressourcen
+
+![Karten-Ressourcen-Tab](../assets/img/de/17c_karten_ressourcen.png)
 
 Karten enthalten jetzt eine **Ressourcen**-Registerkarte, die Folgendes zusammenfasst:
 

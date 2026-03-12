@@ -7,6 +7,8 @@ Le module **PPM** fournit une solution complète de gestion de portefeuille de p
 
 ## Tableau de Bord du Portefeuille
 
+![Tableau de bord du portefeuille PPM](../assets/img/fr/40_ppm_portefeuille.png)
+
 Le **Tableau de Bord du Portefeuille** est le point d'entrée principal pour PPM. Il fournit :
 
 - **Cartes KPI** — Total des initiatives, budget total, coût réel total et résumés de l'état de santé
@@ -30,6 +32,8 @@ Cliquez sur n'importe quelle initiative pour ouvrir sa page de détail avec sept
 
 ### Onglet Vue d'Ensemble
 
+![Vue d'ensemble de l'initiative PPM](../assets/img/fr/41_ppm_vue_ensemble.png)
+
 La vue d'ensemble montre un résumé de la santé et des finances de l'initiative :
 
 - **Résumé de santé** — Indicateurs de calendrier, coût et périmètre du dernier rapport de statut
@@ -37,6 +41,8 @@ La vue d'ensemble montre un résumé de la santé et des finances de l'initiativ
 - **Activité récente** — Résumé du dernier rapport de statut
 
 ### Onglet Rapports de Statut
+
+![Rapports de statut PPM](../assets/img/fr/42_ppm_rapports_statut.png)
 
 Les rapports de statut mensuels suivent la santé du projet au fil du temps. Chaque rapport comprend :
 
@@ -52,6 +58,8 @@ Les rapports de statut mensuels suivent la santé du projet au fil du temps. Cha
 
 ### Onglet Budget et Coûts
 
+![Budget et coûts PPM](../assets/img/fr/43_ppm_budget_couts.png)
+
 Suivi des données financières avec deux types de lignes :
 
 - **Lignes de budget** — Budget planifié par année fiscale et catégorie (CapEx / OpEx). Les lignes budgétaires sont regroupées selon le **mois de début de l'exercice fiscal** configuré dans les [Paramètres](../admin/settings.md#début-de-lexercice-fiscal). Par exemple, si l'exercice fiscal commence en avril, une ligne budgétaire de juin 2026 appartient à l'EF 2026–2027
@@ -60,6 +68,8 @@ Suivi des données financières avec deux types de lignes :
 Les totaux de budget et de coûts sont automatiquement agrégés dans les attributs `costBudget` et `costActual` de la carte Initiative.
 
 ### Onglet Gestion des Risques
+
+![Gestion des risques PPM](../assets/img/fr/44_ppm_gestion_risques.png)
 
 Le registre des risques suit les risques du projet avec :
 
@@ -75,6 +85,8 @@ Le registre des risques suit les risques du projet avec :
 
 ### Onglet Tâches
 
+![Tableau de tâches PPM](../assets/img/fr/45_ppm_tableau_taches.png)
+
 Le gestionnaire de tâches prend en charge les vues **tableau Kanban** et **liste** avec quatre colonnes de statut :
 
 - **À faire** — Tâches pas encore commencées
@@ -87,6 +99,8 @@ Les tâches peuvent être filtrées et regroupées par élément de Structure de
 Les filtres d'affichage (mode de vue, filtre WBS, bascule de regroupement) sont conservés dans l'URL entre les actualisations de page.
 
 ### Onglet Gantt
+
+![Diagramme de Gantt PPM](../assets/img/fr/46_ppm_gantt.png)
 
 Le diagramme de Gantt visualise le calendrier du projet avec :
 

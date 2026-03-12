@@ -1,6 +1,6 @@
 # Utilisateurs et rôles
 
-![Gestion des utilisateurs et des rôles](../assets/img/en/21_admin_users.png)
+![Gestion des utilisateurs et des rôles](../assets/img/fr/21_admin_utilisateurs.png)
 
 La page **Utilisateurs et rôles** comporte deux onglets : **Utilisateurs** (gestion des comptes) et **Rôles** (gestion des permissions).
 
@@ -58,6 +58,8 @@ Si un utilisateur possède déjà un compte local et que votre organisation acti
 Sous le tableau des utilisateurs, une section **Invitations en attente** affiche toutes les invitations qui n'ont pas encore été acceptées. Chaque invitation montre l'e-mail, le rôle pré-attribué et la date d'invitation. Vous pouvez revoquer une invitation en cliquant sur l'icône de suppression.
 
 #### Rôles
+
+![Gestion des rôles et des permissions](../assets/img/fr/39_admin_roles.png)
 
 L'onglet **Rôles** permet de gérer les rôles au niveau de l'application. Chaque rôle définit un ensemble de permissions qui contrôlent ce que les utilisateurs avec ce rôle peuvent faire. Rôles par défaut :
 

@@ -2,7 +2,7 @@
 
 ## Login
 
-![Schermata di login](../assets/img/en/24_login.png)
+![Schermata di login](../assets/img/it/24_accesso.png)
 
 Quando si accede alla piattaforma, viene visualizzata la schermata di login dove è necessario inserire il proprio indirizzo email e la password.
 

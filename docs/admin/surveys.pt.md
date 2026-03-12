@@ -2,6 +2,8 @@
 
 O módulo de **Pesquisas** (**Admin > Pesquisas**) permite que administradores criem **pesquisas de manutenção de dados** que coletam informações estruturadas de partes interessadas sobre cards específicos.
 
+![Gestão de pesquisas](../assets/img/pt/37_admin_pesquisas.png)
+
 ## Caso de Uso
 
 Pesquisas ajudam a manter seus dados de arquitetura atualizados, alcançando as pessoas mais próximas de cada componente. Por exemplo:

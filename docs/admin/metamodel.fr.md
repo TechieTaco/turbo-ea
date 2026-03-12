@@ -2,7 +2,7 @@
 
 Le **Métamodèle** définit l'ensemble de la structure de données de votre plateforme -- quels types de fiches existent, quels champs elles possèdent, comment elles sont reliées entre elles, et comment les pages de détail des fiches sont disposées. Tout est **piloté par les données** : vous configurez le métamodèle via l'interface d'administration, sans modifier le code.
 
-![Configuration du métamodèle](../assets/img/en/20_admin_metamodel.png)
+![Configuration du métamodèle](../assets/img/fr/20_admin_metamodele.png)
 
 Naviguez vers **Admin > Métamodèle** pour accéder à l'éditeur de métamodèle. Il comporte six onglets : **Types de fiches**, **Types de relations**, **Calculs**, **Tags**, **Principes EA** et **Graphe du métamodèle**.
 
@@ -146,6 +146,8 @@ Lorsque vous générez des **Insights IA du portefeuille** dans le [Rapport de p
 Par exemple, un principe « Acheter du SaaS » amènerait l'IA à signaler les applications hébergées on-premise ou en IaaS et à suggérer des priorités de migration cloud.
 
 ## Graphe du métamodèle
+
+![Visualisation du graphe du métamodèle](../assets/img/fr/38_graphe_metamodele.png)
 
 L'onglet **Graphe du métamodèle** affiche un diagramme SVG visuel de tous les types de fiches et de leurs types de relations. C'est une visualisation en lecture seule qui vous aide à comprendre les connexions de votre métamodèle en un coup d'oeil.
 

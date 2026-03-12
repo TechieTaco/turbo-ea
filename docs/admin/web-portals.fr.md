@@ -2,6 +2,8 @@
 
 La fonctionnalité **Portails web** (**Admin > Paramètres > Portails web**) vous permet de créer des **vues publiques en lecture seule** de données de fiches sélectionnées -- accessibles sans authentification via une URL unique.
 
+![Administration des portails web](../assets/img/fr/30_admin_parametres_portails_web.png)
+
 ## Cas d'utilisation
 
 Les portails web sont utiles pour partager des informations d'architecture avec des parties prenantes qui n'ont pas de compte Turbo EA :

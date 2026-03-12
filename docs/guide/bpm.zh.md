@@ -7,7 +7,7 @@
 
 ## 流程导航器
 
-![业务流程导航器](../assets/img/en/14_bpm_navigator.png)
+![业务流程导航器](../assets/img/zh/14_bpm_navigator.png)
 
 **流程导航器**将流程组织为三个主要类别：
 
@@ -19,7 +19,7 @@
 
 ## BPM 仪表盘
 
-![BPM 仪表盘统计](../assets/img/en/15_bpm_dashboard.png)
+![BPM 仪表盘统计](../assets/img/zh/15_bpm_dashboard.png)
 
 **BPM 仪表盘**提供流程状态的管理层视图：
 
@@ -33,6 +33,8 @@
 图表显示按流程类型、成熟度水平和自动化水平的分布。**高风险流程排行**表格有助于确定投资优先级。
 
 ## 流程编辑器
+
+![流程编辑器](../assets/img/zh/47_bpm_process_flow.png)
 
 每个业务流程卡片可以有一个 **BPMN 2.0 流程图**。编辑器使用 [bpmn-js](https://bpmn.io/) 并提供：
 

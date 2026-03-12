@@ -2,7 +2,7 @@
 
 O módulo de **Entregas de EA** gerencia **iniciativas de arquitetura e seus artefatos** — diagramas e Statements of Architecture Work (SoAW). Ele fornece uma visão única de todos os projetos de arquitetura em andamento e seus entregáveis.
 
-![Gestão de Entregas de EA](../assets/img/en/17_ea_delivery.png)
+![Gestão de Entregas de EA](../assets/img/pt/17_entrega_ea.png)
 
 ## Visão Geral de Iniciativas
 
@@ -57,6 +57,8 @@ Uma vez que um SoAW é aprovado, você pode solicitar assinaturas das partes int
 - **Exportação DOCX** — Baixe o SoAW como um documento Word formatado para compartilhamento offline ou impressão
 
 ## Registros de Decisões de Arquitetura (ADR)
+
+![Registros de Decisões de Arquitetura](../assets/img/pt/17b_entrega_ea_decisoes.png)
 
 Um **Registro de Decisão de Arquitetura (ADR)** documenta decisões de arquitetura importantes junto com seu contexto, consequências e alternativas consideradas. Os ADR fornecem um histórico rastreável de por que escolhas de design fundamentais foram feitas.
 
@@ -137,6 +139,8 @@ ADR assinados podem ser revisados:
 Clique no ícone de pré-visualização para ver uma versão somente leitura e formatada do ADR — útil para revisão antes da assinatura.
 
 ## Aba de Recursos
+
+![Aba de Recursos do card](../assets/img/pt/17c_ficha_recursos.png)
 
 Os cards agora incluem uma aba de **Recursos** que consolida:
 

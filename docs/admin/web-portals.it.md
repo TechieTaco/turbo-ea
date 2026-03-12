@@ -2,6 +2,8 @@
 
 La funzionalità **Portali web** (**Admin > Impostazioni > Portali web**) consente di creare **viste pubbliche di sola lettura** di dati selezionati delle card — accessibili senza autenticazione tramite un URL univoco.
 
+![Gestione portali web](../assets/img/it/30_admin_impostazioni_portali_web.png)
+
 ## Caso d'uso
 
 I portali web sono utili per condividere informazioni architetturali con stakeholder che non hanno un account Turbo EA:

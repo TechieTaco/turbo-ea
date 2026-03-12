@@ -2,7 +2,7 @@
 
 O Painel Principal é a primeira tela que você vê após fazer login. Ele fornece uma **visão geral rápida** de todo o status da arquitetura empresarial.
 
-![Painel Principal - Visão Superior](../assets/img/en/01_dashboard.png)
+![Painel Principal - Visão Superior](../assets/img/pt/01_painel.png)
 
 ## Barra de Navegação Superior
 
@@ -31,7 +31,7 @@ A seção principal do Painel exibe **cards de resumo** indicando:
 
 Clicar em um card de tipo navega para o [Inventário](inventory.md) pré-filtrado para esse tipo.
 
-![Painel Principal - Visão Inferior com Gráficos](../assets/img/en/02_dashboard_bottom.png)
+![Painel Principal - Visão Inferior com Gráficos](../assets/img/pt/02_painel_inferior.png)
 
 ## Gráficos e Estatísticas
 

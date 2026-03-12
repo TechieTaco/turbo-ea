@@ -7,6 +7,8 @@ O módulo **PPM** fornece uma solução completa de gerenciamento de portfólio 
 
 ## Painel do Portfólio
 
+![Painel do Portfólio PPM](../assets/img/pt/40_ppm_portfolio.png)
+
 O **Painel do Portfólio** é o ponto de entrada principal para o PPM. Ele fornece:
 
 - **Cards de KPI** — Total de iniciativas, orçamento total, custo real total e resumos de status de saúde
@@ -30,6 +32,8 @@ Clique em qualquer iniciativa para abrir sua página de detalhes com sete abas:
 
 ### Aba Visão Geral
 
+![Aba Visão Geral PPM](../assets/img/pt/41_ppm_visao_geral.png)
+
 A visão geral mostra um resumo da saúde e finanças da iniciativa:
 
 - **Resumo de saúde** — Indicadores de cronograma, custos e escopo do último relatório de status
@@ -37,6 +41,8 @@ A visão geral mostra um resumo da saúde e finanças da iniciativa:
 - **Atividade recente** — Resumo do último relatório de status
 
 ### Aba Relatórios de Status
+
+![Relatórios de Status PPM](../assets/img/pt/42_ppm_relatorios_estado.png)
 
 Relatórios de status mensais acompanham a saúde do projeto ao longo do tempo. Cada relatório inclui:
 
@@ -52,6 +58,8 @@ Relatórios de status mensais acompanham a saúde do projeto ao longo do tempo. 
 
 ### Aba Orçamento e Custos
 
+![Orçamento e Custos PPM](../assets/img/pt/43_ppm_orcamento_custos.png)
+
 Acompanhamento de dados financeiros com dois tipos de itens:
 
 - **Linhas de orçamento** — Orçamento planejado por ano fiscal e categoria (CapEx / OpEx). As linhas de orçamento são agrupadas de acordo com o **mês de início do ano fiscal** configurado nas [Configurações](../admin/settings.md#início-do-ano-fiscal). Por exemplo, se o ano fiscal começa em abril, uma linha de orçamento de junho de 2026 pertence ao AF 2026–2027
@@ -60,6 +68,8 @@ Acompanhamento de dados financeiros com dois tipos de itens:
 Os totais de orçamento e custos são automaticamente acumulados nos atributos `costBudget` e `costActual` do card de Iniciativa.
 
 ### Aba Gestão de Riscos
+
+![Gestão de Riscos PPM](../assets/img/pt/44_ppm_gestao_riscos.png)
 
 O registro de riscos rastreia os riscos do projeto com:
 
@@ -75,6 +85,8 @@ O registro de riscos rastreia os riscos do projeto com:
 
 ### Aba Tarefas
 
+![Quadro de Tarefas PPM](../assets/img/pt/45_ppm_quadro_tarefas.png)
+
 O gerenciador de tarefas suporta as visualizações **quadro Kanban** e **lista** com quatro colunas de status:
 
 - **A fazer** — Tarefas ainda não iniciadas
@@ -87,6 +99,8 @@ As tarefas podem ser filtradas e agrupadas por item da Estrutura Analítica do P
 Os filtros de exibição (modo de visualização, filtro WBS, alternância de agrupamento) são mantidos na URL entre atualizações de página.
 
 ### Aba Gantt
+
+![Diagrama de Gantt PPM](../assets/img/pt/46_ppm_gantt.png)
 
 O diagrama de Gantt visualiza o cronograma do projeto com:
 

@@ -2,6 +2,8 @@
 
 Die **EOL**-Administrationsseite (**Admin > Einstellungen > EOL**) hilft Ihnen, Technologieprodukt-Lebenszyklen zu verfolgen, indem Sie Ihre Karten mit der öffentlichen [endoflife.date](https://endoflife.date/)-Datenbank verknüpfen.
 
+![EOL-Administration](../assets/img/de/29_admin_einstellungen_eol.png)
+
 ## Warum EOL verfolgen?
 
 Zu wissen, wann Technologieprodukte das Lebensende oder den Support-Ablauf erreichen, ist entscheidend für:

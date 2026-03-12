@@ -2,7 +2,7 @@
 
 **清单**是 Turbo EA 的核心。这里列出了企业架构的所有**卡片**（组件）：应用程序、流程、业务能力、组织、供应商、接口等等。
 
-![带筛选面板的清单视图](../assets/img/en/23_inventory_filters.png)
+![带筛选面板的清单视图](../assets/img/zh/23_inventory_filters.png)
 
 ## 清单界面结构
 
@@ -53,7 +53,7 @@
 - **导入** —— 从 Excel 文件批量上传数据
 - **+ 创建** —— 创建新卡片
 
-![创建卡片对话框](../assets/img/en/22_create_card.png)
+![创建卡片对话框](../assets/img/zh/22_create_card.png)
 
 ## 如何创建新卡片
 

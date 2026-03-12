@@ -1,6 +1,6 @@
 # AI 功能
 
-![AI 建议设置](../assets/img/en/26_admin_settings_ai.png)
+![AI 建议设置](../assets/img/zh/26_admin_settings_ai.png)
 
 Turbo EA 包含由 AI 驱动的功能，使用**大型语言模型（LLM）** 来协助用户。所有 AI 功能共享一个**AI 提供商配置** —— 一次设置，处处使用。
 
@@ -123,7 +123,7 @@ AI_MODEL=gemma3:4b          # 或 mistral、llama3:8b 等
 
 ## 使用 AI 建议
 
-![卡片详情上的 AI 建议面板](../assets/img/en/27_ai_suggest_panel.png)
+![卡片详情上的 AI 建议面板](../assets/img/zh/27_ai_suggest_panel.png)
 
 管理员配置后，具有 `ai.suggest` 权限的用户（默认授予管理员、BPM 管理员和成员角色）将在卡片详情页面和创建卡片对话框中看到星光按钮。
 

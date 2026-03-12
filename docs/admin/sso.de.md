@@ -1,6 +1,6 @@
 # Authentifizierung & SSO
 
-![Authentifizierung & SSO-Einstellungen](../assets/img/en/25_admin_settings_auth.png)
+![Authentifizierung & SSO-Einstellungen](../assets/img/de/25_admin_einstellungen_auth.png)
 
 Der Tab **Authentifizierung** in den Einstellungen ermöglicht Administratoren die Konfiguration der Benutzeranmeldung an der Plattform.
 

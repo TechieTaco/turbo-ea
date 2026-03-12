@@ -2,6 +2,8 @@
 
 La page **Paramètres** (**Admin > Paramètres**) fournit une configuration centralisée pour l'apparence de la plateforme, l'e-mail et les bascules de modules.
 
+![Paramètres généraux](../assets/img/fr/28_admin_parametres_general.png)
+
 ## Apparence
 
 ### Logo

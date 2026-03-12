@@ -2,6 +2,8 @@
 
 A página de administração de **EOL** (**Admin > Configurações > EOL**) ajuda você a acompanhar os ciclos de vida de produtos tecnológicos vinculando seus cards ao banco de dados público [endoflife.date](https://endoflife.date/).
 
+![Gestão de Fim de Vida](../assets/img/pt/29_admin_config_eol.png)
+
 ## Por que Rastrear EOL?
 
 Saber quando produtos tecnológicos atingem o fim de vida ou fim de suporte é essencial para:

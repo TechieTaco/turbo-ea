@@ -34,6 +34,8 @@ Los gráficos muestran la distribución por tipo de proceso, nivel de madurez y 
 
 ## Editor de Flujo de Proceso
 
+![Editor de flujo de proceso BPM](../assets/img/es/47_bpm_flujo_proceso.png)
+
 Cada ficha de Proceso de Negocio puede tener un **diagrama de flujo de proceso BPMN 2.0**. El editor utiliza [bpmn-js](https://bpmn.io/) y proporciona:
 
 - **Modelado visual** — Arrastre y suelte elementos BPMN: tareas, eventos, compuertas, carriles y subprocesos
