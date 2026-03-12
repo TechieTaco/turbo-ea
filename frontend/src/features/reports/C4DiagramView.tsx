@@ -154,6 +154,9 @@ const C4EdgeComponent = memo(
     data,
     markerEnd,
   }: EdgeProps) => {
+    const theme = useTheme();
+    const edgeColor = theme.palette.mode === "dark" ? "#aaa" : "#777";
+
     const [edgePath, labelX, labelY] = getBezierPath({
       sourceX,
       sourceY,
@@ -172,7 +175,7 @@ const C4EdgeComponent = memo(
           id={id}
           path={edgePath}
           markerEnd={markerEnd}
-          style={{ stroke: "#888", strokeWidth: 1.2 }}
+          style={{ stroke: edgeColor, strokeWidth: 1.4, strokeDasharray: "6 3" }}
         />
         {label && (
           <EdgeLabelRenderer>
@@ -180,17 +183,20 @@ const C4EdgeComponent = memo(
               sx={{
                 position: "absolute",
                 transform: `translate(-50%, -50%) translate(${labelX}px,${labelY}px)`,
-                fontSize: "0.65rem",
+                fontSize: "0.62rem",
                 color: "text.secondary",
                 bgcolor: "background.paper",
-                px: 0.5,
-                py: 0.15,
-                borderRadius: 0.5,
+                border: "1px solid",
+                borderColor: "divider",
+                px: 0.75,
+                py: 0.25,
+                borderRadius: 1,
                 pointerEvents: "none",
                 whiteSpace: "nowrap",
-                maxWidth: 140,
+                maxWidth: 160,
                 overflow: "hidden",
                 textOverflow: "ellipsis",
+                lineHeight: 1.3,
               }}
               className="nodrag nopan"
             >
