@@ -978,10 +978,6 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
           },
           /* Pointer cursor on clickable table rows */
           "& [class*='taskListTableRow_']": { cursor: "pointer" },
-          /* Alternating row colors on the side table (all themes) */
-          "& [class*='taskListTableRow_']:nth-of-type(even)": {
-            backgroundColor: theme.palette.action.hover,
-          },
           /* Remove 45-degree angled ends on project (WBS) bars — make them rectangular */
           "& [class*='projectTop_']": { display: "none" },
           "& [class*='projectBackground_']": { opacity: "1 !important" },
@@ -995,54 +991,43 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
             },
           },
 
-          /* ── Dark mode overrides ── */
+          /* ── Dark mode overrides (CSS-class-based elements only;
+               inline-style colors are handled via the colors prop) ── */
           ...(theme.palette.mode === "dark" && {
-            /* Calendar header cells (SVG rects) */
+            /* Calendar header cells (SVG rects — CSS class fill) */
             "& [class*='calendarHeader']": {
               fill: `${theme.palette.background.paper} !important`,
               stroke: `${theme.palette.divider} !important`,
             },
-            /* Calendar top text (months/years) + bottom text (days) */
+            /* Calendar text (SVG — CSS class fill) */
             "& [class*='calendarTopText']": {
               fill: `${theme.palette.text.secondary} !important`,
             },
             "& [class*='calendarBottomText']": {
               fill: `${theme.palette.text.primary} !important`,
             },
-            /* Calendar tick lines */
+            /* Calendar tick lines + borders (CSS class stroke/border) */
             "& [class*='calendarTopTick']": {
               stroke: `${theme.palette.divider} !important`,
             },
-            /* Calendar border (top/bottom) */
             "& [class*='calendarMain']": {
               borderColor: `${theme.palette.divider} !important`,
             },
-            /* Table root — border + text color for all children */
+            /* Table borders (CSS class border) */
             "& [class*='ganttTableRoot']": {
               borderColor: `${theme.palette.divider} !important`,
-              color: `${theme.palette.text.primary} !important`,
             },
-            /* Table header borders + text */
             "& [class*='ganttTable_Header']": {
               borderColor: `${theme.palette.divider} !important`,
-              color: `${theme.palette.text.primary} !important`,
             },
-            "& [class*='ganttTable_HeaderItem']": {
-              color: `${theme.palette.text.primary} !important`,
-            },
-            /* Header column separators */
             "& [class*='ganttTable_HeaderSeparator']": {
               borderColor: `${theme.palette.divider} !important`,
             },
-            /* Task list rows — text color */
-            "& [class*='taskListCell']": {
-              color: `${theme.palette.text.primary} !important`,
-            },
-            /* Task list resizer */
+            /* Task list resizer (CSS class ::before) */
             "& [class*='taskListResizer']::before": {
               backgroundColor: `${theme.palette.divider} !important`,
             },
-            /* Tooltip */
+            /* Tooltip (CSS class background) */
             "& [class*='tooltipDefaultContainer_']": {
               background: `${theme.palette.background.paper} !important`,
               color: `${theme.palette.text.primary} !important`,
@@ -1050,11 +1035,10 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
             "& [class*='tooltipDefaultContainerParagraph']": {
               color: `${theme.palette.text.secondary} !important`,
             },
-            /* Bar handles */
+            /* Bar handles + relation lines (SVG CSS class fill/stroke) */
             "& [class*='barHandle']": {
               fill: `${theme.palette.action.selected} !important`,
             },
-            /* Relation lines */
             "& [class*='relationLine']": {
               stroke: `${theme.palette.text.disabled} !important`,
             },
@@ -1081,7 +1065,17 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
           dateMoveStep={{ value: 1, timeUnit: GanttDateRoundingTimeUnit.DAY }}
           checkIsHoliday={checkIsWeekend}
           colors={{
-            selectedTaskBackgroundColor: theme.palette.action.selected,
+            /* Row backgrounds — applied as inline styles by the library,
+               so CSS overrides can't reach them. Must be set here. */
+            evenTaskBackgroundColor:
+              theme.palette.mode === "dark"
+                ? theme.palette.background.paper
+                : "#f5f5f5",
+            oddTaskBackgroundColor: theme.palette.background.default,
+            selectedTaskBackgroundColor:
+              theme.palette.mode === "dark"
+                ? "rgba(144, 202, 249, 0.16)"
+                : "rgba(25, 118, 210, 0.08)",
             todayColor:
               theme.palette.mode === "dark"
                 ? "rgba(25, 118, 210, 0.15)"
@@ -1090,11 +1084,11 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
               theme.palette.mode === "dark"
                 ? "rgba(255, 255, 255, 0.03)"
                 : "rgba(0, 0, 0, 0.04)",
-            evenTaskBackgroundColor: theme.palette.background.default,
-            oddTaskBackgroundColor:
-              theme.palette.mode === "dark"
-                ? theme.palette.background.paper
-                : undefined!,
+            /* Text — barLabelColor defaults to #000, applied as inline
+               style on the wrapper div and inherited by table text. */
+            barLabelColor: theme.palette.text.primary,
+            barLabelWhenOutsideColor: theme.palette.text.primary,
+            /* Context menu */
             contextMenuBgColor: theme.palette.background.paper,
             contextMenuTextColor: theme.palette.text.primary,
             contextMenuBoxShadow: theme.shadows[8],
