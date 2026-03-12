@@ -133,7 +133,7 @@ const C4Node = memo(({ data }: NodeProps<Node<C4NodeData>>) => {
               r={15}
               fill="none"
               stroke={color}
-              strokeWidth={3}
+              strokeWidth={5}
               strokeLinecap="round"
               strokeDasharray={LP_CIRCUMFERENCE}
               strokeDashoffset={LP_CIRCUMFERENCE}
