@@ -348,7 +348,8 @@ async function capturePage(
   outputPath: string,
   cardIds: Record<string, string>,
   config: Config,
-  locale: string
+  locale: string,
+  token?: string
 ): Promise<boolean> {
   // Resolve route
   const route = interpolateRoute(pageDef.route, cardIds);
@@ -362,6 +363,13 @@ async function capturePage(
   // Set viewport
   const vp = pageDef.viewport || config.viewport;
   await page.setViewportSize(vp);
+
+  // For login page, clear the session token so the app renders the login form
+  // instead of redirecting to the dashboard.
+  const isLoginPage = route === "/login";
+  if (isLoginPage) {
+    await page.evaluate(() => sessionStorage.removeItem("token"));
+  }
 
   // Navigate
   // Use "domcontentloaded" instead of "networkidle" because the app opens an
@@ -402,6 +410,11 @@ async function capturePage(
     await el.screenshot({ path: fullPath, type: "png" });
   } else {
     await page.screenshot({ path: fullPath, fullPage: false, type: "png" });
+  }
+
+  // Restore token after login page screenshot so subsequent captures work
+  if (isLoginPage && token) {
+    await page.evaluate((t: string) => sessionStorage.setItem("token", t), token);
   }
 
   return true;
@@ -498,7 +511,7 @@ async function main(): Promise<void> {
         process.stdout.write(`  Capturing ${filename}...`);
 
         const ok = await capturePage(
-          page, pageDef, outDir, cardIds, config, locale
+          page, pageDef, outDir, cardIds, config, locale, token
         );
 
         if (ok) {
@@ -529,7 +542,7 @@ async function main(): Promise<void> {
         process.stdout.write(`  Capturing ${filename}...`);
 
         const ok = await capturePage(
-          page, pageDef, outDir, cardIds, config, "en"
+          page, pageDef, outDir, cardIds, config, "en", token
         );
 
         if (ok) {
