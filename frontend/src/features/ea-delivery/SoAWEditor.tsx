@@ -724,15 +724,14 @@ export default function SoAWEditor() {
               </Button>
             </Tooltip>
           )}
+          {revisionNumber > 1 && (
+            <Chip
+              label={t("editor.revisionLabel", { number: revisionNumber })}
+              size="small"
+              variant="outlined"
+            />
+          )}
         </Box>
-        {revisionNumber > 1 && (
-          <Chip
-            label={t("editor.revisionLabel", { number: revisionNumber })}
-            size="small"
-            variant="outlined"
-            sx={{ ml: 1 }}
-          />
-        )}
       </Paper>
 
       {/* ── Version History ────────────────────────────────────────────── */}
