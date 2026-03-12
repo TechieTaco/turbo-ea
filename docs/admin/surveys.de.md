@@ -2,6 +2,8 @@
 
 Das **Umfragen**-Modul (**Admin > Umfragen**) ermöglicht Administratoren die Erstellung von **Datenpflege-Umfragen**, die strukturierte Informationen von Stakeholdern über bestimmte Karten sammeln.
 
+![Umfragenverwaltung](../assets/img/de/37_admin_umfragen.png)
+
 ## Anwendungsfall
 
 Umfragen helfen dabei, Ihre Architekturdaten aktuell zu halten, indem Sie die Personen erreichen, die den einzelnen Komponenten am nächsten stehen. Zum Beispiel:

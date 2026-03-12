@@ -2,7 +2,7 @@
 
 ## Anmelden
 
-![Anmeldebildschirm](../assets/img/en/24_login.png)
+![Anmeldebildschirm](../assets/img/de/24_anmeldung.png)
 
 Beim Zugriff auf die Plattform wird der Anmeldebildschirm angezeigt, in dem Sie Ihre E-Mail-Adresse und Ihr Passwort eingeben müssen.
 

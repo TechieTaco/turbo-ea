@@ -1,6 +1,6 @@
 # Administration
 
-![Benutzermenü mit Administrationsoptionen](../assets/img/en/19_user_menu.png)
+![Benutzermenü mit Administrationsoptionen](../assets/img/de/19_benutzer_menu.png)
 
 Der **Admin**-Bereich ist für Benutzer mit der **Admin**-Rolle verfügbar. Er bietet Werkzeuge zur Konfiguration des Datenmodells, der Benutzerzugänge, Integrationen und systemweiter Einstellungen.
 

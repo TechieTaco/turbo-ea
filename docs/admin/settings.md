@@ -2,6 +2,8 @@
 
 The **Settings** page (**Admin > Settings**) provides centralized configuration for the platform's appearance, email, and module toggles.
 
+![General Settings](../assets/img/en/28_admin_settings_general.png)
+
 ## Appearance
 
 ### Logo

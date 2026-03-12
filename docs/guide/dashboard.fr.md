@@ -2,7 +2,7 @@
 
 Le tableau de bord est le premier écran que vous voyez après la connexion. Il fournit un **aperçu rapide** de l'état global de l'architecture d'entreprise.
 
-![Tableau de bord - Vue supérieure](../assets/img/en/01_dashboard.png)
+![Tableau de bord - Vue supérieure](../assets/img/fr/01_tableau_de_bord.png)
 
 ## Barre de navigation supérieure
 
@@ -31,7 +31,7 @@ La section principale du tableau de bord affiche des **fiches récapitulatives**
 
 Cliquer sur une fiche de type redirige vers l'[Inventaire](inventory.md) pré-filtré sur ce type.
 
-![Tableau de bord - Vue inférieure avec graphiques](../assets/img/en/02_dashboard_bottom.png)
+![Tableau de bord - Vue inférieure avec graphiques](../assets/img/fr/02_tableau_de_bord_bas.png)
 
 ## Graphiques et statistiques
 

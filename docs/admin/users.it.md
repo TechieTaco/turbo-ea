@@ -1,6 +1,6 @@
 # Utenti e ruoli
 
-![Gestione utenti e ruoli](../assets/img/en/21_admin_users.png)
+![Gestione utenti e ruoli](../assets/img/it/21_admin_utenti.png)
 
 La pagina **Utenti e ruoli** ha due schede: **Utenti** (gestione account) e **Ruoli** (gestione permessi).
 
@@ -58,6 +58,8 @@ Se un utente ha già un account locale e la vostra organizzazione abilita SSO, l
 Sotto la tabella utenti, una sezione **Inviti in attesa** mostra tutti gli inviti che non sono ancora stati accettati. Ogni invito mostra l'email, il ruolo pre-assegnato e la data dell'invito. Potete revocare un invito cliccando sull'icona di eliminazione.
 
 #### Ruoli
+
+![Gestione dei ruoli](../assets/img/it/39_admin_ruoli.png)
 
 La scheda **Ruoli** consente di gestire i ruoli a livello di applicazione. Ogni ruolo definisce un insieme di permessi che controllano cosa possono fare gli utenti con quel ruolo. Ruoli predefiniti:
 

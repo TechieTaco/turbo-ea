@@ -2,7 +2,7 @@
 
 L'**Inventario** è il cuore di Turbo EA. Qui sono elencate tutte le **card** (componenti) dell'enterprise architecture: applicazioni, processi, business capability, organizzazioni, fornitori, interfacce e altro.
 
-![Vista inventario con pannello filtri](../assets/img/en/23_inventory_filters.png)
+![Vista inventario con pannello filtri](../assets/img/it/23_inventario_filtri.png)
 
 ## Struttura della schermata dell'inventario
 
@@ -53,7 +53,7 @@ L'inventario utilizza una tabella dati **AG Grid** con funzionalità avanzate:
 - **Importa** — Caricamento massivo di dati da file Excel
 - **+ Crea** — Crea una nuova card
 
-![Finestra di creazione card](../assets/img/en/22_create_card.png)
+![Finestra di creazione card](../assets/img/it/22_crea_scheda.png)
 
 ## Come creare una nuova card
 

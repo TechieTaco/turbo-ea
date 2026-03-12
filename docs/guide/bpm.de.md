@@ -7,7 +7,7 @@ Das **BPM**-Modul ermöglicht die Dokumentation, Modellierung und Analyse der **
 
 ## Prozessnavigator
 
-![Geschäftsprozessnavigator](../assets/img/en/14_bpm_navigator.png)
+![Geschäftsprozessnavigator](../assets/img/de/14_bpm_navigator.png)
 
 Der **Prozessnavigator** organisiert Prozesse in drei Hauptkategorien:
 
@@ -19,7 +19,7 @@ Der **Prozessnavigator** organisiert Prozesse in drei Hauptkategorien:
 
 ## BPM-Dashboard
 
-![BPM-Dashboard mit Statistiken](../assets/img/en/15_bpm_dashboard.png)
+![BPM-Dashboard mit Statistiken](../assets/img/de/15_bpm_dashboard.png)
 
 Das **BPM-Dashboard** bietet eine Führungsübersicht über den Prozessstatus:
 
@@ -33,6 +33,8 @@ Das **BPM-Dashboard** bietet eine Führungsübersicht über den Prozessstatus:
 Diagramme zeigen die Verteilung nach Prozesstyp, Reifegrad und Automatisierungsgrad. Eine **Top-Risikoprozesse**-Tabelle hilft bei der Priorisierung von Investitionen.
 
 ## Prozessfluss-Editor
+
+![BPM Prozessfluss-Editor](../assets/img/de/47_bpm_prozessfluss.png)
 
 Jede Geschäftsprozess-Karte kann ein **BPMN 2.0 Prozessflussdiagramm** haben. Der Editor verwendet [bpmn-js](https://bpmn.io/) und bietet:
 

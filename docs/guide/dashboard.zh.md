@@ -2,7 +2,7 @@
 
 仪表盘是登录后看到的第一个界面。它提供整个企业架构状态的**快速概览**。
 
-![仪表盘 - 顶部视图](../assets/img/en/01_dashboard.png)
+![仪表盘 - 顶部视图](../assets/img/zh/01_dashboard.png)
 
 ## 顶部导航栏
 
@@ -31,7 +31,7 @@
 
 点击某个类型卡片将跳转到按该类型预筛选的[清单](inventory.md)。
 
-![仪表盘 - 底部图表视图](../assets/img/en/02_dashboard_bottom.png)
+![仪表盘 - 底部图表视图](../assets/img/zh/02_dashboard_bottom.png)
 
 ## 图表和统计
 

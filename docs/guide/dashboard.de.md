@@ -2,7 +2,7 @@
 
 Das Dashboard ist der erste Bildschirm, den Sie nach der Anmeldung sehen. Es bietet einen **schnellen Überblick** über den gesamten Status der Unternehmensarchitektur.
 
-![Dashboard - Obere Ansicht](../assets/img/en/01_dashboard.png)
+![Dashboard - Obere Ansicht](../assets/img/de/01_dashboard.png)
 
 ## Obere Navigationsleiste
 
@@ -31,7 +31,7 @@ Der Hauptbereich des Dashboards zeigt **Zusammenfassungskarten** mit folgenden I
 
 Ein Klick auf eine Typkarte navigiert zum [Inventar](inventory.md), vorgefiltert nach diesem Typ.
 
-![Dashboard - Untere Ansicht mit Diagrammen](../assets/img/en/02_dashboard_bottom.png)
+![Dashboard - Untere Ansicht mit Diagrammen](../assets/img/de/02_dashboard_unten.png)
 
 ## Diagramme und Statistiken
 

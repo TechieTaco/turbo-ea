@@ -2,7 +2,7 @@
 
 **图表**模块允许您使用嵌入式 [DrawIO](https://www.drawio.com/) 编辑器创建**可视化架构图表** —— 与您的卡片库存完全集成。您可以将卡片拖到画布上，用关系连接它们，并保持图表与 EA 数据同步。
 
-![图表库](../assets/img/en/16_diagrams.png)
+![图表库](../assets/img/zh/16_diagrams.png)
 
 ## 图表库
 

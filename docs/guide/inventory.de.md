@@ -2,7 +2,7 @@
 
 Das **Inventar** ist das Herzstück von Turbo EA. Hier werden alle **Karten** (Komponenten) der Unternehmensarchitektur aufgelistet: Anwendungen, Prozesse, Geschäftsfähigkeiten, Organisationen, Anbieter, Schnittstellen und mehr.
 
-![Inventaransicht mit Filterpanel](../assets/img/en/23_inventory_filters.png)
+![Inventaransicht mit Filterpanel](../assets/img/de/23_inventar_filter.png)
 
 ## Aufbau des Inventarbildschirms
 
@@ -53,7 +53,7 @@ Das Inventar verwendet eine **AG Grid**-Datentabelle mit leistungsstarken Funkti
 - **Import** — Daten aus Excel-Dateien massenweise hochladen
 - **+ Erstellen** — Eine neue Karte erstellen
 
-![Karte-erstellen-Dialog](../assets/img/en/22_create_card.png)
+![Karte-erstellen-Dialog](../assets/img/de/22_karte_erstellen.png)
 
 ## Wie man eine neue Karte erstellt
 

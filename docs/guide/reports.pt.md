@@ -2,11 +2,11 @@
 
 O Turbo EA inclui um poderoso módulo de **relatórios visuais** que permite analisar a arquitetura empresarial a partir de diferentes perspectivas. Todos os relatórios podem ser [salvos para reutilização](saved-reports.md) com sua configuração atual de filtros e eixos.
 
-![Menu de Relatórios Disponíveis](../assets/img/en/09_reports_menu.png)
+![Menu de Relatórios Disponíveis](../assets/img/pt/09_menu_relatorios.png)
 
 ## Relatório de Portfólio
 
-![Relatório de Portfólio](../assets/img/en/10_report_portfolio.png)
+![Relatório de Portfólio](../assets/img/pt/10_relatorio_portfolio.png)
 
 O **Relatório de Portfólio** exibe um **gráfico de bolhas** (ou gráfico de dispersão) configurável dos seus cards. Você escolhe o que cada eixo representa:
 
@@ -23,7 +23,7 @@ Quando a IA está configurada e as análises de portfólio estão habilitadas po
 
 ## Mapa de Capacidades
 
-![Mapa de Capacidades de Negócio](../assets/img/en/11_capability_map.png)
+![Mapa de Capacidades de Negócio](../assets/img/pt/11_mapa_capacidades.png)
 
 O **Mapa de Capacidades** mostra um **mapa de calor** hierárquico das capacidades de negócio da organização. Cada bloco representa uma capacidade, com:
 
@@ -33,7 +33,7 @@ O **Mapa de Capacidades** mostra um **mapa de calor** hierárquico das capacidad
 
 ## Relatório de Ciclo de Vida
 
-![Relatório de Ciclo de Vida](../assets/img/en/12_lifecycle.png)
+![Relatório de Ciclo de Vida](../assets/img/pt/12_ciclo_vida.png)
 
 O **Relatório de Ciclo de Vida** mostra uma **visualização de linha do tempo** de quando os componentes tecnológicos foram introduzidos e quando está planejada sua aposentadoria. Essencial para:
 
@@ -45,7 +45,7 @@ Os componentes são exibidos como barras horizontais abrangendo suas fases do ci
 
 ## Relatório de Dependências
 
-![Relatório de Dependências](../assets/img/en/13_dependencies.png)
+![Relatório de Dependências](../assets/img/pt/13_dependencias.png)
 
 O **Relatório de Dependências** visualiza **conexões entre componentes** como um grafo de rede. Nós representam cards e arestas representam relacionamentos. Recursos:
 
@@ -56,7 +56,7 @@ O **Relatório de Dependências** visualiza **conexões entre componentes** como
 
 ## Relatório de Custos
 
-![Relatório de Custos](../assets/img/en/34_report_cost.png)
+![Relatório de Custos](../assets/img/pt/34_relatorio_custos.png)
 
 O **Relatório de Custos** fornece análise financeira do seu cenário tecnológico:
 
@@ -66,7 +66,7 @@ O **Relatório de Custos** fornece análise financeira do seu cenário tecnológ
 
 ## Relatório de Matriz
 
-![Relatório de Matriz](../assets/img/en/35_report_matrix.png)
+![Relatório de Matriz](../assets/img/pt/35_relatorio_matriz.png)
 
 O **Relatório de Matriz** cria uma **grade de referência cruzada** entre dois tipos de card. Por exemplo:
 
@@ -78,7 +78,7 @@ Isso é útil para identificar lacunas de cobertura (capacidades sem aplicaçõe
 
 ## Relatório de Qualidade dos Dados
 
-![Relatório de Qualidade dos Dados](../assets/img/en/33_report_data_quality.png)
+![Relatório de Qualidade dos Dados](../assets/img/pt/33_relatorio_qualidade_dados.png)
 
 O **Relatório de Qualidade dos Dados** é um **painel de completude** que mostra quão bem seus dados de arquitetura estão preenchidos. Baseado nos pesos dos campos configurados no metamodelo:
 
@@ -88,7 +88,7 @@ O **Relatório de Qualidade dos Dados** é um **painel de completude** que mostr
 
 ## Relatório de Fim de Vida (EOL)
 
-![Relatório de Fim de Vida](../assets/img/en/32_report_eol.png)
+![Relatório de Fim de Vida](../assets/img/pt/32_relatorio_eol.png)
 
 O **Relatório de EOL** mostra o status de suporte de produtos tecnológicos vinculados através do recurso de [Administração de EOL](../admin/eol.md):
 
@@ -98,7 +98,7 @@ O **Relatório de EOL** mostra o status de suporte de produtos tecnológicos vin
 
 ## Relatórios Salvos
 
-![Galeria de Relatórios Salvos](../assets/img/en/36_saved_reports.png)
+![Galeria de Relatórios Salvos](../assets/img/pt/36_relatorios_salvos.png)
 
 Salve qualquer configuração de relatório para acesso rápido posterior. Relatórios salvos incluem uma miniatura de pré-visualização e podem ser compartilhados em toda a organização.
 

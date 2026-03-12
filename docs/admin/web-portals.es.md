@@ -2,6 +2,8 @@
 
 La función de **Portales Web** (**Administrador > Configuración > Portales Web**) le permite crear **vistas públicas de solo lectura** de datos de fichas seleccionados, accesibles sin autenticación a través de una URL única.
 
+![Configuración de Portales Web](../assets/img/es/30_admin_config_portales_web.png)
+
 ## Caso de Uso
 
 Los portales web son útiles para compartir información de arquitectura con partes interesadas que no tienen una cuenta de Turbo EA:

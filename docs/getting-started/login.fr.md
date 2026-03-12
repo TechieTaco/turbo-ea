@@ -2,7 +2,7 @@
 
 ## Connexion
 
-![Écran de connexion](../assets/img/en/24_login.png)
+![Écran de connexion](../assets/img/fr/24_connexion.png)
 
 Lors de l'accès à la plateforme, l'écran de connexion s'affiche et vous devez saisir votre adresse e-mail et votre mot de passe.
 

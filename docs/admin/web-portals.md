@@ -2,6 +2,8 @@
 
 The **Web Portals** feature (**Admin > Settings > Web Portals**) lets you create **public, read-only views** of selected card data — accessible without authentication via a unique URL.
 
+![Web Portals Administration](../assets/img/en/30_admin_settings_web_portals.png)
+
 ## Use Case
 
 Web portals are useful for sharing architecture information with stakeholders who don't have a Turbo EA account:

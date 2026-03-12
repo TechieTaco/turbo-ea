@@ -7,6 +7,8 @@ The **PPM** module provides a complete project portfolio management solution for
 
 ## Portfolio Dashboard
 
+![PPM Portfolio Dashboard](../assets/img/en/40_ppm_portfolio.png)
+
 The **Portfolio Dashboard** is the main entry point for PPM. It provides:
 
 - **KPI Cards** — Total initiatives, total budget, total actual cost, and health status summaries
@@ -30,6 +32,8 @@ Click any initiative to open its detail page with seven tabs:
 
 ### Overview Tab
 
+![PPM Initiative Overview](../assets/img/en/41_ppm_overview.png)
+
 The overview shows a summary of the initiative's health and financials:
 
 - **Health Summary** — Schedule, cost, and scope indicators from the latest status report
@@ -37,6 +41,8 @@ The overview shows a summary of the initiative's health and financials:
 - **Recent Activity** — Latest status report summary
 
 ### Status Reports Tab
+
+![PPM Status Reports](../assets/img/en/42_ppm_status_reports.png)
 
 Monthly status reports track project health over time. Each report includes:
 
@@ -52,6 +58,8 @@ Monthly status reports track project health over time. Each report includes:
 
 ### Budget & Costs Tab
 
+![PPM Budget and Costs](../assets/img/en/43_ppm_budget_costs.png)
+
 Track financial data with two types of line items:
 
 - **Budget Lines** — Planned budget by fiscal year and category (CapEx / OpEx). Budget lines are grouped according to the **fiscal year start month** configured in [Settings](../admin/settings.md#fiscal-year-start). For example, if the fiscal year begins in April, a budget line dated June 2026 belongs to FY 2026–2027
@@ -60,6 +68,8 @@ Track financial data with two types of line items:
 Budget and cost totals automatically roll up to the Initiative card's `costBudget` and `costActual` attributes. When PPM cost lines exist, these card fields are marked as auto-computed and become read-only in the card detail view.
 
 ### Risk Management Tab
+
+![PPM Risk Management](../assets/img/en/44_ppm_risk_management.png)
 
 The risk register tracks project risks with:
 
@@ -74,6 +84,8 @@ The risk register tracks project risks with:
 | **Owner** | User responsible for managing the risk |
 
 ### Tasks Tab
+
+![PPM Task Board](../assets/img/en/45_ppm_task_board.png)
 
 The task manager supports both **Kanban board** and **list** views with four status columns:
 
@@ -93,6 +105,8 @@ Tasks can be filtered and grouped by Work Breakdown Structure (WBS) item. Drag a
 Display filters (view mode, WBS filter, group-by toggle) persist in the URL across page refreshes.
 
 ### Gantt Tab
+
+![PPM Gantt Chart](../assets/img/en/46_ppm_gantt.png)
 
 The Gantt chart visualizes the project timeline with:
 

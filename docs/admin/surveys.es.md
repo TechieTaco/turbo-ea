@@ -2,6 +2,8 @@
 
 El módulo de **Encuestas** (**Administrador > Encuestas**) permite a los administradores crear **encuestas de mantenimiento de datos** que recopilan información estructurada de las partes interesadas sobre fichas específicas.
 
+![Administración de Encuestas](../assets/img/es/37_admin_encuestas.png)
+
 ## Caso de Uso
 
 Las encuestas ayudan a mantener actualizados los datos de arquitectura contactando a las personas más cercanas a cada componente. Por ejemplo:

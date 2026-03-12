@@ -2,6 +2,8 @@
 
 Die ServiceNow-Integration (**Admin > Einstellungen > ServiceNow**) ermöglicht eine bidirektionale Synchronisation zwischen Turbo EA und Ihrem ServiceNow CMDB. Dieses Handbuch behandelt alles von der Ersteinrichtung über fortgeschrittene Rezepte bis hin zu operativen Best Practices.
 
+![ServiceNow-Integration](../assets/img/de/31_admin_einstellungen_servicenow.png)
+
 ## Warum ServiceNow mit Turbo EA integrieren?
 
 ServiceNow CMDB und Enterprise Architecture-Werkzeuge dienen unterschiedlichen, aber sich ergänzenden Zwecken:

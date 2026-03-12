@@ -2,7 +2,7 @@
 
 Die **Aufgaben**-Seite zentralisiert alle anstehenden Arbeitselemente an einem Ort. Sie hat zwei Tabs: **Meine Aufgaben** und **Meine Umfragen**.
 
-![Meine Aufgaben-Bereich](../assets/img/en/18_tasks.png)
+![Meine Aufgaben-Bereich](../assets/img/de/18_aufgaben.png)
 
 ## Meine Aufgaben
 

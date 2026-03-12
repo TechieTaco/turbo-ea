@@ -2,6 +2,8 @@
 
 La página de **Configuración** (**Administrador > Configuración**) proporciona la configuración centralizada para la apariencia, el correo electrónico y los interruptores de módulos de la plataforma.
 
+![Configuración general](../assets/img/es/28_admin_config_general.png)
+
 ## Apariencia
 
 ### Logotipo

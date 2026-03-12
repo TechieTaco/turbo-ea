@@ -1,6 +1,6 @@
 # Usuários e Papéis
 
-![Gerenciamento de Usuários e Papéis](../assets/img/en/21_admin_users.png)
+![Gerenciamento de Usuários e Papéis](../assets/img/pt/21_admin_usuarios.png)
 
 A página de **Usuários e Papéis** possui duas abas: **Usuários** (gerenciar contas) e **Papéis** (gerenciar permissões).
 
@@ -58,6 +58,8 @@ Se um usuário já possui uma conta local e sua organização habilita SSO, o us
 Abaixo da tabela de usuários, uma seção de **Convites Pendentes** mostra todos os convites que ainda não foram aceitos. Cada convite mostra o e-mail, papel pré-atribuído e data do convite. Você pode revogar um convite clicando no ícone de exclusão.
 
 #### Papéis
+
+![Gestão de papéis](../assets/img/pt/39_admin_papeis.png)
 
 A aba de **Papéis** permite gerenciar papéis em nível de aplicação. Cada papel define um conjunto de permissões que controlam o que usuários com esse papel podem fazer. Papéis padrão:
 

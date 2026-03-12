@@ -2,6 +2,8 @@
 
 **设置**页面（**管理 > 设置**）提供平台外观、电子邮件和模块开关的集中配置。
 
+![通用设置](../assets/img/zh/28_admin_settings_general.png)
+
 ## 外观
 
 ### Logo

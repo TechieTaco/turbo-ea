@@ -2,7 +2,7 @@
 
 Das **Metamodell** definiert die gesamte Datenstruktur Ihrer Plattform — welche Kartentypen existieren, welche Felder sie haben, wie sie zueinander in Beziehung stehen und wie Kartendetailseiten aufgebaut sind. Alles ist **datengesteuert**: Sie konfigurieren das Metamodell über die Administrator-Oberfläche, nicht durch Codeänderungen.
 
-![Metamodell-Konfiguration](../assets/img/en/20_admin_metamodel.png)
+![Metamodell-Konfiguration](../assets/img/de/20_admin_metamodell.png)
 
 Navigieren Sie zu **Admin > Metamodell**, um auf den Metamodell-Editor zuzugreifen. Er hat sechs Tabs: **Kartentypen**, **Beziehungstypen**, **Berechnungen**, **Tags**, **EA-Prinzipien** und **Metamodell-Graph**.
 
@@ -146,6 +146,8 @@ Wenn Sie **KI-Portfolio-Insights** im [Portfolio-Bericht](../guide/reports.md#ai
 Beispielsweise würde ein „SaaS kaufen"-Prinzip dazu führen, dass die KI On-Premise- oder IaaS-gehostete Anwendungen markiert und Cloud-Migrationsprioritäten vorschlägt.
 
 ## Metamodell-Graph
+
+![Visualisierung des Metamodell-Graphen](../assets/img/de/38_metamodell_graph.png)
 
 Der **Metamodell-Graph**-Tab zeigt ein visuelles SVG-Diagramm aller Kartentypen und ihrer Beziehungstypen. Dies ist eine schreibgeschützte Visualisierung, die Ihnen hilft, die Verbindungen in Ihrem Metamodell auf einen Blick zu verstehen.
 
