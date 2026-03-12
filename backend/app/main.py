@@ -336,7 +336,8 @@ async def lifespan(app: FastAPI):
             if not result.get("skipped"):
                 print(
                     f"[seed_demo] Seeded {result['cards']} cards, "
-                    f"{result['relations']} relations, {result['tag_groups']} tag groups"
+                    f"{result['relations']} relations, {result['tag_groups']} tag groups, "
+                    f"{result['adrs']} ADRs, {result['soaws']} SoAWs"
                 )
             else:
                 print(f"[seed_demo] Skipped: {result.get('reason', 'unknown')}")

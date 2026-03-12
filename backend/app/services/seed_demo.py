@@ -12,6 +12,7 @@ from app.models.architecture_decision import ArchitectureDecision
 from app.models.architecture_decision_card import ArchitectureDecisionCard
 from app.models.card import Card
 from app.models.relation import Relation
+from app.models.soaw import SoAW
 from app.models.tag import CardTag, Tag, TagGroup
 from app.services.seed import TYPES as _META_TYPES
 
@@ -4672,6 +4673,843 @@ DEMO_ADR_CARD_LINKS = [
     {"adr_ref": "adr_sap_integration", "card_ref": "app_sap_s4"},
 ]
 
+# ---------------------------------------------------------------------------
+# Additional ADRs  (ADR-004 through ADR-007)
+# ---------------------------------------------------------------------------
+DEMO_ADRS_EXTRA = [
+    {
+        "id": _id("adr_zero_trust"),
+        "reference_number": "ADR-004",
+        "title": "Adopt Zero Trust Network Architecture",
+        "status": "signed",
+        "context": (
+            "<p>NexaTech's perimeter-based security model is insufficient for the "
+            "hybrid cloud environment being built under the Digital Transformation "
+            "Program. Remote workforce growth and cloud workloads require "
+            "identity-centric access controls rather than network-location trust.</p>"
+        ),
+        "decision": (
+            "<p>Implement a Zero Trust architecture across all environments:</p>"
+            "<ul>"
+            "<li>All access requires identity verification (Azure Entra ID as IdP)</li>"
+            "<li>Micro-segmentation for east-west traffic using network policies</li>"
+            "<li>Continuous posture assessment for endpoints and workloads</li>"
+            "<li>Least-privilege access enforced via RBAC and just-in-time elevation</li>"
+            "</ul>"
+        ),
+        "consequences": (
+            "<p>Stronger security posture across cloud and on-premises. Requires "
+            "re-architecture of legacy network ACLs. All teams must adopt identity-based "
+            "authentication for service-to-service communication. Short-term productivity "
+            "impact during transition.</p>"
+        ),
+        "alternatives_considered": (
+            "<p>1. Enhanced perimeter security (next-gen firewalls only) — rejected as "
+            "insufficient for cloud-native workloads.<br>"
+            "2. VPN-only remote access — rejected due to latency and scalability "
+            "limitations.</p>"
+        ),
+        "related_decisions": ["ADR-001"],
+        "signatories": [
+            {
+                "user_id": "demo-placeholder",
+                "display_name": "CISO Office",
+                "email": "ciso@nexatech.demo",
+                "status": "signed",
+                "signed_at": "2025-11-10T09:00:00Z",
+            },
+            {
+                "user_id": "demo-placeholder",
+                "display_name": "Enterprise Architect",
+                "email": "ea@nexatech.demo",
+                "status": "signed",
+                "signed_at": "2025-11-12T14:00:00Z",
+            },
+        ],
+        "signed_at": datetime(2025, 11, 12, 14, 0, 0, tzinfo=timezone.utc),
+        "revision_number": 1,
+    },
+    {
+        "id": _id("adr_event_driven"),
+        "reference_number": "ADR-005",
+        "title": "Standardize on Event-Driven Architecture for Inter-Service Communication",
+        "status": "signed",
+        "context": (
+            "<p>Synchronous REST-based communication between NexaTech applications "
+            "causes tight coupling, cascading failures during peak load, and makes "
+            "it difficult to add new consumers of business events. The IoT platform "
+            "alone generates 50k+ events per minute that must reach multiple "
+            "downstream systems.</p>"
+        ),
+        "decision": (
+            "<p>Adopt Apache Kafka as the central event backbone for all "
+            "asynchronous inter-service communication. Key principles:</p>"
+            "<ul>"
+            "<li>Domain events published to well-defined Kafka topics</li>"
+            "<li>Schema Registry enforces Avro/JSON Schema compatibility</li>"
+            "<li>Synchronous REST remains permitted for query/response patterns</li>"
+            "<li>Event catalog maintained in the EA repository</li>"
+            "</ul>"
+        ),
+        "consequences": (
+            "<p>Decoupled services with independent scalability. Requires Kafka "
+            "operational expertise and a shared schema governance process. Existing "
+            "point-to-point integrations must be migrated over 18 months.</p>"
+        ),
+        "alternatives_considered": (
+            "<p>1. RabbitMQ — rejected due to lack of persistent replay and "
+            "limited throughput for IoT volumes.<br>"
+            "2. AWS SNS/SQS — rejected to avoid cloud vendor lock-in for the "
+            "messaging backbone.</p>"
+        ),
+        "related_decisions": ["ADR-001", "ADR-002"],
+        "signatories": [
+            {
+                "user_id": "demo-placeholder",
+                "display_name": "CTO Office",
+                "email": "cto@nexatech.demo",
+                "status": "signed",
+                "signed_at": "2025-10-20T11:00:00Z",
+            },
+        ],
+        "signed_at": datetime(2025, 10, 20, 11, 0, 0, tzinfo=timezone.utc),
+        "revision_number": 1,
+    },
+    {
+        "id": _id("adr_dw_consolidation"),
+        "reference_number": "ADR-006",
+        "title": "Consolidate Data Warehouse on Cloud-Native Platform",
+        "status": "in_review",
+        "context": (
+            "<p>NexaTech operates three separate data stores for analytics: an "
+            "on-premises SQL Server warehouse, a Snowflake instance for marketing, "
+            "and ad-hoc data lakes on shared drives. Inconsistent schemas, duplicated "
+            "ETL pipelines, and rising licensing costs require consolidation.</p>"
+        ),
+        "decision": (
+            "<p>Consolidate all analytical workloads onto Snowflake as the single "
+            "cloud data warehouse platform, implementing a medallion architecture "
+            "(bronze/silver/gold layers). Key elements:</p>"
+            "<ul>"
+            "<li>Bronze: raw ingestion from all source systems via Kafka + CDC</li>"
+            "<li>Silver: cleansed and conformed data models</li>"
+            "<li>Gold: business-ready aggregates consumed by Power BI</li>"
+            "<li>dbt for transformation orchestration and lineage</li>"
+            "</ul>"
+        ),
+        "consequences": (
+            "<p>Single source of truth for analytics. Eliminates duplicate ETL "
+            "maintenance. Requires migration of existing SQL Server reports "
+            "and retraining of analysts on Snowflake SQL dialect.</p>"
+        ),
+        "alternatives_considered": (
+            "<p>1. Azure Synapse Analytics — rejected due to existing Snowflake "
+            "investment and team expertise.<br>"
+            "2. Databricks Lakehouse — rejected as over-engineered for current "
+            "analytics maturity level.</p>"
+        ),
+        "related_decisions": ["ADR-001", "ADR-005"],
+        "signatories": [
+            {
+                "user_id": "demo-placeholder",
+                "display_name": "Data Architecture Lead",
+                "email": "data-arch@nexatech.demo",
+                "status": "pending",
+                "signed_at": None,
+            },
+            {
+                "user_id": "demo-placeholder",
+                "display_name": "Enterprise Architect",
+                "email": "ea@nexatech.demo",
+                "status": "pending",
+                "signed_at": None,
+            },
+        ],
+        "signed_at": None,
+        "revision_number": 1,
+    },
+    {
+        "id": _id("adr_container_first"),
+        "reference_number": "ADR-007",
+        "title": "Adopt Container-First Deployment for All New Services",
+        "status": "draft",
+        "context": (
+            "<p>Deployment patterns across NexaTech are inconsistent: some teams "
+            "deploy to VMs, others use ad-hoc Docker containers, and legacy systems "
+            "run on bare metal. This fragmentation increases operational cost and "
+            "slows release cycles.</p>"
+        ),
+        "decision": (
+            "<p>All new services must be containerized and deployed to Azure "
+            "Kubernetes Service (AKS). Specific guidelines:</p>"
+            "<ul>"
+            "<li>Docker images built via CI/CD (GitHub Actions)</li>"
+            "<li>Helm charts for all Kubernetes deployments</li>"
+            "<li>Existing VM-based services migrated opportunistically</li>"
+            "<li>Exceptions require Architecture Review Board approval</li>"
+            "</ul>"
+        ),
+        "consequences": (
+            "<p>Consistent deployment model across all teams. Kubernetes operational "
+            "skills become mandatory. Legacy VM applications continue running until "
+            "natural refresh cycles. Platform team must provide golden-path templates.</p>"
+        ),
+        "alternatives_considered": (
+            "<p>1. Azure App Service (PaaS) — rejected as too restrictive for "
+            "complex multi-container workloads.<br>"
+            "2. Serverless-first (Azure Functions) — rejected as not suitable "
+            "for long-running manufacturing backend processes.</p>"
+        ),
+        "related_decisions": ["ADR-001", "ADR-004"],
+        "revision_number": 1,
+    },
+]
+
+DEMO_ADR_EXTRA_CARD_LINKS = [
+    # ADR-004 linked to zero trust initiative + security-related apps
+    {"adr_ref": "adr_zero_trust", "card_ref": "init_zero_trust"},
+    {"adr_ref": "adr_zero_trust", "card_ref": "init_cybersec_enhance"},
+    # ADR-005 linked to Kafka and digital transformation
+    {"adr_ref": "adr_event_driven", "card_ref": "app_kafka"},
+    {"adr_ref": "adr_event_driven", "card_ref": "init_digital_program"},
+    # ADR-006 linked to DW consolidation initiative + Snowflake
+    {"adr_ref": "adr_dw_consolidation", "card_ref": "init_dw_consolidation"},
+    {"adr_ref": "adr_dw_consolidation", "card_ref": "app_snowflake"},
+    # ADR-007 linked to DevOps initiative + AKS
+    {"adr_ref": "adr_container_first", "card_ref": "init_devops"},
+    {"adr_ref": "adr_container_first", "card_ref": "itc_aks"},
+]
+
+# ---------------------------------------------------------------------------
+# SoAW demo documents
+# ---------------------------------------------------------------------------
+
+# Template section IDs that should appear in every SoAW
+SOAW_SECTION_IDS = [
+    "1.1",
+    "1.2",
+    "2.1",
+    "2.2",
+    "2.3",
+    "3.1",
+    "4.1",
+    "4.2",
+    "4.3",
+    "5.1",
+    "5.2",
+    "5.3",
+    "6.1",
+    "6.2",
+    "6.3",
+    "7.0",
+    "7.1",
+    "7.2",
+]
+
+
+def _empty_section(hidden: bool = False) -> dict:
+    return {"content": "", "hidden": hidden}
+
+
+def _rich(content: str, hidden: bool = False) -> dict:
+    return {"content": content, "hidden": hidden}
+
+
+def _table(columns: list[str], rows: list[list[str]], hidden: bool = False) -> dict:
+    return {
+        "content": "",
+        "hidden": hidden,
+        "table_data": {"columns": columns, "rows": rows},
+    }
+
+
+def _togaf_phases(phases: dict[str, str], hidden: bool = False) -> dict:
+    base = {k: "" for k in ("A", "B", "C", "D", "E", "F", "G", "H", "RM")}
+    base.update(phases)
+    return {"content": "", "hidden": hidden, "togaf_data": base}
+
+
+# ── SoAW 1: Digital Transformation Program (signed) ──────────────────────
+
+_SOAW_DTP_SECTIONS: dict[str, dict] = {
+    "1.1": _rich(
+        "<p>NexaTech Industries has identified the need for a comprehensive digital "
+        "transformation to modernize its IT landscape, reduce operational costs, and "
+        "enable new digital revenue streams. The current on-premises infrastructure "
+        "limits scalability and slows time-to-market for new products.</p>"
+        "<p>This Statement of Architecture Work establishes the architectural vision, "
+        "scope, and governance for the Digital Transformation Program spanning "
+        "2025-2027.</p>"
+    ),
+    "1.2": _rich(
+        "<p>The scope encompasses the full enterprise IT landscape across four "
+        "architecture domains:</p>"
+        "<ul>"
+        "<li><strong>Business Architecture</strong>: Digitization of core manufacturing "
+        "and customer-facing processes</li>"
+        "<li><strong>Application Architecture</strong>: Cloud migration of 40+ applications, "
+        "API standardization, and legacy retirement</li>"
+        "<li><strong>Data Architecture</strong>: Unified data platform with consolidated "
+        "warehouse and real-time streaming</li>"
+        "<li><strong>Technology Architecture</strong>: Cloud-first infrastructure (Azure "
+        "primary, AWS secondary), container-based deployments</li>"
+        "</ul>"
+        "<p>Out of scope: OT/SCADA systems on the factory floor (separate program).</p>"
+    ),
+    "2.1": _table(
+        ["Objective", "Notes"],
+        [
+            [
+                "Migrate 80% of workloads to cloud by end of 2026",
+                "Aligns with ADR-001 Cloud-First Strategy",
+            ],
+            [
+                "Reduce IT operating costs by 25%",
+                "Baseline measured Q1 2025; tracked quarterly",
+            ],
+            [
+                "Achieve < 2-week release cycle for customer-facing apps",
+                "Requires DevOps maturity uplift",
+            ],
+            [
+                "Establish single data platform for analytics",
+                "Replaces 3 existing data stores",
+            ],
+        ],
+    ),
+    "2.2": _rich(
+        "<p><strong>Assumptions:</strong></p>"
+        "<ul>"
+        "<li>Azure Enterprise Agreement remains in place through 2027</li>"
+        "<li>SAP S/4HANA migration timeline aligns with this program</li>"
+        "<li>Business units will allocate SMEs for requirements workshops</li>"
+        "</ul>"
+        "<p><strong>Constraints:</strong></p>"
+        "<ul>"
+        "<li>Annual IT budget cap of EUR 8M for the program</li>"
+        "<li>Regulatory requirements mandate data residency in EU</li>"
+        "<li>Manufacturing systems must maintain 99.9% uptime during migration</li>"
+        "</ul>"
+        "<p><strong>Principles:</strong></p>"
+        "<ul>"
+        "<li>Cloud-first for all new workloads (ADR-001)</li>"
+        "<li>API-first integration via centralized gateway (ADR-002)</li>"
+        "<li>Event-driven communication for inter-service messaging (ADR-005)</li>"
+        "<li>Zero Trust security model (ADR-004)</li>"
+        "</ul>"
+    ),
+    "2.3": _table(
+        ["Stakeholder", "Concern"],
+        [
+            ["CTO Office", "Overall program alignment with business strategy"],
+            ["VP Engineering", "Minimal disruption to manufacturing operations"],
+            ["CISO", "Security posture maintained during cloud migration"],
+            ["Head of Data & Analytics", "Data availability and quality during transition"],
+            ["Business Unit Leads", "Feature velocity not impacted during migration"],
+            ["IT Operations", "Operational readiness and runbook handover"],
+        ],
+    ),
+    "3.1": _togaf_phases(
+        {
+            "A": "Completed Q2 2025 — Architecture Vision approved by steering committee",
+            "B": "Completed Q3 2025 — Business process digitization roadmap finalized",
+            "C": "In progress — Application rationalization and data platform design",
+            "D": "In progress — Cloud infrastructure patterns and networking design",
+            "E": "Planned Q1 2026 — Solution building blocks and vendor selection",
+            "F": "Planned Q2 2026 — Migration wave planning (6 waves over 12 months)",
+            "G": "Ongoing — Architecture compliance reviews at each wave gate",
+            "H": "Planned Q4 2027 — Post-migration optimization and lessons learned",
+            "RM": "Continuous — Requirements backlog maintained in JIRA, synced quarterly",
+        }
+    ),
+    "4.1": _rich(
+        "<p>The current IT landscape consists of 80+ applications, predominantly "
+        "hosted on-premises across two data centres (Frankfurt, Munich). Key "
+        "characteristics:</p>"
+        "<ul>"
+        "<li>ERP: SAP ECC 6.0 with extensive custom ABAP (migration to S/4HANA in "
+        "progress under separate SoAW)</li>"
+        "<li>CRM: Mix of Salesforce (sales) and legacy in-house tool (service)</li>"
+        "<li>IoT Platform: NexaCloud on Azure IoT Hub + custom analytics</li>"
+        "<li>Data: SQL Server warehouse + Snowflake (marketing) + file-based lakes</li>"
+        "<li>Integration: Point-to-point, ~120 interfaces with no central governance</li>"
+        "</ul>"
+    ),
+    "4.2": _rich(
+        "<p>Baseline metrics as of Q1 2025:</p>"
+        "<ul>"
+        "<li>Cloud workload ratio: 20% cloud / 80% on-premises</li>"
+        "<li>Average release cycle: 6-8 weeks</li>"
+        "<li>Annual IT operating cost: EUR 12.5M</li>"
+        "<li>Unplanned downtime: 47 hours/year across all systems</li>"
+        "<li>Data quality score (EA inventory): 62% average</li>"
+        "</ul>"
+    ),
+    "4.3": _rich(
+        "<p>Key baseline assessment findings:</p>"
+        "<ul>"
+        "<li><strong>Application portfolio</strong>: 15 applications flagged for retirement "
+        "(no active business owner, < 10 users)</li>"
+        "<li><strong>Technical debt</strong>: 30% of applications run on unsupported OS or "
+        "middleware versions</li>"
+        "<li><strong>Integration</strong>: No API gateway; authentication inconsistent across "
+        "services</li>"
+        "<li><strong>Skills</strong>: Cloud-native expertise limited to IoT and DevOps teams</li>"
+        "</ul>"
+    ),
+    "5.1": _rich(
+        "<p>The target architecture delivers a cloud-native, API-first enterprise "
+        "platform:</p>"
+        "<ul>"
+        "<li><strong>Compute</strong>: AKS (Kubernetes) for containerized workloads, "
+        "Azure App Service for simple web apps</li>"
+        "<li><strong>Integration</strong>: Centralized API Gateway (Kong) + Kafka event "
+        "backbone</li>"
+        "<li><strong>Data</strong>: Snowflake as consolidated warehouse with medallion "
+        "architecture, Power BI for visualization</li>"
+        "<li><strong>Security</strong>: Zero Trust with Azure Entra ID, micro-segmentation</li>"
+        "<li><strong>DevOps</strong>: GitHub Actions CI/CD, Helm-based Kubernetes deployments</li>"
+        "</ul>"
+    ),
+    "5.2": _rich(
+        "<p>Target metrics by end of 2027:</p>"
+        "<ul>"
+        "<li>Cloud workload ratio: 90% cloud / 10% on-premises (OT only)</li>"
+        "<li>Average release cycle: &lt; 2 weeks</li>"
+        "<li>Annual IT operating cost: EUR 9.4M (25% reduction)</li>"
+        "<li>Unplanned downtime: &lt; 10 hours/year</li>"
+        "<li>Data quality score: &gt; 85% average</li>"
+        "</ul>"
+    ),
+    "5.3": _rich(
+        "<p>Expected benefits:</p>"
+        "<ul>"
+        "<li>EUR 3.1M annual savings from infrastructure consolidation and license "
+        "optimization</li>"
+        "<li>4x faster time-to-market for new digital services</li>"
+        "<li>Single analytics platform enabling self-service BI across all BUs</li>"
+        "<li>Reduced security incident response time from days to hours</li>"
+        "<li>Improved developer experience attracting and retaining talent</li>"
+        "</ul>"
+    ),
+    "6.1": _rich(
+        "<p>The business case projects a 3-year total investment of EUR 8M with "
+        "expected annual savings of EUR 3.1M starting year 2, yielding a positive "
+        "ROI within 30 months. Key cost drivers:</p>"
+        "<ul>"
+        "<li>Cloud infrastructure: EUR 2.4M (migration + first-year run)</li>"
+        "<li>Application modernization: EUR 2.8M (refactoring + re-platforming)</li>"
+        "<li>Platform tooling (API gateway, Kafka, monitoring): EUR 1.2M</li>"
+        "<li>Training and change management: EUR 0.8M</li>"
+        "<li>Program management and architecture governance: EUR 0.8M</li>"
+        "</ul>"
+    ),
+    "6.2": _rich(
+        "<p>Enterprise Architecture impact:</p>"
+        "<ul>"
+        "<li><strong>Application landscape</strong>: Net reduction of 15 applications "
+        "through retirement; 25 applications re-platformed to cloud</li>"
+        "<li><strong>Integration landscape</strong>: 120 point-to-point interfaces "
+        "consolidated to ~40 API Gateway routes + 30 Kafka topics</li>"
+        "<li><strong>Technology standards</strong>: 4 new reference architectures "
+        "(cloud-native app, event-driven integration, data pipeline, zero trust network)</li>"
+        "<li><strong>Organizational</strong>: New Cloud Center of Excellence team (6 FTEs); "
+        "platform engineering function established</li>"
+        "</ul>"
+    ),
+    "6.3": _rich(
+        "<p>Implementation follows a wave-based migration approach:</p>"
+        "<ul>"
+        "<li><strong>Wave 1 (Q1-Q2 2026)</strong>: IoT Platform + DevOps toolchain — "
+        "already cloud-ready, lowest risk</li>"
+        "<li><strong>Wave 2 (Q2-Q3 2026)</strong>: Customer-facing web apps + CRM "
+        "integration</li>"
+        "<li><strong>Wave 3 (Q3-Q4 2026)</strong>: Data warehouse consolidation + "
+        "analytics platform</li>"
+        "<li><strong>Wave 4 (Q4 2026-Q1 2027)</strong>: SAP S/4HANA go-live + "
+        "surrounding integrations</li>"
+        "<li><strong>Wave 5 (Q1-Q2 2027)</strong>: Manufacturing execution + PLM</li>"
+        "<li><strong>Wave 6 (Q2-Q3 2027)</strong>: Legacy retirement + optimization</li>"
+        "</ul>"
+    ),
+    "7.0": _rich(
+        "<p>This section summarizes the key risks and open issues identified during "
+        "architecture planning. Detailed mitigation plans are tracked in the program "
+        "risk register.</p>"
+    ),
+    "7.1": _table(
+        ["Risk #", "Description", "Priority", "Status"],
+        [
+            [
+                "R-001",
+                "Cloud migration causes unplanned downtime for manufacturing",
+                "High",
+                "Mitigated",
+            ],
+            ["R-002", "Skills gap delays migration waves by > 1 quarter", "High", "Open"],
+            [
+                "R-003",
+                "Azure Enterprise Agreement renewal terms unfavorable",
+                "Medium",
+                "Monitoring",
+            ],
+            ["R-004", "Data migration quality issues impact analytics accuracy", "Medium", "Open"],
+            ["R-005", "Vendor lock-in limits future flexibility", "Low", "Accepted"],
+        ],
+    ),
+    "7.2": _table(
+        ["Description", "Status"],
+        [
+            ["SAP S/4HANA migration timeline dependency not yet confirmed", "Open"],
+            ["Network bandwidth between Munich DC and Azure Frankfurt needs upgrade", "Resolved"],
+            ["Legacy PLM vendor contract has 18-month exit clause", "Open"],
+        ],
+    ),
+}
+
+DEMO_SOAW_DTP = {
+    "id": _id("soaw_digital_tx"),
+    "name": "Digital Transformation Program \u2014 Statement of Architecture Work",
+    "initiative_id": _id("init_digital_program"),
+    "status": "signed",
+    "document_info": {
+        "prepared_by": "Enterprise Architecture Team",
+        "reviewed_by": "CTO Office",
+        "review_date": "2025-08-15",
+    },
+    "version_history": [
+        {
+            "version": "1.0",
+            "date": "2025-07-01",
+            "revised_by": "Enterprise Architecture Team",
+            "description": "Initial draft for steering committee review",
+        },
+        {
+            "version": "2.0",
+            "date": "2025-08-20",
+            "revised_by": "Enterprise Architecture Team",
+            "description": "Final version incorporating CTO feedback, approved and signed",
+        },
+    ],
+    "sections": _SOAW_DTP_SECTIONS,
+    "revision_number": 1,
+    "signatories": [
+        {
+            "user_id": "demo-placeholder",
+            "display_name": "CTO Office",
+            "email": "cto@nexatech.demo",
+            "status": "signed",
+            "signed_at": "2025-08-20T10:00:00Z",
+        },
+        {
+            "user_id": "demo-placeholder",
+            "display_name": "Enterprise Architect",
+            "email": "ea@nexatech.demo",
+            "status": "signed",
+            "signed_at": "2025-08-20T14:30:00Z",
+        },
+    ],
+    "signed_at": datetime(2025, 8, 20, 14, 30, 0, tzinfo=timezone.utc),
+}
+
+# ── SoAW 2: SAP S/4HANA Migration (in_review) ───────────────────────────
+
+_SOAW_SAP_SECTIONS: dict[str, dict] = {
+    "1.1": _rich(
+        "<p>NexaTech's core ERP system (SAP ECC 6.0) reaches mainstream maintenance "
+        "end in 2027. The SAP S/4HANA Migration initiative will transform the ERP "
+        "landscape, moving from a heavily customized ECC to a fit-to-standard S/4HANA "
+        "deployment on Azure.</p>"
+    ),
+    "1.2": _rich(
+        "<p>This SoAW covers the end-to-end SAP migration including:</p>"
+        "<ul>"
+        "<li>Brownfield migration of SAP ECC 6.0 to S/4HANA 2023</li>"
+        "<li>Custom ABAP remediation (170+ custom programs)</li>"
+        "<li>Integration re-architecture via SAP Integration Suite (ADR-003)</li>"
+        "<li>Data migration and cleansing for master data</li>"
+        "</ul>"
+        "<p>Excluded: Non-SAP application changes (handled under Digital Transformation "
+        "Program SoAW).</p>"
+    ),
+    "2.1": _table(
+        ["Objective", "Notes"],
+        [
+            ["Complete S/4HANA go-live by Q3 2026", "Aligned with SAP maintenance timeline"],
+            ["Reduce custom ABAP by 60%", "Adopt SAP standard processes where possible"],
+            [
+                "Zero data loss during migration",
+                "Validated via parallel run period",
+            ],
+        ],
+    ),
+    "2.2": _rich(
+        "<p><strong>Assumptions:</strong></p>"
+        "<ul>"
+        "<li>SAP licenses for S/4HANA already procured</li>"
+        "<li>Azure infrastructure provisioned via Digital Transformation Program</li>"
+        "<li>Key business users available for UAT (4-week window)</li>"
+        "</ul>"
+        "<p><strong>Constraints:</strong></p>"
+        "<ul>"
+        "<li>Migration must not disrupt quarter-end financial closing</li>"
+        "<li>Budget: EUR 2.5M including licensing</li>"
+        "</ul>"
+    ),
+    "2.3": _table(
+        ["Stakeholder", "Concern"],
+        [
+            ["CFO", "Financial closing continuity during migration"],
+            ["VP Manufacturing", "Production planning availability"],
+            ["SAP Basis Team", "Technical migration execution"],
+            ["Integration Team", "Interface re-wiring to SAP Integration Suite"],
+        ],
+    ),
+    "3.1": _togaf_phases(
+        {
+            "A": "Completed — Vision aligned with Digital Transformation Program",
+            "B": "Completed — Fit-to-standard workshops done for FI/CO/MM/PP",
+            "C": "In progress — Application interface inventory and gap analysis",
+            "D": "In progress — Azure hosting architecture for S/4HANA",
+            "E": "Planned Q2 2026",
+            "F": "Planned Q2 2026 — Cutover planning",
+        }
+    ),
+    "4.1": _rich(
+        "<p>Current SAP landscape:</p>"
+        "<ul>"
+        "<li>SAP ECC 6.0 EHP8 on Oracle DB (on-premises Frankfurt DC)</li>"
+        "<li>170 custom ABAP programs, 45 custom transactions</li>"
+        "<li>Modules: FI, CO, MM, PP, SD, QM, PM</li>"
+        "<li>85 interfaces to surrounding systems (MES, PLM, CRM, BI)</li>"
+        "</ul>"
+    ),
+    "4.2": _rich(
+        "<p>Baseline performance:</p>"
+        "<ul>"
+        "<li>Month-end close: 5 business days</li>"
+        "<li>MRP run: 4 hours (nightly batch)</li>"
+        "<li>System availability: 99.5%</li>"
+        "</ul>"
+    ),
+    "4.3": _rich(
+        "<p>Assessment highlights:</p>"
+        "<ul>"
+        "<li>40% of custom code is unused or duplicate — candidates for removal</li>"
+        "<li>Oracle DB license renewal due Q4 2026 (migration must complete before)</li>"
+        "<li>3 critical interfaces use legacy IDocs without error handling</li>"
+        "</ul>"
+    ),
+    "5.1": _rich(
+        "<p>Target SAP landscape:</p>"
+        "<ul>"
+        "<li>SAP S/4HANA 2023 on Azure (HANA DB managed instance)</li>"
+        "<li>Fit-to-standard: reduced to ~65 custom programs</li>"
+        "<li>SAP Integration Suite replacing all IDoc and RFC interfaces</li>"
+        "<li>SAP Fiori launchpad as unified user experience</li>"
+        "</ul>"
+    ),
+    "5.2": _rich(
+        "<p>Target performance:</p>"
+        "<ul>"
+        "<li>Month-end close: 3 business days</li>"
+        "<li>MRP run: &lt; 30 minutes (in-memory HANA)</li>"
+        "<li>System availability: 99.9%</li>"
+        "</ul>"
+    ),
+    "5.3": _rich(
+        "<p>Expected benefits:</p>"
+        "<ul>"
+        "<li>Eliminated Oracle DB license cost (EUR 400K/year)</li>"
+        "<li>Real-time analytics embedded in transactions</li>"
+        "<li>Simplified integration via SAP Integration Suite</li>"
+        "</ul>"
+    ),
+    "6.1": _rich(
+        "<p>Total investment: EUR 2.5M over 18 months. Expected annual savings of "
+        "EUR 600K from license optimization and reduced custom code maintenance. "
+        "Payback period: 4 years.</p>"
+    ),
+    "6.2": _rich(
+        "<p>Impact on enterprise architecture:</p>"
+        "<ul>"
+        "<li>ERP platform modernized from ECC to S/4HANA</li>"
+        "<li>85 interfaces re-routed through SAP Integration Suite</li>"
+        "<li>Data model simplified (HANA-optimized table structures)</li>"
+        "</ul>"
+    ),
+    "6.3": _rich(
+        "<p>Three-phase approach:</p>"
+        "<ul>"
+        "<li><strong>Phase 1</strong>: Technical migration + custom code remediation "
+        "(Q1-Q2 2026)</li>"
+        "<li><strong>Phase 2</strong>: Integration re-wiring + UAT (Q2-Q3 2026)</li>"
+        "<li><strong>Phase 3</strong>: Go-live + hypercare (Q3 2026)</li>"
+        "</ul>"
+    ),
+    "7.0": _empty_section(),
+    "7.1": _table(
+        ["Risk #", "Description", "Priority", "Status"],
+        [
+            ["R-001", "Custom code remediation takes longer than estimated", "High", "Open"],
+            ["R-002", "Key user availability during UAT window", "Medium", "Open"],
+            ["R-003", "Data quality issues in master data migration", "High", "Mitigated"],
+        ],
+    ),
+    "7.2": _table(
+        ["Description", "Status"],
+        [
+            ["Integration Suite license scope needs confirmation from SAP", "Open"],
+            ["Fiori app catalog not yet finalized with business", "Open"],
+        ],
+    ),
+}
+
+DEMO_SOAW_SAP = {
+    "id": _id("soaw_sap_migration"),
+    "name": "SAP S/4HANA Migration \u2014 Statement of Architecture Work",
+    "initiative_id": _id("init_sap_migration"),
+    "status": "in_review",
+    "document_info": {
+        "prepared_by": "SAP Solution Architecture Team",
+        "reviewed_by": "",
+        "review_date": "",
+    },
+    "version_history": [
+        {
+            "version": "1.0",
+            "date": "2025-11-01",
+            "revised_by": "SAP Solution Architecture Team",
+            "description": "Initial draft submitted for architecture review",
+        },
+    ],
+    "sections": _SOAW_SAP_SECTIONS,
+    "revision_number": 1,
+    "signatories": [
+        {
+            "user_id": "demo-placeholder",
+            "display_name": "Enterprise Architect",
+            "email": "ea@nexatech.demo",
+            "status": "pending",
+            "signed_at": None,
+        },
+        {
+            "user_id": "demo-placeholder",
+            "display_name": "SAP Solution Architect",
+            "email": "sap-arch@nexatech.demo",
+            "status": "pending",
+            "signed_at": None,
+        },
+    ],
+    "signed_at": None,
+}
+
+# ── SoAW 3: IoT Platform Modernization (draft) ──────────────────────────
+
+_SOAW_IOT_SECTIONS: dict[str, dict] = {
+    "1.1": _rich(
+        "<p>The IoT Platform Modernization initiative aims to upgrade NexaTech's "
+        "existing NexaCloud IoT platform to support the next generation of connected "
+        "products. Current limitations in data throughput, edge computing, and "
+        "predictive analytics must be addressed to meet the 2026 product roadmap.</p>"
+    ),
+    "1.2": _rich(
+        "<p>Scope includes:</p>"
+        "<ul>"
+        "<li>Upgrade Azure IoT Hub to support 100k+ device connections</li>"
+        "<li>Introduce edge computing layer for real-time anomaly detection</li>"
+        "<li>Build ML pipeline for predictive maintenance</li>"
+        "<li>Modernize NexaConnect mobile app for field technicians</li>"
+        "</ul>"
+    ),
+    "2.1": _table(
+        ["Objective", "Notes"],
+        [
+            ["Support 100k concurrent device connections", "Current limit: 25k"],
+            ["Sub-second anomaly detection at the edge", "Reduces cloud egress costs"],
+            ["Predictive maintenance accuracy > 90%", "ML models trained on 2 years of data"],
+        ],
+    ),
+    "2.2": _rich(
+        "<p><strong>Assumptions:</strong></p>"
+        "<ul>"
+        "<li>Azure IoT Hub premium tier budget approved</li>"
+        "<li>Historical telemetry data (2 years) available for ML training</li>"
+        "</ul>"
+        "<p><strong>Constraints:</strong></p>"
+        "<ul>"
+        "<li>Budget: EUR 1.8M</li>"
+        "<li>Must maintain backward compatibility with existing NexaSense devices</li>"
+        "</ul>"
+    ),
+    "2.3": _table(
+        ["Stakeholder", "Concern"],
+        [
+            ["VP Product", "New device onboarding speed"],
+            ["IoT Engineering Lead", "Platform scalability and reliability"],
+            ["Field Service Director", "Mobile app usability for technicians"],
+        ],
+    ),
+    "3.1": _togaf_phases(
+        {
+            "A": "In progress — Defining architecture vision for IoT modernization",
+            "B": "Planned Q1 2026",
+        }
+    ),
+    # Part II sections mostly empty (draft status)
+    "4.1": _rich(
+        "<p>Current IoT stack: Azure IoT Hub (standard tier), NexaCloud analytics "
+        "platform, NexaConnect mobile app (React Native), Kafka for event streaming "
+        "to enterprise systems.</p>"
+    ),
+    "4.2": _empty_section(),
+    "4.3": _empty_section(),
+    "5.1": _empty_section(),
+    "5.2": _empty_section(),
+    "5.3": _empty_section(),
+    "6.1": _empty_section(),
+    "6.2": _empty_section(),
+    "6.3": _empty_section(),
+    "7.0": _empty_section(),
+    "7.1": _table(
+        ["Risk #", "Description", "Priority", "Status"],
+        [["", "", "", ""]],
+    ),
+    "7.2": _table(
+        ["Description", "Status"],
+        [["", ""]],
+    ),
+}
+
+DEMO_SOAW_IOT = {
+    "id": _id("soaw_iot_modern"),
+    "name": "IoT Platform Modernization \u2014 Statement of Architecture Work",
+    "initiative_id": _id("init_iot_modern"),
+    "status": "draft",
+    "document_info": {
+        "prepared_by": "IoT Architecture Team",
+        "reviewed_by": "",
+        "review_date": "",
+    },
+    "version_history": [
+        {
+            "version": "0.1",
+            "date": "2025-12-01",
+            "revised_by": "IoT Architecture Team",
+            "description": "Initial draft \u2014 Part I only, Part II to be completed",
+        },
+    ],
+    "sections": _SOAW_IOT_SECTIONS,
+    "revision_number": 1,
+    "signatories": [],
+    "signed_at": None,
+}
+
+DEMO_SOAWS = [DEMO_SOAW_DTP, DEMO_SOAW_SAP, DEMO_SOAW_IOT]
+
+# Initiative refs used by SoAW demo data (for test validation)
+SOAW_INITIATIVE_REFS = ["init_digital_program", "init_sap_migration", "init_iot_modern"]
+
 
 # ===================================================================
 # SEED FUNCTION  (called from main.py or CLI)
@@ -4778,12 +5616,12 @@ async def seed_demo_data(db: AsyncSession) -> dict:
     await db.flush()
 
     # Insert demo Architecture Decision Records
-    for adr_def in DEMO_ADRS:
+    for adr_def in DEMO_ADRS + DEMO_ADRS_EXTRA:
         adr_data = {k: v for k, v in adr_def.items()}
         db.add(ArchitectureDecision(**adr_data))
     await db.flush()
 
-    for link_def in DEMO_ADR_CARD_LINKS:
+    for link_def in DEMO_ADR_CARD_LINKS + DEMO_ADR_EXTRA_CARD_LINKS:
         db.add(
             ArchitectureDecisionCard(
                 architecture_decision_id=_id(link_def["adr_ref"]),
@@ -4792,12 +5630,26 @@ async def seed_demo_data(db: AsyncSession) -> dict:
         )
     await db.flush()
 
+    # Insert demo SoAW documents (need admin user for created_by)
+    from app.models.user import User
+
+    admin_result = await db.execute(select(User.id).where(User.role == "admin").limit(1))
+    admin_id = admin_result.scalar_one_or_none()
+
+    for soaw_def in DEMO_SOAWS:
+        soaw_data = {k: v for k, v in soaw_def.items()}
+        if admin_id:
+            soaw_data["created_by"] = admin_id
+        db.add(SoAW(**soaw_data))
+    await db.flush()
+
     await db.commit()
     return {
         "cards": len(all_fs),
         "relations": len(RELATIONS),
         "tag_groups": len(TAG_GROUPS),
-        "adrs": len(DEMO_ADRS),
+        "adrs": len(DEMO_ADRS) + len(DEMO_ADRS_EXTRA),
+        "soaws": len(DEMO_SOAWS),
     }
 
 
