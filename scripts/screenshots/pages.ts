@@ -67,8 +67,12 @@ export const CARD_LOOKUPS = {
 
 /** Build a comma-separated has-text selector chain for a tab across locales. */
 function tabSelector(...labels: string[]): string {
+  // Scope to [role='tablist'] to avoid matching navbar buttons with the same text
   return labels
-    .flatMap((l) => [`button:has-text('${l}')`, `[role='tab']:has-text('${l}')`])
+    .flatMap((l) => [
+      `[role='tablist'] [role='tab']:has-text('${l}')`,
+      `[role='tablist'] button:has-text('${l}')`,
+    ])
     .join(", ");
 }
 
@@ -298,8 +302,13 @@ export const DOC_PAGES: PageDef[] = [
   {
     id: "09_reports_menu",
     route: "/reports/portfolio",
-    waitFor: "body",
-    actions: [{ type: "wait", ms: 400 }],
+    waitFor: ".recharts-responsive-container, .MuiPaper-root",
+    actions: [
+      { type: "wait", ms: 600 },
+      // Click the Reports dropdown button in the nav bar to show the menu
+      { type: "click", selector: ".MuiToolbar-root button:has-text('Reports'), .MuiToolbar-root button:has-text('Berichte'), .MuiToolbar-root button:has-text('Rapports'), .MuiToolbar-root button:has-text('Informes'), .MuiToolbar-root button:has-text('Report'), .MuiToolbar-root button:has-text('Relatórios'), .MuiToolbar-root button:has-text('报表'), .MuiToolbar-root button:has-text('Отчёты')" },
+      { type: "wait", ms: 400 },
+    ],
     filenames: {
       en: "09_reports_menu",
       de: "09_berichte_menu",
@@ -520,7 +529,7 @@ export const DOC_PAGES: PageDef[] = [
     actions: [
       { type: "wait", ms: 400 },
       // Click the user avatar / profile button in the top-right
-      { type: "click", selector: "[data-testid='user-menu'], [aria-label='Profile'], header button:last-child, .MuiToolbar-root button:last-of-type" },
+      { type: "click", selector: ".MuiToolbar-root button:has-text('account_circle')" },
       { type: "wait", ms: 400 },
     ],
     filenames: {
@@ -596,7 +605,12 @@ export const DOC_PAGES: PageDef[] = [
     id: "23_inventory_filters",
     route: "/inventory",
     waitFor: ".ag-root",
-    actions: [{ type: "wait", ms: 600 }],
+    actions: [
+      { type: "wait", ms: 600 },
+      // Click a type filter to demonstrate filtering (Application is a common type)
+      { type: "click", selector: "text=Application >> xpath=ancestor::div[contains(@class, 'MuiTreeItem')]//input[@type='checkbox'], label:has-text('Application') >> input[type='checkbox'], .MuiTreeItem-label:has-text('Application')" },
+      { type: "wait", ms: 600 },
+    ],
     filenames: {
       en: "23_inventory_filters",
       de: "23_inventar_filter",
@@ -670,8 +684,8 @@ export const DOC_PAGES: PageDef[] = [
     waitFor: "[data-testid='card-detail'], [class*='CardDetail'], h5, h4",
     actions: [
       { type: "wait", ms: 400 },
-      // Click the AI suggest sparkle button
-      { type: "click", selector: "button[aria-label*='AI'], button[aria-label*='suggest'], button:has(.material-symbols-outlined:has-text('auto_awesome')), [data-testid='ai-suggest-btn']" },
+      // Click the AI suggest sparkle button (MaterialSymbol icon "auto_awesome")
+      { type: "click", selector: "button:has-text('auto_awesome')" },
       { type: "wait", ms: 800 },
     ],
     filenames: {
@@ -1052,8 +1066,9 @@ export const DOC_PAGES: PageDef[] = [
   {
     id: "47_bpm_process_flow",
     route: "/bpm/processes/{{cardId:sampleProcess}}/flow",
-    waitFor: ".bjs-container, [class*='BpmnModeler'], [class*='ProcessFlow'], .MuiPaper-root",
-    actions: [{ type: "wait", ms: 1200 }],
+    // Wait for actual BPMN lane/task elements to render (not just the container)
+    waitFor: ".bjs-container .djs-group, .bjs-container .djs-layer, .bjs-container",
+    actions: [{ type: "wait", ms: 3000 }],
     filenames: {
       en: "47_bpm_process_flow",
       de: "47_bpm_prozessfluss",
