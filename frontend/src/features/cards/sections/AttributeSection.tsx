@@ -201,7 +201,7 @@ function AttributeSection({
   const renderSectionBody = (isEdit: boolean) => {
     if (!is2Col) return renderColumnItems(col0Items, isEdit);
     return (
-      <Box sx={{ display: "flex", gap: 3, flexDirection: "column", "@container (min-width: 600px)": { flexDirection: "row" } }}>
+      <Box sx={{ display: "flex", gap: 3, flexDirection: "column", "@container (min-width: 780px)": { flexDirection: "row" } }}>
         <Box sx={{ flex: 1 }}>{renderColumnItems(col0Items, isEdit)}</Box>
         {col1Items.length > 0 && (
           <Box sx={{ flex: 1 }}>{renderColumnItems(col1Items, isEdit)}</Box>
