@@ -1,467 +1,125 @@
-# PPM Module Redesign Plan
+# Plan: Fix PPM Gantt & Portfolio Remaining Issues
 
-## Summary
-
-Complete redesign of the PPM module based on PPM best practices (Planview, Clarity, Monday.com, Smartsheet patterns). The core principle: **the Gantt chart IS the portfolio overview**, project detail is a first-class routed page with dedicated tabs for Cost, Risks, and Tasks, and the task manager becomes a proper Kanban board.
+Four issues to fix. Each has a clear root cause identified from library source code analysis.
 
 ---
 
-## Architecture Changes Overview
+## Issue 1: Alternating Rows Lost in Gantt SVG Area (Both Modes)
 
-### What Changes
-| Area | Current | Redesigned |
-|------|---------|------------|
-| Portfolio view | Two tabs (KPI dashboard + Gantt) | Single view: compact KPI bar + Gantt chart |
-| Gantt grouping | By parent Initiative (hierarchy) | User-selectable: group by any related card type |
-| Project access | Inline component inside dashboard | Dedicated route `/ppm/:id` |
-| Project tabs | Overview, Status Reports, Tasks | Overview, Reports, Cost, Risks, Tasks |
-| Monthly report | Contains cost lines, risks, % complete | Simplified: RAG status + summary + accomplishments + next steps only |
-| Cost management | Embedded in status report | Own tab with dedicated `ppm_cost_lines` table |
-| Risk management | Embedded in status report as simple text | Own tab with dedicated `ppm_risks` table (probability × impact scoring) |
-| Task manager | AG Grid table with filter drawer | Kanban board (default) + list view toggle, built with @dnd-kit |
-| Task model | Has start_date | Remove start_date, keep only due_date |
+**Root cause**: The `@wamra/gantt-task-react` library does **not** render alternating row backgrounds in the SVG gantt area. The SVG gets a single solid `background: colors.oddTaskBackgroundColor` as an inline style (lib line 6175). The only things rendered in the SVG grid are holiday columns and a "today" column. Alternating row colors only exist on the HTML table side via inline `backgroundColor` on each row div.
 
-### What Stays
-- PpmTask and PpmStatusReport tables (with schema modifications)
-- Permission system (ppm.view, ppm.manage)
-- Relation to Initiative cards
-- Stakeholder assignments
-- All existing API endpoint paths (backwards-compatible additions)
+There is no prop or API to add SVG row striping — it simply doesn't exist in this library.
+
+**Fix**: Post-render DOM injection. After the Gantt mounts, find the SVG's `<g class="gridBody">` element and prepend alternating `<rect>` elements for even-indexed rows.
+
+**Implementation** (in `PpmGanttTab.tsx`):
+1. Add a new `useEffect` that runs after render, keyed on `ganttTasks.length` and `theme.palette.mode`
+2. Inside the effect:
+   - Query `ganttRef.current` for the SVG element, then find `g.gridBody` (or `g.grid`)
+   - Get the row height: the library uses 50px default (matching `fullRowHeight`). We can read the SVG's `height` attribute and divide by the number of task rows to confirm.
+   - Create/update a `<g id="turbo-row-stripes">` element at the beginning of the SVG (before grid lines and task bars) containing `<rect>` elements: even-indexed rows get `fill=evenTaskBackgroundColor`, odd rows are transparent (the SVG background serves as odd color)
+   - Use a `MutationObserver` on the SVG to re-inject when the library re-renders (expand/collapse, scroll)
+3. Colors: light mode even = `#f5f5f5`, dark mode even = `theme.palette.background.paper`. The SVG background (`oddTaskBackgroundColor`) handles odd rows.
+4. Must also handle the case where tasks expand/collapse (row count changes) — the `MutationObserver` covers this.
 
 ---
 
-## Step 1: Database Migration (`050_ppm_redesign.py`)
+## Issue 2: Quarter Labels Overlapping (iPad + Desktop First Label)
 
-### New table: `ppm_cost_lines`
-```
-id              UUID PK
-initiative_id   UUID FK → cards.id ON DELETE CASCADE
-description     TEXT NOT NULL
-category        TEXT NOT NULL  (capex | opex)
-planned         FLOAT DEFAULT 0
-actual          FLOAT DEFAULT 0
-created_at      TIMESTAMP
-updated_at      TIMESTAMP
-```
+**Root cause**: The current code uses `window.innerWidth * 0.35` to estimate the timeline column width. This is completely wrong — the actual timeline column is `1fr` in a CSS grid with fixed columns totaling ~610px. On iPad (1024px viewport) the timeline column might be ~165px while the estimate says ~358px, causing `step=1` (show all labels) when they clearly don't fit.
 
-### New table: `ppm_risks`
-```
-id              UUID PK
-initiative_id   UUID FK → cards.id ON DELETE CASCADE
-title           TEXT NOT NULL
-description     TEXT
-probability     INTEGER NOT NULL (1-5)
-impact          INTEGER NOT NULL (1-5)
-risk_score      INTEGER  (computed: probability × impact, stored for sorting)
-mitigation      TEXT
-owner_id        UUID FK → users.id (nullable)
-status          TEXT DEFAULT 'open'  (open | mitigating | mitigated | closed | accepted)
-created_at      TIMESTAMP
-updated_at      TIMESTAMP
-```
+The first-label overlap on desktop happens because the first quarter's start date may precede `windowStart`, clamping its `left` to 0%. The next quarter is close by, and `transform: translateX(-50%)` makes the first label's right half overlap the second label's left half.
 
-### Alter `ppm_status_reports`
-- ADD `accomplishments TEXT`
-- ADD `next_steps TEXT`
-- DROP `percent_complete` column
-- DROP `cost_lines` column (JSONB → moved to dedicated table)
-- DROP `risks` column (JSONB → moved to dedicated table)
+**Fix**: Use `useRef` + `ResizeObserver` to measure the actual pixel width of the timeline column container.
 
-### Alter `ppm_tasks`
-- DROP `start_date` column
-
-### Data migration
-- For each existing report that has `cost_lines` JSONB data, migrate rows into `ppm_cost_lines` table
-- For each existing report that has `risks` JSONB data, migrate rows into `ppm_risks` table
-- This is a non-destructive migration: create new tables first, migrate data, then drop columns
+**Implementation** (in `PpmPortfolio.tsx`):
+1. Add `const timelineRef = useRef<HTMLDivElement>(null)` and `const [timelineWidth, setTimelineWidth] = useState(300)`
+2. Add a `useEffect` with `ResizeObserver`:
+   ```typescript
+   useEffect(() => {
+     const el = timelineRef.current;
+     if (!el) return;
+     const ro = new ResizeObserver(([entry]) => setTimelineWidth(entry.contentRect.width));
+     ro.observe(el);
+     return () => ro.disconnect();
+   }, []);
+   ```
+3. Attach `ref={timelineRef}` to the quarter labels `<Box>` container
+4. Compute step from measured width:
+   ```typescript
+   const pxPerQuarter = quarters.length > 1 ? timelineWidth / quarters.length : timelineWidth;
+   const step = pxPerQuarter >= 60 ? 1 : pxPerQuarter >= 30 ? 2 : 4;
+   ```
+5. For the first-label clipping: offset the first shown label's `left` to at least `2%` so `translateX(-50%)` doesn't push it out of bounds. Alternatively, use `transform: translateX(0)` for the first label and `translateX(-100%)` for the last label (edge-aware positioning).
 
 ---
 
-## Step 2: Backend Models
+## Issue 3: Dark Mode — Selected Row Turns White on Table Side
 
-### New model: `PpmCostLine` (`backend/app/models/ppm_cost_line.py`)
-- Fields: id, initiative_id, description, category, planned, actual
-- Mixins: UUIDMixin, TimestampMixin
+**Root cause**: The library's `selectedTaskBackgroundColor` is applied as an inline `backgroundColor` on the row div (lib line 1258). We set it to `rgba(144, 202, 249, 0.16)` — a semi-transparent value. The issue: the library also creates its own internal MUI theme (lib line 1012, `createTheme(themeOptions)`) which is always a **light** theme (variable named `materialLightTheme`). MUI focus/hover states from this internal light theme may paint white overlays on top. Additionally, semi-transparent colors blend differently depending on what's underneath, and on odd rows vs even rows the underlying color differs, creating inconsistent visual results.
 
-### New model: `PpmRisk` (`backend/app/models/ppm_risk.py`)
-- Fields: id, initiative_id, title, description, probability, impact, risk_score, mitigation, owner_id, status
-- Mixins: UUIDMixin, TimestampMixin
+**Fix**: Use **opaque** selection colors that look correct regardless of what's underneath, bypassing any alpha-blending issues.
 
-### Update: `PpmStatusReport` model
-- Remove: `percent_complete`, `cost_lines`, `risks`
-- Add: `accomplishments`, `next_steps`
-
-### Update: `PpmTask` model
-- Remove: `start_date`
-
-### Register in `backend/app/models/__init__.py`
+**Implementation** (in `PpmGanttTab.tsx`):
+1. Change `selectedTaskBackgroundColor` from semi-transparent rgba to opaque values:
+   - Dark mode: `#1a3a5c` (a dark navy blue — visually similar to the current intent but opaque)
+   - Light mode: `#e3f2fd` (MUI blue-50 — a light blue that's clearly highlighted)
+2. These opaque colors guarantee the selected row looks identical on even and odd rows, and aren't affected by the library's internal light theme overlays.
 
 ---
 
-## Step 3: Backend Schemas (`backend/app/schemas/ppm.py`)
-
-### Remove
-- `CostLine` schema (no longer embedded in reports)
-
-### Update `PpmStatusReportCreate`
-- Remove: `percent_complete`, `cost_lines`, `risks`
-- Add: `accomplishments: str | None = None`, `next_steps: str | None = None`
-
-### Update `PpmStatusReportUpdate` — same removals/additions
-
-### Update `PpmStatusReportOut` — same removals/additions
-
-### New `PpmCostLineCreate`
-- `description: str`, `category: Literal["capex", "opex"]`, `planned: float = 0`, `actual: float = 0`
-
-### New `PpmCostLineUpdate` (all optional)
-
-### New `PpmCostLineOut` (with id, initiative_id, timestamps)
-
-### New `PpmRiskCreate`
-- `title: str`, `description: str | None = None`, `probability: int = Field(ge=1, le=5)`, `impact: int = Field(ge=1, le=5)`, `mitigation: str | None = None`, `owner_id: str | None = None`, `status: Literal["open", "mitigating", "mitigated", "closed", "accepted"] = "open"`
-
-### New `PpmRiskUpdate` (all optional)
-
-### New `PpmRiskOut` (with id, risk_score, owner_name, timestamps)
-
-### Update `PpmTaskCreate` / `PpmTaskUpdate` / `PpmTaskOut`
-- Remove `start_date`
-
-### Update `PpmGanttItem`
-- Add: `organization_id: str | None`, `organization_name: str | None`
-- Add: `latest_report_id: str | None` (for quick link to report)
-- Remove: `cost_budget`, `cost_actual` (these come from cost lines now, or keep as card attributes for the KPI bar)
-
----
-
-## Step 4: Backend API Endpoints
-
-### New endpoints in `ppm.py`
-
-**Cost Lines:**
-- `GET /ppm/initiatives/{id}/costs` → list cost lines
-- `POST /ppm/initiatives/{id}/costs` → create cost line (ppm.manage)
-- `PATCH /ppm/costs/{cost_id}` → update cost line
-- `DELETE /ppm/costs/{cost_id}` → delete cost line
-
-**Risks:**
-- `GET /ppm/initiatives/{id}/risks` → list risks (with owner_name joined)
-- `POST /ppm/initiatives/{id}/risks` → create risk (ppm.manage)
-- `PATCH /ppm/risks/{risk_id}` → update risk
-- `DELETE /ppm/risks/{risk_id}` → delete risk
-
-### Update Gantt endpoint (`ppm_reports.py`)
-
-The `/reports/ppm/gantt` endpoint needs to:
-1. Accept a query param `?group_by={relation_type_key}` (e.g. `?group_by=Organization`)
-2. For each initiative, look up relations to find which card of the group_by type it's connected to
-3. Return `group_id`, `group_name` on each GanttItem
-4. Also return available grouping options (relation types where Initiative is source or target)
-
-New endpoint:
-- `GET /reports/ppm/group-options` → returns list of card types that Initiative has relations to (for the grouping dropdown)
-
-### Update report CRUD
-- Remove cost_lines/risks/percent_complete from create/update handlers
-- Add accomplishments/next_steps
-
-### Update task CRUD
-- Remove start_date from create/update
-
----
-
-## Step 5: Frontend Routing
-
-### Update `App.tsx`
-```
-/ppm            → PpmPortfolio (renamed from PpmDashboard)
-/ppm/:id        → PpmProjectDetail (new dedicated route, replaces inline PpmInitiativeDetail)
-```
-
-Both as `lazy()` imports.
-
----
-
-## Step 6: Frontend — Portfolio Page (`PpmPortfolio.tsx`)
-
-Replaces `PpmDashboard.tsx`. Single-page layout:
-
-### Layout
-```
-┌──────────────────────────────────────────────────────────────┐
-│ [icon] Project Portfolio Management                          │
-├──────────────────────────────────────────────────────────────┤
-│ KPI Bar: | 24 Projects | $12.5M Budget | 8 On Track | 3 At Risk | 2 Off Track │
-├──────────────────────────────────────────────────────────────┤
-│ [Search] [Group by: ▼ Organization] [Filter Subtype: ▼ All] │
-├──────────────────────────────────────────────────────────────┤
-│                    GANTT CHART                                │
-│ ┌─────────────────────────────────────────────────────────┐  │
-│ │ ▼ Organization A (3)                                    │  │
-│ │   Project Name  | PM    | ████████▓▓▓ | S C Sc | 📄   │  │
-│ │   Project Name  | PM    | ██████████  | S C Sc | 📄   │  │
-│ │ ▼ Organization B (2)                                    │  │
-│ │   Project Name  | PM    | ████        | S C Sc | 📄   │  │
-│ └─────────────────────────────────────────────────────────┘  │
-└──────────────────────────────────────────────────────────────┘
-```
-
-### Key features
-- **Group by dropdown**: Populated from `/reports/ppm/group-options`. Options are card types Initiative has relations to (Organization, Platform, Business Capability, Objective, etc.). Default: Organization.
-- **Collapsible groups**: Each group header shows group name + count. Click to collapse.
-- **Row columns**: Project Name (clickable → navigates to `/ppm/:id`) | PM | Gantt bar | S/C/Sc RAG dots | Report link icon (📄)
-- **RAG dots**: 3 dedicated columns with colored circles. Header shows "S" "C" "Sc" with tooltip explaining Schedule/Cost/Scope. Gray dot if no report.
-- **Report link icon**: Small document icon. If latest report exists, clicking it navigates to `/ppm/:id?tab=reports`. Grayed out if no report.
-- **Today line**: Red vertical line on the Gantt chart showing current date
-- **Quarter labels**: Q1 2026, Q2 2026, etc. in the Gantt header
-- **Row click**: Navigate to `/ppm/:id` via React Router
-
-### Removed from current implementation
-- Portfolio Overview tab (KPIs + pie charts + status distribution)
-- Pie charts
-- Status distribution section
-- Separate Gantt tab
-
----
-
-## Step 7: Frontend — Project Detail Page (`PpmProjectDetail.tsx`)
-
-Replaces `PpmInitiativeDetail.tsx`. New routed component at `/ppm/:id`.
-
-### Layout
-```
-┌──────────────────────────────────────────────────────────────┐
-│ ← Back to Portfolio    Project Name    [Program chip]        │
-├──────────────────────────────────────────────────────────────┤
-│ [Overview] [Reports] [Cost] [Risks] [Tasks]                  │
-├──────────────────────────────────────────────────────────────┤
-│                    TAB CONTENT                                │
-└──────────────────────────────────────────────────────────────┘
-```
-
-### Tab 0: Overview
-- **Header card**: Project name, subtype, status, date range, description
-- **Health summary**: 3 RAG indicators from latest report (or "No reports yet")
-- **Key financials summary**: Total budget vs actual (aggregated from cost lines)
-- **Stakeholders**: List of assigned stakeholders with roles
-- **Related cards**: Shows related Applications, Business Capabilities, etc. (uses existing relations)
-
-### Tab 1: Reports (monthly status reports)
-- List of reports in reverse chronological order
-- Each report displayed as a **document-style card** (not a form):
-  - Date + reporter name
-  - 3 RAG dots in a row
-  - Summary text
-  - Accomplishments text
-  - Next steps text
-- "Add Report" button opens simplified StatusReportDialog
-- Edit/delete actions on each report
-
-### Tab 2: Cost
-- **Summary bar**: Total Planned | Total Actual | Variance | CAPEX total | OPEX total
-- **MUI Table** with columns: Description | Category | Planned | Actual | Variance
-- Inline editing (click cell to edit)
-- Add/delete buttons
-- Budget health indicator (green/yellow/red based on burn rate)
-
-### Tab 3: Risks
-- **Risk summary**: Open risks count by severity (probability × impact)
-- **MUI Table** with columns: Title | Probability (1-5) | Impact (1-5) | Score | Status | Owner | Mitigation
-- Color-coded score cells (1-5 green, 6-12 yellow, 15-25 red)
-- Add/edit/delete via dialog
-- Risk status workflow: open → mitigating → mitigated/closed/accepted
-
-### Tab 4: Tasks (Kanban board)
-- See Step 8 below
-
----
-
-## Step 8: Frontend — Task Board (`PpmTaskBoard.tsx`)
-
-Replaces `PpmTaskManager.tsx`. Built with `@dnd-kit` (already in the project).
-
-### Kanban View (default)
-```
-┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐
-│ TO DO (5)   │ │ IN PROGRESS │ │ DONE (8)    │ │ BLOCKED (1) │
-│             │ │ (3)         │ │             │ │             │
-│ ┌─────────┐ │ │ ┌─────────┐ │ │ ┌─────────┐ │ │ ┌─────────┐ │
-│ │▌Task    │ │ │ │▌Task    │ │ │ │▌Task    │ │ │ │▌Task    │ │
-│ │ 🧑 Due  │ │ │ │ 🧑 Due  │ │ │ │ 🧑 Due  │ │ │ │ 🧑 Due  │ │
-│ └─────────┘ │ │ └─────────┘ │ │ └─────────┘ │ │ └─────────┘ │
-│ ┌─────────┐ │ │             │ │             │ │             │
-│ │▌Task    │ │ │             │ │             │ │             │
-│ │ 🧑 Due  │ │ │             │ │             │ │             │
-│ └─────────┘ │ │             │ │             │ │             │
-│             │ │             │ │             │ │             │
-│ [+ Add]     │ │ [+ Add]     │ │             │ │             │
-└─────────────┘ └─────────────┘ └─────────────┘ └─────────────┘
-```
-
-### Task Card Design
-- **Left border**: 3px colored by priority (critical=red, high=orange, medium=yellow, low=green)
-- **Title**: Bold text, truncated with ellipsis
-- **Bottom row**: Assignee avatar (initials circle) + due date (red text if overdue)
-- **Hover**: Subtle elevation, edit icon appears
-- **Click**: Opens task edit dialog
-
-### Interactions
-- **Drag-and-drop** between columns (updates status via PATCH)
-- **Drag-and-drop** within column (reorders via sort_order)
-- **Quick add**: "+" button at bottom of each column creates task in that status
-- **Click task**: Opens PpmTaskDialog for editing
-
-### List View (toggle)
-- Simple MUI Table/List showing: Title | Priority | Assignee | Due Date | Status
-- Toggle between Kanban ↔ List via icon buttons in the toolbar
-- Same data, different layout
-
-### Implementation with @dnd-kit
-- `DndContext` wrapping the board
-- One `SortableContext` per column (todo, in_progress, done, blocked)
-- Each task card uses `useSortable`
-- `DragOverlay` for the floating card during drag
-- `onDragEnd` → PATCH `/ppm/tasks/{id}` with new status + sort_order
-- `closestCorners` collision detection for cross-column moves
-- `PointerSensor` + `KeyboardSensor` for accessibility
-
-### PpmTaskDialog updates
-- Remove start_date field
-- Add user selector for assignee (dropdown of all users)
-- Keep: title, description, priority, due_date, assignee
-
----
-
-## Step 9: Frontend — StatusReportDialog Simplification
-
-The dialog now only contains:
-1. **Report date** (date picker)
-2. **RAG status toggles** (Schedule, Cost, Scope — 3 toggle groups)
-3. **Summary** (multiline text — executive summary of current status)
-4. **Accomplishments** (multiline text — what was achieved this period)
-5. **Next steps** (multiline text — what's planned for next period)
-
-Removed: percent_complete slider, cost lines section, risks section.
-
----
-
-## Step 10: TypeScript Types (`frontend/src/types/index.ts`)
-
-### Update existing
-- `PpmStatusReport`: remove `percent_complete`, `cost_lines`, `risks`. Add `accomplishments`, `next_steps`
-- `PpmTask`: remove `start_date`
-- `PpmGanttItem`: add `group_id`, `group_name`, `latest_report_id`
-
-### New types
-- `PpmCostLine`: `{ id, initiative_id, description, category, planned, actual, created_at, updated_at }`
-- `PpmRisk`: `{ id, initiative_id, title, description, probability, impact, risk_score, mitigation, owner_id, owner_name, status, created_at, updated_at }`
-- `PpmGroupOption`: `{ type_key, type_label }` (for the group-by dropdown)
-
-### Remove
-- `PpmCostLine` (the old embedded type in reports)
-- `PpmDashboardData` (the dashboard with pie charts is gone)
-
----
-
-## Step 11: i18n Updates
-
-### New keys needed (all 8 locales)
-
-**ppm namespace** — new/changed keys:
-- `portfolio` — "Portfolio"
-- `groupBy` — "Group by"
-- `noGroup` — "Unassigned"
-- `viewReport` — "View latest report"
-- `noReportAvailable` — "No report available"
-- `accomplishments` — "Accomplishments"
-- `nextSteps` — "Next Steps"
-- `costManagement` — "Cost Management"
-- `riskManagement` — "Risk Management"
-- `addCostItem` — "Add Cost Item"
-- `addRisk` — "Add Risk"
-- `riskTitle` — "Risk Title"
-- `probability` — "Probability"
-- `impact` — "Impact"
-- `riskScore` — "Risk Score"
-- `mitigation` — "Mitigation Plan"
-- `riskOwner` — "Owner"
-- `riskStatus` — "Status"
-- `riskStatusOpen` — "Open"
-- `riskStatusMitigating` — "Mitigating"
-- `riskStatusMitigated` — "Mitigated"
-- `riskStatusClosed` — "Closed"
-- `riskStatusAccepted` — "Accepted"
-- `variance` — "Variance"
-- `totalPlanned` — "Total Planned"
-- `totalActual` — "Total Actual"
-- `kanbanView` — "Board view"
-- `listView` — "List view"
-- `quickAdd` — "Quick add"
-- `overdue` — "Overdue"
-- `dueToday` — "Due today"
-
-### Remove unused keys
-- `ganttChart` (merged into portfolio)
-- `portfolioOverview` (removed)
-- `budgetUtilization` (removed from KPIs)
-- `byStatus` (pie chart removed)
-- `costLineDescription` (cost lines no longer in reports)
-- `addCostLine` (renamed to addCostItem)
-- `percentComplete` (removed from reports)
-- `taskStartDate` (removed)
-
----
-
-## Step 12: Files to Create/Modify/Delete
-
-### New files
-- `backend/alembic/versions/050_ppm_redesign.py` — migration
-- `backend/app/models/ppm_cost_line.py` — CostLine model
-- `backend/app/models/ppm_risk.py` — Risk model
-- `frontend/src/features/ppm/PpmPortfolio.tsx` — new portfolio page
-- `frontend/src/features/ppm/PpmProjectDetail.tsx` — new routed project detail
-- `frontend/src/features/ppm/PpmTaskBoard.tsx` — Kanban board
-- `frontend/src/features/ppm/PpmCostTab.tsx` — cost management tab
-- `frontend/src/features/ppm/PpmRiskTab.tsx` — risk management tab
-- `frontend/src/features/ppm/PpmReportsTab.tsx` — simplified reports list
-- `frontend/src/features/ppm/PpmOverviewTab.tsx` — project overview tab
-- `frontend/src/features/ppm/PpmTaskCard.tsx` — Kanban card component
-
-### Modified files
-- `backend/app/models/__init__.py` — register new models
-- `backend/app/models/ppm_status_report.py` — update columns
-- `backend/app/models/ppm_task.py` — remove start_date
-- `backend/app/schemas/ppm.py` — update all schemas
-- `backend/app/api/v1/ppm.py` — add cost/risk CRUD, update report/task handlers
-- `backend/app/api/v1/ppm_reports.py` — update gantt endpoint with grouping
-- `frontend/src/types/index.ts` — update PPM types
-- `frontend/src/features/ppm/StatusReportDialog.tsx` — simplify
-- `frontend/src/features/ppm/PpmTaskDialog.tsx` — remove start_date, add user dropdown
-- `frontend/src/App.tsx` — update routes
-- `frontend/src/i18n/locales/*/ppm.json` — all 8 locales
-
-### Delete files
-- `frontend/src/features/ppm/PpmDashboard.tsx` — replaced by PpmPortfolio
-- `frontend/src/features/ppm/PpmInitiativeDetail.tsx` — replaced by PpmProjectDetail
-- `frontend/src/features/ppm/PpmTaskManager.tsx` — replaced by PpmTaskBoard
-- `frontend/src/features/ppm/PpmGanttChart.tsx` — rebuilt inside PpmPortfolio
+## Issue 4: Touch Horizontal Scroll Not Working
+
+**Root cause**: The library registers a `touchmove` handler on the SVG element (lib line 7841) that unconditionally calls `event.preventDefault()` (lib line 7801) — even when no task drag is in progress. The `handleMove()` function bails out early when no drag is happening, but `preventDefault()` is called **before** `handleMove()`, killing the browser's native touch scroll.
+
+Our current workaround uses capture-phase **passive** touch handlers. This can't work because:
+- `passive: true` means we can't call `stopPropagation()` or `preventDefault()`
+- The library's bubble-phase handler fires after ours and still calls `preventDefault()`
+- Our manual `scrollLeft` changes are fighting against the blocked native scroll
+
+**Fix**: Use a capture-phase **non-passive** `touchmove` handler that calls `stopImmediatePropagation()` when the user is scrolling (not dragging a task bar). This prevents the library's handler from ever firing.
+
+**Implementation** (in `PpmGanttTab.tsx`):
+1. Replace the current passive touch workaround with:
+   ```typescript
+   const onTouchStart = (e: TouchEvent) => {
+     if (e.touches.length !== 1) return;
+     // If touch starts on a task bar, let the library handle it (drag)
+     if (isBarElement(e.target)) { isManualScroll = false; return; }
+     const sc = findScrollContainer();
+     if (!sc) return;
+     touchStartX = e.touches[0].clientX;
+     touchStartY = e.touches[0].clientY;
+     scrollStartLeft = sc.scrollLeft;
+     isManualScroll = true;
+   };
+
+   const onTouchMove = (e: TouchEvent) => {
+     if (!isManualScroll || e.touches.length !== 1) return;
+     // Key: stopImmediatePropagation prevents the library's touchmove handler
+     // from firing, which would call preventDefault() and kill scrolling
+     e.stopImmediatePropagation();
+     const sc = findScrollContainer();
+     if (sc) {
+       const dx = touchStartX - e.touches[0].clientX;
+       sc.scrollLeft = scrollStartLeft + dx;
+     }
+   };
+   ```
+2. Register with `{ capture: true, passive: false }` — non-passive is required so `stopImmediatePropagation()` works before the browser decides whether to scroll natively, and capture phase fires before the library's bubble-phase handler.
+3. The `touchstart` handler stays `passive: true` since it doesn't need to prevent anything.
+4. Add a deadzone check: only activate manual scroll if horizontal movement exceeds vertical by a threshold (e.g., 10px), so vertical page scrolling still works naturally.
 
 ---
 
 ## Implementation Order
 
-1. **Migration + Models** (backend foundation)
-2. **Schemas** (Pydantic updates)
-3. **API endpoints** (cost CRUD, risk CRUD, updated report/task/gantt)
-4. **TypeScript types** (frontend types)
-5. **PpmPortfolio** (portfolio Gantt page with grouping)
-6. **PpmProjectDetail + routing** (dedicated route with tabs)
-7. **PpmOverviewTab** (project overview)
-8. **PpmReportsTab + StatusReportDialog** (simplified reports)
-9. **PpmCostTab** (cost management)
-10. **PpmRiskTab** (risk register)
-11. **PpmTaskBoard + PpmTaskCard** (Kanban with @dnd-kit)
-12. **i18n** (all 8 locales)
-13. **Cleanup** (delete old files, update imports)
-14. **Lint + test**
+1. **Touch scroll** (Issue 4) — highest user impact, completely broken
+2. **Selected row white** (Issue 3) — simple color change, quick fix
+3. **Quarter labels** (Issue 2) — ResizeObserver measurement
+4. **SVG alternating rows** (Issue 1) — DOM injection, most complex
+
+## Files Modified
+
+- `frontend/src/features/ppm/PpmGanttTab.tsx` — Issues 1, 3, 4
+- `frontend/src/features/ppm/PpmPortfolio.tsx` — Issue 2

@@ -821,6 +821,95 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
     return () => el.removeEventListener("contextmenu", onContextMenu);
   }, []);
 
+  /**
+   * Touch-scroll workaround: the gantt-task-react library attaches a touchmove
+   * handler on the SVG that unconditionally calls preventDefault(), blocking
+   * native touch scroll. We intercept in the capture phase with a NON-PASSIVE
+   * handler and call stopImmediatePropagation() to prevent the library's
+   * handler from firing when the user is scrolling (not dragging a bar).
+   */
+  useEffect(() => {
+    const el = ganttRef.current;
+    if (!el) return;
+
+    let scrollContainer: HTMLElement | null = null;
+    let touchStartX = 0;
+    let touchStartY = 0;
+    let scrollStartLeft = 0;
+    let scrollMode: "none" | "scroll" | "bar" = "none";
+    const DEADZONE = 8; // px before deciding scroll vs bar drag
+
+    const findScrollContainer = (): HTMLElement | null => {
+      if (scrollContainer) return scrollContainer;
+      scrollContainer = el.querySelector(
+        '[class*="ganttTaskRoot"]',
+      ) as HTMLElement | null;
+      return scrollContainer;
+    };
+
+    const isBarElement = (target: EventTarget | null): boolean => {
+      if (!(target instanceof Element)) return false;
+      return (
+        target.closest(
+          '[class*="barWrapper"], [class*="projectWrapper"], [class*="milestoneWrapper"], [class*="barHandle"]',
+        ) !== null
+      );
+    };
+
+    const onTouchStart = (e: TouchEvent) => {
+      if (e.touches.length !== 1) return;
+      if (isBarElement(e.target)) {
+        scrollMode = "bar";
+        return;
+      }
+      const sc = findScrollContainer();
+      if (!sc) return;
+      touchStartX = e.touches[0].clientX;
+      touchStartY = e.touches[0].clientY;
+      scrollStartLeft = sc.scrollLeft;
+      scrollMode = "none"; // undecided until deadzone exceeded
+    };
+
+    const onTouchMove = (e: TouchEvent) => {
+      if (scrollMode === "bar" || e.touches.length !== 1) return;
+
+      const dx = touchStartX - e.touches[0].clientX;
+      const dy = touchStartY - e.touches[0].clientY;
+
+      if (scrollMode === "none") {
+        // Still in deadzone — wait until movement exceeds threshold
+        if (Math.abs(dx) < DEADZONE && Math.abs(dy) < DEADZONE) return;
+        // If predominantly vertical, let page scroll naturally
+        if (Math.abs(dy) > Math.abs(dx)) {
+          scrollMode = "bar"; // give up — let default behavior handle it
+          return;
+        }
+        scrollMode = "scroll";
+      }
+
+      // Stop the library's touchmove handler from calling preventDefault()
+      e.stopImmediatePropagation();
+      e.preventDefault();
+
+      const sc = findScrollContainer();
+      if (sc) sc.scrollLeft = scrollStartLeft + dx;
+    };
+
+    const onTouchEnd = () => {
+      scrollMode = "none";
+    };
+
+    el.addEventListener("touchstart", onTouchStart, { capture: true, passive: true });
+    // MUST be non-passive so stopImmediatePropagation + preventDefault work
+    el.addEventListener("touchmove", onTouchMove, { capture: true, passive: false });
+    el.addEventListener("touchend", onTouchEnd, { capture: true, passive: true });
+    return () => {
+      el.removeEventListener("touchstart", onTouchStart, true);
+      el.removeEventListener("touchmove", onTouchMove, true);
+      el.removeEventListener("touchend", onTouchEnd, true);
+    };
+  }, []);
+
   if (loading) {
     return (
       <Box display="flex" justifyContent="center" mt={4}>
@@ -898,6 +987,7 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
       <Box
         ref={ganttRef}
         sx={{
+          /* ── Base styles ── */
           "& .ganttTable": { fontFamily: theme.typography.fontFamily },
           "& .ganttTable_Header": {
             borderBottom: `1px solid ${theme.palette.divider}`,
@@ -921,6 +1011,90 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
               backgroundColor: `${theme.palette.action.hover} !important`,
             },
           },
+          /* ── Horizontal grid lines on the SVG gantt side ──
+             The library sets a solid background on the SVG and renders column
+             lines + alternating bands via a wrapper div's backgroundImage.
+             We override the wrapper div's gradient in dark mode and add 1px
+             horizontal dividers on the SVG itself. */
+          "& [class*='ganttTaskContent_'] > div": {
+            backgroundImage: `
+              linear-gradient(to right, ${theme.palette.divider} 1px, transparent 2px),
+              linear-gradient(to bottom, transparent 40px, ${theme.palette.mode === "dark" ? theme.palette.background.paper : "#f5f5f5"} 40px)
+            !important`,
+          },
+          "& [class*='ganttTaskContent_'] > div > svg": {
+            backgroundImage: `repeating-linear-gradient(
+              to bottom,
+              transparent 0px,
+              transparent 39px,
+              ${theme.palette.divider} 39px,
+              ${theme.palette.divider} 40px
+            ) !important`,
+          },
+          /* ── Touch scrolling: allow native pan gestures on all scroll containers ── */
+          "& [class*='ganttTaskRoot_']": { touchAction: "pan-x pan-y" },
+          "& [class*='ganttTaskContent_']": { touchAction: "pan-x pan-y" },
+          "& [class*='ganttTableWrapper_']": { touchAction: "pan-x pan-y" },
+          "& [class*='wrapper_'][data-testid='gantt-main']": {
+            touchAction: "pan-x pan-y",
+          },
+
+          /* ── Dark mode overrides (CSS-class-based elements only;
+               inline-style colors are handled via the colors prop) ── */
+          ...(theme.palette.mode === "dark" && {
+            /* Calendar header cells (SVG rects — CSS class fill) */
+            "& [class*='calendarHeader']": {
+              fill: `${theme.palette.background.paper} !important`,
+              stroke: `${theme.palette.divider} !important`,
+            },
+            /* Calendar text (SVG — CSS class fill) */
+            "& [class*='calendarTopText']": {
+              fill: `${theme.palette.text.secondary} !important`,
+            },
+            "& [class*='calendarBottomText']": {
+              fill: `${theme.palette.text.primary} !important`,
+            },
+            /* Calendar tick lines + borders (CSS class stroke/border) */
+            "& [class*='calendarTopTick']": {
+              stroke: `${theme.palette.divider} !important`,
+            },
+            "& [class*='calendarMain']": {
+              borderColor: `${theme.palette.divider} !important`,
+            },
+            /* Table borders (CSS class border) */
+            "& [class*='ganttTableRoot']": {
+              borderColor: `${theme.palette.divider} !important`,
+            },
+            "& [class*='ganttTable_Header']": {
+              borderColor: `${theme.palette.divider} !important`,
+            },
+            "& [class*='ganttTable_HeaderSeparator']": {
+              borderColor: `${theme.palette.divider} !important`,
+            },
+            /* Task list resizer (CSS class ::before) */
+            "& [class*='taskListResizer']::before": {
+              backgroundColor: `${theme.palette.divider} !important`,
+            },
+            /* Tooltip (CSS class background) */
+            "& [class*='tooltipDefaultContainer_']": {
+              background: `${theme.palette.background.paper} !important`,
+              color: `${theme.palette.text.primary} !important`,
+            },
+            "& [class*='tooltipDefaultContainerParagraph']": {
+              color: `${theme.palette.text.secondary} !important`,
+            },
+            /* Bar handles + relation lines (SVG CSS class fill/stroke) */
+            "& [class*='barHandle']": {
+              fill: `${theme.palette.action.selected} !important`,
+            },
+            "& [class*='relationLine']": {
+              stroke: `${theme.palette.text.disabled} !important`,
+            },
+            /* Scrollbar */
+            "& [class*='ganttTableWrapper']::-webkit-scrollbar-thumb": {
+              background: "rgba(255, 255, 255, 0.2) !important",
+            },
+          }),
         }}
       >
         <Gantt
@@ -938,10 +1112,36 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
           roundDate={roundToDay}
           dateMoveStep={{ value: 1, timeUnit: GanttDateRoundingTimeUnit.DAY }}
           checkIsHoliday={checkIsWeekend}
+          preStepsCount={2}
           colors={{
-            selectedTaskBackgroundColor: "rgba(25, 118, 210, 0.08)",
-            todayColor: "rgba(25, 118, 210, 0.08)",
-            holidayBackgroundColor: "rgba(0, 0, 0, 0.04)",
+            /* Row backgrounds — applied as inline styles by the library,
+               so CSS overrides can't reach them. Must be set here. */
+            evenTaskBackgroundColor:
+              theme.palette.mode === "dark"
+                ? theme.palette.background.paper
+                : "#f5f5f5",
+            oddTaskBackgroundColor: theme.palette.background.default,
+            /* Opaque selection colors — semi-transparent values cause white
+               flash on some rows because the library's internal MUI theme is
+               always "light", which paints white focus/hover overlays. */
+            selectedTaskBackgroundColor:
+              theme.palette.mode === "dark" ? "#1a3a5c" : "#e3f2fd",
+            todayColor:
+              theme.palette.mode === "dark"
+                ? "rgba(25, 118, 210, 0.15)"
+                : "rgba(25, 118, 210, 0.08)",
+            holidayBackgroundColor:
+              theme.palette.mode === "dark"
+                ? "rgba(255, 255, 255, 0.03)"
+                : "rgba(0, 0, 0, 0.04)",
+            /* Text — barLabelColor defaults to #000, applied as inline
+               style on the wrapper div and inherited by table text. */
+            barLabelColor: theme.palette.text.primary,
+            barLabelWhenOutsideColor: theme.palette.text.primary,
+            /* Context menu */
+            contextMenuBgColor: theme.palette.background.paper,
+            contextMenuTextColor: theme.palette.text.primary,
+            contextMenuBoxShadow: theme.shadows[8],
           }}
           dateFormats={{
             dateColumnFormat: "dd MMM ''yy",
