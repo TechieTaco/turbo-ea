@@ -814,12 +814,31 @@ export default function PpmPortfolio() {
               overflow: "hidden",
             }}
           >
-            {quarters
-              .reduce<{ elements: React.ReactNode[]; lastPct: number }>(
-                (acc, q) => {
+            {(() => {
+              // Compute constant step: show every Nth quarter so labels never overlap.
+              // Each label is ~42px wide; pick the smallest step (1, 2, 4) that fits.
+              const positions = quarters.map(
+                (q) => pctOf(q.start.toISOString().slice(0, 10)) ?? 0,
+              );
+              const avgGapPct =
+                positions.length > 1
+                  ? (positions[positions.length - 1] - positions[0]) /
+                    (positions.length - 1)
+                  : 100;
+              const MIN_LABEL_WIDTH_PX = 48;
+              // Approximate timeline column width: 1fr of the grid ≈ 40% of container
+              const approxTimelinePx = typeof window !== "undefined"
+                ? (window.innerWidth * 0.35)
+                : 400;
+              const gapPx = (avgGapPct / 100) * approxTimelinePx;
+              const step =
+                gapPx >= MIN_LABEL_WIDTH_PX ? 1 : gapPx * 2 >= MIN_LABEL_WIDTH_PX ? 2 : 4;
+
+              return quarters
+                .filter((_, i) => i % step === 0)
+                .map((q) => {
                   const left = pctOf(q.start.toISOString().slice(0, 10)) ?? 0;
-                  if (acc.elements.length > 0 && left - acc.lastPct < 15) return acc;
-                  acc.elements.push(
+                  return (
                     <Typography
                       key={q.label}
                       variant="caption"
@@ -834,14 +853,10 @@ export default function PpmPortfolio() {
                       }}
                     >
                       {q.label}
-                    </Typography>,
+                    </Typography>
                   );
-                  acc.lastPct = left;
-                  return acc;
-                },
-                { elements: [], lastPct: -20 },
-              )
-              .elements}
+                });
+            })()}
           </Box>
           {(
             [
