@@ -101,9 +101,9 @@ export default function InitiativeCard({
               sx={{ mr: 0.5 }}
             >
               <MaterialSymbol
-                icon={isFavorite ? "star" : "star_outline"}
+                icon="kid_star"
                 size={20}
-                color={isFavorite ? "#f5a623" : undefined}
+                color={isFavorite ? "#f5a623" : "#ccc"}
               />
             </IconButton>
           </Tooltip>

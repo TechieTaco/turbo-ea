@@ -125,9 +125,9 @@ export default function InitiativeListView({
                           sx={{ p: 0.25 }}
                         >
                           <MaterialSymbol
-                            icon={isFav ? "star" : "star_outline"}
+                            icon="kid_star"
                             size={18}
-                            color={isFav ? "#f5a623" : undefined}
+                            color={isFav ? "#f5a623" : "#ccc"}
                           />
                         </IconButton>
                       </Tooltip>

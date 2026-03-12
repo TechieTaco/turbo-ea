@@ -27,6 +27,29 @@ import type { SoAW, DiagramSummary } from "@/types";
 type ViewMode = "cards" | "list";
 
 const EXPANDED_STORAGE_KEY = "turboea-delivery-expanded";
+const VIEW_STORAGE_KEY = "turboea-delivery-view";
+
+interface StoredViewPrefs {
+  viewMode?: ViewMode;
+  favoritesOnly?: boolean;
+}
+
+function readViewPrefs(): StoredViewPrefs {
+  try {
+    const raw = localStorage.getItem(VIEW_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
+function writeViewPrefs(prefs: StoredViewPrefs) {
+  try {
+    localStorage.setItem(VIEW_STORAGE_KEY, JSON.stringify(prefs));
+  } catch {
+    // localStorage unavailable
+  }
+}
 
 function readExpandedFromStorage(): Record<string, boolean> {
   try {
@@ -55,16 +78,62 @@ function collectIds(nodes: InitiativeTreeNode[]): string[] {
   return ids;
 }
 
-/** Sort tree nodes so favorites appear first, preserving order within each group. */
+/** Check if a node or any of its descendants is a favorite. */
+function hasFavoriteDescendant(
+  node: InitiativeTreeNode,
+  favorites: Set<string>,
+): boolean {
+  if (favorites.has(node.initiative.id)) return true;
+  return node.children.some((c) => hasFavoriteDescendant(c, favorites));
+}
+
+/**
+ * Sort tree nodes so favorites (or nodes containing favorite descendants) appear
+ * first. Preserves order within each group. Recurses into children.
+ */
 function sortTreeByFavorites(
   nodes: InitiativeTreeNode[],
   favorites: Set<string>,
 ): InitiativeTreeNode[] {
-  const favs = nodes.filter((n) => favorites.has(n.initiative.id));
-  const rest = nodes.filter((n) => !favorites.has(n.initiative.id));
-  return [...favs, ...rest].map((node) => ({
+  const top = nodes.filter((n) => hasFavoriteDescendant(n, favorites));
+  const rest = nodes.filter((n) => !hasFavoriteDescendant(n, favorites));
+  return [...top, ...rest].map((node) => ({
     ...node,
     children: sortTreeByFavorites(node.children, favorites),
+  }));
+}
+
+/**
+ * Filter tree to favorites only. Favorite nodes are kept with all their children.
+ * Non-favorite parents are removed but their favorite children are promoted up.
+ */
+function filterTreeToFavorites(
+  nodes: InitiativeTreeNode[],
+  favorites: Set<string>,
+): InitiativeTreeNode[] {
+  const result: InitiativeTreeNode[] = [];
+  for (const node of nodes) {
+    if (favorites.has(node.initiative.id)) {
+      // Keep the node and all its children (filter children recursively too for ordering)
+      result.push({
+        ...node,
+        children: filterTreeToFavorites(node.children, favorites),
+        level: 0, // will be recalculated
+      });
+    } else {
+      // Not a favorite — promote any favorite children
+      result.push(...filterTreeToFavorites(node.children, favorites));
+    }
+  }
+  return result;
+}
+
+/** Recalculate levels in a tree starting from a given level. */
+function recalcLevels(nodes: InitiativeTreeNode[], level = 0): InitiativeTreeNode[] {
+  return nodes.map((node) => ({
+    ...node,
+    level,
+    children: recalcLevels(node.children, level + 1),
   }));
 }
 
@@ -120,8 +189,14 @@ export default function InitiativesTab({
     onDataReady?.(data);
   }, [data, onDataReady]);
 
-  const [viewMode, setViewMode] = useState<ViewMode>("cards");
+  const [storedViewPrefs] = useState(readViewPrefs);
+  const [viewMode, setViewModeRaw] = useState<ViewMode>(storedViewPrefs.viewMode ?? "cards");
   const [unlinkedExpanded, setUnlinkedExpanded] = useState(false);
+
+  const setViewMode = useCallback((v: ViewMode) => {
+    setViewModeRaw(v);
+    writeViewPrefs({ ...readViewPrefs(), viewMode: v });
+  }, []);
 
   // ── Expand/collapse state (persisted to localStorage) ──
   const [expandedIds, setExpandedIds] = useState<Record<string, boolean>>(readExpandedFromStorage);
@@ -160,7 +235,15 @@ export default function InitiativesTab({
 
   // ── Favorites (server-side) ──
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
-  const [favoritesOnly, setFavoritesOnly] = useState(false);
+  const [favoritesOnly, setFavoritesOnlyRaw] = useState(storedViewPrefs.favoritesOnly ?? false);
+
+  const setFavoritesOnly = useCallback((v: boolean | ((prev: boolean) => boolean)) => {
+    setFavoritesOnlyRaw((prev) => {
+      const next = typeof v === "function" ? v(prev) : v;
+      writeViewPrefs({ ...readViewPrefs(), favoritesOnly: next });
+      return next;
+    });
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -203,13 +286,13 @@ export default function InitiativesTab({
     });
   }, []);
 
-  // Sort tree: favorites first, then apply favoritesOnly filter
+  // Sort tree: favorites first; when favoritesOnly, extract & promote favorite nodes
   const sortedTree = useMemo(() => {
-    let result = sortTreeByFavorites(tree, favorites);
     if (favoritesOnly) {
-      result = result.filter((n) => favorites.has(n.initiative.id));
+      const filtered = filterTreeToFavorites(tree, favorites);
+      return recalcLevels(filtered);
     }
-    return result;
+    return sortTreeByFavorites(tree, favorites);
   }, [tree, favorites, favoritesOnly]);
 
   const initiativeType = useMemo(
@@ -313,7 +396,7 @@ export default function InitiativesTab({
               borderRadius: 1,
             }}
           >
-            <MaterialSymbol icon={favoritesOnly ? "star" : "star_outline"} size={22} />
+            <MaterialSymbol icon="kid_star" size={22} />
           </IconButton>
         </Tooltip>
 
@@ -326,7 +409,7 @@ export default function InitiativesTab({
         <ToggleButtonGroup
           value={viewMode}
           exclusive
-          onChange={(_, v) => v && setViewMode(v)}
+          onChange={(_, v: ViewMode | null) => v && setViewMode(v)}
           size="small"
         >
           <ToggleButton value="cards">
