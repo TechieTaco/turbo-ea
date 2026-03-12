@@ -227,6 +227,8 @@ export default function PpmPortfolio() {
   const [reportAnchorEl, setReportAnchorEl] = useState<HTMLElement | null>(null);
   const [hoveredReport, setHoveredReport] = useState<PpmStatusReport | null>(null);
   const leaveTimer = useRef<ReturnType<typeof setTimeout>>();
+  const timelineRef = useRef<HTMLDivElement>(null);
+  const [timelineWidth, setTimelineWidth] = useState(300);
 
   const handleReportEnter = (
     e: React.MouseEvent<HTMLElement>,
@@ -267,6 +269,17 @@ export default function PpmPortfolio() {
       })
       .finally(() => setLoading(false));
   }, [groupBy]);
+
+  // Measure actual timeline column width for quarter label spacing
+  useEffect(() => {
+    const el = timelineRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(([entry]) => {
+      setTimelineWidth(entry.contentRect.width);
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   const typeConfig = getType("Initiative");
 
@@ -807,6 +820,7 @@ export default function PpmPortfolio() {
           </Typography>
           {/* Quarter labels spanning timeline column */}
           <Box
+            ref={timelineRef}
             sx={{
               display: "flex",
               position: "relative",
@@ -815,29 +829,17 @@ export default function PpmPortfolio() {
             }}
           >
             {(() => {
-              // Compute constant step: show every Nth quarter so labels never overlap.
-              // Each label is ~42px wide; pick the smallest step (1, 2, 4) that fits.
-              const positions = quarters.map(
-                (q) => pctOf(q.start.toISOString().slice(0, 10)) ?? 0,
-              );
-              const avgGapPct =
-                positions.length > 1
-                  ? (positions[positions.length - 1] - positions[0]) /
-                    (positions.length - 1)
-                  : 100;
-              const MIN_LABEL_WIDTH_PX = 48;
-              // Approximate timeline column width: 1fr of the grid ≈ 40% of container
-              const approxTimelinePx = typeof window !== "undefined"
-                ? (window.innerWidth * 0.35)
-                : 400;
-              const gapPx = (avgGapPct / 100) * approxTimelinePx;
-              const step =
-                gapPx >= MIN_LABEL_WIDTH_PX ? 1 : gapPx * 2 >= MIN_LABEL_WIDTH_PX ? 2 : 4;
+              // Compute step using measured container width (via ResizeObserver)
+              const pxPerQuarter =
+                quarters.length > 1 ? timelineWidth / quarters.length : timelineWidth;
+              const step = pxPerQuarter >= 60 ? 1 : pxPerQuarter >= 30 ? 2 : 4;
 
               return quarters
                 .filter((_, i) => i % step === 0)
-                .map((q) => {
+                .map((q, idx) => {
                   const left = pctOf(q.start.toISOString().slice(0, 10)) ?? 0;
+                  // Clamp first label so translateX(-50%) doesn't push it off-screen
+                  const clampedLeft = idx === 0 ? Math.max(3, left) : left;
                   return (
                     <Typography
                       key={q.label}
@@ -845,7 +847,7 @@ export default function PpmPortfolio() {
                       fontWeight={600}
                       sx={{
                         position: "absolute",
-                        left: `${left}%`,
+                        left: `${clampedLeft}%`,
                         bottom: 2,
                         whiteSpace: "nowrap",
                         fontSize: "0.65rem",
