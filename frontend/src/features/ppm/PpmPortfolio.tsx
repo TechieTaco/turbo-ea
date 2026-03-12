@@ -829,39 +829,35 @@ export default function PpmPortfolio() {
             }}
           >
             {(() => {
-              // Compute step using measured container width (via ResizeObserver)
-              const pxPerQuarter =
-                quarters.length > 1 ? timelineWidth / quarters.length : timelineWidth;
-              const step = pxPerQuarter >= 60 ? 1 : pxPerQuarter >= 30 ? 2 : 4;
+              // ~40px per label; compute min % gap so labels don't overlap
+              const minGapPct =
+                timelineWidth > 0 ? (40 / timelineWidth) * 100 : 10;
 
-              const visible = quarters.filter((_, i) => i % step === 0);
-              return visible.map((q, idx) => {
-                  const left = pctOf(q.start.toISOString().slice(0, 10)) ?? 0;
-                  // First label: anchor to left edge so it doesn't clip
-                  const isFirst = idx === 0;
-                  const isLast = idx === visible.length - 1;
-                  return (
-                    <Typography
-                      key={q.label}
-                      variant="caption"
-                      fontWeight={600}
-                      sx={{
-                        position: "absolute",
-                        left: `${isFirst ? 0 : left}%`,
-                        bottom: 2,
-                        whiteSpace: "nowrap",
-                        fontSize: "0.65rem",
-                        transform: isFirst
-                          ? "none"
-                          : isLast
-                            ? "translateX(-100%)"
-                            : "translateX(-50%)",
-                      }}
-                    >
-                      {q.label}
-                    </Typography>
-                  );
-                });
+              const visible: { label: string; left: number }[] = [];
+              let lastPct = -Infinity;
+              for (const q of quarters) {
+                const left = pctOf(q.start.toISOString().slice(0, 10)) ?? 0;
+                if (visible.length > 0 && left - lastPct < minGapPct) continue;
+                visible.push({ label: q.label, left });
+                lastPct = left;
+              }
+
+              return visible.map((q) => (
+                <Typography
+                  key={q.label}
+                  variant="caption"
+                  fontWeight={600}
+                  sx={{
+                    position: "absolute",
+                    left: `${q.left}%`,
+                    bottom: 2,
+                    whiteSpace: "nowrap",
+                    fontSize: "0.65rem",
+                  }}
+                >
+                  {q.label}
+                </Typography>
+              ));
             })()}
           </Box>
           {(
