@@ -259,6 +259,7 @@ interface Props {
   edges: GEdge[];
   types: CardType[];
   onNodeClick: (id: string) => void;
+  onNodeShiftClick?: (id: string) => void;
   onHome: () => void;
   onPrev?: () => void;
   onNext?: () => void;
@@ -276,6 +277,7 @@ function C4DiagramInner({
   edges,
   types,
   onNodeClick,
+  onNodeShiftClick,
   onHome,
   onPrev,
   onNext,
@@ -292,13 +294,17 @@ function C4DiagramInner({
   );
 
   const handleNodeClick = useCallback(
-    (_: React.MouseEvent, node: Node) => {
+    (event: React.MouseEvent, node: Node) => {
       // Only handle clicks on c4Node, not groups
       if (node.type === "c4Node") {
-        onNodeClick(node.id);
+        if (event.shiftKey && onNodeShiftClick) {
+          onNodeShiftClick(node.id);
+        } else {
+          onNodeClick(node.id);
+        }
       }
     },
-    [onNodeClick],
+    [onNodeClick, onNodeShiftClick],
   );
 
   // Bring hovered edge to front by reordering
@@ -368,6 +374,12 @@ function C4DiagramInner({
             {centerName}
           </Typography>
         )}
+        <Typography
+          variant="caption"
+          sx={{ ml: "auto", color: "text.disabled", whiteSpace: "nowrap", fontSize: "0.68rem" }}
+        >
+          {t("dependency.shiftClickHint")}
+        </Typography>
       </Box>
       <Box sx={{ height: 600 }}>
         <ReactFlow

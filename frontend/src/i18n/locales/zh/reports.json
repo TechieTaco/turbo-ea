@@ -144,6 +144,7 @@
   "dependency.previousCard": "上一张卡片",
   "dependency.nextCard": "下一张卡片",
   "dependency.viewInC4": "在C4图中查看",
+  "dependency.shiftClickHint": "按住Shift点击卡片可将图表居中显示",
 
   "cost.title": "成本分析",
   "cost.cardType": "卡片类型",
