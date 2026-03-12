@@ -823,10 +823,10 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
 
   /**
    * Touch-scroll workaround: the gantt-task-react library attaches a touchmove
-   * handler on the SVG that always calls preventDefault(), completely blocking
-   * native scroll on touch devices. We work around this by detecting touches on
-   * non-bar areas (grid background, calendar header) and manually adjusting
-   * scrollLeft on the library's scroll container.
+   * handler on the SVG that unconditionally calls preventDefault(), blocking
+   * native touch scroll. We intercept in the capture phase with a NON-PASSIVE
+   * handler and call stopImmediatePropagation() to prevent the library's
+   * handler from firing when the user is scrolling (not dragging a bar).
    */
   useEffect(() => {
     const el = ganttRef.current;
@@ -834,8 +834,10 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
 
     let scrollContainer: HTMLElement | null = null;
     let touchStartX = 0;
+    let touchStartY = 0;
     let scrollStartLeft = 0;
-    let isManualScroll = false;
+    let scrollMode: "none" | "scroll" | "bar" = "none";
+    const DEADZONE = 8; // px before deciding scroll vs bar drag
 
     const findScrollContainer = (): HTMLElement | null => {
       if (scrollContainer) return scrollContainer;
@@ -857,30 +859,49 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
     const onTouchStart = (e: TouchEvent) => {
       if (e.touches.length !== 1) return;
       if (isBarElement(e.target)) {
-        isManualScroll = false;
+        scrollMode = "bar";
         return;
       }
       const sc = findScrollContainer();
       if (!sc) return;
       touchStartX = e.touches[0].clientX;
+      touchStartY = e.touches[0].clientY;
       scrollStartLeft = sc.scrollLeft;
-      isManualScroll = true;
+      scrollMode = "none"; // undecided until deadzone exceeded
     };
 
     const onTouchMove = (e: TouchEvent) => {
-      if (!isManualScroll || e.touches.length !== 1) return;
-      const sc = findScrollContainer();
-      if (!sc) return;
+      if (scrollMode === "bar" || e.touches.length !== 1) return;
+
       const dx = touchStartX - e.touches[0].clientX;
-      sc.scrollLeft = scrollStartLeft + dx;
+      const dy = touchStartY - e.touches[0].clientY;
+
+      if (scrollMode === "none") {
+        // Still in deadzone — wait until movement exceeds threshold
+        if (Math.abs(dx) < DEADZONE && Math.abs(dy) < DEADZONE) return;
+        // If predominantly vertical, let page scroll naturally
+        if (Math.abs(dy) > Math.abs(dx)) {
+          scrollMode = "bar"; // give up — let default behavior handle it
+          return;
+        }
+        scrollMode = "scroll";
+      }
+
+      // Stop the library's touchmove handler from calling preventDefault()
+      e.stopImmediatePropagation();
+      e.preventDefault();
+
+      const sc = findScrollContainer();
+      if (sc) sc.scrollLeft = scrollStartLeft + dx;
     };
 
     const onTouchEnd = () => {
-      isManualScroll = false;
+      scrollMode = "none";
     };
 
     el.addEventListener("touchstart", onTouchStart, { capture: true, passive: true });
-    el.addEventListener("touchmove", onTouchMove, { capture: true, passive: true });
+    // MUST be non-passive so stopImmediatePropagation + preventDefault work
+    el.addEventListener("touchmove", onTouchMove, { capture: true, passive: false });
     el.addEventListener("touchend", onTouchEnd, { capture: true, passive: true });
     return () => {
       el.removeEventListener("touchstart", onTouchStart, true);
@@ -888,6 +909,67 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
       el.removeEventListener("touchend", onTouchEnd, true);
     };
   }, []);
+
+  /**
+   * SVG row-stripe injection: the library does NOT render alternating row
+   * backgrounds in the SVG gantt area — it only sets a solid background color
+   * on the entire SVG. We post-render inject <rect> elements for even rows.
+   */
+  useEffect(() => {
+    const el = ganttRef.current;
+    if (!el) return;
+
+    const ROW_HEIGHT = 40; // must match distances.rowHeight
+    const HEADER_HEIGHT = 50; // must match distances.headerHeight
+    const evenColor =
+      theme.palette.mode === "dark" ? theme.palette.background.paper : "#f5f5f5";
+
+    const injectStripes = () => {
+      const svg = el.querySelector("svg");
+      if (!svg) return;
+      const svgHeight = parseFloat(svg.getAttribute("height") || "0");
+      if (svgHeight <= HEADER_HEIGHT) return;
+
+      // Remove previous stripes
+      const existing = svg.querySelector("#turbo-row-stripes");
+      if (existing) existing.remove();
+
+      const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+      g.setAttribute("id", "turbo-row-stripes");
+
+      const contentHeight = svgHeight - HEADER_HEIGHT;
+      const rowCount = Math.ceil(contentHeight / ROW_HEIGHT);
+
+      for (let i = 0; i < rowCount; i++) {
+        if (i % 2 !== 0) continue; // only even rows (0-indexed)
+        const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+        rect.setAttribute("x", "0");
+        rect.setAttribute("y", String(HEADER_HEIGHT + i * ROW_HEIGHT));
+        rect.setAttribute("width", "100%");
+        rect.setAttribute("height", String(ROW_HEIGHT));
+        rect.setAttribute("fill", evenColor);
+        g.appendChild(rect);
+      }
+
+      // Insert as first child of SVG so stripes are behind everything
+      svg.insertBefore(g, svg.firstChild);
+    };
+
+    // Inject after initial render and on DOM mutations (expand/collapse/scroll)
+    const timer = setTimeout(injectStripes, 50);
+    const observer = new MutationObserver(() => {
+      requestAnimationFrame(injectStripes);
+    });
+    const svg = el.querySelector("svg");
+    if (svg) {
+      observer.observe(svg, { childList: true, subtree: true, attributes: true });
+    }
+
+    return () => {
+      clearTimeout(timer);
+      observer.disconnect();
+    };
+  }, [ganttTasks.length, theme.palette.mode, theme.palette.background.paper]);
 
   if (loading) {
     return (
@@ -1072,10 +1154,11 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
                 ? theme.palette.background.paper
                 : "#f5f5f5",
             oddTaskBackgroundColor: theme.palette.background.default,
+            /* Opaque selection colors — semi-transparent values cause white
+               flash on some rows because the library's internal MUI theme is
+               always "light", which paints white focus/hover overlays. */
             selectedTaskBackgroundColor:
-              theme.palette.mode === "dark"
-                ? "rgba(144, 202, 249, 0.16)"
-                : "rgba(25, 118, 210, 0.08)",
+              theme.palette.mode === "dark" ? "#1a3a5c" : "#e3f2fd",
             todayColor:
               theme.palette.mode === "dark"
                 ? "rgba(25, 118, 210, 0.15)"
