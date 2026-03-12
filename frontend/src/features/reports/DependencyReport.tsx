@@ -749,6 +749,7 @@ export default function DependencyReport() {
             edges={c4Data.edges}
             types={types}
             onNodeClick={setSidePanelCardId}
+            onNodeShiftClick={navigateToC4}
             onHome={handleNavHome}
             onPrev={handleNavPrev}
             onNext={handleNavNext}
@@ -992,7 +993,6 @@ export default function DependencyReport() {
                         "&:hover": {
                           boxShadow: 4,
                           bgcolor: "background.paper",
-                          "& .c4-nav-btn": { opacity: 1 },
                         },
                         ...(card.isRoot && {
                           borderLeftWidth: 4,
@@ -1100,25 +1100,6 @@ export default function DependencyReport() {
                           onClick={(e) => { e.stopPropagation(); window.open(`/cards/${card.id}`, "_blank"); }}
                         >
                           <MaterialSymbol icon="open_in_new" size={14} color="#999" />
-                        </IconButton>
-                      </Tooltip>
-
-                      {/* View in C4 diagram */}
-                      <Tooltip title={t("dependency.viewInC4")} arrow>
-                        <IconButton
-                          size="small"
-                          sx={{
-                            p: 0.25,
-                            opacity: 0,
-                            transition: "opacity 0.15s",
-                          }}
-                          className="c4-nav-btn"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            navigateToC4(card.id);
-                          }}
-                        >
-                          <MaterialSymbol icon="hub" size={14} color="#999" />
                         </IconButton>
                       </Tooltip>
 
@@ -1365,23 +1346,6 @@ export default function DependencyReport() {
                                 }}
                               />
                             )}
-                            <Tooltip title={t("dependency.viewInC4")} arrow>
-                              <IconButton
-                                size="small"
-                                sx={{
-                                  p: 0.25,
-                                  opacity: 0,
-                                  transition: "opacity 0.15s",
-                                  ".MuiBox-root:hover > &": { opacity: 1 },
-                                }}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  navigateToC4(n.id);
-                                }}
-                              >
-                                <MaterialSymbol icon="hub" size={16} color="#999" />
-                              </IconButton>
-                            </Tooltip>
                             <MaterialSymbol
                               icon="chevron_right"
                               size={16}

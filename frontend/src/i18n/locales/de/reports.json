@@ -150,6 +150,7 @@
   "dependency.previousCard": "Vorherige Karte",
   "dependency.nextCard": "Nächste Karte",
   "dependency.viewInC4": "Im C4-Diagramm anzeigen",
+  "dependency.shiftClickHint": "Umschalt+Klick auf eine Karte, um das Diagramm darauf zu zentrieren",
 
   "cost.title": "Kostenanalyse",
   "cost.cardType": "Kartentyp",

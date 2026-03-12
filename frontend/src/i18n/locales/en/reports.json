@@ -150,6 +150,7 @@
   "dependency.previousCard": "Previous card",
   "dependency.nextCard": "Next card",
   "dependency.viewInC4": "View in C4 diagram",
+  "dependency.shiftClickHint": "Shift+click a card to center diagram on it",
 
   "cost.title": "Cost Analysis",
   "cost.cardType": "Card Type",
