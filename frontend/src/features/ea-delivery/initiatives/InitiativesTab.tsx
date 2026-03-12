@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
@@ -15,15 +15,58 @@ import Tooltip from "@mui/material/Tooltip";
 import Alert from "@mui/material/Alert";
 import CircularProgress from "@mui/material/CircularProgress";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import { api } from "@/api/client";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useResolveLabel } from "@/hooks/useResolveLabel";
 import InitiativeCard from "./InitiativeCard";
 import InitiativeListView from "./InitiativeListView";
 import ArtefactColumns from "./ArtefactColumns";
-import { useInitiativeData } from "./useInitiativeData";
+import { useInitiativeData, type InitiativeTreeNode } from "./useInitiativeData";
 import type { SoAW, DiagramSummary } from "@/types";
 
 type ViewMode = "cards" | "list";
+
+const EXPANDED_STORAGE_KEY = "turboea-delivery-expanded";
+
+function readExpandedFromStorage(): Record<string, boolean> {
+  try {
+    const raw = localStorage.getItem(EXPANDED_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
+function writeExpandedToStorage(expanded: Record<string, boolean>) {
+  try {
+    localStorage.setItem(EXPANDED_STORAGE_KEY, JSON.stringify(expanded));
+  } catch {
+    // localStorage unavailable
+  }
+}
+
+/** Collect all initiative IDs from a tree (recursively). */
+function collectIds(nodes: InitiativeTreeNode[]): string[] {
+  const ids: string[] = [];
+  for (const node of nodes) {
+    ids.push(node.initiative.id);
+    ids.push(...collectIds(node.children));
+  }
+  return ids;
+}
+
+/** Sort tree nodes so favorites appear first, preserving order within each group. */
+function sortTreeByFavorites(
+  nodes: InitiativeTreeNode[],
+  favorites: Set<string>,
+): InitiativeTreeNode[] {
+  const favs = nodes.filter((n) => favorites.has(n.initiative.id));
+  const rest = nodes.filter((n) => !favorites.has(n.initiative.id));
+  return [...favs, ...rest].map((node) => ({
+    ...node,
+    children: sortTreeByFavorites(node.children, favorites),
+  }));
+}
 
 interface Props {
   onCreateSoaw: (initiativeId: string) => void;
@@ -79,6 +122,95 @@ export default function InitiativesTab({
 
   const [viewMode, setViewMode] = useState<ViewMode>("cards");
   const [unlinkedExpanded, setUnlinkedExpanded] = useState(false);
+
+  // ── Expand/collapse state (persisted to localStorage) ──
+  const [expandedIds, setExpandedIds] = useState<Record<string, boolean>>(readExpandedFromStorage);
+
+  const toggleExpanded = useCallback((id: string) => {
+    setExpandedIds((prev) => {
+      const next = { ...prev, [id]: !prev[id] };
+      writeExpandedToStorage(next);
+      return next;
+    });
+  }, []);
+
+  // Auto-expand on "With Artefacts" filter
+  const prevExpandedRef = useRef<Record<string, boolean> | null>(null);
+
+  useEffect(() => {
+    if (artefactFilter === "with") {
+      // Save current state before auto-expanding
+      if (prevExpandedRef.current === null) {
+        prevExpandedRef.current = { ...expandedIds };
+      }
+      // Expand all visible initiatives
+      const allIds = collectIds(tree);
+      const next: Record<string, boolean> = {};
+      for (const id of allIds) next[id] = true;
+      setExpandedIds(next);
+      writeExpandedToStorage(next);
+    } else if (prevExpandedRef.current !== null) {
+      // Restore previous state
+      setExpandedIds(prevExpandedRef.current);
+      writeExpandedToStorage(prevExpandedRef.current);
+      prevExpandedRef.current = null;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [artefactFilter, tree]);
+
+  // ── Favorites (server-side) ──
+  const [favorites, setFavorites] = useState<Set<string>>(new Set());
+  const [favoritesOnly, setFavoritesOnly] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .get<{ id: string; card_id: string }[]>("/favorites?type=Initiative")
+      .then((res) => {
+        if (!cancelled) {
+          setFavorites(new Set(res.map((f) => f.card_id)));
+        }
+      })
+      .catch(() => {
+        // silently ignore — favorites are non-critical
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const toggleFavorite = useCallback((id: string) => {
+    setFavorites((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+        api.delete(`/favorites/${id}`).catch(() => {
+          // Revert on failure
+          setFavorites((p) => new Set(p).add(id));
+        });
+      } else {
+        next.add(id);
+        api.post(`/favorites/${id}`).catch(() => {
+          // Revert on failure
+          setFavorites((p) => {
+            const r = new Set(p);
+            r.delete(id);
+            return r;
+          });
+        });
+      }
+      return next;
+    });
+  }, []);
+
+  // Sort tree: favorites first, then apply favoritesOnly filter
+  const sortedTree = useMemo(() => {
+    let result = sortTreeByFavorites(tree, favorites);
+    if (favoritesOnly) {
+      result = result.filter((n) => favorites.has(n.initiative.id));
+    }
+    return result;
+  }, [tree, favorites, favoritesOnly]);
 
   const initiativeType = useMemo(
     () => metamodelTypes.find((t) => t.key === "Initiative"),
@@ -170,6 +302,21 @@ export default function InitiativesTab({
           <MenuItem value="without">{t("filter.withoutArtefacts")}</MenuItem>
         </TextField>
 
+        {/* Favorites only toggle */}
+        <Tooltip title={t("filter.favoritesOnly")}>
+          <IconButton
+            size="small"
+            onClick={() => setFavoritesOnly((p) => !p)}
+            sx={{
+              color: favoritesOnly ? "#f5a623" : "text.secondary",
+              border: favoritesOnly ? "1px solid #f5a623" : "1px solid transparent",
+              borderRadius: 1,
+            }}
+          >
+            <MaterialSymbol icon={favoritesOnly ? "star" : "star_outline"} size={22} />
+          </IconButton>
+        </Tooltip>
+
         <Box sx={{ flex: 1 }} />
 
         <Typography variant="body2" color="text.secondary" sx={{ mr: 1 }}>
@@ -209,7 +356,11 @@ export default function InitiativesTab({
       {/* List view */}
       {viewMode === "list" && (
         <InitiativeListView
-          tree={tree}
+          tree={sortedTree}
+          expandedIds={expandedIds}
+          onToggleExpand={toggleExpanded}
+          favorites={favorites}
+          onToggleFavorite={toggleFavorite}
           onLinkDiagrams={onLinkDiagrams}
           onCreateArtefact={onCreateArtefact}
           onUnlinkDiagram={onUnlinkDiagram}
@@ -226,11 +377,16 @@ export default function InitiativesTab({
             </Alert>
           )}
 
-          {tree.map((node, idx) => (
+          {sortedTree.map((node) => (
             <InitiativeCard
               key={node.initiative.id}
               node={node}
-              defaultExpanded={idx === 0}
+              expanded={!!expandedIds[node.initiative.id]}
+              onToggleExpand={toggleExpanded}
+              isFavorite={favorites.has(node.initiative.id)}
+              onToggleFavorite={toggleFavorite}
+              favorites={favorites}
+              expandedIds={expandedIds}
               onLinkDiagrams={onLinkDiagrams}
               onCreateArtefact={onCreateArtefact}
               onUnlinkDiagram={onUnlinkDiagram}
