@@ -47,6 +47,8 @@ let _longPressFired = false;
 /*  Custom C4 Node                                                     */
 /* ------------------------------------------------------------------ */
 
+const LP_CIRCUMFERENCE = 2 * Math.PI * 15; // ~94.25
+
 const C4Node = memo(({ data }: NodeProps<Node<C4NodeData>>) => {
   const rml = useResolveMetaLabel();
   const theme = useTheme();
@@ -68,19 +70,23 @@ const C4Node = memo(({ data }: NodeProps<Node<C4NodeData>>) => {
 
   /* ---- Long-press detection (touch-friendly Shift+click alternative) ---- */
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [pressing, setPressing] = useState(false);
 
   const clearTimer = useCallback(() => {
     if (timerRef.current) {
       clearTimeout(timerRef.current);
       timerRef.current = null;
     }
+    setPressing(false);
   }, []);
 
   const handlePointerDown = useCallback(() => {
     if (!data.onLongPress || !data.nodeId) return;
     _longPressFired = false;
+    setPressing(true);
     timerRef.current = setTimeout(() => {
       _longPressFired = true;
+      setPressing(false);
       data.onLongPress!(data.nodeId!);
     }, 1000);
   }, [data]);
@@ -103,11 +109,44 @@ const C4Node = memo(({ data }: NodeProps<Node<C4NodeData>>) => {
         justifyContent: "center",
         px: 1,
         cursor: "pointer",
+        position: "relative",
         transition: "box-shadow 0.15s",
         touchAction: "none",
         "&:hover": { boxShadow: 4 },
       }}
     >
+      {/* Long-press radial progress ring */}
+      {pressing && (
+        <Box
+          sx={{
+            position: "absolute",
+            top: "50%",
+            left: "50%",
+            transform: "translate(-50%, -50%)",
+            pointerEvents: "none",
+          }}
+        >
+          <svg width={40} height={40} viewBox="0 0 40 40">
+            <circle
+              cx={20}
+              cy={20}
+              r={15}
+              fill="none"
+              stroke={color}
+              strokeWidth={3}
+              strokeLinecap="round"
+              strokeDasharray={LP_CIRCUMFERENCE}
+              strokeDashoffset={LP_CIRCUMFERENCE}
+              style={{
+                animation: "c4-lp-ring 1s linear forwards",
+                transformOrigin: "center",
+                transform: "rotate(-90deg)",
+              }}
+            />
+          </svg>
+        </Box>
+      )}
+      <style>{`@keyframes c4-lp-ring{to{stroke-dashoffset:0}}`}</style>
       {/* Target handles along top edge (spread at 25%, 50%, 75%) */}
       <Handle type="target" position={Position.Top} id="t-l" style={{ ...hs, left: "25%" }} />
       <Handle type="target" position={Position.Top} id="t-c" style={{ ...hs, left: "50%" }} />
