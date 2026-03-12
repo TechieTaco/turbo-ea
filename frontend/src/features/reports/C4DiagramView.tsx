@@ -16,7 +16,6 @@ import {
   type EdgeProps,
   type Node,
   getSmoothStepPath,
-  getBezierPath,
   BaseEdge,
   EdgeLabelRenderer,
   ReactFlowProvider,
@@ -56,7 +55,7 @@ const C4Node = memo(({ data }: NodeProps<Node<C4NodeData>>) => {
 
   const name = data.name.length > 26 ? data.name.slice(0, 25) + "\u2026" : data.name;
 
-  const handleStyle = { background: color, width: 6, height: 6, border: "none" };
+  const hs = { background: color, width: 5, height: 5, border: "none" } as const;
 
   return (
     <Box
@@ -76,20 +75,17 @@ const C4Node = memo(({ data }: NodeProps<Node<C4NodeData>>) => {
         "&:hover": { boxShadow: 4 },
       }}
     >
-      <Handle type="target" position={Position.Top} style={handleStyle} />
-      <Handle type="source" position={Position.Bottom} style={handleStyle} />
-      <Handle
-        type="target"
-        position={Position.Left}
-        id="left"
-        style={handleStyle}
-      />
-      <Handle
-        type="source"
-        position={Position.Right}
-        id="right"
-        style={handleStyle}
-      />
+      {/* Target handles along top edge (spread at 25%, 50%, 75%) */}
+      <Handle type="target" position={Position.Top} id="t-l" style={{ ...hs, left: "25%" }} />
+      <Handle type="target" position={Position.Top} id="t-c" style={{ ...hs, left: "50%" }} />
+      <Handle type="target" position={Position.Top} id="t-r" style={{ ...hs, left: "75%" }} />
+      {/* Source handles along bottom edge */}
+      <Handle type="source" position={Position.Bottom} id="b-l" style={{ ...hs, left: "25%" }} />
+      <Handle type="source" position={Position.Bottom} id="b-c" style={{ ...hs, left: "50%" }} />
+      <Handle type="source" position={Position.Bottom} id="b-r" style={{ ...hs, left: "75%" }} />
+      {/* Side handles */}
+      <Handle type="target" position={Position.Left} id="left" style={hs} />
+      <Handle type="source" position={Position.Right} id="right" style={hs} />
       <Typography
         variant="body2"
         sx={{
@@ -199,7 +195,7 @@ const edgeStyle = (color: string) => ({
 });
 
 /* ------------------------------------------------------------------ */
-/*  Intra-group edge (smoothstep — clean right-angle routing)          */
+/*  Custom C4 Edge (smoothstep)                                        */
 /* ------------------------------------------------------------------ */
 
 const C4EdgeComponent = memo(
@@ -219,26 +215,6 @@ const C4EdgeComponent = memo(
 C4EdgeComponent.displayName = "C4EdgeComponent";
 
 /* ------------------------------------------------------------------ */
-/*  Cross-group edge (bezier — smooth diagonal, no stepped corridors)  */
-/* ------------------------------------------------------------------ */
-
-const C4CrossEdgeComponent = memo(
-  ({ id, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, data, markerEnd }: EdgeProps) => {
-    const theme = useTheme();
-    const color = theme.palette.mode === "dark" ? "#aaa" : "#777";
-    const [path, lx, ly] = getBezierPath({ sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition });
-    const label = (data as C4EdgeData | undefined)?.relLabel || "";
-    return (
-      <>
-        <BaseEdge id={id} path={path} markerEnd={markerEnd} style={edgeStyle(color)} />
-        <EdgeLabel label={label} x={lx} y={ly} />
-      </>
-    );
-  },
-);
-C4CrossEdgeComponent.displayName = "C4CrossEdgeComponent";
-
-/* ------------------------------------------------------------------ */
 /*  Node types registry                                                */
 /* ------------------------------------------------------------------ */
 
@@ -249,7 +225,6 @@ const nodeTypes = {
 
 const edgeTypes = {
   c4Edge: C4EdgeComponent,
-  c4CrossEdge: C4CrossEdgeComponent,
 };
 
 /* ------------------------------------------------------------------ */
