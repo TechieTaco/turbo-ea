@@ -1,6 +1,5 @@
 {
   "page.title": "Отчёты",
-
   "shell.chartView": "Диаграмма",
   "shell.tableView": "Таблица",
   "shell.saveReport": "Сохранить отчёт",
@@ -10,21 +9,18 @@
   "shell.copyLink": "Копировать ссылку",
   "shell.viewAllSaved": "Все сохранённые отчёты",
   "shell.viewingSavedReport": "Просмотр сохранённого отчёта: <strong>{{name}}</strong>",
-
   "save.title": "Сохранить отчёт",
   "save.namePlaceholder": "напр. Портфолио приложений за 1 кв.",
   "save.descriptionPlaceholder": "Необязательное описание этого представления отчёта",
   "save.visibility": "Видимость",
-  "save.visibilityPrivate": "Личный \u2014 Только я",
-  "save.visibilityPublic": "Публичный \u2014 Все пользователи",
-  "save.visibilityShared": "Общий \u2014 Определённые пользователи",
+  "save.visibilityPrivate": "Личный — Только я",
+  "save.visibilityPublic": "Публичный — Все пользователи",
+  "save.visibilityShared": "Общий — Определённые пользователи",
   "save.shareWith": "Поделиться с",
   "save.searchUsers": "Поиск пользователей...",
   "save.preview": "Предпросмотр",
   "save.reportPreview": "Предпросмотр отчёта",
-
   "edit.title": "Редактировать сохранённый отчёт",
-
   "saved.title": "Сохранённые отчёты",
   "saved.myReports": "Мои отчёты",
   "saved.sharedWithMe": "Доступные мне",
@@ -46,7 +42,6 @@
   "saved.visibilityPrivate": "Личный",
   "saved.visibilityPublic": "Публичный",
   "saved.visibilityShared": "Общий",
-
   "portfolio.title": "Портфолио приложений",
   "portfolio.groupBy": "Группировка",
   "portfolio.colorAppsBy": "Цвет приложений по",
@@ -76,7 +71,6 @@
   "portfolio.aiInsightsTitle": "ИИ-аналитика портфолио",
   "portfolio.aiNoInsights": "Не удалось сформировать аналитику для текущего представления портфолио.",
   "portfolio.aiRegenerate": "Сгенерировать заново",
-
   "capabilityMap.title": "Карта бизнес-возможностей",
   "capabilityMap.heatmapMetric": "Метрика тепловой карты",
   "capabilityMap.displayDepth": "Глубина отображения",
@@ -107,7 +101,6 @@
   "capabilityMap.more": "ещё {{count}}",
   "capabilityMap.less": "Свернуть",
   "capabilityMap.showMore": "Показать ещё {{count}} фильтров связей",
-
   "lifecycle.title": "Жизненный цикл технологий",
   "lifecycle.cardType": "Тип карточки",
   "lifecycle.allTypes": "Все типы",
@@ -126,7 +119,6 @@
   "lifecycle.start": "Начало",
   "lifecycle.end": "Окончание",
   "lifecycle.status": "Статус",
-
   "dependency.title": "Зависимости",
   "dependency.allTypes": "Все типы",
   "dependency.centerOn": "Центрировать на",
@@ -136,13 +128,13 @@
   "dependency.searchCards": "Поиск карточек...",
   "dependency.connections": "связей",
   "dependency.alsoAppears": "Также присутствует в другом месте дерева",
-  "dependency.clickToExpand": "Нажмите, чтобы развернуть \u00B7 Правый клик для перецентрирования",
+  "dependency.clickToExpand": "Нажмите, чтобы развернуть · Правый клик для перецентрирования",
   "dependency.openCard": "Открыть карточку",
   "dependency.alsoAppearsElsewhere": "Также присутствует в другом месте",
   "dependency.source": "Источник",
   "dependency.relation": "Связь",
   "dependency.target": "Цель",
-  "dependency.stats": "{{nodes}} узлов \u00B7 {{relations}} связей",
+  "dependency.stats": "{{nodes}} узлов · {{relations}} связей",
   "dependency.treeView": "Древовидный вид",
   "dependency.c4View": "Диаграмма C4",
   "dependency.c4NoData": "Нет данных о зависимостях. Измените фильтр типа или создайте связи между карточками.",
@@ -152,7 +144,6 @@
   "dependency.viewInC4": "Показать на диаграмме C4",
   "dependency.shiftClickHint": "Shift+клик или долгое нажатие на карточку, чтобы центрировать диаграмму на ней",
   "dependency.highlightMode": "Режим подсветки: нажмите на карточку, чтобы подсветить её связи",
-
   "cost.title": "Анализ стоимости",
   "cost.cardType": "Тип карточки",
   "cost.costField": "Поле стоимости",
@@ -165,7 +156,6 @@
   "cost.total": "Итого",
   "cost.noCostData": "Данные о стоимости не найдены.",
   "cost.unspecified": "Не указано",
-
   "matrix.title": "Матрица",
   "matrix.rows": "Строки",
   "matrix.columns": "Столбцы",
@@ -174,7 +164,7 @@
   "matrix.countHeatmap": "Количество (тепловая карта)",
   "matrix.sortRows": "Сортировка строк",
   "matrix.sortColumns": "Сортировка столбцов",
-  "matrix.alphaSort": "А \u2192 Я",
+  "matrix.alphaSort": "А → Я",
   "matrix.byCount": "По количеству",
   "matrix.hierarchy": "Иерархия",
   "matrix.relations": "Связи",
@@ -184,10 +174,9 @@
   "matrix.expandRows": "Развернуть строки",
   "matrix.collapseColumns": "Свернуть столбцы",
   "matrix.expandColumns": "Развернуть столбцы",
-  "matrix.sigmaTotal": "\u03a3 Итого",
+  "matrix.sigmaTotal": "Σ Итого",
   "matrix.relations_one": "{{count}} связь",
   "matrix.relations_other": "{{count}} связей",
-
   "dataQuality.title": "Качество данных",
   "dataQuality.overallQuality": "Общее качество",
   "dataQuality.totalItems": "Всего элементов",
@@ -201,8 +190,8 @@
   "dataQuality.complete": "Полный",
   "dataQuality.partial": "Частичный",
   "dataQuality.minimal": "Минимальный",
-  "dataQuality.completeLegend": "Полный (\u226580%)",
-  "dataQuality.partialLegend": "Частичный (40\u201379%)",
+  "dataQuality.completeLegend": "Полный (≥80%)",
+  "dataQuality.partialLegend": "Частичный (40–79%)",
   "dataQuality.minimalLegend": "Минимальный (<40%)",
   "dataQuality.avgCompletion": "Средняя заполненность",
   "dataQuality.completion": "Заполненность",
@@ -215,7 +204,6 @@
   "dataQuality.orphanedAlert": "У {{count}} карточек нет связей (без связей). Рекомендуется связать их с другими элементами.",
   "dataQuality.staleAlert": "{{count}} карточек не обновлялись более 90 дней. Проверьте их актуальность.",
   "dataQuality.overallAlert": "Общее качество данных составляет {{pct}}%. Сосредоточьтесь на повышении полноты.",
-
   "eol.title": "Конец жизненного цикла и влияние",
   "eol.status": "Статус",
   "eol.source": "Источник",
@@ -253,7 +241,6 @@
   "eol.activeSupportUntil": "Активная поддержка до {{date}}",
   "eol.endOfLifeDate": "Конец жизненного цикла: {{date}}",
   "eol.yesEol": "Да (EOL)",
-
   "processMap.title": "Карта процессного ландшафта",
   "processMap.heatmapMetric": "Метрика тепловой карты",
   "processMap.displayDepth": "Глубина отображения",
@@ -267,11 +254,11 @@
   "processMap.metricAutomation": "Уровень автоматизации",
   "processMap.metricRisk": "Уровень риска",
   "processMap.metricTotalCost": "Общая стоимость",
-  "processMap.maturityInitial": "1 \u2014 Начальный",
-  "processMap.maturityManaged": "2 \u2014 Управляемый",
-  "processMap.maturityDefined": "3 \u2014 Определённый",
-  "processMap.maturityMeasured": "4 \u2014 Измеряемый",
-  "processMap.maturityOptimized": "5 \u2014 Оптимизированный",
+  "processMap.maturityInitial": "1 — Начальный",
+  "processMap.maturityManaged": "2 — Управляемый",
+  "processMap.maturityDefined": "3 — Определённый",
+  "processMap.maturityMeasured": "4 — Измеряемый",
+  "processMap.maturityOptimized": "5 — Оптимизированный",
   "processMap.automationManual": "Ручной",
   "processMap.automationPartially": "Частично автоматизированный",
   "processMap.automationFully": "Полностью автоматизированный",
@@ -308,7 +295,6 @@
   "processMap.apps_other": "{{count}} приложений",
   "processMap.risk": "Риск: {{level}}",
   "processMap.cost": "Стоимость",
-
   "common.view": "Вид",
   "common.table": "Таблица",
   "common.search": "Поиск",
@@ -321,5 +307,6 @@
   "common.mode": "Режим",
   "common.dateRange": "Диапазон дат",
   "common.center": "Центр",
-  "common.group": "Группа"
+  "common.group": "Группа",
+  "dependency.expandMode": "Режим расширения: нажмите на карточку, чтобы показать все её связи"
 }

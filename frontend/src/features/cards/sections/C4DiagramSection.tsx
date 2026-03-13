@@ -34,11 +34,15 @@ export default function C4DiagramSection({ cardId }: Props) {
   const [navHistory, setNavHistory] = useState<string[]>([cardId]);
   const [navIndex, setNavIndex] = useState(0);
 
+  // Expand mode: tracks which nodes have been expanded
+  const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
+
   // Reset when cardId changes
   useEffect(() => {
     setCenter(cardId);
     setNavHistory([cardId]);
     setNavIndex(0);
+    setExpandedNodes(new Set());
     fetchedRef.current = false;
     setNodes([]);
     setEdges([]);
@@ -87,19 +91,7 @@ export default function C4DiagramSection({ cardId }: Props) {
 
   const nodeMap = useMemo(() => new Map(nodes.map((n) => [n.id, n])), [nodes]);
 
-  // BFS from center to get depth-1 neighborhood
-  const c4Data = useMemo(() => {
-    if (!center || !nodeMap.has(center))
-      return { nodes: [] as GNode[], edges: [] as GEdge[] };
-    const visited = new Set<string>([center]);
-    for (const neighbor of adjMap.get(center) || []) {
-      if (nodeMap.has(neighbor.nodeId)) visited.add(neighbor.nodeId);
-    }
-    return {
-      nodes: nodes.filter((n) => visited.has(n.id)),
-      edges: edges.filter((e) => visited.has(e.source) && visited.has(e.target)),
-    };
-  }, [center, nodes, edges, adjMap, nodeMap]);
+  // (c4Visible computed below with expand support)
 
   const centerNode = nodeMap.get(center);
 
@@ -140,7 +132,42 @@ export default function C4DiagramSection({ cardId }: Props) {
     window.open(`/cards/${id}`, "_blank");
   }, []);
 
-  const hasData = c4Data.nodes.length > 0;
+  // Expand mode: toggle a node's neighbors into the visible set
+  const handleExpand = useCallback((nodeId: string) => {
+    setExpandedNodes((prev) => {
+      const next = new Set(prev);
+      if (next.has(nodeId)) next.delete(nodeId);
+      else next.add(nodeId);
+      return next;
+    });
+  }, []);
+  const handleExpandReset = useCallback(() => {
+    setExpandedNodes(new Set());
+  }, []);
+
+  // BFS from center + expanded nodes to build visible neighborhood
+  const c4Visible = useMemo(() => {
+    if (!center || !nodeMap.has(center))
+      return { nodes: [] as GNode[], edges: [] as GEdge[] };
+    const visited = new Set<string>([center]);
+    // depth-1 from center
+    for (const nb of adjMap.get(center) || []) {
+      if (nodeMap.has(nb.nodeId)) visited.add(nb.nodeId);
+    }
+    // depth-1 from each expanded node
+    for (const eid of expandedNodes) {
+      if (!visited.has(eid)) continue; // only expand already-visible nodes
+      for (const nb of adjMap.get(eid) || []) {
+        if (nodeMap.has(nb.nodeId)) visited.add(nb.nodeId);
+      }
+    }
+    return {
+      nodes: nodes.filter((n) => visited.has(n.id)),
+      edges: edges.filter((e) => visited.has(e.source) && visited.has(e.target)),
+    };
+  }, [center, nodes, edges, adjMap, nodeMap, expandedNodes]);
+
+  const hasData = c4Visible.nodes.length > 0;
 
   return (
     <Accordion
@@ -174,11 +201,13 @@ export default function C4DiagramSection({ cardId }: Props) {
         )}
         {!loading && !error && hasData && (
           <C4DiagramView
-            nodes={c4Data.nodes}
-            edges={c4Data.edges}
+            nodes={c4Visible.nodes}
+            edges={c4Visible.edges}
             types={types}
             onNodeClick={handleNodeClick}
             onNodeShiftClick={navigateTo}
+            onNodeExpand={handleExpand}
+            onExpandReset={handleExpandReset}
             onHome={handleHome}
             onPrev={handlePrev}
             onNext={handleNext}

@@ -1,4 +1,4 @@
-import { useMemo, useCallback, useState, useRef, memo } from "react";
+import { useMemo, useCallback, useState, useRef, useEffect, memo } from "react";
 import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import IconButton from "@mui/material/IconButton";
@@ -21,7 +21,9 @@ import {
   type Node,
   getSmoothStepPath,
   BaseEdge,
+  EdgeLabelRenderer,
   ReactFlowProvider,
+  useNodes,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { useResolveMetaLabel } from "@/hooks/useResolveLabel";
@@ -66,12 +68,24 @@ const C4Node = memo(({ data }: NodeProps<Node<C4NodeData>>) => {
 
   const name = data.name.length > 26 ? data.name.slice(0, 25) + "\u2026" : data.name;
 
-  const hs = { background: color, width: 5, height: 5, border: "none" } as const;
+  const usedSet = useMemo(() => new Set(data.usedHandles ?? []), [data.usedHandles]);
+  const hs = (id: string, extra?: React.CSSProperties) =>
+    ({
+      background: usedSet.has(id) ? color : "transparent",
+      width: 5,
+      height: 5,
+      border: "none",
+      opacity: usedSet.has(id) ? 1 : 0,
+      ...extra,
+    }) as const;
 
-  /* ---- Long-press detection (touch-friendly Shift+click alternative) ---- */
+  /* ---- Click + long-press via pointer events ---- */
+  /* React Flow v12 swallows click events on custom nodes, but pointer
+     events still fire reliably — the same layer long-press already uses. */
   const showTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fireTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [pressing, setPressing] = useState(false);
+  const downPos = useRef<{ x: number; y: number; shift: boolean } | null>(null);
 
   const clearTimer = useCallback(() => {
     if (showTimerRef.current) {
@@ -85,22 +99,41 @@ const C4Node = memo(({ data }: NodeProps<Node<C4NodeData>>) => {
     setPressing(false);
   }, []);
 
-  const handlePointerDown = useCallback(() => {
-    if (!data.onLongPress || !data.nodeId) return;
-    _longPressFired = false;
-    // Delay showing the ring so quick taps don't flash it
-    showTimerRef.current = setTimeout(() => setPressing(true), 150);
-    fireTimerRef.current = setTimeout(() => {
-      _longPressFired = true;
-      setPressing(false);
-      data.onLongPress!(data.nodeId!);
-    }, 1000);
-  }, [data]);
+  const handlePointerDown = useCallback(
+    (e: React.PointerEvent) => {
+      downPos.current = { x: e.clientX, y: e.clientY, shift: e.shiftKey };
+      if (!data.onLongPress || !data.nodeId) return;
+      _longPressFired = false;
+      showTimerRef.current = setTimeout(() => setPressing(true), 150);
+      fireTimerRef.current = setTimeout(() => {
+        _longPressFired = true;
+        setPressing(false);
+        data.onLongPress!(data.nodeId!);
+      }, 1000);
+    },
+    [data],
+  );
+
+  const handlePointerUp = useCallback(
+    (e: React.PointerEvent) => {
+      clearTimer();
+      if (_longPressFired) { _longPressFired = false; downPos.current = null; return; }
+      const d = downPos.current;
+      downPos.current = null;
+      if (!d) return;
+      if (Math.abs(e.clientX - d.x) > 5 || Math.abs(e.clientY - d.y) > 5) return;
+      // Stop propagation so React Flow doesn't also fire its own click handler
+      e.stopPropagation();
+      if (data.onClick && data.nodeId) data.onClick(data.nodeId, d.shift);
+    },
+    [data, clearTimer],
+  );
 
   return (
     <Box
+      onClick={(e) => e.stopPropagation()}
       onPointerDown={handlePointerDown}
-      onPointerUp={clearTimer}
+      onPointerUp={handlePointerUp}
       onPointerCancel={clearTimer}
       onPointerLeave={clearTimer}
       sx={{
@@ -154,22 +187,22 @@ const C4Node = memo(({ data }: NodeProps<Node<C4NodeData>>) => {
       )}
       <style>{`@keyframes c4-lp-ring{to{stroke-dashoffset:0}}`}</style>
       {/* Target handles along top edge (spread at 12%, 30%, 50%, 70%, 88%) */}
-      <Handle type="target" position={Position.Top} id="t-1" style={{ ...hs, left: "12%" }} />
-      <Handle type="target" position={Position.Top} id="t-2" style={{ ...hs, left: "30%" }} />
-      <Handle type="target" position={Position.Top} id="t-3" style={{ ...hs, left: "50%" }} />
-      <Handle type="target" position={Position.Top} id="t-4" style={{ ...hs, left: "70%" }} />
-      <Handle type="target" position={Position.Top} id="t-5" style={{ ...hs, left: "88%" }} />
+      <Handle type="target" position={Position.Top} id="t-1" style={hs("t-1", { left: "12%" })} />
+      <Handle type="target" position={Position.Top} id="t-2" style={hs("t-2", { left: "30%" })} />
+      <Handle type="target" position={Position.Top} id="t-3" style={hs("t-3", { left: "50%" })} />
+      <Handle type="target" position={Position.Top} id="t-4" style={hs("t-4", { left: "70%" })} />
+      <Handle type="target" position={Position.Top} id="t-5" style={hs("t-5", { left: "88%" })} />
       {/* Source handles along bottom edge */}
-      <Handle type="source" position={Position.Bottom} id="b-1" style={{ ...hs, left: "12%" }} />
-      <Handle type="source" position={Position.Bottom} id="b-2" style={{ ...hs, left: "30%" }} />
-      <Handle type="source" position={Position.Bottom} id="b-3" style={{ ...hs, left: "50%" }} />
-      <Handle type="source" position={Position.Bottom} id="b-4" style={{ ...hs, left: "70%" }} />
-      <Handle type="source" position={Position.Bottom} id="b-5" style={{ ...hs, left: "88%" }} />
+      <Handle type="source" position={Position.Bottom} id="b-1" style={hs("b-1", { left: "12%" })} />
+      <Handle type="source" position={Position.Bottom} id="b-2" style={hs("b-2", { left: "30%" })} />
+      <Handle type="source" position={Position.Bottom} id="b-3" style={hs("b-3", { left: "50%" })} />
+      <Handle type="source" position={Position.Bottom} id="b-4" style={hs("b-4", { left: "70%" })} />
+      <Handle type="source" position={Position.Bottom} id="b-5" style={hs("b-5", { left: "88%" })} />
       {/* Side handles — both source and target on each side */}
-      <Handle type="target" position={Position.Left} id="left" style={hs} />
-      <Handle type="source" position={Position.Left} id="left-src" style={hs} />
-      <Handle type="source" position={Position.Right} id="right" style={hs} />
-      <Handle type="target" position={Position.Right} id="right-tgt" style={hs} />
+      <Handle type="target" position={Position.Left} id="left" style={hs("left")} />
+      <Handle type="source" position={Position.Left} id="left-src" style={hs("left-src")} />
+      <Handle type="source" position={Position.Right} id="right" style={hs("right")} />
+      <Handle type="target" position={Position.Right} id="right-tgt" style={hs("right-tgt")} />
       <Typography
         variant="body2"
         sx={{
@@ -247,7 +280,9 @@ const C4EdgeComponent = (
     const theme = useTheme();
     const edgeData = data as C4EdgeData | undefined;
     const connectedToHovered = edgeData?.connectedToHovered ?? false;
-    const isHovered = (edgeData as Record<string, unknown>)?.isHovered === true;
+    // Use parent-managed hover state to prevent stale highlights when
+    // React Flow reorders SVG elements (local useState would go stale).
+    const isHovered = edgeData?.isHovered === true;
     const active = edgeData?.highlightMode
       ? connectedToHovered
       : isHovered || connectedToHovered;
@@ -257,17 +292,24 @@ const C4EdgeComponent = (
     const color = active ? hoverColor : baseColor;
 
     const rawOffset = edgeData?.pathOffset ?? 20;
+    const minOffset = edgeData?.minOffset ?? 0;
     const verticalGap = Math.abs(targetY - sourceY);
-    const clampedOffset = Math.min(rawOffset, Math.max(10, verticalGap * 0.4));
+    // If the edge must clear an obstruction, use at least minOffset; otherwise
+    // clamp to 48% of the vertical gap so the horizontal segment stays within
+    // the inter-group band. The layout engine already staggers offsets, so we
+    // use a generous fraction to preserve the staggering.
+    const offset = minOffset > 0
+      ? Math.max(rawOffset, minOffset)
+      : Math.min(rawOffset, Math.max(10, verticalGap * 0.48));
     const [path, lx, ly] = getSmoothStepPath({
       sourceX, sourceY, targetX, targetY,
       sourcePosition, targetPosition,
       borderRadius: 8,
-      offset: clampedOffset,
+      offset,
     });
 
     const label = edgeData?.relLabel || "";
-    const labelNudge = edgeData?.labelNudge ?? 0;
+    const labelT = edgeData?.labelT ?? 0.5;
     const labelBg = isDark ? "#121212" : "#ffffff";
     const labelColor = active
       ? (isDark ? "#4fc3f7" : "#1976d2")
@@ -276,23 +318,106 @@ const C4EdgeComponent = (
       ? (isDark ? "#4fc3f7" : "#1976d2")
       : (isDark ? "#444" : "#ccc");
 
-    // Estimate SVG text width (~5.8px per char at 10px font + 12px padding)
+    // Build node + group-label bounding boxes from React Flow nodes for overlap detection
+    const rfNodes = useNodes();
+    const obstacleBounds = useMemo(() => {
+      const bounds: { x1: number; y1: number; x2: number; y2: number }[] = [];
+      for (const n of rfNodes) {
+        if (n.type === "c4Node" && n.parentId) {
+          const parent = rfNodes.find((p) => p.id === n.parentId);
+          if (!parent) continue;
+          const w = (n.style?.width as number) ?? C4_NODE_W;
+          const h = (n.style?.height as number) ?? C4_NODE_H;
+          const ax = parent.position.x + n.position.x;
+          const ay = parent.position.y + n.position.y;
+          bounds.push({ x1: ax, y1: ay, x2: ax + w, y2: ay + h });
+        } else if (n.type === "c4Group") {
+          // Group label text area (top-left corner of group box)
+          const gx = n.position.x;
+          const gy = n.position.y;
+          const gw = (n.style?.width as number) ?? 0;
+          // Label sits at top:8 left:14, ~13px font, covers roughly top 30px
+          // Use full group width for the label strip to avoid any overlap
+          bounds.push({ x1: gx, y1: gy, x2: gx + gw, y2: gy + 34 });
+        }
+      }
+      return bounds;
+    }, [rfNodes]);
+
+    // Find a label position along the path that doesn't overlap any node
+    const pathRef = useRef<SVGPathElement>(null);
+    const [labelPos, setLabelPos] = useState<{ x: number; y: number } | null>(null);
+
     const maxChars = 24;
     const displayLabel = label.length > maxChars
       ? label.slice(0, maxChars - 1) + "\u2026"
       : label;
-    const estW = displayLabel.length * 5.8 + 12;
-    const labelH = 18;
+    const labelW = displayLabel.length * 6.5 + 16;
+    const labelH = 20;
+    const margin = 6;
+
+    useEffect(() => {
+      const el = pathRef.current;
+      if (!el || !label) return;
+      el.setAttribute("d", path);
+      const total = el.getTotalLength();
+
+      // Check if a point overlaps any node
+      const overlaps = (px: number, py: number) => {
+        const lx1 = px - labelW / 2 - margin;
+        const lx2 = px + labelW / 2 + margin;
+        const ly1 = py - labelH / 2 - margin;
+        const ly2 = py + labelH / 2 + margin;
+        for (const b of obstacleBounds) {
+          if (lx1 < b.x2 && lx2 > b.x1 && ly1 < b.y2 && ly2 > b.y1) return true;
+        }
+        return false;
+      };
+
+      // Try the preferred position first
+      const preferred = el.getPointAtLength(total * labelT);
+      if (!overlaps(preferred.x, preferred.y)) {
+        setLabelPos({ x: preferred.x, y: preferred.y });
+        return;
+      }
+
+      // Sample 20 positions along the path, find the one closest to labelT
+      // that doesn't overlap any node. Skip the ends (near source/target nodes).
+      let bestPt: { x: number; y: number } | null = null;
+      let bestDist = Infinity;
+      const steps = 20;
+      for (let i = 1; i < steps; i++) {
+        const t = i / steps;
+        if (t < 0.08 || t > 0.92) continue; // skip near endpoints
+        const pt = el.getPointAtLength(total * t);
+        if (!overlaps(pt.x, pt.y)) {
+          const dist = Math.abs(t - labelT);
+          if (dist < bestDist) {
+            bestDist = dist;
+            bestPt = { x: pt.x, y: pt.y };
+          }
+        }
+      }
+
+      setLabelPos(bestPt ?? { x: preferred.x, y: preferred.y });
+    }, [path, labelT, label, obstacleBounds, labelW, labelH]);
+
+    const finalLx = labelPos?.x ?? lx;
+    const finalLy = labelPos?.y ?? ly;
 
     return (
       <>
+        {/* Hidden path for label position measurement */}
+        <path ref={pathRef} fill="none" stroke="none" visibility="hidden" />
         {/* Invisible wider path for easier hover targeting */}
         <path
           d={path}
           fill="none"
           stroke="transparent"
           strokeWidth={14}
-          style={{ cursor: "pointer" }}
+          style={{ cursor: "pointer", pointerEvents: "stroke" }}
+          onMouseEnter={edgeData?.onHover}
+          onMouseLeave={edgeData?.onLeave}
         />
         <BaseEdge
           id={id}
@@ -306,31 +431,28 @@ const C4EdgeComponent = (
           }}
         />
         {label && (
-          <>
-            <rect
-              x={lx - estW / 2}
-              y={ly + labelNudge - labelH / 2}
-              width={estW}
-              height={labelH}
-              rx={4}
-              fill={labelBg}
-              fillOpacity={0.8}
-              stroke={labelBorder}
-              strokeWidth={1}
-            />
-            <text
-              x={lx}
-              y={ly + labelNudge}
-              textAnchor="middle"
-              dominantBaseline="central"
-              fill={labelColor}
-              fontSize={10}
-              fontFamily="inherit"
-              style={{ pointerEvents: "none" }}
+          <EdgeLabelRenderer>
+            <div
+              style={{
+                position: "absolute",
+                transform: `translate(-50%, -50%) translate(${finalLx}px, ${finalLy}px)`,
+                pointerEvents: "none",
+                fontSize: 10,
+                fontFamily: "inherit",
+                color: labelColor,
+                background: labelBg,
+                opacity: active ? 1 : 0.8,
+                border: `1px solid ${labelBorder}`,
+                borderRadius: 4,
+                padding: "2px 6px",
+                whiteSpace: "nowrap",
+                lineHeight: "14px",
+                zIndex: active ? 2 : 1,
+              }}
             >
               {displayLabel}
-            </text>
-          </>
+            </div>
+          </EdgeLabelRenderer>
         )}
       </>
     );
@@ -359,6 +481,8 @@ interface Props {
   types: CardType[];
   onNodeClick: (id: string) => void;
   onNodeShiftClick?: (id: string) => void;
+  onNodeExpand?: (id: string) => void;
+  onExpandReset?: () => void;
   onHome: () => void;
   onPrev?: () => void;
   onNext?: () => void;
@@ -377,6 +501,8 @@ function C4DiagramInner({
   types,
   onNodeClick,
   onNodeShiftClick,
+  onNodeExpand,
+  onExpandReset,
   onHome,
   onPrev,
   onNext,
@@ -392,50 +518,61 @@ function C4DiagramInner({
     [nodes, edges, types],
   );
 
-  // Inject long-press callback into c4Node data so C4Node can handle pointer events
+  // Interaction mode: "normal" (default), "highlight" (sticky hover), "expand" (add relations)
+  type InteractionMode = "normal" | "highlight" | "expand";
+  const [mode, setMode] = useState<InteractionMode>("normal");
+  // Ref so the node-level click callback always reads the latest mode
+  const modeRef = useRef<InteractionMode>(mode);
+  modeRef.current = mode;
+
+  // Derived booleans for style props (read from state, not ref)
+  const highlightMode = mode === "highlight";
+  const expandMode = mode === "expand";
+
+  // Click handler injected into each c4Node via data.onClick —
+  // uses modeRef so the callback always reads the latest mode.
+  const handleC4NodeClick = useCallback(
+    (nodeId: string, shiftKey: boolean) => {
+      const currentMode = modeRef.current;
+      if (currentMode === "highlight") {
+        if (leaveTimer.current) { clearTimeout(leaveTimer.current); leaveTimer.current = null; }
+        setHoveredNode((prev) => (prev === nodeId ? null : nodeId));
+      } else if (currentMode === "expand" && onNodeExpand) {
+        onNodeExpand(nodeId);
+      } else if (shiftKey && onNodeShiftClick) {
+        setHoveredNode(null);
+        onNodeShiftClick(nodeId);
+      } else {
+        setHoveredNode(null);
+        onNodeClick(nodeId);
+      }
+    },
+    [onNodeClick, onNodeShiftClick, onNodeExpand],
+  );
+
+  // Inject click + long-press callbacks into c4Node data
   const rfNodes = useMemo(
     () =>
       builtNodes.map((n) =>
-        n.type === "c4Node" && onNodeShiftClick
-          ? { ...n, data: { ...n.data, nodeId: n.id, onLongPress: onNodeShiftClick } }
+        n.type === "c4Node"
+          ? {
+              ...n,
+              data: {
+                ...n.data,
+                nodeId: n.id,
+                onClick: handleC4NodeClick,
+                ...(onNodeShiftClick && { onLongPress: onNodeShiftClick }),
+              },
+            }
           : n,
       ),
-    [builtNodes, onNodeShiftClick],
-  );
-
-  // Highlight mode: click highlights connections instead of opening card
-  const [highlightMode, setHighlightMode] = useState(false);
-
-  const handleNodeClick = useCallback(
-    (event: React.MouseEvent, node: Node) => {
-      if (node.type === "c4Node") {
-        if (_longPressFired) {
-          _longPressFired = false;
-          return; // already handled by long-press
-        }
-        if (highlightMode) {
-          // Cancel any pending mouse-leave timer to prevent race
-          if (leaveTimer.current) { clearTimeout(leaveTimer.current); leaveTimer.current = null; }
-          // Toggle: tap same card clears, tap different card highlights it
-          setHoveredNode((prev) => (prev === node.id ? null : node.id));
-          return;
-        }
-        // Clear highlight before navigating so it doesn't persist when coming back
-        setHoveredNode(null);
-        if (event.shiftKey && onNodeShiftClick) {
-          onNodeShiftClick(node.id);
-        } else {
-          onNodeClick(node.id);
-        }
-      }
-    },
-    [onNodeClick, onNodeShiftClick, highlightMode],
+    [builtNodes, handleC4NodeClick, onNodeShiftClick],
   );
 
   // In highlight mode, clicking the canvas (not a node) dismisses the highlight
   const handlePaneClick = useCallback(() => {
-    if (highlightMode) setHoveredNode(null);
-  }, [highlightMode]);
+    if (modeRef.current === "highlight") setHoveredNode(null);
+  }, []);
 
   // Bring hovered edge to front by reordering
   const [hoveredEdge, setHoveredEdge] = useState<string | null>(null);
@@ -446,23 +583,34 @@ function C4DiagramInner({
     setHoveredEdge(null);
   }, []);
 
+  // Stable per-edge hover callbacks (memoised map to avoid re-creating on each render)
+  const edgeHoverCbs = useRef(new Map<string, { onHover: () => void; onLeave: () => void }>());
+  const getEdgeHoverCbs = useCallback((edgeId: string) => {
+    let cbs = edgeHoverCbs.current.get(edgeId);
+    if (!cbs) {
+      cbs = {
+        onHover: () => setHoveredEdge(edgeId),
+        onLeave: () => setHoveredEdge((prev) => (prev === edgeId ? null : prev)),
+      };
+      edgeHoverCbs.current.set(edgeId, cbs);
+    }
+    return cbs;
+  }, []);
+
   // Highlight all connections when hovering a card node
   const [hoveredNode, setHoveredNode] = useState<string | null>(null);
   const leaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const handleNodeMouseEnter = useCallback((_: React.MouseEvent, node: Node) => {
-    if (highlightMode) return; // hover disabled in highlight mode
+    if (modeRef.current !== "normal") return; // hover only in normal mode
     if (node.type === "c4Node") {
       if (leaveTimer.current) { clearTimeout(leaveTimer.current); leaveTimer.current = null; }
       setHoveredNode(node.id);
     }
-  }, [highlightMode]);
+  }, []);
   const handleNodeMouseLeave = useCallback(() => {
-    if (highlightMode) return; // hover disabled in highlight mode
-    // Use rAF instead of setTimeout: clears on next frame unless a new
-    // mouseEnter cancels it first — fast enough to avoid stale highlights
-    // but doesn't cause DOM churn that swallows the next card's mouseenter.
+    if (modeRef.current !== "normal") return; // hover only in normal mode
     leaveTimer.current = setTimeout(() => setHoveredNode(null), 0);
-  }, [highlightMode]);
+  }, []);
 
   // Set of nodes connected to the hovered node (for dimming others)
   const hoveredNeighbors = useMemo(() => {
@@ -475,19 +623,24 @@ function C4DiagramInner({
     return s;
   }, [hoveredNode, rfEdges]);
 
-  // Inject hover state into edges + reorder for z-index
+  // Inject hover state + callbacks into edges + reorder for z-index
   const orderedEdges = useMemo(() => {
-    let result = rfEdges.map((e) => ({
-      ...e,
-      data: {
-        ...e.data,
-        connectedToHovered: hoveredNode
-          ? e.source === hoveredNode || e.target === hoveredNode
-          : false,
-        isHovered: e.id === hoveredEdge,
-        highlightMode,
-      },
-    }));
+    let result = rfEdges.map((e) => {
+      const cbs = getEdgeHoverCbs(e.id);
+      return {
+        ...e,
+        data: {
+          ...e.data,
+          connectedToHovered: hoveredNode
+            ? e.source === hoveredNode || e.target === hoveredNode
+            : false,
+          isHovered: e.id === hoveredEdge,
+          highlightMode,
+          onHover: cbs.onHover,
+          onLeave: cbs.onLeave,
+        },
+      };
+    });
     if (hoveredEdge) {
       const rest = result.filter((e) => e.id !== hoveredEdge);
       const h = result.find((e) => e.id === hoveredEdge);
@@ -498,7 +651,7 @@ function C4DiagramInner({
       result = [...notConn, ...conn];
     }
     return result;
-  }, [rfEdges, hoveredEdge, hoveredNode, highlightMode]);
+  }, [rfEdges, hoveredEdge, hoveredNode, highlightMode, getEdgeHoverCbs]);
 
   // CSS-based dimming avoids recreating node objects (which causes flickering)
   const hoverStyle = useMemo(() => {
@@ -576,7 +729,6 @@ function C4DiagramInner({
           edges={orderedEdges}
           nodeTypes={nodeTypes}
           edgeTypes={edgeTypes}
-          onNodeClick={handleNodeClick}
           onPaneClick={handlePaneClick}
           onNodeMouseEnter={handleNodeMouseEnter}
           onNodeMouseLeave={handleNodeMouseLeave}
@@ -590,6 +742,7 @@ function C4DiagramInner({
           nodesDraggable={false}
           nodesConnectable={false}
           edgesReconnectable={false}
+          elementsSelectable={false}
           colorMode={theme.palette.mode}
         >
           <Background gap={16} size={1} />
@@ -597,8 +750,13 @@ function C4DiagramInner({
             <ControlButton
               title={t("dependency.highlightMode")}
               onClick={() => {
-                setHighlightMode((v) => !v);
-                if (highlightMode) setHoveredNode(null);
+                setMode((m) => {
+                  if (m === "highlight") {
+                    setHoveredNode(null);
+                    return "normal";
+                  }
+                  return "highlight";
+                });
               }}
               style={{
                 background: highlightMode ? theme.palette.primary.main : undefined,
@@ -606,6 +764,24 @@ function C4DiagramInner({
               }}
             >
               <MaterialSymbol icon="highlight" size={18} />
+            </ControlButton>
+            <ControlButton
+              title={t("dependency.expandMode")}
+              onClick={() => {
+                setMode((m) => {
+                  if (m === "expand") {
+                    if (onExpandReset) onExpandReset();
+                    return "normal";
+                  }
+                  return "expand";
+                });
+              }}
+              style={{
+                background: expandMode ? theme.palette.primary.main : undefined,
+                color: expandMode ? theme.palette.primary.contrastText : undefined,
+              }}
+            >
+              <MaterialSymbol icon="alt_route" size={18} />
             </ControlButton>
           </Controls>
         </ReactFlow>
