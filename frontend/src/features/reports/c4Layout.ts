@@ -46,7 +46,6 @@ export interface C4NodeData {
   category: string;
   nodeId?: string;
   onLongPress?: (id: string) => void;
-  onClick?: (id: string, shiftKey: boolean) => void;
   dimmed?: boolean;
   usedHandles?: string[];
   [key: string]: unknown;
