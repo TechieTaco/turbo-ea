@@ -42,6 +42,7 @@ import {
 /* ------------------------------------------------------------------ */
 
 let _longPressFired = false;
+let _twoFingerTapFired = false;
 
 /* ------------------------------------------------------------------ */
 /*  Custom C4 Node                                                     */
@@ -388,6 +389,10 @@ function C4DiagramInner({
           _longPressFired = false;
           return; // already handled by long-press
         }
+        if (_twoFingerTapFired) {
+          _twoFingerTapFired = false;
+          return; // already handled by two-finger tap
+        }
         // Clear highlight before navigating so it doesn't persist when coming back
         setHoveredNode(null);
         if (event.shiftKey && onNodeShiftClick) {
@@ -457,6 +462,7 @@ function C4DiagramInner({
 
     const onTouchEnd = (e: TouchEvent) => {
       if (twoFingerNodeId && e.touches.length === 0) {
+        _twoFingerTapFired = true;
         setHoveredNode(twoFingerNodeId);
         twoFingerNodeId = null;
       }
