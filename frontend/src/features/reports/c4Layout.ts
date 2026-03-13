@@ -64,6 +64,7 @@ export interface C4EdgeData {
   highlightMode?: boolean;
   pathOffset?: number;
   labelT?: number;
+  stepPosition?: number;
   [key: string]: unknown;
 }
 
@@ -525,6 +526,35 @@ export function buildC4Flow(
     }
   }
 
+  // ---- Stagger horizontal segments for edges crossing the same inter-group gap ----
+  // stepPosition (0-1) controls where the horizontal segment appears between
+  // source and target. Spreading these prevents all paths from converging at
+  // the midpoint Y and keeps labels from overlapping.
+  const stepPositions = new Array<number>(oriented.length).fill(0.5);
+  const gapGroups = new Map<string, number[]>();
+  for (let i = 0; i < oriented.length; i++) {
+    const sCat = nodeCatMap.get(oriented[i].source);
+    const tCat = nodeCatMap.get(oriented[i].target);
+    if (!sCat || !tCat || sCat === tCat) continue;
+    const gapKey = `${sCat}||${tCat}`;
+    if (!gapGroups.has(gapKey)) gapGroups.set(gapKey, []);
+    gapGroups.get(gapKey)!.push(i);
+  }
+  for (const indices of gapGroups.values()) {
+    if (indices.length <= 1) continue;
+    // Sort by source X for consistent left-to-right staggering
+    indices.sort((a, b) => {
+      const aX = absPos.get(oriented[a].source)?.x ?? 0;
+      const bX = absPos.get(oriented[b].source)?.x ?? 0;
+      return aX - bX;
+    });
+    const n = indices.length;
+    for (let k = 0; k < n; k++) {
+      // Spread stepPosition within [0.25, 0.75] to keep paths reasonable
+      stepPositions[indices[k]] = n === 1 ? 0.5 : 0.25 + (k * 0.5) / (n - 1);
+    }
+  }
+
   // First pass: pick handles for each edge
   const edgeHandles: { src: string; tgt: string }[] = oriented.map((e) => {
     const sPos = absPos.get(e.source);
@@ -657,8 +687,10 @@ export function buildC4Flow(
       description: e.description,
       pathOffset: pathOffsets[i],
       labelT: labelTs[i],
+      stepPosition: stepPositions[i],
     } satisfies C4EdgeData,
     animated: false,
+    zIndex: 1,
     markerEnd: { type: "arrowclosed" as const, color: "#888" },
   }));
 
