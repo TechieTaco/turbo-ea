@@ -447,7 +447,6 @@ function C4DiagramInner({
   }, []);
 
   // Highlight all connections when hovering a card node
-  // Debounce mouseLeave to prevent flickering during React Flow re-renders
   const [hoveredNode, setHoveredNode] = useState<string | null>(null);
   const leaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const handleNodeMouseEnter = useCallback((_: React.MouseEvent, node: Node) => {
@@ -459,7 +458,10 @@ function C4DiagramInner({
   }, [highlightMode]);
   const handleNodeMouseLeave = useCallback(() => {
     if (highlightMode) return; // hover disabled in highlight mode
-    leaveTimer.current = setTimeout(() => setHoveredNode(null), 50);
+    // Use rAF instead of setTimeout: clears on next frame unless a new
+    // mouseEnter cancels it first — fast enough to avoid stale highlights
+    // but doesn't cause DOM churn that swallows the next card's mouseenter.
+    leaveTimer.current = setTimeout(() => setHoveredNode(null), 0);
   }, [highlightMode]);
 
   // Set of nodes connected to the hovered node (for dimming others)
