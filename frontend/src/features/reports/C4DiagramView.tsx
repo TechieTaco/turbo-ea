@@ -23,6 +23,7 @@ import {
   BaseEdge,
   EdgeLabelRenderer,
   ReactFlowProvider,
+  useNodes,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { useResolveMetaLabel } from "@/hooks/useResolveLabel";
@@ -315,27 +316,83 @@ const C4EdgeComponent = (
       ? (isDark ? "#4fc3f7" : "#1976d2")
       : (isDark ? "#444" : "#ccc");
 
-    // Measure on-path label position using SVGPathElement
+    // Build node bounding boxes from React Flow nodes for overlap detection
+    const rfNodes = useNodes();
+    const nodeBounds = useMemo(() => {
+      const bounds: { x1: number; y1: number; x2: number; y2: number }[] = [];
+      for (const n of rfNodes) {
+        if (n.type !== "c4Node" || !n.parentId) continue;
+        const parent = rfNodes.find((p) => p.id === n.parentId);
+        if (!parent) continue;
+        const w = (n.style?.width as number) ?? C4_NODE_W;
+        const h = (n.style?.height as number) ?? C4_NODE_H;
+        const ax = parent.position.x + n.position.x;
+        const ay = parent.position.y + n.position.y;
+        bounds.push({ x1: ax, y1: ay, x2: ax + w, y2: ay + h });
+      }
+      return bounds;
+    }, [rfNodes]);
+
+    // Find a label position along the path that doesn't overlap any node
     const pathRef = useRef<SVGPathElement>(null);
     const [labelPos, setLabelPos] = useState<{ x: number; y: number } | null>(null);
+
+    const maxChars = 24;
+    const displayLabel = label.length > maxChars
+      ? label.slice(0, maxChars - 1) + "\u2026"
+      : label;
+    const labelW = displayLabel.length * 6.5 + 16;
+    const labelH = 20;
+    const margin = 6;
 
     useEffect(() => {
       const el = pathRef.current;
       if (!el || !label) return;
       el.setAttribute("d", path);
       const total = el.getTotalLength();
-      const pt = el.getPointAtLength(total * labelT);
-      setLabelPos({ x: pt.x, y: pt.y });
-    }, [path, labelT, label]);
+
+      // Check if a point overlaps any node
+      const overlaps = (px: number, py: number) => {
+        const lx1 = px - labelW / 2 - margin;
+        const lx2 = px + labelW / 2 + margin;
+        const ly1 = py - labelH / 2 - margin;
+        const ly2 = py + labelH / 2 + margin;
+        for (const b of nodeBounds) {
+          if (lx1 < b.x2 && lx2 > b.x1 && ly1 < b.y2 && ly2 > b.y1) return true;
+        }
+        return false;
+      };
+
+      // Try the preferred position first
+      const preferred = el.getPointAtLength(total * labelT);
+      if (!overlaps(preferred.x, preferred.y)) {
+        setLabelPos({ x: preferred.x, y: preferred.y });
+        return;
+      }
+
+      // Sample 20 positions along the path, find the one closest to labelT
+      // that doesn't overlap any node. Skip the ends (near source/target nodes).
+      let bestPt: { x: number; y: number } | null = null;
+      let bestDist = Infinity;
+      const steps = 20;
+      for (let i = 1; i < steps; i++) {
+        const t = i / steps;
+        if (t < 0.08 || t > 0.92) continue; // skip near endpoints
+        const pt = el.getPointAtLength(total * t);
+        if (!overlaps(pt.x, pt.y)) {
+          const dist = Math.abs(t - labelT);
+          if (dist < bestDist) {
+            bestDist = dist;
+            bestPt = { x: pt.x, y: pt.y };
+          }
+        }
+      }
+
+      setLabelPos(bestPt ?? { x: preferred.x, y: preferred.y });
+    }, [path, labelT, label, nodeBounds, labelW, labelH]);
 
     const finalLx = labelPos?.x ?? lx;
     const finalLy = labelPos?.y ?? ly;
-
-    // Estimate SVG text width (~5.8px per char at 10px font + 12px padding)
-    const maxChars = 24;
-    const displayLabel = label.length > maxChars
-      ? label.slice(0, maxChars - 1) + "\u2026"
-      : label;
 
     return (
       <>
@@ -373,12 +430,12 @@ const C4EdgeComponent = (
                 fontFamily: "inherit",
                 color: labelColor,
                 background: labelBg,
-                opacity: 0.9,
                 border: `1px solid ${labelBorder}`,
                 borderRadius: 4,
                 padding: "2px 6px",
                 whiteSpace: "nowrap",
                 lineHeight: "14px",
+                zIndex: 1,
               }}
             >
               {displayLabel}
