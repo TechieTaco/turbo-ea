@@ -45,6 +45,7 @@ export interface C4NodeData {
   typeColor: string;
   category: string;
   nodeId?: string;
+  onClick?: (id: string, shiftKey: boolean) => void;
   onLongPress?: (id: string) => void;
   dimmed?: boolean;
   usedHandles?: string[];

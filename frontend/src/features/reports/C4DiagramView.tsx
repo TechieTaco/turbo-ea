@@ -105,8 +105,17 @@ const C4Node = memo(({ data }: NodeProps<Node<C4NodeData>>) => {
     }, 1000);
   }, [data]);
 
+  const handleClick = useCallback(
+    (e: React.MouseEvent) => {
+      if (_longPressFired) { _longPressFired = false; return; }
+      if (data.onClick && data.nodeId) data.onClick(data.nodeId, e.shiftKey);
+    },
+    [data],
+  );
+
   return (
     <Box
+      onClick={handleClick}
       onPointerDown={handlePointerDown}
       onPointerUp={clearTimer}
       onPointerCancel={clearTimer}
@@ -433,40 +442,44 @@ function C4DiagramInner({
   const highlightMode = mode === "highlight";
   const expandMode = mode === "expand";
 
-  // Click handler via React Flow's onNodeClick — uses modeRef for fresh mode reads
-  const handleNodeClick = useCallback(
-    (_: React.MouseEvent, node: Node) => {
-      if (node.type !== "c4Node") return;
-      if (_longPressFired) { _longPressFired = false; return; }
+  // Click handler injected into each c4Node via data.onClick —
+  // uses modeRef so the callback always reads the latest mode.
+  const handleC4NodeClick = useCallback(
+    (nodeId: string, shiftKey: boolean) => {
       const currentMode = modeRef.current;
       if (currentMode === "highlight") {
         if (leaveTimer.current) { clearTimeout(leaveTimer.current); leaveTimer.current = null; }
-        setHoveredNode((prev) => (prev === node.id ? null : node.id));
+        setHoveredNode((prev) => (prev === nodeId ? null : nodeId));
       } else if (currentMode === "expand" && onNodeExpand) {
-        onNodeExpand(node.id);
-      } else if (_.shiftKey && onNodeShiftClick) {
+        onNodeExpand(nodeId);
+      } else if (shiftKey && onNodeShiftClick) {
         setHoveredNode(null);
-        onNodeShiftClick(node.id);
+        onNodeShiftClick(nodeId);
       } else {
         setHoveredNode(null);
-        onNodeClick(node.id);
+        onNodeClick(nodeId);
       }
     },
     [onNodeClick, onNodeShiftClick, onNodeExpand],
   );
 
-  // Inject long-press callback into c4Node data (clicks handled via onNodeClick)
+  // Inject click + long-press callbacks into c4Node data
   const rfNodes = useMemo(
     () =>
       builtNodes.map((n) =>
-        n.type === "c4Node" && onNodeShiftClick
+        n.type === "c4Node"
           ? {
               ...n,
-              data: { ...n.data, nodeId: n.id, onLongPress: onNodeShiftClick },
+              data: {
+                ...n.data,
+                nodeId: n.id,
+                onClick: handleC4NodeClick,
+                ...(onNodeShiftClick && { onLongPress: onNodeShiftClick }),
+              },
             }
           : n,
       ),
-    [builtNodes, onNodeShiftClick],
+    [builtNodes, handleC4NodeClick, onNodeShiftClick],
   );
 
   // In highlight mode, clicking the canvas (not a node) dismisses the highlight
@@ -610,7 +623,6 @@ function C4DiagramInner({
           edges={orderedEdges}
           nodeTypes={nodeTypes}
           edgeTypes={edgeTypes}
-          onNodeClick={handleNodeClick}
           onPaneClick={handlePaneClick}
           onNodeMouseEnter={handleNodeMouseEnter}
           onNodeMouseLeave={handleNodeMouseLeave}
@@ -624,6 +636,7 @@ function C4DiagramInner({
           nodesDraggable={false}
           nodesConnectable={false}
           edgesReconnectable={false}
+          elementsSelectable={false}
           colorMode={theme.palette.mode}
         >
           <Background gap={16} size={1} />
