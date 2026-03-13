@@ -241,8 +241,9 @@ C4Group.displayName = "C4Group";
 /*  Custom C4 Edge (smoothstep + hover highlight)                      */
 /* ------------------------------------------------------------------ */
 
-const C4EdgeComponent = memo(
-  ({ id, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, data, markerEnd }: EdgeProps) => {
+const C4EdgeComponent = (
+  { id, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, data, markerEnd }: EdgeProps,
+) => {
     const theme = useTheme();
     const edgeData = data as C4EdgeData | undefined;
     const connectedToHovered = edgeData?.connectedToHovered ?? false;
@@ -266,6 +267,7 @@ const C4EdgeComponent = memo(
     });
 
     const label = edgeData?.relLabel || "";
+    const labelNudge = edgeData?.labelNudge ?? 0;
     const labelBg = isDark ? "#121212" : "#ffffff";
     const labelColor = active
       ? (isDark ? "#4fc3f7" : "#1976d2")
@@ -307,17 +309,18 @@ const C4EdgeComponent = memo(
           <>
             <rect
               x={lx - estW / 2}
-              y={ly - labelH / 2}
+              y={ly + labelNudge - labelH / 2}
               width={estW}
               height={labelH}
               rx={4}
               fill={labelBg}
+              fillOpacity={0.8}
               stroke={labelBorder}
               strokeWidth={1}
             />
             <text
               x={lx}
-              y={ly}
+              y={ly + labelNudge}
               textAnchor="middle"
               dominantBaseline="central"
               fill={labelColor}
@@ -331,9 +334,7 @@ const C4EdgeComponent = memo(
         )}
       </>
     );
-  },
-);
-C4EdgeComponent.displayName = "C4EdgeComponent";
+  };
 
 /* ------------------------------------------------------------------ */
 /*  Node types registry                                                */
