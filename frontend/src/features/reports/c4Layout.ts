@@ -332,17 +332,35 @@ export function buildC4Flow(
     }
   }
 
-  // Deduplicate edges: merge multiple edges between the same pair into one
-  const edgePairMap = new Map<string, { labels: string[]; description?: string }>();
+  // Deduplicate edges: merge multiple edges between the same pair into one.
+  // Track labels per-direction so we can pick the correct label when the
+  // visual arrow is flipped for top-to-bottom layout.
+  const edgePairMap = new Map<
+    string,
+    { fwdLabels: string[]; revLabels: string[]; description?: string }
+  >();
   for (const e of validEdges) {
-    const [lo, hi] = e.source < e.target ? [e.source, e.target] : [e.target, e.source];
+    const isNormalized = e.source < e.target;
+    const [lo, hi] = isNormalized ? [e.source, e.target] : [e.target, e.source];
     const key = `${lo}||${hi}`;
+    // Forward label = label when arrow goes lo→hi; reverse = when hi→lo
+    const fwdLbl = isNormalized
+      ? (e.label || e.type)
+      : (e.reverse_label || e.label || e.type);
+    const revLbl = isNormalized
+      ? (e.reverse_label || e.label || e.type)
+      : (e.label || e.type);
+
     const existing = edgePairMap.get(key);
-    const lbl = e.label || e.type;
     if (existing) {
-      if (!existing.labels.includes(lbl)) existing.labels.push(lbl);
+      if (!existing.fwdLabels.includes(fwdLbl)) existing.fwdLabels.push(fwdLbl);
+      if (!existing.revLabels.includes(revLbl)) existing.revLabels.push(revLbl);
     } else {
-      edgePairMap.set(key, { labels: [lbl], description: e.description });
+      edgePairMap.set(key, {
+        fwdLabels: [fwdLbl],
+        revLabels: [revLbl],
+        description: e.description,
+      });
     }
   }
 
@@ -356,7 +374,7 @@ export function buildC4Flow(
     dedupedEdges.push(e);
   }
 
-  // Orient edges top-to-bottom
+  // Orient edges top-to-bottom, choosing the correct directional label
   interface OrientedEdge {
     source: string;
     target: string;
@@ -374,7 +392,15 @@ export function buildC4Flow(
       source = e.target;
       target = e.source;
     }
-    return { source, target, relLabel: merged.labels.join(" / "), description: merged.description };
+    // Pick labels matching the final arrow direction (source→target)
+    const finalIsNormalized = source < target;
+    const labels = finalIsNormalized ? merged.fwdLabels : merged.revLabels;
+    return {
+      source,
+      target,
+      relLabel: labels.join(" / "),
+      description: merged.description,
+    };
   });
 
   // Handle pair candidates and their Manhattan distance from source→target
