@@ -107,6 +107,7 @@ const C4Node = memo(({ data }: NodeProps<Node<C4NodeData>>) => {
   }, [data]);
 
   const handleClick = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
     if (_longPressFired) { _longPressFired = false; return; }
     if (data.onClick && data.nodeId) data.onClick(data.nodeId, e.shiftKey);
   }, [data]);
@@ -274,13 +275,11 @@ const C4EdgeComponent = (
     const rawOffset = edgeData?.pathOffset ?? 20;
     const verticalGap = Math.abs(targetY - sourceY);
     const clampedOffset = Math.min(rawOffset, Math.max(10, verticalGap * 0.4));
-    const stepPosition = edgeData?.stepPosition ?? 0.5;
     const [path, lx, ly] = getSmoothStepPath({
       sourceX, sourceY, targetX, targetY,
       sourcePosition, targetPosition,
       borderRadius: 8,
       offset: clampedOffset,
-      stepPosition,
     });
 
     const label = edgeData?.relLabel || "";
