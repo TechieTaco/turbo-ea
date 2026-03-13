@@ -62,6 +62,7 @@ export interface C4EdgeData {
   connectedToHovered?: boolean;
   highlightMode?: boolean;
   pathOffset?: number;
+  labelNudge?: number;
   [key: string]: unknown;
 }
 
@@ -523,7 +524,8 @@ export function buildC4Flow(
     }
   }
 
-  const rfEdges: Edge[] = oriented.map((e, i) => {
+  // First pass: pick handles for each edge
+  const edgeHandles: { src: string; tgt: string }[] = oriented.map((e) => {
     const sPos = absPos.get(e.source);
     const tPos = absPos.get(e.target);
 
@@ -536,7 +538,6 @@ export function buildC4Flow(
       const usedT = usedTgtHandles.get(e.target) ?? new Set();
 
       for (const pair of HANDLE_PAIRS) {
-        // Prefer unused handles (add penalty for reuse)
         const penalty = (usedS.has(pair.src) ? 200 : 0) + (usedT.has(pair.tgt) ? 200 : 0);
 
         const sOff = handleOffset(pair.src);
@@ -554,30 +555,74 @@ export function buildC4Flow(
         }
       }
 
-      // Mark handles as used
       if (!usedSrcHandles.has(e.source)) usedSrcHandles.set(e.source, new Set());
       usedSrcHandles.get(e.source)!.add(bestSrc);
       if (!usedTgtHandles.has(e.target)) usedTgtHandles.set(e.target, new Set());
       usedTgtHandles.get(e.target)!.add(bestTgt);
     }
 
+    return { src: bestSrc, tgt: bestTgt };
+  });
+
+  // Approximate label midpoints for collision detection
+  // getSmoothStepPath places the label at the path midpoint ≈ average of endpoints
+  const LABEL_COLLISION_H = 22; // vertical space a label occupies
+  const labelPositions: { lx: number; ly: number }[] = oriented.map((e, i) => {
+    const sPos = absPos.get(e.source);
+    const tPos = absPos.get(e.target);
+    if (!sPos || !tPos) return { lx: 0, ly: 0 };
+    const sOff = handleOffset(edgeHandles[i].src);
+    const tOff = handleOffset(edgeHandles[i].tgt);
     return {
-      id: `c4e-${i}`,
-      source: e.source,
-      target: e.target,
-      sourceHandle: bestSrc,
-      targetHandle: bestTgt,
-      type: "c4Edge",
-      label: e.relLabel,
-      data: {
-        relLabel: e.relLabel,
-        description: e.description,
-        pathOffset: pathOffsets[i],
-      } satisfies C4EdgeData,
-      animated: false,
-      markerEnd: { type: "arrowclosed" as const, color: "#888" },
+      lx: (sPos.x + sOff.dx + tPos.x + tOff.dx) / 2,
+      ly: (sPos.y + sOff.dy + tPos.y + tOff.dy) / 2,
     };
   });
+
+  // Detect label collisions and compute vertical nudges
+  const labelNudges = new Array<number>(oriented.length).fill(0);
+  // Group labels that overlap: within 80px horizontally and LABEL_COLLISION_H vertically
+  const assigned = new Set<number>();
+  for (let i = 0; i < labelPositions.length; i++) {
+    if (assigned.has(i) || !oriented[i].relLabel) continue;
+    const cluster = [i];
+    for (let j = i + 1; j < labelPositions.length; j++) {
+      if (assigned.has(j) || !oriented[j].relLabel) continue;
+      if (
+        Math.abs(labelPositions[i].lx - labelPositions[j].lx) < 80 &&
+        Math.abs(labelPositions[i].ly - labelPositions[j].ly) < LABEL_COLLISION_H
+      ) {
+        cluster.push(j);
+      }
+    }
+    if (cluster.length > 1) {
+      // Sort cluster by approximate ly so nudges are consistent
+      cluster.sort((a, b) => labelPositions[a].ly - labelPositions[b].ly);
+      const mid = (cluster.length - 1) / 2;
+      for (let k = 0; k < cluster.length; k++) {
+        labelNudges[cluster[k]] = (k - mid) * LABEL_COLLISION_H;
+        assigned.add(cluster[k]);
+      }
+    }
+  }
+
+  const rfEdges: Edge[] = oriented.map((e, i) => ({
+    id: `c4e-${i}`,
+    source: e.source,
+    target: e.target,
+    sourceHandle: edgeHandles[i].src,
+    targetHandle: edgeHandles[i].tgt,
+    type: "c4Edge",
+    label: e.relLabel,
+    data: {
+      relLabel: e.relLabel,
+      description: e.description,
+      pathOffset: pathOffsets[i],
+      labelNudge: labelNudges[i],
+    } satisfies C4EdgeData,
+    animated: false,
+    markerEnd: { type: "arrowclosed" as const, color: "#888" },
+  }));
 
   return { nodes: rfNodes, edges: rfEdges };
 }
