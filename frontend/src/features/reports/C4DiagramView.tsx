@@ -21,6 +21,7 @@ import {
   type Node,
   getSmoothStepPath,
   BaseEdge,
+  EdgeLabelRenderer,
   ReactFlowProvider,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
@@ -335,8 +336,6 @@ const C4EdgeComponent = (
     const displayLabel = label.length > maxChars
       ? label.slice(0, maxChars - 1) + "\u2026"
       : label;
-    const estW = displayLabel.length * 5.8 + 12;
-    const labelH = 18;
 
     return (
       <>
@@ -364,31 +363,27 @@ const C4EdgeComponent = (
           }}
         />
         {label && (
-          <>
-            <rect
-              x={finalLx - estW / 2}
-              y={finalLy - labelH / 2}
-              width={estW}
-              height={labelH}
-              rx={4}
-              fill={labelBg}
-              fillOpacity={0.8}
-              stroke={labelBorder}
-              strokeWidth={1}
-            />
-            <text
-              x={finalLx}
-              y={finalLy}
-              textAnchor="middle"
-              dominantBaseline="central"
-              fill={labelColor}
-              fontSize={10}
-              fontFamily="inherit"
-              style={{ pointerEvents: "none" }}
+          <EdgeLabelRenderer>
+            <div
+              style={{
+                position: "absolute",
+                transform: `translate(-50%, -50%) translate(${finalLx}px, ${finalLy}px)`,
+                pointerEvents: "none",
+                fontSize: 10,
+                fontFamily: "inherit",
+                color: labelColor,
+                background: labelBg,
+                opacity: 0.9,
+                border: `1px solid ${labelBorder}`,
+                borderRadius: 4,
+                padding: "2px 6px",
+                whiteSpace: "nowrap",
+                lineHeight: "14px",
+              }}
             >
               {displayLabel}
-            </text>
-          </>
+            </div>
+          </EdgeLabelRenderer>
         )}
       </>
     );
