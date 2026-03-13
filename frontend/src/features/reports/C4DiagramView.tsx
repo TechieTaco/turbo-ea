@@ -280,12 +280,12 @@ const C4EdgeComponent = (
     const theme = useTheme();
     const edgeData = data as C4EdgeData | undefined;
     const connectedToHovered = edgeData?.connectedToHovered ?? false;
-    // Local hover state — React Flow's onEdgeMouseEnter doesn't fire reliably
-    // because the SVG edge layer sits below the HTML node layer.
-    const [localHover, setLocalHover] = useState(false);
+    // Use parent-managed hover state to prevent stale highlights when
+    // React Flow reorders SVG elements (local useState would go stale).
+    const isHovered = edgeData?.isHovered === true;
     const active = edgeData?.highlightMode
       ? connectedToHovered
-      : localHover || connectedToHovered;
+      : isHovered || connectedToHovered;
     const isDark = theme.palette.mode === "dark";
     const baseColor = isDark ? "#aaa" : "#777";
     const hoverColor = isDark ? "#4fc3f7" : "#1976d2";
@@ -295,10 +295,12 @@ const C4EdgeComponent = (
     const minOffset = edgeData?.minOffset ?? 0;
     const verticalGap = Math.abs(targetY - sourceY);
     // If the edge must clear an obstruction, use at least minOffset; otherwise
-    // clamp to prevent the offset from being too large for short paths.
+    // clamp to 48% of the vertical gap so the horizontal segment stays within
+    // the inter-group band. The layout engine already staggers offsets, so we
+    // use a generous fraction to preserve the staggering.
     const offset = minOffset > 0
       ? Math.max(rawOffset, minOffset)
-      : Math.min(rawOffset, Math.max(10, verticalGap * 0.4));
+      : Math.min(rawOffset, Math.max(10, verticalGap * 0.48));
     const [path, lx, ly] = getSmoothStepPath({
       sourceX, sourceY, targetX, targetY,
       sourcePosition, targetPosition,
@@ -414,8 +416,8 @@ const C4EdgeComponent = (
           stroke="transparent"
           strokeWidth={14}
           style={{ cursor: "pointer", pointerEvents: "stroke" }}
-          onMouseEnter={() => setLocalHover(true)}
-          onMouseLeave={() => setLocalHover(false)}
+          onMouseEnter={edgeData?.onHover}
+          onMouseLeave={edgeData?.onLeave}
         />
         <BaseEdge
           id={id}
@@ -581,6 +583,20 @@ function C4DiagramInner({
     setHoveredEdge(null);
   }, []);
 
+  // Stable per-edge hover callbacks (memoised map to avoid re-creating on each render)
+  const edgeHoverCbs = useRef(new Map<string, { onHover: () => void; onLeave: () => void }>());
+  const getEdgeHoverCbs = useCallback((edgeId: string) => {
+    let cbs = edgeHoverCbs.current.get(edgeId);
+    if (!cbs) {
+      cbs = {
+        onHover: () => setHoveredEdge(edgeId),
+        onLeave: () => setHoveredEdge((prev) => (prev === edgeId ? null : prev)),
+      };
+      edgeHoverCbs.current.set(edgeId, cbs);
+    }
+    return cbs;
+  }, []);
+
   // Highlight all connections when hovering a card node
   const [hoveredNode, setHoveredNode] = useState<string | null>(null);
   const leaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -607,19 +623,24 @@ function C4DiagramInner({
     return s;
   }, [hoveredNode, rfEdges]);
 
-  // Inject hover state into edges + reorder for z-index
+  // Inject hover state + callbacks into edges + reorder for z-index
   const orderedEdges = useMemo(() => {
-    let result = rfEdges.map((e) => ({
-      ...e,
-      data: {
-        ...e.data,
-        connectedToHovered: hoveredNode
-          ? e.source === hoveredNode || e.target === hoveredNode
-          : false,
-        isHovered: e.id === hoveredEdge,
-        highlightMode,
-      },
-    }));
+    let result = rfEdges.map((e) => {
+      const cbs = getEdgeHoverCbs(e.id);
+      return {
+        ...e,
+        data: {
+          ...e.data,
+          connectedToHovered: hoveredNode
+            ? e.source === hoveredNode || e.target === hoveredNode
+            : false,
+          isHovered: e.id === hoveredEdge,
+          highlightMode,
+          onHover: cbs.onHover,
+          onLeave: cbs.onLeave,
+        },
+      };
+    });
     if (hoveredEdge) {
       const rest = result.filter((e) => e.id !== hoveredEdge);
       const h = result.find((e) => e.id === hoveredEdge);
@@ -630,7 +651,7 @@ function C4DiagramInner({
       result = [...notConn, ...conn];
     }
     return result;
-  }, [rfEdges, hoveredEdge, hoveredNode, highlightMode]);
+  }, [rfEdges, hoveredEdge, hoveredNode, highlightMode, getEdgeHoverCbs]);
 
   // CSS-based dimming avoids recreating node objects (which causes flickering)
   const hoverStyle = useMemo(() => {
