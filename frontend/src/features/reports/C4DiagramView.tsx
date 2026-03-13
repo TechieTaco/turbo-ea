@@ -77,10 +77,13 @@ const C4Node = memo(({ data }: NodeProps<Node<C4NodeData>>) => {
       ...extra,
     }) as const;
 
-  /* ---- Long-press detection (touch-friendly Shift+click alternative) ---- */
+  /* ---- Click + long-press via pointer events ---- */
+  /* React Flow v12 swallows click events on custom nodes, but pointer
+     events still fire reliably — the same layer long-press already uses. */
   const showTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fireTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [pressing, setPressing] = useState(false);
+  const downPos = useRef<{ x: number; y: number; shift: boolean } | null>(null);
 
   const clearTimer = useCallback(() => {
     if (showTimerRef.current) {
@@ -94,30 +97,40 @@ const C4Node = memo(({ data }: NodeProps<Node<C4NodeData>>) => {
     setPressing(false);
   }, []);
 
-  const handlePointerDown = useCallback(() => {
-    if (!data.onLongPress || !data.nodeId) return;
-    _longPressFired = false;
-    showTimerRef.current = setTimeout(() => setPressing(true), 150);
-    fireTimerRef.current = setTimeout(() => {
-      _longPressFired = true;
-      setPressing(false);
-      data.onLongPress!(data.nodeId!);
-    }, 1000);
-  }, [data]);
-
-  const handleClick = useCallback(
-    (e: React.MouseEvent) => {
-      if (_longPressFired) { _longPressFired = false; return; }
-      if (data.onClick && data.nodeId) data.onClick(data.nodeId, e.shiftKey);
+  const handlePointerDown = useCallback(
+    (e: React.PointerEvent) => {
+      downPos.current = { x: e.clientX, y: e.clientY, shift: e.shiftKey };
+      if (!data.onLongPress || !data.nodeId) return;
+      _longPressFired = false;
+      showTimerRef.current = setTimeout(() => setPressing(true), 150);
+      fireTimerRef.current = setTimeout(() => {
+        _longPressFired = true;
+        setPressing(false);
+        data.onLongPress!(data.nodeId!);
+      }, 1000);
     },
     [data],
   );
 
+  const handlePointerUp = useCallback(
+    (e: React.PointerEvent) => {
+      clearTimer();
+      if (_longPressFired) { _longPressFired = false; downPos.current = null; return; }
+      const d = downPos.current;
+      downPos.current = null;
+      if (!d) return;
+      if (Math.abs(e.clientX - d.x) > 5 || Math.abs(e.clientY - d.y) > 5) return;
+      // Stop propagation so React Flow doesn't also fire its own click handler
+      e.stopPropagation();
+      if (data.onClick && data.nodeId) data.onClick(data.nodeId, d.shift);
+    },
+    [data, clearTimer],
+  );
+
   return (
     <Box
-      onClick={handleClick}
       onPointerDown={handlePointerDown}
-      onPointerUp={clearTimer}
+      onPointerUp={handlePointerUp}
       onPointerCancel={clearTimer}
       onPointerLeave={clearTimer}
       sx={{
@@ -340,7 +353,7 @@ const C4EdgeComponent = (
             transition: "stroke 0.15s, stroke-width 0.15s",
           }}
         />
-        {label && active && (
+        {label && (
           <>
             <rect
               x={finalLx - estW / 2}
