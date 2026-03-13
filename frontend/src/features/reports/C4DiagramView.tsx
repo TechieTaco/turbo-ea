@@ -436,16 +436,16 @@ function C4DiagramInner({
     [builtNodes, onNodeShiftClick],
   );
 
-  // Highlight mode: click highlights connections instead of opening card
-  const [highlightMode, setHighlightMode] = useState(false);
-  // Expand mode: click expands a card to show all its relations
-  const [expandMode, setExpandMode] = useState(false);
+  // Interaction mode: "normal" (default), "highlight" (sticky hover), "expand" (add relations)
+  type InteractionMode = "normal" | "highlight" | "expand";
+  const [mode, setMode] = useState<InteractionMode>("normal");
+  // Ref so React Flow callbacks always read the latest mode
+  const modeRef = useRef<InteractionMode>(mode);
+  modeRef.current = mode;
 
-  // Refs to avoid stale closures in React Flow event handlers
-  const highlightModeRef = useRef(highlightMode);
-  highlightModeRef.current = highlightMode;
-  const expandModeRef = useRef(expandMode);
-  expandModeRef.current = expandMode;
+  // Derived booleans for style props (read from state, not ref)
+  const highlightMode = mode === "highlight";
+  const expandMode = mode === "expand";
 
   const handleNodeClick = useCallback(
     (event: React.MouseEvent, node: Node) => {
@@ -454,14 +454,15 @@ function C4DiagramInner({
           _longPressFired = false;
           return; // already handled by long-press
         }
-        if (highlightModeRef.current) {
+        const currentMode = modeRef.current;
+        if (currentMode === "highlight") {
           // Cancel any pending mouse-leave timer to prevent race
           if (leaveTimer.current) { clearTimeout(leaveTimer.current); leaveTimer.current = null; }
           // Toggle: tap same card clears, tap different card highlights it
           setHoveredNode((prev) => (prev === node.id ? null : node.id));
           return;
         }
-        if (expandModeRef.current && onNodeExpand) {
+        if (currentMode === "expand" && onNodeExpand) {
           onNodeExpand(node.id);
           return;
         }
@@ -479,7 +480,7 @@ function C4DiagramInner({
 
   // In highlight mode, clicking the canvas (not a node) dismisses the highlight
   const handlePaneClick = useCallback(() => {
-    if (highlightModeRef.current) setHoveredNode(null);
+    if (modeRef.current === "highlight") setHoveredNode(null);
   }, []);
 
   // Bring hovered edge to front by reordering
@@ -495,14 +496,14 @@ function C4DiagramInner({
   const [hoveredNode, setHoveredNode] = useState<string | null>(null);
   const leaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const handleNodeMouseEnter = useCallback((_: React.MouseEvent, node: Node) => {
-    if (highlightModeRef.current) return; // hover disabled in highlight mode
+    if (modeRef.current !== "normal") return; // hover only in normal mode
     if (node.type === "c4Node") {
       if (leaveTimer.current) { clearTimeout(leaveTimer.current); leaveTimer.current = null; }
       setHoveredNode(node.id);
     }
   }, []);
   const handleNodeMouseLeave = useCallback(() => {
-    if (highlightModeRef.current) return; // hover disabled in highlight mode
+    if (modeRef.current !== "normal") return; // hover only in normal mode
     leaveTimer.current = setTimeout(() => setHoveredNode(null), 0);
   }, []);
 
@@ -639,8 +640,13 @@ function C4DiagramInner({
             <ControlButton
               title={t("dependency.highlightMode")}
               onClick={() => {
-                setHighlightMode((v) => !v);
-                if (highlightMode) setHoveredNode(null);
+                setMode((m) => {
+                  if (m === "highlight") {
+                    setHoveredNode(null);
+                    return "normal";
+                  }
+                  return "highlight";
+                });
               }}
               style={{
                 background: highlightMode ? theme.palette.primary.main : undefined,
@@ -652,9 +658,13 @@ function C4DiagramInner({
             <ControlButton
               title={t("dependency.expandMode")}
               onClick={() => {
-                const wasOn = expandMode;
-                setExpandMode((v) => !v);
-                if (wasOn && onExpandReset) onExpandReset();
+                setMode((m) => {
+                  if (m === "expand") {
+                    if (onExpandReset) onExpandReset();
+                    return "normal";
+                  }
+                  return "expand";
+                });
               }}
               style={{
                 background: expandMode ? theme.palette.primary.main : undefined,
