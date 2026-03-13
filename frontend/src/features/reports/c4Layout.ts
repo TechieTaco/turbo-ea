@@ -448,6 +448,11 @@ export function buildC4Flow(
     // Side → Side (same side only)
     { src: "left-src", tgt: "left" },
     { src: "right", tgt: "right-tgt" },
+    // Side → Top (wide routing around obstacles)
+    { src: "left-src", tgt: "t-1" },
+    { src: "left-src", tgt: "t-2" },
+    { src: "right", tgt: "t-4" },
+    { src: "right", tgt: "t-5" },
   ];
 
   // Handle position offsets relative to node center
@@ -472,12 +477,48 @@ export function buildC4Flow(
     }
   }
 
+  // Collect all node bounding boxes for obstruction + label overlap checks
+  const allNodeBounds: { id: string; x1: number; y1: number; x2: number; y2: number }[] = [];
+  for (const [nid, pos] of absPos) {
+    allNodeBounds.push({
+      id: nid,
+      x1: pos.x - C4_NODE_W / 2,
+      y1: pos.y - C4_NODE_H / 2,
+      x2: pos.x + C4_NODE_W / 2,
+      y2: pos.y + C4_NODE_H / 2,
+    });
+  }
+
+  /** Check if a vertical-ish line segment from (sx,sy)→(tx,ty) passes through
+   *  any node other than sourceId/targetId. For smooth-step paths the horizontal
+   *  segment sits near sy or ty, so we check a corridor along the X midpoint. */
+  function pathObstructed(
+    sx: number, sy: number, tx: number, ty: number,
+    sourceId: string, targetId: string,
+  ): boolean {
+    // Build a bounding corridor for the smooth-step path:
+    // The path goes down from (sx,sy), turns horizontal, then down to (tx,ty).
+    // We approximate by checking the vertical strip between min/max X ± margin.
+    const minX = Math.min(sx, tx) - 8;
+    const maxX = Math.max(sx, tx) + 8;
+    const minY = Math.min(sy, ty);
+    const maxY = Math.max(sy, ty);
+    for (const b of allNodeBounds) {
+      if (b.id === sourceId || b.id === targetId) continue;
+      // Does this node sit in the corridor between source and target?
+      if (b.x2 > minX && b.x1 < maxX && b.y2 > minY && b.y1 < maxY) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   // Track used handles per node to avoid reusing same handle
   const usedSrcHandles = new Map<string, Set<string>>();
   const usedTgtHandles = new Map<string, Set<string>>();
 
   // ---- Compute per-edge path offsets to separate overlapping routes ----
-  const BASE_OFFSET = 20;
+  const BASE_OFFSET = 28;
   const OFFSET_STEP = 24; // ~label height, prevents label overlap
 
   // Group edge indices by target node
@@ -540,7 +581,7 @@ export function buildC4Flow(
       const usedT = usedTgtHandles.get(e.target) ?? new Set();
 
       for (const pair of HANDLE_PAIRS) {
-        const penalty = (usedS.has(pair.src) ? 200 : 0) + (usedT.has(pair.tgt) ? 200 : 0);
+        let penalty = (usedS.has(pair.src) ? 200 : 0) + (usedT.has(pair.tgt) ? 200 : 0);
 
         const sOff = handleOffset(pair.src);
         const tOff = handleOffset(pair.tgt);
@@ -548,6 +589,12 @@ export function buildC4Flow(
         const sy = sPos.y + sOff.dy;
         const tx = tPos.x + tOff.dx;
         const ty = tPos.y + tOff.dy;
+
+        // Heavy penalty if the path would pass through another node
+        if (pathObstructed(sx, sy, tx, ty, e.source, e.target)) {
+          penalty += 800;
+        }
+
         const dist = Math.abs(tx - sx) + Math.abs(ty - sy) + penalty;
 
         if (dist < bestDist) {
@@ -591,26 +638,18 @@ export function buildC4Flow(
     };
   });
 
-  // Collect all node bounding boxes for label-vs-node overlap checks
-  const nodeBounds: { x1: number; y1: number; x2: number; y2: number }[] = [];
-  for (const [, pos] of absPos) {
-    nodeBounds.push({
-      x1: pos.x - C4_NODE_W / 2 - 4,
-      y1: pos.y - C4_NODE_H / 2 - 4,
-      x2: pos.x + C4_NODE_W / 2 + 4,
-      y2: pos.y + C4_NODE_H / 2 + 4,
-    });
-  }
-
   /** Check if a label rect overlaps any node bounding box */
   function labelOverlapsNode(lx: number, ly: number, lw: number): boolean {
     const lh = 20; // label height
-    for (const b of nodeBounds) {
+    const margin = 4;
+    for (const b of allNodeBounds) {
+      const bx1 = b.x1 - margin, by1 = b.y1 - margin;
+      const bx2 = b.x2 + margin, by2 = b.y2 + margin;
       if (
-        lx - lw / 2 < b.x2 &&
-        lx + lw / 2 > b.x1 &&
-        ly - lh / 2 < b.y2 &&
-        ly + lh / 2 > b.y1
+        lx - lw / 2 < bx2 &&
+        lx + lw / 2 > bx1 &&
+        ly - lh / 2 < by2 &&
+        ly + lh / 2 > by1
       ) return true;
     }
     return false;
