@@ -129,6 +129,7 @@ const C4Node = memo(({ data }: NodeProps<Node<C4NodeData>>) => {
 
   return (
     <Box
+      onClick={(e) => e.stopPropagation()}
       onPointerDown={handlePointerDown}
       onPointerUp={handlePointerUp}
       onPointerCancel={clearTimer}
