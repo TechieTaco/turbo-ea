@@ -65,7 +65,6 @@ export interface C4EdgeData {
   highlightMode?: boolean;
   pathOffset?: number;
   labelT?: number;
-  stepPosition?: number;
   [key: string]: unknown;
 }
 
@@ -527,35 +526,6 @@ export function buildC4Flow(
     }
   }
 
-  // ---- Stagger horizontal segments for edges crossing the same inter-group gap ----
-  // stepPosition (0-1) controls where the horizontal segment appears between
-  // source and target. Spreading these prevents all paths from converging at
-  // the midpoint Y and keeps labels from overlapping.
-  const stepPositions = new Array<number>(oriented.length).fill(0.5);
-  const gapGroups = new Map<string, number[]>();
-  for (let i = 0; i < oriented.length; i++) {
-    const sCat = nodeCatMap.get(oriented[i].source);
-    const tCat = nodeCatMap.get(oriented[i].target);
-    if (!sCat || !tCat || sCat === tCat) continue;
-    const gapKey = `${sCat}||${tCat}`;
-    if (!gapGroups.has(gapKey)) gapGroups.set(gapKey, []);
-    gapGroups.get(gapKey)!.push(i);
-  }
-  for (const indices of gapGroups.values()) {
-    if (indices.length <= 1) continue;
-    // Sort by source X for consistent left-to-right staggering
-    indices.sort((a, b) => {
-      const aX = absPos.get(oriented[a].source)?.x ?? 0;
-      const bX = absPos.get(oriented[b].source)?.x ?? 0;
-      return aX - bX;
-    });
-    const n = indices.length;
-    for (let k = 0; k < n; k++) {
-      // Spread stepPosition within [0.25, 0.75] to keep paths reasonable
-      stepPositions[indices[k]] = n === 1 ? 0.5 : 0.25 + (k * 0.5) / (n - 1);
-    }
-  }
-
   // First pass: pick handles for each edge
   const edgeHandles: { src: string; tgt: string }[] = oriented.map((e) => {
     const sPos = absPos.get(e.source);
@@ -621,34 +591,30 @@ export function buildC4Flow(
     };
   });
 
-  // Place labels on each edge's horizontal segment (at its stepPosition).
-  // For gap-crossing edges, stepPosition is already staggered, so labels
-  // naturally land at different Y levels. For intra-group edges, default 0.5.
-  const labelTs = stepPositions.slice();
-
-  // Fallback collision detection for intra-group edges (stepPosition = 0.5)
-  // within 120px horizontally and 30px vertically
+  // Detect label collisions and spread labels along their own paths
+  const LABEL_COLLISION_H = 22; // vertical space a label occupies
+  const labelTs = new Array<number>(oriented.length).fill(0.5);
+  // Group labels that overlap: within 80px horizontally and LABEL_COLLISION_H vertically
   const assigned = new Set<number>();
   for (let i = 0; i < labelPositions.length; i++) {
     if (assigned.has(i) || !oriented[i].relLabel) continue;
-    const sCat = nodeCatMap.get(oriented[i].source);
-    const tCat = nodeCatMap.get(oriented[i].target);
-    if (sCat && tCat && sCat !== tCat) { assigned.add(i); continue; } // gap edges handled above
     const cluster = [i];
     for (let j = i + 1; j < labelPositions.length; j++) {
       if (assigned.has(j) || !oriented[j].relLabel) continue;
       if (
-        Math.abs(labelPositions[i].lx - labelPositions[j].lx) < 120 &&
-        Math.abs(labelPositions[i].ly - labelPositions[j].ly) < 30
+        Math.abs(labelPositions[i].lx - labelPositions[j].lx) < 80 &&
+        Math.abs(labelPositions[i].ly - labelPositions[j].ly) < LABEL_COLLISION_H
       ) {
         cluster.push(j);
       }
     }
     if (cluster.length > 1) {
+      // Sort cluster by lx (left-to-right) for spatially consistent assignment
       cluster.sort((a, b) => labelPositions[a].lx - labelPositions[b].lx);
       const n = cluster.length;
       for (let k = 0; k < n; k++) {
-        labelTs[cluster[k]] = n === 1 ? 0.5 : 0.35 + (k * 0.3) / (n - 1);
+        // Spread labelT within [0.25, 0.75] so labels stay on-path but separated
+        labelTs[cluster[k]] = n === 1 ? 0.5 : 0.25 + (k * 0.5) / (n - 1);
         assigned.add(cluster[k]);
       }
     }
@@ -667,10 +633,8 @@ export function buildC4Flow(
       description: e.description,
       pathOffset: pathOffsets[i],
       labelT: labelTs[i],
-      stepPosition: stepPositions[i],
     } satisfies C4EdgeData,
     animated: false,
-    zIndex: 1,
     markerEnd: { type: "arrowclosed" as const, color: "#888" },
   }));
 
