@@ -388,6 +388,8 @@ function C4DiagramInner({
           _longPressFired = false;
           return; // already handled by long-press
         }
+        // Clear highlight before navigating so it doesn't persist when coming back
+        setHoveredNode(null);
         if (event.shiftKey && onNodeShiftClick) {
           onNodeShiftClick(node.id);
         } else {
