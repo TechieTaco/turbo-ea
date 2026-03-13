@@ -64,7 +64,6 @@ export interface C4EdgeData {
   highlightMode?: boolean;
   pathOffset?: number;
   labelT?: number;
-  centerY?: number;
   [key: string]: unknown;
 }
 
@@ -325,16 +324,6 @@ export function buildC4Flow(
     yOffset += gl.groupH + GROUP_GAP;
   }
 
-  // Build group boundary map (category → { top, bottom }) for gap computation
-  const groupBounds = new Map<string, { top: number; bottom: number }>();
-  for (const n of rfNodes) {
-    if (n.type === "c4Group") {
-      const cat = (n.data as C4GroupData).label;
-      const h = (n.style as { height: number }).height;
-      groupBounds.set(cat, { top: n.position.y, bottom: n.position.y + h });
-    }
-  }
-
   // Compute absolute center positions for each node (for edge routing)
   const absPos = new Map<string, { x: number; y: number }>();
   for (const n of rfNodes) {
@@ -536,43 +525,6 @@ export function buildC4Flow(
     }
   }
 
-  // ---- Compute per-edge centerY to spread paths crossing the same gap ----
-  // Group edges by the inter-group gap they cross (sourceCat→targetCat)
-  const edgeCenterYs = new Array<number | undefined>(oriented.length).fill(undefined);
-  const edgesByGap = new Map<string, number[]>();
-  for (let i = 0; i < oriented.length; i++) {
-    const sCat = nodeCatMap.get(oriented[i].source);
-    const tCat = nodeCatMap.get(oriented[i].target);
-    if (!sCat || !tCat || sCat === tCat) continue; // intra-group edges don't need centerY
-    const gapKey = `${sCat}||${tCat}`;
-    if (!edgesByGap.has(gapKey)) edgesByGap.set(gapKey, []);
-    edgesByGap.get(gapKey)!.push(i);
-  }
-
-  for (const [gapKey, indices] of edgesByGap) {
-    if (indices.length <= 1) continue;
-    const [sCat, tCat] = gapKey.split("||");
-    const sBounds = groupBounds.get(sCat);
-    const tBounds = groupBounds.get(tCat);
-    if (!sBounds || !tBounds) continue;
-    // Gap runs from source group bottom to target group top
-    const gapTop = Math.min(sBounds.bottom, tBounds.bottom);
-    const gapBottom = Math.max(sBounds.top, tBounds.top);
-    if (gapBottom <= gapTop) continue;
-    const margin = Math.min(8, (gapBottom - gapTop) * 0.15);
-    // Sort by source X for consistent left-to-right assignment
-    indices.sort((a, b) => {
-      const aX = absPos.get(oriented[a].source)?.x ?? 0;
-      const bX = absPos.get(oriented[b].source)?.x ?? 0;
-      return aX - bX;
-    });
-    const n = indices.length;
-    for (let k = 0; k < n; k++) {
-      edgeCenterYs[indices[k]] =
-        gapTop + margin + (k * (gapBottom - gapTop - 2 * margin)) / (n - 1);
-    }
-  }
-
   // First pass: pick handles for each edge
   const edgeHandles: { src: string; tgt: string }[] = oriented.map((e) => {
     const sPos = absPos.get(e.source);
@@ -626,7 +578,6 @@ export function buildC4Flow(
 
   // Approximate label midpoints for collision detection
   // getSmoothStepPath places the label at the path midpoint ≈ average of endpoints
-  const LABEL_COLLISION_H = 22; // vertical space a label occupies
   const labelPositions: { lx: number; ly: number }[] = oriented.map((e, i) => {
     const sPos = absPos.get(e.source);
     const tPos = absPos.get(e.target);
@@ -641,27 +592,53 @@ export function buildC4Flow(
 
   // Detect label collisions and spread labels along their own paths
   const labelTs = new Array<number>(oriented.length).fill(0.5);
-  // Group labels that overlap: within 80px horizontally and LABEL_COLLISION_H vertically
   const assigned = new Set<number>();
+
+  // Proactive gap-based spreading: edges crossing the same inter-group gap
+  // get evenly-spaced labelT values regardless of collision detection
+  const gapEdgeGroups = new Map<string, number[]>();
+  for (let i = 0; i < oriented.length; i++) {
+    if (!oriented[i].relLabel) continue;
+    const sCat = nodeCatMap.get(oriented[i].source);
+    const tCat = nodeCatMap.get(oriented[i].target);
+    if (!sCat || !tCat || sCat === tCat) continue;
+    const gapKey = `${sCat}||${tCat}`;
+    if (!gapEdgeGroups.has(gapKey)) gapEdgeGroups.set(gapKey, []);
+    gapEdgeGroups.get(gapKey)!.push(i);
+  }
+  for (const indices of gapEdgeGroups.values()) {
+    if (indices.length <= 1) continue;
+    indices.sort((a, b) => {
+      const aX = absPos.get(oriented[a].source)?.x ?? 0;
+      const bX = absPos.get(oriented[b].source)?.x ?? 0;
+      return aX - bX;
+    });
+    const n = indices.length;
+    for (let k = 0; k < n; k++) {
+      labelTs[indices[k]] = n === 1 ? 0.5 : 0.15 + (k * 0.7) / (n - 1);
+      assigned.add(indices[k]);
+    }
+  }
+
+  // Fallback collision detection for intra-group edges
+  // within 120px horizontally and 30px vertically
   for (let i = 0; i < labelPositions.length; i++) {
     if (assigned.has(i) || !oriented[i].relLabel) continue;
     const cluster = [i];
     for (let j = i + 1; j < labelPositions.length; j++) {
       if (assigned.has(j) || !oriented[j].relLabel) continue;
       if (
-        Math.abs(labelPositions[i].lx - labelPositions[j].lx) < 80 &&
-        Math.abs(labelPositions[i].ly - labelPositions[j].ly) < LABEL_COLLISION_H
+        Math.abs(labelPositions[i].lx - labelPositions[j].lx) < 120 &&
+        Math.abs(labelPositions[i].ly - labelPositions[j].ly) < 30
       ) {
         cluster.push(j);
       }
     }
     if (cluster.length > 1) {
-      // Sort cluster by lx (left-to-right) for spatially consistent assignment
       cluster.sort((a, b) => labelPositions[a].lx - labelPositions[b].lx);
       const n = cluster.length;
       for (let k = 0; k < n; k++) {
-        // Spread labelT within [0.25, 0.75] so labels stay on-path but separated
-        labelTs[cluster[k]] = n === 1 ? 0.5 : 0.25 + (k * 0.5) / (n - 1);
+        labelTs[cluster[k]] = n === 1 ? 0.5 : 0.15 + (k * 0.7) / (n - 1);
         assigned.add(cluster[k]);
       }
     }
@@ -680,7 +657,6 @@ export function buildC4Flow(
       description: e.description,
       pathOffset: pathOffsets[i],
       labelT: labelTs[i],
-      ...(edgeCenterYs[i] !== undefined && { centerY: edgeCenterYs[i] }),
     } satisfies C4EdgeData,
     animated: false,
     markerEnd: { type: "arrowclosed" as const, color: "#888" },

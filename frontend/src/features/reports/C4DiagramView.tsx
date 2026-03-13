@@ -273,7 +273,6 @@ const C4EdgeComponent = (
       sourcePosition, targetPosition,
       borderRadius: 8,
       offset: clampedOffset,
-      ...(edgeData?.centerY !== undefined && { centerY: edgeData.centerY }),
     });
 
     const label = edgeData?.relLabel || "";
@@ -645,22 +644,20 @@ function C4DiagramInner({
             >
               <MaterialSymbol icon="highlight" size={18} />
             </ControlButton>
-            {onNodeExpand && (
-              <ControlButton
-                title={t("dependency.expandMode")}
-                onClick={() => {
-                  const wasOn = expandMode;
-                  setExpandMode((v) => !v);
-                  if (wasOn && onExpandReset) onExpandReset();
-                }}
-                style={{
-                  background: expandMode ? theme.palette.primary.main : undefined,
-                  color: expandMode ? theme.palette.primary.contrastText : undefined,
-                }}
-              >
-                <MaterialSymbol icon="alt_route" size={18} />
-              </ControlButton>
-            )}
+            <ControlButton
+              title={t("dependency.expandMode")}
+              onClick={() => {
+                const wasOn = expandMode;
+                setExpandMode((v) => !v);
+                if (wasOn && onExpandReset) onExpandReset();
+              }}
+              style={{
+                background: expandMode ? theme.palette.primary.main : undefined,
+                color: expandMode ? theme.palette.primary.contrastText : undefined,
+              }}
+            >
+              <MaterialSymbol icon="alt_route" size={18} />
+            </ControlButton>
           </Controls>
         </ReactFlow>
       </Box>
