@@ -316,19 +316,28 @@ const C4EdgeComponent = (
       ? (isDark ? "#4fc3f7" : "#1976d2")
       : (isDark ? "#444" : "#ccc");
 
-    // Build node bounding boxes from React Flow nodes for overlap detection
+    // Build node + group-label bounding boxes from React Flow nodes for overlap detection
     const rfNodes = useNodes();
-    const nodeBounds = useMemo(() => {
+    const obstacleBounds = useMemo(() => {
       const bounds: { x1: number; y1: number; x2: number; y2: number }[] = [];
       for (const n of rfNodes) {
-        if (n.type !== "c4Node" || !n.parentId) continue;
-        const parent = rfNodes.find((p) => p.id === n.parentId);
-        if (!parent) continue;
-        const w = (n.style?.width as number) ?? C4_NODE_W;
-        const h = (n.style?.height as number) ?? C4_NODE_H;
-        const ax = parent.position.x + n.position.x;
-        const ay = parent.position.y + n.position.y;
-        bounds.push({ x1: ax, y1: ay, x2: ax + w, y2: ay + h });
+        if (n.type === "c4Node" && n.parentId) {
+          const parent = rfNodes.find((p) => p.id === n.parentId);
+          if (!parent) continue;
+          const w = (n.style?.width as number) ?? C4_NODE_W;
+          const h = (n.style?.height as number) ?? C4_NODE_H;
+          const ax = parent.position.x + n.position.x;
+          const ay = parent.position.y + n.position.y;
+          bounds.push({ x1: ax, y1: ay, x2: ax + w, y2: ay + h });
+        } else if (n.type === "c4Group") {
+          // Group label text area (top-left corner of group box)
+          const gx = n.position.x;
+          const gy = n.position.y;
+          const gw = (n.style?.width as number) ?? 0;
+          // Label sits at top:8 left:14, ~13px font, covers roughly top 30px
+          // Use full group width for the label strip to avoid any overlap
+          bounds.push({ x1: gx, y1: gy, x2: gx + gw, y2: gy + 34 });
+        }
       }
       return bounds;
     }, [rfNodes]);
@@ -357,7 +366,7 @@ const C4EdgeComponent = (
         const lx2 = px + labelW / 2 + margin;
         const ly1 = py - labelH / 2 - margin;
         const ly2 = py + labelH / 2 + margin;
-        for (const b of nodeBounds) {
+        for (const b of obstacleBounds) {
           if (lx1 < b.x2 && lx2 > b.x1 && ly1 < b.y2 && ly2 > b.y1) return true;
         }
         return false;
@@ -389,7 +398,7 @@ const C4EdgeComponent = (
       }
 
       setLabelPos(bestPt ?? { x: preferred.x, y: preferred.y });
-    }, [path, labelT, label, nodeBounds, labelW, labelH]);
+    }, [path, labelT, label, obstacleBounds, labelW, labelH]);
 
     const finalLx = labelPos?.x ?? lx;
     const finalLy = labelPos?.y ?? ly;
@@ -430,12 +439,13 @@ const C4EdgeComponent = (
                 fontFamily: "inherit",
                 color: labelColor,
                 background: labelBg,
+                opacity: active ? 1 : 0.8,
                 border: `1px solid ${labelBorder}`,
                 borderRadius: 4,
                 padding: "2px 6px",
                 whiteSpace: "nowrap",
                 lineHeight: "14px",
-                zIndex: 1,
+                zIndex: active ? 2 : 1,
               }}
             >
               {displayLabel}
