@@ -658,7 +658,7 @@ function C4DiagramInner({
                   color: expandMode ? theme.palette.primary.contrastText : undefined,
                 }}
               >
-                <MaterialSymbol icon="flowsheet" size={18} />
+                <MaterialSymbol icon="alt_route" size={18} />
               </ControlButton>
             )}
           </Controls>
