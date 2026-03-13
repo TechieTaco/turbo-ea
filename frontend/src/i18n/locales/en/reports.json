@@ -1,6 +1,5 @@
 {
   "page.title": "Reports",
-
   "shell.chartView": "Chart view",
   "shell.tableView": "Table view",
   "shell.saveReport": "Save report",
@@ -10,21 +9,18 @@
   "shell.copyLink": "Copy link",
   "shell.viewAllSaved": "View all saved reports",
   "shell.viewingSavedReport": "Viewing saved report: <strong>{{name}}</strong>",
-
   "save.title": "Save Report",
   "save.namePlaceholder": "e.g. Q1 Application Portfolio",
   "save.descriptionPlaceholder": "Optional description of this report view",
   "save.visibility": "Visibility",
-  "save.visibilityPrivate": "Private \u2014 Only me",
-  "save.visibilityPublic": "Public \u2014 All users",
-  "save.visibilityShared": "Shared \u2014 Specific users",
+  "save.visibilityPrivate": "Private — Only me",
+  "save.visibilityPublic": "Public — All users",
+  "save.visibilityShared": "Shared — Specific users",
   "save.shareWith": "Share with",
   "save.searchUsers": "Search users...",
   "save.preview": "Preview",
   "save.reportPreview": "Report preview",
-
   "edit.title": "Edit Saved Report",
-
   "saved.title": "Saved Reports",
   "saved.myReports": "My Reports",
   "saved.sharedWithMe": "Shared with Me",
@@ -46,7 +42,6 @@
   "saved.visibilityPrivate": "Private",
   "saved.visibilityPublic": "Public",
   "saved.visibilityShared": "Shared",
-
   "portfolio.title": "Application Portfolio",
   "portfolio.groupBy": "Group by",
   "portfolio.colorAppsBy": "Color apps by",
@@ -76,7 +71,6 @@
   "portfolio.aiInsightsTitle": "AI Portfolio Insights",
   "portfolio.aiNoInsights": "No insights could be generated for the current portfolio view.",
   "portfolio.aiRegenerate": "Regenerate",
-
   "capabilityMap.title": "Business Capability Map",
   "capabilityMap.heatmapMetric": "Heatmap Metric",
   "capabilityMap.displayDepth": "Display Depth",
@@ -107,7 +101,6 @@
   "capabilityMap.more": "{{count}} more",
   "capabilityMap.less": "Less",
   "capabilityMap.showMore": "Show {{count}} more relation filters",
-
   "lifecycle.title": "Technology Lifecycle",
   "lifecycle.cardType": "Card Type",
   "lifecycle.allTypes": "All Types",
@@ -126,7 +119,6 @@
   "lifecycle.start": "Start",
   "lifecycle.end": "End",
   "lifecycle.status": "Status",
-
   "dependency.title": "Dependencies",
   "dependency.allTypes": "All Types",
   "dependency.centerOn": "Center on",
@@ -136,13 +128,13 @@
   "dependency.searchCards": "Search cards...",
   "dependency.connections": "connections",
   "dependency.alsoAppears": "Also appears elsewhere in this tree",
-  "dependency.clickToExpand": "Click to expand \u00B7 Right-click to re-center",
+  "dependency.clickToExpand": "Click to expand · Right-click to re-center",
   "dependency.openCard": "Open card",
   "dependency.alsoAppearsElsewhere": "Also appears elsewhere",
   "dependency.source": "Source",
   "dependency.relation": "Relation",
   "dependency.target": "Target",
-  "dependency.stats": "{{nodes}} nodes \u00B7 {{relations}} relations",
+  "dependency.stats": "{{nodes}} nodes · {{relations}} relations",
   "dependency.treeView": "Tree View",
   "dependency.c4View": "C4 Diagram",
   "dependency.c4NoData": "No dependency data. Adjust the type filter or create relations between cards.",
@@ -152,7 +144,6 @@
   "dependency.viewInC4": "View in C4 diagram",
   "dependency.shiftClickHint": "Shift+click or long-press a card to center diagram on it",
   "dependency.highlightMode": "Highlight mode: click a card to highlight its connections",
-
   "cost.title": "Cost Analysis",
   "cost.cardType": "Card Type",
   "cost.costField": "Cost Field",
@@ -165,7 +156,6 @@
   "cost.total": "Total",
   "cost.noCostData": "No cost data found.",
   "cost.unspecified": "Unspecified",
-
   "matrix.title": "Matrix",
   "matrix.rows": "Rows",
   "matrix.columns": "Columns",
@@ -174,7 +164,7 @@
   "matrix.countHeatmap": "Count (heatmap)",
   "matrix.sortRows": "Sort Rows",
   "matrix.sortColumns": "Sort Columns",
-  "matrix.alphaSort": "A \u2192 Z",
+  "matrix.alphaSort": "A → Z",
   "matrix.byCount": "By count",
   "matrix.hierarchy": "Hierarchy",
   "matrix.relations": "Relations",
@@ -184,10 +174,9 @@
   "matrix.expandRows": "Expand rows",
   "matrix.collapseColumns": "Collapse columns",
   "matrix.expandColumns": "Expand columns",
-  "matrix.sigmaTotal": "\u03a3 Total",
+  "matrix.sigmaTotal": "Σ Total",
   "matrix.relations_one": "{{count}} relation",
   "matrix.relations_other": "{{count}} relations",
-
   "dataQuality.title": "Data Quality",
   "dataQuality.overallQuality": "Overall Quality",
   "dataQuality.totalItems": "Total Items",
@@ -201,7 +190,7 @@
   "dataQuality.complete": "Complete",
   "dataQuality.partial": "Partial",
   "dataQuality.minimal": "Minimal",
-  "dataQuality.completeLegend": "Complete (\u226580%)",
+  "dataQuality.completeLegend": "Complete (≥80%)",
   "dataQuality.partialLegend": "Partial (40-79%)",
   "dataQuality.minimalLegend": "Minimal (<40%)",
   "dataQuality.avgCompletion": "Avg Completion",
@@ -215,7 +204,6 @@
   "dataQuality.orphanedAlert": "{{count}} cards have no relations (orphaned). Consider linking them to related items.",
   "dataQuality.staleAlert": "{{count}} cards haven't been updated in 90+ days. Review for accuracy.",
   "dataQuality.overallAlert": "Overall data quality is {{pct}}%. Focus on improving completeness.",
-
   "eol.title": "End-of-Life & Impact",
   "eol.status": "Status",
   "eol.source": "Source",
@@ -253,7 +241,6 @@
   "eol.activeSupportUntil": "Active support until {{date}}",
   "eol.endOfLifeDate": "End of Life: {{date}}",
   "eol.yesEol": "Yes (EOL)",
-
   "processMap.title": "Process Landscape Map",
   "processMap.heatmapMetric": "Heatmap Metric",
   "processMap.displayDepth": "Display Depth",
@@ -308,7 +295,6 @@
   "processMap.apps_other": "{{count}} apps",
   "processMap.risk": "Risk: {{level}}",
   "processMap.cost": "Cost",
-
   "common.view": "View",
   "common.table": "Table",
   "common.search": "Search",
@@ -321,5 +307,6 @@
   "common.mode": "Mode",
   "common.dateRange": "Date Range",
   "common.center": "Center",
-  "common.group": "Group"
+  "common.group": "Group",
+  "dependency.expandMode": "Expand mode: click a card to reveal all its relations"
 }

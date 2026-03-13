@@ -1,6 +1,5 @@
 {
   "page.title": "Relatórios",
-
   "shell.chartView": "Visualização de gráfico",
   "shell.tableView": "Visualização de tabela",
   "shell.saveReport": "Salvar relatório",
@@ -10,21 +9,18 @@
   "shell.copyLink": "Copiar link",
   "shell.viewAllSaved": "Ver todos os relatórios salvos",
   "shell.viewingSavedReport": "Visualizando relatório salvo: <strong>{{name}}</strong>",
-
   "save.title": "Salvar relatório",
   "save.namePlaceholder": "ex: Portfólio de aplicações Q1",
   "save.descriptionPlaceholder": "Descrição opcional desta visualização do relatório",
   "save.visibility": "Visibilidade",
-  "save.visibilityPrivate": "Privado \u2014 Somente eu",
-  "save.visibilityPublic": "Público \u2014 Todos os usuários",
-  "save.visibilityShared": "Compartilhado \u2014 Usuários específicos",
+  "save.visibilityPrivate": "Privado — Somente eu",
+  "save.visibilityPublic": "Público — Todos os usuários",
+  "save.visibilityShared": "Compartilhado — Usuários específicos",
   "save.shareWith": "Compartilhar com",
   "save.searchUsers": "Pesquisar usuários...",
   "save.preview": "Pré-visualização",
   "save.reportPreview": "Pré-visualização do relatório",
-
   "edit.title": "Editar relatório salvo",
-
   "saved.title": "Relatórios salvos",
   "saved.myReports": "Meus relatórios",
   "saved.sharedWithMe": "Compartilhados comigo",
@@ -46,7 +42,6 @@
   "saved.visibilityPrivate": "Privado",
   "saved.visibilityPublic": "Público",
   "saved.visibilityShared": "Compartilhado",
-
   "portfolio.title": "Portfólio de aplicações",
   "portfolio.groupBy": "Agrupar por",
   "portfolio.colorAppsBy": "Colorir aplicações por",
@@ -76,7 +71,6 @@
   "portfolio.aiInsightsTitle": "Análises IA do portfólio",
   "portfolio.aiNoInsights": "Não foi possível gerar análises para a visualização atual do portfólio.",
   "portfolio.aiRegenerate": "Regenerar",
-
   "capabilityMap.title": "Mapa de capacidades de negócio",
   "capabilityMap.heatmapMetric": "Métrica do mapa de calor",
   "capabilityMap.displayDepth": "Profundidade de exibição",
@@ -107,7 +101,6 @@
   "capabilityMap.more": "{{count}} mais",
   "capabilityMap.less": "Menos",
   "capabilityMap.showMore": "Mostrar mais {{count}} filtros de relação",
-
   "lifecycle.title": "Ciclo de vida tecnológico",
   "lifecycle.cardType": "Tipo de ficha",
   "lifecycle.allTypes": "Todos os tipos",
@@ -126,7 +119,6 @@
   "lifecycle.start": "Início",
   "lifecycle.end": "Fim",
   "lifecycle.status": "Estado",
-
   "dependency.title": "Dependências",
   "dependency.allTypes": "Todos os tipos",
   "dependency.centerOn": "Centralizar em",
@@ -136,13 +128,13 @@
   "dependency.searchCards": "Pesquisar fichas...",
   "dependency.connections": "conexões",
   "dependency.alsoAppears": "Também aparece em outro lugar nesta árvore",
-  "dependency.clickToExpand": "Clique para expandir \u00B7 Clique com botão direito para recentralizar",
+  "dependency.clickToExpand": "Clique para expandir · Clique com botão direito para recentralizar",
   "dependency.openCard": "Abrir ficha",
   "dependency.alsoAppearsElsewhere": "Também aparece em outro lugar",
   "dependency.source": "Origem",
   "dependency.relation": "Relação",
   "dependency.target": "Destino",
-  "dependency.stats": "{{nodes}} nós \u00B7 {{relations}} relações",
+  "dependency.stats": "{{nodes}} nós · {{relations}} relações",
   "dependency.treeView": "Vista em árvore",
   "dependency.c4View": "Diagrama C4",
   "dependency.c4NoData": "Sem dados de dependências. Ajuste o filtro de tipo ou crie relações entre fichas.",
@@ -152,7 +144,6 @@
   "dependency.viewInC4": "Ver no diagrama C4",
   "dependency.shiftClickHint": "Shift+clique ou pressão longa num cartão para centrar o diagrama nele",
   "dependency.highlightMode": "Modo destaque: clique num cartão para destacar as suas conexões",
-
   "cost.title": "Análise de custos",
   "cost.cardType": "Tipo de ficha",
   "cost.costField": "Campo de custo",
@@ -165,7 +156,6 @@
   "cost.total": "Total",
   "cost.noCostData": "Nenhum dado de custo encontrado.",
   "cost.unspecified": "Não especificado",
-
   "matrix.title": "Matriz",
   "matrix.rows": "Linhas",
   "matrix.columns": "Colunas",
@@ -174,7 +164,7 @@
   "matrix.countHeatmap": "Contagem (mapa de calor)",
   "matrix.sortRows": "Ordenar linhas",
   "matrix.sortColumns": "Ordenar colunas",
-  "matrix.alphaSort": "A \u2192 Z",
+  "matrix.alphaSort": "A → Z",
   "matrix.byCount": "Por contagem",
   "matrix.hierarchy": "Hierarquia",
   "matrix.relations": "Relações",
@@ -184,10 +174,9 @@
   "matrix.expandRows": "Expandir linhas",
   "matrix.collapseColumns": "Recolher colunas",
   "matrix.expandColumns": "Expandir colunas",
-  "matrix.sigmaTotal": "\u03a3 Total",
+  "matrix.sigmaTotal": "Σ Total",
   "matrix.relations_one": "{{count}} relação",
   "matrix.relations_other": "{{count}} relações",
-
   "dataQuality.title": "Qualidade dos dados",
   "dataQuality.overallQuality": "Qualidade geral",
   "dataQuality.totalItems": "Total de itens",
@@ -201,7 +190,7 @@
   "dataQuality.complete": "Completo",
   "dataQuality.partial": "Parcial",
   "dataQuality.minimal": "Mínimo",
-  "dataQuality.completeLegend": "Completo (\u226580%)",
+  "dataQuality.completeLegend": "Completo (≥80%)",
   "dataQuality.partialLegend": "Parcial (40-79%)",
   "dataQuality.minimalLegend": "Mínimo (<40%)",
   "dataQuality.avgCompletion": "Completude média",
@@ -215,7 +204,6 @@
   "dataQuality.orphanedAlert": "{{count}} fichas não possuem relações (órfãs). Considere vinculá-las a itens relacionados.",
   "dataQuality.staleAlert": "{{count}} fichas não foram atualizadas em mais de 90 dias. Revise para garantir a precisão.",
   "dataQuality.overallAlert": "A qualidade geral dos dados é {{pct}}%. Foque em melhorar a completude.",
-
   "eol.title": "Fim de vida e impacto",
   "eol.status": "Status",
   "eol.source": "Fonte",
@@ -253,7 +241,6 @@
   "eol.activeSupportUntil": "Suporte ativo até {{date}}",
   "eol.endOfLifeDate": "Fim de vida: {{date}}",
   "eol.yesEol": "Sim (EOL)",
-
   "processMap.title": "Mapa do panorama de processos",
   "processMap.heatmapMetric": "Métrica do mapa de calor",
   "processMap.displayDepth": "Profundidade de exibição",
@@ -308,7 +295,6 @@
   "processMap.apps_other": "{{count}} apps",
   "processMap.risk": "Risco: {{level}}",
   "processMap.cost": "Custo",
-
   "common.view": "Visualizar",
   "common.table": "Tabela",
   "common.search": "Pesquisar",
@@ -321,5 +307,6 @@
   "common.mode": "Modo",
   "common.dateRange": "Intervalo de datas",
   "common.center": "Centralizar",
-  "common.group": "Grupo"
+  "common.group": "Grupo",
+  "dependency.expandMode": "Modo expansão: clique num cartão para revelar todas as suas relações"
 }

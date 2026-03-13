@@ -374,6 +374,9 @@ export default function DependencyReport() {
   const [pickerSearch, setPickerSearch] = useState("");
   const [pickerTypeFilter, setPickerTypeFilter] = useState<string | null>(null);
 
+  /* -- C4 expanded nodes (expand mode digs into a card's relations) -- */
+  const [c4ExpandedNodes, setC4ExpandedNodes] = useState<Set<string>>(new Set());
+
   /* -- C4 navigation history (browser-style back/forward) -- */
   const [navHistory, setNavHistory] = useState<string[]>([]);
   const [navIndex, setNavIndex] = useState(-1);
@@ -476,28 +479,25 @@ export default function DependencyReport() {
   }, [nodes, adjMap]);
 
   // C4 mode: BFS from center to get dependency neighborhood (all types)
+  // Also include depth-1 neighbors of any nodes that have been "expanded"
   const c4Data = useMemo(() => {
     if (!center || !nodeMap.has(center)) return { nodes: [] as GNode[], edges: [] as GEdge[] };
-    const C4_DEPTH = 1;
+    // Start with depth-1 BFS from center
     const visited = new Set<string>([center]);
-    let frontier = new Set<string>([center]);
-    for (let d = 0; d < C4_DEPTH; d++) {
-      const next = new Set<string>();
-      for (const nid of frontier) {
-        for (const neighbor of adjMap.get(nid) || []) {
-          if (!visited.has(neighbor.nodeId) && nodeMap.has(neighbor.nodeId)) {
-            visited.add(neighbor.nodeId);
-            next.add(neighbor.nodeId);
-          }
-        }
+    for (const neighbor of adjMap.get(center) || []) {
+      if (nodeMap.has(neighbor.nodeId)) visited.add(neighbor.nodeId);
+    }
+    // Also include depth-1 neighbors of any expanded nodes
+    for (const expId of c4ExpandedNodes) {
+      if (!visited.has(expId)) continue; // only expand visible nodes
+      for (const neighbor of adjMap.get(expId) || []) {
+        if (nodeMap.has(neighbor.nodeId)) visited.add(neighbor.nodeId);
       }
-      frontier = next;
-      if (next.size === 0) break;
     }
     const filteredNodes = nodes.filter((n) => visited.has(n.id));
     const filteredEdges = edges.filter((e) => visited.has(e.source) && visited.has(e.target));
     return { nodes: filteredNodes, edges: filteredEdges };
-  }, [center, nodes, edges, adjMap, nodeMap]);
+  }, [center, nodes, edges, adjMap, nodeMap, c4ExpandedNodes]);
 
   // Reset expansion when center changes
   useEffect(() => {
@@ -506,7 +506,22 @@ export default function DependencyReport() {
     } else {
       setExpanded(new Set());
     }
+    setC4ExpandedNodes(new Set());
   }, [center]);
+
+  // C4 expand mode: toggle a node's neighbors into the visible set
+  const handleC4Expand = useCallback((nodeId: string) => {
+    setC4ExpandedNodes((prev) => {
+      const next = new Set(prev);
+      if (next.has(nodeId)) next.delete(nodeId);
+      else next.add(nodeId);
+      return next;
+    });
+  }, []);
+
+  const handleC4ExpandReset = useCallback(() => {
+    setC4ExpandedNodes(new Set());
+  }, []);
 
   const toggleExpand = useCallback((instanceId: string) => {
     setExpanded((prev) => {
@@ -750,6 +765,8 @@ export default function DependencyReport() {
             types={types}
             onNodeClick={setSidePanelCardId}
             onNodeShiftClick={navigateToC4}
+            onNodeExpand={handleC4Expand}
+            onExpandReset={handleC4ExpandReset}
             onHome={handleNavHome}
             onPrev={handleNavPrev}
             onNext={handleNavNext}

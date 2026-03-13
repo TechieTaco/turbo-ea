@@ -1,6 +1,5 @@
 {
   "page.title": "Berichte",
-
   "shell.chartView": "Diagrammansicht",
   "shell.tableView": "Tabellenansicht",
   "shell.saveReport": "Bericht speichern",
@@ -10,21 +9,18 @@
   "shell.copyLink": "Link kopieren",
   "shell.viewAllSaved": "Alle gespeicherten Berichte anzeigen",
   "shell.viewingSavedReport": "Gespeicherter Bericht: <strong>{{name}}</strong>",
-
   "save.title": "Bericht speichern",
   "save.namePlaceholder": "z. B. Q1 Anwendungsportfolio",
   "save.descriptionPlaceholder": "Optionale Beschreibung dieser Berichtsansicht",
   "save.visibility": "Sichtbarkeit",
-  "save.visibilityPrivate": "Privat \u2014 Nur ich",
-  "save.visibilityPublic": "Öffentlich \u2014 Alle Benutzer",
-  "save.visibilityShared": "Geteilt \u2014 Bestimmte Benutzer",
+  "save.visibilityPrivate": "Privat — Nur ich",
+  "save.visibilityPublic": "Öffentlich — Alle Benutzer",
+  "save.visibilityShared": "Geteilt — Bestimmte Benutzer",
   "save.shareWith": "Teilen mit",
   "save.searchUsers": "Benutzer suchen...",
   "save.preview": "Vorschau",
   "save.reportPreview": "Berichtsvorschau",
-
   "edit.title": "Gespeicherten Bericht bearbeiten",
-
   "saved.title": "Gespeicherte Berichte",
   "saved.myReports": "Meine Berichte",
   "saved.sharedWithMe": "Mit mir geteilt",
@@ -46,7 +42,6 @@
   "saved.visibilityPrivate": "Privat",
   "saved.visibilityPublic": "Öffentlich",
   "saved.visibilityShared": "Geteilt",
-
   "portfolio.title": "Anwendungsportfolio",
   "portfolio.groupBy": "Gruppieren nach",
   "portfolio.colorAppsBy": "Anwendungen einfärben nach",
@@ -76,7 +71,6 @@
   "portfolio.aiInsightsTitle": "KI-Portfolio-Erkenntnisse",
   "portfolio.aiNoInsights": "Für die aktuelle Portfolioansicht konnten keine Erkenntnisse generiert werden.",
   "portfolio.aiRegenerate": "Neu generieren",
-
   "capabilityMap.title": "Geschäftsfähigkeiten-Karte",
   "capabilityMap.heatmapMetric": "Heatmap-Metrik",
   "capabilityMap.displayDepth": "Anzeigetiefe",
@@ -107,7 +101,6 @@
   "capabilityMap.more": "{{count}} weitere",
   "capabilityMap.less": "Weniger",
   "capabilityMap.showMore": "{{count}} weitere Beziehungsfilter anzeigen",
-
   "lifecycle.title": "Technologie-Lebenszyklus",
   "lifecycle.cardType": "Kartentyp",
   "lifecycle.allTypes": "Alle Typen",
@@ -126,7 +119,6 @@
   "lifecycle.start": "Start",
   "lifecycle.end": "Ende",
   "lifecycle.status": "Status",
-
   "dependency.title": "Abhängigkeiten",
   "dependency.allTypes": "Alle Typen",
   "dependency.centerOn": "Zentrieren auf",
@@ -136,13 +128,13 @@
   "dependency.searchCards": "Karten suchen...",
   "dependency.connections": "Verbindungen",
   "dependency.alsoAppears": "Erscheint auch an anderer Stelle in diesem Baum",
-  "dependency.clickToExpand": "Klicken zum Erweitern \u00B7 Rechtsklick zum Neu-Zentrieren",
+  "dependency.clickToExpand": "Klicken zum Erweitern · Rechtsklick zum Neu-Zentrieren",
   "dependency.openCard": "Karte öffnen",
   "dependency.alsoAppearsElsewhere": "Erscheint auch an anderer Stelle",
   "dependency.source": "Quelle",
   "dependency.relation": "Beziehung",
   "dependency.target": "Ziel",
-  "dependency.stats": "{{nodes}} Knoten \u00B7 {{relations}} Beziehungen",
+  "dependency.stats": "{{nodes}} Knoten · {{relations}} Beziehungen",
   "dependency.treeView": "Baumansicht",
   "dependency.c4View": "C4-Diagramm",
   "dependency.c4NoData": "Keine Abhängigkeitsdaten. Passen Sie den Typfilter an oder erstellen Sie Beziehungen zwischen Karten.",
@@ -152,7 +144,6 @@
   "dependency.viewInC4": "Im C4-Diagramm anzeigen",
   "dependency.shiftClickHint": "Umschalt+Klick oder langes Drücken auf eine Karte, um das Diagramm darauf zu zentrieren",
   "dependency.highlightMode": "Hervorhebungsmodus: Klicken Sie auf eine Karte, um ihre Verbindungen hervorzuheben",
-
   "cost.title": "Kostenanalyse",
   "cost.cardType": "Kartentyp",
   "cost.costField": "Kostenfeld",
@@ -165,7 +156,6 @@
   "cost.total": "Gesamt",
   "cost.noCostData": "Keine Kostendaten gefunden.",
   "cost.unspecified": "Nicht angegeben",
-
   "matrix.title": "Matrix",
   "matrix.rows": "Zeilen",
   "matrix.columns": "Spalten",
@@ -174,7 +164,7 @@
   "matrix.countHeatmap": "Anzahl (Heatmap)",
   "matrix.sortRows": "Zeilen sortieren",
   "matrix.sortColumns": "Spalten sortieren",
-  "matrix.alphaSort": "A \u2192 Z",
+  "matrix.alphaSort": "A → Z",
   "matrix.byCount": "Nach Anzahl",
   "matrix.hierarchy": "Hierarchie",
   "matrix.relations": "Beziehungen",
@@ -184,10 +174,9 @@
   "matrix.expandRows": "Zeilen aufklappen",
   "matrix.collapseColumns": "Spalten einklappen",
   "matrix.expandColumns": "Spalten aufklappen",
-  "matrix.sigmaTotal": "\u03a3 Gesamt",
+  "matrix.sigmaTotal": "Σ Gesamt",
   "matrix.relations_one": "{{count}} Beziehung",
   "matrix.relations_other": "{{count}} Beziehungen",
-
   "dataQuality.title": "Datenqualität",
   "dataQuality.overallQuality": "Gesamtqualität",
   "dataQuality.totalItems": "Elemente gesamt",
@@ -201,7 +190,7 @@
   "dataQuality.complete": "Vollständig",
   "dataQuality.partial": "Teilweise",
   "dataQuality.minimal": "Minimal",
-  "dataQuality.completeLegend": "Vollständig (\u226580%)",
+  "dataQuality.completeLegend": "Vollständig (≥80%)",
   "dataQuality.partialLegend": "Teilweise (40–79%)",
   "dataQuality.minimalLegend": "Minimal (<40%)",
   "dataQuality.avgCompletion": "Ø Vollständigkeit",
@@ -215,7 +204,6 @@
   "dataQuality.orphanedAlert": "{{count}} Karten haben keine Beziehungen (verwaist). Erwägen Sie, diese mit verwandten Elementen zu verknüpfen.",
   "dataQuality.staleAlert": "{{count}} Karten wurden seit über 90 Tagen nicht aktualisiert. Prüfen Sie diese auf Richtigkeit.",
   "dataQuality.overallAlert": "Die Gesamtdatenqualität beträgt {{pct}}%. Konzentrieren Sie sich auf die Verbesserung der Vollständigkeit.",
-
   "eol.title": "End-of-Life & Auswirkungen",
   "eol.status": "Status",
   "eol.source": "Quelle",
@@ -253,7 +241,6 @@
   "eol.activeSupportUntil": "Aktiver Support bis {{date}}",
   "eol.endOfLifeDate": "End of Life: {{date}}",
   "eol.yesEol": "Ja (EOL)",
-
   "processMap.title": "Prozesslandkarte",
   "processMap.heatmapMetric": "Heatmap-Metrik",
   "processMap.displayDepth": "Anzeigetiefe",
@@ -308,7 +295,6 @@
   "processMap.apps_other": "{{count}} Apps",
   "processMap.risk": "Risiko: {{level}}",
   "processMap.cost": "Kosten",
-
   "common.view": "Ansicht",
   "common.table": "Tabelle",
   "common.search": "Suchen",
@@ -321,5 +307,6 @@
   "common.mode": "Modus",
   "common.dateRange": "Datumsbereich",
   "common.center": "Zentrieren",
-  "common.group": "Gruppe"
+  "common.group": "Gruppe",
+  "dependency.expandMode": "Erweiterungsmodus: Klicken Sie auf eine Karte, um alle ihre Beziehungen anzuzeigen"
 }
