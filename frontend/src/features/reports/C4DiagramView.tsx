@@ -386,6 +386,8 @@ interface Props {
   types: CardType[];
   onNodeClick: (id: string) => void;
   onNodeShiftClick?: (id: string) => void;
+  onNodeExpand?: (id: string) => void;
+  onExpandReset?: () => void;
   onHome: () => void;
   onPrev?: () => void;
   onNext?: () => void;
@@ -404,6 +406,8 @@ function C4DiagramInner({
   types,
   onNodeClick,
   onNodeShiftClick,
+  onNodeExpand,
+  onExpandReset,
   onHome,
   onPrev,
   onNext,
@@ -432,6 +436,8 @@ function C4DiagramInner({
 
   // Highlight mode: click highlights connections instead of opening card
   const [highlightMode, setHighlightMode] = useState(false);
+  // Expand mode: click expands a card to show all its relations
+  const [expandMode, setExpandMode] = useState(false);
 
   const handleNodeClick = useCallback(
     (event: React.MouseEvent, node: Node) => {
@@ -447,6 +453,10 @@ function C4DiagramInner({
           setHoveredNode((prev) => (prev === node.id ? null : node.id));
           return;
         }
+        if (expandMode && onNodeExpand) {
+          onNodeExpand(node.id);
+          return;
+        }
         // Clear highlight before navigating so it doesn't persist when coming back
         setHoveredNode(null);
         if (event.shiftKey && onNodeShiftClick) {
@@ -456,7 +466,7 @@ function C4DiagramInner({
         }
       }
     },
-    [onNodeClick, onNodeShiftClick, highlightMode],
+    [onNodeClick, onNodeShiftClick, onNodeExpand, highlightMode, expandMode],
   );
 
   // In highlight mode, clicking the canvas (not a node) dismisses the highlight
@@ -634,6 +644,22 @@ function C4DiagramInner({
             >
               <MaterialSymbol icon="highlight" size={18} />
             </ControlButton>
+            {onNodeExpand && (
+              <ControlButton
+                title={t("dependency.expandMode")}
+                onClick={() => {
+                  const wasOn = expandMode;
+                  setExpandMode((v) => !v);
+                  if (wasOn && onExpandReset) onExpandReset();
+                }}
+                style={{
+                  background: expandMode ? theme.palette.primary.main : undefined,
+                  color: expandMode ? theme.palette.primary.contrastText : undefined,
+                }}
+              >
+                <MaterialSymbol icon="open_in_full" size={18} />
+              </ControlButton>
+            )}
           </Controls>
         </ReactFlow>
       </Box>
