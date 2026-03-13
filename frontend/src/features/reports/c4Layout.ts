@@ -46,6 +46,7 @@ export interface C4NodeData {
   category: string;
   nodeId?: string;
   onLongPress?: (id: string) => void;
+  onClick?: (id: string, shiftKey: boolean) => void;
   dimmed?: boolean;
   usedHandles?: string[];
   [key: string]: unknown;
@@ -620,40 +621,19 @@ export function buildC4Flow(
     };
   });
 
-  // Detect label collisions and spread labels along their own paths
-  const labelTs = new Array<number>(oriented.length).fill(0.5);
-  const assigned = new Set<number>();
+  // Place labels on each edge's horizontal segment (at its stepPosition).
+  // For gap-crossing edges, stepPosition is already staggered, so labels
+  // naturally land at different Y levels. For intra-group edges, default 0.5.
+  const labelTs = stepPositions.slice();
 
-  // Proactive gap-based spreading: edges crossing the same inter-group gap
-  // get evenly-spaced labelT values regardless of collision detection
-  const gapEdgeGroups = new Map<string, number[]>();
-  for (let i = 0; i < oriented.length; i++) {
-    if (!oriented[i].relLabel) continue;
-    const sCat = nodeCatMap.get(oriented[i].source);
-    const tCat = nodeCatMap.get(oriented[i].target);
-    if (!sCat || !tCat || sCat === tCat) continue;
-    const gapKey = `${sCat}||${tCat}`;
-    if (!gapEdgeGroups.has(gapKey)) gapEdgeGroups.set(gapKey, []);
-    gapEdgeGroups.get(gapKey)!.push(i);
-  }
-  for (const indices of gapEdgeGroups.values()) {
-    if (indices.length <= 1) continue;
-    indices.sort((a, b) => {
-      const aX = absPos.get(oriented[a].source)?.x ?? 0;
-      const bX = absPos.get(oriented[b].source)?.x ?? 0;
-      return aX - bX;
-    });
-    const n = indices.length;
-    for (let k = 0; k < n; k++) {
-      labelTs[indices[k]] = n === 1 ? 0.5 : 0.15 + (k * 0.7) / (n - 1);
-      assigned.add(indices[k]);
-    }
-  }
-
-  // Fallback collision detection for intra-group edges
+  // Fallback collision detection for intra-group edges (stepPosition = 0.5)
   // within 120px horizontally and 30px vertically
+  const assigned = new Set<number>();
   for (let i = 0; i < labelPositions.length; i++) {
     if (assigned.has(i) || !oriented[i].relLabel) continue;
+    const sCat = nodeCatMap.get(oriented[i].source);
+    const tCat = nodeCatMap.get(oriented[i].target);
+    if (sCat && tCat && sCat !== tCat) { assigned.add(i); continue; } // gap edges handled above
     const cluster = [i];
     for (let j = i + 1; j < labelPositions.length; j++) {
       if (assigned.has(j) || !oriented[j].relLabel) continue;
@@ -668,7 +648,7 @@ export function buildC4Flow(
       cluster.sort((a, b) => labelPositions[a].lx - labelPositions[b].lx);
       const n = cluster.length;
       for (let k = 0; k < n; k++) {
-        labelTs[cluster[k]] = n === 1 ? 0.5 : 0.15 + (k * 0.7) / (n - 1);
+        labelTs[cluster[k]] = n === 1 ? 0.5 : 0.35 + (k * 0.3) / (n - 1);
         assigned.add(cluster[k]);
       }
     }

@@ -106,8 +106,14 @@ const C4Node = memo(({ data }: NodeProps<Node<C4NodeData>>) => {
     }, 1000);
   }, [data]);
 
+  const handleClick = useCallback((e: React.MouseEvent) => {
+    if (_longPressFired) { _longPressFired = false; return; }
+    if (data.onClick && data.nodeId) data.onClick(data.nodeId, e.shiftKey);
+  }, [data]);
+
   return (
     <Box
+      onClick={handleClick}
       onPointerDown={handlePointerDown}
       onPointerUp={clearTimer}
       onPointerCancel={clearTimer}
@@ -425,21 +431,10 @@ function C4DiagramInner({
     [nodes, edges, types],
   );
 
-  // Inject long-press callback into c4Node data so C4Node can handle pointer events
-  const rfNodes = useMemo(
-    () =>
-      builtNodes.map((n) =>
-        n.type === "c4Node" && onNodeShiftClick
-          ? { ...n, data: { ...n.data, nodeId: n.id, onLongPress: onNodeShiftClick } }
-          : n,
-      ),
-    [builtNodes, onNodeShiftClick],
-  );
-
   // Interaction mode: "normal" (default), "highlight" (sticky hover), "expand" (add relations)
   type InteractionMode = "normal" | "highlight" | "expand";
   const [mode, setMode] = useState<InteractionMode>("normal");
-  // Ref so React Flow callbacks always read the latest mode
+  // Ref so the node-level click callback always reads the latest mode
   const modeRef = useRef<InteractionMode>(mode);
   modeRef.current = mode;
 
@@ -447,35 +442,47 @@ function C4DiagramInner({
   const highlightMode = mode === "highlight";
   const expandMode = mode === "expand";
 
-  const handleNodeClick = useCallback(
-    (event: React.MouseEvent, node: Node) => {
-      if (node.type === "c4Node") {
-        if (_longPressFired) {
-          _longPressFired = false;
-          return; // already handled by long-press
-        }
-        const currentMode = modeRef.current;
-        if (currentMode === "highlight") {
-          // Cancel any pending mouse-leave timer to prevent race
-          if (leaveTimer.current) { clearTimeout(leaveTimer.current); leaveTimer.current = null; }
-          // Toggle: tap same card clears, tap different card highlights it
-          setHoveredNode((prev) => (prev === node.id ? null : node.id));
-          return;
-        }
-        if (currentMode === "expand" && onNodeExpand) {
-          onNodeExpand(node.id);
-          return;
-        }
-        // Clear highlight before navigating so it doesn't persist when coming back
-        setHoveredNode(null);
-        if (event.shiftKey && onNodeShiftClick) {
-          onNodeShiftClick(node.id);
-        } else {
-          onNodeClick(node.id);
-        }
+  // Click handler injected into c4Node data — fires from C4Node's own onClick,
+  // bypassing React Flow's onNodeClick which can hold stale callbacks.
+  const handleC4NodeClick = useCallback(
+    (nodeId: string, shiftKey: boolean) => {
+      const currentMode = modeRef.current;
+      if (currentMode === "highlight") {
+        if (leaveTimer.current) { clearTimeout(leaveTimer.current); leaveTimer.current = null; }
+        setHoveredNode((prev) => (prev === nodeId ? null : nodeId));
+        return;
+      }
+      if (currentMode === "expand" && onNodeExpand) {
+        onNodeExpand(nodeId);
+        return;
+      }
+      setHoveredNode(null);
+      if (shiftKey && onNodeShiftClick) {
+        onNodeShiftClick(nodeId);
+      } else {
+        onNodeClick(nodeId);
       }
     },
     [onNodeClick, onNodeShiftClick, onNodeExpand],
+  );
+
+  // Inject callbacks into c4Node data so C4Node handles clicks + long-press directly
+  const rfNodes = useMemo(
+    () =>
+      builtNodes.map((n) =>
+        n.type === "c4Node"
+          ? {
+              ...n,
+              data: {
+                ...n.data,
+                nodeId: n.id,
+                onClick: handleC4NodeClick,
+                ...(onNodeShiftClick && { onLongPress: onNodeShiftClick }),
+              },
+            }
+          : n,
+      ),
+    [builtNodes, handleC4NodeClick, onNodeShiftClick],
   );
 
   // In highlight mode, clicking the canvas (not a node) dismisses the highlight
@@ -619,7 +626,6 @@ function C4DiagramInner({
           edges={orderedEdges}
           nodeTypes={nodeTypes}
           edgeTypes={edgeTypes}
-          onNodeClick={handleNodeClick}
           onPaneClick={handlePaneClick}
           onNodeMouseEnter={handleNodeMouseEnter}
           onNodeMouseLeave={handleNodeMouseLeave}
