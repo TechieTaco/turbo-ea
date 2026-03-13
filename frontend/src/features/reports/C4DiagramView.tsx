@@ -64,8 +64,6 @@ const C4Node = memo(({ data }: NodeProps<Node<C4NodeData>>) => {
     ? `rgba(${r},${g},${b},0.12)`
     : `rgb(${mix(r)},${mix(g)},${mix(b)})`;
 
-  const dimmed = data.dimmed ?? false;
-
   const name = data.name.length > 26 ? data.name.slice(0, 25) + "\u2026" : data.name;
 
   const hs = { background: color, width: 5, height: 5, border: "none" } as const;
@@ -120,7 +118,6 @@ const C4Node = memo(({ data }: NodeProps<Node<C4NodeData>>) => {
         position: "relative",
         transition: "box-shadow 0.15s, opacity 0.15s",
         touchAction: "none",
-        opacity: dimmed ? 0.35 : 1,
         "&:hover": { boxShadow: 4 },
       }}
     >
@@ -458,15 +455,17 @@ function C4DiagramInner({
     return result;
   }, [rfEdges, hoveredEdge, hoveredNode]);
 
-  // Inject dimmed flag into nodes when a card is hovered
-  const finalNodes = useMemo(() => {
-    if (!hoveredNeighbors) return rfNodes;
-    return rfNodes.map((n) =>
-      n.type === "c4Node"
-        ? { ...n, data: { ...n.data, dimmed: !hoveredNeighbors.has(n.id) } }
-        : n,
-    );
-  }, [rfNodes, hoveredNeighbors]);
+  // CSS-based dimming avoids recreating node objects (which causes flickering)
+  const hoverStyle = useMemo(() => {
+    if (!hoveredNeighbors) return "";
+    const keep = [...hoveredNeighbors]
+      .map((id) => `.react-flow__node[data-id="${id}"]`)
+      .join(",");
+    return [
+      `.c4-hover-active .react-flow__node-c4Node { opacity: 0.35; transition: opacity 0.15s; }`,
+      `${keep} { opacity: 1 !important; }`,
+    ].join("\n");
+  }, [hoveredNeighbors]);
 
   if (rfNodes.length === 0) {
     return (
@@ -525,9 +524,10 @@ function C4DiagramInner({
           {t("dependency.shiftClickHint")}
         </Typography>
       </Box>
-      <Box sx={{ height: 600 }}>
+      <Box sx={{ height: 600 }} className={hoveredNode ? "c4-hover-active" : undefined}>
+        {hoverStyle && <style>{hoverStyle}</style>}
         <ReactFlow
-          nodes={finalNodes}
+          nodes={rfNodes}
           edges={orderedEdges}
           nodeTypes={nodeTypes}
           edgeTypes={edgeTypes}
