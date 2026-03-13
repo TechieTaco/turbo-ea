@@ -62,10 +62,13 @@ export interface C4EdgeData {
   relLabel: string;
   description?: string;
   connectedToHovered?: boolean;
+  isHovered?: boolean;
   highlightMode?: boolean;
   pathOffset?: number;
   minOffset?: number; // minimum offset to clear obstructing nodes
   labelT?: number;
+  onHover?: () => void;
+  onLeave?: () => void;
   [key: string]: unknown;
 }
 
@@ -580,8 +583,25 @@ export function buildC4Flow(
       const bMid = ((bS?.x ?? 0) + (bT?.x ?? 0)) / 2;
       return aMid - bMid;
     });
-    for (let r = 0; r < indices.length; r++) {
-      pathOffsets[indices[r]] = BASE_OFFSET + r * OFFSET_STEP;
+
+    // Compute the minimum vertical gap among edges in this group so we can
+    // distribute offsets within the available space.
+    let minVertGap = Infinity;
+    for (const idx of indices) {
+      const sP = absPos.get(oriented[idx].source);
+      const tP = absPos.get(oriented[idx].target);
+      if (sP && tP) minVertGap = Math.min(minVertGap, Math.abs(tP.y - sP.y));
+    }
+    if (!isFinite(minVertGap)) minVertGap = 200;
+
+    // Use up to 45% of the vertical gap, distributing evenly.
+    // Ensure minimum step of OFFSET_STEP (> half label height).
+    const maxOffset = minVertGap * 0.45;
+    const n = indices.length;
+    const step = n > 1 ? Math.max(OFFSET_STEP, (maxOffset - BASE_OFFSET) / (n - 1)) : 0;
+
+    for (let r = 0; r < n; r++) {
+      pathOffsets[indices[r]] = BASE_OFFSET + r * step;
     }
   }
 
