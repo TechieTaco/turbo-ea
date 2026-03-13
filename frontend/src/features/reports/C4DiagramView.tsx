@@ -245,13 +245,16 @@ C4Group.displayName = "C4Group";
 const C4EdgeComponent = memo(
   ({ id, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, data, markerEnd }: EdgeProps) => {
     const theme = useTheme();
-    const [hovered, setHovered] = useState(false);
     const edgeData = data as C4EdgeData | undefined;
     const connectedToHovered = edgeData?.connectedToHovered ?? false;
-    // In highlight mode, ignore local hover state to prevent stale highlights on touch
-    const active = edgeData?.highlightMode ? connectedToHovered : hovered || connectedToHovered;
-    const baseColor = theme.palette.mode === "dark" ? "#aaa" : "#777";
-    const hoverColor = theme.palette.mode === "dark" ? "#4fc3f7" : "#1976d2";
+    const isHovered = (edgeData as Record<string, unknown>)?.isHovered === true;
+    // Use parent-managed hover state to avoid stale highlights from SVG reordering
+    const active = edgeData?.highlightMode
+      ? connectedToHovered
+      : isHovered || connectedToHovered;
+    const isDark = theme.palette.mode === "dark";
+    const baseColor = isDark ? "#aaa" : "#777";
+    const hoverColor = isDark ? "#4fc3f7" : "#1976d2";
     const color = active ? hoverColor : baseColor;
 
     const rawOffset = edgeData?.pathOffset ?? 20;
@@ -266,13 +269,17 @@ const C4EdgeComponent = memo(
       offset: clampedOffset,
     });
 
-    const label = (data as C4EdgeData | undefined)?.relLabel || "";
+    const label = edgeData?.relLabel || "";
+    const labelBg = isDark ? "rgba(18,18,18,0.96)" : "rgba(255,255,255,0.96)";
+    const labelColor = active
+      ? (isDark ? "#4fc3f7" : "#1976d2")
+      : (isDark ? "#aaa" : "#666");
+    const labelBorder = active
+      ? (isDark ? "#4fc3f7" : "#1976d2")
+      : (isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.12)");
 
     return (
-      <g
-        onMouseEnter={() => setHovered(true)}
-        onMouseLeave={() => setHovered(false)}
-      >
+      <>
         {/* Invisible wider path for easier hover targeting */}
         <path
           d={path}
@@ -294,21 +301,18 @@ const C4EdgeComponent = memo(
         />
         {label && (
           <EdgeLabelRenderer>
-            <Box
-              sx={{
+            <div
+              className="nodrag nopan"
+              style={{
                 position: "absolute",
                 transform: `translate(-50%, -50%) translate(${lx}px,${ly}px)`,
                 fontSize: "0.62rem",
-                color: active ? "primary.main" : "text.secondary",
-                bgcolor: theme.palette.mode === "dark"
-                  ? "rgba(18, 18, 18, 0.96)"
-                  : "rgba(255, 255, 255, 0.96)",
+                color: labelColor,
+                background: labelBg,
                 backdropFilter: "blur(4px)",
-                border: "1px solid",
-                borderColor: active ? "primary.main" : "divider",
-                px: 1,
-                py: 0.3,
-                borderRadius: 1,
+                border: `1px solid ${labelBorder}`,
+                padding: "2px 8px",
+                borderRadius: 4,
                 pointerEvents: "none",
                 whiteSpace: "nowrap",
                 maxWidth: 160,
@@ -318,13 +322,12 @@ const C4EdgeComponent = memo(
                 transition: "color 0.15s, border-color 0.15s",
                 zIndex: active ? 10 : 0,
               }}
-              className="nodrag nopan"
             >
               {label}
-            </Box>
+            </div>
           </EdgeLabelRenderer>
         )}
-      </g>
+      </>
     );
   },
 );
@@ -467,7 +470,7 @@ function C4DiagramInner({
     return s;
   }, [hoveredNode, rfEdges]);
 
-  // Inject connectedToHovered into edges + reorder for z-index
+  // Inject hover state into edges + reorder for z-index
   const orderedEdges = useMemo(() => {
     let result = rfEdges.map((e) => ({
       ...e,
@@ -476,6 +479,7 @@ function C4DiagramInner({
         connectedToHovered: hoveredNode
           ? e.source === hoveredNode || e.target === hoveredNode
           : false,
+        isHovered: e.id === hoveredEdge,
         highlightMode,
       },
     }));
