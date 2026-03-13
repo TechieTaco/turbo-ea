@@ -64,6 +64,8 @@ const C4Node = memo(({ data }: NodeProps<Node<C4NodeData>>) => {
     ? `rgba(${r},${g},${b},0.12)`
     : `rgb(${mix(r)},${mix(g)},${mix(b)})`;
 
+  const dimmed = data.dimmed ?? false;
+
   const name = data.name.length > 26 ? data.name.slice(0, 25) + "\u2026" : data.name;
 
   const hs = { background: color, width: 5, height: 5, border: "none" } as const;
@@ -116,8 +118,9 @@ const C4Node = memo(({ data }: NodeProps<Node<C4NodeData>>) => {
         px: 1,
         cursor: "pointer",
         position: "relative",
-        transition: "box-shadow 0.15s",
+        transition: "box-shadow 0.15s, opacity 0.15s",
         touchAction: "none",
+        opacity: dimmed ? 0.35 : 1,
         "&:hover": { boxShadow: 4 },
       }}
     >
@@ -241,9 +244,11 @@ const C4EdgeComponent = memo(
   ({ id, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, data, markerEnd }: EdgeProps) => {
     const theme = useTheme();
     const [hovered, setHovered] = useState(false);
+    const connectedToHovered = (data as C4EdgeData | undefined)?.connectedToHovered ?? false;
+    const active = hovered || connectedToHovered;
     const baseColor = theme.palette.mode === "dark" ? "#aaa" : "#777";
     const hoverColor = theme.palette.mode === "dark" ? "#4fc3f7" : "#1976d2";
-    const color = hovered ? hoverColor : baseColor;
+    const color = active ? hoverColor : baseColor;
 
     const [path, lx, ly] = getSmoothStepPath({
       sourceX, sourceY, targetX, targetY,
@@ -272,8 +277,8 @@ const C4EdgeComponent = memo(
           markerEnd={markerEnd}
           style={{
             stroke: color,
-            strokeWidth: hovered ? 2 : 1.2,
-            strokeDasharray: hovered ? "none" : "5 3",
+            strokeWidth: active ? 2 : 1.2,
+            strokeDasharray: active ? "none" : "5 3",
             transition: "stroke 0.15s, stroke-width 0.15s",
           }}
         />
@@ -284,10 +289,10 @@ const C4EdgeComponent = memo(
                 position: "absolute",
                 transform: `translate(-50%, -50%) translate(${lx}px,${ly}px)`,
                 fontSize: "0.62rem",
-                color: hovered ? "primary.main" : "text.secondary",
+                color: active ? "primary.main" : "text.secondary",
                 bgcolor: "background.paper",
                 border: "1px solid",
-                borderColor: hovered ? "primary.main" : "divider",
+                borderColor: active ? "primary.main" : "divider",
                 px: 0.75,
                 py: 0.25,
                 borderRadius: 1,
@@ -298,7 +303,7 @@ const C4EdgeComponent = memo(
                 textOverflow: "ellipsis",
                 lineHeight: 1.3,
                 transition: "color 0.15s, border-color 0.15s",
-                zIndex: hovered ? 10 : 0,
+                zIndex: active ? 10 : 0,
               }}
               className="nodrag nopan"
             >
@@ -405,13 +410,56 @@ function C4DiagramInner({
     setHoveredEdge(null);
   }, []);
 
-  // Reorder edges so hovered one renders last (on top)
+  // Highlight all connections when hovering a card node
+  const [hoveredNode, setHoveredNode] = useState<string | null>(null);
+  const handleNodeMouseEnter = useCallback((_: React.MouseEvent, node: Node) => {
+    if (node.type === "c4Node") setHoveredNode(node.id);
+  }, []);
+  const handleNodeMouseLeave = useCallback(() => setHoveredNode(null), []);
+
+  // Set of nodes connected to the hovered node (for dimming others)
+  const hoveredNeighbors = useMemo(() => {
+    if (!hoveredNode) return null;
+    const s = new Set<string>([hoveredNode]);
+    for (const e of rfEdges) {
+      if (e.source === hoveredNode) s.add(e.target);
+      if (e.target === hoveredNode) s.add(e.source);
+    }
+    return s;
+  }, [hoveredNode, rfEdges]);
+
+  // Inject connectedToHovered into edges + reorder for z-index
   const orderedEdges = useMemo(() => {
-    if (!hoveredEdge) return rfEdges;
-    const rest = rfEdges.filter((e) => e.id !== hoveredEdge);
-    const hovered = rfEdges.find((e) => e.id === hoveredEdge);
-    return hovered ? [...rest, hovered] : rfEdges;
-  }, [rfEdges, hoveredEdge]);
+    let result = rfEdges.map((e) => ({
+      ...e,
+      data: {
+        ...e.data,
+        connectedToHovered: hoveredNode
+          ? e.source === hoveredNode || e.target === hoveredNode
+          : false,
+      },
+    }));
+    if (hoveredEdge) {
+      const rest = result.filter((e) => e.id !== hoveredEdge);
+      const h = result.find((e) => e.id === hoveredEdge);
+      result = h ? [...rest, h] : result;
+    } else if (hoveredNode) {
+      const notConn = result.filter((e) => !e.data.connectedToHovered);
+      const conn = result.filter((e) => e.data.connectedToHovered);
+      result = [...notConn, ...conn];
+    }
+    return result;
+  }, [rfEdges, hoveredEdge, hoveredNode]);
+
+  // Inject dimmed flag into nodes when a card is hovered
+  const finalNodes = useMemo(() => {
+    if (!hoveredNeighbors) return rfNodes;
+    return rfNodes.map((n) =>
+      n.type === "c4Node"
+        ? { ...n, data: { ...n.data, dimmed: !hoveredNeighbors.has(n.id) } }
+        : n,
+    );
+  }, [rfNodes, hoveredNeighbors]);
 
   if (rfNodes.length === 0) {
     return (
@@ -472,11 +520,13 @@ function C4DiagramInner({
       </Box>
       <Box sx={{ height: 600 }}>
         <ReactFlow
-          nodes={rfNodes}
+          nodes={finalNodes}
           edges={orderedEdges}
           nodeTypes={nodeTypes}
           edgeTypes={edgeTypes}
           onNodeClick={handleNodeClick}
+          onNodeMouseEnter={handleNodeMouseEnter}
+          onNodeMouseLeave={handleNodeMouseLeave}
           onEdgeMouseEnter={handleEdgeMouseEnter}
           onEdgeMouseLeave={handleEdgeMouseLeave}
           fitView
