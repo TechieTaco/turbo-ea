@@ -537,52 +537,51 @@ export function buildC4Flow(
   const usedTgtHandles = new Map<string, Set<string>>();
 
   // ---- Compute per-edge path offsets to separate overlapping routes ----
+  // Smooth-step paths have a horizontal segment at sourceY + offset (or
+  // targetY − offset). Edges crossing the same inter-group gap share this
+  // horizontal band, so we must stagger their offsets to prevent overlapping
+  // horizontal segments (and therefore overlapping labels).
   const BASE_OFFSET = 28;
-  const OFFSET_STEP = 24; // ~label height, prevents label overlap
+  const OFFSET_STEP = 24; // > half label height, ensures labels don't overlap
 
-  // Group edge indices by target node
-  const edgesByTarget = new Map<string, number[]>();
+  // Map each node to its group category
+  const nodeGroupCat = new Map<string, string>();
+  for (const n of rfNodes) {
+    if (n.type === "c4Node" && n.parentId) {
+      const parent = rfNodes.find((p) => p.id === n.parentId);
+      if (parent && parent.type === "c4Group") {
+        nodeGroupCat.set(n.id, parent.id);
+      }
+    }
+  }
+
+  // Group edges by the inter-group gap they cross (sourceGroup → targetGroup).
+  // Edges within the same group or crossing the same gap get staggered offsets.
+  const edgesByGap = new Map<string, number[]>();
   for (let i = 0; i < oriented.length; i++) {
-    const t = oriented[i].target;
-    if (!edgesByTarget.has(t)) edgesByTarget.set(t, []);
-    edgesByTarget.get(t)!.push(i);
+    const sCat = nodeGroupCat.get(oriented[i].source) ?? "?";
+    const tCat = nodeGroupCat.get(oriented[i].target) ?? "?";
+    const gapKey = `${sCat}||${tCat}`;
+    if (!edgesByGap.has(gapKey)) edgesByGap.set(gapKey, []);
+    edgesByGap.get(gapKey)!.push(i);
   }
 
   const pathOffsets = new Array<number>(oriented.length).fill(BASE_OFFSET);
 
-  for (const indices of edgesByTarget.values()) {
+  for (const indices of edgesByGap.values()) {
     if (indices.length <= 1) continue;
-    // Sort by source X for consistent left-to-right offset assignment
+    // Sort by horizontal midpoint for spatially consistent assignment
     indices.sort((a, b) => {
-      const aX = absPos.get(oriented[a].source)?.x ?? 0;
-      const bX = absPos.get(oriented[b].source)?.x ?? 0;
-      return aX - bX;
+      const aS = absPos.get(oriented[a].source);
+      const aT = absPos.get(oriented[a].target);
+      const bS = absPos.get(oriented[b].source);
+      const bT = absPos.get(oriented[b].target);
+      const aMid = ((aS?.x ?? 0) + (aT?.x ?? 0)) / 2;
+      const bMid = ((bS?.x ?? 0) + (bT?.x ?? 0)) / 2;
+      return aMid - bMid;
     });
     for (let r = 0; r < indices.length; r++) {
       pathOffsets[indices[r]] = BASE_OFFSET + r * OFFSET_STEP;
-    }
-  }
-
-  // Also group by source and take max offset from both groupings
-  const edgesBySource = new Map<string, number[]>();
-  for (let i = 0; i < oriented.length; i++) {
-    const s = oriented[i].source;
-    if (!edgesBySource.has(s)) edgesBySource.set(s, []);
-    edgesBySource.get(s)!.push(i);
-  }
-
-  for (const indices of edgesBySource.values()) {
-    if (indices.length <= 1) continue;
-    indices.sort((a, b) => {
-      const aX = absPos.get(oriented[a].target)?.x ?? 0;
-      const bX = absPos.get(oriented[b].target)?.x ?? 0;
-      return aX - bX;
-    });
-    for (let r = 0; r < indices.length; r++) {
-      pathOffsets[indices[r]] = Math.max(
-        pathOffsets[indices[r]],
-        BASE_OFFSET + r * OFFSET_STEP,
-      );
     }
   }
 
