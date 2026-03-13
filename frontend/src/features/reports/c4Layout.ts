@@ -45,8 +45,10 @@ export interface C4NodeData {
   typeColor: string;
   category: string;
   nodeId?: string;
+  onClick?: (id: string, shiftKey: boolean) => void;
   onLongPress?: (id: string) => void;
   dimmed?: boolean;
+  usedHandles?: string[];
   [key: string]: unknown;
 }
 
@@ -60,9 +62,13 @@ export interface C4EdgeData {
   relLabel: string;
   description?: string;
   connectedToHovered?: boolean;
+  isHovered?: boolean;
   highlightMode?: boolean;
   pathOffset?: number;
-  labelNudge?: number;
+  minOffset?: number; // minimum offset to clear obstructing nodes
+  labelT?: number;
+  onHover?: () => void;
+  onLeave?: () => void;
   [key: string]: unknown;
 }
 
@@ -92,7 +98,7 @@ const PAD = 30;
 /** Height reserved for the category label at top of group */
 const LABEL_H = 32;
 /** Vertical gap between stacked category groups */
-const GROUP_GAP = 48;
+const GROUP_GAP = 72;
 /** Max nodes per row when a category has many nodes with no intra-group edges */
 const MAX_COLS = 3;
 
@@ -138,8 +144,8 @@ function layoutGroup(
     const g = new dagre.graphlib.Graph();
     g.setGraph({
       rankdir: "TB",
-      ranksep: 50,
-      nodesep: 20,
+      ranksep: 90,
+      nodesep: 50,
       marginx: 0,
       marginy: 0,
     });
@@ -187,8 +193,8 @@ function layoutGroup(
 
   // No intra-group edges: grid layout
   const cols = Math.min(catNodes.length, MAX_COLS);
-  const hGap = 16;
-  const vGap = 14;
+  const hGap = 40;
+  const vGap = 30;
   const positioned: PositionedNode[] = catNodes.map((n, i) => ({
     id: n.id,
     x: (i % cols) * (C4_NODE_W + hGap),
@@ -446,6 +452,11 @@ export function buildC4Flow(
     // Side → Side (same side only)
     { src: "left-src", tgt: "left" },
     { src: "right", tgt: "right-tgt" },
+    // Side → Top (wide routing around obstacles)
+    { src: "left-src", tgt: "t-1" },
+    { src: "left-src", tgt: "t-2" },
+    { src: "right", tgt: "t-4" },
+    { src: "right", tgt: "t-5" },
   ];
 
   // Handle position offsets relative to node center
@@ -470,67 +481,141 @@ export function buildC4Flow(
     }
   }
 
+  // Collect all node bounding boxes for obstruction + label overlap checks
+  const allNodeBounds: { id: string; x1: number; y1: number; x2: number; y2: number }[] = [];
+  for (const [nid, pos] of absPos) {
+    allNodeBounds.push({
+      id: nid,
+      x1: pos.x - C4_NODE_W / 2,
+      y1: pos.y - C4_NODE_H / 2,
+      x2: pos.x + C4_NODE_W / 2,
+      y2: pos.y + C4_NODE_H / 2,
+    });
+  }
+
+  // Also collect group label areas (top strip of each group box) for label overlap
+  // These are not used for obstruction routing, only for label placement.
+  const groupLabelBounds: { x1: number; y1: number; x2: number; y2: number }[] = [];
+  for (const n of rfNodes) {
+    if (n.type === "c4Group") {
+      const w = (n.style?.width as number) ?? 0;
+      groupLabelBounds.push({
+        x1: n.position.x,
+        y1: n.position.y,
+        x2: n.position.x + w,
+        y2: n.position.y + LABEL_H + 8, // group label area + margin
+      });
+    }
+  }
+
+  /** Check if a vertical-ish line segment from (sx,sy)→(tx,ty) passes through
+   *  any node other than sourceId/targetId. For smooth-step paths the horizontal
+   *  segment sits near sy or ty, so we check a corridor along the X midpoint.
+   *  Returns the required clearance (0 = not obstructed, >0 = half-width of widest obstacle). */
+  function pathObstruction(
+    sx: number, sy: number, tx: number, ty: number,
+    sourceId: string, targetId: string,
+  ): number {
+    const minX = Math.min(sx, tx) - 8;
+    const maxX = Math.max(sx, tx) + 8;
+    const minY = Math.min(sy, ty);
+    const maxY = Math.max(sy, ty);
+    let maxClearance = 0;
+    for (const b of allNodeBounds) {
+      if (b.id === sourceId || b.id === targetId) continue;
+      if (b.x2 > minX && b.x1 < maxX && b.y2 > minY && b.y1 < maxY) {
+        // Compute how far to the side we need to route to clear this node
+        const midX = (sx + tx) / 2;
+        const halfW = (b.x2 - b.x1) / 2;
+        const distFromCenter = Math.abs((b.x1 + b.x2) / 2 - midX);
+        const clearance = halfW - distFromCenter + C4_NODE_W * 0.15; // extra margin
+        maxClearance = Math.max(maxClearance, clearance);
+      }
+    }
+    return maxClearance;
+  }
+
   // Track used handles per node to avoid reusing same handle
   const usedSrcHandles = new Map<string, Set<string>>();
   const usedTgtHandles = new Map<string, Set<string>>();
 
   // ---- Compute per-edge path offsets to separate overlapping routes ----
-  const BASE_OFFSET = 20;
-  const OFFSET_STEP = 24; // ~label height, prevents label overlap
+  // Smooth-step paths have a horizontal segment at sourceY + offset (or
+  // targetY − offset). Edges crossing the same inter-group gap share this
+  // horizontal band, so we must stagger their offsets to prevent overlapping
+  // horizontal segments (and therefore overlapping labels).
+  const BASE_OFFSET = 28;
 
-  // Group edge indices by target node
-  const edgesByTarget = new Map<string, number[]>();
+  // Map each node to its group category
+  const nodeGroupCat = new Map<string, string>();
+  for (const n of rfNodes) {
+    if (n.type === "c4Node" && n.parentId) {
+      const parent = rfNodes.find((p) => p.id === n.parentId);
+      if (parent && parent.type === "c4Group") {
+        nodeGroupCat.set(n.id, parent.id);
+      }
+    }
+  }
+
+  // Group edges by the inter-group gap they cross (sourceGroup → targetGroup).
+  // Edges within the same group or crossing the same gap get staggered offsets.
+  const edgesByGap = new Map<string, number[]>();
   for (let i = 0; i < oriented.length; i++) {
-    const t = oriented[i].target;
-    if (!edgesByTarget.has(t)) edgesByTarget.set(t, []);
-    edgesByTarget.get(t)!.push(i);
+    const sCat = nodeGroupCat.get(oriented[i].source) ?? "?";
+    const tCat = nodeGroupCat.get(oriented[i].target) ?? "?";
+    const gapKey = `${sCat}||${tCat}`;
+    if (!edgesByGap.has(gapKey)) edgesByGap.set(gapKey, []);
+    edgesByGap.get(gapKey)!.push(i);
   }
 
   const pathOffsets = new Array<number>(oriented.length).fill(BASE_OFFSET);
 
-  for (const indices of edgesByTarget.values()) {
+  for (const indices of edgesByGap.values()) {
     if (indices.length <= 1) continue;
-    // Sort by source X for consistent left-to-right offset assignment
+    // Sort by horizontal midpoint for spatially consistent assignment
     indices.sort((a, b) => {
-      const aX = absPos.get(oriented[a].source)?.x ?? 0;
-      const bX = absPos.get(oriented[b].source)?.x ?? 0;
-      return aX - bX;
+      const aS = absPos.get(oriented[a].source);
+      const aT = absPos.get(oriented[a].target);
+      const bS = absPos.get(oriented[b].source);
+      const bT = absPos.get(oriented[b].target);
+      const aMid = ((aS?.x ?? 0) + (aT?.x ?? 0)) / 2;
+      const bMid = ((bS?.x ?? 0) + (bT?.x ?? 0)) / 2;
+      return aMid - bMid;
     });
-    for (let r = 0; r < indices.length; r++) {
-      pathOffsets[indices[r]] = BASE_OFFSET + r * OFFSET_STEP;
+
+    // Compute the minimum handle-to-handle vertical gap among edges in this
+    // group. absPos stores node centers; handles are at center ± C4_NODE_H/2.
+    let minVertGap = Infinity;
+    for (const idx of indices) {
+      const sP = absPos.get(oriented[idx].source);
+      const tP = absPos.get(oriented[idx].target);
+      if (sP && tP) {
+        const handleGap = Math.abs(tP.y - sP.y) - C4_NODE_H;
+        minVertGap = Math.min(minVertGap, Math.max(handleGap, 40));
+      }
+    }
+    if (!isFinite(minVertGap)) minVertGap = 200;
+
+    // The offset extends from both ends, so max useful offset ≈ half the
+    // handle gap. Distribute offsets evenly within [BASE_OFFSET, maxOffset]
+    // like a staircase — even small steps create visible separation.
+    const maxOffset = minVertGap * 0.47;
+    const n = indices.length;
+    const step = n > 1 ? (maxOffset - BASE_OFFSET) / (n - 1) : 0;
+
+    for (let r = 0; r < n; r++) {
+      pathOffsets[indices[r]] = BASE_OFFSET + r * step;
     }
   }
 
-  // Also group by source and take max offset from both groupings
-  const edgesBySource = new Map<string, number[]>();
-  for (let i = 0; i < oriented.length; i++) {
-    const s = oriented[i].source;
-    if (!edgesBySource.has(s)) edgesBySource.set(s, []);
-    edgesBySource.get(s)!.push(i);
-  }
-
-  for (const indices of edgesBySource.values()) {
-    if (indices.length <= 1) continue;
-    indices.sort((a, b) => {
-      const aX = absPos.get(oriented[a].target)?.x ?? 0;
-      const bX = absPos.get(oriented[b].target)?.x ?? 0;
-      return aX - bX;
-    });
-    for (let r = 0; r < indices.length; r++) {
-      pathOffsets[indices[r]] = Math.max(
-        pathOffsets[indices[r]],
-        BASE_OFFSET + r * OFFSET_STEP,
-      );
-    }
-  }
-
-  // First pass: pick handles for each edge
-  const edgeHandles: { src: string; tgt: string }[] = oriented.map((e) => {
+  // First pass: pick handles for each edge, tracking obstruction clearance
+  const edgeHandles: { src: string; tgt: string; minOffset: number }[] = oriented.map((e) => {
     const sPos = absPos.get(e.source);
     const tPos = absPos.get(e.target);
 
     let bestSrc = "b-3";
     let bestTgt = "t-3";
+    let bestMinOffset = 0;
 
     if (sPos && tPos) {
       let bestDist = Infinity;
@@ -538,7 +623,7 @@ export function buildC4Flow(
       const usedT = usedTgtHandles.get(e.target) ?? new Set();
 
       for (const pair of HANDLE_PAIRS) {
-        const penalty = (usedS.has(pair.src) ? 200 : 0) + (usedT.has(pair.tgt) ? 200 : 0);
+        let penalty = (usedS.has(pair.src) ? 200 : 0) + (usedT.has(pair.tgt) ? 200 : 0);
 
         const sOff = handleOffset(pair.src);
         const tOff = handleOffset(pair.tgt);
@@ -546,12 +631,20 @@ export function buildC4Flow(
         const sy = sPos.y + sOff.dy;
         const tx = tPos.x + tOff.dx;
         const ty = tPos.y + tOff.dy;
+
+        // Check if the path would pass through another node
+        const clearance = pathObstruction(sx, sy, tx, ty, e.source, e.target);
+        if (clearance > 0) {
+          penalty += 800;
+        }
+
         const dist = Math.abs(tx - sx) + Math.abs(ty - sy) + penalty;
 
         if (dist < bestDist) {
           bestDist = dist;
           bestSrc = pair.src;
           bestTgt = pair.tgt;
+          bestMinOffset = clearance;
         }
       }
 
@@ -561,12 +654,22 @@ export function buildC4Flow(
       usedTgtHandles.get(e.target)!.add(bestTgt);
     }
 
-    return { src: bestSrc, tgt: bestTgt };
+    return { src: bestSrc, tgt: bestTgt, minOffset: bestMinOffset };
   });
+
+  // Merge source and target handle usage into a single set per node
+  const allUsedHandles = new Map<string, Set<string>>();
+  for (const [nodeId, handles] of usedSrcHandles) {
+    if (!allUsedHandles.has(nodeId)) allUsedHandles.set(nodeId, new Set());
+    for (const h of handles) allUsedHandles.get(nodeId)!.add(h);
+  }
+  for (const [nodeId, handles] of usedTgtHandles) {
+    if (!allUsedHandles.has(nodeId)) allUsedHandles.set(nodeId, new Set());
+    for (const h of handles) allUsedHandles.get(nodeId)!.add(h);
+  }
 
   // Approximate label midpoints for collision detection
   // getSmoothStepPath places the label at the path midpoint ≈ average of endpoints
-  const LABEL_COLLISION_H = 22; // vertical space a label occupies
   const labelPositions: { lx: number; ly: number }[] = oriented.map((e, i) => {
     const sPos = absPos.get(e.source);
     const tPos = absPos.get(e.target);
@@ -579,8 +682,36 @@ export function buildC4Flow(
     };
   });
 
-  // Detect label collisions and compute vertical nudges
-  const labelNudges = new Array<number>(oriented.length).fill(0);
+  /** Check if a label rect overlaps any node or group label bounding box */
+  function labelOverlapsNode(lx: number, ly: number, lw: number): boolean {
+    const lh = 20; // label height
+    const margin = 4;
+    // Check card nodes
+    for (const b of allNodeBounds) {
+      const bx1 = b.x1 - margin, by1 = b.y1 - margin;
+      const bx2 = b.x2 + margin, by2 = b.y2 + margin;
+      if (
+        lx - lw / 2 < bx2 &&
+        lx + lw / 2 > bx1 &&
+        ly - lh / 2 < by2 &&
+        ly + lh / 2 > by1
+      ) return true;
+    }
+    // Check group label areas (category headers like "Business Architecture")
+    for (const b of groupLabelBounds) {
+      if (
+        lx - lw / 2 < b.x2 + margin &&
+        lx + lw / 2 > b.x1 - margin &&
+        ly - lh / 2 < b.y2 &&
+        ly + lh / 2 > b.y1 - margin
+      ) return true;
+    }
+    return false;
+  }
+
+  // Detect label collisions and spread labels along their own paths
+  const LABEL_COLLISION_H = 22; // vertical space a label occupies
+  const labelTs = new Array<number>(oriented.length).fill(0.5);
   // Group labels that overlap: within 80px horizontally and LABEL_COLLISION_H vertically
   const assigned = new Set<number>();
   for (let i = 0; i < labelPositions.length; i++) {
@@ -596,14 +727,41 @@ export function buildC4Flow(
       }
     }
     if (cluster.length > 1) {
-      // Sort cluster by approximate ly so nudges are consistent
-      cluster.sort((a, b) => labelPositions[a].ly - labelPositions[b].ly);
-      const mid = (cluster.length - 1) / 2;
-      for (let k = 0; k < cluster.length; k++) {
-        labelNudges[cluster[k]] = (k - mid) * LABEL_COLLISION_H;
+      // Sort cluster by lx (left-to-right) for spatially consistent assignment
+      cluster.sort((a, b) => labelPositions[a].lx - labelPositions[b].lx);
+      const n = cluster.length;
+      for (let k = 0; k < n; k++) {
+        // Spread labelT within [0.2, 0.8] so labels stay on-path but separated
+        labelTs[cluster[k]] = n === 1 ? 0.5 : 0.2 + (k * 0.6) / (n - 1);
         assigned.add(cluster[k]);
       }
     }
+  }
+
+  // Post-pass: push labels that overlap nodes toward the path midpoint
+  for (let i = 0; i < oriented.length; i++) {
+    if (!oriented[i].relLabel) continue;
+    const sPos = absPos.get(oriented[i].source);
+    const tPos = absPos.get(oriented[i].target);
+    if (!sPos || !tPos) continue;
+    const sOff = handleOffset(edgeHandles[i].src);
+    const tOff = handleOffset(edgeHandles[i].tgt);
+    const sx = sPos.x + sOff.dx, sy = sPos.y + sOff.dy;
+    const tx = tPos.x + tOff.dx, ty = tPos.y + tOff.dy;
+    const labelW = Math.min(oriented[i].relLabel.length, 24) * 5.8 + 12;
+
+    // Try current labelT; if it overlaps a node, try shifting toward 0.5
+    let t = labelTs[i];
+    for (let attempt = 0; attempt < 5; attempt++) {
+      // Approximate label position along the smooth step path:
+      // For vertical segments, X stays ~constant and Y interpolates
+      const lx = sx + (tx - sx) * t;
+      const ly = sy + (ty - sy) * t;
+      if (!labelOverlapsNode(lx, ly, labelW)) break;
+      // Shift toward 0.5 (center of path, farthest from nodes)
+      t = t + (0.5 - t) * 0.4;
+    }
+    labelTs[i] = t;
   }
 
   const rfEdges: Edge[] = oriented.map((e, i) => ({
@@ -618,11 +776,20 @@ export function buildC4Flow(
       relLabel: e.relLabel,
       description: e.description,
       pathOffset: pathOffsets[i],
-      labelNudge: labelNudges[i],
+      minOffset: edgeHandles[i].minOffset,
+      labelT: labelTs[i],
     } satisfies C4EdgeData,
     animated: false,
     markerEnd: { type: "arrowclosed" as const, color: "#888" },
   }));
+
+  // Inject used handles into c4Node data (handle selection happens after node creation)
+  for (const n of rfNodes) {
+    if (n.type === "c4Node") {
+      const used = allUsedHandles.get(n.id);
+      (n.data as C4NodeData).usedHandles = used ? [...used] : [];
+    }
+  }
 
   return { nodes: rfNodes, edges: rfEdges };
 }
