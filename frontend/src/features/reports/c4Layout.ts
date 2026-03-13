@@ -490,6 +490,21 @@ export function buildC4Flow(
     });
   }
 
+  // Also collect group label areas (top strip of each group box) for label overlap
+  // These are not used for obstruction routing, only for label placement.
+  const groupLabelBounds: { x1: number; y1: number; x2: number; y2: number }[] = [];
+  for (const n of rfNodes) {
+    if (n.type === "c4Group") {
+      const w = (n.style?.width as number) ?? 0;
+      groupLabelBounds.push({
+        x1: n.position.x,
+        y1: n.position.y,
+        x2: n.position.x + w,
+        y2: n.position.y + LABEL_H + 8, // group label area + margin
+      });
+    }
+  }
+
   /** Check if a vertical-ish line segment from (sx,sy)→(tx,ty) passes through
    *  any node other than sourceId/targetId. For smooth-step paths the horizontal
    *  segment sits near sy or ty, so we check a corridor along the X midpoint.
@@ -645,10 +660,11 @@ export function buildC4Flow(
     };
   });
 
-  /** Check if a label rect overlaps any node bounding box */
+  /** Check if a label rect overlaps any node or group label bounding box */
   function labelOverlapsNode(lx: number, ly: number, lw: number): boolean {
     const lh = 20; // label height
     const margin = 4;
+    // Check card nodes
     for (const b of allNodeBounds) {
       const bx1 = b.x1 - margin, by1 = b.y1 - margin;
       const bx2 = b.x2 + margin, by2 = b.y2 + margin;
@@ -657,6 +673,15 @@ export function buildC4Flow(
         lx + lw / 2 > bx1 &&
         ly - lh / 2 < by2 &&
         ly + lh / 2 > by1
+      ) return true;
+    }
+    // Check group label areas (category headers like "Business Architecture")
+    for (const b of groupLabelBounds) {
+      if (
+        lx - lw / 2 < b.x2 + margin &&
+        lx + lw / 2 > b.x1 - margin &&
+        ly - lh / 2 < b.y2 &&
+        ly + lh / 2 > b.y1 - margin
       ) return true;
     }
     return false;
