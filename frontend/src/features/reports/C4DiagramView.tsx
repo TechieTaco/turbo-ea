@@ -278,10 +278,12 @@ const C4EdgeComponent = (
     const theme = useTheme();
     const edgeData = data as C4EdgeData | undefined;
     const connectedToHovered = edgeData?.connectedToHovered ?? false;
-    const isHovered = (edgeData as Record<string, unknown>)?.isHovered === true;
+    // Local hover state — React Flow's onEdgeMouseEnter doesn't fire reliably
+    // because the SVG edge layer sits below the HTML node layer.
+    const [localHover, setLocalHover] = useState(false);
     const active = edgeData?.highlightMode
       ? connectedToHovered
-      : isHovered || connectedToHovered;
+      : localHover || connectedToHovered;
     const isDark = theme.palette.mode === "dark";
     const baseColor = isDark ? "#aaa" : "#777";
     const hoverColor = isDark ? "#4fc3f7" : "#1976d2";
@@ -346,7 +348,9 @@ const C4EdgeComponent = (
           fill="none"
           stroke="transparent"
           strokeWidth={14}
-          style={{ cursor: "pointer" }}
+          style={{ cursor: "pointer", pointerEvents: "stroke" }}
+          onMouseEnter={() => setLocalHover(true)}
+          onMouseLeave={() => setLocalHover(false)}
         />
         <BaseEdge
           id={id}
