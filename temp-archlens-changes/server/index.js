@@ -9,6 +9,7 @@ const { syncWorkspace: turboSync, getToken: turboGetToken, discoverTypes: turboD
 const { analyseVendors, getAIConfig } = require('./services/ai');
 const { phase1Questions, phase2Questions, phase3Architecture, loadLandscape } = require('./services/architect');
 const { resolveVendorIdentities, detectDuplicates, assessModernization, loadFullLandscape } = require('./services/resolution');
+const { createDataProvider, registerMcpWorkspace } = require('./services/dataProvider');
 
 const app  = express();
 const PORT = process.env.PORT || 3001;
@@ -89,6 +90,41 @@ app.get('/api/connect/saved', async (req, res) => {
 // ═══════════════════════════════════════════════════════════════════════════════
 app.post('/api/connect', async (req, res) => {
   const { workspace, apiKey, source_type, email, password } = req.body || {};
+
+  // MCP source: live data via Turbo EA API (no sync needed)
+  if (source_type === 'mcp') {
+    const url = workspace;
+    if (!url || !email || !password) {
+      return res.status(400).json({ error: 'workspace (URL), email, and password are required for MCP' });
+    }
+    try {
+      // Authenticate to get a JWT token
+      const { token, host } = await turboGetToken(url, email, password);
+      // Verify we can reach the bulk export endpoint
+      const testRes = await require('node-fetch')(`${host}/api/v1/cards/export/json?types=Application&include_relations=false&include_stakeholders=false`, {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      if (!testRes.ok) throw new Error(`Turbo EA API returned ${testRes.status}`);
+      const testData = await testRes.json();
+
+      const db = getDB();
+      const hostKey = parseTurboUrl(url);
+      await db.run(`INSERT OR IGNORE INTO workspaces (host, api_key, source_type) VALUES (?, ?, ?)`, [hostKey, `mcp:${email}`, 'mcp']);
+      await db.run(`UPDATE workspaces SET api_key = ?, source_type = ?, last_sync = 'live' WHERE host = ?`, [`mcp:${email}`, 'mcp', hostKey]);
+
+      // Register in the provider factory so subsequent calls use McpDataProvider
+      registerMcpWorkspace(hostKey, { turbo_ea_url: host, token });
+
+      res.json({
+        ok: true, host: hostKey, source_type: 'mcp',
+        total: Array.isArray(testData) ? testData.length : 0,
+        live: true,
+      });
+    } catch (err) {
+      res.status(401).json({ error: err.message });
+    }
+    return;
+  }
 
   // Turbo EA source: uses email/password auth
   if (source_type === 'turboea') {
@@ -251,99 +287,27 @@ app.get('/api/sync/jobs', async (req, res) => {
 // ═══════════════════════════════════════════════════════════════════════════════
 app.get('/api/data/overview', async (req, res) => {
   const ws = req.query.workspace || '';
-  const db = getDB();
   try {
-    const [counts, issues, noOwner, topIssues, lastSyncRow, costByType] = await Promise.all([
-      db.all(`SELECT fs_type, locker, COUNT(*) c FROM fact_sheets WHERE workspace=? GROUP BY fs_type, locker`, [ws]),
-      db.all(`SELECT fs_type, COUNT(*) c FROM fact_sheets WHERE workspace=? AND issues LIKE '%"eol"%' GROUP BY fs_type`, [ws]),
-      db.all(`SELECT fs_type, COUNT(*) c FROM fact_sheets WHERE workspace=? AND owner IS NULL GROUP BY fs_type`, [ws]),
-      db.all(`SELECT id, fs_type, name, locker, quality_score, issues FROM fact_sheets WHERE workspace=? AND locker IN ('bronze','silver') ORDER BY quality_score ASC LIMIT 15`, [ws]),
-      db.get(`SELECT last_sync FROM workspaces WHERE host=?`, [ws]),
-      db.all(`SELECT fs_type, SUM(annual_cost) total FROM fact_sheets WHERE workspace=? AND annual_cost > 0 GROUP BY fs_type`, [ws])
-    ]);
-
-    const byType = {};
-    const lockers = { bronze: 0, silver: 0, gold: 0 };
-    for (const r of counts) {
-      byType[r.fs_type] = (byType[r.fs_type] || 0) + r.c;
-      lockers[r.locker] = (lockers[r.locker] || 0) + r.c;
-    }
-
-    res.json({
-      byType, lockers,
-      lastSync:    lastSyncRow?.last_sync,
-      eol:         Object.fromEntries(issues.map(r  => [r.fs_type, r.c])),
-      noOwner:     Object.fromEntries(noOwner.map(r => [r.fs_type, r.c])),
-      costByType:  Object.fromEntries(costByType.map(r => [r.fs_type, r.total])),
-      topIssues:   topIssues.map(r => ({ ...r, issues: JSON.parse(r.issues || '[]') }))
-    });
+    const provider = createDataProvider(ws);
+    res.json(await provider.getOverviewStats());
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 app.get('/api/data/types', async (req, res) => {
-  const db = getDB();
-  const rows = await db.all(`
-    SELECT fs_type,
-      COUNT(*) total,
-      SUM(CASE WHEN locker='bronze' THEN 1 ELSE 0 END) bronze,
-      SUM(CASE WHEN locker='silver' THEN 1 ELSE 0 END) silver,
-      SUM(CASE WHEN locker='gold'   THEN 1 ELSE 0 END) gold,
-      SUM(annual_cost) total_cost,
-      SUM(CASE WHEN owner IS NULL   THEN 1 ELSE 0 END) no_owner,
-      SUM(CASE WHEN issues LIKE '%"eol"%' THEN 1 ELSE 0 END) eol_count
-    FROM fact_sheets WHERE workspace=? GROUP BY fs_type ORDER BY total DESC`,
-    [req.query.workspace || '']
-  );
-  res.json(rows);
+  const provider = createDataProvider(req.query.workspace || '');
+  res.json(await provider.getTypeStats());
 });
 
 app.get('/api/data/factsheets', async (req, res) => {
   const { workspace = '', fs_type = 'all', locker = 'bronze', page = 1, limit = 60, search = '' } = req.query;
-  const db = getDB();
-  const where = ['workspace=?'];
-  const params = [workspace];
-  if (fs_type !== 'all') { where.push('fs_type=?'); params.push(fs_type); }
-  if (locker  !== 'all') { where.push('locker=?');  params.push(locker);  }
-  if (search) {
-    where.push('(name LIKE ? OR owner LIKE ? OR lifecycle LIKE ? OR description LIKE ?)');
-    const q = `%${search}%`;
-    params.push(q, q, q, q);
-  }
-  const wh = 'WHERE ' + where.join(' AND ');
-  const [cnt, rows] = await Promise.all([
-    db.get(`SELECT COUNT(*) c FROM fact_sheets ${wh}`, params),
-    db.all(
-      `SELECT id, fs_type, name, description, lifecycle, owner, owner_email, completion,
-              updated_at, quality_score, locker, issues, tags, vendors, criticality, tech_fit, fs_level, annual_cost
-       FROM fact_sheets ${wh} ORDER BY quality_score ASC, name ASC
-       LIMIT ? OFFSET ?`,
-      [...params, parseInt(limit), (parseInt(page) - 1) * parseInt(limit)]
-    )
-  ]);
-  res.json({
-    total: cnt.c, page: parseInt(page),
-    items: rows.map(r => ({
-      ...r,
-      issues:  JSON.parse(r.issues  || '[]'),
-      tags:    JSON.parse(r.tags    || '[]'),
-      vendors: JSON.parse(r.vendors || '[]')
-    }))
-  });
+  const provider = createDataProvider(workspace);
+  res.json(await provider.searchCards({ type: fs_type, locker, search, page, limit }));
 });
 
 app.get('/api/data/export', async (req, res) => {
   const { workspace = '', locker, fs_type } = req.query;
-  const db = getDB();
-  const where = ['workspace=?'];
-  const params = [workspace];
-  if (locker  && locker  !== 'all') { where.push('locker=?');  params.push(locker);  }
-  if (fs_type && fs_type !== 'all') { where.push('fs_type=?'); params.push(fs_type); }
-  const rows = await db.all(
-    `SELECT name, fs_type, lifecycle, owner, owner_email, quality_score, locker,
-            completion, annual_cost, updated_at, criticality, tech_fit, fs_level, issues, tags, vendors
-     FROM fact_sheets WHERE ${where.join(' AND ')} ORDER BY quality_score ASC`,
-    params
-  );
+  const provider = createDataProvider(workspace);
+  const rows = await provider.exportCards({ locker, type: fs_type });
   const cols = ['name','fs_type','lifecycle','owner','owner_email','quality_score','locker','completion','annual_cost','updated_at','criticality','tech_fit','fs_level'];
   const csv = [
     cols.join(','),
@@ -384,13 +348,9 @@ app.get('/api/vendors/analyse/stream', async (req, res) => {
   const emit = data => res.write(`data: ${JSON.stringify(data)}\n\n`);
   try {
     emit({ event: 'step', msg: 'Loading fact sheets from local database...' });
-    const db = getDB();
-    const apps = await db.all(
-      `SELECT DISTINCT json_each.value AS vendor_name FROM fact_sheets, json_each(fact_sheets.vendors)
-       WHERE workspace=? AND fs_type IN ('Application','ITComponent') AND vendors IS NOT NULL AND vendors != '[]'`,
-      [workspace]
-    ).catch(() => []);
-    emit({ event: 'step', msg: `Found ${apps.length} vendor references — starting AI analysis...` });
+    const provider = createDataProvider(workspace);
+    const vendorNames = await provider.getDistinctVendorNames();
+    emit({ event: 'step', msg: `Found ${vendorNames.length} vendor references — starting AI analysis...` });
     const result = await analyseVendors(workspace, (msg) => emit({ event: 'step', msg }));
     emit({ event: 'step', msg: `✓ Categorised ${result.analysed || 0} vendors into 16 categories` });
     emit({ event: 'complete', analysed: result.analysed || 0 });
@@ -634,13 +594,7 @@ app.get('/api/duplicates', async (req, res) => {
     `SELECT * FROM duplicate_clusters WHERE workspace=? ORDER BY id DESC`,
     [req.query.workspace || '']
   ).catch(() => []);
-  // fs_ids and fs_names are stored as JSON strings in SQLite — parse them
-  const parsed = rows.map(r => ({
-    ...r,
-    fs_ids: typeof r.fs_ids === 'string' ? JSON.parse(r.fs_ids || '[]') : (r.fs_ids || []),
-    fs_names: typeof r.fs_names === 'string' ? JSON.parse(r.fs_names || '[]') : (r.fs_names || []),
-  }));
-  res.json(parsed);
+  res.json(rows);
 });
 
 app.put('/api/duplicates/:id/status', async (req, res) => {
