@@ -60,7 +60,7 @@ export default function ArchLensVendors() {
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("__all__");
   const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
-  const { startPolling, polling: pollActive } = useAnalysisPolling(() => loadVendors());
+  const { startPolling, polling: pollActive } = useAnalysisPolling(() => loadVendors(), (msg) => setError(msg));
 
   const loadVendors = useCallback(async () => {
     setLoading(true);

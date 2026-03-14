@@ -365,7 +365,8 @@ async def update_duplicate_status(
 
     cluster.status = body.status
     await db.commit()
-    return {"status": cluster.status}
+    await db.refresh(cluster)
+    return DuplicateClusterOut.model_validate(cluster, from_attributes=True)
 
 
 # ── Modernization ─────────────────────────────────────────────────────────

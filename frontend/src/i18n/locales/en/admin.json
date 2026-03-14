@@ -1020,6 +1020,10 @@
   "archlens_tab_modernization": "Modernization",
   "archlens_duplicates_description": "Detect functional duplicate cards and identify modernization opportunities across your landscape.",
   "archlens_pending": "pending",
+  "archlens_status_pending": "Pending",
+  "archlens_status_confirmed": "Confirmed",
+  "archlens_status_investigating": "Investigating",
+  "archlens_status_dismissed": "Dismissed",
   "archlens_critical_high": "critical/high",
   "archlens_architect_custom_answer": "Or type your own answer..."
 }

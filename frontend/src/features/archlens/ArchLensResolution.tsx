@@ -48,7 +48,7 @@ export default function ArchLensResolution() {
   const [typeFilter, setTypeFilter] = useState("__all__");
   const [categoryFilter, setCategoryFilter] = useState("__all__");
   const [sortBy, setSortBy] = useState<SortKey>("linked");
-  const { startPolling, polling: pollActive } = useAnalysisPolling(() => loadHierarchy());
+  const { startPolling, polling: pollActive } = useAnalysisPolling(() => loadHierarchy(), (msg) => setError(msg));
 
   const loadHierarchy = useCallback(async () => {
     setLoading(true);
