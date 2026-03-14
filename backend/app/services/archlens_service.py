@@ -125,20 +125,20 @@ class ArchLensClient:
     async def get_overview(self, workspace: str) -> dict[str, Any]:
         async with self._client() as c:
             r = await c.get("/api/data/overview", params={"workspace": workspace})
-            r.raise_for_status()
+            self._check_response(r, r.request.url.path)
             return cast(dict[str, Any], r.json())
 
     # ── Vendor analysis ─────────────────────────────────────────────────────
     async def trigger_vendor_analysis(self, workspace: str) -> dict[str, Any]:
         async with self._client(timeout=SYNC_TIMEOUT) as c:
             r = await c.post("/api/vendors/analyse", json={"workspace": workspace})
-            r.raise_for_status()
+            self._check_response(r, "vendors/analyse")
             return cast(dict[str, Any], r.json())
 
     async def get_vendors(self, workspace: str) -> list[dict[str, Any]]:
         async with self._client() as c:
             r = await c.get("/api/vendors", params={"workspace": workspace})
-            r.raise_for_status()
+            self._check_response(r, r.request.url.path)
             return cast(list[dict[str, Any]], r.json())
 
     # ── Vendor resolution ───────────────────────────────────────────────────
@@ -168,7 +168,7 @@ class ArchLensClient:
     async def get_vendor_hierarchy(self, workspace: str) -> list[dict[str, Any]]:
         async with self._client() as c:
             r = await c.get("/api/resolution/hierarchy", params={"workspace": workspace})
-            r.raise_for_status()
+            self._check_response(r, r.request.url.path)
             return cast(list[dict[str, Any]], r.json())
 
     # ── Duplicate detection ─────────────────────────────────────────────────
@@ -198,14 +198,14 @@ class ArchLensClient:
     async def get_duplicates(self, workspace: str) -> list[dict[str, Any]]:
         async with self._client() as c:
             r = await c.get("/api/duplicates", params={"workspace": workspace})
-            r.raise_for_status()
+            self._check_response(r, r.request.url.path)
             return cast(list[dict[str, Any]], r.json())
 
     # ── Architecture AI ─────────────────────────────────────────────────────
     async def get_landscape(self, workspace: str) -> dict[str, Any]:
         async with self._client() as c:
             r = await c.get("/api/architect/landscape", params={"workspace": workspace})
-            r.raise_for_status()
+            self._check_response(r, r.request.url.path)
             return cast(dict[str, Any], r.json())
 
     async def architect_phase1(self, workspace: str, requirement: str) -> dict[str, Any]:
