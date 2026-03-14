@@ -248,7 +248,7 @@ async def trigger_vendor_analysis(
         return await analyse_vendors(db_)
 
     background_tasks.add_task(_run_analysis, str(run.id), _service, "Vendor analysis")
-    return {"run_id": str(run.id), "status": AnalysisStatus.RUNNING}
+    return {"run_id": str(run.id), "status": "running"}
 
 
 @router.get("/vendors")
@@ -287,7 +287,7 @@ async def trigger_vendor_resolution(
         return await resolve_vendors(db_)
 
     background_tasks.add_task(_run_analysis, str(run.id), _service, "Vendor resolution")
-    return {"run_id": str(run.id), "status": AnalysisStatus.RUNNING}
+    return {"run_id": str(run.id), "status": "running"}
 
 
 @router.get("/vendors/hierarchy")
@@ -326,7 +326,7 @@ async def trigger_duplicate_detection(
         return await detect_duplicates(db_)
 
     background_tasks.add_task(_run_analysis, str(run.id), _service, "Duplicate detection")
-    return {"run_id": str(run.id), "status": AnalysisStatus.RUNNING}
+    return {"run_id": str(run.id), "status": "running"}
 
 
 @router.get("/duplicates")
@@ -392,7 +392,7 @@ async def trigger_modernization(
         return await assess_modernization(db_, target_type, modernization_type)
 
     background_tasks.add_task(_run_analysis, str(run.id), _service, "Modernization")
-    return {"run_id": str(run.id), "status": AnalysisStatus.RUNNING}
+    return {"run_id": str(run.id), "status": "running"}
 
 
 @router.get("/duplicates/modernizations")
