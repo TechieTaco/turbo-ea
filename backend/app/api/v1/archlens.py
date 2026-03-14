@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import uuid
 from datetime import datetime, timezone
 
@@ -12,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import get_current_user
 from app.core.encryption import decrypt_value, encrypt_value
 from app.database import get_db
+from app.models.app_settings import AppSettings
 from app.models.archlens import ArchLensAnalysisRun, ArchLensConnection
 from app.models.user import User
 from app.schemas.archlens import (
@@ -24,9 +26,17 @@ from app.schemas.archlens import (
 from app.services.archlens_service import ArchLensClient
 from app.services.permission_service import PermissionService
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter(prefix="/archlens", tags=["ArchLens"])
 
 PASSWORD_MASK = "••••••••"
+
+# Turbo EA providerType → ArchLens ai_provider mapping
+_PROVIDER_MAP = {
+    "anthropic": "claude",
+    "openai": "openai",
+}
 
 
 def _mask_credentials(conn: ArchLensConnection) -> ArchLensConnectionOut:
@@ -51,6 +61,31 @@ def _get_workspace_key(conn: ArchLensConnection) -> str:
     if turbo_url:
         return turbo_url.rstrip("/")
     return conn.instance_url.rstrip("/")
+
+
+async def _push_ai_config_if_available(
+    client: ArchLensClient, db: AsyncSession
+) -> tuple[bool, str]:
+    """Read Turbo EA AI settings and push them to ArchLens if compatible."""
+    result = await db.execute(select(AppSettings).where(AppSettings.id == "default"))
+    row = result.scalar_one_or_none()
+    general = (row.general_settings if row else None) or {}
+    ai = general.get("ai", {})
+
+    provider_type = ai.get("providerType", "")
+    archlens_provider = _PROVIDER_MAP.get(provider_type)
+    if not archlens_provider:
+        return False, f"Provider '{provider_type}' not supported by ArchLens"
+
+    encrypted_key = ai.get("apiKey", "")
+    if not encrypted_key:
+        return False, "No AI API key configured in Turbo EA"
+
+    api_key = decrypt_value(encrypted_key)
+    if not api_key:
+        return False, "AI API key is empty"
+
+    return await client.push_ai_config(archlens_provider, api_key)
 
 
 # ── Connections CRUD ────────────────────────────────────────────────────────
@@ -210,7 +245,13 @@ async def sync_data(
             )
         )
         await db.commit()
-        return {"ok": True, "result": sync_result}
+
+        # Auto-push Turbo EA AI config to ArchLens after successful sync
+        ai_ok, ai_msg = await _push_ai_config_if_available(client, db)
+        if ai_ok:
+            logger.info("AI config pushed to ArchLens: %s", ai_msg)
+
+        return {"ok": True, "result": sync_result, "ai_config_pushed": ai_ok}
     except Exception as exc:
         await db.execute(
             update(ArchLensConnection)
@@ -462,3 +503,25 @@ async def list_analysis_runs(
         }
         for r in runs
     ]
+
+
+# ── Push AI config ─────────────────────────────────────────────────────────
+
+
+@router.post("/connections/{conn_id}/push-ai-config")
+async def push_ai_config(
+    conn_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    await PermissionService.require_permission(db, user, "archlens.manage")
+    result = await db.execute(select(ArchLensConnection).where(ArchLensConnection.id == conn_id))
+    conn = result.scalar_one_or_none()
+    if not conn:
+        raise HTTPException(404, "Connection not found")
+
+    client = ArchLensClient(conn.instance_url)
+    ok, msg = await _push_ai_config_if_available(client, db)
+    if not ok:
+        raise HTTPException(400, msg)
+    return {"ok": True, "message": msg}

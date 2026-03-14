@@ -38,6 +38,22 @@ class ArchLensClient:
         except Exception as exc:
             return False, str(exc)
 
+    # ── AI config passthrough ────────────────────────────────────────────────
+    async def push_ai_config(self, provider: str, api_key: str) -> tuple[bool, str]:
+        """Push AI provider + key to ArchLens via POST /api/settings."""
+        try:
+            async with self._client() as c:
+                r = await c.post(
+                    "/api/settings",
+                    json={"ai_provider": provider, "ai_api_key": api_key},
+                )
+                if r.status_code == 200:
+                    return True, "AI configuration pushed to ArchLens"
+                return False, f"Unexpected status {r.status_code}"
+        except Exception as exc:
+            logger.warning("Failed to push AI config to ArchLens: %s", exc)
+            return False, str(exc)
+
     # ── Sync ────────────────────────────────────────────────────────────────
     async def trigger_sync(
         self,

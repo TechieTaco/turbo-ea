@@ -201,6 +201,20 @@ export default function ArchLensAdmin() {
     loadConnections();
   };
 
+  const handlePushAiConfig = async (conn: ArchLensConnection) => {
+    setLoading(true);
+    try {
+      const res = await api.post<{ ok: boolean; message: string }>(
+        `/archlens/connections/${conn.id}/push-ai-config`,
+      );
+      setFeedback({ type: "success", msg: res.message });
+    } catch (err: unknown) {
+      setFeedback({ type: "error", msg: String(err) });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <Box>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
@@ -284,6 +298,15 @@ export default function ArchLensAdmin() {
                       disabled={loading}
                     >
                       {t("archlens_sync")}
+                    </Button>
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      onClick={() => handlePushAiConfig(conn)}
+                      disabled={loading}
+                      startIcon={<MaterialSymbol icon="key" size={16} />}
+                    >
+                      {t("archlens_push_ai_config")}
                     </Button>
                     <IconButton
                       size="small"
