@@ -843,6 +843,7 @@
   "archlens_test": "Tester",
   "archlens_sync": "Synchroniser",
   "archlens_sync_success": "Données synchronisées avec succès",
+  "archlens_push_ai_config": "Transmettre la clé IA",
   "archlens_no_connections": "Aucune connexion ArchLens configurée.",
   "archlens_run_vendor_analysis": "Lancer l'analyse des fournisseurs",
   "archlens_no_vendor_data": "Aucune donnée fournisseur. Lancez une analyse d'abord.",
