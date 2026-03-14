@@ -58,6 +58,14 @@ export default function ArchLensPage() {
   const [archPhase, setArchPhase] = useState(0);
   const [archResult, setArchResult] = useState<Record<string, unknown> | null>(null);
   const [archLoading, setArchLoading] = useState(false);
+  // Q&A state: questions extracted from phase responses, answers keyed by index
+  const [archQuestions, setArchQuestions] = useState<
+    { question: string; context?: string; answer: string }[]
+  >([]);
+  // Accumulated Q&A from previous phases for passing to phase 3
+  const [phase1Answers, setPhase1Answers] = useState<
+    { question: string; answer: string }[]
+  >([]);
 
   const loadConnections = useCallback(async () => {
     try {
@@ -130,24 +138,79 @@ export default function ArchLensPage() {
   };
 
   // ── Architecture AI ──
+
+  // Extract questions array from a phase response (handles various formats)
+  const extractQuestions = (
+    data: Record<string, unknown>,
+  ): { question: string; context?: string }[] => {
+    // Could be { questions: [...] } or the response itself could be an array
+    const raw = Array.isArray(data)
+      ? data
+      : Array.isArray(data.questions)
+        ? data.questions
+        : Array.isArray(data.items)
+          ? data.items
+          : null;
+    if (!raw) return [];
+    return raw.map((q: Record<string, unknown> | string) =>
+      typeof q === "string"
+        ? { question: q }
+        : { question: String(q.question || q.text || q.q || ""), context: q.context as string },
+    );
+  };
+
   const runArchitectPhase = async (phase: number) => {
     if (!selectedConn) return;
     setArchLoading(true);
     try {
       const payload: Record<string, unknown> = { phase, requirement: archReq };
-      if (phase === 2 && archResult) payload.phase1QA = archResult;
-      if (phase === 3 && archResult) payload.allQA = archResult;
+
+      if (phase === 2) {
+        // Send phase 1 answers as an array of {question, answer} objects
+        const qa = archQuestions.map((q) => ({ question: q.question, answer: q.answer }));
+        payload.phase1QA = qa;
+        setPhase1Answers(qa);
+      }
+      if (phase === 3) {
+        // Send all Q&A (phase 1 + phase 2 answers)
+        const phase2qa = archQuestions.map((q) => ({ question: q.question, answer: q.answer }));
+        payload.allQA = [...phase1Answers, ...phase2qa];
+      }
+
       const result = await api.post<Record<string, unknown>>(
         `/archlens/connections/${selectedConn.id}/architect`,
         payload,
       );
       setArchResult(result);
       setArchPhase(phase);
+
+      // For phases 1 and 2, extract questions for the user to answer
+      if (phase < 3) {
+        const questions = extractQuestions(result);
+        setArchQuestions(questions.map((q) => ({ ...q, answer: "" })));
+      } else {
+        setArchQuestions([]);
+      }
     } catch (err: unknown) {
       setFeedback({ type: "error", msg: String(err) });
     } finally {
       setArchLoading(false);
     }
+  };
+
+  const handleArchAnswerChange = (index: number, value: string) => {
+    setArchQuestions((prev) =>
+      prev.map((q, i) => (i === index ? { ...q, answer: value } : q)),
+    );
+  };
+
+  const allQuestionsAnswered = archQuestions.length > 0 && archQuestions.every((q) => q.answer.trim());
+
+  const resetArchitect = () => {
+    setArchPhase(0);
+    setArchResult(null);
+    setArchQuestions([]);
+    setPhase1Answers([]);
   };
 
   // ── Analysis runs ──
@@ -360,52 +423,162 @@ export default function ArchLensPage() {
             {t("archlens_architect_description")}
           </Typography>
 
-          <TextField
-            label={t("archlens_architect_requirement")}
-            value={archReq}
-            onChange={(e) => setArchReq(e.target.value)}
-            fullWidth
-            multiline
-            minRows={3}
-            sx={{ mb: 2 }}
-          />
-
-          <Stack direction="row" spacing={2}>
-            <Button
-              variant="contained"
-              onClick={() => runArchitectPhase(1)}
-              disabled={archLoading || !archReq}
-            >
-              {t("archlens_phase")} 1
-            </Button>
-            <Button
-              variant="outlined"
-              onClick={() => runArchitectPhase(2)}
-              disabled={archLoading || archPhase < 1}
-            >
-              {t("archlens_phase")} 2
-            </Button>
-            <Button
-              variant="outlined"
-              onClick={() => runArchitectPhase(3)}
-              disabled={archLoading || archPhase < 2}
-            >
-              {t("archlens_phase")} 3
-            </Button>
+          {/* Step indicator */}
+          <Stack direction="row" spacing={1} sx={{ mb: 2 }}>
+            {[1, 2, 3].map((p) => (
+              <Chip
+                key={p}
+                label={`${t("archlens_phase")} ${p}`}
+                color={archPhase >= p ? "primary" : "default"}
+                variant={archPhase === p ? "filled" : "outlined"}
+                size="small"
+              />
+            ))}
           </Stack>
 
-          {archLoading && (
-            <Box sx={{ display: "flex", justifyContent: "center", py: 3 }}>
-              <CircularProgress />
-            </Box>
+          {/* Phase 0: Enter requirement */}
+          {archPhase === 0 && (
+            <>
+              <TextField
+                label={t("archlens_architect_requirement")}
+                value={archReq}
+                onChange={(e) => setArchReq(e.target.value)}
+                fullWidth
+                multiline
+                minRows={3}
+                sx={{ mb: 2 }}
+              />
+              <Button
+                variant="contained"
+                onClick={() => runArchitectPhase(1)}
+                disabled={archLoading || !archReq}
+                startIcon={
+                  archLoading ? <CircularProgress size={18} /> : undefined
+                }
+              >
+                {t("archlens_architect_generate_questions")}
+              </Button>
+            </>
           )}
 
-          {archResult && !archLoading && (
-            <Paper variant="outlined" sx={{ mt: 2, p: 2 }}>
-              <pre style={{ whiteSpace: "pre-wrap", fontSize: 13, margin: 0 }}>
-                {JSON.stringify(archResult, null, 2)}
-              </pre>
-            </Paper>
+          {/* Phase 1 & 2: Show questions with answer inputs */}
+          {(archPhase === 1 || archPhase === 2) && !archLoading && (
+            <>
+              <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                {archPhase === 1
+                  ? t("archlens_architect_phase1_intro")
+                  : t("archlens_architect_phase2_intro")}
+              </Typography>
+              <Stack spacing={2} sx={{ mb: 2 }}>
+                {archQuestions.map((q, i) => (
+                  <Paper key={i} variant="outlined" sx={{ p: 2 }}>
+                    <Typography variant="body2" fontWeight="bold" sx={{ mb: 0.5 }}>
+                      {i + 1}. {q.question}
+                    </Typography>
+                    {q.context && (
+                      <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: "block" }}>
+                        {q.context}
+                      </Typography>
+                    )}
+                    <TextField
+                      value={q.answer}
+                      onChange={(e) => handleArchAnswerChange(i, e.target.value)}
+                      fullWidth
+                      multiline
+                      minRows={2}
+                      size="small"
+                      placeholder={t("archlens_architect_answer_placeholder")}
+                      sx={{ mt: 1 }}
+                    />
+                  </Paper>
+                ))}
+              </Stack>
+              <Stack direction="row" spacing={2}>
+                <Button
+                  variant="contained"
+                  onClick={() => runArchitectPhase(archPhase + 1)}
+                  disabled={!allQuestionsAnswered}
+                >
+                  {archPhase === 1
+                    ? t("archlens_architect_submit_phase2")
+                    : t("archlens_architect_generate_architecture")}
+                </Button>
+                <Button variant="text" onClick={resetArchitect} color="inherit">
+                  {t("archlens_architect_start_over")}
+                </Button>
+              </Stack>
+            </>
+          )}
+
+          {/* Phase 3: Show architecture result */}
+          {archPhase === 3 && !archLoading && archResult && (
+            <>
+              {/* If the result has a summary/description field, show it nicely */}
+              {typeof archResult.summary === "string" && (
+                <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
+                  <Typography variant="subtitle2" gutterBottom>
+                    {t("archlens_architect_summary")}
+                  </Typography>
+                  <Typography variant="body2" sx={{ whiteSpace: "pre-wrap" }}>
+                    {archResult.summary}
+                  </Typography>
+                </Paper>
+              )}
+              {typeof archResult.architecture === "string" && (
+                <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
+                  <Typography variant="subtitle2" gutterBottom>
+                    {t("archlens_architect_result_title")}
+                  </Typography>
+                  <Typography
+                    variant="body2"
+                    sx={{ whiteSpace: "pre-wrap", fontFamily: "monospace", fontSize: 13 }}
+                  >
+                    {archResult.architecture}
+                  </Typography>
+                </Paper>
+              )}
+              {typeof archResult.diagram === "string" && (
+                <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
+                  <Typography variant="subtitle2" gutterBottom>
+                    {t("archlens_architect_diagram")}
+                  </Typography>
+                  <Box
+                    component="pre"
+                    sx={{
+                      whiteSpace: "pre-wrap",
+                      fontSize: 12,
+                      fontFamily: "monospace",
+                      bgcolor: "grey.50",
+                      p: 2,
+                      borderRadius: 1,
+                      overflow: "auto",
+                    }}
+                  >
+                    {archResult.diagram}
+                  </Box>
+                </Paper>
+              )}
+              {/* Fallback: show raw JSON for any other fields */}
+              {!archResult.summary && !archResult.architecture && (
+                <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
+                  <pre style={{ whiteSpace: "pre-wrap", fontSize: 13, margin: 0 }}>
+                    {JSON.stringify(archResult, null, 2)}
+                  </pre>
+                </Paper>
+              )}
+              <Button variant="outlined" onClick={resetArchitect}>
+                {t("archlens_architect_start_over")}
+              </Button>
+            </>
+          )}
+
+          {archLoading && (
+            <Box sx={{ display: "flex", alignItems: "center", gap: 2, py: 3 }}>
+              <CircularProgress size={24} />
+              <Typography variant="body2" color="text.secondary">
+                {t("archlens_architect_loading")}
+              </Typography>
+            </Box>
           )}
         </Paper>
       </TabPanel>
