@@ -150,6 +150,7 @@ export default function ArchLensAdmin() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editConn, setEditConn] = useState<ArchLensConnection | null>(null);
   const [loading, setLoading] = useState(false);
+  const [aiConfigured, setAiConfigured] = useState<boolean | null>(null);
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; msg: string } | null>(
     null,
   );
@@ -165,6 +166,11 @@ export default function ArchLensAdmin() {
 
   useEffect(() => {
     loadConnections();
+    // Check if a commercial AI provider is configured
+    api
+      .get<{ ai_configured: boolean }>("/archlens/status")
+      .then((res) => setAiConfigured(res.ai_configured))
+      .catch(() => setAiConfigured(false));
   }, [loadConnections]);
 
   const handleTest = async (conn: ArchLensConnection) => {
@@ -221,6 +227,12 @@ export default function ArchLensAdmin() {
         {t("archlens_settings_description")}
       </Typography>
 
+      {aiConfigured === false && (
+        <Alert severity="warning" sx={{ mb: 2 }}>
+          {t("archlens_ai_required")}
+        </Alert>
+      )}
+
       {feedback && (
         <Alert severity={feedback.type} onClose={() => setFeedback(null)} sx={{ mb: 2 }}>
           {feedback.msg}
@@ -235,6 +247,7 @@ export default function ArchLensAdmin() {
             setEditConn(null);
             setDialogOpen(true);
           }}
+          disabled={aiConfigured === false}
         >
           {t("archlens_add_connection")}
         </Button>

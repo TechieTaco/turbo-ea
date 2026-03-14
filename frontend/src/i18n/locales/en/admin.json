@@ -845,6 +845,7 @@
   "archlens_sync_success": "Data synced successfully",
   "archlens_push_ai_config": "Push AI Key",
   "archlens_no_connections": "No ArchLens connections configured yet.",
+  "archlens_ai_required": "ArchLens requires a commercial AI provider (Anthropic or OpenAI) with a valid API key. Please configure one in the AI tab first.",
   "archlens_run_vendor_analysis": "Run Vendor Analysis",
   "archlens_no_vendor_data": "No vendor analysis data. Run an analysis first.",
   "archlens_vendor_name": "Vendor",

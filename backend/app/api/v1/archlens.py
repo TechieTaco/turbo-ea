@@ -88,6 +88,45 @@ async def _push_ai_config_if_available(
     return await client.push_ai_config(archlens_provider, api_key)
 
 
+# ── Status (public within auth) ────────────────────────────────────────────
+
+
+@router.get("/status")
+async def archlens_status(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Return whether ArchLens is ready (AI configured + connection synced)."""
+    # 1. Check AI is configured with a commercial provider + API key
+    ai_configured = False
+    result = await db.execute(select(AppSettings).where(AppSettings.id == "default"))
+    row = result.scalar_one_or_none()
+    if row:
+        general = row.general_settings or {}
+        ai = general.get("ai", {})
+        provider_type = ai.get("providerType", "")
+        has_key = bool(ai.get("apiKey", ""))
+        ai_configured = provider_type in _PROVIDER_MAP and has_key
+
+    # 2. Check at least one connection is tested ok + synced
+    connection_ready = False
+    if ai_configured:
+        result = await db.execute(
+            select(ArchLensConnection).where(
+                ArchLensConnection.test_status == "ok",
+                ArchLensConnection.sync_status == "completed",
+                ArchLensConnection.is_active.is_(True),
+            )
+        )
+        connection_ready = result.scalar_one_or_none() is not None
+
+    return {
+        "ai_configured": ai_configured,
+        "connection_ready": connection_ready,
+        "ready": ai_configured and connection_ready,
+    }
+
+
 # ── Connections CRUD ────────────────────────────────────────────────────────
 
 

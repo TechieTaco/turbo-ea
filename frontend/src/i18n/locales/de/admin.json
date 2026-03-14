@@ -845,6 +845,7 @@
   "archlens_sync_success": "Daten erfolgreich synchronisiert",
   "archlens_push_ai_config": "KI-Schlüssel übertragen",
   "archlens_no_connections": "Noch keine ArchLens-Verbindungen konfiguriert.",
+  "archlens_ai_required": "ArchLens erfordert einen kommerziellen AI-Anbieter (Anthropic oder OpenAI) mit einem gültigen API-Schlüssel. Bitte konfigurieren Sie einen im AI-Tab.",
   "archlens_run_vendor_analysis": "Anbieteranalyse starten",
   "archlens_no_vendor_data": "Keine Anbieteranalysedaten. Führen Sie zuerst eine Analyse durch.",
   "archlens_vendor_name": "Anbieter",

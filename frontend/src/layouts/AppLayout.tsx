@@ -35,6 +35,7 @@ import { useEventStream } from "@/hooks/useEventStream";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useBpmEnabled } from "@/hooks/useBpmEnabled";
 import { usePpmEnabled } from "@/hooks/usePpmEnabled";
+import { useArchLensReady } from "@/hooks/useArchLensReady";
 import { useThemeMode } from "@/hooks/useThemeMode";
 import { useResolveMetaLabel } from "@/hooks/useResolveLabel";
 import { SUPPORTED_LOCALES, LOCALE_LABELS, type SupportedLocale } from "@/i18n";
@@ -81,7 +82,6 @@ const NAV_ITEM_DEFS: NavItemDef[] = [
   { labelKey: "diagrams", icon: "schema", path: "/diagrams", permission: "diagrams.view" },
   { labelKey: "delivery", icon: "architecture", path: "/ea-delivery", permission: "soaw.view" },
   { labelKey: "todos", icon: "checklist", path: "/todos" },
-  { labelKey: "archlens", icon: "psychology", path: "/archlens", permission: "archlens.view" },
 ];
 
 const ADMIN_ITEM_DEFS: NavItemDef[] = [
@@ -121,6 +121,7 @@ export default function AppLayout({ children, user, onLogout }: Props) {
   const rml = useResolveMetaLabel();
   const { bpmEnabled } = useBpmEnabled();
   const { ppmEnabled } = usePpmEnabled();
+  const { archLensReady } = useArchLensReady();
   const { enabledLocales } = useEnabledLocales();
   const { mode, toggleMode } = useThemeMode();
 
@@ -135,7 +136,7 @@ export default function AppLayout({ children, user, onLogout }: Props) {
     [user.permissions]
   );
 
-  // Resolve nav item labels via i18n and filter based on BPM/permissions
+  // Resolve nav item labels via i18n and filter based on BPM/PPM/ArchLens/permissions
   const navItems = useMemo(() => {
     const resolve = (def: NavItemDef): NavItem => ({
       ...def,
@@ -145,6 +146,21 @@ export default function AppLayout({ children, user, onLogout }: Props) {
     let items = NAV_ITEM_DEFS as NavItemDef[];
     if (!bpmEnabled) items = items.filter((item) => item.labelKey !== "bpm");
     if (!ppmEnabled) items = items.filter((item) => item.labelKey !== "ppm");
+
+    // Inject ArchLens into Reports children when connection is ready + AI configured
+    if (archLensReady && can("archlens.view")) {
+      items = items.map((item) => {
+        if (item.labelKey !== "reports" || !item.children) return item;
+        return {
+          ...item,
+          children: [
+            ...item.children,
+            { labelKey: "archlens", icon: "psychology", path: "/archlens" },
+          ],
+        };
+      });
+    }
+
     return items
       .filter((item) => {
         if (!item.permission) return true;
@@ -152,7 +168,7 @@ export default function AppLayout({ children, user, onLogout }: Props) {
         return can(item.permission);
       })
       .map(resolve);
-  }, [bpmEnabled, ppmEnabled, can, t]);
+  }, [bpmEnabled, ppmEnabled, archLensReady, can, t]);
 
   // Resolve admin item labels via i18n and filter based on permissions
   const adminItems = useMemo(() => {
@@ -681,10 +697,11 @@ export default function AppLayout({ children, user, onLogout }: Props) {
             onClose={() => setReportsMenu(null)}
           >
             {navItems.find((n) => n.children)?.children?.map((child, idx) => {
-              const isSavedReports = child.path === "/reports/saved";
+              const needsDivider =
+                child.path === "/reports/saved" || child.path === "/archlens";
               return (
                 <Box key={child.path}>
-                  {isSavedReports && idx > 0 && <Divider sx={{ my: 0.5 }} />}
+                  {needsDivider && idx > 0 && <Divider sx={{ my: 0.5 }} />}
                   <MenuItem
                     selected={isActive(child.path)}
                     onClick={() => {

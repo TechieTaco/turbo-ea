@@ -845,6 +845,7 @@
   "archlens_sync_success": "数据同步成功",
   "archlens_push_ai_config": "推送AI密钥",
   "archlens_no_connections": "尚未配置 ArchLens 连接。",
+  "archlens_ai_required": "ArchLens 需要配置商用 AI 提供商（Anthropic 或 OpenAI）并提供有效的 API 密钥。请先在 AI 选项卡中进行配置。",
   "archlens_run_vendor_analysis": "运行供应商分析",
   "archlens_no_vendor_data": "无供应商分析数据。请先运行分析。",
   "archlens_vendor_name": "供应商",
