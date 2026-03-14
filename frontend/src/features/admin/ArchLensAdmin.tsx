@@ -330,7 +330,7 @@ export default function ArchLensAdmin() {
   return (
     <Box sx={{ p: 3 }}>
       <Typography variant="h5" gutterBottom>
-        <MaterialSymbol icon="psychology" sx={{ mr: 1, verticalAlign: "middle" }} />
+        <MaterialSymbol icon="psychology" style={{ marginRight: 8, verticalAlign: "middle" }} />
         {t("archlens_title")}
       </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
