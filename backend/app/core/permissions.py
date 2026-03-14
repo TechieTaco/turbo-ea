@@ -355,6 +355,8 @@ MEMBER_PERMISSIONS: dict[str, bool] = {
     "web_portals.manage": False,
     "servicenow.view": False,
     "servicenow.manage": False,
+    "archlens.view": True,
+    "archlens.manage": False,
     "ai.suggest": True,
     "ai.portfolio_insights": True,
     "notifications.manage": True,
