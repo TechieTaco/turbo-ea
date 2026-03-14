@@ -1019,6 +1019,10 @@
   "archlens_tab_modernization": "Modernisierung",
   "archlens_duplicates_description": "Funktionale Duplikate erkennen und Modernisierungsmöglichkeiten identifizieren.",
   "archlens_pending": "ausstehend",
+  "archlens_status_pending": "Ausstehend",
+  "archlens_status_confirmed": "Bestätigt",
+  "archlens_status_investigating": "In Prüfung",
+  "archlens_status_dismissed": "Abgelehnt",
   "archlens_critical_high": "kritisch/hoch",
   "archlens_architect_custom_answer": "Oder eigene Antwort eingeben..."
 }
