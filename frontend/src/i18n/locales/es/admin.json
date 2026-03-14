@@ -845,6 +845,7 @@
   "archlens_sync_success": "Datos sincronizados correctamente",
   "archlens_push_ai_config": "Enviar clave IA",
   "archlens_no_connections": "No hay conexiones ArchLens configuradas.",
+  "archlens_ai_required": "ArchLens requiere un proveedor de IA comercial (Anthropic u OpenAI) con una clave API válida. Configure uno en la pestaña de IA.",
   "archlens_run_vendor_analysis": "Ejecutar análisis de proveedores",
   "archlens_no_vendor_data": "Sin datos de proveedores. Ejecute un análisis primero.",
   "archlens_vendor_name": "Proveedor",
