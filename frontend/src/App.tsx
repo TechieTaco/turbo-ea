@@ -45,6 +45,7 @@ const BpmDashboard = lazy(() => import("@/features/bpm/BpmDashboard"));
 const ProcessFlowEditorPage = lazy(() => import("@/features/bpm/ProcessFlowEditorPage"));
 const PpmPortfolio = lazy(() => import("@/features/ppm/PpmPortfolio"));
 const PpmProjectDetail = lazy(() => import("@/features/ppm/PpmProjectDetail"));
+const ArchLensAdmin = lazy(() => import("@/features/admin/ArchLensAdmin"));
 
 function buildTheme(mode: "light" | "dark") {
   return createTheme({
@@ -152,6 +153,7 @@ function AppRoutes() {
                 <Route path="/admin/surveys/new" element={<SurveyBuilder />} />
                 <Route path="/admin/surveys/:id/results" element={<SurveyResults />} />
                 <Route path="/admin/surveys/:id" element={<SurveyBuilder />} />
+                <Route path="/admin/archlens" element={<ArchLensAdmin />} />
                 <Route path="*" element={<Navigate to="/" />} />
               </Routes>
             </Suspense>

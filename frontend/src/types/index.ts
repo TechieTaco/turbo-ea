@@ -1154,3 +1154,53 @@ export interface PpmDashboardData {
   health_cost: PpmHealthCounts;
   health_scope: PpmHealthCounts;
 }
+
+// ---------------------------------------------------------------------------
+// ArchLens Integration
+// ---------------------------------------------------------------------------
+
+export interface ArchLensConnection {
+  id: string;
+  name: string;
+  instance_url: string;
+  is_active: boolean;
+  last_tested_at?: string | null;
+  test_status?: string | null;
+  last_synced_at?: string | null;
+  sync_status?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface ArchLensVendor {
+  id: number;
+  vendor_name: string;
+  category: string;
+  sub_category?: string;
+  reasoning?: string;
+  app_count: number;
+  total_cost: number;
+  app_list: string[];
+}
+
+export interface ArchLensDuplicateCluster {
+  id: number;
+  cluster_name: string;
+  fs_type: string;
+  functional_domain?: string;
+  fs_ids: string[];
+  fs_names: string[];
+  evidence?: string;
+  recommendation?: string;
+  status: string;
+}
+
+export interface ArchLensAnalysisRun {
+  id: string;
+  connection_id: string;
+  analysis_type: string;
+  status: string;
+  started_at?: string | null;
+  completed_at?: string | null;
+  error_message?: string | null;
+}

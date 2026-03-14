@@ -30,5 +30,6 @@
   "search.placeholder": "Поиск карточек...",
   "search.viewAll": "Показать все результаты для «{{query}}»",
   "createCard": "Создать карточку",
-  "create": "Создать"
+  "create": "Создать",
+  "archlens": "ArchLens"
 }
