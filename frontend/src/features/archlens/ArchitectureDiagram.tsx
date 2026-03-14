@@ -338,20 +338,20 @@ function buildArchFlow(
     if (pos) nodeAbsPos.set(entry.id, { x: pos.x - NODE_W / 2, y: pos.y - NODE_H / 2 });
   }
 
-  // 5. Compute group boundaries per layer from actual node positions
+  // 5. Compute group boundaries per layer, then resolve overlaps
   const LAYER_COLORS = [
     "#1976d2", "#33cc58", "#8e24aa", "#d29270", "#0f7eb5", "#ffa31f", "#f44336",
   ];
-  const rfNodes: Node[] = [];
+  const MIN_GROUP_GAP = 48;
 
+  // First pass: compute raw bounding boxes for each layer
+  const groupBounds: {
+    li: number; entries: typeof allComps;
+    minX: number; minY: number; maxX: number; maxY: number;
+  }[] = [];
   for (let li = 0; li < layers.length; li++) {
     const entries = allComps.filter(c => c.layerIdx === li);
     if (entries.length === 0) continue;
-
-    const groupId = `layer-${li}`;
-    const layerColor = LAYER_COLORS[li % LAYER_COLORS.length];
-
-    // Bounding box from dagre positions
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
     for (const e of entries) {
       const p = nodeAbsPos.get(e.id)!;
@@ -360,24 +360,53 @@ function buildArchFlow(
       maxX = Math.max(maxX, p.x + NODE_W);
       maxY = Math.max(maxY, p.y + NODE_H);
     }
+    groupBounds.push({ li, entries, minX, minY, maxX, maxY });
+  }
 
-    const groupX = minX - GROUP_PAD_X;
-    const groupY = minY - GROUP_PAD_TOP;
-    const groupW = maxX - minX + 2 * GROUP_PAD_X;
-    const groupH = maxY - minY + GROUP_PAD_TOP + GROUP_PAD_BOTTOM;
+  // Sort by top edge so we process top-to-bottom
+  groupBounds.sort((a, b) => a.minY - b.minY);
+
+  // Resolve vertical overlaps: push groups down if they encroach on the previous
+  for (let i = 1; i < groupBounds.length; i++) {
+    const prev = groupBounds[i - 1];
+    const curr = groupBounds[i];
+    const prevBottom = prev.maxY + GROUP_PAD_BOTTOM;
+    const currTop = curr.minY - GROUP_PAD_TOP;
+    const overlap = prevBottom + MIN_GROUP_GAP - currTop;
+    if (overlap > 0) {
+      // Shift this group and all its nodes down
+      const dy = overlap;
+      for (const e of curr.entries) {
+        const p = nodeAbsPos.get(e.id)!;
+        p.y += dy;
+      }
+      curr.minY += dy;
+      curr.maxY += dy;
+    }
+  }
+
+  // Second pass: build React Flow nodes with resolved positions
+  const rfNodes: Node[] = [];
+  for (const gb of groupBounds) {
+    const groupId = `layer-${gb.li}`;
+    const layerColor = LAYER_COLORS[gb.li % LAYER_COLORS.length];
+
+    const groupX = gb.minX - GROUP_PAD_X;
+    const groupY = gb.minY - GROUP_PAD_TOP;
+    const groupW = gb.maxX - gb.minX + 2 * GROUP_PAD_X;
+    const groupH = gb.maxY - gb.minY + GROUP_PAD_TOP + GROUP_PAD_BOTTOM;
 
     rfNodes.push({
       id: groupId,
       type: "archGroup",
       position: { x: groupX, y: groupY },
-      data: { label: layers[li].name, color: layerColor } satisfies ArchGroupData,
+      data: { label: layers[gb.li].name, color: layerColor } satisfies ArchGroupData,
       style: { width: groupW, height: groupH },
       selectable: false,
       draggable: false,
     });
 
-    // Child nodes with positions relative to group
-    for (const entry of entries) {
+    for (const entry of gb.entries) {
       const absP = nodeAbsPos.get(entry.id)!;
       rfNodes.push({
         id: entry.id,

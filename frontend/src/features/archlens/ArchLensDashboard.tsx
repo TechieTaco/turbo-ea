@@ -92,10 +92,6 @@ export default function ArchLensDashboard() {
 
   return (
     <Box>
-      <Typography variant="h5" fontWeight="bold" sx={{ mb: 3 }}>
-        {t("archlens_dashboard_title")}
-      </Typography>
-
       {/* KPI Tiles */}
       <Stack direction="row" flexWrap="wrap" gap={2} sx={{ mb: 3 }}>
         <MetricCard

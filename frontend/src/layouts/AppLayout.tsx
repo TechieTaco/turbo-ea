@@ -58,19 +58,6 @@ interface NavItem {
   permission?: string | string[];
 }
 
-const ARCHLENS_CHILDREN: NavItemDef["children"] = [
-  { labelKey: "archlens.dashboard", icon: "psychology", path: "/archlens" },
-  { labelKey: "archlens.vendors", icon: "storefront", path: "/archlens/vendors" },
-  {
-    labelKey: "archlens.resolution",
-    icon: "account_tree",
-    path: "/archlens/vendors/resolution",
-  },
-  { labelKey: "archlens.duplicates", icon: "content_copy", path: "/archlens/duplicates" },
-  { labelKey: "archlens.architect", icon: "architecture", path: "/archlens/architect" },
-  { labelKey: "archlens.history", icon: "history", path: "/archlens/history" },
-];
-
 const NAV_ITEM_DEFS: NavItemDef[] = [
   { labelKey: "dashboard", icon: "dashboard", path: "/" },
   { labelKey: "inventory", icon: "inventory_2", path: "/inventory", permission: "inventory.view" },
@@ -155,13 +142,15 @@ export default function AppLayout({ children, user, onLogout }: Props) {
     if (!bpmEnabled) items = items.filter((item) => item.labelKey !== "bpm");
     if (!ppmEnabled) items = items.filter((item) => item.labelKey !== "ppm");
 
-    // Append ArchLens sub-items to Reports dropdown when AI is configured
+    // Add ArchLens as top-level nav item when AI is configured
     if (archLensReady && can("archlens.view")) {
-      items = items.map((item) =>
-        item.labelKey === "reports"
-          ? { ...item, children: [...(item.children || []), ...ARCHLENS_CHILDREN!] }
-          : item,
-      );
+      const todosIdx = items.findIndex((item) => item.labelKey === "todos");
+      const insertAt = todosIdx >= 0 ? todosIdx : items.length;
+      items = [
+        ...items.slice(0, insertAt),
+        { labelKey: "archlens", icon: "psychology", path: "/archlens", permission: "archlens.view" },
+        ...items.slice(insertAt),
+      ];
     }
 
     const resolve = (def: NavItemDef): NavItem => ({
@@ -706,8 +695,7 @@ export default function AppLayout({ children, user, onLogout }: Props) {
             onClose={() => setReportsMenu(null)}
           >
             {navItems.find((n) => n.children)?.children?.map((child, idx) => {
-              const needsDivider =
-                child.path === "/reports/saved" || child.path === "/archlens";
+              const needsDivider = child.path === "/reports/saved";
               return (
                 <Box key={child.path}>
                   {needsDivider && idx > 0 && <Divider sx={{ my: 0.5 }} />}
