@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+import uuid
 from datetime import datetime
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 # ---------------------------------------------------------------------------
 # Requests
@@ -68,6 +69,11 @@ class VendorAnalysisOut(BaseModel):
 
     model_config = {"from_attributes": True}
 
+    @field_validator("id", mode="before")
+    @classmethod
+    def coerce_id(cls, v: str | uuid.UUID) -> str:
+        return str(v)
+
 
 class VendorHierarchyOut(BaseModel):
     id: str
@@ -85,6 +91,11 @@ class VendorHierarchyOut(BaseModel):
 
     model_config = {"from_attributes": True}
 
+    @field_validator("id", "parent_id", mode="before")
+    @classmethod
+    def coerce_uuid(cls, v: str | uuid.UUID | None) -> str | None:
+        return str(v) if v is not None else None
+
 
 class DuplicateClusterOut(BaseModel):
     id: str
@@ -99,6 +110,11 @@ class DuplicateClusterOut(BaseModel):
     analysed_at: datetime | None = None
 
     model_config = {"from_attributes": True}
+
+    @field_validator("id", mode="before")
+    @classmethod
+    def coerce_id(cls, v: str | uuid.UUID) -> str:
+        return str(v)
 
 
 class ModernizationOut(BaseModel):
@@ -117,6 +133,11 @@ class ModernizationOut(BaseModel):
 
     model_config = {"from_attributes": True}
 
+    @field_validator("id", "cluster_id", "card_id", mode="before")
+    @classmethod
+    def coerce_uuid(cls, v: str | uuid.UUID | None) -> str | None:
+        return str(v) if v is not None else None
+
 
 class ArchLensAnalysisRunOut(BaseModel):
     id: str
@@ -128,3 +149,8 @@ class ArchLensAnalysisRunOut(BaseModel):
     created_at: datetime | None = None
 
     model_config = {"from_attributes": True}
+
+    @field_validator("id", mode="before")
+    @classmethod
+    def coerce_id(cls, v: str | uuid.UUID) -> str:
+        return str(v)

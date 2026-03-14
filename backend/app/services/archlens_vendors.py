@@ -144,9 +144,7 @@ async def _load_cards_with_vendors(
     card_map = {str(c.id): c for c in [*app_cards, *provider_cards]}
 
     # Load relations to Providers
-    rels_result = await db.execute(
-        select(Relation).where(Relation.relation_type_key.in_(all_provider_rel_keys))
-    )
+    rels_result = await db.execute(select(Relation).where(Relation.type.in_(all_provider_rel_keys)))
     relations = rels_result.scalars().all()
 
     # Build card -> vendors mapping
@@ -270,7 +268,7 @@ async def analyse_vendors(db: AsyncSession) -> dict[str, Any]:
         select(ArchLensVendorAnalysis.vendor_name, ArchLensVendorAnalysis.id)
     )
     existing_vendor_map: dict[str, ArchLensVendorAnalysis] = {}
-    existing_ids = {row[0]: row[1] for row in existing_result.all()}
+    existing_ids: dict[str, Any] = {row[0]: row[1] for row in existing_result.all()}
 
     # Load full objects for those that exist
     if existing_ids:
@@ -359,15 +357,15 @@ IMPORTANT:
             if cat not in CATEGORIES:
                 cat = "Other"
 
-            row = existing_vendor_map.get(item["name"])
-            if row:
-                row.category = cat
-                row.sub_category = item.get("sub_category", "")
-                row.reasoning = item.get("reasoning", "")
-                row.app_count = len(d["apps"])
-                row.total_cost = d["totalCost"]
-                row.app_list = d["apps"]
-                row.analysed_at = now
+            existing = existing_vendor_map.get(item["name"])
+            if existing:
+                existing.category = cat
+                existing.sub_category = item.get("sub_category", "")
+                existing.reasoning = item.get("reasoning", "")
+                existing.app_count = len(d["apps"])
+                existing.total_cost = d["totalCost"]
+                existing.app_list = d["apps"]
+                existing.analysed_at = now
             else:
                 new_obj = ArchLensVendorAnalysis(
                     vendor_name=item["name"],
@@ -419,7 +417,8 @@ Return ONLY a JSON object (no markdown):
     match = re.search(r"\{[\s\S]*\}", text)
     if not match:
         raise ValueError("No JSON object found")
-    return json.loads(match.group(0))
+    parsed: dict[str, Any] = json.loads(match.group(0))
+    return parsed
 
 
 # ---------------------------------------------------------------------------
@@ -531,7 +530,9 @@ Return ONLY a JSON array:
 
     # Load existing vendor analysis for category info
     va_result = await db.execute(select(ArchLensVendorAnalysis))
-    va_map = {va.vendor_name: va for va in va_result.scalars().all()}
+    va_map: dict[str, ArchLensVendorAnalysis] = {}
+    for _va in va_result.scalars().all():
+        va_map[_va.vendor_name] = _va  # type: ignore[attr-defined,assignment]
 
     # Clear old hierarchy and persist new
     await db.execute(delete(ArchLensVendorHierarchy))
