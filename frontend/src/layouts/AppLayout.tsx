@@ -82,6 +82,19 @@ const NAV_ITEM_DEFS: NavItemDef[] = [
   { labelKey: "diagrams", icon: "schema", path: "/diagrams", permission: "diagrams.view" },
   { labelKey: "delivery", icon: "architecture", path: "/ea-delivery", permission: "soaw.view" },
   { labelKey: "todos", icon: "checklist", path: "/todos" },
+  {
+    labelKey: "archlens",
+    icon: "psychology",
+    permission: "archlens.view",
+    children: [
+      { labelKey: "archlens.dashboard", icon: "dashboard", path: "/archlens" },
+      { labelKey: "archlens.vendors", icon: "storefront", path: "/archlens/vendors" },
+      { labelKey: "archlens.resolution", icon: "account_tree", path: "/archlens/vendors/resolution" },
+      { labelKey: "archlens.duplicates", icon: "content_copy", path: "/archlens/duplicates" },
+      { labelKey: "archlens.architect", icon: "architecture", path: "/archlens/architect" },
+      { labelKey: "archlens.history", icon: "history", path: "/archlens/history" },
+    ],
+  },
 ];
 
 const ADMIN_ITEM_DEFS: NavItemDef[] = [
@@ -147,19 +160,8 @@ export default function AppLayout({ children, user, onLogout }: Props) {
     if (!bpmEnabled) items = items.filter((item) => item.labelKey !== "bpm");
     if (!ppmEnabled) items = items.filter((item) => item.labelKey !== "ppm");
 
-    // Inject ArchLens into Reports children when connection is ready + AI configured
-    if (archLensReady && can("archlens.view")) {
-      items = items.map((item) => {
-        if (item.labelKey !== "reports" || !item.children) return item;
-        return {
-          ...item,
-          children: [
-            ...item.children,
-            { labelKey: "archlens", icon: "psychology", path: "/archlens" },
-          ],
-        };
-      });
-    }
+    // Hide ArchLens nav section when AI is not configured
+    if (!archLensReady) items = items.filter((item) => item.labelKey !== "archlens");
 
     return items
       .filter((item) => {

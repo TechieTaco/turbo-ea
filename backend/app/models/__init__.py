@@ -1,7 +1,13 @@
 from app.models.app_settings import AppSettings
 from app.models.architecture_decision import ArchitectureDecision
 from app.models.architecture_decision_card import ArchitectureDecisionCard
-from app.models.archlens import ArchLensAnalysisRun, ArchLensConnection
+from app.models.archlens import (
+    ArchLensAnalysisRun,
+    ArchLensDuplicateCluster,
+    ArchLensModernization,
+    ArchLensVendorAnalysis,
+    ArchLensVendorHierarchy,
+)
 from app.models.base import Base
 from app.models.bookmark import Bookmark
 from app.models.calculation import Calculation
@@ -48,8 +54,11 @@ from app.models.user_favorite import UserFavorite
 from app.models.web_portal import WebPortal
 
 __all__ = [
-    "ArchLensConnection",
     "ArchLensAnalysisRun",
+    "ArchLensDuplicateCluster",
+    "ArchLensModernization",
+    "ArchLensVendorAnalysis",
+    "ArchLensVendorHierarchy",
     "ArchitectureDecision",
     "ArchitectureDecisionCard",
     "Base",

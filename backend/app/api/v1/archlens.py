@@ -1,4 +1,9 @@
-"""ArchLens integration — connection management, data sync, and AI analysis."""
+"""ArchLens native integration — AI-powered EA intelligence.
+
+Direct service calls replacing the old proxy-to-container pattern.
+All ArchLens AI services now query the cards table directly and
+use Turbo EA's AI configuration from app_settings.
+"""
 
 from __future__ import annotations
 
@@ -6,561 +11,585 @@ import logging
 import uuid
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import delete, select, update
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
-from app.core.encryption import decrypt_value, encrypt_value
 from app.database import get_db
-from app.models.app_settings import AppSettings
-from app.models.archlens import ArchLensAnalysisRun, ArchLensConnection
+from app.models.archlens import (
+    ArchLensAnalysisRun,
+    ArchLensDuplicateCluster,
+    ArchLensModernization,
+    ArchLensVendorAnalysis,
+    ArchLensVendorHierarchy,
+)
+from app.models.card import Card
 from app.models.user import User
 from app.schemas.archlens import (
+    ArchLensAnalysisRunOut,
     ArchLensArchitectRequest,
-    ArchLensConnectionCreate,
-    ArchLensConnectionOut,
-    ArchLensConnectionUpdate,
-    ArchLensSyncRequest,
+    ArchLensDuplicateStatusUpdate,
+    ArchLensModernizeRequest,
+    ArchLensOverviewOut,
+    ArchLensStatusOut,
+    DuplicateClusterOut,
+    ModernizationOut,
+    VendorAnalysisOut,
+    VendorHierarchyOut,
 )
-from app.services.archlens_service import ArchLensClient
+from app.services.archlens_ai import get_ai_config, is_ai_configured
 from app.services.permission_service import PermissionService
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/archlens", tags=["ArchLens"])
 
-PASSWORD_MASK = "••••••••"
 
-# Turbo EA providerType → ArchLens ai_provider mapping
-_PROVIDER_MAP = {
-    "anthropic": "claude",
-    "openai": "openai",
-}
-
-
-def _mask_credentials(conn: ArchLensConnection) -> ArchLensConnectionOut:
-    return ArchLensConnectionOut(
-        id=str(conn.id),
-        name=conn.name,
-        instance_url=conn.instance_url,
-        is_active=conn.is_active,
-        last_tested_at=conn.last_tested_at,
-        test_status=conn.test_status,
-        last_synced_at=conn.last_synced_at,
-        sync_status=conn.sync_status,
-        created_at=conn.created_at,
-        updated_at=conn.updated_at,
-    )
-
-
-def _get_workspace_key(conn: ArchLensConnection) -> str:
-    """Derive the ArchLens workspace key from the Turbo EA URL."""
-    creds = conn.credentials or {}
-    turbo_url: str = str(creds.get("turbo_ea_url", ""))
-    if turbo_url:
-        return turbo_url.rstrip("/")
-    return conn.instance_url.rstrip("/")
-
-
-async def _push_ai_config_if_available(
-    client: ArchLensClient, db: AsyncSession
-) -> tuple[bool, str]:
-    """Read Turbo EA AI settings and push them to ArchLens if compatible."""
-    result = await db.execute(select(AppSettings).where(AppSettings.id == "default"))
-    row = result.scalar_one_or_none()
-    general = (row.general_settings if row else None) or {}
-    ai = general.get("ai", {})
-
-    provider_type = ai.get("providerType", "")
-    archlens_provider = _PROVIDER_MAP.get(provider_type)
-    if not archlens_provider:
-        return False, f"Provider '{provider_type}' not supported by ArchLens"
-
-    encrypted_key = ai.get("apiKey", "")
-    if not encrypted_key:
-        return False, "No AI API key configured in Turbo EA"
-
-    api_key = decrypt_value(encrypted_key)
-    if not api_key:
-        return False, "AI API key is empty"
-
-    return await client.push_ai_config(archlens_provider, api_key)
-
-
-# ── Status (public within auth) ────────────────────────────────────────────
+# ── Status & Overview ──────────────────────────────────────────────────────
 
 
 @router.get("/status")
 async def archlens_status(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
-):
-    """Return whether ArchLens is ready (AI configured + connection synced)."""
-    # 1. Check AI is configured with a commercial provider + API key
-    ai_configured = False
-    result = await db.execute(select(AppSettings).where(AppSettings.id == "default"))
-    row = result.scalar_one_or_none()
-    if row:
-        general = row.general_settings or {}
-        ai = general.get("ai", {})
-        provider_type = ai.get("providerType", "")
-        has_key = bool(ai.get("apiKey", ""))
-        ai_configured = provider_type in _PROVIDER_MAP and has_key
-
-    # 2. Check at least one connection is tested ok + synced
-    connection_ready = False
-    if ai_configured:
-        result = await db.execute(
-            select(ArchLensConnection).where(
-                ArchLensConnection.test_status == "ok",
-                ArchLensConnection.sync_status == "completed",
-                ArchLensConnection.is_active.is_(True),
-            )
-        )
-        connection_ready = result.scalar_one_or_none() is not None
-
-    return {
-        "ai_configured": ai_configured,
-        "connection_ready": connection_ready,
-        "ready": ai_configured and connection_ready,
-    }
+) -> ArchLensStatusOut:
+    """Check if ArchLens AI is configured and ready."""
+    config = await get_ai_config(db)
+    configured = is_ai_configured(config)
+    return ArchLensStatusOut(ai_configured=configured, ready=configured)
 
 
-# ── Connections CRUD ────────────────────────────────────────────────────────
-
-
-@router.get("/connections", response_model=list[ArchLensConnectionOut])
-async def list_connections(
+@router.get("/overview")
+async def archlens_overview(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
-):
-    await PermissionService.require_permission(db, user, "archlens.manage")
-    result = await db.execute(select(ArchLensConnection))
-    return [_mask_credentials(c) for c in result.scalars().all()]
-
-
-@router.post("/connections", response_model=ArchLensConnectionOut)
-async def create_connection(
-    body: ArchLensConnectionCreate,
-    db: AsyncSession = Depends(get_db),
-    user: User = Depends(get_current_user),
-):
-    await PermissionService.require_permission(db, user, "archlens.manage")
-    creds = body.credentials or {}
-    if "password" in creds and creds["password"] != PASSWORD_MASK:
-        creds["password"] = encrypt_value(creds["password"])
-    conn = ArchLensConnection(
-        id=uuid.uuid4(),
-        name=body.name,
-        instance_url=str(body.instance_url).rstrip("/"),
-        credentials=creds,
-        is_active=body.is_active,
-    )
-    db.add(conn)
-    await db.commit()
-    await db.refresh(conn)
-    return _mask_credentials(conn)
-
-
-@router.patch("/connections/{conn_id}", response_model=ArchLensConnectionOut)
-async def update_connection(
-    conn_id: uuid.UUID,
-    body: ArchLensConnectionUpdate,
-    db: AsyncSession = Depends(get_db),
-    user: User = Depends(get_current_user),
-):
-    await PermissionService.require_permission(db, user, "archlens.manage")
-    result = await db.execute(select(ArchLensConnection).where(ArchLensConnection.id == conn_id))
-    conn = result.scalar_one_or_none()
-    if not conn:
-        raise HTTPException(404, "Connection not found")
-    if body.name is not None:
-        conn.name = body.name
-    if body.instance_url is not None:
-        conn.instance_url = str(body.instance_url).rstrip("/")
-    if body.is_active is not None:
-        conn.is_active = body.is_active
-    if body.credentials is not None:
-        creds = body.credentials
-        if "password" in creds and creds["password"] != PASSWORD_MASK:
-            creds["password"] = encrypt_value(creds["password"])
-        conn.credentials = creds
-    await db.commit()
-    await db.refresh(conn)
-    return _mask_credentials(conn)
-
-
-@router.delete("/connections/{conn_id}")
-async def delete_connection(
-    conn_id: uuid.UUID,
-    db: AsyncSession = Depends(get_db),
-    user: User = Depends(get_current_user),
-):
-    await PermissionService.require_permission(db, user, "archlens.manage")
-    await db.execute(delete(ArchLensConnection).where(ArchLensConnection.id == conn_id))
-    await db.commit()
-    return {"ok": True}
-
-
-# ── Test connectivity ───────────────────────────────────────────────────────
-
-
-@router.post("/connections/{conn_id}/test")
-async def test_connection(
-    conn_id: uuid.UUID,
-    db: AsyncSession = Depends(get_db),
-    user: User = Depends(get_current_user),
-):
-    await PermissionService.require_permission(db, user, "archlens.manage")
-    result = await db.execute(select(ArchLensConnection).where(ArchLensConnection.id == conn_id))
-    conn = result.scalar_one_or_none()
-    if not conn:
-        raise HTTPException(404, "Connection not found")
-
-    client = ArchLensClient(conn.instance_url)
-    ok, msg = await client.test_connection()
-
-    now = datetime.now(timezone.utc)
-    await db.execute(
-        update(ArchLensConnection)
-        .where(ArchLensConnection.id == conn_id)
-        .values(
-            last_tested_at=now,
-            test_status="ok" if ok else "failed",
-        )
-    )
-    await db.commit()
-    return {"ok": ok, "message": msg}
-
-
-# ── Data sync ───────────────────────────────────────────────────────────────
-
-
-@router.post("/connections/{conn_id}/sync")
-async def sync_data(
-    conn_id: uuid.UUID,
-    body: ArchLensSyncRequest | None = None,
-    db: AsyncSession = Depends(get_db),
-    user: User = Depends(get_current_user),
-):
-    await PermissionService.require_permission(db, user, "archlens.manage")
-    result = await db.execute(select(ArchLensConnection).where(ArchLensConnection.id == conn_id))
-    conn = result.scalar_one_or_none()
-    if not conn:
-        raise HTTPException(404, "Connection not found")
-
-    creds = conn.credentials or {}
-    turbo_url = (body and body.turbo_ea_url) or creds.get("turbo_ea_url", "")
-    email = (body and body.email) or creds.get("email", "")
-    raw_password = creds.get("password", "")
-    password = (body and body.password) or decrypt_value(raw_password)
-
-    if not turbo_url or not email or not password:
-        raise HTTPException(
-            400,
-            "Turbo EA URL, email, and password are required. "
-            "Store them in connection credentials or pass them in the request.",
-        )
-
-    # Update sync status
-    await db.execute(
-        update(ArchLensConnection)
-        .where(ArchLensConnection.id == conn_id)
-        .values(sync_status="syncing")
-    )
-    await db.commit()
-
-    client = ArchLensClient(conn.instance_url)
-    try:
-        sync_result = await client.trigger_sync(turbo_url, email, password)
-        now = datetime.now(timezone.utc)
-        await db.execute(
-            update(ArchLensConnection)
-            .where(ArchLensConnection.id == conn_id)
-            .values(
-                last_synced_at=now,
-                sync_status="completed",
-            )
-        )
-        await db.commit()
-
-        # Auto-push Turbo EA AI config to ArchLens after successful sync
-        ai_ok, ai_msg = await _push_ai_config_if_available(client, db)
-        if ai_ok:
-            logger.info("AI config pushed to ArchLens: %s", ai_msg)
-
-        return {"ok": True, "result": sync_result, "ai_config_pushed": ai_ok}
-    except Exception as exc:
-        await db.execute(
-            update(ArchLensConnection)
-            .where(ArchLensConnection.id == conn_id)
-            .values(sync_status="failed")
-        )
-        await db.commit()
-        raise HTTPException(502, f"Sync failed: {exc}") from exc
-
-
-# ── Overview ────────────────────────────────────────────────────────────────
-
-
-@router.get("/connections/{conn_id}/overview")
-async def get_overview(
-    conn_id: uuid.UUID,
-    db: AsyncSession = Depends(get_db),
-    user: User = Depends(get_current_user),
-):
+) -> ArchLensOverviewOut:
+    """Dashboard KPIs: card counts, quality, vendor/duplicate summaries."""
     await PermissionService.require_permission(db, user, "archlens.view")
-    result = await db.execute(select(ArchLensConnection).where(ArchLensConnection.id == conn_id))
-    conn = result.scalar_one_or_none()
-    if not conn:
-        raise HTTPException(404, "Connection not found")
 
-    client = ArchLensClient(conn.instance_url)
-    workspace = _get_workspace_key(conn)
-    return await client.get_overview(workspace)
+    # Card counts by type
+    type_counts = await db.execute(
+        select(Card.type, func.count(Card.id)).where(Card.status != "ARCHIVED").group_by(Card.type)
+    )
+    cards_by_type = {t: c for t, c in type_counts.all()}
+    total_cards = sum(cards_by_type.values())
+
+    # Average data quality
+    quality_result = await db.execute(
+        select(func.avg(Card.data_quality)).where(Card.status != "ARCHIVED")
+    )
+    quality_avg = quality_result.scalar() or 0
+
+    # Vendor count
+    vendor_count = await db.execute(select(func.count(ArchLensVendorAnalysis.id)))
+    v_count = vendor_count.scalar() or 0
+
+    # Duplicate cluster count
+    dup_count_result = await db.execute(select(func.count(ArchLensDuplicateCluster.id)))
+    dup_count = dup_count_result.scalar() or 0
+
+    # Modernization count
+    mod_count_result = await db.execute(select(func.count(ArchLensModernization.id)))
+    mod_count = mod_count_result.scalar() or 0
+
+    # Top issues: low quality cards
+    low_quality = await db.execute(
+        select(Card.id, Card.name, Card.type, Card.data_quality)
+        .where(Card.status != "ARCHIVED", Card.data_quality < 40)
+        .order_by(Card.data_quality.asc())
+        .limit(10)
+    )
+    top_issues = [
+        {
+            "id": str(r.id),
+            "name": r.name,
+            "type": r.type,
+            "data_quality": r.data_quality,
+        }
+        for r in low_quality.all()
+    ]
+
+    return ArchLensOverviewOut(
+        total_cards=total_cards,
+        cards_by_type=cards_by_type,
+        quality_avg=round(quality_avg, 1),
+        vendor_count=v_count,
+        duplicate_clusters=dup_count,
+        modernization_count=mod_count,
+        top_issues=top_issues,
+    )
 
 
-# ── Vendor analysis ─────────────────────────────────────────────────────────
+# ── Vendor Analysis ───────────────────────────────────────────────────────
 
 
-@router.post("/connections/{conn_id}/analyse/vendors")
+@router.post("/vendors/analyse")
 async def trigger_vendor_analysis(
-    conn_id: uuid.UUID,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
+    """Trigger vendor categorisation (background task)."""
     await PermissionService.require_permission(db, user, "archlens.manage")
-    result = await db.execute(select(ArchLensConnection).where(ArchLensConnection.id == conn_id))
-    conn = result.scalar_one_or_none()
-    if not conn:
-        raise HTTPException(404, "Connection not found")
 
-    # Create analysis run record
+    # Create analysis run
     run = ArchLensAnalysisRun(
         id=uuid.uuid4(),
-        connection_id=conn_id,
         analysis_type="vendor_analysis",
         status="running",
+        started_at=datetime.now(timezone.utc),
         created_by=user.id,
     )
     db.add(run)
     await db.commit()
 
-    client = ArchLensClient(conn.instance_url)
-    workspace = _get_workspace_key(conn)
-    try:
-        analysis_result = await client.trigger_vendor_analysis(workspace)
-        now = datetime.now(timezone.utc)
-        await db.execute(
-            update(ArchLensAnalysisRun)
-            .where(ArchLensAnalysisRun.id == run.id)
-            .values(
-                status="completed",
-                completed_at=now,
-                results=analysis_result,
-            )
-        )
-        await db.commit()
-        return {"ok": True, "run_id": str(run.id), "result": analysis_result}
-    except Exception as exc:
-        await db.execute(
-            update(ArchLensAnalysisRun)
-            .where(ArchLensAnalysisRun.id == run.id)
-            .values(status="failed", error_message=str(exc))
-        )
-        await db.commit()
-        raise HTTPException(502, f"Vendor analysis failed: {exc}") from exc
+    background_tasks.add_task(_run_vendor_analysis, str(run.id))
+    return {"run_id": str(run.id), "status": "running"}
 
 
-@router.get("/connections/{conn_id}/vendors")
+async def _run_vendor_analysis(run_id: str) -> None:
+    """Background task for vendor analysis."""
+    from app.database import async_session_factory
+
+    async with async_session_factory() as db:
+        try:
+            from app.services.archlens_vendors import analyse_vendors
+
+            result = await analyse_vendors(db)
+
+            run = await db.get(ArchLensAnalysisRun, uuid.UUID(run_id))
+            if run:
+                run.status = "completed"
+                run.completed_at = datetime.now(timezone.utc)
+                run.results = result
+                await db.commit()
+        except Exception as e:
+            logger.exception("Vendor analysis failed: %s", e)
+            async with async_session_factory() as db2:
+                run = await db2.get(ArchLensAnalysisRun, uuid.UUID(run_id))
+                if run:
+                    run.status = "failed"
+                    run.completed_at = datetime.now(timezone.utc)
+                    run.error_message = str(e)
+                    await db2.commit()
+
+
+@router.get("/vendors")
 async def get_vendors(
-    conn_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
-):
+) -> list[VendorAnalysisOut]:
+    """Get categorised vendors."""
     await PermissionService.require_permission(db, user, "archlens.view")
-    result = await db.execute(select(ArchLensConnection).where(ArchLensConnection.id == conn_id))
-    conn = result.scalar_one_or_none()
-    if not conn:
-        raise HTTPException(404, "Connection not found")
 
-    client = ArchLensClient(conn.instance_url)
-    workspace = _get_workspace_key(conn)
-    return await client.get_vendors(workspace)
+    result = await db.execute(
+        select(ArchLensVendorAnalysis).order_by(ArchLensVendorAnalysis.app_count.desc())
+    )
+    return [
+        VendorAnalysisOut(
+            id=str(v.id), **{k: getattr(v, k) for k in VendorAnalysisOut.model_fields if k != "id"}
+        )
+        for v in result.scalars().all()
+    ]
 
 
-@router.get("/connections/{conn_id}/vendor-hierarchy")
-async def get_vendor_hierarchy(
-    conn_id: uuid.UUID,
+# ── Vendor Resolution ─────────────────────────────────────────────────────
+
+
+@router.post("/vendors/resolve")
+async def trigger_vendor_resolution(
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    await PermissionService.require_permission(db, user, "archlens.view")
-    result = await db.execute(select(ArchLensConnection).where(ArchLensConnection.id == conn_id))
-    conn = result.scalar_one_or_none()
-    if not conn:
-        raise HTTPException(404, "Connection not found")
-
-    client = ArchLensClient(conn.instance_url)
-    workspace = _get_workspace_key(conn)
-    return await client.get_vendor_hierarchy(workspace)
-
-
-# ── Duplicate detection ─────────────────────────────────────────────────────
-
-
-@router.post("/connections/{conn_id}/analyse/duplicates")
-async def trigger_duplicate_detection(
-    conn_id: uuid.UUID,
-    db: AsyncSession = Depends(get_db),
-    user: User = Depends(get_current_user),
-):
+    """Trigger vendor hierarchy resolution (background task)."""
     await PermissionService.require_permission(db, user, "archlens.manage")
-    result = await db.execute(select(ArchLensConnection).where(ArchLensConnection.id == conn_id))
-    conn = result.scalar_one_or_none()
-    if not conn:
-        raise HTTPException(404, "Connection not found")
 
     run = ArchLensAnalysisRun(
         id=uuid.uuid4(),
-        connection_id=conn_id,
-        analysis_type="duplicate_detection",
+        analysis_type="vendor_resolution",
         status="running",
+        started_at=datetime.now(timezone.utc),
         created_by=user.id,
     )
     db.add(run)
     await db.commit()
 
-    client = ArchLensClient(conn.instance_url)
-    workspace = _get_workspace_key(conn)
-    try:
-        detection_result = await client.trigger_duplicate_detection(workspace)
-        now = datetime.now(timezone.utc)
-        await db.execute(
-            update(ArchLensAnalysisRun)
-            .where(ArchLensAnalysisRun.id == run.id)
-            .values(
-                status="completed",
-                completed_at=now,
-                results=detection_result,
-            )
-        )
-        await db.commit()
-        return {
-            "ok": True,
-            "run_id": str(run.id),
-            "result": detection_result,
-        }
-    except Exception as exc:
-        await db.execute(
-            update(ArchLensAnalysisRun)
-            .where(ArchLensAnalysisRun.id == run.id)
-            .values(status="failed", error_message=str(exc))
-        )
-        await db.commit()
-        raise HTTPException(502, f"Duplicate detection failed: {exc}") from exc
+    background_tasks.add_task(_run_vendor_resolution, str(run.id))
+    return {"run_id": str(run.id), "status": "running"}
 
 
-@router.get("/connections/{conn_id}/duplicates")
-async def get_duplicates(
-    conn_id: uuid.UUID,
+async def _run_vendor_resolution(run_id: str) -> None:
+    """Background task for vendor resolution."""
+    from app.database import async_session_factory
+
+    async with async_session_factory() as db:
+        try:
+            from app.services.archlens_vendors import resolve_vendors
+
+            result = await resolve_vendors(db)
+
+            run = await db.get(ArchLensAnalysisRun, uuid.UUID(run_id))
+            if run:
+                run.status = "completed"
+                run.completed_at = datetime.now(timezone.utc)
+                run.results = result
+                await db.commit()
+        except Exception as e:
+            logger.exception("Vendor resolution failed: %s", e)
+            async with async_session_factory() as db2:
+                run = await db2.get(ArchLensAnalysisRun, uuid.UUID(run_id))
+                if run:
+                    run.status = "failed"
+                    run.completed_at = datetime.now(timezone.utc)
+                    run.error_message = str(e)
+                    await db2.commit()
+
+
+@router.get("/vendors/hierarchy")
+async def get_vendor_hierarchy(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> list[VendorHierarchyOut]:
+    """Get canonical vendor hierarchy tree."""
+    await PermissionService.require_permission(db, user, "archlens.view")
+
+    result = await db.execute(
+        select(ArchLensVendorHierarchy).order_by(ArchLensVendorHierarchy.app_count.desc())
+    )
+    return [
+        VendorHierarchyOut(
+            id=str(v.id),
+            canonical_name=v.canonical_name,
+            vendor_type=v.vendor_type,
+            parent_id=str(v.parent_id) if v.parent_id else None,
+            aliases=v.aliases,
+            category=v.category,
+            sub_category=v.sub_category,
+            app_count=v.app_count,
+            itc_count=v.itc_count,
+            total_cost=v.total_cost,
+            confidence=v.confidence,
+            analysed_at=v.analysed_at,
+        )
+        for v in result.scalars().all()
+    ]
+
+
+# ── Duplicate Detection ───────────────────────────────────────────────────
+
+
+@router.post("/duplicates/analyse")
+async def trigger_duplicate_detection(
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
+    """Trigger duplicate detection (background task)."""
+    await PermissionService.require_permission(db, user, "archlens.manage")
+
+    run = ArchLensAnalysisRun(
+        id=uuid.uuid4(),
+        analysis_type="duplicate_detection",
+        status="running",
+        started_at=datetime.now(timezone.utc),
+        created_by=user.id,
+    )
+    db.add(run)
+    await db.commit()
+
+    background_tasks.add_task(_run_duplicate_detection, str(run.id))
+    return {"run_id": str(run.id), "status": "running"}
+
+
+async def _run_duplicate_detection(run_id: str) -> None:
+    """Background task for duplicate detection."""
+    from app.database import async_session_factory
+
+    async with async_session_factory() as db:
+        try:
+            from app.services.archlens_duplicates import detect_duplicates
+
+            result = await detect_duplicates(db)
+
+            run = await db.get(ArchLensAnalysisRun, uuid.UUID(run_id))
+            if run:
+                run.status = "completed"
+                run.completed_at = datetime.now(timezone.utc)
+                run.results = result
+                await db.commit()
+        except Exception as e:
+            logger.exception("Duplicate detection failed: %s", e)
+            async with async_session_factory() as db2:
+                run = await db2.get(ArchLensAnalysisRun, uuid.UUID(run_id))
+                if run:
+                    run.status = "failed"
+                    run.completed_at = datetime.now(timezone.utc)
+                    run.error_message = str(e)
+                    await db2.commit()
+
+
+@router.get("/duplicates")
+async def get_duplicates(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> list[DuplicateClusterOut]:
+    """Get duplicate clusters."""
     await PermissionService.require_permission(db, user, "archlens.view")
-    result = await db.execute(select(ArchLensConnection).where(ArchLensConnection.id == conn_id))
-    conn = result.scalar_one_or_none()
-    if not conn:
-        raise HTTPException(404, "Connection not found")
 
-    client = ArchLensClient(conn.instance_url)
-    workspace = _get_workspace_key(conn)
-    return await client.get_duplicates(workspace)
+    result = await db.execute(
+        select(ArchLensDuplicateCluster).order_by(ArchLensDuplicateCluster.analysed_at.desc())
+    )
+    return [
+        DuplicateClusterOut(
+            id=str(c.id),
+            cluster_name=c.cluster_name,
+            card_type=c.card_type,
+            functional_domain=c.functional_domain,
+            card_ids=c.card_ids,
+            card_names=c.card_names,
+            evidence=c.evidence,
+            recommendation=c.recommendation,
+            status=c.status,
+            analysed_at=c.analysed_at,
+        )
+        for c in result.scalars().all()
+    ]
 
 
-# ── Architecture AI ─────────────────────────────────────────────────────────
+@router.patch("/duplicates/{cluster_id}/status")
+async def update_duplicate_status(
+    cluster_id: str,
+    body: ArchLensDuplicateStatusUpdate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Update cluster status (confirm/dismiss/investigate)."""
+    await PermissionService.require_permission(db, user, "archlens.manage")
+
+    cluster = await db.get(ArchLensDuplicateCluster, uuid.UUID(cluster_id))
+    if not cluster:
+        raise HTTPException(404, "Cluster not found")
+
+    valid = {"pending", "confirmed", "investigating", "dismissed"}
+    if body.status not in valid:
+        raise HTTPException(400, f"Invalid status. Must be one of: {valid}")
+
+    cluster.status = body.status
+    await db.commit()
+    return {"status": cluster.status}
 
 
-@router.post("/connections/{conn_id}/architect")
-async def run_architect(
-    conn_id: uuid.UUID,
+# ── Modernization ─────────────────────────────────────────────────────────
+
+
+@router.post("/duplicates/modernize")
+async def trigger_modernization(
+    body: ArchLensModernizeRequest,
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Trigger modernization assessment for a card type."""
+    await PermissionService.require_permission(db, user, "archlens.manage")
+
+    run = ArchLensAnalysisRun(
+        id=uuid.uuid4(),
+        analysis_type="modernization",
+        status="running",
+        started_at=datetime.now(timezone.utc),
+        created_by=user.id,
+    )
+    db.add(run)
+    await db.commit()
+
+    background_tasks.add_task(
+        _run_modernization,
+        str(run.id),
+        body.target_type,
+        body.modernization_type,
+    )
+    return {"run_id": str(run.id), "status": "running"}
+
+
+async def _run_modernization(run_id: str, target_type: str, modernization_type: str) -> None:
+    """Background task for modernization assessment."""
+    from app.database import async_session_factory
+
+    async with async_session_factory() as db:
+        try:
+            from app.services.archlens_duplicates import assess_modernization
+
+            result = await assess_modernization(db, target_type, modernization_type)
+
+            run = await db.get(ArchLensAnalysisRun, uuid.UUID(run_id))
+            if run:
+                run.status = "completed"
+                run.completed_at = datetime.now(timezone.utc)
+                run.results = result
+                await db.commit()
+        except Exception as e:
+            logger.exception("Modernization assessment failed: %s", e)
+            async with async_session_factory() as db2:
+                run = await db2.get(ArchLensAnalysisRun, uuid.UUID(run_id))
+                if run:
+                    run.status = "failed"
+                    run.completed_at = datetime.now(timezone.utc)
+                    run.error_message = str(e)
+                    await db2.commit()
+
+
+@router.get("/duplicates/modernizations")
+async def get_modernizations(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> list[ModernizationOut]:
+    """Get modernization assessments."""
+    await PermissionService.require_permission(db, user, "archlens.view")
+
+    result = await db.execute(
+        select(ArchLensModernization).order_by(ArchLensModernization.analysed_at.desc())
+    )
+    return [
+        ModernizationOut(
+            id=str(m.id),
+            target_type=m.target_type,
+            cluster_id=str(m.cluster_id) if m.cluster_id else None,
+            card_id=str(m.card_id) if m.card_id else None,
+            card_name=m.card_name,
+            current_tech=m.current_tech,
+            modernization_type=m.modernization_type,
+            recommendation=m.recommendation,
+            effort=m.effort,
+            priority=m.priority,
+            status=m.status,
+            analysed_at=m.analysed_at,
+        )
+        for m in result.scalars().all()
+    ]
+
+
+# ── Architecture AI ───────────────────────────────────────────────────────
+
+
+@router.post("/architect/phase1")
+async def architect_phase1(
     body: ArchLensArchitectRequest,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
+    """Phase 1: business & functional clarification questions."""
     await PermissionService.require_permission(db, user, "archlens.manage")
-    result = await db.execute(select(ArchLensConnection).where(ArchLensConnection.id == conn_id))
-    conn = result.scalar_one_or_none()
-    if not conn:
-        raise HTTPException(404, "Connection not found")
 
-    client = ArchLensClient(conn.instance_url)
-    workspace = _get_workspace_key(conn)
+    if not body.requirement:
+        raise HTTPException(400, "Requirement is required for Phase 1")
 
-    if body.phase == 1:
-        if not body.requirement:
-            raise HTTPException(400, "requirement is required for phase 1")
-        return await client.architect_phase1(workspace, body.requirement)
-    elif body.phase == 2:
-        if not body.requirement or not body.phase1_qa:
-            raise HTTPException(400, "requirement and phase1QA required for phase 2")
-        return await client.architect_phase2(workspace, body.requirement, body.phase1_qa)
-    elif body.phase == 3:
-        if not body.requirement or not body.all_qa:
-            raise HTTPException(400, "requirement and allQA required for phase 3")
-        return await client.architect_phase3(workspace, body.requirement, body.all_qa)
-    else:
-        raise HTTPException(400, "phase must be 1, 2, or 3")
+    from app.services.archlens_architect import phase1_questions
+
+    result = await phase1_questions(db, body.requirement)
+    return result
 
 
-# ── Analysis history ────────────────────────────────────────────────────────
+@router.post("/architect/phase2")
+async def architect_phase2(
+    body: ArchLensArchitectRequest,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Phase 2: technical & NFR deep-dive questions."""
+    await PermissionService.require_permission(db, user, "archlens.manage")
+
+    if not body.requirement or not body.phase1_qa:
+        raise HTTPException(400, "Requirement and phase1QA are required for Phase 2")
+
+    from app.services.archlens_architect import phase2_questions
+
+    qa_list = body.phase1_qa if isinstance(body.phase1_qa, list) else []
+    result = await phase2_questions(db, body.requirement, qa_list)
+    return result
+
+
+@router.post("/architect/phase3")
+async def architect_phase3(
+    body: ArchLensArchitectRequest,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Phase 3: architecture generation + Mermaid diagram."""
+    await PermissionService.require_permission(db, user, "archlens.manage")
+
+    if not body.requirement or not body.all_qa:
+        raise HTTPException(400, "Requirement and allQA are required for Phase 3")
+
+    from app.services.archlens_architect import phase3_architecture
+
+    qa_list = body.all_qa if isinstance(body.all_qa, list) else []
+    result = await phase3_architecture(db, body.requirement, qa_list)
+
+    # Record the run
+    run = ArchLensAnalysisRun(
+        id=uuid.uuid4(),
+        analysis_type="architect",
+        status="completed",
+        started_at=datetime.now(timezone.utc),
+        completed_at=datetime.now(timezone.utc),
+        results=result,
+        created_by=user.id,
+    )
+    db.add(run)
+    await db.commit()
+
+    return result
+
+
+# ── Analysis History ──────────────────────────────────────────────────────
 
 
 @router.get("/analysis-runs")
-async def list_analysis_runs(
-    connection_id: uuid.UUID | None = None,
+async def get_analysis_runs(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
-):
+) -> list[ArchLensAnalysisRunOut]:
+    """List analysis runs."""
     await PermissionService.require_permission(db, user, "archlens.view")
-    q = select(ArchLensAnalysisRun).order_by(ArchLensAnalysisRun.started_at.desc())
-    if connection_id:
-        q = q.where(ArchLensAnalysisRun.connection_id == connection_id)
-    q = q.limit(50)
-    result = await db.execute(q)
-    runs = result.scalars().all()
+
+    result = await db.execute(
+        select(ArchLensAnalysisRun).order_by(ArchLensAnalysisRun.started_at.desc()).limit(100)
+    )
     return [
-        {
-            "id": str(r.id),
-            "connection_id": str(r.connection_id),
-            "analysis_type": r.analysis_type,
-            "status": r.status,
-            "started_at": r.started_at.isoformat() if r.started_at else None,
-            "completed_at": (r.completed_at.isoformat() if r.completed_at else None),
-            "error_message": r.error_message,
-        }
-        for r in runs
+        ArchLensAnalysisRunOut(
+            id=str(r.id),
+            analysis_type=r.analysis_type,
+            status=r.status,
+            started_at=r.started_at,
+            completed_at=r.completed_at,
+            error_message=r.error_message,
+            created_at=r.created_at,
+        )
+        for r in result.scalars().all()
     ]
 
 
-# ── Push AI config ─────────────────────────────────────────────────────────
-
-
-@router.post("/connections/{conn_id}/push-ai-config")
-async def push_ai_config(
-    conn_id: uuid.UUID,
+@router.get("/analysis-runs/{run_id}")
+async def get_analysis_run(
+    run_id: str,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    await PermissionService.require_permission(db, user, "archlens.manage")
-    result = await db.execute(select(ArchLensConnection).where(ArchLensConnection.id == conn_id))
-    conn = result.scalar_one_or_none()
-    if not conn:
-        raise HTTPException(404, "Connection not found")
+    """Get a specific analysis run with results."""
+    await PermissionService.require_permission(db, user, "archlens.view")
 
-    client = ArchLensClient(conn.instance_url)
-    ok, msg = await _push_ai_config_if_available(client, db)
-    if not ok:
-        raise HTTPException(400, msg)
-    return {"ok": True, "message": msg}
+    run = await db.get(ArchLensAnalysisRun, uuid.UUID(run_id))
+    if not run:
+        raise HTTPException(404, "Analysis run not found")
+
+    return {
+        "id": str(run.id),
+        "analysis_type": run.analysis_type,
+        "status": run.status,
+        "started_at": run.started_at,
+        "completed_at": run.completed_at,
+        "results": run.results,
+        "error_message": run.error_message,
+    }
