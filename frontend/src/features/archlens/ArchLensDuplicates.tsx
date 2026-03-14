@@ -174,7 +174,7 @@ export default function ArchLensDuplicates() {
     action: "confirmed" | "dismissed" | "investigating",
   ) => {
     try {
-      await api.patch(`/archlens/duplicates/${clusterId}`, { status: action });
+      await api.patch(`/archlens/duplicates/${clusterId}/status`, { status: action });
       setClusters((prev) =>
         prev.map((c) => (c.id === clusterId ? { ...c, status: action } : c)),
       );
