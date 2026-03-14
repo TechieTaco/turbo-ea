@@ -398,11 +398,11 @@ export default function ArchLensArchitect() {
   const [archPhase, setArchPhase] = useState(0);
   const [archResult, setArchResult] = useState<Record<string, unknown> | null>(null);
   const [archLoading, setArchLoading] = useState(false);
-  const [archQuestions, setArchQuestions] = useState<{ question: string; context?: string; answer: string }[]>([]);
+  const [archQuestions, setArchQuestions] = useState<{ question: string; why?: string; type?: string; options?: string[]; nfrCategory?: string; answer: string }[]>([]);
   const [phase1Answers, setPhase1Answers] = useState<{ question: string; answer: string }[]>([]);
   const [error, setError] = useState("");
 
-  const extractQuestions = (data: Record<string, unknown>): { question: string; context?: string }[] => {
+  const extractQuestions = (data: Record<string, unknown>): { question: string; why?: string; type?: string; options?: string[]; nfrCategory?: string }[] => {
     const raw = Array.isArray(data) ? data
       : Array.isArray(data.questions) ? data.questions
       : Array.isArray(data.items) ? data.items
@@ -410,7 +410,13 @@ export default function ArchLensArchitect() {
     if (!raw) return [];
     return raw.map((q: Record<string, unknown> | string) =>
       typeof q === "string" ? { question: q }
-        : { question: String(q.question || q.text || q.q || ""), context: q.context as string }
+        : {
+            question: String(q.question || q.text || q.q || ""),
+            why: q.why as string | undefined,
+            type: (q.type as string) || "text",
+            options: Array.isArray(q.options) ? q.options.map(String) : undefined,
+            nfrCategory: q.nfrCategory as string | undefined,
+          }
     );
   };
 
@@ -433,7 +439,7 @@ export default function ArchLensArchitect() {
       setArchPhase(phase);
       if (phase < 3) {
         const questions = extractQuestions(result);
-        setArchQuestions(questions.map(q => ({ ...q, answer: "" })));
+        setArchQuestions(questions.map(q => ({ question: q.question, why: q.why, type: q.type, options: q.options, nfrCategory: q.nfrCategory, answer: "" })));
       } else {
         setArchQuestions([]);
       }
@@ -488,13 +494,90 @@ export default function ArchLensArchitect() {
               {archPhase === 1 ? t("archlens_architect_phase1_intro") : t("archlens_architect_phase2_intro")}
             </Typography>
             <Stack spacing={2} sx={{ mb: 2 }}>
-              {archQuestions.map((q, i) => (
-                <Paper key={i} variant="outlined" sx={{ p: 2 }}>
-                  <Typography variant="body2" fontWeight="bold" sx={{ mb: 0.5 }}>{i + 1}. {q.question}</Typography>
-                  {q.context && <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: "block" }}>{q.context}</Typography>}
-                  <TextField value={q.answer} onChange={e => handleAnswerChange(i, e.target.value)} fullWidth multiline minRows={2} size="small" placeholder={t("archlens_architect_answer_placeholder")} sx={{ mt: 1 }} />
+              {archQuestions.map((q, i) => {
+                const qType = q.type || "text";
+                const hasOptions = q.options && q.options.length > 0;
+                // For multi-select, answer is comma-separated
+                const selectedMulti = qType === "multi" && q.answer ? q.answer.split(", ").filter(Boolean) : [];
+                return (
+                <Paper key={i} variant="outlined" sx={{ p: 2, borderLeft: 3, borderColor: "primary.main" }}>
+                  <Stack direction="row" alignItems="flex-start" justifyContent="space-between">
+                    <Stack direction="row" spacing={1.5} alignItems="flex-start" sx={{ flex: 1 }}>
+                      <Box sx={{ width: 28, height: 28, borderRadius: "50%", bgcolor: "primary.main", color: "#fff", fontSize: 13, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, mt: 0.2 }}>{i + 1}</Box>
+                      <Box sx={{ flex: 1 }}>
+                        <Typography variant="body2" fontWeight="bold">{q.question}</Typography>
+                        {q.why && <Typography variant="caption" color="text.secondary" fontStyle="italic" sx={{ display: "block", mt: 0.3 }}>{t("archlens_arch_impact")}: {q.why}</Typography>}
+                      </Box>
+                    </Stack>
+                    {q.nfrCategory && (
+                      <Chip label={q.nfrCategory.replace("_", " ")} size="small" variant="outlined" color="secondary" sx={{ fontSize: 10, textTransform: "capitalize", ml: 1 }} />
+                    )}
+                  </Stack>
+
+                  {/* Choice: single-select pill buttons */}
+                  {qType === "choice" && hasOptions && (
+                    <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mt: 1.5 }}>
+                      {q.options!.map((opt) => (
+                        <Chip
+                          key={opt}
+                          label={q.answer === opt ? `✓ ${opt}` : opt}
+                          onClick={() => handleAnswerChange(i, opt)}
+                          color={q.answer === opt ? "primary" : "default"}
+                          variant={q.answer === opt ? "filled" : "outlined"}
+                          sx={{ cursor: "pointer", fontWeight: q.answer === opt ? 600 : 400 }}
+                        />
+                      ))}
+                    </Stack>
+                  )}
+
+                  {/* Multi: multi-select pill buttons + optional text */}
+                  {qType === "multi" && hasOptions && (
+                    <Box sx={{ mt: 1.5 }}>
+                      <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                        {q.options!.map((opt) => {
+                          const isSelected = selectedMulti.includes(opt);
+                          return (
+                            <Chip
+                              key={opt}
+                              label={isSelected ? `✓ ${opt}` : opt}
+                              onClick={() => {
+                                const next = isSelected
+                                  ? selectedMulti.filter(s => s !== opt)
+                                  : [...selectedMulti, opt];
+                                handleAnswerChange(i, next.join(", "));
+                              }}
+                              color={isSelected ? "primary" : "default"}
+                              variant={isSelected ? "filled" : "outlined"}
+                              sx={{ cursor: "pointer", fontWeight: isSelected ? 600 : 400 }}
+                            />
+                          );
+                        })}
+                      </Stack>
+                      <TextField
+                        size="small"
+                        fullWidth
+                        placeholder={t("archlens_architect_custom_answer")}
+                        sx={{ mt: 1 }}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            const input = (e.target as HTMLInputElement).value.trim();
+                            if (input && !selectedMulti.includes(input)) {
+                              handleAnswerChange(i, [...selectedMulti, input].join(", "));
+                              (e.target as HTMLInputElement).value = "";
+                            }
+                          }
+                        }}
+                      />
+                    </Box>
+                  )}
+
+                  {/* Text: free-form textarea */}
+                  {(qType === "text" || (!hasOptions && qType !== "choice" && qType !== "multi")) && (
+                    <TextField value={q.answer} onChange={e => handleAnswerChange(i, e.target.value)} fullWidth multiline minRows={2} size="small" placeholder={t("archlens_architect_answer_placeholder")} sx={{ mt: 1.5 }} />
+                  )}
                 </Paper>
-              ))}
+                );
+              })}
             </Stack>
             <Stack direction="row" spacing={2}>
               <Button variant="contained" onClick={() => runPhase(archPhase + 1)} disabled={!allAnswered}>
