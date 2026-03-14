@@ -5,6 +5,22 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.39.0] - 2026-03-14
+
+### Added
+- ArchLens DataProvider abstraction supporting both SQLite (sync) and MCP (live API) data sources
+- MCP connection type for ArchLens — live data from Turbo EA without sync button
+- Bulk JSON export endpoint (`GET /cards/export/json`) for integration consumers
+- McpDataProvider fetches cards live from Turbo EA API with in-memory caching per analysis run
+
+### Changed
+- ArchLens services (architect, resolution, vendor analysis) now use pluggable DataProvider instead of direct SQLite queries
+- Phase 3 architecture generation uses 16K max tokens (up from 8K) to prevent response truncation
+- Phase 3 JSON schema reordered to prioritize structured data (layers, gaps, integrations) before mermaid diagram
+
+### Fixed
+- Phase 3 architecture output missing layers, gaps, integrations, and risks due to AI response truncation at 8K token limit
+
 ## [0.38.0] - 2026-03-14
 
 ### Added
