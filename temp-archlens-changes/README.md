@@ -11,6 +11,7 @@ integration PR. Apply them to the ArchLens repo.
 | `server/index.js` | `server/index.js` | **REPLACE** existing |
 | `server/db/db.js` | `server/db/db.js` | **REPLACE** existing |
 | `server/package.json` | `package.json` | **REPLACE** existing (adds `express-rate-limit`) |
+| `server/package-lock.json` | `package-lock.json` | **REPLACE** existing (lock file in sync) |
 
 ## Security fixes included
 
