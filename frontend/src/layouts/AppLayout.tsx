@@ -88,6 +88,7 @@ const ADMIN_ITEM_DEFS: NavItemDef[] = [
   { labelKey: "admin.usersAndRoles", icon: "group", path: "/admin/users", permission: "admin.users" },
   { labelKey: "admin.surveys", icon: "assignment", path: "/admin/surveys", permission: "surveys.manage" },
   { labelKey: "admin.settings", icon: "settings", path: "/admin/settings", permission: ["admin.settings", "eol.manage", "web_portals.manage", "servicenow.manage"] },
+  { labelKey: "admin.archlens", icon: "psychology", path: "/admin/archlens", permission: "archlens.view" },
 ];
 
 interface PermissionMap {
