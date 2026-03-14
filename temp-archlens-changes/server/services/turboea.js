@@ -41,13 +41,28 @@ function parseUrl(raw) {
   return s;
 }
 
+/**
+ * Build a validated URL string from a trusted base and a relative path.
+ * Both inputs are validated: base via parseUrl(), path must start with '/'.
+ */
+function safeUrl(base, path) {
+  const u = new URL(path, base);
+  // Ensure the resolved URL stays within the same origin
+  const b = new URL(base);
+  if (u.origin !== b.origin) {
+    throw new Error('Path resolved to a different origin');
+  }
+  return u.href;
+}
+
 async function getToken(baseUrl, email, password) {
   const url = parseUrl(baseUrl);
   const k = `${url}::${email}`;
   const c = tokenCache.get(k);
   if (c && Date.now() < c.exp - 15_000) return { token: c.t, host: url };
 
-  const res = await fetch(`${url}/api/v1/auth/login`, {
+  const target = safeUrl(url, '/api/v1/auth/login');
+  const res = await fetch(target, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email, password }),
@@ -68,7 +83,9 @@ async function getToken(baseUrl, email, password) {
 }
 
 async function apiGet(host, token, path) {
-  const res = await fetch(`${host}${path}`, {
+  // host is always the return value of parseUrl() (validated, no private IPs)
+  const target = safeUrl(host, path);
+  const res = await fetch(target, {
     headers: { Authorization: 'Bearer ' + token },
   });
   if (!res.ok) throw new Error(`API ${path} failed (${res.status})`);

@@ -134,22 +134,42 @@ app.post('/api/connect', async (req, res) => {
 //  POST accepts credentials in body (preferred); GET kept for backward compat.
 // ═══════════════════════════════════════════════════════════════════════════════
 function extractSyncParams(req) {
-  // Prefer body (POST) to avoid sensitive data in query strings / server logs
-  const src = req.method === 'POST' ? { ...req.query, ...req.body } : req.query;
+  if (req.method === 'POST') {
+    // POST: credentials in body, non-sensitive params can be in query or body
+    const merged = { ...req.query, ...req.body };
+    return {
+      workspace:   merged.workspace,
+      apiKey:      merged.apiKey,
+      fsTypes:     merged.fsTypes || 'all',
+      source_type: merged.source_type,
+      email:       merged.email,
+      password:    merged.password,
+    };
+  }
+  // GET: only allow non-sensitive params (workspace, fsTypes) from query string.
+  // Credentials (apiKey, email, password) are NOT read from query params.
   return {
-    workspace:   src.workspace,
-    apiKey:      src.apiKey,
-    fsTypes:     src.fsTypes || 'all',
-    source_type: src.source_type,
-    email:       src.email,
-    password:    src.password,
+    workspace:   req.query.workspace,
+    apiKey:      undefined,
+    fsTypes:     req.query.fsTypes || 'all',
+    source_type: undefined,
+    email:       undefined,
+    password:    undefined,
   };
 }
 
 async function handleSyncStream(req, res) {
   const { workspace, apiKey, fsTypes, source_type, email, password } = extractSyncParams(req);
   if (!workspace) return res.status(400).json({ error: 'workspace required' });
-  if (source_type !== 'turboea' && !apiKey) return res.status(400).json({ error: 'apiKey required for LeanIX sync' });
+
+  // GET requests cannot carry credentials — require POST for authenticated sync
+  if (req.method === 'GET' && !apiKey) {
+    // Legacy GET path: look up stored API key from database for LeanIX compat
+    const db = getDB();
+    const row = await db.get('SELECT api_key, source_type FROM workspaces WHERE host = ?', [parseHost(workspace)]);
+    if (!row || !row.api_key) return res.status(400).json({ error: 'Use POST with credentials in body' });
+  }
+  if (source_type !== 'turboea' && !apiKey) return res.status(400).json({ error: 'apiKey required for LeanIX sync — use POST with credentials in body' });
 
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
@@ -744,18 +764,22 @@ if (process.env.NODE_ENV === 'production') {
   const buildPath = path.join(__dirname, '..', 'client', 'build');
   app.use(express.static(buildPath, { maxAge: '1y', etag: true }));
 
-  // Lightweight per-IP rate limiter for SPA fallback (100 req/min)
+  // Rate-limiting middleware for SPA fallback (100 req/min per IP)
   const spaHits = new Map();
   const SPA_WINDOW = 60_000, SPA_MAX = 100;
   setInterval(() => spaHits.clear(), SPA_WINDOW);
 
-  // SPA fallback — any non-API route returns index.html
-  app.get('*', (req, res) => {
-    if (req.path.startsWith('/api/')) return res.status(404).json({ error: 'Not found' });
+  function spaRateLimiter(req, res, next) {
     const ip = req.ip || 'unknown';
     const hits = (spaHits.get(ip) || 0) + 1;
     spaHits.set(ip, hits);
     if (hits > SPA_MAX) return res.status(429).json({ error: 'Too many requests' });
+    next();
+  }
+
+  // SPA fallback — any non-API route returns index.html
+  app.get('*', spaRateLimiter, (req, res) => {
+    if (req.path.startsWith('/api/')) return res.status(404).json({ error: 'Not found' });
     res.sendFile(path.join(buildPath, 'index.html'));
   });
 }
