@@ -1019,6 +1019,10 @@
   "archlens_tab_modernization": "Modernisation",
   "archlens_duplicates_description": "Détecter les doublons fonctionnels et identifier les opportunités de modernisation.",
   "archlens_pending": "en attente",
+  "archlens_status_pending": "En attente",
+  "archlens_status_confirmed": "Confirmé",
+  "archlens_status_investigating": "En cours d'analyse",
+  "archlens_status_dismissed": "Rejeté",
   "archlens_critical_high": "critique/élevé",
   "archlens_architect_custom_answer": "Ou saisissez votre propre réponse..."
 }

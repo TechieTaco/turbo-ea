@@ -1019,6 +1019,10 @@
   "archlens_tab_modernization": "现代化",
   "archlens_duplicates_description": "检测功能重复卡片并识别现代化机会。",
   "archlens_pending": "待处理",
+  "archlens_status_pending": "待处理",
+  "archlens_status_confirmed": "已确认",
+  "archlens_status_investigating": "调查中",
+  "archlens_status_dismissed": "已忽略",
   "archlens_critical_high": "关键/高",
   "archlens_architect_custom_answer": "或输入您自己的答案..."
 }

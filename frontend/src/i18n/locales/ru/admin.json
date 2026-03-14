@@ -1019,6 +1019,10 @@
   "archlens_tab_modernization": "Модернизация",
   "archlens_duplicates_description": "Обнаружение функциональных дубликатов и выявление возможностей модернизации.",
   "archlens_pending": "ожидание",
+  "archlens_status_pending": "Ожидает",
+  "archlens_status_confirmed": "Подтверждено",
+  "archlens_status_investigating": "На рассмотрении",
+  "archlens_status_dismissed": "Отклонено",
   "archlens_critical_high": "критический/высокий",
   "archlens_architect_custom_answer": "Или введите свой ответ..."
 }
