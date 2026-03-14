@@ -38,7 +38,7 @@ const TARGET_TYPES = [
   "System",
 ];
 
-const STATUS_OPTIONS = ["pending", "confirmed", "investigating", "dismissed"];
+const STATUS_KEYS = ["pending", "confirmed", "investigating", "dismissed"] as const;
 
 // ---------------------------------------------------------------------------
 // Main Component
@@ -67,9 +67,9 @@ export default function ArchLensDuplicates() {
   const [success, setSuccess] = useState<string | null>(null);
   const [updatingCluster, setUpdatingCluster] = useState<string | null>(null);
   const { startPolling: startDetectPoll, polling: detectPollActive } =
-    useAnalysisPolling(() => loadClusters());
+    useAnalysisPolling(() => loadClusters(), (msg) => setError(msg));
   const { startPolling: startModernPoll, polling: modernPollActive } =
-    useAnalysisPolling(() => loadModernizations());
+    useAnalysisPolling(() => loadModernizations(), (msg) => setError(msg));
 
   // ── Load duplicates ────────────────────────────────────────────────
   const loadClusters = useCallback(async () => {
@@ -266,8 +266,8 @@ export default function ArchLensDuplicates() {
                 onChange={e => setStatusFilter(e.target.value)}
               >
                 <MenuItem value="__all__">{t("archlens_filter_all")}</MenuItem>
-                {STATUS_OPTIONS.map(s => (
-                  <MenuItem key={s} value={s}>{s}</MenuItem>
+                {STATUS_KEYS.map(s => (
+                  <MenuItem key={s} value={s}>{t(`archlens_status_${s}`)}</MenuItem>
                 ))}
               </Select>
             </FormControl>

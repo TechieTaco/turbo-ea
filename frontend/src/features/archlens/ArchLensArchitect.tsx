@@ -59,6 +59,22 @@ function ensureMermaid(): Promise<void> {
   return mermaidLoadPromise;
 }
 
+/** Ensure Mermaid code has proper newlines — AI sometimes returns single-line. */
+function normalizeMermaid(raw: string): string {
+  let s = raw;
+  // Unescape literal \n and \" if present
+  if (s.includes("\\n")) s = s.replace(/\\n/g, "\n");
+  if (s.includes('\\"')) s = s.replace(/\\"/g, '"');
+  // If code is already multi-line, return as-is
+  if (s.includes("\n")) return s;
+  // Insert newlines before keywords that must start on their own line
+  s = s.replace(/\s{2,}(subgraph|end|classDef|class |click )/g, "\n    $1");
+  s = s.replace(/\s{2,}(\w[\w\d_]*\s*[-=][-=]?>)/g, "\n    $1");
+  s = s.replace(/\s{2,}(\w[\w\d_]*\s*\[)/g, "\n        $1");
+  s = s.replace(/\s{2,}(\w[\w\d_]*\s*\()/g, "\n        $1");
+  return s;
+}
+
 function MermaidDiagram({ code }: { code: string }) {
   const { t } = useTranslation("admin");
   const [svg, setSvg] = useState("");
@@ -68,11 +84,12 @@ function MermaidDiagram({ code }: { code: string }) {
   useEffect(() => {
     if (!code) return;
     setSvg(""); setErr("");
+    const normalized = normalizeMermaid(code);
     ensureMermaid().then(async () => {
       try {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const m = (window as any).mermaid;
-        const res = await m.render("mmd-" + Date.now(), code);
+        const res = await m.render("mmd-" + Date.now(), normalized);
         setSvg(res.svg);
       } catch (e: unknown) {
         setErr(e instanceof Error ? e.message : "Render failed");
@@ -84,7 +101,7 @@ function MermaidDiagram({ code }: { code: string }) {
     <>
       <Alert severity="warning" sx={{ m: 2, mb: 0 }}>{t("archlens_arch_diagram_error")}</Alert>
       <Box component="pre" sx={{ fontFamily: "monospace", fontSize: 12, bgcolor: "grey.50", p: 2, m: 2, borderRadius: 1, overflow: "auto", maxHeight: 500 }}>
-        {code}
+        {normalizeMermaid(code)}
       </Box>
     </>
   );

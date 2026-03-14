@@ -60,10 +60,11 @@ export function effortColor(effort: string): ChipColor {
 }
 
 const VENDOR_TYPE_COLORS: Record<string, ChipColor> = {
-  canonical: "primary",
-  alias: "secondary",
-  subsidiary: "info",
-  parent: "warning",
+  vendor: "primary",
+  product: "secondary",
+  platform: "info",
+  module: "warning",
+  unknown: "default",
 };
 
 export function vendorTypeColor(vendorType: string): ChipColor {

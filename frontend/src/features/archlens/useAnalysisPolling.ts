@@ -15,12 +15,14 @@ interface AnalysisRun {
 
 const POLL_INTERVAL_MS = 3_000;
 
-export function useAnalysisPolling(onComplete?: () => void) {
+export function useAnalysisPolling(onComplete?: () => void, onError?: (msg: string) => void) {
   const [runId, setRunId] = useState<string | null>(null);
   const [polling, setPolling] = useState(false);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const onCompleteRef = useRef(onComplete);
   onCompleteRef.current = onComplete;
+  const onErrorRef = useRef(onError);
+  onErrorRef.current = onError;
 
   const stopPolling = useCallback(() => {
     if (timerRef.current) {
@@ -46,12 +48,17 @@ export function useAnalysisPolling(onComplete?: () => void) {
     const check = async () => {
       try {
         const run = await api.get<AnalysisRun>(`/archlens/analysis-runs/${runId}`);
-        if (run.status !== "running") {
+        if (run.status === "failed") {
+          stopPolling();
+          onErrorRef.current?.(run.error_message || "Analysis failed");
+          onCompleteRef.current?.();
+        } else if (run.status !== "running") {
           stopPolling();
           onCompleteRef.current?.();
         }
       } catch {
         stopPolling();
+        onErrorRef.current?.("Lost connection while polling analysis status");
       }
     };
 
