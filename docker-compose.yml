@@ -122,42 +122,9 @@ services:
       retries: 3
       start_period: 15s
 
-  # Optional: ArchLens AI-powered EA intelligence (vendor analysis, duplicates, architecture AI).
-  # Activate with:  docker compose --profile archlens up -d
-  # Requires AI_API_KEY for the AI provider used by ArchLens.
-  archlens:
-    build:
-      context: ./archlens
-    profiles: ["archlens"]
-    restart: unless-stopped
-    security_opt:
-      - no-new-privileges:true
-    cap_drop:
-      - ALL
-    deploy:
-      resources:
-        limits:
-          memory: 512M
-    networks:
-      - guac-net
-    environment:
-      AI_PROVIDER: ${AI_PROVIDER:-claude}
-      AI_API_KEY: ${AI_API_KEY:-}
-    volumes:
-      - turboea-archlens:/app/data
-    expose:
-      - "3000"
-    healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://localhost:3000/api/health || exit 1"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 30s
-
 networks:
   guac-net:
     external: true
 
 volumes:
   turboea-ollama:
-  turboea-archlens:

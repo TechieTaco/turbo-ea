@@ -1159,50 +1159,76 @@ export interface PpmDashboardData {
 // ArchLens Integration
 // ---------------------------------------------------------------------------
 
-export interface ArchLensConnection {
-  id: string;
-  name: string;
-  instance_url: string;
-  is_active: boolean;
-  last_tested_at?: string | null;
-  test_status?: string | null;
-  last_synced_at?: string | null;
-  sync_status?: string | null;
-  created_at?: string;
-  updated_at?: string;
-}
-
 export interface ArchLensVendor {
-  id: number;
+  id: string;
   vendor_name: string;
   category: string;
-  sub_category?: string;
-  reasoning?: string;
+  sub_category: string;
+  reasoning: string;
   app_count: number;
   total_cost: number;
-  app_list: string[];
+  app_list: string[] | null;
+  analysed_at: string | null;
+}
+
+export interface ArchLensVendorHierarchy {
+  id: string;
+  canonical_name: string;
+  vendor_type: string;
+  parent_id: string | null;
+  aliases: string[] | null;
+  category: string | null;
+  sub_category: string | null;
+  app_count: number;
+  itc_count: number;
+  total_cost: number;
+  confidence: number | null;
+  analysed_at: string | null;
 }
 
 export interface ArchLensDuplicateCluster {
-  id: number;
+  id: string;
   cluster_name: string;
-  fs_type: string;
-  functional_domain?: string;
-  fs_ids: string[];
-  fs_names: string[];
-  evidence?: string;
-  recommendation?: string;
+  card_type: string;
+  functional_domain: string | null;
+  card_ids: string[] | null;
+  card_names: string[] | null;
+  evidence: string;
+  recommendation: string;
+  status: string;
+  analysed_at: string | null;
+}
+
+export interface ArchLensModernization {
+  id: string;
+  target_type: string;
+  card_name: string | null;
+  current_tech: string;
+  modernization_type: string;
+  recommendation: string;
+  effort: string;
+  priority: string;
   status: string;
 }
 
 export interface ArchLensAnalysisRun {
   id: string;
-  connection_id: string;
   analysis_type: string;
   status: string;
-  started_at?: string | null;
-  completed_at?: string | null;
-  error_message?: string | null;
+  started_at: string | null;
+  completed_at: string | null;
+  error_message: string | null;
+  created_at: string | null;
+}
+
+export interface ArchLensOverview {
+  total_cards: number;
+  cards_by_type: Record<string, number>;
+  quality_avg: number;
+  vendor_count: number;
+  duplicate_clusters: number;
+  modernization_count: number;
+  top_issues: Array<{ id: string; name: string; type: string; data_quality: number }>;
 }
 
 // Architecture AI result types

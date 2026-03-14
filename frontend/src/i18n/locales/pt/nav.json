@@ -31,5 +31,11 @@
   "search.viewAll": "Ver todos os resultados para \"{{query}}\"",
   "createCard": "Criar ficha",
   "create": "Criar",
-  "archlens": "ArchLens"
+  "archlens": "ArchLens",
+  "archlens.dashboard": "Painel",
+  "archlens.vendors": "Fornecedores",
+  "archlens.resolution": "Resolução",
+  "archlens.duplicates": "Duplicados",
+  "archlens.architect": "Arquiteto",
+  "archlens.history": "Histórico"
 }

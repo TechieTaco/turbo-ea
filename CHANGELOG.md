@@ -5,6 +5,24 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.40.0] - 2026-03-14
+
+### Added
+- Native ArchLens AI Intelligence module — vendor analysis, duplicate detection, modernization assessment, and 3-phase architecture AI run natively in Turbo EA (no separate container)
+- Multi-page ArchLens UI: Dashboard, Vendors, Resolution, Duplicates, Architect, and History pages
+- ArchLens top-level navigation section with sub-items (visible when AI is configured)
+- User documentation for ArchLens module in all 8 supported locales
+
+### Changed
+- ArchLens no longer requires a separate Docker container — all AI analysis runs directly in the FastAPI backend using the configured AI provider
+- ArchLens data stored in PostgreSQL (5 new tables) instead of SQLite
+- Replaced proxy-to-container pattern with direct SQLAlchemy service calls
+
+### Removed
+- ArchLens Docker Compose profile (`--profile archlens`) — no longer needed
+- ArchLens connection management (connections table, admin CRUD) — the module uses existing AI config
+- Old `archlens_service.py` HTTP proxy client
+
 ## [0.39.0] - 2026-03-14
 
 ### Added

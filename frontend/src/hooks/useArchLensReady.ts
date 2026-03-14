@@ -8,7 +8,6 @@ import { api } from "@/api/client";
 
 interface ArchLensStatus {
   ai_configured: boolean;
-  connection_ready: boolean;
   ready: boolean;
 }
 
@@ -17,7 +16,6 @@ let _listeners: Array<(v: ArchLensStatus) => void> = [];
 
 const _default: ArchLensStatus = {
   ai_configured: false,
-  connection_ready: false,
   ready: false,
 };
 
@@ -56,7 +54,6 @@ export function useArchLensReady() {
   return {
     archLensReady: status.ready,
     archLensAiConfigured: status.ai_configured,
-    archLensConnectionReady: status.connection_ready,
     invalidateArchLens: invalidate,
   };
 }

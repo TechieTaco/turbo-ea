@@ -1,48 +1,19 @@
-"""Pydantic schemas for ArchLens integration."""
+"""Pydantic schemas for ArchLens native integration."""
 
 from __future__ import annotations
 
 from datetime import datetime
 
-from pydantic import BaseModel, Field, HttpUrl
+from pydantic import BaseModel, Field
 
-
-class ArchLensConnectionCreate(BaseModel):
-    name: str
-    instance_url: HttpUrl
-    credentials: dict | None = None
-    is_active: bool = True
-
-
-class ArchLensConnectionUpdate(BaseModel):
-    name: str | None = None
-    instance_url: HttpUrl | None = None
-    credentials: dict | None = None
-    is_active: bool | None = None
-
-
-class ArchLensConnectionOut(BaseModel):
-    id: str
-    name: str
-    instance_url: str
-    is_active: bool
-    last_tested_at: datetime | None = None
-    test_status: str | None = None
-    last_synced_at: datetime | None = None
-    sync_status: str | None = None
-    created_at: datetime | None = None
-    updated_at: datetime | None = None
-
-    model_config = {"from_attributes": True}
-
-
-class ArchLensSyncRequest(BaseModel):
-    turbo_ea_url: str | None = None
-    email: str | None = None
-    password: str | None = None
+# ---------------------------------------------------------------------------
+# Requests
+# ---------------------------------------------------------------------------
 
 
 class ArchLensAnalyseRequest(BaseModel):
+    """Empty body — triggers vendor or duplicate analysis."""
+
     pass
 
 
@@ -55,13 +26,105 @@ class ArchLensArchitectRequest(BaseModel):
     all_qa: dict | list | None = Field(None, alias="allQA")
 
 
+class ArchLensDuplicateStatusUpdate(BaseModel):
+    status: str  # pending | confirmed | investigating | dismissed
+
+
+class ArchLensModernizeRequest(BaseModel):
+    target_type: str = "Application"
+    modernization_type: str = "general"
+
+
+# ---------------------------------------------------------------------------
+# Responses
+# ---------------------------------------------------------------------------
+
+
+class ArchLensStatusOut(BaseModel):
+    ai_configured: bool
+    ready: bool
+
+
+class ArchLensOverviewOut(BaseModel):
+    total_cards: int = 0
+    cards_by_type: dict[str, int] = {}
+    quality_avg: float = 0
+    vendor_count: int = 0
+    duplicate_clusters: int = 0
+    modernization_count: int = 0
+    top_issues: list[dict] = []
+
+
+class VendorAnalysisOut(BaseModel):
+    id: str
+    vendor_name: str
+    category: str
+    sub_category: str = ""
+    reasoning: str = ""
+    app_count: int = 0
+    total_cost: float = 0
+    app_list: list[str] | None = None
+    analysed_at: datetime | None = None
+
+    model_config = {"from_attributes": True}
+
+
+class VendorHierarchyOut(BaseModel):
+    id: str
+    canonical_name: str
+    vendor_type: str = "vendor"
+    parent_id: str | None = None
+    aliases: list[str] | None = None
+    category: str | None = None
+    sub_category: str | None = None
+    app_count: int = 0
+    itc_count: int = 0
+    total_cost: float = 0
+    confidence: float | None = None
+    analysed_at: datetime | None = None
+
+    model_config = {"from_attributes": True}
+
+
+class DuplicateClusterOut(BaseModel):
+    id: str
+    cluster_name: str
+    card_type: str
+    functional_domain: str | None = None
+    card_ids: list[str] | None = None
+    card_names: list[str] | None = None
+    evidence: str = ""
+    recommendation: str = ""
+    status: str = "pending"
+    analysed_at: datetime | None = None
+
+    model_config = {"from_attributes": True}
+
+
+class ModernizationOut(BaseModel):
+    id: str
+    target_type: str
+    cluster_id: str | None = None
+    card_id: str | None = None
+    card_name: str | None = None
+    current_tech: str = ""
+    modernization_type: str = ""
+    recommendation: str = ""
+    effort: str = "medium"
+    priority: str = "medium"
+    status: str = "pending"
+    analysed_at: datetime | None = None
+
+    model_config = {"from_attributes": True}
+
+
 class ArchLensAnalysisRunOut(BaseModel):
     id: str
-    connection_id: str
     analysis_type: str
     status: str
     started_at: datetime | None = None
     completed_at: datetime | None = None
     error_message: str | None = None
+    created_at: datetime | None = None
 
     model_config = {"from_attributes": True}
