@@ -58,6 +58,19 @@ interface NavItem {
   permission?: string | string[];
 }
 
+const ARCHLENS_CHILDREN: NavItemDef["children"] = [
+  { labelKey: "archlens.dashboard", icon: "psychology", path: "/archlens" },
+  { labelKey: "archlens.vendors", icon: "storefront", path: "/archlens/vendors" },
+  {
+    labelKey: "archlens.resolution",
+    icon: "account_tree",
+    path: "/archlens/vendors/resolution",
+  },
+  { labelKey: "archlens.duplicates", icon: "content_copy", path: "/archlens/duplicates" },
+  { labelKey: "archlens.architect", icon: "architecture", path: "/archlens/architect" },
+  { labelKey: "archlens.history", icon: "history", path: "/archlens/history" },
+];
+
 const NAV_ITEM_DEFS: NavItemDef[] = [
   { labelKey: "dashboard", icon: "dashboard", path: "/" },
   { labelKey: "inventory", icon: "inventory_2", path: "/inventory", permission: "inventory.view" },
@@ -82,19 +95,6 @@ const NAV_ITEM_DEFS: NavItemDef[] = [
   { labelKey: "diagrams", icon: "schema", path: "/diagrams", permission: "diagrams.view" },
   { labelKey: "delivery", icon: "architecture", path: "/ea-delivery", permission: "soaw.view" },
   { labelKey: "todos", icon: "checklist", path: "/todos" },
-  {
-    labelKey: "archlens",
-    icon: "psychology",
-    permission: "archlens.view",
-    children: [
-      { labelKey: "archlens.dashboard", icon: "dashboard", path: "/archlens" },
-      { labelKey: "archlens.vendors", icon: "storefront", path: "/archlens/vendors" },
-      { labelKey: "archlens.resolution", icon: "account_tree", path: "/archlens/vendors/resolution" },
-      { labelKey: "archlens.duplicates", icon: "content_copy", path: "/archlens/duplicates" },
-      { labelKey: "archlens.architect", icon: "architecture", path: "/archlens/architect" },
-      { labelKey: "archlens.history", icon: "history", path: "/archlens/history" },
-    ],
-  },
 ];
 
 const ADMIN_ITEM_DEFS: NavItemDef[] = [
@@ -151,17 +151,24 @@ export default function AppLayout({ children, user, onLogout }: Props) {
 
   // Resolve nav item labels via i18n and filter based on BPM/PPM/ArchLens/permissions
   const navItems = useMemo(() => {
+    let items = NAV_ITEM_DEFS as NavItemDef[];
+    if (!bpmEnabled) items = items.filter((item) => item.labelKey !== "bpm");
+    if (!ppmEnabled) items = items.filter((item) => item.labelKey !== "ppm");
+
+    // Append ArchLens sub-items to Reports dropdown when AI is configured
+    if (archLensReady && can("archlens.view")) {
+      items = items.map((item) =>
+        item.labelKey === "reports"
+          ? { ...item, children: [...(item.children || []), ...ARCHLENS_CHILDREN!] }
+          : item,
+      );
+    }
+
     const resolve = (def: NavItemDef): NavItem => ({
       ...def,
       label: t(def.labelKey),
       children: def.children?.map((c) => ({ ...c, label: t(c.labelKey) })),
     });
-    let items = NAV_ITEM_DEFS as NavItemDef[];
-    if (!bpmEnabled) items = items.filter((item) => item.labelKey !== "bpm");
-    if (!ppmEnabled) items = items.filter((item) => item.labelKey !== "ppm");
-
-    // Hide ArchLens nav section when AI is not configured
-    if (!archLensReady) items = items.filter((item) => item.labelKey !== "archlens");
 
     return items
       .filter((item) => {

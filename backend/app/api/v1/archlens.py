@@ -14,7 +14,8 @@ from datetime import datetime, timezone
 from typing import Any, Awaitable, Callable
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
-from sqlalchemy import func, select
+from sqlalchemy import Float as SAFloat
+from sqlalchemy import cast, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
@@ -148,18 +149,40 @@ async def archlens_overview(
     """Dashboard KPIs: card counts, quality, vendor/duplicate summaries."""
     await PermissionService.require_permission(db, user, "archlens.view")
 
+    active = Card.status != "ARCHIVED"
+
     # Card counts by type
     type_counts = await db.execute(
-        select(Card.type, func.count(Card.id)).where(Card.status != "ARCHIVED").group_by(Card.type)
+        select(Card.type, func.count(Card.id)).where(active).group_by(Card.type)
     )
     cards_by_type = {t: c for t, c in type_counts.all()}
     total_cards = sum(cards_by_type.values())
 
     # Average data quality
-    quality_result = await db.execute(
-        select(func.avg(Card.data_quality)).where(Card.status != "ARCHIVED")
-    )
+    quality_result = await db.execute(select(func.avg(Card.data_quality)).where(active))
     quality_avg = quality_result.scalar() or 0
+
+    # Quality distribution: Bronze (<45), Silver (45-79), Gold (>=80)
+    bronze_result = await db.execute(
+        select(func.count(Card.id)).where(active, Card.data_quality < 45)
+    )
+    silver_result = await db.execute(
+        select(func.count(Card.id)).where(active, Card.data_quality >= 45, Card.data_quality < 80)
+    )
+    gold_result = await db.execute(
+        select(func.count(Card.id)).where(active, Card.data_quality >= 80)
+    )
+    quality_bronze = bronze_result.scalar() or 0
+    quality_silver = silver_result.scalar() or 0
+    quality_gold = gold_result.scalar() or 0
+
+    # Total annual IT cost
+    cost_result = await db.execute(
+        select(func.sum(cast(Card.attributes["costTotalAnnual"].as_string(), SAFloat))).where(
+            active, Card.attributes["costTotalAnnual"].isnot(None)
+        )
+    )
+    total_cost = cost_result.scalar() or 0
 
     # Vendor count
     vendor_count = await db.execute(select(func.count(ArchLensVendorAnalysis.id)))
@@ -176,7 +199,7 @@ async def archlens_overview(
     # Top issues: low quality cards
     low_quality = await db.execute(
         select(Card.id, Card.name, Card.type, Card.data_quality)
-        .where(Card.status != "ARCHIVED", Card.data_quality < 40)
+        .where(active, Card.data_quality < 40)
         .order_by(Card.data_quality.asc())
         .limit(10)
     )
@@ -194,6 +217,10 @@ async def archlens_overview(
         total_cards=total_cards,
         cards_by_type=cards_by_type,
         quality_avg=round(quality_avg, 1),
+        quality_bronze=quality_bronze,
+        quality_silver=quality_silver,
+        quality_gold=quality_gold,
+        total_cost=round(total_cost, 2),
         vendor_count=v_count,
         duplicate_clusters=dup_count,
         modernization_count=mod_count,

@@ -1225,6 +1225,10 @@ export interface ArchLensOverview {
   total_cards: number;
   cards_by_type: Record<string, number>;
   quality_avg: number;
+  quality_bronze: number;
+  quality_silver: number;
+  quality_gold: number;
+  total_cost: number;
   vendor_count: number;
   duplicate_clusters: number;
   modernization_count: number;

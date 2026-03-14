@@ -50,6 +50,10 @@ class ArchLensOverviewOut(BaseModel):
     total_cards: int = 0
     cards_by_type: dict[str, int] = {}
     quality_avg: float = 0
+    quality_bronze: int = 0
+    quality_silver: int = 0
+    quality_gold: int = 0
+    total_cost: float = 0
     vendor_count: int = 0
     duplicate_clusters: int = 0
     modernization_count: int = 0

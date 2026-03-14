@@ -15,6 +15,7 @@ import httpx
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.encryption import decrypt_value
 from app.models.app_settings import AppSettings
 
 logger = logging.getLogger("turboea.archlens.ai")
@@ -40,11 +41,12 @@ async def get_ai_config(db: AsyncSession) -> dict[str, str]:
     result = await db.execute(select(AppSettings))
     settings = result.scalar_one_or_none()
     if not settings or not settings.general_settings:
-        return {"provider": "", "api_key": ""}
+        return {"provider": "", "api_key": "", "provider_url": "", "model": ""}
 
     ai = settings.general_settings.get("ai", {})
     provider_type = ai.get("providerType", "")
-    api_key = ai.get("apiKey", "")
+    encrypted_key = ai.get("apiKey", "")
+    api_key = decrypt_value(encrypted_key) if encrypted_key else ""
 
     # Map Turbo EA provider types to ArchLens provider names
     provider_map = {
@@ -67,10 +69,14 @@ async def get_ai_config(db: AsyncSession) -> dict[str, str]:
 
 
 def is_ai_configured(ai_config: dict[str, str]) -> bool:
-    """Check if AI is configured with a commercial provider + API key."""
+    """Check if AI is configured with a supported provider."""
     provider = ai_config.get("provider", "")
     api_key = ai_config.get("api_key", "")
+    provider_url = ai_config.get("provider_url", "")
+    model = ai_config.get("model", "")
     if provider in ("claude", "openai", "deepseek", "gemini") and api_key:
+        return True
+    if provider == "ollama" and (provider_url or model):
         return True
     return False
 
@@ -93,8 +99,10 @@ async def call_ai(
     config = await get_ai_config(db)
     provider = config["provider"]
     api_key = config["api_key"]
+    model = config["model"]
+    provider_url = config["provider_url"]
 
-    if not api_key:
+    if not api_key and provider != "ollama":
         raise ValueError("AI_KEY_MISSING")
 
     messages = [{"role": "user", "content": prompt}]
@@ -106,30 +114,36 @@ async def call_ai(
         url = "https://api.anthropic.com/v1/messages"
         headers = {"x-api-key": api_key, "anthropic-version": "2023-06-01"}
         body = {
-            "model": "claude-sonnet-4-20250514",
+            "model": model or "claude-sonnet-4-20250514",
             "max_tokens": max_tokens,
             "messages": messages,
         }
         if system_prompt:
             body["system"] = system_prompt
     elif provider == "openai":
-        url = "https://api.openai.com/v1/chat/completions"
+        base_url = provider_url or "https://api.openai.com"
+        url = f"{base_url.rstrip('/')}/v1/chat/completions"
         headers = {"Authorization": f"Bearer {api_key}"}
         msgs = (
             [{"role": "system", "content": system_prompt}, *messages] if system_prompt else messages
         )
-        body = {"model": "gpt-4o", "max_tokens": max_tokens, "messages": msgs}
+        body = {"model": model or "gpt-4o", "max_tokens": max_tokens, "messages": msgs}
     elif provider == "deepseek":
         url = "https://api.deepseek.com/v1/chat/completions"
         headers = {"Authorization": f"Bearer {api_key}"}
         msgs = (
             [{"role": "system", "content": system_prompt}, *messages] if system_prompt else messages
         )
-        body = {"model": "deepseek-chat", "max_tokens": max_tokens, "messages": msgs}
+        body = {
+            "model": model or "deepseek-chat",
+            "max_tokens": max_tokens,
+            "messages": msgs,
+        }
     elif provider == "gemini":
+        gemini_model = model or "gemini-1.5-pro"
         url = (
             "https://generativelanguage.googleapis.com/v1beta/models/"
-            f"gemini-1.5-pro:generateContent?key={api_key}"
+            f"{gemini_model}:generateContent?key={api_key}"
         )
         headers = {}
         all_text = (system_prompt + "\n\n" + prompt) if system_prompt else prompt
@@ -140,6 +154,14 @@ async def call_ai(
                 "temperature": 0.2,
             },
         }
+    elif provider == "ollama":
+        base_url = provider_url or "http://localhost:11434"
+        url = f"{base_url.rstrip('/')}/api/chat"
+        headers = {}
+        msgs = (
+            [{"role": "system", "content": system_prompt}, *messages] if system_prompt else messages
+        )
+        body = {"model": model, "messages": msgs, "stream": False}
     else:
         raise ValueError(f"Unknown AI provider: {provider}")
 
@@ -167,6 +189,9 @@ async def call_ai(
         text_out = j["content"][0]["text"]
     elif provider == "gemini":
         text_out = j["candidates"][0]["content"]["parts"][0]["text"]
+    elif provider == "ollama":
+        text_out = j.get("message", {}).get("content", "")
+        truncated = not j.get("done", True)
     else:
         truncated = j.get("choices", [{}])[0].get("finish_reason") == "length"
         text_out = j["choices"][0]["message"]["content"]
