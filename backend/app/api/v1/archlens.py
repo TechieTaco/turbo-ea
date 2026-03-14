@@ -72,9 +72,9 @@ async def _run_analysis(
     label: str,
 ) -> None:
     """Generic background task runner that updates ArchLensAnalysisRun status."""
-    from app.database import async_session_factory
+    from app.database import async_session
 
-    async with async_session_factory() as db:
+    async with async_session() as db:
         try:
             result = await service_fn(db)
 
@@ -87,7 +87,7 @@ async def _run_analysis(
         except Exception as e:
             logger.exception("%s failed: %s", label, e)
             # Use a fresh session since the original may be in a bad state
-            async with async_session_factory() as db2:
+            async with async_session() as db2:
                 run = await db2.get(ArchLensAnalysisRun, uuid.UUID(run_id))
                 if run:
                     run.status = AnalysisStatus.FAILED
@@ -236,8 +236,7 @@ async def get_vendors(
         select(ArchLensVendorAnalysis).order_by(ArchLensVendorAnalysis.app_count.desc())
     )
     return [
-        VendorAnalysisOut.model_validate(v, update={"id": str(v.id)})
-        for v in result.scalars().all()
+        VendorAnalysisOut.model_validate(v, from_attributes=True) for v in result.scalars().all()
     ]
 
 
@@ -276,14 +275,7 @@ async def get_vendor_hierarchy(
         select(ArchLensVendorHierarchy).order_by(ArchLensVendorHierarchy.app_count.desc())
     )
     return [
-        VendorHierarchyOut.model_validate(
-            v,
-            update={
-                "id": str(v.id),
-                "parent_id": str(v.parent_id) if v.parent_id else None,
-            },
-        )
-        for v in result.scalars().all()
+        VendorHierarchyOut.model_validate(v, from_attributes=True) for v in result.scalars().all()
     ]
 
 
@@ -322,8 +314,7 @@ async def get_duplicates(
         select(ArchLensDuplicateCluster).order_by(ArchLensDuplicateCluster.analysed_at.desc())
     )
     return [
-        DuplicateClusterOut.model_validate(c, update={"id": str(c.id)})
-        for c in result.scalars().all()
+        DuplicateClusterOut.model_validate(c, from_attributes=True) for c in result.scalars().all()
     ]
 
 
@@ -389,15 +380,7 @@ async def get_modernizations(
         select(ArchLensModernization).order_by(ArchLensModernization.analysed_at.desc())
     )
     return [
-        ModernizationOut.model_validate(
-            m,
-            update={
-                "id": str(m.id),
-                "cluster_id": str(m.cluster_id) if m.cluster_id else None,
-                "card_id": str(m.card_id) if m.card_id else None,
-            },
-        )
-        for m in result.scalars().all()
+        ModernizationOut.model_validate(m, from_attributes=True) for m in result.scalars().all()
     ]
 
 
@@ -489,7 +472,7 @@ async def get_analysis_runs(
         select(ArchLensAnalysisRun).order_by(ArchLensAnalysisRun.started_at.desc()).limit(100)
     )
     return [
-        ArchLensAnalysisRunOut.model_validate(r, update={"id": str(r.id)})
+        ArchLensAnalysisRunOut.model_validate(r, from_attributes=True)
         for r in result.scalars().all()
     ]
 

@@ -95,9 +95,7 @@ async def load_landscape(db: AsyncSession) -> dict[str, Any]:
 
     card_vendors: dict[str, list[str]] = {}
     if provider_rel_keys:
-        rels_result = await db.execute(
-            select(Relation).where(Relation.relation_type_key.in_(provider_rel_keys))
-        )
+        rels_result = await db.execute(select(Relation).where(Relation.type.in_(provider_rel_keys)))
         for rel in rels_result.scalars().all():
             src_id = str(rel.source_id)
             tgt_id = str(rel.target_id)
@@ -305,7 +303,8 @@ Respond with ONLY this JSON:
 }}"""
 
     result = await call_ai(db, prompt, 2500, ARCHITECT_PERSONA)
-    return parse_json(result["text"])
+    parsed: dict[str, Any] = parse_json(result["text"])
+    return parsed
 
 
 # ---------------------------------------------------------------------------
@@ -368,7 +367,8 @@ Respond with ONLY this JSON:
 }}"""
 
     result = await call_ai(db, prompt, 2800, ARCHITECT_PERSONA)
-    return parse_json(result["text"])
+    parsed: dict[str, Any] = parse_json(result["text"])
+    return parsed
 
 
 # ---------------------------------------------------------------------------
@@ -455,7 +455,7 @@ Respond with ONLY this JSON:
 }}"""
 
     struct_result = await call_ai(db, structure_prompt, 8000, ARCHITECT_PERSONA)
-    result = parse_json(struct_result["text"])
+    result: dict[str, Any] = parse_json(struct_result["text"])
 
     # Check for truncation
     required_sections = ["layers", "gaps", "integrations", "risks", "nextSteps"]
