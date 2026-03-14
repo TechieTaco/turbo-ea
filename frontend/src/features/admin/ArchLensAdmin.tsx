@@ -28,7 +28,7 @@ import TableRow from "@mui/material/TableRow";
 import Tabs from "@mui/material/Tabs";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
-import { MaterialSymbol } from "@/components/MaterialSymbol";
+import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import type {
   ArchLensAnalysisRun,
