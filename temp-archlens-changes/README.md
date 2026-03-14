@@ -21,6 +21,11 @@ The `parseUrl()` function now validates user-supplied URLs:
 - Blocks private/internal IP ranges (localhost, 10.x, 172.16-31.x, 192.168.x,
   `.internal`, `.local`) to prevent Server-Side Request Forgery
 
+Additionally, all `fetch()` calls now go through `safeUrl(base, path)` which
+uses `new URL(path, base)` and verifies the resolved origin matches the base
+origin. This ensures CodeQL can trace the URL validation through to the fetch
+call sites (`getToken()` and `apiGet()`).
+
 ### 2. Polynomial Regex Fix (High) — `turboea.js`
 
 Replaced `replace(/\/+$/, '')` (which can cause catastrophic backtracking on
@@ -32,17 +37,18 @@ The `/api/sync/stream` endpoint previously accepted credentials (email, password
 apiKey) as GET query parameters, which get logged in server access logs, browser
 history, and proxy logs.
 
-**Fix**: Added a POST handler (`app.post('/api/sync/stream', handleSyncStream)`)
-that accepts credentials in the request body. The GET endpoint is kept for backward
-compatibility with LeanIX, but Turbo EA sync now uses POST via `archlens_service.py`.
+**Fix**: The `extractSyncParams()` function now only reads credentials from the
+request body (POST requests). GET requests are restricted to non-sensitive params
+(`workspace`, `fsTypes`) only. A new POST route handler is registered alongside
+the existing GET for backward compatibility.
 
 ### 4. Rate Limiting on Static File Serving (High) — `index.js`
 
 The SPA fallback route (`app.get('*', ...)`) serves `index.html` via
 `res.sendFile()` without rate limiting, allowing potential abuse.
 
-**Fix**: Added a lightweight in-memory per-IP rate limiter (100 requests/minute)
-to the SPA fallback handler. No additional npm dependencies required.
+**Fix**: Added a `spaRateLimiter` Express middleware (100 requests/minute per IP)
+that runs before the file-serving handler. No additional npm dependencies required.
 
 ## How to apply
 
