@@ -516,6 +516,159 @@ async def _load_existing_cards_context(db: AsyncSession) -> str:
 
 
 # ---------------------------------------------------------------------------
+# Phase 3a — Post-processing guardrails
+# ---------------------------------------------------------------------------
+
+
+def _enforce_mandatory_relations(
+    parsed: dict[str, Any],
+    selected_capabilities: list[dict[str, Any]],
+    objective_ids: list[str],
+    dep_nodes: list[dict[str, Any]],
+) -> None:
+    """Ensure every new Application links to a BusinessCapability, and
+    every new BusinessCapability links to the selected Objectives.
+
+    Modifies ``parsed`` in place.
+    """
+    relations = parsed.setdefault("proposedRelations", [])
+    capabilities = parsed.get("capabilities", [])
+    proposed_cards = parsed.get("proposedCards", [])
+
+    # Build sets for fast lookup
+    existing_rel_set: set[tuple[str, str, str]] = set()
+    for rel in relations:
+        existing_rel_set.add(
+            (rel.get("sourceId", ""), rel.get("targetId", ""), rel.get("relationType", ""))
+        )
+
+    # Collect all capability IDs (prefer existingCardId for linking)
+    cap_ids: list[str] = []
+    for cap in capabilities:
+        cap_ids.append(cap.get("existingCardId") or cap.get("id", ""))
+    # Also add capabilities from selected_capabilities (user selections from Phase 0)
+    user_cap_ids: list[str] = []
+    for sc in selected_capabilities:
+        cid = sc.get("existingCardId") or sc.get("id", "")
+        if cid:
+            user_cap_ids.append(cid)
+    # Default target capabilities: user-selected first, then all in output
+    target_cap_ids = user_cap_ids or cap_ids
+
+    # 1) Every new Application MUST have at least one relAppToBC
+    for card in proposed_cards:
+        if not card.get("isNew"):
+            continue
+        if card.get("cardTypeKey") != "Application":
+            continue
+        card_id = card.get("id", "")
+        # Check if already linked to any BusinessCapability
+        has_bc_rel = any(
+            (s, t, rt) in existing_rel_set
+            for s in [card_id]
+            for t in cap_ids
+            for rt in ["relAppToBC"]
+        ) or any(
+            (s, t, rt) in existing_rel_set
+            for t in [card_id]
+            for s in cap_ids
+            for rt in ["relAppToBC"]
+        )
+        if not has_bc_rel and target_cap_ids:
+            # Link to the first user-selected capability
+            relations.append(
+                {
+                    "sourceId": card_id,
+                    "targetId": target_cap_ids[0],
+                    "relationType": "relAppToBC",
+                    "label": "supports",
+                }
+            )
+            existing_rel_set.add((card_id, target_cap_ids[0], "relAppToBC"))
+            logger.info(
+                "Guardrail: added relAppToBC from %s to capability %s",
+                card.get("name"),
+                target_cap_ids[0],
+            )
+
+    # 2) Every new BusinessCapability MUST link to selected Objectives
+    for cap in capabilities:
+        if not cap.get("isNew"):
+            continue
+        cap_id = cap.get("existingCardId") or cap.get("id", "")
+        for oid in objective_ids:
+            if (oid, cap_id, "relObjectiveToBC") not in existing_rel_set:
+                relations.append(
+                    {
+                        "sourceId": oid,
+                        "targetId": cap_id,
+                        "relationType": "relObjectiveToBC",
+                        "label": "improves",
+                    }
+                )
+                existing_rel_set.add((oid, cap_id, "relObjectiveToBC"))
+                logger.info(
+                    "Guardrail: added relObjectiveToBC from objective %s to capability %s",
+                    oid,
+                    cap.get("name"),
+                )
+
+    # Also ensure Objective nodes are in dep_nodes or proposedCards so edges render
+    dep_node_ids = {n.get("id", "") for n in dep_nodes}
+    proposed_ids = {c.get("id", "") for c in proposed_cards}
+    for oid in objective_ids:
+        if oid not in dep_node_ids and oid not in proposed_ids:
+            # The objective should already be in the existing dependency graph,
+            # but if not, it will be resolved by the dangling reference handler
+            pass
+
+
+def _remove_orphan_nodes(parsed: dict[str, Any]) -> None:
+    """Remove proposedCards that have zero relations (orphan nodes).
+
+    Only removes NEW cards — existing cards are kept regardless since
+    they are part of the existing landscape context.
+    """
+    relations = parsed.get("proposedRelations", [])
+    capabilities = parsed.get("capabilities", [])
+
+    # Collect all IDs referenced in relations
+    connected_ids: set[str] = set()
+    for rel in relations:
+        connected_ids.add(rel.get("sourceId", ""))
+        connected_ids.add(rel.get("targetId", ""))
+    connected_ids.discard("")
+
+    # Also consider edges in existingDependencies
+    for edge in parsed.get("existingDependencies", {}).get("edges", []):
+        connected_ids.add(edge.get("source", ""))
+        connected_ids.add(edge.get("target", ""))
+
+    # Capability IDs are always connected (they're the core of the mapping)
+    for cap in capabilities:
+        connected_ids.add(cap.get("id", ""))
+        if cap.get("existingCardId"):
+            connected_ids.add(cap["existingCardId"])
+
+    # Filter out new orphan cards
+    original_cards = parsed.get("proposedCards", [])
+    filtered = []
+    for card in original_cards:
+        card_id = card.get("id", "")
+        existing_card_id = card.get("existingCardId", "")
+        is_connected = card_id in connected_ids or existing_card_id in connected_ids
+        if not card.get("isNew") or is_connected:
+            filtered.append(card)
+        else:
+            logger.info(
+                "Guardrail: removed orphan new card %s (%s)",
+                card.get("name"),
+                card.get("cardTypeKey"),
+            )
+    parsed["proposedCards"] = filtered
+
+
+# ---------------------------------------------------------------------------
 # Phase 3a — Capability Mapping (dependency-aware)
 # ---------------------------------------------------------------------------
 
@@ -820,6 +973,17 @@ Respond with ONLY this JSON:
                         "rationale": "Existing card referenced by proposed relations",
                     }
                 )
+
+    # ---- Post-processing: enforce mandatory relations ----
+    _enforce_mandatory_relations(
+        parsed,
+        selected_capabilities or [],
+        objective_ids,
+        dep_nodes,
+    )
+
+    # ---- Post-processing: remove orphan nodes ----
+    _remove_orphan_nodes(parsed)
 
     return parsed
 

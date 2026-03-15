@@ -886,7 +886,17 @@ export default function ArchLensArchitect() {
       });
     }
 
-    return { nodes: Array.from(nodeMap.values()), edges };
+    // Remove orphan nodes (nodes with zero edges) from the diagram
+    const connectedIds = new Set<string>();
+    for (const e of edges) {
+      connectedIds.add(e.source);
+      connectedIds.add(e.target);
+    }
+    const filteredNodes = Array.from(nodeMap.values()).filter(
+      (n) => connectedIds.has(n.id),
+    );
+
+    return { nodes: filteredNodes, edges };
   }, [capabilityMapping, relationTypes]);
 
   const extractQuestions = (
