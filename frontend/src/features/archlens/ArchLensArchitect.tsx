@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import Alert from "@mui/material/Alert";
 import Autocomplete from "@mui/material/Autocomplete";
@@ -361,10 +361,8 @@ export default function ArchLensArchitect() {
   const [error, setError] = useState("");
   // Objective selection state
   const [selectedObjectives, setSelectedObjectives] = useState<ObjectiveOption[]>(saved?.selectedObjectives ?? []);
-  const [objectiveSearch, setObjectiveSearch] = useState("");
   const [objectiveOptions, setObjectiveOptions] = useState<ObjectiveOption[]>([]);
   const [objectiveLoading, setObjectiveLoading] = useState(false);
-  const objSearchTimer = useRef<ReturnType<typeof setTimeout>>();
   // Capability mapping state
   const [capabilityMapping, setCapabilityMapping] = useState<CapabilityMappingResult | null>(saved?.capabilityMapping ?? null);
 
@@ -375,20 +373,19 @@ export default function ArchLensArchitect() {
 
   useEffect(() => { saveSession(); }, [saveSession]);
 
-  // Debounced objective search
+  // Load all objectives once on mount
   useEffect(() => {
-    if (objectiveSearch.length < 2) { setObjectiveOptions([]); return; }
-    clearTimeout(objSearchTimer.current);
-    objSearchTimer.current = setTimeout(async () => {
+    let cancelled = false;
+    (async () => {
       setObjectiveLoading(true);
       try {
-        const results = await api.get<ObjectiveOption[]>(`/archlens/architect/objectives?search=${encodeURIComponent(objectiveSearch)}`);
-        setObjectiveOptions(results);
-      } catch { setObjectiveOptions([]); }
-      finally { setObjectiveLoading(false); }
-    }, 300);
-    return () => clearTimeout(objSearchTimer.current);
-  }, [objectiveSearch]);
+        const results = await api.get<ObjectiveOption[]>("/archlens/architect/objectives");
+        if (!cancelled) setObjectiveOptions(results);
+      } catch { /* ignore */ }
+      finally { if (!cancelled) setObjectiveLoading(false); }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   // Build merged dependency graph from existing + proposed
   const buildMergedGraph = useCallback((): { nodes: GNode[]; edges: GEdge[] } => {
@@ -697,9 +694,9 @@ export default function ArchLensArchitect() {
                   getOptionLabel={(o) => o.name}
                   isOptionEqualToValue={(a, b) => a.id === b.id}
                   loading={objectiveLoading}
-                  onInputChange={(_, v) => setObjectiveSearch(v)}
                   onChange={(_, v) => setSelectedObjectives(v)}
                   filterSelectedOptions
+                  openOnFocus
                   renderOption={(props, option) => (
                     <li {...props} key={option.id}>
                       <Box>
@@ -717,15 +714,6 @@ export default function ArchLensArchitect() {
                       {...params}
                       size="small"
                       placeholder={t("archlens_architect_search_objectives")}
-                      InputProps={{
-                        ...params.InputProps,
-                        endAdornment: (
-                          <>
-                            {objectiveLoading && <CircularProgress size={16} />}
-                            {params.InputProps.endAdornment}
-                          </>
-                        ),
-                      }}
                     />
                   )}
                 />

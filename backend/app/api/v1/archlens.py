@@ -497,16 +497,11 @@ async def architect_objective_dependencies(
             adj.setdefault(sid, []).append((tid, r.type))
             adj.setdefault(tid, []).append((sid, r.type))
 
+    # BFS depth-1: only direct neighbors of selected objectives
     visited: set[str] = set(seed_ids)
-    frontier: set[str] = set(seed_ids)
-    for _ in range(3):
-        next_frontier: set[str] = set()
-        for nid in frontier:
-            for neighbor, _ in adj.get(nid, []):
-                if neighbor not in visited:
-                    visited.add(neighbor)
-                    next_frontier.add(neighbor)
-        frontier = next_frontier
+    for nid in seed_ids:
+        for neighbor, _ in adj.get(nid, []):
+            visited.add(neighbor)
 
     # Build ancestor path
     def _ancestor_path(card_id: str) -> list[str]:
@@ -655,16 +650,11 @@ async def architect_phase3_options(
                     adj.setdefault(sid, []).append((tid, r.type))
                     adj.setdefault(tid, []).append((sid, r.type))
 
+            # BFS depth-1: only direct neighbors of selected objectives
             visited: set[str] = set(seed_ids)
-            frontier: set[str] = set(seed_ids)
-            for _ in range(3):
-                nf: set[str] = set()
-                for nid in frontier:
-                    for neighbor, _ in adj.get(nid, []):
-                        if neighbor not in visited:
-                            visited.add(neighbor)
-                            nf.add(neighbor)
-                frontier = nf
+            for nid in seed_ids:
+                for neighbor, _ in adj.get(nid, []):
+                    visited.add(neighbor)
 
             dep_nodes = []
             for nid in visited:
