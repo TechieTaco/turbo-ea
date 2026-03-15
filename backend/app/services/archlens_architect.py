@@ -1031,30 +1031,139 @@ ARCHITECTURAL IMPACT:
 {impact_block}"""
 
 
-async def phase3_gaps(
-    db: AsyncSession,
+def _build_principles_context(principles: list[dict[str, str]]) -> str:
+    """Format principles as inline prompt context for gap evaluation."""
+    if not principles:
+        return ""
+    lines = [
+        "",
+        "=== ORGANISATION EA PRINCIPLES (evaluate product alignment) ===",
+    ]
+    for i, p in enumerate(principles, 1):
+        title = p.get("title", "")
+        desc = p.get("description") or ""
+        impl = p.get("implications") or ""
+        lines.append(f"  P{i}. {title}")
+        if desc:
+            lines.append(f"      {desc}")
+        if impl:
+            lines.append(f"      Implications: {impl}")
+    lines.append("")
+    return "\n".join(lines)
+
+
+def _build_buy_prompt(  # noqa: E501
     requirement: str,
-    all_qa: list[dict[str, Any]],
-    selected_option: dict[str, Any],
-    objective_ids: list[str] | None = None,
-    selected_capabilities: list[dict[str, Any]] | None = None,
-) -> dict[str, Any]:
-    """Phase 3b: identify the products needed to achieve the business requirements."""
-    landscape = await load_landscape(db)
-    ctx = _build_compact_context(landscape)
-    metamodel_ctx = await _load_metamodel_types_context(db)
-    patterns = _detect_intent_patterns(requirement)
-    objectives_ctx = await _load_objectives_context(db, objective_ids)
-    caps_ctx = _build_capabilities_context(selected_capabilities)
+    patterns: list[str],
+    objectives_ctx: str,
+    caps_ctx: str,
+    option_ctx: str,
+    answers_text: str,
+    num_qa: int,
+    ctx: str,
+    metamodel_ctx: str,
+    principles_ctx: str,
+) -> str:
+    """Build a specialised prompt for the 'buy' approach with deep market research."""
+    return f"""You are a principal enterprise architect conducting a thorough market \
+evaluation to select the best products for a BUY solution approach.
 
-    answers_text = "\n\n".join(
-        f"Q{i + 1}: {qa.get('question', '')}\nA: {qa.get('answer', '')}"
-        for i, qa in enumerate(all_qa)
-    )
+REQUIREMENT: "{requirement}"
+PATTERNS: {", ".join(patterns)}
+{objectives_ctx}{caps_ctx}
+{option_ctx}
 
-    option_ctx = _build_option_context(selected_option)
+ALL REQUIREMENTS ({num_qa} questions answered):
+{answers_text}
 
-    prompt = f"""You are a principal enterprise architect identifying the products needed \
+{ctx}
+{metamodel_ctx}{principles_ctx}
+TASK: Conduct a rigorous product evaluation for each capability gap. You MUST \
+research deeply and present a well-structured shortlist so stakeholders can make \
+an informed buying decision.
+
+The chain is: Business Objective → Business Capability → Product/Solution.
+Each gap represents a business capability that is missing or inadequate. Your \
+job is to identify the best market products for each gap.
+
+EVALUATION METHODOLOGY — draw from multiple sources:
+1. ANALYST RESEARCH: Reference analyst positions where applicable — Gartner \
+Magic Quadrant (Leaders, Challengers, Visionaries, Niche Players), Forrester \
+Wave, IDC MarketScape. State the quadrant/position when known.
+2. TECHNICAL FIT: Match products against the stated technical requirements \
+from the Q&A (scale, security, integration patterns, deployment preferences).
+3. BUSINESS FIT: Evaluate alignment with the business objectives and the \
+selected capabilities.
+4. EA PRINCIPLE ALIGNMENT: If EA principles are provided above, explicitly \
+note how each product aligns with or conflicts with them. Products that \
+violate a principle should have this flagged under cons.
+5. EXISTING LANDSCAPE: Prefer products from vendors already in the landscape \
+when they are a genuine fit. Flag ecosystem synergies and conflicts.
+
+RULES:
+1. Each gap must name the BUSINESS CAPABILITY it addresses and explain which \
+business objective it supports.
+2. Provide 3-5 product recommendations per gap, ranked by overall fit. The \
+top recommendation should be marked "recommended": true.
+3. Each product MUST include:
+   - "marketPosition": a brief note on analyst positioning if known (e.g. \
+"Gartner MQ Leader 2025", "Forrester Wave Strong Performer", "Niche specialist") \
+or "Established player" / "Emerging vendor" if no analyst data.
+   - "principleAlignment": if EA principles exist, a one-line note on how \
+this product aligns (e.g. "Aligns: cloud-first, API-driven") or "N/A".
+   - "deploymentModel": "SaaS | PaaS | On-Premise | Hybrid | Open Source".
+   - "licenseModel": e.g. "Per-user subscription", "Usage-based", \
+"Enterprise license", "Open-source + support".
+4. Aim for 1-3 total gaps. Only include capabilities that are genuinely \
+missing and required — do not split a single product into multiple gaps.
+5. Each recommendation MUST name a REAL product and vendor. Do NOT invent \
+fictitious products. Use current product names.
+6. Include concrete cost estimates and integration effort for each.
+7. Pros and cons must be specific and grounded — not generic platitudes.
+
+Respond with ONLY this JSON:
+{{
+  "summary": "<2-3 sentences: which business capabilities are addressed, evaluation \
+approach, key finding>",
+  "gaps": [
+    {{
+      "capability": "<business capability to enable/improve>",
+      "impact": "<which business objective this supports and why>",
+      "urgency": "critical | high | medium",
+      "recommendations": [
+        {{
+          "name": "<product name>",
+          "vendor": "<vendor>",
+          "why": "<why this product fulfils the capability — reference technical + business fit>",
+          "marketPosition": "<analyst position or market standing>",
+          "principleAlignment": "<EA principle alignment note or N/A>",
+          "deploymentModel": "<SaaS | PaaS | On-Premise | Hybrid | Open Source>",
+          "licenseModel": "<licensing model>",
+          "pros": ["<specific advantage>"],
+          "cons": ["<specific disadvantage>"],
+          "estimatedCost": "<cost range>",
+          "integrationEffort": "low | medium | high",
+          "recommended": true
+        }}
+      ]
+    }}
+  ]
+}}"""
+
+
+def _build_generic_prompt(
+    requirement: str,
+    patterns: list[str],
+    objectives_ctx: str,
+    caps_ctx: str,
+    option_ctx: str,
+    answers_text: str,
+    num_qa: int,
+    ctx: str,
+    metamodel_ctx: str,
+) -> str:
+    """Build the standard prompt for build/extend/reuse approaches."""
+    return f"""You are a principal enterprise architect identifying the products needed \
 to achieve the business requirements.
 
 REQUIREMENT: "{requirement}"
@@ -1062,7 +1171,7 @@ PATTERNS: {", ".join(patterns)}
 {objectives_ctx}{caps_ctx}
 {option_ctx}
 
-ALL REQUIREMENTS ({len(all_qa)} questions answered):
+ALL REQUIREMENTS ({num_qa} questions answered):
 {answers_text}
 
 {ctx}
@@ -1113,10 +1222,65 @@ Respond with ONLY this JSON:
       ]
     }}
   ]
-}}"""  # noqa: E501
+}}"""
+
+
+async def phase3_gaps(
+    db: AsyncSession,
+    requirement: str,
+    all_qa: list[dict[str, Any]],
+    selected_option: dict[str, Any],
+    objective_ids: list[str] | None = None,
+    selected_capabilities: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    """Phase 3b: identify the products needed to achieve the business requirements."""
+    landscape = await load_landscape(db)
+    ctx = _build_compact_context(landscape)
+    metamodel_ctx = await _load_metamodel_types_context(db)
+    patterns = _detect_intent_patterns(requirement)
+    objectives_ctx = await _load_objectives_context(db, objective_ids)
+    caps_ctx = _build_capabilities_context(selected_capabilities)
+
+    answers_text = "\n\n".join(
+        f"Q{i + 1}: {qa.get('question', '')}\nA: {qa.get('answer', '')}"
+        for i, qa in enumerate(all_qa)
+    )
+
+    option_ctx = _build_option_context(selected_option)
+
+    approach = (selected_option.get("approach") or "").lower()
+    if approach == "buy":
+        principles = await load_active_principles(db)
+        principles_ctx = _build_principles_context(principles)
+        prompt = _build_buy_prompt(
+            requirement=requirement,
+            patterns=patterns,
+            objectives_ctx=objectives_ctx,
+            caps_ctx=caps_ctx,
+            option_ctx=option_ctx,
+            answers_text=answers_text,
+            num_qa=len(all_qa),
+            ctx=ctx,
+            metamodel_ctx=metamodel_ctx,
+            principles_ctx=principles_ctx,
+        )
+        max_tokens = 6000
+    else:
+        prompt = _build_generic_prompt(
+            requirement=requirement,
+            patterns=patterns,
+            objectives_ctx=objectives_ctx,
+            caps_ctx=caps_ctx,
+            option_ctx=option_ctx,
+            answers_text=answers_text,
+            num_qa=len(all_qa),
+            ctx=ctx,
+            metamodel_ctx=metamodel_ctx,
+        )
+        max_tokens = 4000
 
     persona = await _build_persona_with_principles(db)
-    result = await call_ai(db, prompt, 4000, persona)
+    result = await call_ai(db, prompt, max_tokens, persona)
     parsed: dict[str, Any] = parse_json(result["text"])
     return parsed
 

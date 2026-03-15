@@ -481,6 +481,45 @@ function GapsView({
                           {rec.vendor}
                         </Typography>
                       )}
+                      {rec.marketPosition && (
+                        <Typography
+                          variant="caption"
+                          display="block"
+                          sx={{ color: "info.main", fontStyle: "italic", mt: 0.3 }}
+                        >
+                          <MaterialSymbol
+                            icon="monitoring"
+                            size={11}
+                            style={{ verticalAlign: "text-bottom", marginRight: 2 }}
+                          />
+                          {rec.marketPosition}
+                        </Typography>
+                      )}
+                      {rec.principleAlignment &&
+                        rec.principleAlignment !== "N/A" && (
+                          <Typography
+                            variant="caption"
+                            display="block"
+                            sx={{
+                              color: rec.principleAlignment
+                                .toLowerCase()
+                                .includes("conflict")
+                                ? "warning.main"
+                                : "success.main",
+                              mt: 0.3,
+                            }}
+                          >
+                            <MaterialSymbol
+                              icon="policy"
+                              size={11}
+                              style={{
+                                verticalAlign: "text-bottom",
+                                marginRight: 2,
+                              }}
+                            />
+                            {rec.principleAlignment}
+                          </Typography>
+                        )}
                       {rec.why && (
                         <Typography
                           variant="caption"
@@ -516,6 +555,7 @@ function GapsView({
                         spacing={0.5}
                         sx={{ mt: 1 }}
                         flexWrap="wrap"
+                        useFlexGap
                       >
                         {rec.estimatedCost && (
                           <Chip
@@ -531,6 +571,28 @@ function GapsView({
                             size="small"
                             color={effortColor(rec.integrationEffort)}
                             variant="outlined"
+                            sx={{ fontSize: 10, height: 20 }}
+                          />
+                        )}
+                        {rec.deploymentModel && (
+                          <Chip
+                            label={rec.deploymentModel}
+                            size="small"
+                            variant="outlined"
+                            icon={
+                              <MaterialSymbol icon="cloud" size={12} />
+                            }
+                            sx={{ fontSize: 10, height: 20 }}
+                          />
+                        )}
+                        {rec.licenseModel && (
+                          <Chip
+                            label={rec.licenseModel}
+                            size="small"
+                            variant="outlined"
+                            icon={
+                              <MaterialSymbol icon="license" size={12} />
+                            }
                             sx={{ fontSize: 10, height: 20 }}
                           />
                         )}
