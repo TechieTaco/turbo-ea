@@ -1257,6 +1257,10 @@ export interface ArchGapRecommendation {
   name: string;
   vendor?: string;
   why?: string;
+  marketPosition?: string;
+  principleAlignment?: string;
+  deploymentModel?: string;
+  licenseModel?: string;
   pros?: string[];
   cons?: string[];
   estimatedCost?: string;
