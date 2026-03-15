@@ -757,28 +757,52 @@ async def phase3_gaps(
 
     option_ctx = _build_option_context(selected_option)
 
+    # Extract the primary products from the selected option's impact preview
+    primary_products: list[str] = []
+    impact = selected_option.get("impactPreview") or {}
+    for comp in impact.get("newComponents") or []:
+        name = comp.get("name", "")
+        if name:
+            primary_products.append(name)
+    option_title = selected_option.get("title", "")
+
+    primary_ctx = ""
+    if primary_products:
+        primary_ctx = (
+            "\n=== PRIMARY PRODUCTS IN THIS APPROACH ===\n"
+            f"The user chose this approach specifically for: {', '.join(primary_products)}.\n"
+            "These are the MAIN products — they MUST appear as recommendations in the\n"
+            "most relevant gap (typically the first/highest-urgency gap). They are not\n"
+            "sub-components; they are the core of the solution. Then identify what\n"
+            "ADDITIONAL capabilities or supporting tools are needed around them.\n"
+        )
+
     prompt = f"""You are a principal enterprise architect performing gap analysis.
 
 REQUIREMENT: "{requirement}"
 PATTERNS: {", ".join(patterns)}
 
 {option_ctx}
-
+{primary_ctx}
 ALL REQUIREMENTS ({len(all_qa)} questions answered):
 {answers_text}
 
 {ctx}
 {metamodel_ctx}
-TASK: Analyse the selected solution approach and identify capability gaps that
-need to be filled. For each gap, provide 3-4 named product recommendations
-from the market.
+TASK: Analyse the selected solution approach and identify capability gaps.
+Start with the PRIMARY capability that the main product(s) address — include
+the selected product(s) as top recommendations for that gap. Then identify
+supporting capabilities that are still missing and recommend products for those.
 
 RULES:
-1. Focus on what is MISSING or NEEDS IMPROVEMENT to implement the selected approach.
-2. Consider the existing landscape — do NOT flag gaps for capabilities already covered.
-3. Each recommendation must name a REAL product/vendor with concrete pros/cons.
-4. Urgency reflects how critical the gap is for the selected approach to succeed.
-5. Include integration effort estimates for each recommendation.
+1. The FIRST gap should be the primary capability addressed by the selected approach.
+   The main product(s) from the approach ({", ".join(primary_products) if primary_products else option_title})
+   MUST appear as the top recommendation(s) in this gap, marked "recommended": true.
+2. Additional gaps should cover SUPPORTING capabilities needed around the main product.
+3. Consider the existing landscape — do NOT flag gaps for capabilities already covered.
+4. Each recommendation must name a REAL product/vendor with concrete pros/cons.
+5. Urgency reflects how critical the gap is for the selected approach to succeed.
+6. Include integration effort estimates for each recommendation.
 
 Respond with ONLY this JSON:
 {{
