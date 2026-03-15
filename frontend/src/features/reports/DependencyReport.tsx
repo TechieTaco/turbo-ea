@@ -759,21 +759,23 @@ export default function DependencyReport() {
       {view === "chart" ? (
         chartMode === "c4" && center && c4Data.nodes.length > 0 ? (
           /* ---------- C4 DIAGRAM VIEW ---------- */
-          <C4DiagramView
-            nodes={c4Data.nodes}
-            edges={c4Data.edges}
-            types={types}
-            onNodeClick={setSidePanelCardId}
-            onNodeShiftClick={navigateToC4}
-            onNodeExpand={handleC4Expand}
-            onExpandReset={handleC4ExpandReset}
-            onHome={handleNavHome}
-            onPrev={handleNavPrev}
-            onNext={handleNavNext}
-            hasPrev={hasPrev}
-            hasNext={hasNext}
-            centerName={centerNode?.name}
-          />
+          <Box sx={{ height: 600 }}>
+            <C4DiagramView
+              nodes={c4Data.nodes}
+              edges={c4Data.edges}
+              types={types}
+              onNodeClick={setSidePanelCardId}
+              onNodeShiftClick={navigateToC4}
+              onNodeExpand={handleC4Expand}
+              onExpandReset={handleC4ExpandReset}
+              onHome={handleNavHome}
+              onPrev={handleNavPrev}
+              onNext={handleNavNext}
+              hasPrev={hasPrev}
+              hasNext={hasNext}
+              centerName={centerNode?.name}
+            />
+          </Box>
         ) : chartMode === "tree" && center && layout && layout.cards.length > 0 ? (
           /* ---------- TREE VIEW ---------- */
           <Paper

@@ -712,7 +712,6 @@ function C4DiagramInner({
         display: "flex",
         flexDirection: "column",
         height: "100%",
-        minHeight: 400,
       }}
     >
       {/* Navigation bar */}
