@@ -55,6 +55,6 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.drop_index("ix_archlens_assessments_initiative_id")
-    op.drop_index("ix_archlens_assessments_created_by")
+    op.drop_index("ix_archlens_assessments_initiative_id", table_name="archlens_assessments")
+    op.drop_index("ix_archlens_assessments_created_by", table_name="archlens_assessments")
     op.drop_table("archlens_assessments")
