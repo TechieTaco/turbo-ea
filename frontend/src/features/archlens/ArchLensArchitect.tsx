@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
@@ -294,16 +294,45 @@ function ArchitectureResultView({ arch, onReset }: { arch: ArchitectureResult; o
   );
 }
 
+// --- Session persistence ---
+const SESSION_KEY = "archlens-architect-session";
+
+interface ArchSession {
+  archReq: string;
+  archPhase: number;
+  archResult: Record<string, unknown> | null;
+  archQuestions: { question: string; why?: string; type?: string; options?: string[]; nfrCategory?: string; answer: string }[];
+  phase1Answers: { question: string; answer: string }[];
+}
+
+function loadSession(): ArchSession | null {
+  try {
+    const raw = sessionStorage.getItem(SESSION_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw) as ArchSession;
+  } catch {
+    return null;
+  }
+}
+
 // --- Main page component ---
 export default function ArchLensArchitect() {
   const { t } = useTranslation("admin");
-  const [archReq, setArchReq] = useState("");
-  const [archPhase, setArchPhase] = useState(0);
-  const [archResult, setArchResult] = useState<Record<string, unknown> | null>(null);
+  const saved = loadSession();
+  const [archReq, setArchReq] = useState(saved?.archReq ?? "");
+  const [archPhase, setArchPhase] = useState(saved?.archPhase ?? 0);
+  const [archResult, setArchResult] = useState<Record<string, unknown> | null>(saved?.archResult ?? null);
   const [archLoading, setArchLoading] = useState(false);
-  const [archQuestions, setArchQuestions] = useState<{ question: string; why?: string; type?: string; options?: string[]; nfrCategory?: string; answer: string }[]>([]);
-  const [phase1Answers, setPhase1Answers] = useState<{ question: string; answer: string }[]>([]);
+  const [archQuestions, setArchQuestions] = useState<{ question: string; why?: string; type?: string; options?: string[]; nfrCategory?: string; answer: string }[]>(saved?.archQuestions ?? []);
+  const [phase1Answers, setPhase1Answers] = useState<{ question: string; answer: string }[]>(saved?.phase1Answers ?? []);
   const [error, setError] = useState("");
+
+  const saveSession = useCallback(() => {
+    const session: ArchSession = { archReq, archPhase, archResult, archQuestions, phase1Answers };
+    sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
+  }, [archReq, archPhase, archResult, archQuestions, phase1Answers]);
+
+  useEffect(() => { saveSession(); }, [saveSession]);
 
   const extractQuestions = (data: Record<string, unknown>): { question: string; why?: string; type?: string; options?: string[]; nfrCategory?: string }[] => {
     const raw = Array.isArray(data) ? data
@@ -365,6 +394,7 @@ export default function ArchLensArchitect() {
     setArchQuestions([]);
     setPhase1Answers([]);
     setError("");
+    sessionStorage.removeItem(SESSION_KEY);
   };
 
   return (
