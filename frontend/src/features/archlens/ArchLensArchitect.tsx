@@ -1345,6 +1345,18 @@ export default function ArchLensArchitect() {
         {/* Phase 0: Business Requirements Input */}
         {archPhase === 0 && (
           <>
+            <Alert
+              severity="info"
+              icon={<MaterialSymbol icon="psychology" />}
+              sx={{ mb: 3 }}
+            >
+              <Typography variant="subtitle2" sx={{ mb: 0.5 }}>
+                {t("archlens_architect_disclaimer_title")}
+              </Typography>
+              <Typography variant="body2">
+                {t("archlens_architect_disclaimer_body")}
+              </Typography>
+            </Alert>
             <TextField
               label={t("archlens_architect_requirement")}
               value={archReq}

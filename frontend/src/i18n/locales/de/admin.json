@@ -857,6 +857,8 @@
   "archlens_analysis_started": "Analyse gestartet",
   "archlens_architect_title": "Architektur-KI",
   "archlens_architect_description": "Beschreiben Sie Ihre Geschäftsanforderung und die KI generiert Architekturempfehlungen basierend auf Ihrer bestehenden Technologielandschaft.",
+  "archlens_architect_disclaimer_title": "KI-gestützte Bewertung",
+  "archlens_architect_disclaimer_body": "Diese Bewertung nutzt KI zur Generierung von Empfehlungen, Lösungsoptionen und einer Zielarchitektur. Sie sollte von einem qualifizierten IT-Experten (Enterprise Architect, Solution Architect, IT-Leiter) in Zusammenarbeit mit den Fachabteilungen durchgeführt werden. Die generierten Ergebnisse erfordern fachliche Beurteilung und können Ungenauigkeiten enthalten. Verwenden Sie die Ergebnisse als Ausgangspunkt für weitere Diskussionen und Verfeinerungen.",
   "archlens_architect_requirement": "Geschäftsanforderung",
   "archlens_phase": "Phase",
   "archlens_architect_generate_questions": "Fragen generieren",
