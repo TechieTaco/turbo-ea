@@ -21,7 +21,7 @@ class ArchLensAnalyseRequest(BaseModel):
 class ArchLensArchitectRequest(BaseModel):
     model_config = {"populate_by_name": True}
 
-    phase: int
+    phase: int | None = None
     requirement: str | None = None
     phase1_qa: dict | list | None = Field(None, alias="phase1QA")
     all_qa: dict | list | None = Field(None, alias="allQA")
