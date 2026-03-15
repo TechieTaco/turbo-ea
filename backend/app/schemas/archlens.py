@@ -21,10 +21,15 @@ class ArchLensAnalyseRequest(BaseModel):
 class ArchLensArchitectRequest(BaseModel):
     model_config = {"populate_by_name": True}
 
-    phase: int
+    phase: int | None = None
     requirement: str | None = None
     phase1_qa: dict | list | None = Field(None, alias="phase1QA")
     all_qa: dict | list | None = Field(None, alias="allQA")
+    selected_option: dict | None = Field(None, alias="selectedOption")
+    selected_recommendations: list[dict] | None = Field(None, alias="selectedRecommendations")
+    selected_products: list[dict] | None = Field(None, alias="selectedProducts")
+    objective_ids: list[str] | None = Field(None, alias="objectiveIds")
+    selected_capabilities: list[dict] | None = Field(None, alias="selectedCapabilities")
 
 
 class ArchLensDuplicateStatusUpdate(BaseModel):

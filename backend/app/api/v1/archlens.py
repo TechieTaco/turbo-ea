@@ -415,6 +415,182 @@ async def get_modernizations(
 # ── Architecture AI ───────────────────────────────────────────────────────
 
 
+@router.get("/architect/objectives")
+async def architect_objectives(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+    search: str | None = None,
+):
+    """Search Objective cards for architect objective selection."""
+    from sqlalchemy import or_
+
+    await PermissionService.require_permission(db, user, "archlens.manage")
+
+    q = select(Card).where(Card.type == "Objective", Card.status != "ARCHIVED")
+    if search:
+        q = q.where(
+            or_(
+                Card.name.ilike(f"%{search}%"),
+                Card.description.ilike(f"%{search}%"),
+            )
+        )
+    q = q.order_by(Card.name).limit(50)
+    result = await db.execute(q)
+    cards = result.scalars().all()
+    return [
+        {
+            "id": str(c.id),
+            "name": c.name,
+            "description": c.description,
+            "subtype": c.subtype,
+        }
+        for c in cards
+    ]
+
+
+@router.get("/architect/capabilities")
+async def architect_capabilities(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+    search: str | None = None,
+):
+    """Search BusinessCapability cards for architect capability selection."""
+    from sqlalchemy import or_
+
+    await PermissionService.require_permission(db, user, "archlens.manage")
+
+    q = select(Card).where(Card.type == "BusinessCapability", Card.status != "ARCHIVED")
+    if search:
+        q = q.where(
+            or_(
+                Card.name.ilike(f"%{search}%"),
+                Card.description.ilike(f"%{search}%"),
+            )
+        )
+    q = q.order_by(Card.name).limit(50)
+    result = await db.execute(q)
+    cards = result.scalars().all()
+    return [
+        {
+            "id": str(c.id),
+            "name": c.name,
+            "description": c.description,
+        }
+        for c in cards
+    ]
+
+
+@router.get("/architect/objective-dependencies")
+async def architect_objective_dependencies(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+    objective_ids: str = "",
+):
+    """Fetch dependency subgraph for selected Objectives (BFS depth 3)."""
+    from app.models.relation import Relation
+    from app.models.relation_type import RelationType
+
+    await PermissionService.require_permission(db, user, "archlens.manage")
+
+    ids = [oid.strip() for oid in objective_ids.split(",") if oid.strip()]
+    if not ids:
+        return {"nodes": [], "edges": []}
+
+    # Load all active cards
+    full_result = await db.execute(select(Card).where(Card.status == "ACTIVE"))
+    all_cards = full_result.scalars().all()
+    card_map = {str(c.id): c for c in all_cards}
+
+    # Validate objective IDs
+    seed_ids = {oid for oid in ids if oid in card_map}
+    if not seed_ids:
+        return {"nodes": [], "edges": []}
+
+    # Load all relations + relation type labels
+    all_card_ids = list(card_map.keys())
+    card_uuids = [uuid.UUID(cid) for cid in all_card_ids]
+    rels_result = await db.execute(
+        select(Relation).where(
+            (Relation.source_id.in_(card_uuids)) | (Relation.target_id.in_(card_uuids))
+        )
+    )
+    rels = rels_result.scalars().all()
+
+    rt_result = await db.execute(
+        select(RelationType.key, RelationType.label, RelationType.reverse_label)
+    )
+    rel_type_info = {row[0]: {"label": row[1], "reverse_label": row[2]} for row in rt_result.all()}
+
+    # BFS depth 3
+    adj: dict[str, list[tuple[str, str]]] = {}
+    for r in rels:
+        sid, tid = str(r.source_id), str(r.target_id)
+        if sid in card_map and tid in card_map:
+            adj.setdefault(sid, []).append((tid, r.type))
+            adj.setdefault(tid, []).append((sid, r.type))
+
+    # BFS depth-1: only direct neighbors of selected objectives
+    visited: set[str] = set(seed_ids)
+    for nid in seed_ids:
+        for neighbor, _ in adj.get(nid, []):
+            visited.add(neighbor)
+
+    # Build ancestor path
+    def _ancestor_path(card_id: str) -> list[str]:
+        path: list[str] = []
+        cur = card_map.get(card_id)
+        seen: set[str] = set()
+        while cur and cur.parent_id:
+            pid = str(cur.parent_id)
+            if pid in seen:
+                break
+            seen.add(pid)
+            parent = card_map.get(pid)
+            if not parent:
+                break
+            path.insert(0, parent.name)
+            cur = parent
+        return path
+
+    nodes = []
+    for nid in visited:
+        card = card_map.get(nid)
+        if not card:
+            continue
+        nodes.append(
+            {
+                "id": nid,
+                "name": card.name,
+                "type": card.type,
+                "lifecycle": card.lifecycle,
+                "attributes": card.attributes,
+                "parent_id": str(card.parent_id) if card.parent_id else None,
+                "path": _ancestor_path(nid),
+            }
+        )
+
+    edges = []
+    seen_edges: set[str] = set()
+    for r in rels:
+        sid, tid = str(r.source_id), str(r.target_id)
+        if sid in visited and tid in visited:
+            edge_key = f"{min(sid, tid)}:{max(sid, tid)}"
+            if edge_key not in seen_edges:
+                seen_edges.add(edge_key)
+                rt_info = rel_type_info.get(r.type, {})
+                edges.append(
+                    {
+                        "source": sid,
+                        "target": tid,
+                        "type": r.type,
+                        "label": rt_info.get("label", r.type),
+                        "reverse_label": rt_info.get("reverse_label"),
+                    }
+                )
+
+    return {"nodes": nodes, "edges": edges}
+
+
 @router.post("/architect/phase1")
 async def architect_phase1(
     body: ArchLensArchitectRequest,
@@ -429,7 +605,9 @@ async def architect_phase1(
 
     from app.services.archlens_architect import phase1_questions
 
-    result = await phase1_questions(db, body.requirement)
+    obj_ids = body.objective_ids if isinstance(body.objective_ids, list) else []
+    caps = body.selected_capabilities if isinstance(body.selected_capabilities, list) else []
+    result = await phase1_questions(db, body.requirement, obj_ids or None, caps or None)
     return result
 
 
@@ -448,8 +626,77 @@ async def architect_phase2(
     from app.services.archlens_architect import phase2_questions
 
     qa_list = body.phase1_qa if isinstance(body.phase1_qa, list) else []
-    result = await phase2_questions(db, body.requirement, qa_list)
+    obj_ids = body.objective_ids if isinstance(body.objective_ids, list) else []
+    caps = body.selected_capabilities if isinstance(body.selected_capabilities, list) else []
+    result = await phase2_questions(db, body.requirement, qa_list, obj_ids or None, caps or None)
     return result
+
+
+@router.post("/architect/phase3/options")
+async def architect_phase3_options(
+    body: ArchLensArchitectRequest,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Phase 3a: generate solution options."""
+    await PermissionService.require_permission(db, user, "archlens.manage")
+
+    if not body.requirement or not body.all_qa:
+        raise HTTPException(400, "Requirement and allQA are required")
+
+    from app.services.archlens_architect import phase3_options
+
+    qa_list = body.all_qa if isinstance(body.all_qa, list) else []
+    obj_ids = body.objective_ids if isinstance(body.objective_ids, list) else []
+    caps = body.selected_capabilities if isinstance(body.selected_capabilities, list) else []
+    return await phase3_options(db, body.requirement, qa_list, obj_ids or None, caps or None)
+
+
+@router.post("/architect/phase3/gaps")
+async def architect_phase3_gaps(
+    body: ArchLensArchitectRequest,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Phase 3b: identify products needed for the business requirements."""
+    await PermissionService.require_permission(db, user, "archlens.manage")
+
+    if not body.requirement or not body.all_qa:
+        raise HTTPException(400, "Requirement and allQA are required")
+    if not body.selected_option:
+        raise HTTPException(400, "selectedOption is required for gap analysis")
+
+    from app.services.archlens_architect import phase3_gaps
+
+    qa_list = body.all_qa if isinstance(body.all_qa, list) else []
+    option = body.selected_option if isinstance(body.selected_option, dict) else {}
+    obj_ids = body.objective_ids if isinstance(body.objective_ids, list) else []
+    caps = body.selected_capabilities if isinstance(body.selected_capabilities, list) else []
+    return await phase3_gaps(db, body.requirement, qa_list, option, obj_ids or None, caps or None)
+
+
+@router.post("/architect/phase3/deps")
+async def architect_phase3_deps(
+    body: ArchLensArchitectRequest,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Phase 3c: dependency analysis for selected products."""
+    await PermissionService.require_permission(db, user, "archlens.manage")
+
+    if not body.requirement or not body.all_qa:
+        raise HTTPException(400, "Requirement and allQA are required")
+    if not body.selected_option:
+        raise HTTPException(400, "selectedOption is required")
+    if not body.selected_products:
+        raise HTTPException(400, "selectedProducts is required")
+
+    from app.services.archlens_architect import phase3_deps
+
+    qa_list = body.all_qa if isinstance(body.all_qa, list) else []
+    option = body.selected_option if isinstance(body.selected_option, dict) else {}
+    products = body.selected_products if isinstance(body.selected_products, list) else []
+    return await phase3_deps(db, body.requirement, qa_list, option, products)
 
 
 @router.post("/architect/phase3")
@@ -458,16 +705,107 @@ async def architect_phase3(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    """Phase 3: architecture generation + Mermaid diagram."""
+    """Phase 4: capability mapping with selected option context."""
     await PermissionService.require_permission(db, user, "archlens.manage")
 
     if not body.requirement or not body.all_qa:
         raise HTTPException(400, "Requirement and allQA are required for Phase 3")
 
-    from app.services.archlens_architect import phase3_architecture
+    from app.models.relation import Relation
+    from app.models.relation_type import RelationType
+    from app.services.archlens_architect import phase3_capability_mapping
 
     qa_list = body.all_qa if isinstance(body.all_qa, list) else []
-    result = await phase3_architecture(db, body.requirement, qa_list)
+    obj_ids = body.objective_ids or []
+    option = body.selected_option if isinstance(body.selected_option, dict) else None
+
+    # Fetch dependency subgraph for the selected objectives
+    dep_graph: dict[str, Any] = {"nodes": [], "edges": []}
+    if obj_ids:
+        full_result = await db.execute(select(Card).where(Card.status == "ACTIVE"))
+        all_cards = full_result.scalars().all()
+        card_map = {str(c.id): c for c in all_cards}
+
+        seed_ids = {oid for oid in obj_ids if oid in card_map}
+        if seed_ids:
+            card_uuids = [uuid.UUID(cid) for cid in card_map]
+            rels_result = await db.execute(
+                select(Relation).where(
+                    (Relation.source_id.in_(card_uuids)) | (Relation.target_id.in_(card_uuids))
+                )
+            )
+            rels = rels_result.scalars().all()
+
+            rt_result = await db.execute(
+                select(
+                    RelationType.key,
+                    RelationType.label,
+                    RelationType.reverse_label,
+                )
+            )
+            rel_type_info = {
+                row[0]: {"label": row[1], "reverse_label": row[2]} for row in rt_result.all()
+            }
+
+            adj: dict[str, list[tuple[str, str]]] = {}
+            for r in rels:
+                sid, tid = str(r.source_id), str(r.target_id)
+                if sid in card_map and tid in card_map:
+                    adj.setdefault(sid, []).append((tid, r.type))
+                    adj.setdefault(tid, []).append((sid, r.type))
+
+            # BFS depth-1: only direct neighbors of selected objectives
+            visited: set[str] = set(seed_ids)
+            for nid in seed_ids:
+                for neighbor, _ in adj.get(nid, []):
+                    visited.add(neighbor)
+
+            dep_nodes = []
+            for nid in visited:
+                card = card_map.get(nid)
+                if card:
+                    dep_nodes.append(
+                        {
+                            "id": nid,
+                            "name": card.name,
+                            "type": card.type,
+                            "subtype": card.subtype,
+                        }
+                    )
+
+            dep_edges = []
+            seen_e: set[str] = set()
+            for r in rels:
+                sid, tid = str(r.source_id), str(r.target_id)
+                if sid in visited and tid in visited:
+                    ek = f"{min(sid, tid)}:{max(sid, tid)}"
+                    if ek not in seen_e:
+                        seen_e.add(ek)
+                        rt_info = rel_type_info.get(r.type, {})
+                        dep_edges.append(
+                            {
+                                "source": sid,
+                                "target": tid,
+                                "type": r.type,
+                                "label": rt_info.get("label", r.type),
+                                "reverse_label": rt_info.get("reverse_label"),
+                            }
+                        )
+
+            dep_graph = {"nodes": dep_nodes, "edges": dep_edges}
+
+    sel_recs = body.selected_recommendations or []
+    caps = body.selected_capabilities if isinstance(body.selected_capabilities, list) else []
+    result = await phase3_capability_mapping(
+        db,
+        body.requirement,
+        qa_list,
+        obj_ids,
+        dep_graph,
+        option,
+        sel_recs,
+        caps or None,
+    )
 
     # Record the run
     run = ArchLensAnalysisRun(
