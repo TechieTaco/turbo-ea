@@ -586,10 +586,11 @@ TASK: Generate the full architecture structure. Do NOT include a diagram.
 RULES:
 1. LANDSCAPE MAPPING: Mark 'existing' only if in landscape, 'recommended' for procurement, 'new' for custom-built.
 2. GAP ANALYSIS: For every missing capability, provide 3-4 named product recommendations.
-3. INTEGRATION MAP: List every integration with protocol, direction, data flows.
+3. INTEGRATION MAP: List EVERY integration between components ACROSS ALL LAYERS. Each pair of connected components MUST have an integration entry. Use EXACT component names from the layers section as the "from" and "to" values. Include cross-layer integrations (e.g. business layer → integration layer → data layer).
 4. Include ALL 7 sections below.
 5. PRINCIPLE ALIGNMENT: Note when components or decisions align with or conflict with stated EA principles.
 6. METAMODEL TAGGING: Tag each component with a "cardTypeKey" from the metamodel types list.
+7. INTEGRATION NAMES: The "from" and "to" fields in integrations MUST exactly match component "name" fields from the layers section.
 
 Respond with ONLY this JSON:
 {{

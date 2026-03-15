@@ -321,12 +321,23 @@ function buildArchFlow(
 
   // Helper: fuzzy-resolve a component name to its id
   const resolveCompId = (name: string): string | undefined => {
-    const lower = name.toLowerCase();
-    // Exact match first
+    const lower = name.toLowerCase().trim();
+    // 1. Exact match
     if (compIdMap.has(lower)) return compIdMap.get(lower);
-    // Partial match: check if name starts with or contains a known component
+    // 2. Contains match (either direction)
     for (const [key, id] of compIdMap) {
       if (key.includes(lower) || lower.includes(key)) return id;
+    }
+    // 3. First-word match (e.g. "HubSpot" matches "HubSpot CRM")
+    const firstWord = lower.split(/\s+/)[0];
+    if (firstWord && firstWord.length >= 4) {
+      const matches: [string, string][] = [];
+      for (const [key, id] of compIdMap) {
+        if (key.startsWith(firstWord) || key.split(/\s+/)[0] === firstWord) {
+          matches.push([key, id]);
+        }
+      }
+      if (matches.length === 1) return matches[0][1];
     }
     return undefined;
   };
@@ -339,179 +350,106 @@ function buildArchFlow(
     if (srcId && tgtId && srcId !== tgtId) resolvedEdges.push({ sourceId: srcId, targetId: tgtId, intg });
   }
 
-  // 3. Build a SINGLE global dagre graph with ALL nodes and edges
-  const g = new dagre.graphlib.Graph();
-  g.setGraph({ rankdir: "TB", ranksep: 100, nodesep: 60, marginx: 0, marginy: 0 });
-  g.setDefaultEdgeLabel(() => ({}));
-
-  for (const entry of allComps) {
-    g.setNode(entry.id, { width: NODE_W, height: NODE_H });
-  }
-  for (const re of resolvedEdges) {
-    g.setEdge(re.sourceId, re.targetId);
-  }
-
-  // Add invisible edges between consecutive layers to maintain layer ordering
-  const layerNodeIds: string[][] = [];
-  for (let li = 0; li < layers.length; li++) {
-    layerNodeIds.push(allComps.filter(c => c.layerIdx === li).map(c => c.id));
-  }
-  for (let li = 0; li < layerNodeIds.length - 1; li++) {
-    const curr = layerNodeIds[li];
-    const next = layerNodeIds[li + 1];
-    if (curr.length > 0 && next.length > 0) {
-      // Check if any real edge already connects these layers
-      const hasRealEdge = resolvedEdges.some(re => {
-        const sLayer = allComps.find(c => c.id === re.sourceId)?.layerIdx;
-        const tLayer = allComps.find(c => c.id === re.targetId)?.layerIdx;
-        return (sLayer === li && tLayer === li + 1) || (sLayer === li + 1 && tLayer === li);
-      });
-      if (!hasRealEdge) {
-        // Add a hidden ordering edge from first node of layer to first of next
-        g.setEdge(curr[0], next[0]);
-      }
-    }
-  }
-
-  dagre.layout(g);
-
-  // 4. Read absolute positions from dagre, then normalise per-layer so all
-  //    nodes in the same layer share the same Y baseline and are arranged in
-  //    a compact horizontal row.  Dagre can scatter same-layer nodes across
-  //    different ranks when cross-layer edges pull them apart — this causes
-  //    oversized group containers.
-  const nodeAbsPos = new Map<string, { x: number; y: number }>();
-  for (const entry of allComps) {
-    const pos = g.node(entry.id);
-    if (pos) nodeAbsPos.set(entry.id, { x: pos.x - NODE_W / 2, y: pos.y - NODE_H / 2 });
-  }
-
-  // Normalise: within each layer, set all nodes to the same Y (min of the
-  // group) and lay them out horizontally with consistent spacing.
-  for (let li = 0; li < layers.length; li++) {
-    const entries = allComps.filter(c => c.layerIdx === li);
-    if (entries.length === 0) continue;
-    // Use dagre's average Y for the layer as the baseline
-    let sumY = 0;
-    for (const e of entries) sumY += nodeAbsPos.get(e.id)!.y;
-    const baseY = sumY / entries.length;
-    // Sort horizontally by dagre's X to preserve its left-right ordering
-    entries.sort((a, b) => nodeAbsPos.get(a.id)!.x - nodeAbsPos.get(b.id)!.x);
-    // Centre the row around dagre's average X
-    let sumX = 0;
-    for (const e of entries) sumX += nodeAbsPos.get(e.id)!.x;
-    const centreX = sumX / entries.length;
-    const totalW = entries.length * NODE_W + (entries.length - 1) * 60; // 60 = nodesep
-    let startX = centreX - totalW / 2 + NODE_W / 2;
-    for (const e of entries) {
-      nodeAbsPos.set(e.id, { x: startX, y: baseY });
-      startX += NODE_W + 60;
-    }
-  }
-
-  // 5. Compute group boundaries per layer, then resolve overlaps
+  // 3. Lay out nodes in a fixed grid — one row per layer, all left-aligned.
+  //    Dagre is used only for edge routing hints but not for node positions,
+  //    because dagre scatters same-layer nodes across ranks when cross-layer
+  //    edges pull them, causing staggered groups.
+  const NODESEP = 60;
+  const LAYER_GAP = 48;
   const LAYER_COLORS = [
     "#1976d2", "#33cc58", "#8e24aa", "#d29270", "#0f7eb5", "#ffa31f", "#f44336",
   ];
-  const MIN_GROUP_GAP = 48;
 
-  // First pass: compute raw bounding boxes for each layer
-  const groupBounds: {
-    li: number; entries: typeof allComps;
-    minX: number; minY: number; maxX: number; maxY: number;
-  }[] = [];
+  // Determine the widest row so all groups share the same width
+  let maxRowW = 0;
+  for (let li = 0; li < layers.length; li++) {
+    const count = allComps.filter(c => c.layerIdx === li).length;
+    if (count > 0) {
+      const rowW = count * NODE_W + (count - 1) * NODESEP;
+      maxRowW = Math.max(maxRowW, rowW);
+    }
+  }
+  const groupW = maxRowW + 2 * GROUP_PAD_X;
+
+  // Position nodes: each layer is a horizontal row, all left-aligned
+  const nodeAbsPos = new Map<string, { x: number; y: number }>();
+  let currentY = 0;
+
+  interface LayerBounds {
+    li: number;
+    groupX: number;
+    groupY: number;
+    groupW: number;
+    groupH: number;
+  }
+  const layerBoundsList: LayerBounds[] = [];
+
   for (let li = 0; li < layers.length; li++) {
     const entries = allComps.filter(c => c.layerIdx === li);
     if (entries.length === 0) continue;
-    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-    for (const e of entries) {
-      const p = nodeAbsPos.get(e.id)!;
-      minX = Math.min(minX, p.x);
-      minY = Math.min(minY, p.y);
-      maxX = Math.max(maxX, p.x + NODE_W);
-      maxY = Math.max(maxY, p.y + NODE_H);
+
+    const groupY = currentY;
+    const nodesStartX = GROUP_PAD_X;
+    const nodesStartY = GROUP_PAD_TOP;
+
+    for (let ni = 0; ni < entries.length; ni++) {
+      const x = nodesStartX + ni * (NODE_W + NODESEP);
+      const y = nodesStartY;
+      // Store absolute position (group origin + offset)
+      nodeAbsPos.set(entries[ni].id, { x: groupY === 0 ? x : x, y: groupY + y });
     }
-    groupBounds.push({ li, entries, minX, minY, maxX, maxY });
+
+    const groupH = GROUP_PAD_TOP + NODE_H + GROUP_PAD_BOTTOM;
+    layerBoundsList.push({ li, groupX: 0, groupY, groupW, groupH });
+    currentY += groupH + LAYER_GAP;
   }
 
-  // Sort by top edge so we process top-to-bottom
-  groupBounds.sort((a, b) => a.minY - b.minY);
-
-  // Resolve vertical overlaps: push groups down if they encroach on the previous
-  for (let i = 1; i < groupBounds.length; i++) {
-    const prev = groupBounds[i - 1];
-    const curr = groupBounds[i];
-    const prevBottom = prev.maxY + GROUP_PAD_BOTTOM;
-    const currTop = curr.minY - GROUP_PAD_TOP;
-    const overlap = prevBottom + MIN_GROUP_GAP - currTop;
-    if (overlap > 0) {
-      // Shift this group and all its nodes down
-      const dy = overlap;
-      for (const e of curr.entries) {
-        const p = nodeAbsPos.get(e.id)!;
-        p.y += dy;
-      }
-      curr.minY += dy;
-      curr.maxY += dy;
-    }
-  }
-
-  // Second pass: build React Flow nodes with resolved positions.
-  // Align all groups to the same horizontal span so they aren't staggered.
-  let globalMinX = Infinity, globalMaxX = -Infinity;
-  for (const gb of groupBounds) {
-    globalMinX = Math.min(globalMinX, gb.minX - GROUP_PAD_X);
-    globalMaxX = Math.max(globalMaxX, gb.maxX + GROUP_PAD_X);
-  }
-  const globalW = globalMaxX - globalMinX;
-
+  // Build React Flow nodes — groups are independent background nodes (no parentId).
+  // Component nodes are placed at absolute positions so edges can freely cross groups.
   const rfNodes: Node[] = [];
-  for (const gb of groupBounds) {
-    const groupId = `layer-${gb.li}`;
-    const layerColor = LAYER_COLORS[gb.li % LAYER_COLORS.length];
 
-    const groupX = globalMinX;
-    const groupY = gb.minY - GROUP_PAD_TOP;
-    const groupW = globalW;
-    const groupH = gb.maxY - gb.minY + GROUP_PAD_TOP + GROUP_PAD_BOTTOM;
+  for (const lb of layerBoundsList) {
+    const groupId = `layer-${lb.li}`;
+    const layerColor = LAYER_COLORS[lb.li % LAYER_COLORS.length];
 
     rfNodes.push({
       id: groupId,
       type: "archGroup",
-      position: { x: groupX, y: groupY },
-      data: { label: layers[gb.li].name, color: layerColor } satisfies ArchGroupData,
-      style: { width: groupW, height: groupH },
+      position: { x: lb.groupX, y: lb.groupY },
+      data: { label: layers[lb.li].name, color: layerColor } satisfies ArchGroupData,
+      style: { width: lb.groupW, height: lb.groupH, zIndex: -1 },
       selectable: false,
       draggable: false,
+      zIndex: -1,
     });
-
-    for (const entry of gb.entries) {
-      const absP = nodeAbsPos.get(entry.id)!;
-      const ctk = entry.comp.cardTypeKey;
-      const meta = ctk && typeMap ? typeMap.get(ctk) : undefined;
-      rfNodes.push({
-        id: entry.id,
-        type: "archNode",
-        position: { x: absP.x - groupX, y: absP.y - groupY },
-        parentId: groupId,
-        extent: "parent" as const,
-        data: {
-          name: entry.comp.name,
-          compType: entry.comp.type || "new",
-          category: entry.comp.category,
-          role: entry.comp.role,
-          product: entry.comp.product,
-          cardTypeKey: ctk,
-          cardTypeColor: meta?.color,
-          cardTypeIcon: meta?.icon,
-        } satisfies ArchNodeData,
-        style: { width: NODE_W, height: NODE_H },
-        draggable: false,
-      });
-    }
   }
 
-  // 6. Build edges with smart handle selection
+  for (const entry of allComps) {
+    const absP = nodeAbsPos.get(entry.id);
+    if (!absP) continue;
+    const ctk = entry.comp.cardTypeKey;
+    const meta = ctk && typeMap ? typeMap.get(ctk) : undefined;
+    rfNodes.push({
+      id: entry.id,
+      type: "archNode",
+      position: { x: absP.x, y: absP.y },
+      data: {
+        name: entry.comp.name,
+        compType: entry.comp.type || "new",
+        category: entry.comp.category,
+        role: entry.comp.role,
+        product: entry.comp.product,
+        cardTypeKey: ctk,
+        cardTypeColor: meta?.color,
+        cardTypeIcon: meta?.icon,
+      } satisfies ArchNodeData,
+      style: { width: NODE_W, height: NODE_H },
+      draggable: false,
+      zIndex: 1,
+    });
+  }
+
+  // 4. Build edges with smart handle selection
   const nodeLayerIdx = new Map(allComps.map(c => [c.id, c.layerIdx]));
   const rfEdges: Edge[] = resolvedEdges.map((re, i) => {
     const sPos = nodeAbsPos.get(re.sourceId);
@@ -560,6 +498,7 @@ function buildArchFlow(
       } satisfies ArchEdgeData,
       animated: false,
       markerEnd: { type: "arrowclosed" as const, color: "#888" },
+      zIndex: 2,
     };
   });
 
