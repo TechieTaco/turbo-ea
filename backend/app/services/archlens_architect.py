@@ -430,15 +430,31 @@ async def _load_relation_types_context(db: AsyncSession) -> str:
 
     lines = [
         "",
-        "=== METAMODEL RELATION TYPES ===",
-        "Use these exact keys for proposedRelations.relationType:",
+        "=== METAMODEL RELATION TYPES (STRICT — only these relations are allowed) ===",
+        "Each relation type defines which source card type can relate to which target card type.",
+        "You MUST only propose relations using these exact keys AND matching source/target types.",
+        "If a relation type says 'Application → ITComponent', you CANNOT use it between",
+        "BusinessCapability → ITComponent. Choose the card type that fits the available relations.",
         "",
     ]
+    # Group by source type for easier AI lookup
+    by_source: dict[str, list[str]] = {}
     for rt in rtypes:
-        lines.append(
-            f"- {rt.key}: {rt.source_type_key} → {rt.target_type_key} "
-            f'("{rt.label}" / "{rt.reverse_label}")'
-        )
+        entry = f'  - {rt.key}: → {rt.target_type_key} ("{rt.label}" / "{rt.reverse_label}")'
+        by_source.setdefault(rt.source_type_key, []).append(entry)
+
+    for src_type in sorted(by_source):
+        lines.append(f"[{src_type}] can relate to:")
+        lines.extend(by_source[src_type])
+        lines.append("")
+
+    lines.append(
+        "IMPORTANT: When deciding which cardTypeKey to assign a proposed card, "
+        "check which relation types connect it to other cards. For example, if "
+        "a capability needs to be 'supported by' a component and that relation "
+        "only exists from Application, then the component must be an Application, "
+        "not an ITComponent."
+    )
     lines.append("")
     return "\n".join(lines)
 
@@ -535,18 +551,6 @@ ALL REQUIREMENTS ({len(all_qa)} questions answered):
 EXISTING NODE IDs (use these exact IDs when referencing existing cards):
 {existing_id_map}
 
-CARD TYPE GUIDANCE (choose the right type for each proposed card):
-- "Application" (subtypes: Business Application, Microservice, AI Agent, Deployment):
-  Software that delivers business functionality — custom-built apps, configured business
-  systems, microservices, deployed workloads.
-- "ITComponent" (subtypes: Software, Hardware, SaaS, PaaS, IaaS, Service, AI Model):
-  Infrastructure and platform products that are bought, subscribed to, or run as-is —
-  databases, middleware, cloud services, COTS products, monitoring tools, AI models.
-- "Interface" (subtypes: Logical Interface, API, MCP Server):
-  Connection points between systems — APIs, integration endpoints, data feeds.
-- Use "Application" for custom apps and configured business systems.
-- Use "ITComponent" for COTS products, cloud services, infrastructure, databases, middleware.
-
 TASK: Determine which Business Capabilities are relevant, propose new cards
 that the architecture introduces, and define relations between them.
 {"Base the analysis on the SELECTED SOLUTION APPROACH above." if selected_option else ""}
@@ -557,11 +561,19 @@ RULES:
 2. For NEW capabilities/cards not in the landscape, generate a temporary id like
    "new_cap_1", "new_app_1", etc. Set "isNew": true.
 3. Every proposed card MUST have a valid "cardTypeKey" from the metamodel.
-4. Every proposed relation MUST use a valid "relationType" key from the relation
-   types list. The source and target types must match the relation type definition.
+4. CRITICAL — RELATION TYPE COMPLIANCE: Every proposed relation MUST use a valid
+   "relationType" key from the METAMODEL RELATION TYPES section. The source card's
+   cardTypeKey MUST match the relation type's source_type_key, and the target card's
+   cardTypeKey MUST match the relation type's target_type_key. Before assigning a
+   cardTypeKey to a proposed card, look up which relation types connect it to
+   other cards and choose the type that fits. For example, if a BusinessCapability
+   needs to be supported by a component and the only matching relation goes from
+   BusinessCapability to Application, then the component MUST be typed as Application.
 5. Include relations that connect proposed new cards to existing cards AND to each other.
 6. Be specific: name real products for recommended purchases, name existing systems for reuse.
 7. Provide a clear "rationale" for each new capability and card.
+8. Do NOT invent relation types. If no relation type exists between two card types,
+   do NOT propose that relation — restructure the card types instead.
 
 Respond with ONLY this JSON:
 {{
