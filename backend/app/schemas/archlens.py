@@ -63,6 +63,11 @@ class ArchLensCommitRequest(BaseModel):
     selected_card_ids: list[str] = Field(..., alias="selectedCardIds")
     selected_relation_indices: list[int] = Field(..., alias="selectedRelationIndices")
     objective_ids: list[str] = Field(default_factory=list, alias="objectiveIds")
+    renamed_cards: dict[str, str] = Field(
+        default_factory=dict,
+        alias="renamedCards",
+        description="Map of card ID → new name for cards renamed by the user",
+    )
 
 
 # ---------------------------------------------------------------------------

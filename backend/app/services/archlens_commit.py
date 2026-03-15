@@ -154,6 +154,7 @@ async def execute_commit(db: AsyncSession, run_id: str, data: dict[str, Any]) ->
     selected_card_ids = set(data["selected_card_ids"])
     selected_relation_indices = set(data["selected_relation_indices"])
     objective_ids = data.get("objective_ids", [])
+    renamed_cards: dict[str, str] = data.get("renamed_cards") or {}
     user_id = uuid.UUID(data["user_id"])
 
     # Load assessment
@@ -257,7 +258,7 @@ async def execute_commit(db: AsyncSession, run_id: str, data: dict[str, Any]) ->
 
         card_type_key = card_def.get("cardTypeKey", "Application")
         card_subtype = card_def.get("subtype")
-        card_name = card_def.get("name", "Unnamed")
+        card_name = renamed_cards.get(card_def["id"]) or card_def.get("name", "Unnamed")
 
         # AI-generate description
         card_desc = await _generate_description(db, card_name, card_type_key, card_subtype)

@@ -2319,11 +2319,17 @@ export default function ArchLensArchitect() {
                           capabilityMapping.capabilities.find(
                             (c) => c.id === rel.sourceId,
                           )?.name ||
+                          capabilityMapping.existingDependencies?.nodes.find(
+                            (n) => n.id === rel.sourceId,
+                          )?.name ||
                           rel.sourceId;
                         const tgtName =
                           tgtCard?.name ||
                           capabilityMapping.capabilities.find(
                             (c) => c.id === rel.targetId,
+                          )?.name ||
+                          capabilityMapping.existingDependencies?.nodes.find(
+                            (n) => n.id === rel.targetId,
                           )?.name ||
                           rel.targetId;
                         const relDisabled =
