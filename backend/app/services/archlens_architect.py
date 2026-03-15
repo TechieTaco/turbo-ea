@@ -606,8 +606,9 @@ ALL REQUIREMENTS ({len(all_qa)} questions answered):
 EXISTING NODE IDs (use these exact IDs when referencing existing cards):
 {existing_id_map}
 
-TASK: Determine which Business Capabilities are relevant, propose new cards
-that the architecture introduces, and define relations between them.
+TASK: Build a COMPLETE target architecture for this requirement. Propose new cards
+and ALL relations needed for a coherent, fully-connected architecture graph.
+The output must be ready to import into the EA tool — no missing connections.
 {"Base the analysis on the SELECTED SOLUTION APPROACH above." if selected_option else ""}
 
 RULES:
@@ -639,8 +640,12 @@ RULES:
     names (e.g. "Lead", "Customer", "Order"), NOT descriptive phrases like
     "Enriched Lead Data" or "Customer Profile Data". DataObjects represent
     data entities, not processes or states.
-11. CAPABILITIES — USER SELECTIONS: If TARGET BUSINESS CAPABILITIES are listed
-    above, use those exact names for capabilities. Do not rename them.
+11. CAPABILITIES — STRICTLY FROM USER SELECTIONS: The user has already selected
+    target capabilities in Business Requirements. Use ONLY those capabilities
+    (listed in TARGET BUSINESS CAPABILITIES above) plus any existing capabilities
+    already in the landscape. Do NOT invent new BusinessCapability cards.
+    If you think a capability is missing, fold it into the rationale of the
+    closest selected capability instead.
 12. CARD TYPE CLASSIFICATION:
     - Application: Business-facing software that users interact with or that delivers
       business logic (e.g. "Apollo", "SAP S/4HANA", "Salesforce CRM", a custom app).
@@ -657,19 +662,35 @@ RULES:
     KEY TEST: "Does a business user use this product directly?" → Application.
     "Is this infrastructure that developers/IT teams manage?" → ITComponent.
     "Is this a data flow or API between two systems?" → Interface.
-13. INTERFACE CONNECTIVITY: Every proposed Interface MUST have at least one
-    relAppToInterface relation connecting it to the Application that provides or
-    consumes it. Interfaces do not exist in isolation — they are integration points
-    OF applications. If an interface bridges App A and App B, create TWO
-    relAppToInterface relations: one from App A and one from App B.
-14. ARCHITECTURE COHERENCE — LAYERED GRAPH: The target architecture must form a
-    coherent, fully connected graph following EA layers:
-    a) BusinessCapability cards at the top, supported by Applications (relAppToBC)
-    b) Applications in the middle, connected to each other via Interfaces (relAppToInterface)
-    c) Applications using ITComponents for infrastructure (relAppToITC)
-    d) Interfaces transferring DataObjects where relevant (relInterfaceToDataObj)
-    Every proposed card MUST connect to at least one other card via a relation.
-    No orphan cards. Think: "what does this card connect to upstream and downstream?"
+13. INTERFACE CONNECTIVITY: Every Interface represents a data flow BETWEEN two
+    Applications. You MUST create TWO relAppToInterface relations for each
+    Interface — one from each endpoint Application. Example: for interface
+    "App A → App B Sync", create:
+      {{ sourceId: "app_a_id", targetId: "interface_id", relationType: "relAppToInterface" }}
+      {{ sourceId: "app_b_id", targetId: "interface_id", relationType: "relAppToInterface" }}
+    If one endpoint is an existing Application, use its existing ID.
+14. COMPLETENESS CHECKLIST — verify EVERY proposed card has all required relations:
+
+    For each APPLICATION:
+    - At least one relAppToBC connecting it to a BusinessCapability it supports
+    - A relProviderToApp from its vendor/Provider (create a Provider card if needed)
+    - At least one relAppToITC to the ITComponent it runs on or depends on
+      (the platform, runtime, or SaaS product — create the ITComponent if needed)
+    - relAppToInterface for each Interface it provides or consumes
+
+    For each INTERFACE:
+    - relAppToInterface from BOTH endpoint Applications (see rule 13)
+    - relInterfaceToDataObj if it transfers a specific data entity
+
+    For each ITCOMPONENT:
+    - At least one relAppToITC from the Application that uses it
+    - A relProviderToITC from its vendor if it is a commercial product
+
+    For each PROVIDER:
+    - At least one relProviderToApp or relProviderToITC
+
+    NO ORPHAN CARDS. Every card must have at least one relation.
+    Run through this checklist mentally before outputting your JSON.
 
 Respond with ONLY this JSON:
 {{
@@ -704,7 +725,7 @@ Respond with ONLY this JSON:
 }}"""  # noqa: E501
 
     persona = await _build_persona_with_principles(db)
-    result = await call_ai(db, prompt, 5000, persona)
+    result = await call_ai(db, prompt, 6000, persona)
     parsed: dict[str, Any] = parse_json(result["text"])
 
     # Attach existing dependency graph so frontend can merge
