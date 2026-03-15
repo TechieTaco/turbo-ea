@@ -857,6 +857,8 @@
   "archlens_analysis_started": "Analysis started",
   "archlens_architect_title": "Architecture AI",
   "archlens_architect_description": "Describe your business requirement and the AI will generate architecture recommendations based on your existing technology landscape.",
+  "archlens_architect_disclaimer_title": "AI-Assisted Assessment",
+  "archlens_architect_disclaimer_body": "This assessment leverages AI to generate recommendations, solution options, and a target architecture. It should be performed by a qualified IT professional (Enterprise Architect, Solution Architect, IT Leader) in collaboration with business stakeholders. The generated output requires professional judgment and may contain inaccuracies. Use the results as a starting point for further discussion and refinement.",
   "archlens_architect_requirement": "Business Requirement",
   "archlens_phase": "Phase",
   "archlens_architect_generate_questions": "Generate Questions",

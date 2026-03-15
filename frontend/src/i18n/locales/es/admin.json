@@ -857,6 +857,8 @@
   "archlens_analysis_started": "Análisis iniciado",
   "archlens_architect_title": "IA de Arquitectura",
   "archlens_architect_description": "Describa su requisito de negocio y la IA generará recomendaciones de arquitectura basadas en su panorama tecnológico existente.",
+  "archlens_architect_disclaimer_title": "Evaluación asistida por IA",
+  "archlens_architect_disclaimer_body": "Esta evaluación utiliza IA para generar recomendaciones, opciones de solución y una arquitectura objetivo. Debe ser realizada por un profesional de TI cualificado (arquitecto empresarial, arquitecto de soluciones, líder de TI) en colaboración con las partes interesadas del negocio. Los resultados generados requieren criterio profesional y pueden contener imprecisiones. Utilice los resultados como punto de partida para discusiones y refinamientos posteriores.",
   "archlens_architect_requirement": "Requisito de negocio",
   "archlens_phase": "Fase",
   "archlens_architect_generate_questions": "Generar preguntas",
