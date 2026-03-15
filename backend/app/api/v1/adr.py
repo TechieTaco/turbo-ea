@@ -101,6 +101,7 @@ async def _adr_to_dict(db: AsyncSession, adr: ArchitectureDecision) -> dict:
 def _adr_to_summary(
     adr: ArchitectureDecision,
     linked_cards: list[dict] | None = None,
+    creator_name: str | None = None,
 ) -> dict:
     """Lightweight dict for list endpoints."""
     return {
@@ -108,7 +109,9 @@ def _adr_to_summary(
         "reference_number": adr.reference_number,
         "title": adr.title,
         "status": adr.status,
+        "decision": adr.decision,
         "created_by": str(adr.created_by) if adr.created_by else None,
+        "creator_name": creator_name,
         "signatories": adr.signatories or [],
         "signed_at": adr.signed_at.isoformat() if adr.signed_at else None,
         "revision_number": adr.revision_number,
@@ -241,7 +244,24 @@ async def list_adrs(
         for row in cards_result.all():
             cards_map[row[0]].append({"id": str(row[1]), "name": row[2], "type": row[3]})
 
-    return [_adr_to_summary(adr, cards_map.get(adr.id)) for adr in rows]
+    # Bulk-fetch creator display names
+    creator_ids = {adr.created_by for adr in rows if adr.created_by}
+    creator_names: dict[uuid.UUID, str] = {}
+    if creator_ids:
+        users_result = await db.execute(
+            select(User.id, User.display_name).where(User.id.in_(creator_ids))
+        )
+        for uid, dname in users_result.all():
+            creator_names[uid] = dname
+
+    return [
+        _adr_to_summary(
+            adr,
+            cards_map.get(adr.id),
+            creator_names.get(adr.created_by) if adr.created_by else None,
+        )
+        for adr in rows
+    ]
 
 
 @router.post("", status_code=201)
@@ -331,8 +351,18 @@ async def delete_adr(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    await PermissionService.require_permission(db, user, "adr.delete")
     adr = await _get_adr(db, adr_id)
+
+    if adr.status != "draft":
+        raise HTTPException(400, "Only draft decisions can be deleted")
+
+    # Admin (adr.delete) can delete any draft; author needs adr.manage
+    has_delete = await PermissionService.check_permission(db, user, "adr.delete")
+    if not has_delete:
+        if adr.created_by != user.id:
+            raise HTTPException(403, "Only the author or an admin can delete a draft decision")
+        await PermissionService.require_permission(db, user, "adr.manage")
+
     await db.delete(adr)
     await db.commit()
 
