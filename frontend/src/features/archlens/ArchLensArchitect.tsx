@@ -30,6 +30,8 @@ import type {
   CardType,
 } from "@/types";
 import type { GNode, GEdge } from "@/features/reports/c4Layout";
+import Card from "@mui/material/Card";
+import CardContent from "@mui/material/CardContent";
 import {
   TYPE_COLORS,
   typeChipColor,
@@ -37,6 +39,7 @@ import {
   severityIcon,
   severityColor,
   effortColor,
+  approachColor,
   ARCHITECT_PHASES,
 } from "./utils";
 import ArchitectureDiagram from "./ArchitectureDiagram";
@@ -313,6 +316,154 @@ function ArchitectureResultView({ arch, onReset, onChooseDifferent, types }: { a
   );
 }
 
+// --- Option card component ---
+
+function OptionCard({
+  option,
+  onSelect,
+  loading,
+}: {
+  option: ArchSolutionOption;
+  onSelect: () => void;
+  loading: boolean;
+}) {
+  const { t } = useTranslation("admin");
+  const { types } = useMetamodel();
+
+  const typeInfo = (key: string) => types.find(tp => tp.key === key);
+
+  const impact = option.impactPreview;
+  const hasImpact = impact && (
+    (impact.newComponents?.length ?? 0) > 0 ||
+    (impact.modifiedComponents?.length ?? 0) > 0 ||
+    (impact.newIntegrations?.length ?? 0) > 0 ||
+    (impact.retiredComponents?.length ?? 0) > 0
+  );
+
+  return (
+    <Card variant="outlined" sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
+      <CardContent sx={{ flex: 1 }}>
+        <Stack direction="row" justifyContent="space-between" alignItems="flex-start" sx={{ mb: 1 }}>
+          <Typography variant="subtitle1" fontWeight={700}>{option.title}</Typography>
+          <Chip
+            label={t(`archlens_architect_approach_${option.approach}`)}
+            size="small"
+            color={approachColor(option.approach)}
+            sx={{ fontWeight: 600, textTransform: "capitalize" }}
+          />
+        </Stack>
+
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5, lineHeight: 1.6 }}>
+          {option.summary}
+        </Typography>
+
+        <Stack spacing={0.3} sx={{ mb: 1.5 }}>
+          {option.pros?.map((p, i) => (
+            <Typography key={`p${i}`} variant="caption" sx={{ color: "success.main" }}>+ {p}</Typography>
+          ))}
+          {option.cons?.map((c, i) => (
+            <Typography key={`c${i}`} variant="caption" color="text.secondary">- {c}</Typography>
+          ))}
+        </Stack>
+
+        <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap sx={{ mb: 1.5 }}>
+          {option.estimatedCost && <Chip label={option.estimatedCost} size="small" variant="outlined" sx={{ fontSize: 10, height: 20 }} />}
+          {option.estimatedDuration && <Chip label={option.estimatedDuration} size="small" variant="outlined" sx={{ fontSize: 10, height: 20 }} />}
+          {option.estimatedComplexity && <Chip label={option.estimatedComplexity.replace("_", " ")} size="small" color={effortColor(option.estimatedComplexity === "very_high" ? "high" : option.estimatedComplexity)} variant="outlined" sx={{ fontSize: 10, height: 20 }} />}
+        </Stack>
+
+        {hasImpact && (
+          <Box sx={{ borderTop: 1, borderColor: "divider", pt: 1.5 }}>
+            <Typography variant="overline" color="text.secondary" sx={{ fontSize: 10, mb: 1, display: "block" }}>
+              {t("archlens_architect_impact_preview")}
+            </Typography>
+
+            {(impact.newComponents?.length ?? 0) > 0 && (
+              <Box sx={{ mb: 1 }}>
+                <Typography variant="caption" fontWeight={600} color="primary" sx={{ display: "block", mb: 0.3 }}>
+                  + {t("archlens_architect_new_components")}
+                </Typography>
+                {impact.newComponents.map((c, i) => {
+                  const ti = typeInfo(c.cardTypeKey);
+                  return (
+                    <Stack key={i} direction="row" spacing={0.5} alignItems="center" sx={{ ml: 1, mb: 0.3 }}>
+                      {ti && <MaterialSymbol icon={ti.icon} size={14} color={ti.color} />}
+                      <Typography variant="caption">{c.name}</Typography>
+                      {c.subtype && <Typography variant="caption" color="text.secondary">({c.subtype})</Typography>}
+                    </Stack>
+                  );
+                })}
+              </Box>
+            )}
+
+            {(impact.modifiedComponents?.length ?? 0) > 0 && (
+              <Box sx={{ mb: 1 }}>
+                <Typography variant="caption" fontWeight={600} color="warning.main" sx={{ display: "block", mb: 0.3 }}>
+                  ~ {t("archlens_architect_modified_components")}
+                </Typography>
+                {impact.modifiedComponents.map((c, i) => {
+                  const ti = typeInfo(c.cardTypeKey);
+                  return (
+                    <Stack key={i} direction="row" spacing={0.5} alignItems="center" sx={{ ml: 1, mb: 0.3 }}>
+                      {ti && <MaterialSymbol icon={ti.icon} size={14} color={ti.color} />}
+                      <Typography variant="caption">{c.name}</Typography>
+                      {c.change && <Typography variant="caption" color="text.secondary">— {c.change}</Typography>}
+                    </Stack>
+                  );
+                })}
+              </Box>
+            )}
+
+            {(impact.newIntegrations?.length ?? 0) > 0 && (
+              <Box sx={{ mb: 1 }}>
+                <Typography variant="caption" fontWeight={600} sx={{ display: "block", mb: 0.3, color: "#0f7eb5" }}>
+                  {t("archlens_architect_new_integrations")}
+                </Typography>
+                {impact.newIntegrations.map((intg, i) => (
+                  <Stack key={i} direction="row" spacing={0.5} alignItems="center" sx={{ ml: 1, mb: 0.3 }}>
+                    <Typography variant="caption">{intg.from}</Typography>
+                    <MaterialSymbol icon="arrow_forward" size={12} color="#999" />
+                    <Typography variant="caption">{intg.to}</Typography>
+                    {intg.protocol && <Chip label={intg.protocol} size="small" variant="outlined" sx={{ fontSize: 9, height: 16, ml: 0.5 }} />}
+                  </Stack>
+                ))}
+              </Box>
+            )}
+
+            {(impact.retiredComponents?.length ?? 0) > 0 && (
+              <Box sx={{ mb: 1 }}>
+                <Typography variant="caption" fontWeight={600} color="error" sx={{ display: "block", mb: 0.3 }}>
+                  - {t("archlens_architect_retired_components")}
+                </Typography>
+                {impact.retiredComponents.map((c, i) => {
+                  const ti = typeInfo(c.cardTypeKey);
+                  return (
+                    <Stack key={i} direction="row" spacing={0.5} alignItems="center" sx={{ ml: 1, mb: 0.3 }}>
+                      {ti && <MaterialSymbol icon={ti.icon} size={14} color={ti.color} />}
+                      <Typography variant="caption" sx={{ textDecoration: "line-through" }}>{c.name}</Typography>
+                    </Stack>
+                  );
+                })}
+              </Box>
+            )}
+          </Box>
+        )}
+      </CardContent>
+      <Box sx={{ px: 2, pb: 2 }}>
+        <Button
+          variant="contained"
+          fullWidth
+          onClick={onSelect}
+          disabled={loading}
+          startIcon={loading ? <CircularProgress size={16} /> : <MaterialSymbol icon="check" size={18} />}
+        >
+          {t("archlens_architect_select_option")}
+        </Button>
+      </Box>
+    </Card>
+  );
+}
+
 // --- Session persistence ---
 const SESSION_KEY = "archlens-architect-session";
 
@@ -500,12 +651,14 @@ export default function ArchLensArchitect() {
         setPhase1Answers(qa);
       }
       if (phase === 3) {
-        // Phase 3a: capability mapping with objectives
+        // Phase 3a: capability mapping + solution options
         const phase2qa = archQuestions.map(q => ({ question: q.question, answer: q.answer }));
         payload.allQA = [...phase1Answers, ...phase2qa];
         payload.objectiveIds = selectedObjectives.map(o => o.id);
         const result = await api.post<CapabilityMappingResult>("/archlens/architect/phase3/options", payload);
         setCapabilityMapping(result);
+        const options = result.options as ArchSolutionOption[] | undefined;
+        setArchOptions(Array.isArray(options) ? options : []);
         setArchPhase(3);
         setArchQuestions([]);
         setArchLoading(false);
@@ -538,6 +691,11 @@ export default function ArchLensArchitect() {
 
   const handleAnswerChange = (index: number, value: string) => {
     setArchQuestions(prev => prev.map((q, i) => i === index ? { ...q, answer: value } : q));
+  };
+
+  const selectOption = (optionId: string) => {
+    setSelectedOptionId(optionId);
+    runPhase(4);
   };
 
   const allAnswered = archQuestions.length > 0 && archQuestions.every(q => q.answer.trim());
@@ -848,6 +1006,26 @@ export default function ArchLensArchitect() {
                     />
                   </Box>
                 </Paper>
+              )}
+
+              {/* Solution options */}
+              {archOptions && archOptions.length > 0 && (
+                <>
+                  <Typography variant="subtitle2" sx={{ mb: 2 }}>
+                    {t("archlens_architect_options_intro")}
+                  </Typography>
+                  <Grid container spacing={2} sx={{ mb: 2 }}>
+                    {archOptions.map((option) => (
+                      <Grid item xs={12} md={6} key={option.id}>
+                        <OptionCard
+                          option={option}
+                          onSelect={() => selectOption(option.id)}
+                          loading={archLoading}
+                        />
+                      </Grid>
+                    ))}
+                  </Grid>
+                </>
               )}
 
               <Stack direction="row" spacing={2}>

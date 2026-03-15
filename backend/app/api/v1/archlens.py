@@ -610,7 +610,10 @@ async def architect_phase3_options(
 
     from app.models.relation import Relation
     from app.models.relation_type import RelationType
-    from app.services.archlens_architect import phase3_capability_mapping
+    from app.services.archlens_architect import (
+        phase3_capability_mapping,
+        phase3_options,
+    )
 
     qa_list = body.all_qa if isinstance(body.all_qa, list) else []
     obj_ids = body.objective_ids or []
@@ -690,7 +693,10 @@ async def architect_phase3_options(
 
             dep_graph = {"nodes": dep_nodes, "edges": dep_edges}
 
-    return await phase3_capability_mapping(db, body.requirement, qa_list, obj_ids, dep_graph)
+    cap_result = await phase3_capability_mapping(db, body.requirement, qa_list, obj_ids, dep_graph)
+    options_result = await phase3_options(db, body.requirement, qa_list)
+    cap_result["options"] = options_result.get("options", [])
+    return cap_result
 
 
 @router.post("/architect/phase3")
