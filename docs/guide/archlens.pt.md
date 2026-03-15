@@ -183,34 +183,34 @@ Após revisar a arquitetura-alvo, tem duas opções:
 
 **Guardar avaliação** — Guarda a avaliação para revisão posterior através do separador «Avaliações». As avaliações guardadas podem ser consultadas por qualquer utilizador com a permissão `archlens.view`.
 
-**Confirmar e criar iniciativa** — Converte a proposta de arquitetura em cartões reais no seu panorama:
+**Confirmar e criar iniciativa** — Converte a proposta de arquitetura em cards reais no seu panorama:
 
 - **Nome da iniciativa** é pré-preenchido com o título da opção de solução selecionada (editável antes da criação)
 - **Datas de início/fim** para o cronograma da iniciativa
-- **Novos cartões propostos** com interruptores para incluir ou excluir cartões individuais, e ícones de edição para renomear cartões antes da criação. Esta lista inclui novas Business Capabilities identificadas durante a avaliação.
+- **Novos cards propostos** com interruptores para incluir ou excluir cards individuais, e ícones de edição para renomear cards antes da criação. Esta lista inclui novas Business Capabilities identificadas durante a avaliação.
 - **Relações propostas** com interruptores para incluir ou excluir
-- Um indicador de progresso mostra o estado de criação (iniciativa → cartões → relações → ADR)
-- Em caso de sucesso, um link abre o novo cartão de Iniciativa
+- Um indicador de progresso mostra o estado de criação (iniciativa → cards → relações → ADR)
+- Em caso de sucesso, um link abre o novo card de Iniciativa
 
-### Barreiras arquitetónicas
+### Salvaguardas arquitetónicas
 
 O sistema garante automaticamente a integridade arquitetónica:
 
 - Cada nova aplicação é ligada a pelo menos uma Business Capability
 - Cada nova Business Capability é ligada aos objetivos de negócio selecionados
-- Cartões sem relações (órfãos) são automaticamente removidos da proposta
+- Cards sem relações (órfãos) são automaticamente removidos da proposta
 
 ### Architecture Decision Record
 
 Um rascunho de ADR é criado automaticamente juntamente com a iniciativa com:
 
-- **Contexto** do resumo do mapeamento de capabilities
+- **Contexto** do resumo do mapeamento de capacidades
 - **Decisão** capturando a abordagem e os produtos selecionados
 - **Alternativas consideradas** das opções de solução não selecionadas
 
 ### Mudar abordagem
 
-Clique em **Escolher Diferente** para selecionar uma opção de solução diferente. A avaliação é reavaliada e guardada com dados atualizados, permitindo comparar abordagens antes de confirmar.
+Clique em **Escolher Diferente** para selecionar uma opção de solução diferente. Os resultados são recalculados e guardados com dados atualizados, permitindo comparar abordagens antes de confirmar.
 
 ## Histórico de Análises
 

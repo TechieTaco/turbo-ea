@@ -210,7 +210,7 @@ Un brouillon d'ADR est automatiquement créé avec l'initiative, comprenant :
 
 ### Changer d'approche
 
-Cliquez sur **Choisir une autre option** pour sélectionner une option de solution différente. L'évaluation est réévaluée et re-sauvegardée avec les données mises à jour, vous permettant de comparer les approches avant de valider.
+Cliquez sur **Choisir une autre option** pour sélectionner une option de solution différente. L'évaluation est réévaluée et sauvegardée à nouveau avec les données mises à jour, vous permettant de comparer les approches avant de valider.
 
 ## Historique des analyses
 

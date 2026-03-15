@@ -192,7 +192,7 @@ Después de revisar la arquitectura objetivo, tiene dos opciones:
 - Un indicador de progreso muestra el estado de creación (iniciativa → tarjetas → relaciones → ADR)
 - En caso de éxito, un enlace abre la nueva tarjeta de Iniciativa
 
-### Barandillas arquitectónicas
+### Salvaguardas arquitectónicas
 
 El sistema aplica automáticamente la integridad arquitectónica:
 
@@ -204,13 +204,13 @@ El sistema aplica automáticamente la integridad arquitectónica:
 
 Un borrador de ADR se crea automáticamente junto con la iniciativa con:
 
-- **Contexto** del resumen del mapeo de capabilities
+- **Contexto** del resumen del mapeo de capacidades
 - **Decisión** que captura el enfoque y los productos seleccionados
 - **Alternativas consideradas** de las opciones de solución no seleccionadas
 
 ### Cambiar enfoque
 
-Haga clic en **Choose Different** para seleccionar una opción de solución diferente. La evaluación se reevalúa y se guarda de nuevo con datos actualizados, permitiéndole comparar enfoques antes de confirmar.
+Haga clic en **Choose Different** para seleccionar una opción de solución diferente. Los resultados se recalculan y se guardan con datos actualizados, permitiéndole comparar enfoques antes de confirmar.
 
 ## Historial de Análisis
 
