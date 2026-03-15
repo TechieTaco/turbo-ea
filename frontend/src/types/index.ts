@@ -1244,6 +1244,7 @@ export interface ArchComponent {
   role?: string;
   notes?: string;
   existsInLandscape?: boolean;
+  cardTypeKey?: string;
 }
 
 export interface ArchLayer {
@@ -1307,4 +1308,102 @@ export interface ArchitectureResult {
   // Legacy flat fields
   architecture?: string;
   diagram?: string;
+}
+
+export interface ArchOptionImpactComponent {
+  name: string;
+  cardTypeKey: string;
+  subtype?: string;
+  role?: string;
+  change?: string;
+}
+
+export interface ArchOptionImpact {
+  newComponents: ArchOptionImpactComponent[];
+  modifiedComponents: ArchOptionImpactComponent[];
+  newIntegrations: Array<{ from: string; to: string; protocol?: string }>;
+  retiredComponents: ArchOptionImpactComponent[];
+}
+
+export interface ArchSolutionOption {
+  id: string;
+  title: string;
+  approach: "buy" | "build" | "extend" | "reuse";
+  summary: string;
+  estimatedCost?: string;
+  estimatedDuration?: string;
+  estimatedComplexity?: string;
+  pros?: string[];
+  cons?: string[];
+  impactPreview: ArchOptionImpact;
+}
+
+export interface ArchOptionsResult {
+  summary?: string;
+  options: ArchSolutionOption[];
+}
+
+// --- Capability mapping (Phase 3a dependency-aware) ---
+
+export interface CapabilityMapping {
+  id: string;
+  name: string;
+  isNew: boolean;
+  existingCardId?: string;
+  rationale?: string;
+}
+
+export interface ProposedCard {
+  id: string;
+  name: string;
+  cardTypeKey: string;
+  subtype?: string;
+  isNew: boolean;
+  rationale?: string;
+}
+
+export interface ProposedRelation {
+  sourceId: string;
+  targetId: string;
+  relationType: string;
+  label?: string;
+}
+
+export interface CapabilityMappingResult {
+  summary?: string;
+  capabilities: CapabilityMapping[];
+  proposedCards: ProposedCard[];
+  proposedRelations: ProposedRelation[];
+  existingDependencies?: {
+    nodes: { id: string; name: string; type: string; lifecycle?: Record<string, string>; attributes?: Record<string, unknown>; parent_id?: string | null; path?: string[] }[];
+    edges: { source: string; target: string; type: string; label?: string; reverse_label?: string }[];
+  };
+}
+
+export interface GapAnalysisResult {
+  summary?: string;
+  gaps: ArchGap[];
+}
+
+export interface ArchDependencyOption {
+  name: string;
+  vendor?: string;
+  why?: string;
+  pros?: string[];
+  cons?: string[];
+  estimatedCost?: string;
+  integrationEffort?: string;
+  recommended?: boolean;
+}
+
+export interface ArchDependency {
+  need: string;
+  reason?: string;
+  urgency?: string;
+  options?: ArchDependencyOption[];
+}
+
+export interface DependencyAnalysisResult {
+  summary?: string;
+  dependencies: ArchDependency[];
 }

@@ -327,3 +327,84 @@ def _salvage_objects(text: str) -> list[dict[str, Any]]:
                         pass
                 start = -1
     return results
+
+
+# ---------------------------------------------------------------------------
+# EA Principles loader + prompt formatter
+# ---------------------------------------------------------------------------
+
+
+async def load_active_principles(db: AsyncSession) -> list[dict[str, str]]:
+    """Load active EA principles ordered by sort_order."""
+    from app.models.ea_principle import EAPrinciple
+
+    result = await db.execute(
+        select(EAPrinciple)
+        .where(EAPrinciple.is_active.is_(True))
+        .order_by(EAPrinciple.sort_order, EAPrinciple.created_at)
+    )
+    return [
+        {
+            "title": p.title,
+            "description": p.description or "",
+            "rationale": p.rationale or "",
+            "implications": p.implications or "",
+        }
+        for p in result.scalars().all()
+    ]
+
+
+def format_principles_block(principles: list[dict[str, str]]) -> str:
+    """Format principles as a prompt section. Returns empty string if none."""
+    if not principles:
+        return ""
+    lines = [
+        "",
+        "=== ORGANISATION EA PRINCIPLES ===",
+        "The following principles MUST guide all your recommendations, assessments,",
+        "and architectural decisions. Prefer solutions that align with these principles",
+        "and flag when a recommendation conflicts with any principle.",
+        "",
+    ]
+    for i, p in enumerate(principles, 1):
+        lines.append(f"Principle {i}: {p['title']}")
+        if p["description"]:
+            lines.append(f"  Description: {p['description']}")
+        if p["rationale"]:
+            lines.append(f"  Rationale: {p['rationale']}")
+        if p["implications"]:
+            lines.append(f"  Implications: {p['implications']}")
+        lines.append("")
+    return "\n".join(lines)
+
+
+def format_principles_block_advisory(principles: list[dict[str, str]]) -> str:
+    """Format principles as an advisory prompt section for modernization.
+
+    Uses softer language than ``format_principles_block`` so that principles
+    shape *recommendations* without narrowing *detection scope*.  Returns
+    empty string when no principles are provided.
+    """
+    if not principles:
+        return ""
+    lines = [
+        "",
+        "=== ORGANISATION EA PRINCIPLES (advisory) ===",
+        "Consider these principles when shaping your recommendations, but they",
+        "should NOT narrow your detection scope. Your PRIMARY task is identifying",
+        "legacy systems and modernization opportunities based on age, technical",
+        "debt, and industry trends. Use principles to guide the *direction* of",
+        "recommendations (e.g. which target architecture to suggest), not to",
+        "filter *which* items to assess.",
+        "",
+    ]
+    for i, p in enumerate(principles, 1):
+        lines.append(f"Principle {i}: {p['title']}")
+        if p["description"]:
+            lines.append(f"  Description: {p['description']}")
+        if p["rationale"]:
+            lines.append(f"  Rationale: {p['rationale']}")
+        if p["implications"]:
+            lines.append(f"  Implications: {p['implications']}")
+        lines.append("")
+    return "\n".join(lines)

@@ -22,7 +22,13 @@ from app.models.archlens import (
 from app.models.card import Card
 from app.models.relation import Relation
 from app.models.relation_type import RelationType
-from app.services.archlens_ai import call_ai, parse_json
+from app.services.archlens_ai import (
+    call_ai,
+    format_principles_block,
+    format_principles_block_advisory,
+    load_active_principles,
+    parse_json,
+)
 
 logger = logging.getLogger("turboea.archlens.duplicates")
 
@@ -158,6 +164,9 @@ async def detect_duplicates(
     target_types = card_types or ["Application", "ITComponent", "Interface"]
     type_map = await _load_cards_by_type(db, target_types)
 
+    principles = await load_active_principles(db)
+    principles_block = format_principles_block(principles)
+
     all_clusters: list[dict[str, Any]] = []
     batch_sz = 40
 
@@ -195,7 +204,7 @@ INSTRUCTIONS:
 - functional_domain: what they ALL do
 - evidence: concrete reasons they are duplicates
 - recommendation: which to KEEP and why, what to RETIRE
-
+{principles_block}
 Items to analyse ({card_type}):
 {batch_input}
 
@@ -262,6 +271,9 @@ async def assess_modernization(
     if not items:
         return {"assessments": 0, "targetType": target_type}
 
+    principles = await load_active_principles(db)
+    principles_block = format_principles_block_advisory(principles)
+
     year = datetime.now().year
     modern_context = {
         "Interface": f"Focus on: Event-driven architecture, API modernization (REST\u2192GraphQL, gRPC), AsyncAPI, Service Mesh. In {year} the trend is replacing synchronous integrations with event-driven patterns.",  # noqa: E501
@@ -289,14 +301,21 @@ async def assess_modernization(
             ]
         )
 
-        prompt = f"""You are a principal enterprise architect performing modernization assessment in {year}. # noqa: E501
+        prompt = f"""You are a principal enterprise architect performing modernization assessment in {year}.
+
+Your PRIMARY objective is to identify modernization opportunities. Flag items that:
+- Use outdated, end-of-life, or soon-to-be-unsupported technologies
+- Have poor technical fit scores
+- Are in late lifecycle phases (end of life, phase out, retire)
+- Rely on legacy architectural patterns (monoliths, on-premise-only, tightly coupled)
+- Have known security, scalability, or maintainability concerns
 
 Assess these {target_type} cards for modernization opportunities.
 Focus: {modernization_type}
 Technology context: {modern_context}
-
+{principles_block}
 For each item with a genuine modernization opportunity, provide an assessment.
-Skip items that are already modern or have no clear opportunity.
+Only skip items that are clearly modern with no technical debt.
 
 Items:
 {batch_input}

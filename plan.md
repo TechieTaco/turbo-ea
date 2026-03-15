@@ -1,318 +1,138 @@
-# Plan: Absorb ArchLens into Turbo EA
+# Plan: Architect Flow Improvements
 
-## Goal
+## 1. Move Objective + Capability Selection to Phase 0 (Business Requirements)
 
-Eliminate the separate ArchLens Node.js/Express/SQLite container. All ArchLens functionality becomes native Turbo EA — FastAPI backend, PostgreSQL, React/MUI 6 frontend, full i18n, RBAC, and async patterns. No more proxy layer, no more `archlens_service.py` HTTP client, no more `ArchLensClient`.
+Currently objectives are selected at the end of Phase 2. Move them to Phase 0 alongside the requirement input, creating a proper "Business Requirements" phase.
+
+### Backend Changes
+
+**New endpoint: `GET /archlens/architect/capabilities`** in `backend/app/api/v1/archlens.py`
+- Searches `BusinessCapability` cards (type = "BusinessCapability", not archived)
+- Returns `{id, name, description}` like the objectives endpoint
+- Accepts optional `?search=` query parameter
+
+**Update `ArchLensArchitectRequest`** in `backend/app/schemas/archlens.py`
+- Add `selected_capabilities: list[dict] | None = Field(None, alias="selectedCapabilities")`
+- Each capability dict: `{id: str, name: str, isNew: bool}`
+
+**Update Phase 1 prompt** in `archlens_architect.py`
+- Accept `objective_ids` and `selected_capabilities` parameters
+- Load objective context + format capabilities context
+- Include in Phase 1 prompt so AI tailors questions around these
+
+**Thread capabilities through all subsequent phases**
+- Pass `selected_capabilities` to Phase 2, 3a, 3b, Phase 5
+- Phase 5 already receives objectives; now also gets the user-selected capabilities so it knows which ones are existing vs new
+
+### Frontend Changes (`ArchLensArchitect.tsx`)
+
+**Phase 0 UI expansion** — after the requirement TextField:
+1. Objective selection Autocomplete (moved from Phase 2)
+2. Capability selection: Autocomplete with `freeSolo` — user can pick existing BusinessCapability cards OR type new ones
+3. Store in session state: `selectedObjectives`, `selectedCapabilities: {id, name, isNew}[]`
+4. "Generate Questions" button requires: requirement text + at least 1 objective
+
+**Remove from Phase 2**: The objective selection Paper block (lines ~1293-1348) and the `selectedObjectives.length === 0` disable condition on the Phase 2 submit button.
+
+**Pass to all API calls**: Include `objectiveIds` and `selectedCapabilities` in Phase 1, 2, 3a, 3b, and 5 payloads.
+
+### Session State Changes
+- Add `selectedCapabilities` to `ArchSession` interface
+- Initialize from saved session on mount
+- Persist via `saveSession()`
 
 ---
 
-## Current State
+## 2. Fix Phase 5 Naming Issues (Hallucinated Card Names)
 
-### What exists in standalone ArchLens (Node.js + SQLite)
-- **7 SQLite tables**: `fact_sheets`, `vendor_analysis`, `vendor_hierarchy`, `duplicate_clusters`, `modernization_assessments`, `sync_jobs`, `cron_schedules`, `settings`, `workspaces`
-- **3 AI services**: Vendor categorisation (`ai.js`), Vendor resolution (`resolution.js`), Architecture AI 3-phase (`architect.js`)
-- **4 AI providers**: Claude, OpenAI, DeepSeek, Gemini — via direct HTTP calls to provider APIs
-- **9 frontend pages**: Connect, Overview, FSI, Vendors, Resolution, Duplicates, Architect, Settings, Support
-- **SSE streaming**: Real-time progress for sync, vendor analysis, resolution, duplicate detection
+The core problem: the AI invents card names like "HubSpot Enhanced" instead of referencing the existing "HubSpot Marketing", and creates verbose DataObject names like "Enriched Lead Data" instead of clean domain concepts like "Lead".
 
-### What exists in Turbo EA integration today
-- **2 PostgreSQL tables**: `archlens_connections`, `archlens_analysis_runs` (proxy metadata only)
-- **Backend proxy**: `archlens.py` routes -> `ArchLensClient` HTTP calls -> standalone ArchLens container
-- **Frontend**: Single `ArchLensPage.tsx` with 4 tabs (Vendors, Duplicates, Architect, History)
-- **Permissions**: `archlens.view`, `archlens.manage`
+### Root Cause
+The compact landscape context only lists card names (up to 10 per type). The AI doesn't have the full card list for matching, especially for DataObjects and Applications. Additionally, the prompt doesn't tell the AI to reuse existing card names or use clean domain naming.
+
+### Fix: Expand the context + add naming rules
+
+**In `phase3_capability_mapping`** (`archlens_architect.py`):
+
+1. **Load ALL existing cards** (not just the dependency subgraph) for the relevant types. Add a helper `_load_existing_cards_context()` that queries all non-archived cards of types Application, DataObject, Interface, ITComponent, BusinessCapability and formats them as a lookup list:
+   ```
+   === ALL EXISTING CARDS (use these names — do NOT invent variants) ===
+   [Application]: HubSpot Marketing, NexaCore ERP, Salesforce CRM, ...
+   [DataObject]: Customer, Order, Product, Lead, ...
+   [Interface]: SAP-HubSpot API, ...
+   ```
+
+2. **Add strict naming rules to the prompt**:
+   - Rule: "If an existing card matches what you need (same product, same concept), reference it by its EXACT existing name and mark isNew: false. Do NOT create variants like 'X Enhanced' or 'X Extended'."
+   - Rule: "For DataObjects, use clean domain entity names (e.g. 'Lead', 'Customer', 'Order'), NOT descriptive phrases like 'Enriched Lead Data' or 'Customer Profile Data'."
+   - Rule: "If you need a card that extends or enhances an existing system, reference the EXISTING card and explain the enhancement in the rationale field."
+
+3. **Feed user-selected capabilities** into the prompt so the AI uses those exact names for BusinessCapability cards.
 
 ---
 
-## Architecture Decision
+## 3. Redesign UI Progress Indicator
 
-**ArchLens's `fact_sheets` table is unnecessary.** Turbo EA already has the `cards` table with the same data (name, type, description, lifecycle, owner, cost, etc.). All ArchLens AI services should query `cards` directly via SQLAlchemy — no data copy, no sync step.
+Replace the simple chip row with a proper horizontal stepper grouped into named phases.
 
-**ArchLens's AI provider logic duplicates Turbo EA's.** Turbo EA already has `ai_service.py` that calls external LLMs. The new ArchLens services should reuse the same AI infrastructure (read provider/key from `app_settings`, call via httpx).
-
-**ArchLens's "workspace" concept maps to "the entire Turbo EA instance."** There is only one landscape — no need for workspace routing.
-
----
-
-## Phase 1: Backend — New PostgreSQL Tables + Alembic Migration
-
-### New tables (replace all SQLite tables)
+### Phase Structure
 
 ```
-archlens_vendor_analysis        — AI-categorised vendors
-archlens_vendor_hierarchy       — Canonical vendor tree (vendor -> product -> module)
-archlens_duplicate_clusters     — Duplicate detection results
-archlens_modernization_assessments — Modernization recommendations
+Business Requirements → Business Fit → Technical Fit → Solution Architecture → Target Architecture
+     (Phase 0)          (Phase 1)      (Phase 2)       (3a, 3b, 3c)              (Phase 5)
 ```
 
-Keep existing `archlens_analysis_runs` (remove FK to connections, make standalone).
-Drop `archlens_connections` (no longer needed — no external container).
+Detailed sub-phases within Solution Architecture:
+- Solution Options (3a)
+- Products (3b/gaps)
+- Dependencies (3c)
 
-**Migration**: `058_archlens_native.py`
-- Create 4 new tables
-- Alter `archlens_analysis_runs`: drop FK to connections, add nullable columns
-- Drop `archlens_connections` table
+### Implementation
 
-### New SQLAlchemy models
-
-`backend/app/models/archlens.py` — replace current proxy models:
-
-| Model | Key Columns |
-|-------|-------------|
-| `ArchLensVendorAnalysis` | vendor_name (unique), category, sub_category, reasoning, app_count, total_cost, app_list (JSONB), analysed_at |
-| `ArchLensVendorHierarchy` | canonical_name (unique), vendor_type (vendor/product/platform/module), parent_id (self-ref), aliases (JSONB), category, sub_category, app_count, itc_count, total_cost, linked_fs (JSONB), confidence, analysed_at |
-| `ArchLensDuplicateCluster` | cluster_name, card_type, functional_domain, card_ids (JSONB), card_names (JSONB), evidence, recommendation, status (pending/confirmed/investigating/dismissed), analysed_at |
-| `ArchLensModernization` | target_type, cluster_id (FK), card_id (FK nullable), card_name, current_tech, modernization_type, recommendation, effort, priority, status, analysed_at |
-| `ArchLensAnalysisRun` | (keep existing, remove connection_id FK) analysis_type, status, started_at, completed_at, results (JSONB), error_message, created_by |
-
----
-
-## Phase 2: Backend — AI Services (Python rewrite)
-
-### New service files
-
-#### `backend/app/services/archlens_ai.py` — Shared AI caller
-
-Reuse Turbo EA's existing AI config from `app_settings.general_settings.ai`:
-- Read `providerType` (anthropic/openai) and `apiKey` from DB
-- Support Claude, OpenAI, DeepSeek, Gemini (same 4 providers as current ArchLens)
-- Return `{text, truncated}` with truncation detection
-- `parse_json(raw)` utility with truncated JSON repair
-
-This replaces ArchLens's `callAI()` function from `architect.js`.
-
-#### `backend/app/services/archlens_vendors.py` — Vendor Analysis
-
-Port `ai.js` -> `analyse_vendors()`:
-1. Query all cards with Provider relations from `cards` table (replaces `fact_sheets` query)
-2. Extract distinct vendor names from provider relation names
-3. Call AI to categorise vendors into 40+ categories (same prompt as current)
-4. Upsert results into `archlens_vendor_analysis`
-5. Return categorised vendors
-
-Port `resolution.js` -> `resolve_vendors()`:
-1. Load vendor analysis results + card data
-2. Call AI to build canonical vendor hierarchy (vendor -> product -> platform -> module)
-3. Upsert into `archlens_vendor_hierarchy`
-4. Return hierarchy tree
-
-#### `backend/app/services/archlens_duplicates.py` — Duplicate Detection
-
-Port duplicate detection logic:
-1. Query cards by type from `cards` table
-2. Group by type (Application, ITComponent, Interface)
-3. Call AI with card names + descriptions for semantic clustering
-4. Store clusters in `archlens_duplicate_clusters`
-5. Return clusters with evidence + recommendations
-
-Port modernization assessment:
-1. For selected duplicate clusters, call AI for modernization recommendations
-2. Store in `archlens_modernization_assessments`
-
-#### `backend/app/services/archlens_architect.py` — Architecture AI
-
-Port the 3-phase architect from `architect.js`:
-
-**`load_landscape()`**: Query cards from `cards` table with vendor/provider relations (replaces `fact_sheets` + `vendor_analysis` queries). Group by category for landscape context.
-
-**`phase1_questions(requirement)`**: Same prompt structure — detect architecture patterns, generate 6-8 business clarification questions.
-
-**`phase2_questions(requirement, phase1_qa)`**: Same prompt — refine requirement, identify missing capabilities, generate NFR + technical questions.
-
-**`phase3_architecture(requirement, all_qa)`**: Two-call pattern (already implemented in current fix):
-- Call 1: Structure (layers, gaps, integrations, risks, nextSteps) — 8K tokens
-- Call 2: Mermaid diagram — 4K tokens
-- Truncation detection + retry for missing sections
-- Cross-reference components against landscape
-
----
-
-## Phase 3: Backend — API Routes
-
-### Replace `backend/app/api/v1/archlens.py`
-
-Remove all proxy logic and `ArchLensClient`. New direct endpoints:
-
-**Status & Overview**
-| Method | Path | Description |
-|--------|------|-------------|
-| `GET` | `/archlens/status` | Check if AI is configured (read `app_settings`) |
-| `GET` | `/archlens/overview` | Dashboard KPIs: card counts by type, quality distribution, cost summary, top issues |
-
-**Vendor Analysis**
-| Method | Path | Description |
-|--------|------|-------------|
-| `POST` | `/archlens/vendors/analyse` | Trigger vendor categorisation (background task) |
-| `GET` | `/archlens/vendors` | Get categorised vendors |
-| `POST` | `/archlens/vendors/resolve` | Trigger vendor resolution (background task) |
-| `GET` | `/archlens/vendors/hierarchy` | Get vendor hierarchy tree |
-
-**Duplicate Detection**
-| Method | Path | Description |
-|--------|------|-------------|
-| `POST` | `/archlens/duplicates/analyse` | Trigger duplicate detection (background task) |
-| `GET` | `/archlens/duplicates` | Get duplicate clusters |
-| `PATCH` | `/archlens/duplicates/{id}/status` | Update cluster status (confirm/dismiss/investigate) |
-| `POST` | `/archlens/duplicates/modernize` | Trigger modernization assessment |
-| `GET` | `/archlens/duplicates/modernizations` | Get modernization results |
-
-**Architecture AI**
-| Method | Path | Description |
-|--------|------|-------------|
-| `POST` | `/archlens/architect/phase1` | Phase 1 questions |
-| `POST` | `/archlens/architect/phase2` | Phase 2 questions |
-| `POST` | `/archlens/architect/phase3` | Phase 3 architecture generation |
-
-**Analysis History**
-| Method | Path | Description |
-|--------|------|-------------|
-| `GET` | `/archlens/analysis-runs` | List analysis runs |
-
-### Long-running operations
-
-For AI operations (vendor analysis, resolution, duplicate detection): use **background tasks + polling** via `archlens_analysis_runs` status. The frontend polls the run status until complete. This is simpler than SSE and matches the existing pattern.
-
-### Permissions
-
-Keep existing keys: `archlens.view`, `archlens.manage`. No changes needed.
-
-### Pydantic Schemas
-
-Update `backend/app/schemas/archlens.py`:
-- Remove `ArchLensConnectionCreate/Update/Out` (no more connections)
-- Remove `ArchLensSyncRequest` (no more sync)
-- Add `VendorAnalysisOut`, `VendorHierarchyOut`, `DuplicateClusterOut`, `ModernizationOut`
-- Keep `ArchLensArchitectRequest` (phases 1-3)
-- Add `ArchLensOverviewOut`
-
----
-
-## Phase 4: Frontend — Multi-Page ArchLens Feature
-
-### Route Structure
-
-Replace single `ArchLensPage.tsx` with multiple route-level pages:
-
-| Route | Component | Description |
-|-------|-----------|-------------|
-| `/archlens` | `ArchLensDashboard` | Overview dashboard (KPIs, quality distribution, top issues) |
-| `/archlens/vendors` | `ArchLensVendors` | Vendor analysis + categorisation with category cards |
-| `/archlens/vendors/resolution` | `ArchLensResolution` | Vendor hierarchy / deduplication tree |
-| `/archlens/duplicates` | `ArchLensDuplicates` | Duplicate detection + modernization wizard |
-| `/archlens/architect` | `ArchLensArchitect` | Architecture AI (3-phase wizard) |
-| `/archlens/history` | `ArchLensHistory` | Analysis run history |
-
-All pages use `lazy()` imports in `App.tsx` for code splitting.
-
-### Navigation
-
-Add "ArchLens" as a top-level nav section with sub-items:
-- Overview
-- Vendor Analysis
-- Vendor Resolution
-- Duplicate Detection
-- Architecture AI
-
-Guard all links behind `archlens.view` permission check.
-
-### Component Structure
-
-```
-frontend/src/features/archlens/
-  ArchLensDashboard.tsx        — KPI tiles, quality distribution, top issues, type breakdown
-  ArchLensVendors.tsx          — Category cards grid, vendor table, trigger analysis
-  ArchLensResolution.tsx       — Vendor hierarchy tree, canonical names, aliases
-  ArchLensDuplicates.tsx       — Cluster cards, status management, modernization wizard
-  ArchLensArchitect.tsx        — 3-phase wizard (extracted from current ArchLensPage.tsx)
-  ArchLensHistory.tsx          — Analysis runs table
-  components/
-    ArchitectureResultView.tsx  — Tabbed result display (extract from current)
-    MermaidDiagram.tsx          — Mermaid renderer (extract from current)
-    VendorCategoryCard.tsx      — Category card with icon, count, cost
-    DuplicateClusterCard.tsx    — Expandable cluster with actions
-    QualityDistribution.tsx     — Bronze/Silver/Gold locker tiles
-    ModernizationWizard.tsx     — Modernization assessment dialog
-  index.ts                      — Barrel exports
+**Replace `ARCHITECT_PHASES` constant** in `utils.ts` with a structured step definition:
+```typescript
+export const ARCHITECT_STEPS = [
+  { key: "requirements", phases: [0] },
+  { key: "business_fit", phases: [1] },
+  { key: "technical_fit", phases: [2] },
+  { key: "solution", phases: [3, 3.5, 4] },
+  { key: "target", phases: [5] },
+] as const;
 ```
 
-### What gets dropped (not ported)
+**Replace the Chip row** with a MUI `Stepper` component (horizontal, non-linear):
+- Each step shows the group label (translated)
+- Active step is determined by mapping current `archPhase` to the step group
+- Completed steps show a checkmark
+- Within "Solution Architecture", show sub-step indicator (Options / Products / Dependencies)
 
-| Standalone Feature | Decision | Reason |
-|---|---|---|
-| **ConnectPage** | Drop | No external container to connect to |
-| **SettingsPage** | Drop | AI settings in Admin > Settings > AI; no separate DB config |
-| **SupportPage / FAQ** | Drop | Can be added to docs if needed |
-| **FSIPage (Fact Sheet Inventory)** | Drop | Turbo EA's Inventory page already provides this with AG Grid |
-| **Cron scheduling** | Drop for now | Background scheduling is a separate feature; can be added later |
-| **LeanIX-specific sync** | Drop | Turbo EA has its own card import mechanisms |
+### i18n Keys (all 8 locales)
 
-### What gets fully ported
+Add new keys to `admin.json`:
+- `archlens_architect_step_requirements`: "Business Requirements"
+- `archlens_architect_step_business_fit`: "Business Fit"
+- `archlens_architect_step_technical_fit`: "Technical Fit"
+- `archlens_architect_step_solution`: "Solution Architecture"
+- `archlens_architect_step_target`: "Target Architecture"
+- `archlens_architect_select_capabilities`: "Which business capabilities are we improving or introducing?"
+- `archlens_architect_capabilities_hint`: "Search existing capabilities or type new ones..."
+- `archlens_architect_search_capabilities`: "Search capabilities..."
+- `archlens_architect_new_capability`: "New: {{name}}"
 
-| Feature | Source -> Target |
-|---|---|
-| **Overview Dashboard** | `OverviewPage.js` -> `ArchLensDashboard.tsx` |
-| **Vendor Categorisation** | `VendorsPage.js` -> `ArchLensVendors.tsx` |
-| **Vendor Resolution** | `ResolutionPage.js` -> `ArchLensResolution.tsx` |
-| **Duplicate Detection + Modernization** | `DuplicatesPage.js` -> `ArchLensDuplicates.tsx` |
-| **Architecture AI** | `ArchitectPage.js` -> `ArchLensArchitect.tsx` (mostly done already) |
-| **Analysis History** | Existing tab -> `ArchLensHistory.tsx` |
-
----
-
-## Phase 5: i18n
-
-Add translation keys for all new pages across 8 locales (`en`, `de`, `fr`, `es`, `it`, `pt`, `zh`, `ru`). Use existing `admin` namespace (already has `archlens_*` keys).
-
-New key groups:
-- `archlens_dashboard_*` — Overview dashboard
-- `archlens_vendor_*` — Vendor analysis (expand existing)
-- `archlens_resolution_*` — Vendor resolution
-- `archlens_duplicate_*` — Duplicate detection
-- `archlens_modernization_*` — Modernization wizard
+Translate all into de, fr, es, it, pt, zh, ru.
 
 ---
 
-## Phase 6: Cleanup
+## Files Changed
 
-1. **Remove `archlens_connections` table** (migration drops it)
-2. **Remove `backend/app/services/archlens_service.py`** (HTTP client no longer needed)
-3. **Remove proxy logic from `archlens.py`** (replaced with direct service calls)
-4. **Remove `temp-archlens-changes/` directory** (no longer needed)
-5. **Update `docker-compose.yml`** — remove any ArchLens container references
-6. **Update `CLAUDE.md`** project structure docs
-7. **Update `CHANGELOG.md`** + bump version
+### Backend
+- `backend/app/schemas/archlens.py` — add `selected_capabilities` field
+- `backend/app/api/v1/archlens.py` — add capabilities endpoint, thread params through phase endpoints
+- `backend/app/services/archlens_architect.py` — add cards context loader, update Phase 1/5 prompts, add naming rules, thread capabilities
 
----
+### Frontend
+- `frontend/src/features/archlens/ArchLensArchitect.tsx` — move objectives to Phase 0, add capabilities, new stepper UI
+- `frontend/src/features/archlens/utils.ts` — replace ARCHITECT_PHASES with ARCHITECT_STEPS
+- `frontend/src/i18n/locales/{en,de,fr,es,it,pt,zh,ru}/admin.json` — new keys
 
-## Implementation Order
-
-| Step | Scope | Dependencies |
-|------|-------|-------------|
-| 1 | Alembic migration (new tables, drop connections) | None |
-| 2 | SQLAlchemy models | Step 1 |
-| 3 | `archlens_ai.py` — shared AI caller | Step 2 |
-| 4 | `archlens_vendors.py` — vendor analysis + resolution | Step 3 |
-| 5 | `archlens_duplicates.py` — duplicate detection + modernization | Step 3 |
-| 6 | `archlens_architect.py` — 3-phase architecture AI | Step 3 |
-| 7 | Pydantic schemas | Step 2 |
-| 8 | API routes (replace proxy with direct) | Steps 4-7 |
-| 9 | Frontend: `ArchLensDashboard.tsx` | Step 8 |
-| 10 | Frontend: `ArchLensVendors.tsx` + `VendorCategoryCard.tsx` | Step 8 |
-| 11 | Frontend: `ArchLensResolution.tsx` | Step 8 |
-| 12 | Frontend: `ArchLensDuplicates.tsx` + modernization wizard | Step 8 |
-| 13 | Frontend: `ArchLensArchitect.tsx` (extract + polish existing) | Step 8 |
-| 14 | Frontend: Routes in `App.tsx` + nav integration | Steps 9-13 |
-| 15 | i18n: All 8 locales | Steps 9-13 |
-| 16 | Cleanup: Remove old files, update docs | All |
-| 17 | Backend tests | Steps 4-8 |
-| 18 | Frontend tests | Steps 9-13 |
-
----
-
-## Key Design Decisions
-
-1. **No data copy** — ArchLens queries `cards` table directly, no intermediate `fact_sheets` table
-2. **Reuse AI infrastructure** — Same AI config from `app_settings`, same provider patterns
-3. **Background tasks + polling** — Not SSE streaming (simpler, existing pattern)
-4. **Multi-page routing** — Each ArchLens feature is its own route, not tabs in one page
-5. **Drop LeanIX-specific features** — ConnectPage, cron sync, FSI table all replaced by Turbo EA native
-6. **Keep all AI features** — Vendor analysis, resolution, duplicates, modernization, architect
+### No migrations, no model changes, no new files.

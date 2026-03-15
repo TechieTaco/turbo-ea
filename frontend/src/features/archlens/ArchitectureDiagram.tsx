@@ -13,7 +13,7 @@ import Stack from "@mui/material/Stack";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import { useTheme } from "@mui/material/styles";
-import dagre from "@dagrejs/dagre";
+import MaterialSymbol from "@/components/MaterialSymbol";
 import {
   ReactFlow,
   Background,
@@ -30,7 +30,7 @@ import {
   type Edge,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import type { ArchitectureResult, ArchComponent, ArchIntegration } from "@/types";
+import type { ArchitectureResult, ArchComponent, ArchIntegration, CardType } from "@/types";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -64,6 +64,9 @@ interface ArchNodeData {
   category?: string;
   role?: string;
   product?: string;
+  cardTypeKey?: string;
+  cardTypeColor?: string;
+  cardTypeIcon?: string;
   [key: string]: unknown;
 }
 
@@ -86,13 +89,25 @@ interface ArchEdgeData {
 // Custom Node
 // ---------------------------------------------------------------------------
 
+const TYPE_LABELS: Record<string, string> = {
+  existing: "Reuse",
+  new: "New",
+  recommended: "Buy",
+};
+
 const ArchNode = memo(({ data }: NodeProps<Node<ArchNodeData>>) => {
   const theme = useTheme();
   const isDark = theme.palette.mode === "dark";
-  const color = TYPE_COLORS[data.compType] || "#999";
-  const bg = TYPE_BG[data.compType]?.[isDark ? "dark" : "light"] ?? "rgba(0,0,0,0.04)";
+  const typeColor = TYPE_COLORS[data.compType] || "#999";
+  // Use metamodel color for the border when available, but keep type-based badge
+  const metaColor = data.cardTypeColor;
+  const borderColor = metaColor || typeColor;
+  const bg = metaColor
+    ? `${metaColor}${isDark ? "1F" : "14"}`
+    : TYPE_BG[data.compType]?.[isDark ? "dark" : "light"] ?? "rgba(0,0,0,0.04)";
   const name = data.name.length > 26 ? data.name.slice(0, 25) + "\u2026" : data.name;
   const handleStyle = { width: 6, height: 6, border: "none" };
+  const badgeLabel = TYPE_LABELS[data.compType] || data.compType;
 
   return (
     <Box
@@ -100,7 +115,7 @@ const ArchNode = memo(({ data }: NodeProps<Node<ArchNodeData>>) => {
         width: NODE_W,
         height: NODE_H,
         borderRadius: "10px",
-        border: `2px solid ${color}`,
+        border: `2px solid ${borderColor}`,
         bgcolor: bg,
         display: "flex",
         flexDirection: "column",
@@ -111,10 +126,25 @@ const ArchNode = memo(({ data }: NodeProps<Node<ArchNodeData>>) => {
         boxShadow: isDark ? "0 2px 8px rgba(0,0,0,0.4)" : "0 2px 8px rgba(0,0,0,0.08)",
       }}
     >
-      <Handle type="target" position={Position.Top} id="t" style={{ ...handleStyle, background: color }} />
-      <Handle type="source" position={Position.Bottom} id="b" style={{ ...handleStyle, background: color }} />
+      <Handle type="target" position={Position.Top} id="t" style={{ ...handleStyle, background: borderColor }} />
+      <Handle type="source" position={Position.Bottom} id="b" style={{ ...handleStyle, background: borderColor }} />
       <Handle type="target" position={Position.Left} id="l" style={{ ...handleStyle, background: "transparent" }} />
       <Handle type="source" position={Position.Right} id="r" style={{ ...handleStyle, background: "transparent" }} />
+      {/* Type badge (Reuse / New / Buy) */}
+      <Box sx={{
+        position: "absolute", top: -8, left: 8,
+        bgcolor: typeColor, color: "#fff",
+        fontSize: 9, fontWeight: 700, lineHeight: 1,
+        px: 0.7, py: 0.25, borderRadius: "4px",
+        textTransform: "uppercase", letterSpacing: 0.5,
+      }}>
+        {badgeLabel}
+      </Box>
+      {data.cardTypeIcon && (
+        <Box sx={{ position: "absolute", top: 4, right: 6, opacity: 0.6 }}>
+          <MaterialSymbol icon={data.cardTypeIcon} size={14} color={borderColor} />
+        </Box>
+      )}
       <Tooltip title={data.role || ""} arrow placement="top">
         <Typography
           variant="body2"
@@ -144,7 +174,7 @@ const ArchNode = memo(({ data }: NodeProps<Node<ArchNodeData>>) => {
       {data.category && (
         <Typography
           variant="caption"
-          sx={{ color, fontStyle: "italic", lineHeight: 1.15, fontSize: 10, mt: 0.2 }}
+          sx={{ color: borderColor, fontStyle: "italic", lineHeight: 1.15, fontSize: 10, mt: 0.2 }}
           noWrap
         >
           [{data.category}]
@@ -268,6 +298,7 @@ const edgeTypes = { archEdge: ArchEdge };
 
 function buildArchFlow(
   arch: ArchitectureResult,
+  typeMap?: Map<string, { color: string; icon: string }>,
 ): { nodes: Node[]; edges: Edge[] } {
   const layers = arch.layers ?? [];
   const integrations = arch.integrations ?? [];
@@ -287,147 +318,137 @@ function buildArchFlow(
     }
   }
 
+  // Helper: fuzzy-resolve a component name to its id
+  const resolveCompId = (name: string): string | undefined => {
+    const lower = name.toLowerCase().trim();
+    // 1. Exact match
+    if (compIdMap.has(lower)) return compIdMap.get(lower);
+    // 2. Contains match (either direction)
+    for (const [key, id] of compIdMap) {
+      if (key.includes(lower) || lower.includes(key)) return id;
+    }
+    // 3. First-word match (e.g. "HubSpot" matches "HubSpot CRM")
+    const firstWord = lower.split(/\s+/)[0];
+    if (firstWord && firstWord.length >= 4) {
+      const matches: [string, string][] = [];
+      for (const [key, id] of compIdMap) {
+        if (key.startsWith(firstWord) || key.split(/\s+/)[0] === firstWord) {
+          matches.push([key, id]);
+        }
+      }
+      if (matches.length === 1) return matches[0][1];
+    }
+    return undefined;
+  };
+
   // 2. Resolve integration edges
   const resolvedEdges: { sourceId: string; targetId: string; intg: ArchIntegration }[] = [];
   for (const intg of integrations) {
-    const srcId = compIdMap.get(intg.from.toLowerCase());
-    const tgtId = compIdMap.get(intg.to.toLowerCase());
-    if (srcId && tgtId) resolvedEdges.push({ sourceId: srcId, targetId: tgtId, intg });
+    const srcId = resolveCompId(intg.from);
+    const tgtId = resolveCompId(intg.to);
+    if (srcId && tgtId && srcId !== tgtId) resolvedEdges.push({ sourceId: srcId, targetId: tgtId, intg });
   }
 
-  // 3. Build a SINGLE global dagre graph with ALL nodes and edges
-  const g = new dagre.graphlib.Graph();
-  g.setGraph({ rankdir: "TB", ranksep: 100, nodesep: 60, marginx: 0, marginy: 0 });
-  g.setDefaultEdgeLabel(() => ({}));
-
-  for (const entry of allComps) {
-    g.setNode(entry.id, { width: NODE_W, height: NODE_H });
-  }
-  for (const re of resolvedEdges) {
-    g.setEdge(re.sourceId, re.targetId);
-  }
-
-  // Add invisible edges between consecutive layers to maintain layer ordering
-  const layerNodeIds: string[][] = [];
-  for (let li = 0; li < layers.length; li++) {
-    layerNodeIds.push(allComps.filter(c => c.layerIdx === li).map(c => c.id));
-  }
-  for (let li = 0; li < layerNodeIds.length - 1; li++) {
-    const curr = layerNodeIds[li];
-    const next = layerNodeIds[li + 1];
-    if (curr.length > 0 && next.length > 0) {
-      // Check if any real edge already connects these layers
-      const hasRealEdge = resolvedEdges.some(re => {
-        const sLayer = allComps.find(c => c.id === re.sourceId)?.layerIdx;
-        const tLayer = allComps.find(c => c.id === re.targetId)?.layerIdx;
-        return (sLayer === li && tLayer === li + 1) || (sLayer === li + 1 && tLayer === li);
-      });
-      if (!hasRealEdge) {
-        // Add a hidden ordering edge from first node of layer to first of next
-        g.setEdge(curr[0], next[0]);
-      }
-    }
-  }
-
-  dagre.layout(g);
-
-  // 4. Read absolute positions from dagre
-  const nodeAbsPos = new Map<string, { x: number; y: number }>();
-  for (const entry of allComps) {
-    const pos = g.node(entry.id);
-    if (pos) nodeAbsPos.set(entry.id, { x: pos.x - NODE_W / 2, y: pos.y - NODE_H / 2 });
-  }
-
-  // 5. Compute group boundaries per layer, then resolve overlaps
+  // 3. Lay out nodes in a fixed grid — one row per layer, all left-aligned.
+  //    Dagre is used only for edge routing hints but not for node positions,
+  //    because dagre scatters same-layer nodes across ranks when cross-layer
+  //    edges pull them, causing staggered groups.
+  const NODESEP = 60;
+  const LAYER_GAP = 48;
   const LAYER_COLORS = [
     "#1976d2", "#33cc58", "#8e24aa", "#d29270", "#0f7eb5", "#ffa31f", "#f44336",
   ];
-  const MIN_GROUP_GAP = 48;
 
-  // First pass: compute raw bounding boxes for each layer
-  const groupBounds: {
-    li: number; entries: typeof allComps;
-    minX: number; minY: number; maxX: number; maxY: number;
-  }[] = [];
+  // Determine the widest row so all groups share the same width
+  let maxRowW = 0;
+  for (let li = 0; li < layers.length; li++) {
+    const count = allComps.filter(c => c.layerIdx === li).length;
+    if (count > 0) {
+      const rowW = count * NODE_W + (count - 1) * NODESEP;
+      maxRowW = Math.max(maxRowW, rowW);
+    }
+  }
+  const groupW = maxRowW + 2 * GROUP_PAD_X;
+
+  // Position nodes: each layer is a horizontal row, all left-aligned
+  const nodeAbsPos = new Map<string, { x: number; y: number }>();
+  let currentY = 0;
+
+  interface LayerBounds {
+    li: number;
+    groupX: number;
+    groupY: number;
+    groupW: number;
+    groupH: number;
+  }
+  const layerBoundsList: LayerBounds[] = [];
+
   for (let li = 0; li < layers.length; li++) {
     const entries = allComps.filter(c => c.layerIdx === li);
     if (entries.length === 0) continue;
-    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-    for (const e of entries) {
-      const p = nodeAbsPos.get(e.id)!;
-      minX = Math.min(minX, p.x);
-      minY = Math.min(minY, p.y);
-      maxX = Math.max(maxX, p.x + NODE_W);
-      maxY = Math.max(maxY, p.y + NODE_H);
+
+    const groupY = currentY;
+    const nodesStartX = GROUP_PAD_X;
+    const nodesStartY = GROUP_PAD_TOP;
+
+    for (let ni = 0; ni < entries.length; ni++) {
+      const x = nodesStartX + ni * (NODE_W + NODESEP);
+      const y = nodesStartY;
+      // Store absolute position (group origin + offset)
+      nodeAbsPos.set(entries[ni].id, { x: groupY === 0 ? x : x, y: groupY + y });
     }
-    groupBounds.push({ li, entries, minX, minY, maxX, maxY });
+
+    const groupH = GROUP_PAD_TOP + NODE_H + GROUP_PAD_BOTTOM;
+    layerBoundsList.push({ li, groupX: 0, groupY, groupW, groupH });
+    currentY += groupH + LAYER_GAP;
   }
 
-  // Sort by top edge so we process top-to-bottom
-  groupBounds.sort((a, b) => a.minY - b.minY);
-
-  // Resolve vertical overlaps: push groups down if they encroach on the previous
-  for (let i = 1; i < groupBounds.length; i++) {
-    const prev = groupBounds[i - 1];
-    const curr = groupBounds[i];
-    const prevBottom = prev.maxY + GROUP_PAD_BOTTOM;
-    const currTop = curr.minY - GROUP_PAD_TOP;
-    const overlap = prevBottom + MIN_GROUP_GAP - currTop;
-    if (overlap > 0) {
-      // Shift this group and all its nodes down
-      const dy = overlap;
-      for (const e of curr.entries) {
-        const p = nodeAbsPos.get(e.id)!;
-        p.y += dy;
-      }
-      curr.minY += dy;
-      curr.maxY += dy;
-    }
-  }
-
-  // Second pass: build React Flow nodes with resolved positions
+  // Build React Flow nodes — groups are independent background nodes (no parentId).
+  // Component nodes are placed at absolute positions so edges can freely cross groups.
   const rfNodes: Node[] = [];
-  for (const gb of groupBounds) {
-    const groupId = `layer-${gb.li}`;
-    const layerColor = LAYER_COLORS[gb.li % LAYER_COLORS.length];
 
-    const groupX = gb.minX - GROUP_PAD_X;
-    const groupY = gb.minY - GROUP_PAD_TOP;
-    const groupW = gb.maxX - gb.minX + 2 * GROUP_PAD_X;
-    const groupH = gb.maxY - gb.minY + GROUP_PAD_TOP + GROUP_PAD_BOTTOM;
+  for (const lb of layerBoundsList) {
+    const groupId = `layer-${lb.li}`;
+    const layerColor = LAYER_COLORS[lb.li % LAYER_COLORS.length];
 
     rfNodes.push({
       id: groupId,
       type: "archGroup",
-      position: { x: groupX, y: groupY },
-      data: { label: layers[gb.li].name, color: layerColor } satisfies ArchGroupData,
-      style: { width: groupW, height: groupH },
+      position: { x: lb.groupX, y: lb.groupY },
+      data: { label: layers[lb.li].name, color: layerColor } satisfies ArchGroupData,
+      style: { width: lb.groupW, height: lb.groupH, zIndex: -1 },
       selectable: false,
       draggable: false,
+      zIndex: -1,
     });
-
-    for (const entry of gb.entries) {
-      const absP = nodeAbsPos.get(entry.id)!;
-      rfNodes.push({
-        id: entry.id,
-        type: "archNode",
-        position: { x: absP.x - groupX, y: absP.y - groupY },
-        parentId: groupId,
-        extent: "parent" as const,
-        data: {
-          name: entry.comp.name,
-          compType: entry.comp.type || "new",
-          category: entry.comp.category,
-          role: entry.comp.role,
-          product: entry.comp.product,
-        } satisfies ArchNodeData,
-        style: { width: NODE_W, height: NODE_H },
-        draggable: false,
-      });
-    }
   }
 
-  // 6. Build edges with smart handle selection
+  for (const entry of allComps) {
+    const absP = nodeAbsPos.get(entry.id);
+    if (!absP) continue;
+    const ctk = entry.comp.cardTypeKey;
+    const meta = ctk && typeMap ? typeMap.get(ctk) : undefined;
+    rfNodes.push({
+      id: entry.id,
+      type: "archNode",
+      position: { x: absP.x, y: absP.y },
+      data: {
+        name: entry.comp.name,
+        compType: entry.comp.type || "new",
+        category: entry.comp.category,
+        role: entry.comp.role,
+        product: entry.comp.product,
+        cardTypeKey: ctk,
+        cardTypeColor: meta?.color,
+        cardTypeIcon: meta?.icon,
+      } satisfies ArchNodeData,
+      style: { width: NODE_W, height: NODE_H },
+      draggable: false,
+      zIndex: 1,
+    });
+  }
+
+  // 4. Build edges with smart handle selection
   const nodeLayerIdx = new Map(allComps.map(c => [c.id, c.layerIdx]));
   const rfEdges: Edge[] = resolvedEdges.map((re, i) => {
     const sPos = nodeAbsPos.get(re.sourceId);
@@ -476,6 +497,7 @@ function buildArchFlow(
       } satisfies ArchEdgeData,
       animated: false,
       markerEnd: { type: "arrowclosed" as const, color: "#888" },
+      zIndex: 2,
     };
   });
 
@@ -486,11 +508,18 @@ function buildArchFlow(
 // Inner component
 // ---------------------------------------------------------------------------
 
-function ArchitectureDiagramInner({ arch }: { arch: ArchitectureResult }) {
+function ArchitectureDiagramInner({ arch, types }: { arch: ArchitectureResult; types?: CardType[] }) {
   const { t } = useTranslation("admin");
   const theme = useTheme();
 
-  const { nodes, edges } = useMemo(() => buildArchFlow(arch), [arch]);
+  const typeMap = useMemo(() => {
+    if (!types?.length) return undefined;
+    const m = new Map<string, { color: string; icon: string }>();
+    for (const ct of types) m.set(ct.key, { color: ct.color, icon: ct.icon });
+    return m;
+  }, [types]);
+
+  const { nodes, edges } = useMemo(() => buildArchFlow(arch, typeMap), [arch, typeMap]);
 
   const [hoveredNode, setHoveredNode] = useState<string | null>(null);
 
@@ -592,10 +621,10 @@ function ArchitectureDiagramInner({ arch }: { arch: ArchitectureResult }) {
 // Exported wrapper
 // ---------------------------------------------------------------------------
 
-export default function ArchitectureDiagram({ arch }: { arch: ArchitectureResult }) {
+export default function ArchitectureDiagram({ arch, types }: { arch: ArchitectureResult; types?: CardType[] }) {
   return (
     <ReactFlowProvider>
-      <ArchitectureDiagramInner arch={arch} />
+      <ArchitectureDiagramInner arch={arch} types={types} />
     </ReactFlowProvider>
   );
 }
