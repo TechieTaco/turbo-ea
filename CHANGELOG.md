@@ -12,6 +12,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - ArchLens: Assessment persistence with save/commit workflow and read-only assessment history viewer
 - New Assessments tab in ArchLens navigation for browsing saved and committed architecture assessments
 
+## [0.39.1] - 2026-03-15
+
+### Added
+- Comprehensive user documentation for the ArchLens AI Intelligence module covering all features: dashboard, vendor analysis, vendor resolution, duplicate detection, modernization assessment, and the 5-step Architecture AI wizard — in all 8 supported locales
+- Expanded CLAUDE.md ArchLens section with full API route table, Architecture AI flow description, and frontend component reference
+- Automated screenshot entries for all 6 ArchLens pages in all 8 locales
+
 ## [0.39.0] - 2026-03-15
 
 ### Added
