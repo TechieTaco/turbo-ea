@@ -983,6 +983,7 @@ async def architect_commit(
         "selected_card_ids": body.selected_card_ids,
         "selected_relation_indices": body.selected_relation_indices,
         "objective_ids": body.objective_ids,
+        "renamed_cards": body.renamed_cards,
         "user_id": str(user.id),
     }
 
