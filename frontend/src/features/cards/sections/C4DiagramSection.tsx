@@ -200,21 +200,23 @@ export default function C4DiagramSection({ cardId }: Props) {
           </Typography>
         )}
         {!loading && !error && hasData && (
-          <C4DiagramView
-            nodes={c4Visible.nodes}
-            edges={c4Visible.edges}
-            types={types}
-            onNodeClick={handleNodeClick}
-            onNodeShiftClick={navigateTo}
-            onNodeExpand={handleExpand}
-            onExpandReset={handleExpandReset}
-            onHome={handleHome}
-            onPrev={handlePrev}
-            onNext={handleNext}
-            hasPrev={hasPrev}
-            hasNext={hasNext}
-            centerName={centerNode?.name}
-          />
+          <Box sx={{ height: 600 }}>
+            <C4DiagramView
+              nodes={c4Visible.nodes}
+              edges={c4Visible.edges}
+              types={types}
+              onNodeClick={handleNodeClick}
+              onNodeShiftClick={navigateTo}
+              onNodeExpand={handleExpand}
+              onExpandReset={handleExpandReset}
+              onHome={handleHome}
+              onPrev={handlePrev}
+              onNext={handleNext}
+              hasPrev={hasPrev}
+              hasNext={hasNext}
+              centerName={centerNode?.name}
+            />
+          </Box>
         )}
       </AccordionDetails>
     </Accordion>
