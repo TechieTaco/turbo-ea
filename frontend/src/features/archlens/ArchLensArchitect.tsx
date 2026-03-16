@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router-dom";
 import Alert from "@mui/material/Alert";
@@ -642,6 +642,7 @@ interface ArchSession {
     answer: string;
   }[];
   phase1Answers: { question: string; answer: string }[];
+  phase2Answers?: { question: string; answer: string; nfrCategory?: string }[];
   archOptions: ArchSolutionOption[] | null;
   selectedOptionId: string | null;
   selectedObjectives: ObjectiveOption[];
@@ -689,6 +690,9 @@ export default function ArchLensArchitect() {
   const [phase1Answers, setPhase1Answers] = useState<
     { question: string; answer: string }[]
   >(saved?.phase1Answers ?? []);
+  const [phase2Answers, setPhase2Answers] = useState<
+    { question: string; answer: string; nfrCategory?: string }[]
+  >(saved?.phase2Answers ?? []);
   const [archOptions, setArchOptions] = useState<ArchSolutionOption[] | null>(
     saved?.archOptions ?? null,
   );
@@ -746,6 +750,7 @@ export default function ArchLensArchitect() {
       archPhase,
       archQuestions,
       phase1Answers,
+      phase2Answers,
       archOptions,
       selectedOptionId,
       selectedObjectives,
@@ -764,6 +769,7 @@ export default function ArchLensArchitect() {
     archPhase,
     archQuestions,
     phase1Answers,
+    phase2Answers,
     archOptions,
     selectedOptionId,
     selectedObjectives,
@@ -848,6 +854,7 @@ export default function ArchLensArchitect() {
         setArchPhase(sd.archPhase ?? 0);
         setArchQuestions(sd.archQuestions ?? []);
         setPhase1Answers(sd.phase1Answers ?? []);
+        setPhase2Answers(sd.phase2Answers ?? []);
         setArchOptions(sd.archOptions ?? null);
         setSelectedOptionId(sd.selectedOptionId ?? null);
         setSelectedObjectives(sd.selectedObjectives ?? []);
@@ -946,6 +953,11 @@ export default function ArchLensArchitect() {
           (c) => c.id === refId || c.existingCardId === refId,
         );
         if (cap) return cap.existingCardId || cap.id;
+        // Check proposedCards by existingCardId (handles dedup remapping)
+        const pc = capabilityMapping.proposedCards.find(
+          (c) => c.existingCardId === refId,
+        );
+        if (pc) return pc.id;
         // If the ID is in the nodeMap already, use it directly
         if (nodeMap.has(refId)) return refId;
         return refId;
@@ -974,18 +986,37 @@ export default function ArchLensArchitect() {
       });
     }
 
-    // Remove orphan nodes (nodes with zero edges) from the diagram
+    // Remove orphan nodes — only proposed (new) nodes with zero edges.
+    // Existing nodes are kept since they provide landscape context.
     const connectedIds = new Set<string>();
     for (const e of edges) {
       connectedIds.add(e.source);
       connectedIds.add(e.target);
     }
     const filteredNodes = Array.from(nodeMap.values()).filter(
-      (n) => connectedIds.has(n.id),
+      (n) => !n.proposed || connectedIds.has(n.id),
     );
 
     return { nodes: filteredNodes, edges };
   }, [capabilityMapping, relationTypes]);
+
+  // Comprehensive name lookup for relation display (covers all ID sources)
+  const relationNameMap = useMemo(() => {
+    const map = new Map<string, string>();
+    if (!capabilityMapping) return map;
+    for (const c of capabilityMapping.proposedCards) {
+      map.set(c.id, c.name);
+      if (c.existingCardId) map.set(c.existingCardId, c.name);
+    }
+    for (const c of capabilityMapping.capabilities) {
+      map.set(c.id, c.name);
+      if (c.existingCardId) map.set(c.existingCardId, c.name);
+    }
+    for (const n of capabilityMapping.existingDependencies?.nodes ?? []) {
+      map.set(n.id, n.name);
+    }
+    return map;
+  }, [capabilityMapping]);
 
   const extractQuestions = (
     data: Record<string, unknown>,
@@ -1062,6 +1093,14 @@ export default function ArchLensArchitect() {
         setSelectedDeps(new Set());
         setCapabilityMapping(null);
         setArchPhase(3);
+        // Preserve Phase 2 answers before clearing archQuestions
+        setPhase2Answers(
+          archQuestions.map((q) => ({
+            question: q.question,
+            answer: q.answer,
+            nfrCategory: q.nfrCategory,
+          })),
+        );
         setArchQuestions([]);
         setArchLoading(false);
         return;
@@ -1071,7 +1110,7 @@ export default function ArchLensArchitect() {
         const selectedOpt = archOptions?.find((o) => o.id === selectedOptionId);
         payload.allQA = [
           ...phase1Answers,
-          ...archQuestions.map((q) => ({
+          ...phase2Answers.map((q) => ({
             question: q.question,
             answer: q.answer,
           })),
@@ -1125,7 +1164,7 @@ export default function ArchLensArchitect() {
         const selectedOpt = archOptions?.find((o) => o.id === selectedOptionId);
         payload.allQA = [
           ...phase1Answers,
-          ...archQuestions.map((q) => ({
+          ...phase2Answers.map((q) => ({
             question: q.question,
             answer: q.answer,
           })),
@@ -1218,7 +1257,7 @@ export default function ArchLensArchitect() {
         requirement: archReq,
         allQA: [
           ...phase1Answers,
-          ...archQuestions.map((q) => ({
+          ...phase2Answers.map((q) => ({
             question: q.question,
             answer: q.answer,
           })),
@@ -1283,6 +1322,7 @@ export default function ArchLensArchitect() {
     setArchReq("");
     setArchQuestions([]);
     setPhase1Answers([]);
+    setPhase2Answers([]);
     setArchOptions(null);
     setSelectedOptionId(null);
     setSelectedObjectives([]);
@@ -1320,6 +1360,7 @@ export default function ArchLensArchitect() {
         archPhase,
         archQuestions,
         phase1Answers,
+        phase2Answers,
         archOptions,
         selectedOptionId,
         selectedObjectives,
@@ -1597,9 +1638,11 @@ export default function ArchLensArchitect() {
                 const qType = q.type || "text";
                 const hasOptions = q.options && q.options.length > 0;
                 const selectedMulti =
-                  qType === "multi" && q.answer
-                    ? q.answer.split(", ").filter(Boolean)
-                    : [];
+                  qType === "multi" && q.answer && q.options
+                    ? q.options.filter((opt) => q.answer.includes(opt))
+                    : qType === "multi" && q.answer
+                      ? q.answer.split("\n").filter(Boolean)
+                      : [];
                 return (
                   <Paper
                     key={i}
@@ -1708,7 +1751,7 @@ export default function ArchLensArchitect() {
                                   const next = isSelected
                                     ? selectedMulti.filter((s) => s !== opt)
                                     : [...selectedMulti, opt];
-                                  handleAnswerChange(i, next.join(", "));
+                                  handleAnswerChange(i, next.join("\n"));
                                 }}
                                 color={isSelected ? "primary" : "default"}
                                 variant={isSelected ? "filled" : "outlined"}
@@ -2458,23 +2501,9 @@ export default function ArchLensArchitect() {
                           (c) => c.id === rel.targetId,
                         );
                         const srcName =
-                          srcCard?.name ||
-                          capabilityMapping.capabilities.find(
-                            (c) => c.id === rel.sourceId,
-                          )?.name ||
-                          capabilityMapping.existingDependencies?.nodes.find(
-                            (n) => n.id === rel.sourceId,
-                          )?.name ||
-                          rel.sourceId;
+                          relationNameMap.get(rel.sourceId) ?? rel.sourceId;
                         const tgtName =
-                          tgtCard?.name ||
-                          capabilityMapping.capabilities.find(
-                            (c) => c.id === rel.targetId,
-                          )?.name ||
-                          capabilityMapping.existingDependencies?.nodes.find(
-                            (n) => n.id === rel.targetId,
-                          )?.name ||
-                          rel.targetId;
+                          relationNameMap.get(rel.targetId) ?? rel.targetId;
                         const relDisabled =
                           srcCard?.disabled || tgtCard?.disabled;
                         return (

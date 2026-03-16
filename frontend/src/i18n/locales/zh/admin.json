@@ -1100,6 +1100,8 @@
   "archlens_assessment_phase_business": "业务适配",
   "archlens_assessment_phase_technical": "技术适配",
   "archlens_assessment_phase_solution": "解决方案",
+  "archlens_assessment_phase_gaps": "差距分析",
+  "archlens_assessment_phase_deps": "依赖项",
   "archlens_assessment_phase_target": "目标架构",
   "archlens_assessment_linked_initiative": "关联倡议",
   "archlens_assessment_created_by": "创建者",

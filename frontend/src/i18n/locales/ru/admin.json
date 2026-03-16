@@ -1100,6 +1100,8 @@
   "archlens_assessment_phase_business": "Бизнес-соответствие",
   "archlens_assessment_phase_technical": "Техническое соответствие",
   "archlens_assessment_phase_solution": "Решение",
+  "archlens_assessment_phase_gaps": "Анализ пробелов",
+  "archlens_assessment_phase_deps": "Зависимости",
   "archlens_assessment_phase_target": "Целевая архитектура",
   "archlens_assessment_linked_initiative": "Связанная инициатива",
   "archlens_assessment_created_by": "Создано",
