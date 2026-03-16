@@ -1101,6 +1101,8 @@
   "archlens_assessment_phase_business": "Business Fit",
   "archlens_assessment_phase_technical": "Technical Fit",
   "archlens_assessment_phase_solution": "Solution",
+  "archlens_assessment_phase_gaps": "Gap Analysis",
+  "archlens_assessment_phase_deps": "Dependencies",
   "archlens_assessment_phase_target": "Target Architecture",
   "archlens_assessment_linked_initiative": "Linked Initiative",
   "archlens_assessment_created_by": "Created by",
