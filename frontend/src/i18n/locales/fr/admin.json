@@ -1100,6 +1100,8 @@
   "archlens_assessment_phase_business": "Adéquation métier",
   "archlens_assessment_phase_technical": "Adéquation technique",
   "archlens_assessment_phase_solution": "Solution",
+  "archlens_assessment_phase_gaps": "Analyse des lacunes",
+  "archlens_assessment_phase_deps": "Dépendances",
   "archlens_assessment_phase_target": "Architecture cible",
   "archlens_assessment_linked_initiative": "Initiative liée",
   "archlens_assessment_created_by": "Créé par",

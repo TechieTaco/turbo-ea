@@ -17,12 +17,13 @@ import type {
   ArchLensAssessment,
   ArchSolutionOption,
   CapabilityMappingResult,
+  DependencyAnalysisResult,
   GapAnalysisResult,
   RelationType,
 } from "@/types";
 import type { GNode, GEdge } from "@/features/reports/c4Layout";
 import C4DiagramView from "@/features/reports/C4DiagramView";
-import { approachColor, urgencyColor } from "./utils";
+import { approachColor, effortColor, urgencyColor } from "./utils";
 
 function buildMergedGraph(
   mapping: CapabilityMappingResult,
@@ -133,6 +134,9 @@ export default function AssessmentViewer() {
   const archOptions = (sd?.archOptions as ArchSolutionOption[]) || [];
   const selectedOptionId = sd?.selectedOptionId as string | null;
   const gapResult = sd?.gapResult as GapAnalysisResult | null;
+  const selectedRecs = new Set<string>((sd?.selectedRecs as string[]) ?? []);
+  const depsResult = sd?.depsResult as DependencyAnalysisResult | null;
+  const selectedDeps = new Set<string>((sd?.selectedDeps as string[]) ?? []);
   const capabilityMapping = sd?.capabilityMapping as CapabilityMappingResult | null;
   const canResume = assessment?.status !== "committed";
 
@@ -333,25 +337,221 @@ export default function AssessmentViewer() {
                 ))}
               </Grid>
 
-              {gapResult && gapResult.gaps?.length > 0 && (
-                <Box sx={{ mt: 2 }}>
-                  <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 1 }}>
-                    Gap Analysis
-                  </Typography>
-                  {gapResult.gaps.map((gap, i) => (
-                    <Stack key={i} direction="row" spacing={1} alignItems="center" sx={{ mb: 0.5 }}>
-                      <Chip
-                        label={gap.urgency || "medium"}
-                        size="small"
-                        color={urgencyColor(gap.urgency)}
-                        sx={{ fontSize: 10, height: 18 }}
-                      />
-                      <Typography variant="caption">{gap.capability}</Typography>
-                    </Stack>
-                  ))}
-                </Box>
-              )}
             </Paper>
+          </>
+        )}
+
+        {/* Phase 3b: Gap Analysis */}
+        {gapResult && gapResult.gaps?.length > 0 && (
+          <>
+            <SectionHeader icon="troubleshoot" label={t("archlens_assessment_phase_gaps")} />
+            {gapResult.summary && (
+              <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
+                <Typography variant="body2" sx={{ lineHeight: 1.6 }}>
+                  {gapResult.summary}
+                </Typography>
+              </Paper>
+            )}
+            <Stack spacing={3} sx={{ mb: 2 }}>
+              {gapResult.gaps.map((gap, gi) => (
+                <Paper
+                  key={gi}
+                  variant="outlined"
+                  sx={{
+                    borderTop: 3,
+                    borderColor:
+                      gap.urgency === "critical"
+                        ? "error.main"
+                        : gap.urgency === "high"
+                          ? "warning.main"
+                          : "grey.400",
+                  }}
+                >
+                  <Box sx={{ px: 2, py: 1.5, borderBottom: 1, borderColor: "divider" }}>
+                    <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+                      <Typography variant="subtitle2" fontWeight={700}>
+                        {gap.capability}
+                      </Typography>
+                      {gap.urgency && (
+                        <Chip
+                          label={gap.urgency.toUpperCase()}
+                          size="small"
+                          color={urgencyColor(gap.urgency)}
+                          sx={{ fontSize: 10, fontWeight: 700, height: 20 }}
+                        />
+                      )}
+                    </Stack>
+                    {gap.impact && (
+                      <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5 }}>
+                        {t("archlens_arch_impact")}: {gap.impact}
+                      </Typography>
+                    )}
+                  </Box>
+                  {(gap.recommendations ?? []).length > 0 && (
+                    <Box sx={{ p: 2 }}>
+                      <Typography variant="overline" color="text.secondary" sx={{ fontSize: 10, mb: 1.5, display: "block" }}>
+                        {t("archlens_arch_market_recommendations")}
+                      </Typography>
+                      <Grid container spacing={1.5}>
+                        {(gap.recommendations ?? []).map((rec, ri) => {
+                          const rk = `${gi}:${ri}`;
+                          const isSelected = selectedRecs.has(rk);
+                          return (
+                            <Grid item key={ri} xs={12} sm={6} md={4}>
+                              <Paper
+                                variant="outlined"
+                                sx={{
+                                  p: 2,
+                                  height: "100%",
+                                  bgcolor: isSelected ? "action.selected" : undefined,
+                                  borderTop: 3,
+                                  borderColor: ri === 0 ? "#FFD700" : ri === 1 ? "#C0C0C0" : "#CD7F32",
+                                  outline: isSelected ? "2px solid" : undefined,
+                                  outlineColor: isSelected ? "primary.main" : undefined,
+                                }}
+                              >
+                                <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 0.5 }}>
+                                  <Typography variant="caption" fontWeight={700} sx={{ color: ri === 0 ? "#B8860B" : ri === 1 ? "#808080" : "#8B4513" }}>
+                                    #{ri + 1}
+                                  </Typography>
+                                  <Typography variant="body2" fontWeight={600}>{rec.name}</Typography>
+                                  {isSelected && (
+                                    <Chip label={t("archlens_assessment_selected")} size="small" color="primary" sx={{ fontSize: 10, height: 18 }} />
+                                  )}
+                                </Stack>
+                                {rec.vendor && <Typography variant="caption" color="primary">{rec.vendor}</Typography>}
+                                {rec.why && (
+                                  <Typography variant="caption" display="block" color="text.secondary" sx={{ lineHeight: 1.5, my: 0.5 }}>
+                                    {rec.why}
+                                  </Typography>
+                                )}
+                                {rec.pros?.map((p, i) => (
+                                  <Typography key={`p${i}`} variant="caption" display="block" sx={{ color: "success.main" }}>+ {p}</Typography>
+                                ))}
+                                {rec.cons?.map((c, i) => (
+                                  <Typography key={`c${i}`} variant="caption" display="block" color="text.secondary">- {c}</Typography>
+                                ))}
+                                <Stack direction="row" spacing={0.5} sx={{ mt: 1 }} flexWrap="wrap" useFlexGap>
+                                  {rec.estimatedCost && (
+                                    <Chip label={rec.estimatedCost} size="small" variant="outlined" sx={{ fontSize: 10, height: 20 }} />
+                                  )}
+                                  {rec.integrationEffort && (
+                                    <Chip label={`${rec.integrationEffort} ${t("archlens_arch_effort")}`} size="small" color={effortColor(rec.integrationEffort)} variant="outlined" sx={{ fontSize: 10, height: 20 }} />
+                                  )}
+                                </Stack>
+                              </Paper>
+                            </Grid>
+                          );
+                        })}
+                      </Grid>
+                    </Box>
+                  )}
+                </Paper>
+              ))}
+            </Stack>
+          </>
+        )}
+
+        {/* Phase 3c: Dependency Analysis */}
+        {depsResult && depsResult.dependencies?.length > 0 && (
+          <>
+            <SectionHeader icon="hub" label={t("archlens_assessment_phase_deps")} />
+            {depsResult.summary && (
+              <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
+                <Typography variant="body2" sx={{ lineHeight: 1.6 }}>
+                  {depsResult.summary}
+                </Typography>
+              </Paper>
+            )}
+            <Stack spacing={3} sx={{ mb: 2 }}>
+              {depsResult.dependencies.map((dep, di) => (
+                <Paper
+                  key={di}
+                  variant="outlined"
+                  sx={{
+                    borderTop: 3,
+                    borderColor:
+                      dep.urgency === "critical"
+                        ? "error.main"
+                        : dep.urgency === "high"
+                          ? "warning.main"
+                          : "grey.400",
+                  }}
+                >
+                  <Box sx={{ px: 2, py: 1.5, borderBottom: 1, borderColor: "divider" }}>
+                    <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+                      <Typography variant="subtitle2" fontWeight={700}>
+                        {dep.need}
+                      </Typography>
+                      {dep.urgency && (
+                        <Chip
+                          label={dep.urgency.toUpperCase()}
+                          size="small"
+                          color={urgencyColor(dep.urgency)}
+                          sx={{ fontSize: 10, fontWeight: 700, height: 20 }}
+                        />
+                      )}
+                    </Stack>
+                    {dep.reason && (
+                      <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5 }}>
+                        {dep.reason}
+                      </Typography>
+                    )}
+                  </Box>
+                  {(dep.options ?? []).length > 0 && (
+                    <Box sx={{ p: 2 }}>
+                      <Grid container spacing={1.5}>
+                        {(dep.options ?? []).map((opt, oi) => {
+                          const dk = `${di}:${oi}`;
+                          const isSelected = selectedDeps.has(dk);
+                          return (
+                            <Grid item key={oi} xs={12} sm={6} md={4}>
+                              <Paper
+                                variant="outlined"
+                                sx={{
+                                  p: 2,
+                                  height: "100%",
+                                  bgcolor: isSelected ? "action.selected" : undefined,
+                                  outline: isSelected ? "2px solid" : undefined,
+                                  outlineColor: isSelected ? "primary.main" : undefined,
+                                }}
+                              >
+                                <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 0.5 }}>
+                                  <Typography variant="body2" fontWeight={600}>{opt.name}</Typography>
+                                  {isSelected && (
+                                    <Chip label={t("archlens_assessment_selected")} size="small" color="primary" sx={{ fontSize: 10, height: 18 }} />
+                                  )}
+                                </Stack>
+                                {opt.vendor && <Typography variant="caption" color="primary">{opt.vendor}</Typography>}
+                                {opt.why && (
+                                  <Typography variant="caption" display="block" color="text.secondary" sx={{ lineHeight: 1.5, my: 0.5 }}>
+                                    {opt.why}
+                                  </Typography>
+                                )}
+                                {opt.pros?.map((p, i) => (
+                                  <Typography key={`p${i}`} variant="caption" display="block" sx={{ color: "success.main" }}>+ {p}</Typography>
+                                ))}
+                                {opt.cons?.map((c, i) => (
+                                  <Typography key={`c${i}`} variant="caption" display="block" color="text.secondary">- {c}</Typography>
+                                ))}
+                                <Stack direction="row" spacing={0.5} sx={{ mt: 1 }} flexWrap="wrap" useFlexGap>
+                                  {opt.estimatedCost && (
+                                    <Chip label={opt.estimatedCost} size="small" variant="outlined" sx={{ fontSize: 10, height: 20 }} />
+                                  )}
+                                  {opt.integrationEffort && (
+                                    <Chip label={`${opt.integrationEffort} ${t("archlens_arch_effort")}`} size="small" color={effortColor(opt.integrationEffort)} variant="outlined" sx={{ fontSize: 10, height: 20 }} />
+                                  )}
+                                </Stack>
+                              </Paper>
+                            </Grid>
+                          );
+                        })}
+                      </Grid>
+                    </Box>
+                  )}
+                </Paper>
+              ))}
+            </Stack>
           </>
         )}
 
