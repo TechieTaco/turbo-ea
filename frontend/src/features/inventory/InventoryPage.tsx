@@ -173,6 +173,10 @@ export default function InventoryPage() {
   // Relations data: relTypeKey → Map<cardId, relatedNames[]>
   const [relationsMap, setRelationsMap] = useState<Map<string, Map<string, string[]>>>(new Map());
 
+  // Dynamic column visibility: set of column keys that the user has opted in to show
+  // null = default (show core columns only, no extra columns)
+  const [selectedColumns, setSelectedColumns] = useState<Set<string>>(new Set());
+
   // Mass edit state
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [massEditOpen, setMassEditOpen] = useState(false);
@@ -212,6 +216,32 @@ export default function InventoryPage() {
   // Derive the single selected type for column rendering (only when exactly one type selected)
   const selectedType = filters.types.length === 1 ? filters.types[0] : "";
   const typeConfig = types.find((t) => t.key === selectedType);
+
+  // Common fields across multiple selected types (for dynamic columns)
+  const commonFields = useMemo<FieldDef[]>(() => {
+    if (filters.types.length <= 1) return [];
+    const selectedTypes = types.filter((t) => filters.types.includes(t.key));
+    if (selectedTypes.length < 2) return [];
+
+    const fieldMaps = selectedTypes.map((ct) => {
+      const map = new Map<string, FieldDef>();
+      for (const section of ct.fields_schema) {
+        for (const f of section.fields) {
+          map.set(f.key, f);
+        }
+      }
+      return map;
+    });
+
+    const firstMap = fieldMaps[0];
+    const common: FieldDef[] = [];
+    for (const [key, field] of firstMap) {
+      if (fieldMaps.every((m) => m.has(key))) {
+        common.push(field);
+      }
+    }
+    return common;
+  }, [types, filters.types]);
 
   // Relevant relation types for the selected type (excluding relations to hidden types)
   // Since the API excludes hidden types, check that the other-end type exists in visible types
@@ -679,10 +709,12 @@ export default function InventoryPage() {
     if (typeConfig) {
       for (const section of typeConfig.fields_schema) {
         for (const field of section.fields) {
+          const colKey = `attr_${field.key}`;
           cols.push({
-            field: `attr_${field.key}`,
+            field: colKey,
             headerName: rl(field.key, field.translations),
             width: 150,
+            hide: !selectedColumns.has(colKey),
             editable: gridEditMode && !field.readonly,
             valueGetter: (p: { data: Card }) =>
               (p.data?.attributes || {})[field.key] ?? "",
@@ -719,6 +751,35 @@ export default function InventoryPage() {
           });
         }
       }
+    } else if (commonFields.length > 0) {
+      // Multiple types selected: show common fields across all selected types
+      for (const field of commonFields) {
+        const colKey = `attr_${field.key}`;
+        cols.push({
+          field: colKey,
+          headerName: rl(field.key, field.translations),
+          width: 150,
+          hide: !selectedColumns.has(colKey),
+          valueGetter: (p: { data: Card }) =>
+            (p.data?.attributes || {})[field.key] ?? "",
+          ...(field.type === "single_select" && field.options
+            ? {
+                cellRenderer: (p: { value: string }) => {
+                  const opt = field.options?.find((o) => o.key === p.value);
+                  return opt ? (
+                    <Chip
+                      size="small"
+                      label={rl(opt.key, opt.translations)}
+                      sx={opt.color ? { bgcolor: opt.color, color: "#fff" } : {}}
+                    />
+                  ) : (
+                    p.value || ""
+                  );
+                },
+              }
+            : {}),
+        });
+      }
     }
 
     // Add relation columns (one per relevant relation type)
@@ -729,11 +790,13 @@ export default function InventoryPage() {
       const headerName = otherType ? rml(otherType.key, otherType.translations, "label") : otherTypeKey;
       const index = relationsMap.get(rt.key);
       const relTypeRef = rt;
+      const colKey = `rel_${rt.key}`;
 
       cols.push({
-        field: `rel_${rt.key}`,
+        field: colKey,
         headerName,
         width: 180,
+        hide: !selectedColumns.has(colKey),
         valueGetter: (p: { data: Card }) => {
           if (!index) return "";
           const names = index.get(p.data?.id);
@@ -804,8 +867,38 @@ export default function InventoryPage() {
       });
     }
 
+    // Metadata columns (always defined, shown/hidden via selectedColumns)
+    cols.push(
+      {
+        field: "created_at",
+        headerName: t("columns.createdAt"),
+        width: 160,
+        hide: !selectedColumns.has("meta_created_at"),
+        valueFormatter: (p) => p.value ? new Date(p.value).toLocaleString() : "",
+      },
+      {
+        field: "updated_at",
+        headerName: t("columns.updatedAt"),
+        width: 160,
+        hide: !selectedColumns.has("meta_updated_at"),
+        valueFormatter: (p) => p.value ? new Date(p.value).toLocaleString() : "",
+      },
+      {
+        field: "created_by",
+        headerName: t("columns.createdBy"),
+        width: 150,
+        hide: !selectedColumns.has("meta_created_by"),
+      },
+      {
+        field: "updated_by",
+        headerName: t("columns.updatedBy"),
+        width: 150,
+        hide: !selectedColumns.has("meta_updated_by"),
+      }
+    );
+
     return cols;
-  }, [types, typeConfig, gridEditMode, relevantRelTypes, relationsMap, selectedType, hierarchyPaths, filters.showArchived, t]);
+  }, [types, typeConfig, commonFields, gridEditMode, relevantRelTypes, relationsMap, selectedType, hierarchyPaths, filters.showArchived, selectedColumns, t]);
 
   // Render mass edit value input based on field type
   const renderMassEditInput = () => {
@@ -907,6 +1000,8 @@ export default function InventoryPage() {
             canShareBookmarks={canShareBookmarks}
             canOdataBookmarks={canOdataBookmarks}
             currentUserId={user?.id}
+            selectedColumns={selectedColumns}
+            onSelectedColumnsChange={setSelectedColumns}
           />
         </Drawer>
       ) : (
@@ -924,6 +1019,8 @@ export default function InventoryPage() {
           canShareBookmarks={canShareBookmarks}
           canOdataBookmarks={canOdataBookmarks}
           currentUserId={user?.id}
+          selectedColumns={selectedColumns}
+          onSelectedColumnsChange={setSelectedColumns}
         />
       )}
 
