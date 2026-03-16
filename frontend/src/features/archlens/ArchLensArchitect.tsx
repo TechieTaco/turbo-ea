@@ -8,6 +8,11 @@ import Button from "@mui/material/Button";
 import Checkbox from "@mui/material/Checkbox";
 import Chip from "@mui/material/Chip";
 import CircularProgress from "@mui/material/CircularProgress";
+import Dialog from "@mui/material/Dialog";
+import DialogActions from "@mui/material/DialogActions";
+import DialogContent from "@mui/material/DialogContent";
+import DialogContentText from "@mui/material/DialogContentText";
+import DialogTitle from "@mui/material/DialogTitle";
 import Grid from "@mui/material/Grid";
 import IconButton from "@mui/material/IconButton";
 import Switch from "@mui/material/Switch";
@@ -630,19 +635,21 @@ interface CapabilityOption {
   isNew: boolean;
 }
 
+interface ArchQA {
+  question: string;
+  why?: string;
+  type?: string;
+  options?: string[];
+  nfrCategory?: string;
+  answer: string;
+}
+
 interface ArchSession {
   archReq: string;
   archPhase: number;
-  archQuestions: {
-    question: string;
-    why?: string;
-    type?: string;
-    options?: string[];
-    nfrCategory?: string;
-    answer: string;
-  }[];
-  phase1Answers: { question: string; answer: string }[];
-  phase2Answers?: { question: string; answer: string; nfrCategory?: string }[];
+  archQuestions: ArchQA[];
+  phase1Answers: ArchQA[];
+  phase2Answers?: ArchQA[];
   archOptions: ArchSolutionOption[] | null;
   selectedOptionId: string | null;
   selectedObjectives: ObjectiveOption[];
@@ -677,22 +684,15 @@ export default function ArchLensArchitect() {
   const [archReq, setArchReq] = useState(saved?.archReq ?? "");
   const [archPhase, setArchPhase] = useState(saved?.archPhase ?? 0);
   const [archLoading, setArchLoading] = useState(false);
-  const [archQuestions, setArchQuestions] = useState<
-    {
-      question: string;
-      why?: string;
-      type?: string;
-      options?: string[];
-      nfrCategory?: string;
-      answer: string;
-    }[]
-  >(saved?.archQuestions ?? []);
-  const [phase1Answers, setPhase1Answers] = useState<
-    { question: string; answer: string }[]
-  >(saved?.phase1Answers ?? []);
-  const [phase2Answers, setPhase2Answers] = useState<
-    { question: string; answer: string; nfrCategory?: string }[]
-  >(saved?.phase2Answers ?? []);
+  const [archQuestions, setArchQuestions] = useState<ArchQA[]>(
+    saved?.archQuestions ?? [],
+  );
+  const [phase1Answers, setPhase1Answers] = useState<ArchQA[]>(
+    saved?.phase1Answers ?? [],
+  );
+  const [phase2Answers, setPhase2Answers] = useState<ArchQA[]>(
+    saved?.phase2Answers ?? [],
+  );
   const [archOptions, setArchOptions] = useState<ArchSolutionOption[] | null>(
     saved?.archOptions ?? null,
   );
@@ -743,6 +743,8 @@ export default function ArchLensArchitect() {
   const [snackMsg, setSnackMsg] = useState("");
   // Proposed card edit state: { cardId: editedName }
   const [editingCard, setEditingCard] = useState<{ id: string; name: string } | null>(null);
+  // Navigation confirmation dialog target step index
+  const [navConfirmTarget, setNavConfirmTarget] = useState<number | null>(null);
 
   const saveSession = useCallback(() => {
     const session: ArchSession = {
@@ -1063,20 +1065,19 @@ export default function ArchLensArchitect() {
         })),
       };
       if (phase === 2) {
-        const qa = archQuestions.map((q) => ({
+        payload.phase1QA = archQuestions.map((q) => ({
           question: q.question,
           answer: q.answer,
         }));
-        payload.phase1QA = qa;
-        setPhase1Answers(qa);
+        setPhase1Answers([...archQuestions]);
       }
       if (phase === 3) {
         // Phase 3a: get solution options
-        const phase2qa = archQuestions.map((q) => ({
-          question: q.question,
-          answer: q.answer,
-        }));
-        payload.allQA = [...phase1Answers, ...phase2qa];
+        const allQA = [
+          ...phase1Answers.map((q) => ({ question: q.question, answer: q.answer })),
+          ...archQuestions.map((q) => ({ question: q.question, answer: q.answer })),
+        ];
+        payload.allQA = allQA;
         payload.objectiveIds = selectedObjectives.map((o) => o.id);
         const result = await api.post<{ options: ArchSolutionOption[] }>(
           "/archlens/architect/phase3/options",
@@ -1093,14 +1094,8 @@ export default function ArchLensArchitect() {
         setSelectedDeps(new Set());
         setCapabilityMapping(null);
         setArchPhase(3);
-        // Preserve Phase 2 answers before clearing archQuestions
-        setPhase2Answers(
-          archQuestions.map((q) => ({
-            question: q.question,
-            answer: q.answer,
-            nfrCategory: q.nfrCategory,
-          })),
-        );
+        // Preserve Phase 2 answers (full Q&A) before clearing archQuestions
+        setPhase2Answers([...archQuestions]);
         setArchQuestions([]);
         setArchLoading(false);
         return;
@@ -1109,11 +1104,8 @@ export default function ArchLensArchitect() {
         // Phase 4 (3c): dependency analysis for selected products
         const selectedOpt = archOptions?.find((o) => o.id === selectedOptionId);
         payload.allQA = [
-          ...phase1Answers,
-          ...phase2Answers.map((q) => ({
-            question: q.question,
-            answer: q.answer,
-          })),
+          ...phase1Answers.map((q) => ({ question: q.question, answer: q.answer })),
+          ...phase2Answers.map((q) => ({ question: q.question, answer: q.answer })),
         ];
         payload.selectedOption = selectedOpt ?? null;
         // Build selected products from gap result
@@ -1163,11 +1155,8 @@ export default function ArchLensArchitect() {
         // Phase 5: capability mapping with all selections
         const selectedOpt = archOptions?.find((o) => o.id === selectedOptionId);
         payload.allQA = [
-          ...phase1Answers,
-          ...phase2Answers.map((q) => ({
-            question: q.question,
-            answer: q.answer,
-          })),
+          ...phase1Answers.map((q) => ({ question: q.question, answer: q.answer })),
+          ...phase2Answers.map((q) => ({ question: q.question, answer: q.answer })),
         ];
         payload.selectedOption = selectedOpt ?? null;
         payload.objectiveIds = selectedObjectives.map((o) => o.id);
@@ -1256,11 +1245,8 @@ export default function ArchLensArchitect() {
       const payload: Record<string, unknown> = {
         requirement: archReq,
         allQA: [
-          ...phase1Answers,
-          ...phase2Answers.map((q) => ({
-            question: q.question,
-            answer: q.answer,
-          })),
+          ...phase1Answers.map((q) => ({ question: q.question, answer: q.answer })),
+          ...phase2Answers.map((q) => ({ question: q.question, answer: q.answer })),
         ],
         selectedOption: selectedOpt ?? null,
         objectiveIds: selectedObjectives.map((o) => o.id),
@@ -1349,6 +1335,63 @@ export default function ArchLensArchitect() {
     // Reset assessment so the updated session data gets saved on next commit
     setAssessmentId(null);
     setAssessmentSaved(false);
+  };
+
+  const navigateToStep = (targetStepIndex: number) => {
+    const currentStepIndex = phaseToStepIndex(archPhase);
+    if (targetStepIndex >= currentStepIndex) return;
+
+    const targetPhase = ARCHITECT_STEPS[targetStepIndex].phases[0];
+
+    if (targetPhase <= 0) {
+      // Going to Requirements: clear everything downstream
+      setArchQuestions([]);
+      setPhase1Answers([]);
+      setPhase2Answers([]);
+      setArchOptions(null);
+      setSelectedOptionId(null);
+      setGapResult(null);
+      setSelectedRecs(new Set());
+      setDepsResult(null);
+      setSelectedDeps(new Set());
+      setCapabilityMapping(null);
+    } else if (targetPhase <= 1) {
+      // Going to Business Fit: restore phase1Answers → archQuestions, clear phase 2+
+      setArchQuestions(phase1Answers);
+      setPhase1Answers([]);
+      setPhase2Answers([]);
+      setArchOptions(null);
+      setSelectedOptionId(null);
+      setGapResult(null);
+      setSelectedRecs(new Set());
+      setDepsResult(null);
+      setSelectedDeps(new Set());
+      setCapabilityMapping(null);
+    } else if (targetPhase <= 2) {
+      // Going to Technical Fit: restore phase2Answers → archQuestions, clear phase 3+
+      setArchQuestions(phase2Answers);
+      setPhase2Answers([]);
+      setArchOptions(null);
+      setSelectedOptionId(null);
+      setGapResult(null);
+      setSelectedRecs(new Set());
+      setDepsResult(null);
+      setSelectedDeps(new Set());
+      setCapabilityMapping(null);
+    } else if (targetPhase <= 3) {
+      // Going to Solution: clear 3b+ but keep archOptions
+      setSelectedOptionId(null);
+      setGapResult(null);
+      setSelectedRecs(new Set());
+      setDepsResult(null);
+      setSelectedDeps(new Set());
+      setCapabilityMapping(null);
+    }
+
+    setAssessmentId(null);
+    setAssessmentSaved(false);
+    setError("");
+    setArchPhase(targetPhase);
   };
 
   const handleSaveAssessment = async (): Promise<string | null> => {
@@ -1455,15 +1498,66 @@ export default function ArchLensArchitect() {
           alternativeLabel
           sx={{ mb: 3 }}
         >
-          {ARCHITECT_STEPS.map((step) => (
-            <Step
-              key={step.key}
-              completed={phaseToStepIndex(archPhase) > ARCHITECT_STEPS.indexOf(step)}
-            >
-              <StepLabel>{t(`archlens_architect_step_${step.key}`)}</StepLabel>
-            </Step>
-          ))}
+          {ARCHITECT_STEPS.map((step, index) => {
+            const currentStep = phaseToStepIndex(archPhase);
+            const isCompleted = currentStep > index;
+            const isClickable = isCompleted && !archLoading;
+            return (
+              <Step key={step.key} completed={isCompleted}>
+                <StepLabel
+                  onClick={
+                    isClickable ? () => setNavConfirmTarget(index) : undefined
+                  }
+                  sx={
+                    isClickable
+                      ? {
+                          cursor: "pointer",
+                          "& .MuiStepLabel-label": {
+                            "&:hover": {
+                              color: "primary.main",
+                              textDecoration: "underline",
+                            },
+                          },
+                        }
+                      : undefined
+                  }
+                >
+                  {t(`archlens_architect_step_${step.key}`)}
+                </StepLabel>
+              </Step>
+            );
+          })}
         </Stepper>
+
+        {/* Back-navigation confirmation dialog */}
+        <Dialog
+          open={navConfirmTarget !== null}
+          onClose={() => setNavConfirmTarget(null)}
+        >
+          <DialogTitle>
+            {t("archlens_architect_nav_confirm_title")}
+          </DialogTitle>
+          <DialogContent>
+            <DialogContentText>
+              {t("archlens_architect_nav_confirm_body")}
+            </DialogContentText>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setNavConfirmTarget(null)}>
+              {t("common:cancel")}
+            </Button>
+            <Button
+              variant="contained"
+              color="warning"
+              onClick={() => {
+                if (navConfirmTarget !== null) navigateToStep(navConfirmTarget);
+                setNavConfirmTarget(null);
+              }}
+            >
+              {t("archlens_architect_nav_confirm_action")}
+            </Button>
+          </DialogActions>
+        </Dialog>
 
         {/* Phase 0: Business Requirements Input */}
         {archPhase === 0 && (
