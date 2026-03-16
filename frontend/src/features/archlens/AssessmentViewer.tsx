@@ -51,7 +51,7 @@ function buildMergedGraph(
         id: card.id,
         name: card.name,
         type: card.cardTypeKey,
-        proposed: true,
+        proposed: card.isNew,
       };
       nodeMap.set(card.id, node);
       nodes.push(node);
@@ -134,6 +134,23 @@ export default function AssessmentViewer() {
     if (!capabilityMapping) return { nodes: [] as GNode[], edges: [] as GEdge[] };
     return buildMergedGraph(capabilityMapping, relationTypes);
   }, [capabilityMapping, relationTypes]);
+
+  const nameMap = useMemo(() => {
+    const map = new Map<string, string>();
+    if (!capabilityMapping) return map;
+    for (const c of capabilityMapping.proposedCards) {
+      map.set(c.id, c.name);
+      if (c.existingCardId) map.set(c.existingCardId, c.name);
+    }
+    for (const c of capabilityMapping.capabilities) {
+      map.set(c.id, c.name);
+      if (c.existingCardId) map.set(c.existingCardId, c.name);
+    }
+    for (const n of capabilityMapping.existingDependencies?.nodes ?? []) {
+      map.set(n.id, n.name);
+    }
+    return map;
+  }, [capabilityMapping]);
 
   if (loading) {
     return (
@@ -388,14 +405,8 @@ export default function AssessmentViewer() {
                 </Typography>
                 <Stack spacing={0.3}>
                   {capabilityMapping.proposedRelations.map((rel, i) => {
-                    const srcName =
-                      capabilityMapping.proposedCards.find((c) => c.id === rel.sourceId)?.name ||
-                      capabilityMapping.capabilities.find((c) => c.id === rel.sourceId)?.name ||
-                      rel.sourceId;
-                    const tgtName =
-                      capabilityMapping.proposedCards.find((c) => c.id === rel.targetId)?.name ||
-                      capabilityMapping.capabilities.find((c) => c.id === rel.targetId)?.name ||
-                      rel.targetId;
+                    const srcName = nameMap.get(rel.sourceId) ?? rel.sourceId;
+                    const tgtName = nameMap.get(rel.targetId) ?? rel.targetId;
                     return (
                       <Stack key={i} direction="row" spacing={0.5} alignItems="center">
                         <Typography variant="caption">{srcName}</Typography>
