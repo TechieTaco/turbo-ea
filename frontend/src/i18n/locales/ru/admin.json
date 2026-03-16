@@ -1104,5 +1104,7 @@
   "archlens_assessment_linked_initiative": "Связанная инициатива",
   "archlens_assessment_created_by": "Создано",
   "archlens_assessment_selected": "Выбрана",
+  "archlens_assessment_resume": "Продолжить",
+  "archlens_save_assessment": "Сохранить оценку",
   "archlens_no_assessments": "Оценок пока нет. Завершите архитектурную оценку, чтобы увидеть её здесь."
 }
