@@ -1054,6 +1054,13 @@ export default function ArchLensArchitect() {
         setArchOptions(
           Array.isArray(result.options) ? result.options : [],
         );
+        // Clear downstream state from any previous session/assessment
+        setSelectedOptionId(null);
+        setGapResult(null);
+        setSelectedRecs(new Set());
+        setDepsResult(null);
+        setSelectedDeps(new Set());
+        setCapabilityMapping(null);
         setArchPhase(3);
         setArchQuestions([]);
         setArchLoading(false);
@@ -1107,6 +1114,8 @@ export default function ArchLensArchitect() {
           });
         });
         setSelectedDeps(preselected);
+        // Clear downstream state
+        setCapabilityMapping(null);
         setArchPhase(4);
         setArchLoading(false);
         return;
