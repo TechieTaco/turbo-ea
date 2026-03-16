@@ -1100,6 +1100,8 @@
   "archlens_assessment_phase_business": "Adequação ao negócio",
   "archlens_assessment_phase_technical": "Adequação técnica",
   "archlens_assessment_phase_solution": "Solução",
+  "archlens_assessment_phase_gaps": "Análise de lacunas",
+  "archlens_assessment_phase_deps": "Dependências",
   "archlens_assessment_phase_target": "Arquitetura alvo",
   "archlens_assessment_linked_initiative": "Iniciativa vinculada",
   "archlens_assessment_created_by": "Criado por",

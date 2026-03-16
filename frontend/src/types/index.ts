@@ -1364,6 +1364,7 @@ export interface ProposedCard {
   cardTypeKey: string;
   subtype?: string;
   isNew: boolean;
+  existingCardId?: string;
   rationale?: string;
   disabled?: boolean;
 }
