@@ -634,9 +634,10 @@ async def _deduplicate_existing_cards(db: AsyncSession, parsed: dict[str, Any]) 
 
     # Remap relation references
     for rel in parsed.get("proposedRelations", []):
-        for key in ("sourceId", "targetId"):
-            if rel.get(key, "") in remap:
-                rel[key] = remap[rel[key]]
+        for rkey in ("sourceId", "targetId"):
+            val = rel.get(rkey, "")
+            if val in remap:
+                rel[rkey] = remap[val]
 
     # Remap capability references
     for cap in parsed.get("capabilities", []):
