@@ -1030,6 +1030,7 @@
   "archlens_architect_custom_answer": "或输入您自己的答案...",
   "archlens_architect_options_intro": "根据您的需求，以下是推荐的解决方案：",
   "archlens_architect_select_option": "选择此方案",
+  "archlens_architect_option_selected": "已选择",
   "archlens_architect_generating_options": "AI 正在分析解决方案...",
   "archlens_architect_select_objectives": "此解决方案支持哪些业务目标？",
   "archlens_architect_objectives_hint": "从您的架构全景中选择一个或多个现有的业务目标。AI 将分析其依赖关系以映射能力。",

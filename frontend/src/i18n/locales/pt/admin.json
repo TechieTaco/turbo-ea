@@ -1030,6 +1030,7 @@
   "archlens_architect_custom_answer": "Ou digite sua própria resposta...",
   "archlens_architect_options_intro": "Com base nos seus requisitos, aqui estão as abordagens de solução recomendadas:",
   "archlens_architect_select_option": "Selecionar esta abordagem",
+  "archlens_architect_option_selected": "Selecionado",
   "archlens_architect_generating_options": "A IA está analisando abordagens de solução...",
   "archlens_architect_select_objectives": "Quais objetivos de negócio esta solução suporta?",
   "archlens_architect_objectives_hint": "Selecione um ou mais objetivos de negócio existentes do seu panorama. A IA analisará suas dependências para mapear capacidades.",
