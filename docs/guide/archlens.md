@@ -97,7 +97,7 @@ The Architecture AI is a 5-step guided wizard that generates architecture recomm
 
 ![Architecture AI](../assets/img/en/52_archlens_architect.png)
 
-A stepper at the top tracks your progress through the five stages: Requirements, Business Fit, Technical Fit, Solution, and Target Architecture. Your progress is saved automatically in the browser session, so you can navigate away and return without losing your work. Click **New Assessment** to start a fresh analysis at any time.
+A stepper at the top tracks your progress through the five stages: Requirements, Business Fit, Technical Fit, Solution, and Target Architecture. Your progress is saved automatically in the browser session, so you can navigate away and return without losing your work. You can also save assessments to the database and resume them later (see [Save & Resume](#save--resume) below). Click **New Assessment** to start a fresh analysis at any time.
 
 ### Step 1: Requirements
 
@@ -177,11 +177,22 @@ From this step, you can click **Choose Different** to go back and select a diffe
 !!! warning "AI-Assisted Assessment"
     This assessment leverages AI to generate recommendations, solution options, and a target architecture. It should be performed by a qualified IT professional (Enterprise Architect, Solution Architect, IT Leader) in collaboration with business stakeholders. The generated output requires professional judgment and may contain inaccuracies. Use the results as a starting point for further discussion and refinement.
 
-### Save & Commit
+### Save & Resume
 
-After reviewing the target architecture, you have two options:
+After reviewing the target architecture, you can save or commit your work:
 
-**Save Assessment** — Persists the assessment for later review via the Assessments tab. Saved assessments can be revisited by any user with `archlens.view` permission.
+**Save Assessment** — Persists a full snapshot of the assessment (all answers, selected options, gap analysis, dependencies, and target architecture) to the database. Saved assessments appear in the **Assessments** tab.
+
+**Resume a Saved Assessment** — Non-committed assessments can be reopened into the interactive wizard with full state restored:
+
+- From the **Assessments** tab, click the **Resume** button on any saved assessment row
+- From the read-only **Assessment Viewer**, click **Resume** in the header
+- The wizard restores to the exact phase and state where you left off, including all AI-generated questions, your answers, selected options, and product selections
+- You can continue from where you stopped, choose a different approach, or commit to create an initiative
+- Saving again updates the existing assessment (instead of creating a new one)
+
+!!! tip "Full Snapshot"
+    A saved assessment is a complete snapshot of your wizard session. As long as it has not been committed to an initiative, you can resume it, pick a different solution approach, and re-save as many times as needed.
 
 **Commit & Create Initiative** — Converts the architecture proposal into real cards in your landscape:
 
@@ -210,7 +221,7 @@ A draft ADR is automatically created alongside the initiative with:
 
 ### Change Approach
 
-Click **Choose Different** to select a different solution option. The assessment is re-evaluated and re-saved with updated data, allowing you to compare approaches before committing.
+Click **Choose Different** to return to the solution options and select a different approach. All your Phase 1 and Phase 2 answers are preserved — only the downstream data (gap analysis, dependencies, target architecture) is reset. After selecting a new option, the wizard proceeds through gap analysis and dependency analysis again. You can save the updated assessment or commit when ready.
 
 ## Analysis History
 
