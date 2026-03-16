@@ -97,7 +97,7 @@ La IA de Arquitectura es un asistente guiado de 5 pasos que genera recomendacion
 
 ![IA de Arquitectura](../assets/img/es/52_archlens_arquitecto.png)
 
-Un indicador de progreso en la parte superior rastrea su avance a través de las cinco etapas: Requirements, Business Fit, Technical Fit, Solution y Target Architecture. Su progreso se guarda automáticamente en la sesión del navegador, por lo que puede navegar a otro lugar y regresar sin perder su trabajo. Haga clic en **New Assessment** para comenzar un análisis nuevo en cualquier momento.
+Un indicador de progreso en la parte superior rastrea su avance a través de las cinco etapas: Requisitos, Adecuación al Negocio, Adecuación Técnica, Solución y Arquitectura Objetivo. Su progreso se guarda automáticamente en la sesión del navegador, por lo que puede navegar a otro lugar y regresar sin perder su trabajo. También puede guardar evaluaciones en la base de datos y retomarlas más tarde (consulte [Guardar y retomar](#guardar-y-retomar) a continuación). Haga clic en **Nueva Evaluación** para comenzar un análisis nuevo en cualquier momento.
 
 ### Paso 1: Requirements
 
@@ -177,11 +177,22 @@ Desde este paso, puede hacer clic en **Choose Different** para volver y seleccio
 !!! warning "Evaluación asistida por IA"
     Esta evaluación utiliza IA para generar recomendaciones, opciones de solución y una arquitectura objetivo. Debe ser realizada por un profesional de TI cualificado (arquitecto empresarial, arquitecto de soluciones, líder de TI) en colaboración con las partes interesadas del negocio. Los resultados generados requieren criterio profesional y pueden contener imprecisiones. Utilice los resultados como punto de partida para discusiones y refinamientos posteriores.
 
-### Guardar y confirmar
+### Guardar y retomar
 
-Después de revisar la arquitectura objetivo, tiene dos opciones:
+Después de revisar la arquitectura objetivo, puede guardar o confirmar su trabajo:
 
-**Guardar evaluación** — Guarda la evaluación para su revisión posterior a través de la pestaña «Evaluaciones». Las evaluaciones guardadas pueden ser consultadas por cualquier usuario con el permiso `archlens.view`.
+**Guardar evaluación** — Persiste una instantánea completa de la evaluación (todas las respuestas, opciones seleccionadas, análisis de brechas, dependencias y arquitectura objetivo) en la base de datos. Las evaluaciones guardadas aparecen en la pestaña **Evaluaciones**.
+
+**Retomar una evaluación guardada** — Las evaluaciones no confirmadas pueden reabrirse en el asistente interactivo con el estado completamente restaurado:
+
+- Desde la pestaña **Evaluaciones**, haga clic en el botón **Retomar** en cualquier fila de evaluación guardada
+- Desde el **Visor de evaluación** de solo lectura, haga clic en **Retomar** en el encabezado
+- El asistente se restaura a la fase y estado exactos donde lo dejó, incluyendo todas las preguntas generadas por la IA, sus respuestas, opciones seleccionadas y selecciones de productos
+- Puede continuar desde donde se detuvo, elegir un enfoque diferente o confirmar para crear una iniciativa
+- Guardar de nuevo actualiza la evaluación existente (en lugar de crear una nueva)
+
+!!! tip "Instantánea completa"
+    Una evaluación guardada es una instantánea completa de su sesión del asistente. Mientras no se haya confirmado en una iniciativa, puede retomarla, elegir un enfoque de solución diferente y volver a guardarla tantas veces como sea necesario.
 
 **Confirmar y crear iniciativa** — Convierte la propuesta de arquitectura en tarjetas reales en su panorama:
 
@@ -210,7 +221,7 @@ Un borrador de ADR se crea automáticamente junto con la iniciativa con:
 
 ### Cambiar enfoque
 
-Haga clic en **Choose Different** para seleccionar una opción de solución diferente. Los resultados se recalculan y se guardan con datos actualizados, permitiéndole comparar enfoques antes de confirmar.
+Haga clic en **Choose Different** para volver a las opciones de solución y seleccionar un enfoque diferente. Todas sus respuestas de la Fase 1 y la Fase 2 se conservan — solo se restablecen los datos posteriores (análisis de brechas, dependencias, arquitectura objetivo). Tras seleccionar una nueva opción, el asistente vuelve a recorrer el análisis de brechas y el análisis de dependencias. Puede guardar la evaluación actualizada o confirmar cuando esté listo.
 
 ## Historial de Análisis
 

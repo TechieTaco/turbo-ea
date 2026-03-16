@@ -1104,5 +1104,7 @@
   "archlens_assessment_linked_initiative": "关联倡议",
   "archlens_assessment_created_by": "创建者",
   "archlens_assessment_selected": "已选择",
+  "archlens_assessment_resume": "恢复",
+  "archlens_save_assessment": "保存评估",
   "archlens_no_assessments": "暂无评估。完成一次架构评估后将在此显示。"
 }

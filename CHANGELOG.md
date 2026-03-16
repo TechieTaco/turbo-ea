@@ -5,6 +5,16 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.41.0] - 2026-03-16
+
+### Added
+- ArchLens: Resume saved assessments — non-committed assessments can be reopened into the interactive Architecture AI wizard with full state restored (answers, selections, options, gap analysis)
+- ArchLens: Resume button on the Assessments list and the read-only Assessment Viewer for quick access
+- ArchLens: Re-save assessments after changing approach — PATCH updates the existing assessment instead of creating a new one
+
+### Fixed
+- ArchLens: Phase transition from Technical Fit to Solution no longer shows stale gap analysis data from a previous assessment stored in the browser session
+
 ## [0.40.0] - 2026-03-15
 
 ### Added

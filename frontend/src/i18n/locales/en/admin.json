@@ -1105,5 +1105,7 @@
   "archlens_assessment_linked_initiative": "Linked Initiative",
   "archlens_assessment_created_by": "Created by",
   "archlens_assessment_selected": "Selected",
+  "archlens_assessment_resume": "Resume",
+  "archlens_save_assessment": "Save Assessment",
   "archlens_no_assessments": "No assessments yet. Complete an architecture assessment to see it here."
 }
