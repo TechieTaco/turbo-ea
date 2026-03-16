@@ -558,11 +558,101 @@ def _merge_new_capabilities_into_proposed(parsed: dict[str, Any]) -> None:
         )
 
 
+async def _deduplicate_existing_cards(db: AsyncSession, parsed: dict[str, Any]) -> None:
+    """Match proposed 'new' cards against existing landscape cards by name+type.
+
+    When the LLM creates a card with ``isNew: true`` but a card with the same
+    name and type already exists in the database, convert it to an existing-card
+    reference.  Also remaps all relation IDs so edges stay connected.
+
+    Modifies ``parsed`` in place.
+    """
+    lookup_types = [
+        "Application",
+        "DataObject",
+        "Interface",
+        "ITComponent",
+        "BusinessCapability",
+        "Provider",
+        "System",
+    ]
+    result = await db.execute(
+        select(Card).where(Card.type.in_(lookup_types), Card.status != "ARCHIVED")
+    )
+    existing_cards = result.scalars().all()
+
+    # Build lookup: (normalised_name, type) -> (uuid_str, original_name)
+    existing_lookup: dict[tuple[str, str], tuple[str, str]] = {}
+    for c in existing_cards:
+        key = (c.name.strip().lower(), c.type)
+        existing_lookup[key] = (str(c.id), c.name)
+
+    proposed_cards = parsed.get("proposedCards", [])
+    remap: dict[str, str] = {}  # old_id -> real_uuid
+    seen_uuids: set[str] = set()
+
+    i = 0
+    while i < len(proposed_cards):
+        card = proposed_cards[i]
+        if not card.get("isNew"):
+            i += 1
+            continue
+        key = (card.get("name", "").strip().lower(), card.get("cardTypeKey", ""))
+        match = existing_lookup.get(key)
+        if match:
+            real_uuid, real_name = match
+            if real_uuid in seen_uuids:
+                # Another proposed card already mapped to this UUID — remove duplicate
+                old_id = card.get("id", "")
+                remap[old_id] = real_uuid
+                proposed_cards.pop(i)
+                logger.info(
+                    "Guardrail: removed duplicate proposed card %s (%s) — "
+                    "already mapped to existing %s",
+                    card.get("name"),
+                    old_id,
+                    real_uuid,
+                )
+                continue
+            old_id = card.get("id", "")
+            remap[old_id] = real_uuid
+            card["id"] = real_uuid
+            card["existingCardId"] = real_uuid
+            card["isNew"] = False
+            card["name"] = real_name  # use canonical name
+            seen_uuids.add(real_uuid)
+            logger.info(
+                "Guardrail: deduplicated proposed card %s (%s) → existing %s",
+                real_name,
+                old_id,
+                real_uuid,
+            )
+        i += 1
+
+    if not remap:
+        return
+
+    # Remap relation references
+    for rel in parsed.get("proposedRelations", []):
+        for key in ("sourceId", "targetId"):
+            if rel.get(key, "") in remap:
+                rel[key] = remap[rel[key]]
+
+    # Remap capability references
+    for cap in parsed.get("capabilities", []):
+        cap_id = cap.get("id", "")
+        if cap_id in remap:
+            cap["id"] = remap[cap_id]
+            cap["existingCardId"] = remap[cap_id]
+            cap["isNew"] = False
+
+
 def _enforce_mandatory_relations(
     parsed: dict[str, Any],
     selected_capabilities: list[dict[str, Any]],
     objective_ids: list[str],
     dep_nodes: list[dict[str, Any]],
+    objective_names: dict[str, str] | None = None,
 ) -> None:
     """Ensure every new Application links to a BusinessCapability, and
     every new BusinessCapability links to the selected Objectives.
@@ -656,9 +746,19 @@ def _enforce_mandatory_relations(
     proposed_ids = {c.get("id", "") for c in proposed_cards}
     for oid in objective_ids:
         if oid not in dep_node_ids and oid not in proposed_ids:
-            # The objective should already be in the existing dependency graph,
-            # but if not, it will be resolved by the dangling reference handler
-            pass
+            name = (objective_names or {}).get(oid, "Objective")
+            proposed_cards.append(
+                {
+                    "id": oid,
+                    "name": name,
+                    "cardTypeKey": "Objective",
+                    "isNew": False,
+                    "existingCardId": oid,
+                    "rationale": "Existing objective referenced by proposed relations",
+                }
+            )
+            proposed_ids.add(oid)
+            logger.info("Guardrail: added objective %s (%s) to proposedCards", name, oid)
 
 
 def _remove_orphan_nodes(parsed: dict[str, Any]) -> None:
@@ -964,6 +1064,9 @@ Respond with ONLY this JSON:
     # Attach existing dependency graph so frontend can merge
     parsed["existingDependencies"] = existing_dependencies
 
+    # ---- Post-processing: deduplicate proposed cards against existing landscape ----
+    await _deduplicate_existing_cards(db, parsed)
+
     # ---- Post-processing: resolve dangling card references ----
     # Collect all IDs that are already known (proposed cards, capabilities, dep graph)
     known_ids: set[str] = set()
@@ -1019,11 +1122,13 @@ Respond with ONLY this JSON:
     _merge_new_capabilities_into_proposed(parsed)
 
     # ---- Post-processing: enforce mandatory relations ----
+    obj_names = await _load_objective_names(db, objective_ids)
     _enforce_mandatory_relations(
         parsed,
         selected_capabilities or [],
         objective_ids,
         dep_nodes,
+        objective_names=obj_names,
     )
 
     # ---- Post-processing: remove orphan nodes ----
@@ -1073,6 +1178,26 @@ async def _load_objectives_context(db: AsyncSession, objective_ids: list[str] | 
         lines.append(f"- {obj.name}{desc_str}")
     lines.append("")
     return "\n".join(lines)
+
+
+async def _load_objective_names(
+    db: AsyncSession, objective_ids: list[str] | None
+) -> dict[str, str]:
+    """Return a mapping of objective UUID → card name."""
+    if not objective_ids:
+        return {}
+    from uuid import UUID
+
+    valid_ids = []
+    for oid in objective_ids:
+        try:
+            valid_ids.append(UUID(oid))
+        except (ValueError, TypeError):
+            continue
+    if not valid_ids:
+        return {}
+    result = await db.execute(select(Card.id, Card.name).where(Card.id.in_(valid_ids)))
+    return {str(row.id): row.name for row in result.all()}
 
 
 def _build_capabilities_context(

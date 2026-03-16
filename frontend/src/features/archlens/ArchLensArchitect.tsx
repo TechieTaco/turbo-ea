@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import Alert from "@mui/material/Alert";
 import Autocomplete from "@mui/material/Autocomplete";
@@ -903,6 +903,24 @@ export default function ArchLensArchitect() {
 
     return { nodes: filteredNodes, edges };
   }, [capabilityMapping, relationTypes]);
+
+  // Comprehensive name lookup for relation display (covers all ID sources)
+  const relationNameMap = useMemo(() => {
+    const map = new Map<string, string>();
+    if (!capabilityMapping) return map;
+    for (const c of capabilityMapping.proposedCards) {
+      map.set(c.id, c.name);
+      if (c.existingCardId) map.set(c.existingCardId, c.name);
+    }
+    for (const c of capabilityMapping.capabilities) {
+      map.set(c.id, c.name);
+      if (c.existingCardId) map.set(c.existingCardId, c.name);
+    }
+    for (const n of capabilityMapping.existingDependencies?.nodes ?? []) {
+      map.set(n.id, n.name);
+    }
+    return map;
+  }, [capabilityMapping]);
 
   const extractQuestions = (
     data: Record<string, unknown>,
@@ -2376,23 +2394,9 @@ export default function ArchLensArchitect() {
                           (c) => c.id === rel.targetId,
                         );
                         const srcName =
-                          srcCard?.name ||
-                          capabilityMapping.capabilities.find(
-                            (c) => c.id === rel.sourceId,
-                          )?.name ||
-                          capabilityMapping.existingDependencies?.nodes.find(
-                            (n) => n.id === rel.sourceId,
-                          )?.name ||
-                          rel.sourceId;
+                          relationNameMap.get(rel.sourceId) ?? rel.sourceId;
                         const tgtName =
-                          tgtCard?.name ||
-                          capabilityMapping.capabilities.find(
-                            (c) => c.id === rel.targetId,
-                          )?.name ||
-                          capabilityMapping.existingDependencies?.nodes.find(
-                            (n) => n.id === rel.targetId,
-                          )?.name ||
-                          rel.targetId;
+                          relationNameMap.get(rel.targetId) ?? rel.targetId;
                         const relDisabled =
                           srcCard?.disabled || tgtCard?.disabled;
                         return (
