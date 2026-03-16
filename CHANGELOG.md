@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Inventory: Metadata columns (Created, Modified, Created by, Modified by) available as optional grid columns
 - Inventory: When multiple card types are selected, common fields across all types are offered as column options
 - Inventory: Column search and select-all/clear-all controls for efficient column management
+- ArchLens: Navigate to previous phases in the Architecture AI wizard by clicking completed stepper steps, with confirmation dialog to warn about downstream data loss
 
 ## [0.41.0] - 2026-03-16
 
