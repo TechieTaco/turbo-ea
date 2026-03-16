@@ -117,18 +117,24 @@ export default function AssessmentViewer() {
 
   const sd = assessment?.session_data as Record<string, unknown> | null;
 
-  const requirement = (sd?.requirement as string) || "";
+  const requirement = (sd?.requirement as string) || (sd?.archReq as string) || "";
   const objectives = (sd?.selectedObjectives as { id: string; name: string }[]) || [];
   const capabilities =
     (sd?.selectedCapabilities as { id: string; name: string; isNew?: boolean }[]) || [];
+  // Support both old format (phase1Questions/phase2Questions) and new (phase1Answers/archQuestions)
   const phase1Questions =
-    (sd?.phase1Questions as { question: string; answer: string }[]) || [];
+    (sd?.phase1Questions as { question: string; answer: string }[]) ||
+    (sd?.phase1Answers as { question: string; answer: string }[]) ||
+    [];
   const phase2Questions =
-    (sd?.phase2Questions as { question: string; answer: string; nfrCategory?: string }[]) || [];
+    (sd?.phase2Questions as { question: string; answer: string; nfrCategory?: string }[]) ||
+    (sd?.archQuestions as { question: string; answer: string; nfrCategory?: string }[]) ||
+    [];
   const archOptions = (sd?.archOptions as ArchSolutionOption[]) || [];
   const selectedOptionId = sd?.selectedOptionId as string | null;
   const gapResult = sd?.gapResult as GapAnalysisResult | null;
   const capabilityMapping = sd?.capabilityMapping as CapabilityMappingResult | null;
+  const canResume = assessment?.status !== "committed";
 
   const merged = useMemo(() => {
     if (!capabilityMapping) return { nodes: [] as GNode[], edges: [] as GEdge[] };
@@ -168,6 +174,16 @@ export default function AssessmentViewer() {
         <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
           <Typography variant="h6">{assessment.title}</Typography>
           <Stack direction="row" spacing={1} alignItems="center">
+            {canResume && (
+              <Button
+                size="small"
+                variant="contained"
+                onClick={() => navigate(`/archlens?tab=architect&resume=${assessment.id}`)}
+                startIcon={<MaterialSymbol icon="play_arrow" size={18} />}
+              >
+                {t("archlens_assessment_resume")}
+              </Button>
+            )}
             <Chip
               size="small"
               label={
