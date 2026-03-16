@@ -1638,9 +1638,11 @@ export default function ArchLensArchitect() {
                 const qType = q.type || "text";
                 const hasOptions = q.options && q.options.length > 0;
                 const selectedMulti =
-                  qType === "multi" && q.answer
-                    ? q.answer.split(", ").filter(Boolean)
-                    : [];
+                  qType === "multi" && q.answer && q.options
+                    ? q.options.filter((opt) => q.answer.includes(opt))
+                    : qType === "multi" && q.answer
+                      ? q.answer.split("\n").filter(Boolean)
+                      : [];
                 return (
                   <Paper
                     key={i}
@@ -1749,7 +1751,7 @@ export default function ArchLensArchitect() {
                                   const next = isSelected
                                     ? selectedMulti.filter((s) => s !== opt)
                                     : [...selectedMulti, opt];
-                                  handleAnswerChange(i, next.join(", "));
+                                  handleAnswerChange(i, next.join("\n"));
                                 }}
                                 color={isSelected ? "primary" : "default"}
                                 variant={isSelected ? "filled" : "outlined"}
