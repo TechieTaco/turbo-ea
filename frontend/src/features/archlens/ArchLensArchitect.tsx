@@ -642,6 +642,7 @@ interface ArchSession {
     answer: string;
   }[];
   phase1Answers: { question: string; answer: string }[];
+  phase2Answers?: { question: string; answer: string; nfrCategory?: string }[];
   archOptions: ArchSolutionOption[] | null;
   selectedOptionId: string | null;
   selectedObjectives: ObjectiveOption[];
@@ -689,6 +690,9 @@ export default function ArchLensArchitect() {
   const [phase1Answers, setPhase1Answers] = useState<
     { question: string; answer: string }[]
   >(saved?.phase1Answers ?? []);
+  const [phase2Answers, setPhase2Answers] = useState<
+    { question: string; answer: string; nfrCategory?: string }[]
+  >(saved?.phase2Answers ?? []);
   const [archOptions, setArchOptions] = useState<ArchSolutionOption[] | null>(
     saved?.archOptions ?? null,
   );
@@ -746,6 +750,7 @@ export default function ArchLensArchitect() {
       archPhase,
       archQuestions,
       phase1Answers,
+      phase2Answers,
       archOptions,
       selectedOptionId,
       selectedObjectives,
@@ -764,6 +769,7 @@ export default function ArchLensArchitect() {
     archPhase,
     archQuestions,
     phase1Answers,
+    phase2Answers,
     archOptions,
     selectedOptionId,
     selectedObjectives,
@@ -848,6 +854,7 @@ export default function ArchLensArchitect() {
         setArchPhase(sd.archPhase ?? 0);
         setArchQuestions(sd.archQuestions ?? []);
         setPhase1Answers(sd.phase1Answers ?? []);
+        setPhase2Answers(sd.phase2Answers ?? []);
         setArchOptions(sd.archOptions ?? null);
         setSelectedOptionId(sd.selectedOptionId ?? null);
         setSelectedObjectives(sd.selectedObjectives ?? []);
@@ -1086,6 +1093,14 @@ export default function ArchLensArchitect() {
         setSelectedDeps(new Set());
         setCapabilityMapping(null);
         setArchPhase(3);
+        // Preserve Phase 2 answers before clearing archQuestions
+        setPhase2Answers(
+          archQuestions.map((q) => ({
+            question: q.question,
+            answer: q.answer,
+            nfrCategory: q.nfrCategory,
+          })),
+        );
         setArchQuestions([]);
         setArchLoading(false);
         return;
@@ -1095,7 +1110,7 @@ export default function ArchLensArchitect() {
         const selectedOpt = archOptions?.find((o) => o.id === selectedOptionId);
         payload.allQA = [
           ...phase1Answers,
-          ...archQuestions.map((q) => ({
+          ...phase2Answers.map((q) => ({
             question: q.question,
             answer: q.answer,
           })),
@@ -1149,7 +1164,7 @@ export default function ArchLensArchitect() {
         const selectedOpt = archOptions?.find((o) => o.id === selectedOptionId);
         payload.allQA = [
           ...phase1Answers,
-          ...archQuestions.map((q) => ({
+          ...phase2Answers.map((q) => ({
             question: q.question,
             answer: q.answer,
           })),
@@ -1242,7 +1257,7 @@ export default function ArchLensArchitect() {
         requirement: archReq,
         allQA: [
           ...phase1Answers,
-          ...archQuestions.map((q) => ({
+          ...phase2Answers.map((q) => ({
             question: q.question,
             answer: q.answer,
           })),
@@ -1307,6 +1322,7 @@ export default function ArchLensArchitect() {
     setArchReq("");
     setArchQuestions([]);
     setPhase1Answers([]);
+    setPhase2Answers([]);
     setArchOptions(null);
     setSelectedOptionId(null);
     setSelectedObjectives([]);
