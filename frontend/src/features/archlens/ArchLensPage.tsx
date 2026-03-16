@@ -1,4 +1,4 @@
-import { lazy, Suspense, useMemo, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router-dom";
 import Box from "@mui/material/Box";
@@ -50,8 +50,13 @@ export default function ArchLensPage() {
   const { t } = useTranslation("nav");
   const [searchParams, setSearchParams] = useSearchParams();
   const paramTab = searchParams.get("tab") as TabKey | null;
-  const initialTab = paramTab && TAB_KEYS.includes(paramTab) ? paramTab : "dashboard";
-  const [tab, setTab] = useState<TabKey>(initialTab);
+  const resolvedTab = paramTab && TAB_KEYS.includes(paramTab) ? paramTab : "dashboard";
+  const [tab, setTab] = useState<TabKey>(resolvedTab);
+
+  // Sync tab with URL when search params change (e.g. resume navigation)
+  useEffect(() => {
+    if (resolvedTab !== tab) setTab(resolvedTab);
+  }, [resolvedTab]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleChange = (_: React.SyntheticEvent, val: string) => {
     const key = val as TabKey;
