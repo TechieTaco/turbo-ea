@@ -1104,5 +1104,7 @@
   "archlens_assessment_linked_initiative": "Verknüpfte Initiative",
   "archlens_assessment_created_by": "Erstellt von",
   "archlens_assessment_selected": "Ausgewählt",
+  "archlens_assessment_resume": "Fortsetzen",
+  "archlens_save_assessment": "Bewertung speichern",
   "archlens_no_assessments": "Noch keine Bewertungen. Schließen Sie eine Architekturbewertung ab, um sie hier zu sehen."
 }

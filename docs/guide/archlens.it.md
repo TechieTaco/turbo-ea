@@ -97,7 +97,7 @@ L'Architecture AI è una procedura guidata in 5 passaggi che genera raccomandazi
 
 ![Architecture AI](../assets/img/it/52_archlens_architetto.png)
 
-Un indicatore di avanzamento nella parte superiore tiene traccia del tuo progresso attraverso le cinque fasi: Requisiti, Business Fit, Technical Fit, Soluzione e Architettura target. Il tuo progresso viene salvato automaticamente nella sessione del browser, così puoi navigare altrove e tornare senza perdere il lavoro. Fai clic su **Nuova valutazione** per avviare un'analisi completamente nuova in qualsiasi momento.
+Un indicatore di avanzamento nella parte superiore tiene traccia del tuo progresso attraverso le cinque fasi: Requisiti, Business Fit, Technical Fit, Soluzione e Architettura target. Il tuo progresso viene salvato automaticamente nella sessione del browser, così puoi navigare altrove e tornare senza perdere il lavoro. Puoi anche salvare le valutazioni nel database e riprenderle in seguito (vedi [Salva e riprendi](#salva--riprendi) più avanti). Fai clic su **Nuova valutazione** per avviare un'analisi completamente nuova in qualsiasi momento.
 
 ### Passaggio 1: Requisiti
 
@@ -177,11 +177,22 @@ Da questo passaggio, puoi fare clic su **Scegli un'alternativa** per tornare ind
 !!! warning "Valutazione assistita dall'IA"
     Questa valutazione utilizza l'IA per generare raccomandazioni, opzioni di soluzione e un'architettura target. Deve essere eseguita da un professionista IT qualificato (Enterprise Architect, Solution Architect, responsabile IT) in collaborazione con gli stakeholder aziendali. I risultati generati richiedono giudizio professionale e possono contenere imprecisioni. Utilizzare i risultati come punto di partenza per ulteriori discussioni e perfezionamenti.
 
-### Salva e conferma
+### Salva e riprendi
 
-Dopo aver esaminato l'architettura target, hai due opzioni:
+Dopo aver esaminato l'architettura target, puoi salvare o confermare il tuo lavoro:
 
-**Salva valutazione** — Salva la valutazione per una revisione successiva tramite la scheda «Valutazioni». Le valutazioni salvate possono essere consultate da qualsiasi utente con il permesso `archlens.view`.
+**Salva valutazione** — Salva uno snapshot completo della valutazione (tutte le risposte, le opzioni selezionate, l'analisi dei gap, le dipendenze e l'architettura target) nel database. Le valutazioni salvate appaiono nella scheda **Valutazioni**.
+
+**Riprendi una valutazione salvata** — Le valutazioni non confermate possono essere riaperte nella procedura guidata interattiva con lo stato completamente ripristinato:
+
+- Dalla scheda **Valutazioni**, fai clic sul pulsante **Riprendi** su qualsiasi riga di valutazione salvata
+- Dal **Visualizzatore valutazione** in sola lettura, fai clic su **Riprendi** nell'intestazione
+- La procedura guidata si ripristina alla fase e allo stato esatti in cui ti eri fermato, incluse tutte le domande generate dall'IA, le tue risposte, le opzioni selezionate e le selezioni dei prodotti
+- Puoi continuare da dove ti eri fermato, scegliere un approccio diverso o confermare per creare un'iniziativa
+- Salvare di nuovo aggiorna la valutazione esistente (anziché crearne una nuova)
+
+!!! tip "Snapshot completo"
+    Una valutazione salvata è uno snapshot completo della tua sessione della procedura guidata. Finché non è stata confermata in un'iniziativa, puoi riprenderla, scegliere un approccio di soluzione diverso e ri-salvarla tutte le volte che desideri.
 
 **Conferma e crea iniziativa** — Converte la proposta architetturale in card reali nel tuo panorama:
 
@@ -210,7 +221,7 @@ Una bozza di ADR viene automaticamente creata insieme all'iniziativa con:
 
 ### Cambia approccio
 
-Fai clic su **Scegli un'alternativa** per selezionare un'opzione di soluzione diversa. I risultati vengono ricalcolati e salvati con dati aggiornati, permettendoti di confrontare gli approcci prima di confermare.
+Fai clic su **Scegli un'alternativa** per tornare alle opzioni di soluzione e selezionare un approccio diverso. Tutte le tue risposte della Fase 1 e della Fase 2 vengono preservate — solo i dati a valle (analisi dei gap, dipendenze, architettura target) vengono reimpostati. Dopo aver selezionato una nuova opzione, la procedura guidata ripercorre l'analisi dei gap e l'analisi delle dipendenze. Puoi salvare la valutazione aggiornata o confermare quando sei pronto.
 
 ## Cronologia delle analisi
 

@@ -97,7 +97,7 @@ O Architecture AI é um assistente guiado em 5 etapas que gera recomendações d
 
 ![Architecture AI](../assets/img/pt/52_archlens_arquiteto.png)
 
-Um indicador de progresso no topo acompanha o seu avanço pelas cinco etapas: Requisitos, Adequação ao Negócio, Adequação Técnica, Solução e Arquitetura Alvo. O seu progresso é guardado automaticamente na sessão do navegador, pelo que pode navegar para outra página e regressar sem perder o trabalho. Clique em **Nova Avaliação** para iniciar uma nova análise a qualquer momento.
+Um indicador de progresso no topo acompanha o seu avanço pelas cinco etapas: Requisitos, Adequação ao Negócio, Adequação Técnica, Solução e Arquitetura Alvo. O seu progresso é guardado automaticamente na sessão do navegador, pelo que pode navegar para outra página e regressar sem perder o trabalho. Também pode guardar avaliações na base de dados e retomá-las mais tarde (consulte [Guardar e retomar](#guardar--retomar) abaixo). Clique em **Nova Avaliação** para iniciar uma nova análise a qualquer momento.
 
 ### Etapa 1: Requisitos
 
@@ -177,11 +177,22 @@ Nesta etapa, pode clicar em **Escolher Diferente** para voltar atrás e selecion
 !!! warning "Avaliação assistida por IA"
     Esta avaliação utiliza IA para gerar recomendações, opções de solução e uma arquitetura-alvo. Deve ser realizada por um profissional de TI qualificado (arquiteto empresarial, arquiteto de soluções, líder de TI) em colaboração com as partes interessadas do negócio. Os resultados gerados requerem julgamento profissional e podem conter imprecisões. Utilize os resultados como ponto de partida para discussões e refinamentos posteriores.
 
-### Guardar e confirmar
+### Guardar e retomar
 
-Após revisar a arquitetura-alvo, tem duas opções:
+Após revisar a arquitetura-alvo, pode guardar ou confirmar o seu trabalho:
 
-**Guardar avaliação** — Guarda a avaliação para revisão posterior através do separador «Avaliações». As avaliações guardadas podem ser consultadas por qualquer utilizador com a permissão `archlens.view`.
+**Guardar avaliação** — Guarda um snapshot completo da avaliação (todas as respostas, opções selecionadas, análise de lacunas, dependências e arquitetura-alvo) na base de dados. As avaliações guardadas aparecem no separador **Avaliações**.
+
+**Retomar uma avaliação guardada** — As avaliações não confirmadas podem ser reabertas no assistente interativo com o estado completamente restaurado:
+
+- No separador **Avaliações**, clique no botão **Retomar** em qualquer linha de avaliação guardada
+- No **Visualizador de avaliação** em modo de leitura, clique em **Retomar** no cabeçalho
+- O assistente restaura a fase e o estado exatos onde parou, incluindo todas as perguntas geradas pela IA, as suas respostas, opções selecionadas e seleções de produtos
+- Pode continuar de onde parou, escolher uma abordagem diferente ou confirmar para criar uma iniciativa
+- Guardar novamente atualiza a avaliação existente (em vez de criar uma nova)
+
+!!! tip "Snapshot completo"
+    Uma avaliação guardada é um snapshot completo da sua sessão do assistente. Enquanto não tiver sido confirmada numa iniciativa, pode retomá-la, escolher uma abordagem de solução diferente e voltar a guardá-la tantas vezes quantas necessário.
 
 **Confirmar e criar iniciativa** — Converte a proposta de arquitetura em cards reais no seu panorama:
 
@@ -210,7 +221,7 @@ Um rascunho de ADR é criado automaticamente juntamente com a iniciativa com:
 
 ### Mudar abordagem
 
-Clique em **Escolher Diferente** para selecionar uma opção de solução diferente. Os resultados são recalculados e guardados com dados atualizados, permitindo comparar abordagens antes de confirmar.
+Clique em **Escolher Diferente** para regressar às opções de solução e selecionar uma abordagem diferente. Todas as suas respostas da Fase 1 e Fase 2 são preservadas — apenas os dados subsequentes (análise de lacunas, dependências, arquitetura-alvo) são repostos. Após selecionar uma nova opção, o assistente prossegue novamente pela análise de lacunas e análise de dependências. Pode guardar a avaliação atualizada ou confirmar quando estiver pronto.
 
 ## Histórico de Análises
 

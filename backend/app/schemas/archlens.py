@@ -51,6 +51,16 @@ class ArchLensAssessmentCreate(BaseModel):
     session_data: dict = Field(..., alias="sessionData")
 
 
+class ArchLensAssessmentUpdate(BaseModel):
+    """Update an existing architecture assessment session."""
+
+    model_config = {"populate_by_name": True}
+
+    title: str | None = None
+    requirement: str | None = None
+    session_data: dict | None = Field(default=None, alias="sessionData")
+
+
 class ArchLensCommitRequest(BaseModel):
     """Commit an assessment: create initiative, cards, relations, ADR."""
 

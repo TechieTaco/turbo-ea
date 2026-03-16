@@ -97,7 +97,7 @@ L'Architecture IA est un assistant guidé en 5 étapes qui génère des recomman
 
 ![Architecture IA](../assets/img/fr/52_archlens_architecte.png)
 
-Un indicateur de progression en haut suit votre avancement à travers les cinq étapes : Exigences, Adéquation métier, Adéquation technique, Solution et Architecture cible. Votre progression est sauvegardée automatiquement dans la session du navigateur, vous pouvez donc naviguer ailleurs et revenir sans perdre votre travail. Cliquez sur **Nouvelle évaluation** pour démarrer une nouvelle analyse à tout moment.
+Un indicateur de progression en haut suit votre avancement à travers les cinq étapes : Exigences, Adéquation métier, Adéquation technique, Solution et Architecture cible. Votre progression est sauvegardée automatiquement dans la session du navigateur, vous pouvez donc naviguer ailleurs et revenir sans perdre votre travail. Vous pouvez également enregistrer les évaluations dans la base de données et les reprendre ultérieurement (voir [Sauvegarder et reprendre](#sauvegarder--reprendre) ci-dessous). Cliquez sur **Nouvelle évaluation** pour démarrer une nouvelle analyse à tout moment.
 
 ### Étape 1 : Exigences
 
@@ -177,11 +177,22 @@ La dernière étape génère une cartographie complète des capacités :
 !!! warning "Évaluation assistée par IA"
     Cette évaluation utilise l'IA pour générer des recommandations, des options de solution et une architecture cible. Elle doit être réalisée par un professionnel IT qualifié (architecte d'entreprise, architecte de solutions, responsable IT) en collaboration avec les parties prenantes métier. Les résultats générés nécessitent un jugement professionnel et peuvent contenir des inexactitudes. Utilisez les résultats comme point de départ pour des discussions et un approfondissement ultérieurs.
 
-### Sauvegarder et valider
+### Sauvegarder et reprendre
 
-Après avoir examiné l'architecture cible, vous disposez de deux options :
+Après avoir examiné l'architecture cible, vous pouvez sauvegarder ou valider votre travail :
 
-**Sauvegarder l'évaluation** — Enregistre l'évaluation pour une consultation ultérieure via l'onglet «Évaluations». Les évaluations sauvegardées sont accessibles à tout utilisateur disposant de la permission `archlens.view`.
+**Sauvegarder l'évaluation** — Enregistre un instantané complet de l'évaluation (toutes les réponses, les options sélectionnées, l'analyse des écarts, les dépendances et l'architecture cible) dans la base de données. Les évaluations sauvegardées apparaissent dans l'onglet **Évaluations**.
+
+**Reprendre une évaluation sauvegardée** — Les évaluations non validées peuvent être rouvertes dans l'assistant interactif avec un état entièrement restauré :
+
+- Depuis l'onglet **Évaluations**, cliquez sur le bouton **Reprendre** sur n'importe quelle ligne d'évaluation sauvegardée
+- Depuis le **Visualiseur d'évaluation** en lecture seule, cliquez sur **Reprendre** dans l'en-tête
+- L'assistant restaure la phase et l'état exacts où vous vous étiez arrêté, y compris toutes les questions générées par l'IA, vos réponses, les options sélectionnées et les sélections de produits
+- Vous pouvez continuer là où vous vous étiez arrêté, choisir une approche différente ou valider pour créer une initiative
+- Sauvegarder à nouveau met à jour l'évaluation existante (au lieu d'en créer une nouvelle)
+
+!!! tip "Instantané complet"
+    Une évaluation sauvegardée est un instantané complet de votre session d'assistant. Tant qu'elle n'a pas été validée dans une initiative, vous pouvez la reprendre, choisir une approche de solution différente et la re-sauvegarder autant de fois que nécessaire.
 
 **Valider et créer une initiative** — Convertit la proposition d'architecture en cartes réelles dans votre paysage :
 
@@ -210,7 +221,7 @@ Un brouillon d'ADR est automatiquement créé avec l'initiative, comprenant :
 
 ### Changer d'approche
 
-Cliquez sur **Choisir une autre option** pour sélectionner une option de solution différente. L'évaluation est réévaluée et sauvegardée à nouveau avec les données mises à jour, vous permettant de comparer les approches avant de valider.
+Cliquez sur **Choisir une autre option** pour revenir aux options de solution et sélectionner une approche différente. Toutes vos réponses de la Phase 1 et de la Phase 2 sont conservées — seules les données en aval (analyse des écarts, dépendances, architecture cible) sont réinitialisées. Après avoir sélectionné une nouvelle option, l'assistant reprend l'analyse des écarts et l'analyse des dépendances. Vous pouvez sauvegarder l'évaluation mise à jour ou valider lorsque vous êtes prêt.
 
 ## Historique des analyses
 
