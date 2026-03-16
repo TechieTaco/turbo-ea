@@ -1254,6 +1254,7 @@ export default function ArchLensArchitect() {
         payload,
       );
       setGapResult(result);
+      setArchPhase(3.5);
       // Pre-select recommended items
       const preselected = new Set<RecKey>();
       (result.gaps ?? []).forEach((gap, gi) => {
@@ -1332,8 +1333,10 @@ export default function ArchLensArchitect() {
 
   /** Highest step index that has data — enables clicking any reached step. */
   const maxReachedStep = useMemo(() => {
-    if (capabilityMapping) return 4;
-    if (depsResult || (selectedOptionId && gapResult) || archOptions) return 3;
+    if (capabilityMapping) return 6;
+    if (depsResult) return 5;
+    if (selectedOptionId && gapResult) return 4;
+    if (archOptions) return 3;
     if (phase2Answers.length > 0) return 2;
     if (phase1Answers.length > 0) return 1;
     return phaseToStepIndex(archPhase);
@@ -1361,16 +1364,7 @@ export default function ArchLensArchitect() {
     if (targetStepIndex === currentStepIndex || archLoading) return;
     if (targetStepIndex > maxReachedStep) return;
 
-    // Determine the target phase
-    let targetPhase: number;
-    if (targetStepIndex === 3) {
-      // For Solution step, show the furthest reached sub-phase
-      if (depsResult) targetPhase = 4;
-      else if (selectedOptionId && gapResult) targetPhase = 3;
-      else targetPhase = 3;
-    } else {
-      targetPhase = ARCHITECT_STEPS[targetStepIndex].phases[0];
-    }
+    const targetPhase = ARCHITECT_STEPS[targetStepIndex].phases[0];
 
     // Load saved answers into archQuestions for Phase 1/2 viewing
     if (targetPhase === 1) {
@@ -1446,8 +1440,7 @@ export default function ArchLensArchitect() {
   };
 
   // Determine if we're in Phase 3b (product selection) or 3c (deps view)
-  const isGapsView =
-    archPhase === 3 && selectedOptionId != null && gapResult != null;
+  const isGapsView = archPhase === 3.5 && gapResult != null;
   const isDepsView = archPhase === 4 && depsResult != null;
   const selectedOpt = archOptions?.find((o) => o.id === selectedOptionId);
 
@@ -1888,7 +1881,6 @@ export default function ArchLensArchitect() {
         {/* Phase 3a: Solution options */}
         {archPhase === 3 &&
           !archLoading &&
-          !isGapsView &&
           archOptions &&
           archOptions.length > 0 && (
             <>
@@ -2224,7 +2216,7 @@ export default function ArchLensArchitect() {
                   )
                 }
               >
-                {t("archlens_architect_generate_capability_map")}
+                {t("archlens_architect_generate_target_architecture")}
               </Button>
               <Button variant="outlined" onClick={chooseDifferent}>
                 {t("archlens_architect_choose_different")}
