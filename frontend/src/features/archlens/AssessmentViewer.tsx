@@ -144,6 +144,7 @@ export default function AssessmentViewer() {
     [];
   const phase2Questions =
     (sd?.phase2Questions as { question: string; answer: string; nfrCategory?: string }[]) ||
+    (sd?.phase2Answers as { question: string; answer: string; nfrCategory?: string }[]) ||
     (sd?.archQuestions as { question: string; answer: string; nfrCategory?: string }[]) ||
     [];
   const archOptions = (sd?.archOptions as ArchSolutionOption[]) || [];
