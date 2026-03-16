@@ -8,11 +8,6 @@ import Button from "@mui/material/Button";
 import Checkbox from "@mui/material/Checkbox";
 import Chip from "@mui/material/Chip";
 import CircularProgress from "@mui/material/CircularProgress";
-import Dialog from "@mui/material/Dialog";
-import DialogActions from "@mui/material/DialogActions";
-import DialogContent from "@mui/material/DialogContent";
-import DialogContentText from "@mui/material/DialogContentText";
-import DialogTitle from "@mui/material/DialogTitle";
 import Grid from "@mui/material/Grid";
 import IconButton from "@mui/material/IconButton";
 import Switch from "@mui/material/Switch";
@@ -743,8 +738,6 @@ export default function ArchLensArchitect() {
   const [snackMsg, setSnackMsg] = useState("");
   // Proposed card edit state: { cardId: editedName }
   const [editingCard, setEditingCard] = useState<{ id: string; name: string } | null>(null);
-  // Navigation confirmation dialog target step index
-  const [navConfirmTarget, setNavConfirmTarget] = useState<number | null>(null);
 
   const saveSession = useCallback(() => {
     const session: ArchSession = {
@@ -1337,59 +1330,61 @@ export default function ArchLensArchitect() {
     setAssessmentSaved(false);
   };
 
+  /** Highest step index that has data — allows bidirectional stepper navigation. */
+  const maxReachedStep = useMemo(() => {
+    if (capabilityMapping) return 4;
+    if (depsResult || (selectedOptionId && gapResult) || archOptions) return 3;
+    if (phase2Answers.length > 0) return 2;
+    if (phase1Answers.length > 0) return 1;
+    return phaseToStepIndex(archPhase);
+  }, [
+    capabilityMapping,
+    depsResult,
+    selectedOptionId,
+    gapResult,
+    archOptions,
+    phase2Answers,
+    phase1Answers,
+    archPhase,
+  ]);
+
+  /**
+   * Navigate to a previously-reached step without clearing downstream data.
+   * Auto-saves/restores archQuestions when entering or leaving Phase 1/2.
+   * Data is only cleared when the user actually submits via "next step" (runPhase).
+   */
   const navigateToStep = (targetStepIndex: number) => {
     const currentStepIndex = phaseToStepIndex(archPhase);
-    if (targetStepIndex >= currentStepIndex) return;
+    if (targetStepIndex === currentStepIndex || archLoading) return;
+    if (targetStepIndex > maxReachedStep) return;
 
-    const targetPhase = ARCHITECT_STEPS[targetStepIndex].phases[0];
-
-    if (targetPhase <= 0) {
-      // Going to Requirements: clear everything downstream
-      setArchQuestions([]);
-      setPhase1Answers([]);
-      setPhase2Answers([]);
-      setArchOptions(null);
-      setSelectedOptionId(null);
-      setGapResult(null);
-      setSelectedRecs(new Set());
-      setDepsResult(null);
-      setSelectedDeps(new Set());
-      setCapabilityMapping(null);
-    } else if (targetPhase <= 1) {
-      // Going to Business Fit: restore phase1Answers → archQuestions, clear phase 2+
-      setArchQuestions(phase1Answers);
-      setPhase1Answers([]);
-      setPhase2Answers([]);
-      setArchOptions(null);
-      setSelectedOptionId(null);
-      setGapResult(null);
-      setSelectedRecs(new Set());
-      setDepsResult(null);
-      setSelectedDeps(new Set());
-      setCapabilityMapping(null);
-    } else if (targetPhase <= 2) {
-      // Going to Technical Fit: restore phase2Answers → archQuestions, clear phase 3+
-      setArchQuestions(phase2Answers);
-      setPhase2Answers([]);
-      setArchOptions(null);
-      setSelectedOptionId(null);
-      setGapResult(null);
-      setSelectedRecs(new Set());
-      setDepsResult(null);
-      setSelectedDeps(new Set());
-      setCapabilityMapping(null);
-    } else if (targetPhase <= 3) {
-      // Going to Solution: clear 3b+ but keep archOptions
-      setSelectedOptionId(null);
-      setGapResult(null);
-      setSelectedRecs(new Set());
-      setDepsResult(null);
-      setSelectedDeps(new Set());
-      setCapabilityMapping(null);
+    // Auto-save current archQuestions if leaving Phase 1 or 2
+    if (archPhase === 1 && archQuestions.length > 0) {
+      setPhase1Answers([...archQuestions]);
+    } else if (archPhase === 2 && archQuestions.length > 0) {
+      setPhase2Answers([...archQuestions]);
     }
 
-    setAssessmentId(null);
-    setAssessmentSaved(false);
+    // Determine the target phase
+    let targetPhase: number;
+    if (targetStepIndex === 3) {
+      // For Solution step, navigate to the furthest reached sub-phase
+      if (depsResult) targetPhase = 4;
+      else if (selectedOptionId && gapResult) targetPhase = 3;
+      else targetPhase = 3;
+    } else {
+      targetPhase = ARCHITECT_STEPS[targetStepIndex].phases[0];
+    }
+
+    // Restore archQuestions for Phase 1/2 viewing
+    if (targetPhase === 1) {
+      setArchQuestions(phase1Answers);
+    } else if (targetPhase === 2) {
+      setArchQuestions(phase2Answers);
+    } else {
+      setArchQuestions([]);
+    }
+
     setError("");
     setArchPhase(targetPhase);
   };
@@ -1500,13 +1495,14 @@ export default function ArchLensArchitect() {
         >
           {ARCHITECT_STEPS.map((step, index) => {
             const currentStep = phaseToStepIndex(archPhase);
-            const isCompleted = currentStep > index;
+            const isCompleted =
+              index <= maxReachedStep && index !== currentStep;
             const isClickable = isCompleted && !archLoading;
             return (
               <Step key={step.key} completed={isCompleted}>
                 <StepLabel
                   onClick={
-                    isClickable ? () => setNavConfirmTarget(index) : undefined
+                    isClickable ? () => navigateToStep(index) : undefined
                   }
                   sx={
                     isClickable
@@ -1528,36 +1524,6 @@ export default function ArchLensArchitect() {
             );
           })}
         </Stepper>
-
-        {/* Back-navigation confirmation dialog */}
-        <Dialog
-          open={navConfirmTarget !== null}
-          onClose={() => setNavConfirmTarget(null)}
-        >
-          <DialogTitle>
-            {t("archlens_architect_nav_confirm_title")}
-          </DialogTitle>
-          <DialogContent>
-            <DialogContentText>
-              {t("archlens_architect_nav_confirm_body")}
-            </DialogContentText>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setNavConfirmTarget(null)}>
-              {t("common:cancel")}
-            </Button>
-            <Button
-              variant="contained"
-              color="warning"
-              onClick={() => {
-                if (navConfirmTarget !== null) navigateToStep(navConfirmTarget);
-                setNavConfirmTarget(null);
-              }}
-            >
-              {t("archlens_architect_nav_confirm_action")}
-            </Button>
-          </DialogActions>
-        </Dialog>
 
         {/* Phase 0: Business Requirements Input */}
         {archPhase === 0 && (
