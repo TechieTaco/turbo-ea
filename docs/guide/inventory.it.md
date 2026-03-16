@@ -24,6 +24,24 @@ Il pannello laterale sinistro consente di **filtrare** le card secondo diversi c
 
 Un **badge con il conteggio dei filtri attivi** mostra quanti filtri sono attualmente applicati.
 
+### Scheda Colonne
+
+La scheda **Colonne** nel pannello laterale consente di scegliere quali colonne aggiuntive visualizzare nella griglia. Le colonne disponibili cambiano dinamicamente in base ai tipi di schede selezionati:
+
+- **Un solo tipo selezionato** — Tutti i campi attributo definiti per quel tipo sono disponibili, oltre alle colonne di relazioni e metadati
+- **Più tipi selezionati** — Sono disponibili solo i campi **comuni a tutti i tipi selezionati**
+- **Nessun tipo selezionato** — Un messaggio suggerisce di selezionare prima un tipo di scheda
+
+Le colonne sono raggruppate in tre categorie:
+
+| Categoria | Descrizione |
+|-----------|-------------|
+| **Metadati** | Creato, Modificato, Creato da, Modificato da |
+| **Attributi** | Campi personalizzati definiti nel metamodello (testo, numero, costo, data, selezione, ecc.) |
+| **Relazioni** | Tipi di schede correlati (ad es., Applicazioni collegate a una Capacità Aziendale) |
+
+Ogni categoria ha una casella di controllo **Seleziona tutto** per attivare o disattivare rapidamente tutte le colonne di quel gruppo. Un campo di ricerca in alto consente di trovare colonne specifiche per nome. Il badge su ogni intestazione di sezione mostra quante colonne di quel gruppo sono attualmente visibili.
+
 ### Tabella principale
 
 L'inventario utilizza una tabella dati **AG Grid** con funzionalità avanzate:

@@ -24,6 +24,24 @@ Le panneau latéral gauche permet de **filtrer** les fiches selon différents cr
 
 Un **badge de nombre de filtres actifs** indique combien de filtres sont actuellement appliqués.
 
+### Onglet Colonnes
+
+L'onglet **Colonnes** dans le panneau latéral vous permet de choisir les colonnes supplémentaires à afficher dans la grille. Les colonnes disponibles changent dynamiquement en fonction des types de cartes sélectionnés :
+
+- **Un seul type sélectionné** — Tous les champs d'attributs définis pour ce type sont disponibles, ainsi que les colonnes de relations et de métadonnées
+- **Plusieurs types sélectionnés** — Seuls les champs **communs à tous les types sélectionnés** sont disponibles
+- **Aucun type sélectionné** — Un message d'indication vous invite à sélectionner d'abord un type de carte
+
+Les colonnes sont regroupées en trois catégories :
+
+| Catégorie | Description |
+|-----------|-------------|
+| **Métadonnées** | Créé, Modifié, Créé par, Modifié par |
+| **Attributs** | Champs personnalisés définis dans le métamodèle (texte, nombre, coût, date, sélection, etc.) |
+| **Relations** | Types de cartes liés (par ex., Applications liées à une Capacité Métier) |
+
+Chaque catégorie dispose d'une case à cocher **Tout sélectionner** pour activer ou désactiver rapidement toutes les colonnes du groupe. Un champ de recherche en haut permet de trouver des colonnes spécifiques par nom. Le badge sur chaque en-tête de section indique combien de colonnes de ce groupe sont actuellement visibles.
+
 ### Tableau principal
 
 L'inventaire utilise un tableau de données **AG Grid** avec des fonctionnalités puissantes :

@@ -24,6 +24,24 @@ O painel lateral esquerdo permite **filtrar** cards por diferentes critérios:
 
 Um **contador de filtros ativos** mostra quantos filtros estão atualmente aplicados.
 
+### Aba Colunas
+
+A aba **Colunas** no painel lateral permite escolher quais colunas adicionais exibir na grade. As colunas disponíveis mudam dinamicamente com base nos tipos de cartões selecionados:
+
+- **Um único tipo selecionado** — Todos os campos de atributos definidos para esse tipo estão disponíveis, além de colunas de relações e metadados
+- **Vários tipos selecionados** — Apenas os campos que são **comuns a todos os tipos selecionados** estão disponíveis
+- **Nenhum tipo selecionado** — Uma mensagem de orientação solicita que você selecione primeiro um tipo de cartão
+
+As colunas são agrupadas em três categorias:
+
+| Categoria | Descrição |
+|-----------|-----------|
+| **Metadados** | Criado, Modificado, Criado por, Modificado por |
+| **Atributos** | Campos personalizados definidos no metamodelo (texto, número, custo, data, seleção, etc.) |
+| **Relações** | Tipos de cartões relacionados (por ex., Aplicações vinculadas a uma Capacidade de Negócio) |
+
+Cada categoria tem uma caixa de seleção **Selecionar tudo** para ativar ou desativar rapidamente todas as colunas desse grupo. Um campo de pesquisa no topo permite encontrar colunas específicas por nome. O indicador em cada cabeçalho de seção mostra quantas colunas desse grupo estão atualmente visíveis.
+
 ### Tabela Principal
 
 O inventário usa uma tabela de dados **AG Grid** com recursos poderosos:

@@ -32,7 +32,15 @@ import Autocomplete from "@mui/material/Autocomplete";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { useResolveLabel, useResolveMetaLabel } from "@/hooks/useResolveLabel";
 import { api } from "@/api/client";
-import type { CardType, Bookmark, FieldDef, RelationType, User } from "@/types";
+import type {
+  CardType,
+  Bookmark,
+  FieldDef,
+  RelationType,
+  TranslationMap,
+  MetamodelTranslations,
+  User,
+} from "@/types";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -64,6 +72,8 @@ interface Props {
   canShareBookmarks?: boolean;
   canOdataBookmarks?: boolean;
   currentUserId?: string;
+  selectedColumns: Set<string>;
+  onSelectedColumnsChange: (cols: Set<string>) => void;
 }
 
 const APPROVAL_STATUS_OPTIONS = [
@@ -108,6 +118,8 @@ export default function InventoryFilterSidebar({
   canShareBookmarks = false,
   canOdataBookmarks = false,
   currentUserId,
+  selectedColumns,
+  onSelectedColumnsChange,
 }: Props) {
   const { t } = useTranslation(["inventory", "common"]);
   const rl = useResolveLabel();
@@ -442,10 +454,11 @@ export default function InventoryFilterSidebar({
             onChange={(_, v) => setTab(v)}
             sx={{
               minHeight: 36,
-              "& .MuiTab-root": { minHeight: 36, py: 0, textTransform: "none", fontSize: 14 },
+              "& .MuiTab-root": { minHeight: 36, py: 0, textTransform: "none", fontSize: 14, minWidth: 0 },
             }}
           >
             <Tab label={t("filter.title")} />
+            <Tab label={t("columns.title")} />
             <Tab label={t("views.title")} />
           </Tabs>
           <IconButton size="small" onClick={onToggleCollapse}>
@@ -456,7 +469,7 @@ export default function InventoryFilterSidebar({
         {/* Scrollable content */}
         <Box sx={{ flex: 1, overflow: "auto", p: 1.5 }}>
           {tab === 0 ? (
-            /* ======================= FILTERS TAB ======================= */
+            /* ====================== FILTERS TAB ====================== */
             <>
               {/* Search */}
               <SectionHeader
@@ -935,8 +948,20 @@ export default function InventoryFilterSidebar({
                 </Button>
               </Box>
             </>
+          ) : tab === 1 ? (
+            /* ====================== COLUMNS TAB ====================== */
+            <ColumnsTab
+              types={types}
+              filters={filters}
+              selectedColumns={selectedColumns}
+              onSelectedColumnsChange={onSelectedColumnsChange}
+              relevantRelTypes={relevantRelTypes}
+              t={t}
+              rl={rl}
+              rml={rml}
+            />
           ) : (
-            /* ======================= VIEWS TAB ======================= */
+            /* ====================== VIEWS TAB ====================== */
             <>
               <Box
                 sx={{
@@ -1356,5 +1381,379 @@ function BookmarkListItem({
         </Box>
       )}
     </ListItemButton>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Columns tab component                                              */
+/* ------------------------------------------------------------------ */
+
+const METADATA_COLUMNS = [
+  { key: "meta_created_at", icon: "schedule", tKey: "columns.createdAt" as const },
+  { key: "meta_updated_at", icon: "update", tKey: "columns.updatedAt" as const },
+  { key: "meta_created_by", icon: "person_add", tKey: "columns.createdBy" as const },
+  { key: "meta_updated_by", icon: "person", tKey: "columns.updatedBy" as const },
+];
+
+function ColumnsTab({
+  types,
+  filters,
+  selectedColumns,
+  onSelectedColumnsChange,
+  relevantRelTypes,
+  t,
+  rl,
+  rml,
+}: {
+  types: CardType[];
+  filters: Filters;
+  selectedColumns: Set<string>;
+  onSelectedColumnsChange: (cols: Set<string>) => void;
+  relevantRelTypes: RelationType[];
+  t: (key: string, opts?: Record<string, unknown>) => string;
+  rl: (fallback: string, translations?: TranslationMap) => string;
+  rml: (fallback: string, translations?: MetamodelTranslations, property?: string) => string;
+}) {
+  const [searchQuery, setSearchQuery] = useState("");
+  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
+    metadata: true,
+    attributes: true,
+    relations: true,
+  });
+
+  const toggleSection = (key: string) =>
+    setExpandedSections((prev) => ({ ...prev, [key]: !prev[key] }));
+
+  const toggleColumn = (key: string) => {
+    const next = new Set(selectedColumns);
+    if (next.has(key)) {
+      next.delete(key);
+    } else {
+      next.add(key);
+    }
+    onSelectedColumnsChange(next);
+  };
+
+  const toggleAll = (keys: string[], checked: boolean) => {
+    const next = new Set(selectedColumns);
+    for (const k of keys) {
+      if (checked) next.add(k);
+      else next.delete(k);
+    }
+    onSelectedColumnsChange(next);
+  };
+
+  // Compute available attribute fields based on selected types
+  const attributeFields = useMemo(() => {
+    const selectedTypes = filters.types.length > 0
+      ? types.filter((ct) => filters.types.includes(ct.key))
+      : [];
+
+    if (selectedTypes.length === 0) return [];
+
+    if (selectedTypes.length === 1) {
+      // Single type: show all fields
+      const fields: FieldDef[] = [];
+      for (const section of selectedTypes[0].fields_schema) {
+        for (const f of section.fields) {
+          fields.push(f);
+        }
+      }
+      return fields;
+    }
+
+    // Multiple types: show only common fields (by key)
+    const fieldMaps = selectedTypes.map((ct) => {
+      const map = new Map<string, FieldDef>();
+      for (const section of ct.fields_schema) {
+        for (const f of section.fields) {
+          map.set(f.key, f);
+        }
+      }
+      return map;
+    });
+
+    const firstMap = fieldMaps[0];
+    const common: FieldDef[] = [];
+    for (const [key, field] of firstMap) {
+      if (fieldMaps.every((m) => m.has(key))) {
+        common.push(field);
+      }
+    }
+    return common;
+  }, [types, filters.types]);
+
+  // Filter items by search query
+  const lowerSearch = searchQuery.toLowerCase();
+  const filteredMeta = METADATA_COLUMNS.filter(
+    (m) => !searchQuery || t(m.tKey).toLowerCase().includes(lowerSearch),
+  );
+  const filteredAttrs = attributeFields.filter(
+    (f) => !searchQuery || rl(f.key, f.translations).toLowerCase().includes(lowerSearch),
+  );
+  const filteredRels = relevantRelTypes.filter((rt) => {
+    if (!searchQuery) return true;
+    const isSource = rt.source_type_key === (filters.types.length === 1 ? filters.types[0] : "");
+    const otherKey = isSource ? rt.target_type_key : rt.source_type_key;
+    const otherType = types.find((ct) => ct.key === otherKey);
+    const label = otherType
+      ? rml(otherType.key, otherType.translations, "label")
+      : otherKey;
+    return label.toLowerCase().includes(lowerSearch);
+  });
+
+  const metaKeys = filteredMeta.map((m) => m.key);
+  const attrKeys = filteredAttrs.map((f) => `attr_${f.key}`);
+  const relKeys = filteredRels.map((rt) => `rel_${rt.key}`);
+
+  const allMetaChecked = metaKeys.length > 0 && metaKeys.every((k) => selectedColumns.has(k));
+  const someMetaChecked = metaKeys.some((k) => selectedColumns.has(k));
+  const allAttrChecked = attrKeys.length > 0 && attrKeys.every((k) => selectedColumns.has(k));
+  const someAttrChecked = attrKeys.some((k) => selectedColumns.has(k));
+  const allRelChecked = relKeys.length > 0 && relKeys.every((k) => selectedColumns.has(k));
+  const someRelChecked = relKeys.some((k) => selectedColumns.has(k));
+
+  const totalSelected = selectedColumns.size;
+
+  return (
+    <>
+      {/* Search */}
+      <TextField
+        size="small"
+        fullWidth
+        placeholder={t("columns.searchPlaceholder")}
+        value={searchQuery}
+        onChange={(e) => setSearchQuery(e.target.value)}
+        sx={{ mb: 1.5 }}
+        InputProps={{
+          startAdornment: (
+            <InputAdornment position="start">
+              <MaterialSymbol icon="search" size={16} />
+            </InputAdornment>
+          ),
+          ...(searchQuery
+            ? {
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton size="small" onClick={() => setSearchQuery("")} sx={{ p: 0.25 }}>
+                      <MaterialSymbol icon="close" size={14} />
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              }
+            : {}),
+        }}
+      />
+
+      {filters.types.length === 0 && (
+        <Typography variant="body2" color="text.secondary" sx={{ textAlign: "center", py: 2, fontSize: 13 }}>
+          {t("columns.selectTypeHint")}
+        </Typography>
+      )}
+
+      {/* Selected count + clear */}
+      {totalSelected > 0 && (
+        <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 1 }}>
+          <Typography variant="caption" color="text.secondary">
+            {t("columns.selectedCount", { count: totalSelected })}
+          </Typography>
+          <Button
+            size="small"
+            onClick={() => onSelectedColumnsChange(new Set())}
+            sx={{ textTransform: "none", fontSize: 12, minWidth: 0, px: 1 }}
+          >
+            {t("columns.clearAll")}
+          </Button>
+        </Box>
+      )}
+
+      {/* Metadata section */}
+      {filteredMeta.length > 0 && (
+        <>
+          <SectionHeader
+            label={t("columns.metadata")}
+            icon="info"
+            expanded={expandedSections.metadata}
+            onToggle={() => toggleSection("metadata")}
+            count={metaKeys.filter((k) => selectedColumns.has(k)).length}
+          />
+          <Collapse in={expandedSections.metadata}>
+            <List dense disablePadding sx={{ mb: 1 }}>
+              {/* Select all metadata */}
+              <ListItemButton
+                sx={{ py: 0.25, px: 0.5, borderRadius: 1 }}
+                onClick={() => toggleAll(metaKeys, !allMetaChecked)}
+              >
+                <ListItemIcon sx={{ minWidth: 28 }}>
+                  <Checkbox
+                    size="small"
+                    checked={allMetaChecked}
+                    indeterminate={someMetaChecked && !allMetaChecked}
+                    sx={{ p: 0 }}
+                  />
+                </ListItemIcon>
+                <ListItemText
+                  primary={
+                    <Typography variant="body2" fontSize={13} fontWeight={500} fontStyle="italic">
+                      {t("columns.selectAll")}
+                    </Typography>
+                  }
+                />
+              </ListItemButton>
+              {filteredMeta.map((m) => (
+                <ListItemButton
+                  key={m.key}
+                  sx={{ py: 0.25, px: 0.5, borderRadius: 1 }}
+                  onClick={() => toggleColumn(m.key)}
+                >
+                  <ListItemIcon sx={{ minWidth: 28 }}>
+                    <Checkbox size="small" checked={selectedColumns.has(m.key)} sx={{ p: 0 }} />
+                  </ListItemIcon>
+                  <ListItemIcon sx={{ minWidth: 24 }}>
+                    <MaterialSymbol icon={m.icon} size={16} />
+                  </ListItemIcon>
+                  <ListItemText
+                    primary={
+                      <Typography variant="body2" fontSize={13}>
+                        {t(m.tKey)}
+                      </Typography>
+                    }
+                  />
+                </ListItemButton>
+              ))}
+            </List>
+          </Collapse>
+        </>
+      )}
+
+      {/* Attribute fields section */}
+      {filteredAttrs.length > 0 && (
+        <>
+          <SectionHeader
+            label={t("columns.attributes")}
+            icon="tune"
+            expanded={expandedSections.attributes}
+            onToggle={() => toggleSection("attributes")}
+            count={attrKeys.filter((k) => selectedColumns.has(k)).length}
+          />
+          <Collapse in={expandedSections.attributes}>
+            <List dense disablePadding sx={{ mb: 1 }}>
+              {/* Select all attributes */}
+              <ListItemButton
+                sx={{ py: 0.25, px: 0.5, borderRadius: 1 }}
+                onClick={() => toggleAll(attrKeys, !allAttrChecked)}
+              >
+                <ListItemIcon sx={{ minWidth: 28 }}>
+                  <Checkbox
+                    size="small"
+                    checked={allAttrChecked}
+                    indeterminate={someAttrChecked && !allAttrChecked}
+                    sx={{ p: 0 }}
+                  />
+                </ListItemIcon>
+                <ListItemText
+                  primary={
+                    <Typography variant="body2" fontSize={13} fontWeight={500} fontStyle="italic">
+                      {t("columns.selectAll")}
+                    </Typography>
+                  }
+                />
+              </ListItemButton>
+              {filteredAttrs.map((f) => (
+                <ListItemButton
+                  key={f.key}
+                  sx={{ py: 0.25, px: 0.5, borderRadius: 1 }}
+                  onClick={() => toggleColumn(`attr_${f.key}`)}
+                >
+                  <ListItemIcon sx={{ minWidth: 28 }}>
+                    <Checkbox size="small" checked={selectedColumns.has(`attr_${f.key}`)} sx={{ p: 0 }} />
+                  </ListItemIcon>
+                  <ListItemText
+                    primary={
+                      <Typography variant="body2" fontSize={13}>
+                        {rl(f.key, f.translations)}
+                      </Typography>
+                    }
+                    secondary={f.type}
+                    secondaryTypographyProps={{ fontSize: 11 }}
+                  />
+                </ListItemButton>
+              ))}
+            </List>
+          </Collapse>
+        </>
+      )}
+
+      {/* Relation columns section */}
+      {filteredRels.length > 0 && (
+        <>
+          <SectionHeader
+            label={t("columns.relations")}
+            icon="link"
+            expanded={expandedSections.relations}
+            onToggle={() => toggleSection("relations")}
+            count={relKeys.filter((k) => selectedColumns.has(k)).length}
+          />
+          <Collapse in={expandedSections.relations}>
+            <List dense disablePadding sx={{ mb: 1 }}>
+              {/* Select all relations */}
+              <ListItemButton
+                sx={{ py: 0.25, px: 0.5, borderRadius: 1 }}
+                onClick={() => toggleAll(relKeys, !allRelChecked)}
+              >
+                <ListItemIcon sx={{ minWidth: 28 }}>
+                  <Checkbox
+                    size="small"
+                    checked={allRelChecked}
+                    indeterminate={someRelChecked && !allRelChecked}
+                    sx={{ p: 0 }}
+                  />
+                </ListItemIcon>
+                <ListItemText
+                  primary={
+                    <Typography variant="body2" fontSize={13} fontWeight={500} fontStyle="italic">
+                      {t("columns.selectAll")}
+                    </Typography>
+                  }
+                />
+              </ListItemButton>
+              {filteredRels.map((rt) => {
+                const selType = filters.types.length === 1 ? filters.types[0] : "";
+                const isSource = rt.source_type_key === selType;
+                const otherKey = isSource ? rt.target_type_key : rt.source_type_key;
+                const otherType = types.find((ct) => ct.key === otherKey);
+                const label = otherType
+                  ? rml(otherType.key, otherType.translations, "label")
+                  : otherKey;
+
+                return (
+                  <ListItemButton
+                    key={rt.key}
+                    sx={{ py: 0.25, px: 0.5, borderRadius: 1 }}
+                    onClick={() => toggleColumn(`rel_${rt.key}`)}
+                  >
+                    <ListItemIcon sx={{ minWidth: 28 }}>
+                      <Checkbox size="small" checked={selectedColumns.has(`rel_${rt.key}`)} sx={{ p: 0 }} />
+                    </ListItemIcon>
+                    {otherType && (
+                      <ListItemIcon sx={{ minWidth: 24 }}>
+                        <MaterialSymbol icon={otherType.icon} size={16} color={otherType.color} />
+                      </ListItemIcon>
+                    )}
+                    <ListItemText
+                      primary={
+                        <Typography variant="body2" fontSize={13}>
+                          {label}
+                        </Typography>
+                      }
+                    />
+                  </ListItemButton>
+                );
+              })}
+            </List>
+          </Collapse>
+        </>
+      )}
+    </>
   );
 }
