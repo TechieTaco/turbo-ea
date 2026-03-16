@@ -1030,6 +1030,7 @@
   "archlens_architect_custom_answer": "Ou saisissez votre propre réponse...",
   "archlens_architect_options_intro": "En fonction de vos exigences, voici les approches de solution recommandées :",
   "archlens_architect_select_option": "Sélectionner cette approche",
+  "archlens_architect_option_selected": "Sélectionné",
   "archlens_architect_generating_options": "L'IA analyse les approches de solution...",
   "archlens_architect_select_objectives": "Quels objectifs métier cette solution soutient-elle ?",
   "archlens_architect_objectives_hint": "Sélectionnez un ou plusieurs objectifs métier existants de votre paysage. L'IA analysera leurs dépendances pour cartographier les capacités.",

@@ -1031,6 +1031,7 @@
   "archlens_architect_custom_answer": "Or type your own answer...",
   "archlens_architect_options_intro": "Based on your requirements, here are the recommended solution approaches:",
   "archlens_architect_select_option": "Select This Approach",
+  "archlens_architect_option_selected": "Selected",
   "archlens_architect_generating_options": "AI is analyzing solution approaches...",
   "archlens_architect_select_objectives": "Which business objectives does this solution support?",
   "archlens_architect_objectives_hint": "Select one or more existing Business Objectives from your landscape. The AI will analyze their dependencies to map capabilities.",

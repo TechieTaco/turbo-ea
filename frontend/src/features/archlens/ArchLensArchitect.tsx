@@ -49,10 +49,12 @@ function OptionCard({
   option,
   onSelect,
   loading,
+  selected,
 }: {
   option: ArchSolutionOption;
   onSelect: () => void;
   loading: boolean;
+  selected?: boolean;
 }) {
   const { t } = useTranslation("admin");
   const { types } = useMetamodel();
@@ -70,7 +72,16 @@ function OptionCard({
   return (
     <Card
       variant="outlined"
-      sx={{ height: "100%", display: "flex", flexDirection: "column" }}
+      sx={{
+        height: "100%",
+        display: "flex",
+        flexDirection: "column",
+        ...(selected && {
+          borderColor: "primary.main",
+          borderWidth: 2,
+          boxShadow: (theme) => `0 0 0 1px ${theme.palette.primary.main}`,
+        }),
+      }}
     >
       <CardContent sx={{ flex: 1 }}>
         <Stack
@@ -301,19 +312,22 @@ function OptionCard({
       </CardContent>
       <Box sx={{ px: 2, pb: 2 }}>
         <Button
-          variant="contained"
+          variant={selected ? "outlined" : "contained"}
           fullWidth
           onClick={onSelect}
           disabled={loading}
+          color={selected ? "success" : "primary"}
           startIcon={
             loading ? (
               <CircularProgress size={16} />
             ) : (
-              <MaterialSymbol icon="check" size={18} />
+              <MaterialSymbol icon={selected ? "check_circle" : "check"} size={18} />
             )
           }
         >
-          {t("archlens_architect_select_option")}
+          {selected
+            ? t("archlens_architect_option_selected")
+            : t("archlens_architect_select_option")}
         </Button>
       </Box>
     </Card>
@@ -1894,6 +1908,7 @@ export default function ArchLensArchitect() {
                       option={option}
                       onSelect={() => selectOption(option.id)}
                       loading={archLoading}
+                      selected={option.id === selectedOptionId}
                     />
                   </Grid>
                 ))}

@@ -1030,6 +1030,7 @@
   "archlens_architect_custom_answer": "Oder eigene Antwort eingeben...",
   "archlens_architect_options_intro": "Basierend auf Ihren Anforderungen sind hier die empfohlenen Lösungsansätze:",
   "archlens_architect_select_option": "Diesen Ansatz wählen",
+  "archlens_architect_option_selected": "Ausgewählt",
   "archlens_architect_generating_options": "KI analysiert Lösungsansätze...",
   "archlens_architect_select_objectives": "Welche Geschäftsziele unterstützt diese Lösung?",
   "archlens_architect_objectives_hint": "Wählen Sie ein oder mehrere bestehende Geschäftsziele aus Ihrer Landschaft. Die KI analysiert deren Abhängigkeiten, um Fähigkeiten abzubilden.",

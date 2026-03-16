@@ -1030,6 +1030,7 @@
   "archlens_architect_custom_answer": "Или введите свой ответ...",
   "archlens_architect_options_intro": "На основе ваших требований, вот рекомендуемые подходы к решению:",
   "archlens_architect_select_option": "Выбрать этот подход",
+  "archlens_architect_option_selected": "Выбрано",
   "archlens_architect_generating_options": "ИИ анализирует подходы к решению...",
   "archlens_architect_select_objectives": "Какие бизнес-цели поддерживает это решение?",
   "archlens_architect_objectives_hint": "Выберите одну или несколько существующих бизнес-целей из вашего ландшафта. ИИ проанализирует их зависимости для построения карты возможностей.",
