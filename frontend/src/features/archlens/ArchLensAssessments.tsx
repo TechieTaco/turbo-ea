@@ -96,7 +96,21 @@ export default function ArchLensAssessments() {
                     ? new Date(a.created_at).toLocaleDateString()
                     : "—"}
                 </TableCell>
-                <TableCell>
+                <TableCell align="right">
+                  {a.status !== "committed" && (
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate(`/archlens?tab=architect&resume=${a.id}`);
+                      }}
+                      startIcon={<MaterialSymbol icon="play_arrow" size={14} />}
+                      sx={{ mr: 1 }}
+                    >
+                      {t("archlens_assessment_resume")}
+                    </Button>
+                  )}
                   <MaterialSymbol icon="chevron_right" size={18} />
                 </TableCell>
               </TableRow>

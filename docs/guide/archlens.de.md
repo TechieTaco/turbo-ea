@@ -97,7 +97,7 @@ Die Architektur-KI ist ein geführter 5-Schritte-Assistent, der Architekturempfe
 
 ![Architektur-KI](../assets/img/de/52_archlens_architekt.png)
 
-Ein Fortschrittsanzeiger oben verfolgt Ihren Fortschritt durch die fünf Phasen: Anforderungen, Business Fit, Technical Fit, Lösung und Zielarchitektur. Ihr Fortschritt wird automatisch in der Browser-Sitzung gespeichert, sodass Sie die Seite verlassen und zurückkehren können, ohne Ihre Arbeit zu verlieren. Klicken Sie auf **Neue Bewertung**, um jederzeit eine neue Analyse zu starten.
+Ein Fortschrittsanzeiger oben verfolgt Ihren Fortschritt durch die fünf Phasen: Anforderungen, Business Fit, Technical Fit, Lösung und Zielarchitektur. Ihr Fortschritt wird automatisch in der Browser-Sitzung gespeichert, sodass Sie die Seite verlassen und zurückkehren können, ohne Ihre Arbeit zu verlieren. Sie können Bewertungen auch in der Datenbank speichern und später fortsetzen (siehe [Speichern & Fortsetzen](#speichern--fortsetzen) weiter unten). Klicken Sie auf **Neue Bewertung**, um jederzeit eine neue Analyse zu starten.
 
 ### Schritt 1: Anforderungen
 
@@ -177,11 +177,22 @@ In diesem Schritt können Sie auf **Andere Auswahl** klicken, um zurückzugehen 
 !!! warning "KI-gestützte Bewertung"
     Diese Bewertung nutzt KI zur Generierung von Empfehlungen, Lösungsoptionen und einer Zielarchitektur. Sie sollte von einem qualifizierten IT-Experten (Enterprise Architect, Solution Architect, IT-Leiter) in Zusammenarbeit mit den Fachabteilungen durchgeführt werden. Die generierten Ergebnisse erfordern fachliche Beurteilung und können Ungenauigkeiten enthalten. Verwenden Sie die Ergebnisse als Ausgangspunkt für weitere Diskussionen und Verfeinerungen.
 
-### Speichern & Übernehmen
+### Speichern & Fortsetzen
 
-Nach der Überprüfung der Zielarchitektur haben Sie zwei Optionen:
+Nach der Überprüfung der Zielarchitektur können Sie Ihre Arbeit speichern oder übernehmen:
 
-**Bewertung speichern** — Speichert die Bewertung zur späteren Überprüfung im Reiter «Bewertungen». Gespeicherte Bewertungen können von jedem Benutzer mit der Berechtigung `archlens.view` eingesehen werden.
+**Bewertung speichern** — Speichert einen vollständigen Snapshot der Bewertung (alle Antworten, ausgewählte Optionen, Gap-Analyse, Abhängigkeiten und Zielarchitektur) in der Datenbank. Gespeicherte Bewertungen erscheinen im Reiter **Bewertungen**.
+
+**Gespeicherte Bewertung fortsetzen** — Nicht übernommene Bewertungen können im interaktiven Assistenten mit vollständig wiederhergestelltem Zustand erneut geöffnet werden:
+
+- Klicken Sie im Reiter **Bewertungen** auf die Schaltfläche **Fortsetzen** in der Zeile einer gespeicherten Bewertung
+- Klicken Sie in der schreibgeschützten **Bewertungsansicht** auf **Fortsetzen** in der Kopfzeile
+- Der Assistent wird auf die exakte Phase und den Zustand wiederhergestellt, an dem Sie aufgehört haben, einschließlich aller KI-generierten Fragen, Ihrer Antworten, ausgewählten Optionen und Produktauswahlen
+- Sie können dort fortfahren, wo Sie aufgehört haben, einen anderen Ansatz wählen oder übernehmen, um eine Initiative zu erstellen
+- Erneutes Speichern aktualisiert die bestehende Bewertung (anstatt eine neue zu erstellen)
+
+!!! tip "Vollständiger Snapshot"
+    Eine gespeicherte Bewertung ist ein vollständiger Snapshot Ihrer Assistenten-Sitzung. Solange sie nicht in eine Initiative übernommen wurde, können Sie sie fortsetzen, einen anderen Lösungsansatz wählen und beliebig oft erneut speichern.
 
 **Übernehmen & Initiative erstellen** — Wandelt den Architekturvorschlag in echte Karten in Ihrer Landschaft um:
 
@@ -210,7 +221,7 @@ Ein ADR-Entwurf wird automatisch zusammen mit der Initiative erstellt mit:
 
 ### Ansatz ändern
 
-Klicken Sie auf **Andere Auswahl**, um eine andere Lösungsoption zu wählen. Die Bewertung wird mit aktualisierten Daten neu bewertet und gespeichert, sodass Sie Ansätze vergleichen können, bevor Sie sich festlegen.
+Klicken Sie auf **Andere Auswahl**, um zu den Lösungsoptionen zurückzukehren und einen anderen Ansatz zu wählen. Alle Ihre Antworten aus Phase 1 und Phase 2 bleiben erhalten — nur die nachgelagerten Daten (Gap-Analyse, Abhängigkeiten, Zielarchitektur) werden zurückgesetzt. Nach Auswahl einer neuen Option durchläuft der Assistent erneut die Gap-Analyse und Abhängigkeitsanalyse. Sie können die aktualisierte Bewertung speichern oder übernehmen, wenn Sie bereit sind.
 
 ## Analyseverlauf
 

@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useTranslation } from "react-i18next";
+import { useSearchParams } from "react-router-dom";
 import Alert from "@mui/material/Alert";
 import Autocomplete from "@mui/material/Autocomplete";
 import Box from "@mui/material/Box";
@@ -648,6 +649,10 @@ interface ArchSession {
   gapResult: GapAnalysisResult | null;
   depsResult: DependencyAnalysisResult | null;
   capabilityMapping: CapabilityMappingResult | null;
+  selectedRecs?: string[];
+  selectedDeps?: string[];
+  assessmentId?: string | null;
+  assessmentSaved?: boolean;
 }
 
 function loadSession(): ArchSession | null {
@@ -664,6 +669,9 @@ function loadSession(): ArchSession | null {
 export default function ArchLensArchitect() {
   const { t } = useTranslation("admin");
   const { types, relationTypes } = useMetamodel();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const resumeId = searchParams.get("resume");
+  const resumeHandled = useRef(false);
   const saved = loadSession();
   const [archReq, setArchReq] = useState(saved?.archReq ?? "");
   const [archPhase, setArchPhase] = useState(saved?.archPhase ?? 0);
@@ -706,18 +714,26 @@ export default function ArchLensArchitect() {
   const [gapResult, setGapResult] = useState<GapAnalysisResult | null>(
     saved?.gapResult ?? null,
   );
-  const [selectedRecs, setSelectedRecs] = useState<Set<RecKey>>(new Set());
+  const [selectedRecs, setSelectedRecs] = useState<Set<RecKey>>(
+    new Set(saved?.selectedRecs ?? []),
+  );
   // Dependency analysis state (Phase 3c)
   const [depsResult, setDepsResult] = useState<DependencyAnalysisResult | null>(
     saved?.depsResult ?? null,
   );
-  const [selectedDeps, setSelectedDeps] = useState<Set<RecKey>>(new Set());
+  const [selectedDeps, setSelectedDeps] = useState<Set<RecKey>>(
+    new Set(saved?.selectedDeps ?? []),
+  );
   // Capability mapping state
   const [capabilityMapping, setCapabilityMapping] =
     useState<CapabilityMappingResult | null>(saved?.capabilityMapping ?? null);
   // Assessment save/commit state
-  const [assessmentId, setAssessmentId] = useState<string | null>(null);
-  const [assessmentSaved, setAssessmentSaved] = useState(false);
+  const [assessmentId, setAssessmentId] = useState<string | null>(
+    saved?.assessmentId ?? null,
+  );
+  const [assessmentSaved, setAssessmentSaved] = useState(
+    saved?.assessmentSaved ?? false,
+  );
   const [savingAssessment, setSavingAssessment] = useState(false);
   const [commitDialogOpen, setCommitDialogOpen] = useState(false);
   const [snackMsg, setSnackMsg] = useState("");
@@ -737,6 +753,10 @@ export default function ArchLensArchitect() {
       gapResult,
       depsResult,
       capabilityMapping,
+      selectedRecs: Array.from(selectedRecs),
+      selectedDeps: Array.from(selectedDeps),
+      assessmentId,
+      assessmentSaved,
     };
     sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
   }, [
@@ -751,11 +771,31 @@ export default function ArchLensArchitect() {
     gapResult,
     depsResult,
     capabilityMapping,
+    selectedRecs,
+    selectedDeps,
+    assessmentId,
+    assessmentSaved,
   ]);
 
   useEffect(() => {
     saveSession();
   }, [saveSession]);
+
+  // Reset assessmentSaved when wizard state changes materially
+  const prevSnapshotRef = useRef("");
+  useEffect(() => {
+    const snapshot = JSON.stringify({
+      archPhase,
+      selectedOptionId,
+      capabilityMapping,
+      sr: Array.from(selectedRecs),
+      sd: Array.from(selectedDeps),
+    });
+    if (prevSnapshotRef.current && prevSnapshotRef.current !== snapshot) {
+      setAssessmentSaved(false);
+    }
+    prevSnapshotRef.current = snapshot;
+  }, [archPhase, selectedOptionId, capabilityMapping, selectedRecs, selectedDeps]);
 
   // Load all objectives + capabilities once on mount
   useEffect(() => {
@@ -787,6 +827,49 @@ export default function ArchLensArchitect() {
       cancelled = true;
     };
   }, []);
+
+  // Resume a saved assessment from URL param ?resume=<assessmentId>
+  useEffect(() => {
+    if (!resumeId || resumeHandled.current) return;
+    resumeHandled.current = true;
+    (async () => {
+      try {
+        interface AssessmentResponse {
+          id: string;
+          status: string;
+          session_data: ArchSession | null;
+        }
+        const resp = await api.get<AssessmentResponse>(
+          `/archlens/assessments/${resumeId}`,
+        );
+        if (resp.status === "committed" || !resp.session_data) return;
+        const sd = resp.session_data;
+        setArchReq(sd.archReq ?? "");
+        setArchPhase(sd.archPhase ?? 0);
+        setArchQuestions(sd.archQuestions ?? []);
+        setPhase1Answers(sd.phase1Answers ?? []);
+        setArchOptions(sd.archOptions ?? null);
+        setSelectedOptionId(sd.selectedOptionId ?? null);
+        setSelectedObjectives(sd.selectedObjectives ?? []);
+        setSelectedCapabilities(sd.selectedCapabilities ?? []);
+        setGapResult(sd.gapResult ?? null);
+        setSelectedRecs(new Set(sd.selectedRecs ?? []));
+        setDepsResult(sd.depsResult ?? null);
+        setSelectedDeps(new Set(sd.selectedDeps ?? []));
+        setCapabilityMapping(sd.capabilityMapping ?? null);
+        setAssessmentId(resp.id);
+        setAssessmentSaved(true);
+        // Clear the resume param so it doesn't re-trigger
+        setSearchParams((prev) => {
+          const next = new URLSearchParams(prev);
+          next.delete("resume");
+          return next;
+        }, { replace: true });
+      } catch {
+        /* ignore — assessment may have been deleted */
+      }
+    })();
+  }, [resumeId, setSearchParams]);
 
   // Build merged dependency graph from existing + proposed
   const buildMergedGraph = useCallback((): { nodes: GNode[]; edges: GEdge[] } => {
@@ -989,6 +1072,13 @@ export default function ArchLensArchitect() {
         setArchOptions(
           Array.isArray(result.options) ? result.options : [],
         );
+        // Clear downstream state from any previous session/assessment
+        setSelectedOptionId(null);
+        setGapResult(null);
+        setSelectedRecs(new Set());
+        setDepsResult(null);
+        setSelectedDeps(new Set());
+        setCapabilityMapping(null);
         setArchPhase(3);
         setArchQuestions([]);
         setArchLoading(false);
@@ -1042,6 +1132,8 @@ export default function ArchLensArchitect() {
           });
         });
         setSelectedDeps(preselected);
+        // Clear downstream state
+        setCapabilityMapping(null);
         setArchPhase(4);
         setArchLoading(false);
         return;
@@ -1206,6 +1298,7 @@ export default function ArchLensArchitect() {
 
   const reset = () => {
     setArchPhase(0);
+    setArchReq("");
     setArchQuestions([]);
     setPhase1Answers([]);
     setArchOptions(null);
@@ -1217,6 +1310,8 @@ export default function ArchLensArchitect() {
     setDepsResult(null);
     setSelectedDeps(new Set());
     setCapabilityMapping(null);
+    setAssessmentId(null);
+    setAssessmentSaved(false);
     setError("");
     sessionStorage.removeItem(SESSION_KEY);
   };
@@ -1235,63 +1330,50 @@ export default function ArchLensArchitect() {
   };
 
   const handleSaveAssessment = async (): Promise<string | null> => {
-    if (assessmentId) return assessmentId;
     setSavingAssessment(true);
     try {
-      // Resolve selected recommendations from index keys to actual product data
-      const resolvedRecs: Record<string, unknown>[] = [];
-      if (gapResult) {
-        gapResult.gaps.forEach((gap, gi) => {
-          (gap.recommendations ?? []).forEach((rec, ri) => {
-            if (selectedRecs.has(recKey(gi, ri))) {
-              resolvedRecs.push({
-                name: rec.name,
-                vendor: rec.vendor,
-                capability: gap.capability,
-                role: "recommendation",
-              });
-            }
-          });
-        });
-      }
-      if (depsResult) {
-        depsResult.dependencies.forEach((dep, di) => {
-          (dep.options ?? []).forEach((opt, oi) => {
-            if (selectedDeps.has(recKey(di, oi))) {
-              resolvedRecs.push({
-                name: opt.name,
-                vendor: opt.vendor,
-                capability: dep.need,
-                role: "dependency",
-              });
-            }
-          });
-        });
-      }
-
-      const sessionData: Record<string, unknown> = {
-        requirement: archReq,
-        selectedObjectives,
-        selectedCapabilities,
-        phase1Questions: phase1Answers,
-        phase2Questions: archQuestions,
+      // Build full session snapshot in ArchSession-compatible format
+      const sessionData: ArchSession = {
+        archReq,
+        archPhase,
+        archQuestions,
+        phase1Answers,
         archOptions,
         selectedOptionId,
+        selectedObjectives,
+        selectedCapabilities,
         gapResult,
-        selectedRecommendations: resolvedRecs,
         depsResult,
-        selectedDependencies: Array.from(selectedDeps),
         capabilityMapping,
+        selectedRecs: Array.from(selectedRecs),
+        selectedDeps: Array.from(selectedDeps),
       };
-      const resp = await api.post<{ id: string }>("/archlens/assessments", {
-        title: archReq.slice(0, 200),
-        requirement: archReq,
-        sessionData: sessionData,
-      });
-      setAssessmentId(resp.id);
+
+      let savedId: string;
+      if (assessmentId) {
+        // Update existing assessment via PATCH
+        const resp = await api.patch<{ id: string }>(
+          `/archlens/assessments/${assessmentId}`,
+          {
+            title: archReq.slice(0, 200),
+            requirement: archReq,
+            sessionData: sessionData,
+          },
+        );
+        savedId = resp.id;
+      } else {
+        // Create new assessment via POST
+        const resp = await api.post<{ id: string }>("/archlens/assessments", {
+          title: archReq.slice(0, 200),
+          requirement: archReq,
+          sessionData: sessionData,
+        });
+        savedId = resp.id;
+      }
+      setAssessmentId(savedId);
       setAssessmentSaved(true);
       setSnackMsg(t("archlens_assessment_saved"));
-      return resp.id;
+      return savedId;
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       setError(msg);

@@ -34,6 +34,7 @@ from app.schemas.archlens import (
     ArchLensAnalysisRunOut,
     ArchLensArchitectRequest,
     ArchLensAssessmentCreate,
+    ArchLensAssessmentUpdate,
     ArchLensCommitRequest,
     ArchLensDuplicateStatusUpdate,
     ArchLensModernizeRequest,
@@ -951,6 +952,34 @@ async def get_assessment(
     assessment = await db.get(ArchLensAssessment, uuid.UUID(assessment_id))
     if not assessment:
         raise HTTPException(404, "Assessment not found")
+    return await _assessment_to_dict(db, assessment, full=True)
+
+
+@router.patch("/assessments/{assessment_id}")
+async def update_assessment(
+    assessment_id: str,
+    body: ArchLensAssessmentUpdate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Update a saved (non-committed) assessment."""
+    await PermissionService.require_permission(db, user, "archlens.manage")
+
+    assessment = await db.get(ArchLensAssessment, uuid.UUID(assessment_id))
+    if not assessment:
+        raise HTTPException(404, "Assessment not found")
+    if assessment.status == "committed":
+        raise HTTPException(409, "Cannot update a committed assessment")
+
+    if body.title is not None:
+        assessment.title = body.title
+    if body.requirement is not None:
+        assessment.requirement = body.requirement
+    if body.session_data is not None:
+        assessment.session_data = body.session_data
+
+    await db.commit()
+    await db.refresh(assessment)
     return await _assessment_to_dict(db, assessment, full=True)
 
 
