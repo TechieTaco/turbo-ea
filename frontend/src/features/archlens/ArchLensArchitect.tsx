@@ -1360,6 +1360,7 @@ export default function ArchLensArchitect() {
         archPhase,
         archQuestions,
         phase1Answers,
+        phase2Answers,
         archOptions,
         selectedOptionId,
         selectedObjectives,
