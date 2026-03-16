@@ -173,8 +173,14 @@ export default function CommitInitiativeDialog({
     (id: string): string => {
       const customName = cardNames.get(id);
       if (customName) return customName;
-      const cap = capabilityMapping.capabilities.find((c) => c.id === id);
+      const cap = capabilityMapping.capabilities.find(
+        (c) => c.id === id || c.existingCardId === id,
+      );
       if (cap) return cap.name;
+      const pc = capabilityMapping.proposedCards.find(
+        (c) => c.existingCardId === id,
+      );
+      if (pc) return pc.name;
       const dep = capabilityMapping.existingDependencies?.nodes.find(
         (n) => n.id === id,
       );
@@ -404,6 +410,25 @@ export default function CommitInitiativeDialog({
                 >
                   {t("archlens_commit_objectives")} ({objectiveIds.length})
                 </Typography>
+                <Stack spacing={0.3} sx={{ mb: 0.5 }}>
+                  {objectiveIds.map((oid) => (
+                    <Stack
+                      key={oid}
+                      direction="row"
+                      spacing={0.5}
+                      alignItems="center"
+                    >
+                      <MaterialSymbol
+                        icon="flag"
+                        size={16}
+                        color={typeInfo("Objective")?.color || "#c7527d"}
+                      />
+                      <Typography variant="body2">
+                        {resolveName(oid)}
+                      </Typography>
+                    </Stack>
+                  ))}
+                </Stack>
                 <Typography variant="caption" color="text.secondary">
                   {t("archlens_commit_objectives_hint")}
                 </Typography>
