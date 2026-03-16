@@ -632,6 +632,13 @@ async def _deduplicate_existing_cards(db: AsyncSession, parsed: dict[str, Any]) 
     if not remap:
         return
 
+    # Resolve transitive remap chains: if A→B and B→C, resolve A→C
+    for old_id in list(remap):
+        target = remap[old_id]
+        while target in remap and remap[target] != target:
+            target = remap[target]
+        remap[old_id] = target
+
     # Remap relation references
     for rel in parsed.get("proposedRelations", []):
         for rkey in ("sourceId", "targetId"):
