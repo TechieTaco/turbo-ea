@@ -946,6 +946,11 @@ export default function ArchLensArchitect() {
           (c) => c.id === refId || c.existingCardId === refId,
         );
         if (cap) return cap.existingCardId || cap.id;
+        // Check proposedCards by existingCardId (handles dedup remapping)
+        const pc = capabilityMapping.proposedCards.find(
+          (c) => c.existingCardId === refId,
+        );
+        if (pc) return pc.id;
         // If the ID is in the nodeMap already, use it directly
         if (nodeMap.has(refId)) return refId;
         return refId;
@@ -974,14 +979,15 @@ export default function ArchLensArchitect() {
       });
     }
 
-    // Remove orphan nodes (nodes with zero edges) from the diagram
+    // Remove orphan nodes — only proposed (new) nodes with zero edges.
+    // Existing nodes are kept since they provide landscape context.
     const connectedIds = new Set<string>();
     for (const e of edges) {
       connectedIds.add(e.source);
       connectedIds.add(e.target);
     }
     const filteredNodes = Array.from(nodeMap.values()).filter(
-      (n) => connectedIds.has(n.id),
+      (n) => !n.proposed || connectedIds.has(n.id),
     );
 
     return { nodes: filteredNodes, edges };

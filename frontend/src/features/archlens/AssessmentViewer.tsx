@@ -59,24 +59,39 @@ function buildMergedGraph(
     }
   }
 
-  // Capabilities
+  // Capabilities (use existingCardId when available for consistent linking)
   for (const cap of mapping.capabilities) {
-    if (!nodeMap.has(cap.id)) {
+    const capId = cap.existingCardId || cap.id;
+    if (!nodeMap.has(capId)) {
       const node: GNode = {
-        id: cap.id,
+        id: capId,
         name: cap.name,
         type: "BusinessCapability",
         proposed: cap.isNew,
       };
-      nodeMap.set(cap.id, node);
+      nodeMap.set(capId, node);
       nodes.push(node);
     }
   }
 
+  // Resolve relation endpoints — handle dedup remapping + capability IDs
+  const resolveId = (refId: string): string => {
+    const cap = mapping.capabilities.find(
+      (c) => c.id === refId || c.existingCardId === refId,
+    );
+    if (cap) return cap.existingCardId || cap.id;
+    const pc = mapping.proposedCards.find(
+      (c) => c.existingCardId === refId,
+    );
+    if (pc) return pc.id;
+    return refId;
+  };
+
   // Proposed relations — enforce metamodel source/target direction
   for (const rel of mapping.proposedRelations) {
-    let sid = rel.sourceId;
-    let tid = rel.targetId;
+    let sid = resolveId(rel.sourceId);
+    let tid = resolveId(rel.targetId);
+    if (!nodeMap.has(sid) || !nodeMap.has(tid)) continue;
     const rt = relationTypes.find((r) => r.key === rel.relationType);
     if (rt) {
       const sType = nodeMap.get(sid)?.type;
