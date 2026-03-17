@@ -23,6 +23,7 @@
   "columns.metadata": "Metadaten",
   "columns.attributes": "Attribute",
   "columns.relations": "Beziehungen",
+  "columns.reset": "Zurücksetzen",
   "filter.title": "Filter",
   "filter.expand": "Filter aufklappen",
   "filter.searchPlaceholder": "Karten suchen...",

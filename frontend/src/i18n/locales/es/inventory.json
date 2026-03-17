@@ -25,6 +25,7 @@
   "columns.metadata": "Metadatos",
   "columns.attributes": "Atributos",
   "columns.relations": "Relaciones",
+  "columns.reset": "Restablecer",
 
   "filter.title": "Filtros",
   "filter.expand": "Expandir filtros",

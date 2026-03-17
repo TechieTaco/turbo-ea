@@ -23,6 +23,7 @@
   "columns.metadata": "元数据",
   "columns.attributes": "属性",
   "columns.relations": "关系",
+  "columns.reset": "重置",
   "filter.title": "筛选",
   "filter.expand": "展开筛选",
   "filter.searchPlaceholder": "搜索卡片...",

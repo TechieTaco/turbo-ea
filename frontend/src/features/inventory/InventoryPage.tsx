@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { AgGridReact } from "ag-grid-react";
-import type { ColDef, CellValueChangedEvent, SelectionChangedEvent, RowClickedEvent } from "ag-grid-community";
+import type { ColDef, CellValueChangedEvent, SelectionChangedEvent, RowClickedEvent, SortChangedEvent } from "ag-grid-community";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Button from "@mui/material/Button";
@@ -121,6 +121,32 @@ function buildRelationIndex(
   return index;
 }
 
+/* ---- localStorage persistence helpers ---- */
+const LS_KEY = "turboea_inventory";
+
+interface InventoryPrefs {
+  filters?: Filters;
+  columns?: string[];
+  sortModel?: { colId: string; sort: string }[];
+}
+
+function loadPrefs(): InventoryPrefs | null {
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    return raw ? (JSON.parse(raw) as InventoryPrefs) : null;
+  } catch {
+    return null;
+  }
+}
+
+function savePrefs(prefs: InventoryPrefs) {
+  try {
+    localStorage.setItem(LS_KEY, JSON.stringify(prefs));
+  } catch {
+    // ignore quota errors
+  }
+}
+
 export default function InventoryPage() {
   const { t } = useTranslation(["inventory", "common"]);
   const navigate = useNavigate();
@@ -142,26 +168,69 @@ export default function InventoryPage() {
   // Sidebar state
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [sidebarWidth, setSidebarWidth] = useState(DEFAULT_SIDEBAR_WIDTH);
+
+  // Load persisted prefs once on mount
+  const savedPrefsRef = useRef(loadPrefs());
+
   const [filters, setFilters] = useState<Filters>(() => {
-    // Parse attr_* URL params into initial attribute filters
-    const attributes: Record<string, string> = {};
-    searchParams.forEach((value, key) => {
-      if (key.startsWith("attr_")) {
-        attributes[key.slice(5)] = value;
-      }
-    });
+    // URL params take precedence over localStorage
+    const hasUrlParams = searchParams.has("type") || searchParams.has("search") ||
+      searchParams.has("approval_status") || searchParams.has("show_archived") ||
+      Array.from(searchParams.keys()).some((k) => k.startsWith("attr_"));
+
+    if (hasUrlParams) {
+      const attributes: Record<string, string> = {};
+      searchParams.forEach((value, key) => {
+        if (key.startsWith("attr_")) {
+          attributes[key.slice(5)] = value;
+        }
+      });
+      return {
+        types: searchParams.get("type") ? [searchParams.get("type")!] : [],
+        search: searchParams.get("search") || "",
+        subtypes: [],
+        lifecyclePhases: [],
+        dataQualityMin: null,
+        approvalStatuses: searchParams.get("approval_status") ? [searchParams.get("approval_status")!] : [],
+        showArchived: searchParams.get("show_archived") === "true",
+        attributes,
+        relations: {},
+      };
+    }
+
+    // Fall back to localStorage
+    const saved = savedPrefsRef.current;
+    if (saved?.filters) {
+      return {
+        types: saved.filters.types || [],
+        search: saved.filters.search || "",
+        subtypes: saved.filters.subtypes || [],
+        lifecyclePhases: saved.filters.lifecyclePhases || [],
+        dataQualityMin: saved.filters.dataQualityMin ?? null,
+        approvalStatuses: saved.filters.approvalStatuses || [],
+        showArchived: saved.filters.showArchived || false,
+        attributes: saved.filters.attributes || {},
+        relations: saved.filters.relations || {},
+      };
+    }
+
     return {
-      types: searchParams.get("type") ? [searchParams.get("type")!] : [],
-      search: searchParams.get("search") || "",
+      types: [],
+      search: "",
       subtypes: [],
       lifecyclePhases: [],
       dataQualityMin: null,
-      approvalStatuses: searchParams.get("approval_status") ? [searchParams.get("approval_status")!] : [],
-      showArchived: searchParams.get("show_archived") === "true",
-      attributes,
+      approvalStatuses: [],
+      showArchived: false,
+      attributes: {},
       relations: {},
     };
   });
+
+  // Sort model for AG Grid persistence
+  const [sortModel, setSortModel] = useState<{ colId: string; sort: string }[]>(
+    () => savedPrefsRef.current?.sortModel || [],
+  );
 
   const [data, setData] = useState<Card[]>([]);
   const [, setTotal] = useState(0);
@@ -173,9 +242,19 @@ export default function InventoryPage() {
   // Relations data: relTypeKey → Map<cardId, relatedNames[]>
   const [relationsMap, setRelationsMap] = useState<Map<string, Map<string, string[]>>>(new Map());
 
-  // Dynamic column visibility: set of column keys that the user has opted in to show
-  // null = default (show core columns only, no extra columns)
-  const [selectedColumns, setSelectedColumns] = useState<Set<string>>(new Set());
+  // Dynamic column visibility: set of column keys the user has opted to show
+  // Initialized from localStorage if available, otherwise defaults to all when type selected
+  const [selectedColumns, setSelectedColumns] = useState<Set<string>>(() => {
+    const saved = savedPrefsRef.current;
+    if (saved?.columns && saved.columns.length > 0) {
+      return new Set(saved.columns);
+    }
+    return new Set();
+  });
+  // Track whether the user has explicitly set columns (vs auto-populated defaults)
+  const [columnsInitialized, setColumnsInitialized] = useState(
+    () => !!(savedPrefsRef.current?.columns && savedPrefsRef.current.columns.length > 0),
+  );
 
   // Mass edit state
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -245,10 +324,12 @@ export default function InventoryPage() {
 
   // Relevant relation types for the selected type (excluding relations to hidden types)
   // Since the API excludes hidden types, check that the other-end type exists in visible types
+  // Deduplicated by other-end type key to avoid showing duplicate columns (e.g. two relation
+  // types both connecting Platform ↔ ITComponent)
   const visibleTypeKeys = useMemo(() => new Set(types.map((t) => t.key)), [types]);
   const relevantRelTypes = useMemo(() => {
     if (!selectedType) return [];
-    return relationTypes.filter(
+    const filtered = relationTypes.filter(
       (rt) =>
         !rt.is_hidden &&
         (rt.source_type_key === selectedType || rt.target_type_key === selectedType) &&
@@ -256,7 +337,74 @@ export default function InventoryPage() {
           rt.source_type_key === selectedType ? rt.target_type_key : rt.source_type_key
         )
     );
+    // Deduplicate by other-end type key — keep first occurrence
+    const seenOtherKeys = new Set<string>();
+    return filtered.filter((rt) => {
+      const otherKey =
+        rt.source_type_key === selectedType ? rt.target_type_key : rt.source_type_key;
+      if (seenOtherKeys.has(otherKey)) return false;
+      seenOtherKeys.add(otherKey);
+      return true;
+    });
   }, [selectedType, relationTypes, visibleTypeKeys]);
+
+  // Map from other-end type key to all matching relation type keys (for merging data)
+  const relTypeGroupMap = useMemo(() => {
+    if (!selectedType) return new Map<string, string[]>();
+    const map = new Map<string, string[]>();
+    for (const rt of relationTypes) {
+      if (rt.is_hidden) continue;
+      if (rt.source_type_key !== selectedType && rt.target_type_key !== selectedType) continue;
+      const otherKey =
+        rt.source_type_key === selectedType ? rt.target_type_key : rt.source_type_key;
+      if (!visibleTypeKeys.has(otherKey)) continue;
+      const existing = map.get(otherKey);
+      if (existing) existing.push(rt.key);
+      else map.set(otherKey, [rt.key]);
+    }
+    return map;
+  }, [selectedType, relationTypes, visibleTypeKeys]);
+
+  // Compute the "default" set of columns: all attribute + all relation columns checked
+  const defaultColumns = useMemo(() => {
+    const cols = new Set<string>();
+    if (typeConfig) {
+      for (const section of typeConfig.fields_schema) {
+        for (const f of section.fields) {
+          cols.add(`attr_${f.key}`);
+        }
+      }
+    } else if (commonFields.length > 0) {
+      for (const f of commonFields) {
+        cols.add(`attr_${f.key}`);
+      }
+    }
+    for (const rt of relevantRelTypes) {
+      const otherKey =
+        rt.source_type_key === selectedType ? rt.target_type_key : rt.source_type_key;
+      cols.add(`rel_${otherKey}`);
+    }
+    return cols;
+  }, [typeConfig, commonFields, relevantRelTypes, selectedType]);
+
+  // Auto-populate columns with all-checked defaults when type changes (and not yet initialized)
+  useEffect(() => {
+    if (filters.types.length === 0) return;
+    if (columnsInitialized) return;
+    if (defaultColumns.size > 0) {
+      setSelectedColumns(defaultColumns);
+      setColumnsInitialized(true);
+    }
+  }, [filters.types, defaultColumns, columnsInitialized]);
+
+  // Persist filters, columns, and sort to localStorage on change
+  useEffect(() => {
+    savePrefs({
+      filters,
+      columns: Array.from(selectedColumns),
+      sortModel,
+    });
+  }, [filters, selectedColumns, sortModel]);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -285,27 +433,38 @@ export default function InventoryPage() {
     loadData();
   }, [loadData]);
 
+  // All relation type keys we need to fetch (including grouped duplicates)
+  const allRelTypeKeys = useMemo(() => {
+    const keys: string[] = [];
+    for (const group of relTypeGroupMap.values()) {
+      for (const k of group) keys.push(k);
+    }
+    return keys;
+  }, [relTypeGroupMap]);
+
   // Fetch and index relations for each relevant relation type
   const fetchRelations = useCallback(async () => {
-    if (!selectedType || relevantRelTypes.length === 0) {
+    if (!selectedType || allRelTypeKeys.length === 0) {
       setRelationsMap(new Map());
       return;
     }
 
+    // Fetch all relation types (including grouped duplicates)
+    const allRts = allRelTypeKeys.map((key) => relationTypes.find((rt) => rt.key === key)!).filter(Boolean);
     const newMap = new Map<string, Map<string, string[]>>();
     const results = await Promise.all(
-      relevantRelTypes.map((rt) =>
+      allRts.map((rt) =>
         api.get<Relation[]>(`/relations?type=${rt.key}`).catch(() => [] as Relation[])
       )
     );
 
-    for (let i = 0; i < relevantRelTypes.length; i++) {
-      const rt = relevantRelTypes[i];
+    for (let i = 0; i < allRts.length; i++) {
+      const rt = allRts[i];
       const rels = results[i];
       newMap.set(rt.key, buildRelationIndex(rels, rt, selectedType));
     }
     setRelationsMap(newMap);
-  }, [selectedType, relevantRelTypes]);
+  }, [selectedType, allRelTypeKeys, relationTypes]);
 
   // Fetch relations when data or relevant types change
   useEffect(() => {
@@ -435,6 +594,18 @@ export default function InventoryPage() {
   const handleSelectionChanged = useCallback((event: SelectionChangedEvent) => {
     const rows = event.api.getSelectedRows() as Card[];
     setSelectedIds(rows.map((r) => r.id));
+  }, []);
+
+  const handleResetColumns = useCallback(() => {
+    setSelectedColumns(defaultColumns);
+  }, [defaultColumns]);
+
+  const handleSortChanged = useCallback((event: SortChangedEvent) => {
+    const colState = event.api.getColumnState();
+    const sorted = colState
+      .filter((c) => c.sort)
+      .map((c) => ({ colId: c.colId!, sort: c.sort! }));
+    setSortModel(sorted);
   }, []);
 
   // Stable AG Grid config objects — prevents unnecessary grid re-renders
@@ -782,15 +953,16 @@ export default function InventoryPage() {
       }
     }
 
-    // Add relation columns (one per relevant relation type)
+    // Add relation columns (one per other-end type, merging grouped relation types)
     for (const rt of relevantRelTypes) {
       const isSource = rt.source_type_key === selectedType;
       const otherTypeKey = isSource ? rt.target_type_key : rt.source_type_key;
       const otherType = types.find((t) => t.key === otherTypeKey);
       const headerName = otherType ? rml(otherType.key, otherType.translations, "label") : otherTypeKey;
-      const index = relationsMap.get(rt.key);
       const relTypeRef = rt;
-      const colKey = `rel_${rt.key}`;
+      const colKey = `rel_${otherTypeKey}`;
+      // All relation type keys that connect selectedType ↔ otherTypeKey
+      const groupKeys = relTypeGroupMap.get(otherTypeKey) || [rt.key];
 
       cols.push({
         field: colKey,
@@ -798,9 +970,17 @@ export default function InventoryPage() {
         width: 180,
         hide: !selectedColumns.has(colKey),
         valueGetter: (p: { data: Card }) => {
-          if (!index) return "";
-          const names = index.get(p.data?.id);
-          return names ? names.join("; ") : "";
+          // Merge names from all relation types in the group
+          const allNames: string[] = [];
+          for (const rk of groupKeys) {
+            const index = relationsMap.get(rk);
+            if (index) {
+              const names = index.get(p.data?.id);
+              if (names) allNames.push(...names);
+            }
+          }
+          // Deduplicate
+          return [...new Set(allNames)].join("; ");
         },
         cellRenderer: (p: { value: string; data: Card }) => {
           if (gridEditMode) {
@@ -898,7 +1078,7 @@ export default function InventoryPage() {
     );
 
     return cols;
-  }, [types, typeConfig, commonFields, gridEditMode, relevantRelTypes, relationsMap, selectedType, hierarchyPaths, filters.showArchived, selectedColumns, t]);
+  }, [types, typeConfig, commonFields, gridEditMode, relevantRelTypes, relTypeGroupMap, relationsMap, selectedType, hierarchyPaths, filters.showArchived, selectedColumns, t]);
 
   // Render mass edit value input based on field type
   const renderMassEditInput = () => {
@@ -1002,6 +1182,8 @@ export default function InventoryPage() {
             currentUserId={user?.id}
             selectedColumns={selectedColumns}
             onSelectedColumnsChange={setSelectedColumns}
+            defaultColumns={defaultColumns}
+            onResetColumns={handleResetColumns}
           />
         </Drawer>
       ) : (
@@ -1021,6 +1203,8 @@ export default function InventoryPage() {
           currentUserId={user?.id}
           selectedColumns={selectedColumns}
           onSelectedColumnsChange={setSelectedColumns}
+          defaultColumns={defaultColumns}
+          onResetColumns={handleResetColumns}
         />
       )}
 
@@ -1195,10 +1379,23 @@ export default function InventoryPage() {
             onSelectionChanged={handleSelectionChanged}
             onCellValueChanged={handleCellEdit}
             onRowClicked={onRowClicked}
+            onSortChanged={handleSortChanged}
             getRowId={getRowId}
             getRowStyle={getRowStyle}
             animateRows
             defaultColDef={defaultColDef}
+            initialState={
+              sortModel.length > 0
+                ? {
+                    sort: {
+                      sortModel: sortModel.map((s) => ({
+                        colId: s.colId,
+                        sort: s.sort as "asc" | "desc",
+                      })),
+                    },
+                  }
+                : undefined
+            }
           />
         </Box>
       </Box>
