@@ -42,6 +42,12 @@ Le colonne sono raggruppate in tre categorie:
 
 Ogni categoria ha una casella di controllo **Seleziona tutto** per attivare o disattivare rapidamente tutte le colonne di quel gruppo. Un campo di ricerca in alto consente di trovare colonne specifiche per nome. Il badge su ogni intestazione di sezione mostra quante colonne di quel gruppo sono attualmente visibili.
 
+Quando un tipo di scheda viene selezionato per la prima volta, **tutte le colonne di attributi e relazioni sono abilitate per impostazione predefinita**. È possibile deselezionare le colonne non necessarie. Un pulsante **Ripristina** in fondo alla scheda «Colonne» ripristina la selezione predefinita delle colonne.
+
+Un **punto indicatore di modifica** appare sull'intestazione della scheda «Colonne» quando la selezione delle colonne differisce dai valori predefiniti. Lo stesso indicatore appare sulla scheda **Filtri** quando sono attivi dei filtri, rendendo facile vedere a colpo d'occhio quali impostazioni sono state modificate.
+
+La selezione delle colonne, i filtri attivi e l'ordine di ordinamento vengono **salvati automaticamente** nel browser. Quando si torna alla pagina dell'inventario, la configurazione precedente viene ripristinata. Le viste salvate (segnalibri) conservano anche la selezione completa delle colonne, in modo che il passaggio tra le viste ripristini esattamente le colonne configurate.
+
 ### Tabella principale
 
 L'inventario utilizza una tabella dati **AG Grid** con funzionalità avanzate:

@@ -42,6 +42,12 @@ Columns are grouped into three categories:
 
 Each category has a **Select all** checkbox to quickly toggle all columns in that group. A search field at the top lets you find specific columns by name. The badge on each section header shows how many columns from that group are currently visible.
 
+When a card type is first selected, **all attribute and relation columns are enabled by default**. You can then uncheck columns you don't need. A **Reset** button at the bottom of the Columns tab restores the default column selection.
+
+A **change indicator dot** appears on the Columns tab header when the column selection differs from the defaults. The same indicator appears on the **Filters** tab when any filters are active, making it easy to see at a glance which settings have been modified.
+
+Your column selection, active filters, and sort order are **automatically persisted** in your browser. When you return to the inventory page, your previous configuration is restored. Saved views (bookmarks) also preserve the full column selection, so switching between views restores exactly the columns you had configured.
+
 ### Main Table
 
 The inventory uses an **AG Grid** data table with powerful features:

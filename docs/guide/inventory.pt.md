@@ -42,6 +42,12 @@ As colunas são agrupadas em três categorias:
 
 Cada categoria tem uma caixa de seleção **Selecionar tudo** para ativar ou desativar rapidamente todas as colunas desse grupo. Um campo de pesquisa no topo permite encontrar colunas específicas por nome. O indicador em cada cabeçalho de seção mostra quantas colunas desse grupo estão atualmente visíveis.
 
+Quando um tipo de cartão é selecionado pela primeira vez, **todas as colunas de atributos e relações são ativadas por padrão**. Você pode então desmarcar as colunas que não precisa. Um botão **Redefinir** na parte inferior da aba «Colunas» restaura a seleção de colunas padrão.
+
+Um **ponto indicador de alteração** aparece no cabeçalho da aba «Colunas» quando a seleção de colunas difere dos padrões. O mesmo indicador aparece na aba **Filtros** quando há filtros ativos, facilitando ver rapidamente quais configurações foram modificadas.
+
+Sua seleção de colunas, filtros ativos e ordem de classificação são **automaticamente salvos** no navegador. Ao retornar à página de inventário, sua configuração anterior é restaurada. As visualizações salvas (favoritos) também preservam a seleção completa de colunas, de modo que ao alternar entre visualizações, as colunas configuradas são restauradas exatamente.
+
 ### Tabela Principal
 
 O inventário usa uma tabela de dados **AG Grid** com recursos poderosos:

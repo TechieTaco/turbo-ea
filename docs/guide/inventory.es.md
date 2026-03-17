@@ -42,6 +42,12 @@ Las columnas se agrupan en tres categorías:
 
 Cada categoría tiene una casilla **Seleccionar todo** para activar o desactivar rápidamente todas las columnas de ese grupo. Un campo de búsqueda en la parte superior permite encontrar columnas específicas por nombre. La insignia en cada encabezado de sección muestra cuántas columnas de ese grupo están actualmente visibles.
 
+Cuando se selecciona un tipo de tarjeta por primera vez, **todas las columnas de atributos y relaciones se activan por defecto**. Luego puede desmarcar las columnas que no necesite. Un botón **Restablecer** en la parte inferior de la pestaña «Columnas» restaura la selección de columnas predeterminada.
+
+Un **punto indicador de cambio** aparece en el encabezado de la pestaña «Columnas» cuando la selección de columnas difiere de los valores predeterminados. El mismo indicador aparece en la pestaña **Filtros** cuando hay filtros activos, lo que facilita ver de un vistazo qué configuraciones han sido modificadas.
+
+Su selección de columnas, filtros activos y orden de clasificación se **guardan automáticamente** en su navegador. Al volver a la página de inventario, se restaura su configuración anterior. Las vistas guardadas (marcadores) también conservan la selección completa de columnas, de modo que al cambiar entre vistas se restauran exactamente las columnas que había configurado.
+
 ### Tabla Principal
 
 El inventario utiliza una tabla de datos **AG Grid** con funciones avanzadas:
