@@ -87,6 +87,10 @@ Results are grouped by priority so you can focus on the most impactful moderniza
 
 The Architecture AI is a 5-step guided wizard that generates architecture recommendations based on your existing landscape. It links your business objectives and capabilities to concrete solution proposals, gap analysis, dependency mapping, and a target architecture diagram.
 
+<div style="text-align: center;">
+<iframe width="560" height="315" src="https://www.youtube.com/embed/FDneDl0ULsA" title="Architecture AI Overview" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+</div>
+
 A stepper at the top tracks your progress through the five stages: Requirements, Business Fit, Technical Fit, Solution, and Target Architecture. You can click any previously-reached step to navigate back and review earlier phases — all downstream data is preserved and only cleared when you actively re-submit a phase. Your progress is saved automatically in the browser session, so you can navigate away and return without losing your work. You can also save assessments to the database and resume them later (see [Save & Resume](#save--resume) below). Click **New Assessment** to start a fresh analysis at any time.
 
 ### Step 1: Requirements

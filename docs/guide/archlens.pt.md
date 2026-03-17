@@ -87,6 +87,10 @@ Os resultados são agrupados por prioridade para que possa focar-se primeiro nas
 
 O Architecture AI é um assistente guiado em 5 etapas que gera recomendações de arquitetura com base no seu panorama existente. Liga os seus objetivos de negócio e capacidades a propostas de solução concretas, análise de lacunas, mapeamento de dependências e um diagrama de arquitetura alvo.
 
+<div style="text-align: center;">
+<iframe width="560" height="315" src="https://www.youtube.com/embed/FDneDl0ULsA" title="Visão geral do Architecture AI" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+</div>
+
 Um indicador de progresso no topo acompanha o seu avanço pelas cinco etapas: Requisitos, Adequação ao Negócio, Adequação Técnica, Solução e Arquitetura Alvo. Pode clicar em qualquer etapa anteriormente alcançada para navegar para trás e rever fases anteriores — todos os dados subsequentes são preservados e só são eliminados quando volta a submeter ativamente uma fase. O seu progresso é guardado automaticamente na sessão do navegador, pelo que pode navegar para outra página e regressar sem perder o trabalho. Também pode guardar avaliações na base de dados e retomá-las mais tarde (consulte [Guardar e retomar](#guardar--retomar) abaixo). Clique em **Nova Avaliação** para iniciar uma nova análise a qualquer momento.
 
 ### Etapa 1: Requisitos
