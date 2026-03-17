@@ -46,7 +46,7 @@ Quando um tipo de cartão é selecionado pela primeira vez, **todas as colunas d
 
 Um **ponto indicador de alteração** aparece no cabeçalho da aba «Colunas» quando a seleção de colunas difere dos padrões. O mesmo indicador aparece na aba **Filtros** quando há filtros ativos, facilitando ver rapidamente quais configurações foram modificadas.
 
-Sua seleção de colunas, filtros ativos e ordem de classificação são **automaticamente salvos** no navegador. Ao retornar à página de inventário, sua configuração anterior é restaurada. As visualizações salvas (favoritos) também preservam a seleção completa de colunas, de modo que ao alternar entre visualizações, as colunas configuradas são restauradas exatamente.
+Sua seleção de colunas, filtros ativos e ordem de classificação são **automaticamente salvos** no navegador. Ao retornar à página de inventário, sua configuração anterior é restaurada. As visualizações salvas (favoritos) também preservam a seleção completa de colunas, de modo que ao alternar entre visualizações, são restauradas exatamente as colunas que você havia configurado.
 
 ### Tabela Principal
 
