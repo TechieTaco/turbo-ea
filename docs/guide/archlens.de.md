@@ -12,8 +12,6 @@ Das **ArchLens**-Modul bietet KI-gestützte Analysen Ihrer Enterprise-Architectu
 
 Das ArchLens-Dashboard bietet einen schnellen Überblick über Ihre Landschaftsanalyse.
 
-![ArchLens Übersicht](../assets/img/de/48_archlens_uebersicht.png)
-
 | Kennzahl | Beschreibung |
 |----------|--------------|
 | **Karten gesamt** | Anzahl der aktiven Karten in Ihrem Portfolio |
@@ -33,8 +31,6 @@ Das Dashboard zeigt außerdem:
 
 Die Herstelleranalyse verwendet KI, um Ihre Technologiehersteller in mehr als 45 Branchenkategorien einzuteilen (z. B. CRM, ERP, Cloud-Infrastruktur, Sicherheit).
 
-![Herstelleranalyse](../assets/img/de/49_archlens_hersteller.png)
-
 **Verwendung:**
 
 1. Navigieren Sie zu **ArchLens > Hersteller**
@@ -48,8 +44,6 @@ Jeder Herstellereintrag enthält die Kategorie, Unterkategorie, Anzahl der verkn
 
 Die Herstellerauflösung erstellt eine kanonische Hersteller-Hierarchie, indem Aliase aufgelöst und Eltern-Kind-Beziehungen identifiziert werden.
 
-![Herstellerauflösung](../assets/img/de/50_archlens_aufloesung.png)
-
 **Verwendung:**
 
 1. Navigieren Sie zu **ArchLens > Auflösung**
@@ -62,8 +56,6 @@ Die Hierarchie gliedert Hersteller in vier Ebenen: Hersteller, Produkt, Plattfor
 ## Duplikaterkennung
 
 Die Duplikaterkennung identifiziert funktionale Überschneidungen in Ihrem Portfolio — Karten, die denselben oder einen ähnlichen Geschäftszweck erfüllen.
-
-![Duplikaterkennung](../assets/img/de/51_archlens_duplikate.png)
 
 **Verwendung:**
 
@@ -95,9 +87,7 @@ Die Ergebnisse werden nach Priorität gruppiert, damit Sie sich auf die wirkungs
 
 Die Architektur-KI ist ein geführter 5-Schritte-Assistent, der Architekturempfehlungen auf Basis Ihrer bestehenden Landschaft generiert. Er verknüpft Ihre Geschäftsziele und Business Capabilities mit konkreten Lösungsvorschlägen, Gap-Analysen, Abhängigkeitsmapping und einem Zielarchitektur-Diagramm.
 
-![Architektur-KI](../assets/img/de/52_archlens_architekt.png)
-
-Ein Fortschrittsanzeiger oben verfolgt Ihren Fortschritt durch die fünf Phasen: Anforderungen, Business Fit, Technical Fit, Lösung und Zielarchitektur. Ihr Fortschritt wird automatisch in der Browser-Sitzung gespeichert, sodass Sie die Seite verlassen und zurückkehren können, ohne Ihre Arbeit zu verlieren. Sie können Bewertungen auch in der Datenbank speichern und später fortsetzen (siehe [Speichern & Fortsetzen](#speichern--fortsetzen) weiter unten). Klicken Sie auf **Neue Bewertung**, um jederzeit eine neue Analyse zu starten.
+Ein Fortschrittsanzeiger oben verfolgt Ihren Fortschritt durch die fünf Phasen: Anforderungen, Business Fit, Technical Fit, Lösung und Zielarchitektur. Sie können auf jeden bereits erreichten Schritt klicken, um frühere Phasen zu überprüfen — alle nachgelagerten Daten bleiben erhalten und werden erst zurückgesetzt, wenn Sie eine Phase erneut absenden. Ihr Fortschritt wird automatisch in der Browser-Sitzung gespeichert, sodass Sie die Seite verlassen und zurückkehren können, ohne Ihre Arbeit zu verlieren. Sie können Bewertungen auch in der Datenbank speichern und später fortsetzen (siehe [Speichern & Fortsetzen](#speichern--fortsetzen) weiter unten). Klicken Sie auf **Neue Bewertung**, um jederzeit eine neue Analyse zu starten.
 
 ### Schritt 1: Anforderungen
 
@@ -138,7 +128,7 @@ Die KI generiert mehrere Lösungsoptionen, die jeweils als Karte präsentiert we
 | **Schätzungen** | Geschätzte Kosten, Dauer und Komplexität |
 | **Auswirkungsvorschau** | Neue Komponenten, geänderte Komponenten, abgelöste Komponenten und neue Integrationen, die diese Option mit sich bringen würde |
 
-Klicken Sie auf **Auswählen** bei der Option, die Sie verfolgen möchten.
+Klicken Sie auf **Auswählen** bei der Option, die Sie verfolgen möchten. Wenn Sie zu diesem Schritt zurückkehren, nachdem Sie eine Option ausgewählt haben, wird die zuvor gewählte Option visuell mit einem Rahmen und einem «Ausgewählt»-Badge hervorgehoben, sodass Sie Ihre aktuelle Auswahl leicht erkennen können.
 
 #### 3b: Gap-Analyse
 
@@ -226,8 +216,6 @@ Klicken Sie auf **Andere Auswahl**, um zu den Lösungsoptionen zurückzukehren u
 ## Analyseverlauf
 
 Alle Analyseläufe werden unter **ArchLens > Verlauf** nachverfolgt und zeigen:
-
-![Analyseverlauf](../assets/img/de/53_archlens_verlauf.png)
 
 - Analysetyp (Herstelleranalyse, Herstellerauflösung, Duplikaterkennung, Modernisierung, Architekt)
 - Status (läuft, abgeschlossen, fehlgeschlagen)

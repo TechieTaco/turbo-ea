@@ -12,8 +12,6 @@ Il modulo **ArchLens** fornisce un'analisi basata su intelligenza artificiale de
 
 La panoramica di ArchLens offre una visione immediata dell'analisi del tuo panorama.
 
-![Panoramica ArchLens](../assets/img/it/48_archlens_panoramica.png)
-
 | Indicatore | Descrizione |
 |------------|-------------|
 | **Card totali** | Numero di card attive nel tuo portfolio |
@@ -33,8 +31,6 @@ La panoramica mostra inoltre:
 
 L'analisi dei fornitori utilizza l'AI per classificare i tuoi fornitori tecnologici in oltre 45 categorie di settore (ad es. CRM, ERP, Cloud Infrastructure, Security).
 
-![Analisi dei fornitori](../assets/img/it/49_archlens_fornitori.png)
-
 **Come utilizzare:**
 
 1. Vai su **ArchLens > Fornitori**
@@ -48,8 +44,6 @@ Ogni voce fornitore include la categoria, la sottocategoria, il numero di applic
 
 La risoluzione dei fornitori costruisce una gerarchia canonica dei fornitori risolvendo gli alias e identificando le relazioni genitore-figlio.
 
-![Risoluzione dei fornitori](../assets/img/it/50_archlens_risoluzione.png)
-
 **Come utilizzare:**
 
 1. Vai su **ArchLens > Risoluzione**
@@ -62,8 +56,6 @@ La gerarchia organizza i fornitori in quattro livelli: fornitore, prodotto, piat
 ## Rilevamento dei duplicati
 
 Il rilevamento dei duplicati identifica le sovrapposizioni funzionali nel tuo portfolio — card che svolgono la stessa funzione aziendale o una simile.
-
-![Rilevamento dei duplicati](../assets/img/it/51_archlens_duplicati.png)
 
 **Come utilizzare:**
 
@@ -95,9 +87,7 @@ I risultati sono raggruppati per priorità, così puoi concentrarti prima sulle 
 
 L'Architecture AI è una procedura guidata in 5 passaggi che genera raccomandazioni architetturali basate sul tuo panorama esistente. Collega i tuoi obiettivi aziendali e le tue capacità a proposte di soluzione concrete, analisi dei gap, mappatura delle dipendenze e un diagramma dell'architettura target.
 
-![Architecture AI](../assets/img/it/52_archlens_architetto.png)
-
-Un indicatore di avanzamento nella parte superiore tiene traccia del tuo progresso attraverso le cinque fasi: Requisiti, Business Fit, Technical Fit, Soluzione e Architettura target. Il tuo progresso viene salvato automaticamente nella sessione del browser, così puoi navigare altrove e tornare senza perdere il lavoro. Puoi anche salvare le valutazioni nel database e riprenderle in seguito (vedi [Salva e riprendi](#salva--riprendi) più avanti). Fai clic su **Nuova valutazione** per avviare un'analisi completamente nuova in qualsiasi momento.
+Un indicatore di avanzamento nella parte superiore tiene traccia del tuo progresso attraverso le cinque fasi: Requisiti, Business Fit, Technical Fit, Soluzione e Architettura target. Puoi fare clic su qualsiasi passaggio precedentemente raggiunto per tornare indietro e rivedere le fasi precedenti — tutti i dati a valle vengono preservati e vengono cancellati solo quando invii nuovamente una fase. Il tuo progresso viene salvato automaticamente nella sessione del browser, così puoi navigare altrove e tornare senza perdere il lavoro. Puoi anche salvare le valutazioni nel database e riprenderle in seguito (vedi [Salva e riprendi](#salva--riprendi) più avanti). Fai clic su **Nuova valutazione** per avviare un'analisi completamente nuova in qualsiasi momento.
 
 ### Passaggio 1: Requisiti
 
@@ -138,7 +128,7 @@ L'AI genera più opzioni di soluzione, ciascuna presentata come una card con:
 | **Stime** | Costo, durata e complessità stimati |
 | **Anteprima impatto** | Nuovi componenti, componenti modificati, componenti ritirati e nuove integrazioni che questa opzione introdurrebbe |
 
-Fai clic su **Seleziona** sull'opzione che desideri perseguire.
+Fai clic su **Seleziona** sull'opzione che desideri perseguire. Se torni a questo passaggio dopo aver selezionato un'opzione, l'opzione precedentemente scelta è evidenziata visivamente con un bordo e un badge «Selezionato» per consentirti di identificare facilmente la tua scelta attuale.
 
 #### 3b: Analisi dei gap
 
@@ -226,8 +216,6 @@ Fai clic su **Scegli un'alternativa** per tornare alle opzioni di soluzione e se
 ## Cronologia delle analisi
 
 Tutte le esecuzioni di analisi sono tracciate in **ArchLens > Cronologia**, con le seguenti informazioni:
-
-![Cronologia delle analisi](../assets/img/it/53_archlens_cronologia.png)
 
 - Tipo di analisi (analisi fornitori, risoluzione fornitori, rilevamento duplicati, modernizzazione, architetto)
 - Stato (in esecuzione, completata, fallita)
