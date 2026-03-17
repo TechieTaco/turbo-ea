@@ -1500,7 +1500,11 @@ export default function ArchLensArchitect() {
               index <= maxReachedStep && index !== currentStep;
             const isClickable = isCompleted && !archLoading;
             return (
-              <Step key={step.key} completed={isCompleted}>
+              <Step
+                key={step.key}
+                completed={isCompleted}
+                disabled={index !== currentStep && !isClickable}
+              >
                 <StepLabel
                   onClick={
                     isClickable ? () => navigateToStep(index) : undefined
