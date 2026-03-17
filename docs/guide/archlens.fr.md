@@ -12,8 +12,6 @@ Le module **ArchLens** fournit une analyse assistée par IA de votre paysage d'a
 
 Le tableau de bord ArchLens offre une vue d'ensemble instantanée de l'analyse de votre paysage.
 
-![Tableau de bord ArchLens](../assets/img/fr/48_archlens_tableau_bord.png)
-
 | Indicateur | Description |
 |------------|-------------|
 | **Total des cartes** | Nombre de cartes actives dans votre portefeuille |
@@ -33,8 +31,6 @@ Le tableau de bord affiche également :
 
 L'analyse des fournisseurs utilise l'IA pour classer vos fournisseurs technologiques dans plus de 45 catégories sectorielles (par exemple, CRM, ERP, Infrastructure cloud, Sécurité).
 
-![Analyse des fournisseurs](../assets/img/fr/49_archlens_fournisseurs.png)
-
 **Mode d'emploi :**
 
 1. Accédez à **ArchLens > Fournisseurs**
@@ -48,8 +44,6 @@ Chaque entrée de fournisseur comprend la catégorie, la sous-catégorie, le nom
 
 La résolution des fournisseurs construit une hiérarchie canonique des fournisseurs en résolvant les alias et en identifiant les relations parent-enfant.
 
-![Résolution des fournisseurs](../assets/img/fr/50_archlens_resolution.png)
-
 **Mode d'emploi :**
 
 1. Accédez à **ArchLens > Résolution**
@@ -62,8 +56,6 @@ La hiérarchie organise les fournisseurs en quatre niveaux : fournisseur, produi
 ## Détection des doublons
 
 La détection des doublons identifie les chevauchements fonctionnels dans votre portefeuille — des cartes qui servent le même objectif métier ou un objectif similaire.
-
-![Détection des doublons](../assets/img/fr/51_archlens_doublons.png)
 
 **Mode d'emploi :**
 
@@ -95,9 +87,7 @@ Les résultats sont regroupés par priorité afin que vous puissiez vous concent
 
 L'Architecture IA est un assistant guidé en 5 étapes qui génère des recommandations d'architecture basées sur votre paysage existant. Elle relie vos objectifs métier et vos capacités à des propositions de solution concrètes, une analyse des écarts, une cartographie des dépendances et un diagramme d'architecture cible.
 
-![Architecture IA](../assets/img/fr/52_archlens_architecte.png)
-
-Un indicateur de progression en haut suit votre avancement à travers les cinq étapes : Exigences, Adéquation métier, Adéquation technique, Solution et Architecture cible. Votre progression est sauvegardée automatiquement dans la session du navigateur, vous pouvez donc naviguer ailleurs et revenir sans perdre votre travail. Vous pouvez également enregistrer les évaluations dans la base de données et les reprendre ultérieurement (voir [Sauvegarder et reprendre](#sauvegarder--reprendre) ci-dessous). Cliquez sur **Nouvelle évaluation** pour démarrer une nouvelle analyse à tout moment.
+Un indicateur de progression en haut suit votre avancement à travers les cinq étapes : Exigences, Adéquation métier, Adéquation technique, Solution et Architecture cible. Vous pouvez cliquer sur n'importe quelle étape précédemment atteinte pour naviguer en arrière et consulter les phases antérieures — toutes les données en aval sont préservées et ne sont effacées que lorsque vous re-soumettez activement une phase. Votre progression est sauvegardée automatiquement dans la session du navigateur, vous pouvez donc naviguer ailleurs et revenir sans perdre votre travail. Vous pouvez également enregistrer les évaluations dans la base de données et les reprendre ultérieurement (voir [Sauvegarder et reprendre](#sauvegarder--reprendre) ci-dessous). Cliquez sur **Nouvelle évaluation** pour démarrer une nouvelle analyse à tout moment.
 
 ### Étape 1 : Exigences
 
@@ -138,7 +128,7 @@ L'IA génère plusieurs options de solution, chacune présentée sous forme de c
 | **Estimations** | Coût, durée et complexité estimés |
 | **Aperçu de l'impact** | Nouveaux composants, composants modifiés, composants retirés et nouvelles intégrations qu'introduirait cette option |
 
-Cliquez sur **Sélectionner** pour l'option que vous souhaitez retenir.
+Cliquez sur **Sélectionner** pour l'option que vous souhaitez retenir. Si vous revenez à cette étape après avoir sélectionné une option, l'option précédemment choisie est visuellement mise en évidence avec un contour et un badge «Sélectionné» afin que vous puissiez facilement identifier votre choix actuel.
 
 #### 3b : Analyse des écarts
 
@@ -226,8 +216,6 @@ Cliquez sur **Choisir une autre option** pour revenir aux options de solution et
 ## Historique des analyses
 
 Toutes les exécutions d'analyse sont suivies dans **ArchLens > Historique**, affichant :
-
-![Historique des analyses](../assets/img/fr/53_archlens_historique.png)
 
 - Type d'analyse (analyse des fournisseurs, résolution des fournisseurs, détection des doublons, modernisation, architecte)
 - Statut (en cours, terminé, échoué)

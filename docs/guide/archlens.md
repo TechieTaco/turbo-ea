@@ -12,8 +12,6 @@ The **ArchLens** module provides AI-powered analysis of your enterprise architec
 
 The ArchLens dashboard provides an at-a-glance overview of your landscape analysis.
 
-![ArchLens Dashboard](../assets/img/en/48_archlens_dashboard.png)
-
 | Indicator | Description |
 |-----------|-------------|
 | **Total Cards** | Number of active cards in your portfolio |
@@ -33,8 +31,6 @@ The dashboard also shows:
 
 Vendor analysis uses AI to categorize your technology vendors into 45+ industry categories (e.g., CRM, ERP, Cloud Infrastructure, Security).
 
-![Vendor Analysis](../assets/img/en/49_archlens_vendors.png)
-
 **How to use:**
 
 1. Navigate to **ArchLens > Vendors**
@@ -48,8 +44,6 @@ Each vendor entry includes the category, sub-category, number of associated appl
 
 Vendor resolution builds a canonical vendor hierarchy by resolving aliases and identifying parent-child relationships.
 
-![Vendor Resolution](../assets/img/en/50_archlens_resolution.png)
-
 **How to use:**
 
 1. Navigate to **ArchLens > Resolution**
@@ -62,8 +56,6 @@ The hierarchy organizes vendors into four levels: vendor, product, platform, and
 ## Duplicate Detection
 
 Duplicate detection identifies functional overlaps in your portfolio — cards that serve the same or similar business purpose.
-
-![Duplicate Detection](../assets/img/en/51_archlens_duplicates.png)
 
 **How to use:**
 
@@ -95,9 +87,7 @@ Results are grouped by priority so you can focus on the most impactful moderniza
 
 The Architecture AI is a 5-step guided wizard that generates architecture recommendations based on your existing landscape. It links your business objectives and capabilities to concrete solution proposals, gap analysis, dependency mapping, and a target architecture diagram.
 
-![Architecture AI](../assets/img/en/52_archlens_architect.png)
-
-A stepper at the top tracks your progress through the five stages: Requirements, Business Fit, Technical Fit, Solution, and Target Architecture. Your progress is saved automatically in the browser session, so you can navigate away and return without losing your work. You can also save assessments to the database and resume them later (see [Save & Resume](#save--resume) below). Click **New Assessment** to start a fresh analysis at any time.
+A stepper at the top tracks your progress through the five stages: Requirements, Business Fit, Technical Fit, Solution, and Target Architecture. You can click any previously-reached step to navigate back and review earlier phases — all downstream data is preserved and only cleared when you actively re-submit a phase. Your progress is saved automatically in the browser session, so you can navigate away and return without losing your work. You can also save assessments to the database and resume them later (see [Save & Resume](#save--resume) below). Click **New Assessment** to start a fresh analysis at any time.
 
 ### Step 1: Requirements
 
@@ -138,7 +128,7 @@ The AI generates multiple solution options, each presented as a card with:
 | **Estimates** | Estimated cost, duration, and complexity |
 | **Impact Preview** | New components, modified components, retired components, and new integrations that this option would introduce |
 
-Click **Select** on the option you want to pursue.
+Click **Select** on the option you want to pursue. If you return to this step after selecting an option, the previously chosen option is visually highlighted with a border and a "Selected" badge so you can easily identify your current choice.
 
 #### 3b: Gap Analysis
 
@@ -226,8 +216,6 @@ Click **Choose Different** to return to the solution options and select a differ
 ## Analysis History
 
 All analysis runs are tracked in **ArchLens > History**, showing:
-
-![Analysis History](../assets/img/en/53_archlens_history.png)
 
 - Analysis type (vendor analysis, vendor resolution, duplicate detection, modernization, architect)
 - Status (running, completed, failed)

@@ -5,6 +5,16 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.42.1] - 2026-03-17
+
+### Fixed
+- ArchLens: Previously selected solution option is now visually highlighted with a border and "Selected" badge when navigating back to the Solution Options step
+- ArchLens: Pointer cursor now correctly appears on all reachable stepper steps, including forward steps when navigating back
+
+### Changed
+- Docs: Remove screenshot placeholders from the ArchLens guide pages (all 8 locales) and the screenshot automation script
+- Docs: Document clickable stepper navigation and selected option highlighting in the Architecture AI section
+
 ## [0.42.0] - 2026-03-16
 
 ### Added

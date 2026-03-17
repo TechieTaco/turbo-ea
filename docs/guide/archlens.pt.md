@@ -12,8 +12,6 @@ O módulo **ArchLens** fornece análise baseada em IA do seu panorama de arquite
 
 O painel do ArchLens fornece uma visão geral instantânea da análise do seu panorama.
 
-![Painel ArchLens](../assets/img/pt/48_archlens_painel.png)
-
 | Indicador | Descrição |
 |-----------|-----------|
 | **Total de Cards** | Número de cards ativos no seu portfólio |
@@ -33,8 +31,6 @@ O painel mostra também:
 
 A análise de fornecedores utiliza IA para categorizar os seus fornecedores tecnológicos em mais de 45 categorias do setor (por exemplo, CRM, ERP, Infraestrutura Cloud, Segurança).
 
-![Análise de Fornecedores](../assets/img/pt/49_archlens_fornecedores.png)
-
 **Como utilizar:**
 
 1. Navegue até **ArchLens > Fornecedores**
@@ -48,8 +44,6 @@ Cada entrada de fornecedor inclui a categoria, subcategoria, número de aplicaç
 
 A resolução de fornecedores constrói uma hierarquia canónica de fornecedores, resolvendo aliases e identificando relações pai-filho.
 
-![Resolução de Fornecedores](../assets/img/pt/50_archlens_resolucao.png)
-
 **Como utilizar:**
 
 1. Navegue até **ArchLens > Resolução**
@@ -62,8 +56,6 @@ A hierarquia organiza os fornecedores em quatro níveis: fornecedor, produto, pl
 ## Deteção de Duplicados
 
 A deteção de duplicados identifica sobreposições funcionais no seu portfólio — cards que servem o mesmo propósito de negócio ou um propósito semelhante.
-
-![Deteção de Duplicados](../assets/img/pt/51_archlens_duplicados.png)
 
 **Como utilizar:**
 
@@ -95,9 +87,7 @@ Os resultados são agrupados por prioridade para que possa focar-se primeiro nas
 
 O Architecture AI é um assistente guiado em 5 etapas que gera recomendações de arquitetura com base no seu panorama existente. Liga os seus objetivos de negócio e capacidades a propostas de solução concretas, análise de lacunas, mapeamento de dependências e um diagrama de arquitetura alvo.
 
-![Architecture AI](../assets/img/pt/52_archlens_arquiteto.png)
-
-Um indicador de progresso no topo acompanha o seu avanço pelas cinco etapas: Requisitos, Adequação ao Negócio, Adequação Técnica, Solução e Arquitetura Alvo. O seu progresso é guardado automaticamente na sessão do navegador, pelo que pode navegar para outra página e regressar sem perder o trabalho. Também pode guardar avaliações na base de dados e retomá-las mais tarde (consulte [Guardar e retomar](#guardar--retomar) abaixo). Clique em **Nova Avaliação** para iniciar uma nova análise a qualquer momento.
+Um indicador de progresso no topo acompanha o seu avanço pelas cinco etapas: Requisitos, Adequação ao Negócio, Adequação Técnica, Solução e Arquitetura Alvo. Pode clicar em qualquer etapa anteriormente alcançada para navegar para trás e rever fases anteriores — todos os dados subsequentes são preservados e só são eliminados quando volta a submeter ativamente uma fase. O seu progresso é guardado automaticamente na sessão do navegador, pelo que pode navegar para outra página e regressar sem perder o trabalho. Também pode guardar avaliações na base de dados e retomá-las mais tarde (consulte [Guardar e retomar](#guardar--retomar) abaixo). Clique em **Nova Avaliação** para iniciar uma nova análise a qualquer momento.
 
 ### Etapa 1: Requisitos
 
@@ -138,7 +128,7 @@ A IA gera múltiplas opções de solução, cada uma apresentada como um card co
 | **Estimativas** | Custo, duração e complexidade estimados |
 | **Pré-visualização do Impacto** | Novos componentes, componentes modificados, componentes retirados e novas integrações que esta opção introduziria |
 
-Clique em **Selecionar** na opção que pretende prosseguir.
+Clique em **Selecionar** na opção que pretende prosseguir. Se regressar a esta etapa após selecionar uma opção, a opção anteriormente escolhida é visualmente realçada com uma moldura e um distintivo «Selecionado» para que possa identificar facilmente a sua escolha atual.
 
 #### 3b: Análise de Lacunas
 
@@ -226,8 +216,6 @@ Clique em **Escolher Diferente** para regressar às opções de solução e sele
 ## Histórico de Análises
 
 Todas as execuções de análise são registadas em **ArchLens > Histórico**, mostrando:
-
-![Histórico de Análises](../assets/img/pt/53_archlens_historico.png)
 
 - Tipo de análise (análise de fornecedores, resolução de fornecedores, deteção de duplicados, modernização, arquiteto)
 - Estado (em execução, concluída, com falha)
