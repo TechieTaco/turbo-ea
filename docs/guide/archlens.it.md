@@ -87,6 +87,10 @@ I risultati sono raggruppati per priorità, così puoi concentrarti prima sulle 
 
 L'Architecture AI è una procedura guidata in 5 passaggi che genera raccomandazioni architetturali basate sul tuo panorama esistente. Collega i tuoi obiettivi aziendali e le tue capacità a proposte di soluzione concrete, analisi dei gap, mappatura delle dipendenze e un diagramma dell'architettura target.
 
+<div style="text-align: center;">
+<iframe width="560" height="315" src="https://www.youtube.com/embed/FDneDl0ULsA" title="Panoramica di Architecture AI" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+</div>
+
 Un indicatore di avanzamento nella parte superiore tiene traccia del tuo progresso attraverso le cinque fasi: Requisiti, Business Fit, Technical Fit, Soluzione e Architettura target. Puoi fare clic su qualsiasi passaggio precedentemente raggiunto per tornare indietro e rivedere le fasi precedenti — tutti i dati a valle vengono preservati e vengono cancellati solo quando invii nuovamente una fase. Il tuo progresso viene salvato automaticamente nella sessione del browser, così puoi navigare altrove e tornare senza perdere il lavoro. Puoi anche salvare le valutazioni nel database e riprenderle in seguito (vedi [Salva e riprendi](#salva--riprendi) più avanti). Fai clic su **Nuova valutazione** per avviare un'analisi completamente nuova in qualsiasi momento.
 
 ### Passaggio 1: Requisiti

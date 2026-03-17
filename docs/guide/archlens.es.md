@@ -87,6 +87,10 @@ Los resultados se agrupan por prioridad para que pueda centrarse primero en las 
 
 La IA de Arquitectura es un asistente guiado de 5 pasos que genera recomendaciones de arquitectura basadas en su paisaje existente. Vincula sus objetivos empresariales y capacidades con propuestas de soluciones concretas, análisis de brechas, mapeo de dependencias y un diagrama de arquitectura objetivo.
 
+<div style="text-align: center;">
+<iframe width="560" height="315" src="https://www.youtube.com/embed/FDneDl0ULsA" title="Descripción general de la IA de Arquitectura" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+</div>
+
 Un indicador de progreso en la parte superior rastrea su avance a través de las cinco etapas: Requisitos, Adecuación al Negocio, Adecuación Técnica, Solución y Arquitectura Objetivo. Puede hacer clic en cualquier paso previamente alcanzado para navegar hacia atrás y revisar fases anteriores — todos los datos posteriores se preservan y solo se eliminan cuando vuelve a enviar activamente una fase. Su progreso se guarda automáticamente en la sesión del navegador, por lo que puede navegar a otro lugar y regresar sin perder su trabajo. También puede guardar evaluaciones en la base de datos y retomarlas más tarde (consulte [Guardar y retomar](#guardar-y-retomar) a continuación). Haga clic en **Nueva Evaluación** para comenzar un análisis nuevo en cualquier momento.
 
 ### Paso 1: Requirements

@@ -87,6 +87,10 @@ Die Ergebnisse werden nach Priorität gruppiert, damit Sie sich auf die wirkungs
 
 Die Architektur-KI ist ein geführter 5-Schritte-Assistent, der Architekturempfehlungen auf Basis Ihrer bestehenden Landschaft generiert. Er verknüpft Ihre Geschäftsziele und Business Capabilities mit konkreten Lösungsvorschlägen, Gap-Analysen, Abhängigkeitsmapping und einem Zielarchitektur-Diagramm.
 
+<div style="text-align: center;">
+<iframe width="560" height="315" src="https://www.youtube.com/embed/FDneDl0ULsA" title="Architektur-KI Übersicht" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+</div>
+
 Ein Fortschrittsanzeiger oben verfolgt Ihren Fortschritt durch die fünf Phasen: Anforderungen, Business Fit, Technical Fit, Lösung und Zielarchitektur. Sie können auf jeden bereits erreichten Schritt klicken, um frühere Phasen zu überprüfen — alle nachgelagerten Daten bleiben erhalten und werden erst zurückgesetzt, wenn Sie eine Phase erneut absenden. Ihr Fortschritt wird automatisch in der Browser-Sitzung gespeichert, sodass Sie die Seite verlassen und zurückkehren können, ohne Ihre Arbeit zu verlieren. Sie können Bewertungen auch in der Datenbank speichern und später fortsetzen (siehe [Speichern & Fortsetzen](#speichern--fortsetzen) weiter unten). Klicken Sie auf **Neue Bewertung**, um jederzeit eine neue Analyse zu starten.
 
 ### Schritt 1: Anforderungen
