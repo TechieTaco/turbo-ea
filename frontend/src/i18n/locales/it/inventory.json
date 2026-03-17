@@ -23,6 +23,7 @@
   "columns.metadata": "Metadati",
   "columns.attributes": "Attributi",
   "columns.relations": "Relazioni",
+  "columns.reset": "Ripristina",
   "filter.title": "Filtri",
   "filter.expand": "Espandi filtri",
   "filter.searchPlaceholder": "Cerca schede...",

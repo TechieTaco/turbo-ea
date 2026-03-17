@@ -74,6 +74,8 @@ interface Props {
   currentUserId?: string;
   selectedColumns: Set<string>;
   onSelectedColumnsChange: (cols: Set<string>) => void;
+  defaultColumns?: Set<string>;
+  onResetColumns?: () => void;
 }
 
 const APPROVAL_STATUS_OPTIONS = [
@@ -120,6 +122,8 @@ export default function InventoryFilterSidebar({
   currentUserId,
   selectedColumns,
   onSelectedColumnsChange,
+  defaultColumns,
+  onResetColumns,
 }: Props) {
   const { t } = useTranslation(["inventory", "common"]);
   const rl = useResolveLabel();
@@ -264,6 +268,16 @@ export default function InventoryFilterSidebar({
     Object.keys(filters.attributes).length +
     Object.keys(filters.relations || {}).length;
 
+  // Check if columns differ from default
+  const columnsChanged = useMemo(() => {
+    if (!defaultColumns || defaultColumns.size === 0) return false;
+    if (selectedColumns.size !== defaultColumns.size) return true;
+    for (const k of defaultColumns) {
+      if (!selectedColumns.has(k)) return true;
+    }
+    return false;
+  }, [selectedColumns, defaultColumns]);
+
   // Categorize bookmarks into My / Shared / Public sections
   const myViews = useMemo(() => bookmarks.filter((b) => b.is_owner), [bookmarks]);
   const sharedViews = useMemo(
@@ -306,6 +320,7 @@ export default function InventoryFilterSidebar({
         attributes: filters.attributes,
         relations: filters.relations,
       },
+      columns: Array.from(selectedColumns),
       visibility: dialogVisibility,
       odata_enabled: dialogOdata,
       shared_with: sharedWithPayload,
@@ -335,6 +350,11 @@ export default function InventoryFilterSidebar({
         attributes: f.attributes || {},
         relations: f.relations || {},
       });
+    }
+    // Restore saved columns if present
+    const bmColumns = (bm as unknown as Record<string, unknown>).columns as string[] | undefined;
+    if (bmColumns && Array.isArray(bmColumns)) {
+      onSelectedColumnsChange(new Set(bmColumns));
     }
     setTab(0);
   };
@@ -457,8 +477,42 @@ export default function InventoryFilterSidebar({
               "& .MuiTab-root": { minHeight: 36, py: 0, textTransform: "none", fontSize: 14, minWidth: 0 },
             }}
           >
-            <Tab label={t("filter.title")} />
-            <Tab label={t("columns.title")} />
+            <Tab
+              label={
+                <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                  {t("filter.title")}
+                  {activeCount > 0 && (
+                    <Box
+                      sx={{
+                        width: 8,
+                        height: 8,
+                        borderRadius: "50%",
+                        bgcolor: "primary.main",
+                        flexShrink: 0,
+                      }}
+                    />
+                  )}
+                </Box>
+              }
+            />
+            <Tab
+              label={
+                <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                  {t("columns.title")}
+                  {columnsChanged && (
+                    <Box
+                      sx={{
+                        width: 8,
+                        height: 8,
+                        borderRadius: "50%",
+                        bgcolor: "primary.main",
+                        flexShrink: 0,
+                      }}
+                    />
+                  )}
+                </Box>
+              }
+            />
             <Tab label={t("views.title")} />
           </Tabs>
           <IconButton size="small" onClick={onToggleCollapse}>
@@ -956,6 +1010,8 @@ export default function InventoryFilterSidebar({
               selectedColumns={selectedColumns}
               onSelectedColumnsChange={onSelectedColumnsChange}
               relevantRelTypes={relevantRelTypes}
+              onResetColumns={onResetColumns}
+              columnsChanged={columnsChanged}
               t={t}
               rl={rl}
               rml={rml}
@@ -1401,6 +1457,8 @@ function ColumnsTab({
   selectedColumns,
   onSelectedColumnsChange,
   relevantRelTypes,
+  onResetColumns,
+  columnsChanged,
   t,
   rl,
   rml,
@@ -1410,6 +1468,8 @@ function ColumnsTab({
   selectedColumns: Set<string>;
   onSelectedColumnsChange: (cols: Set<string>) => void;
   relevantRelTypes: RelationType[];
+  onResetColumns?: () => void;
+  columnsChanged?: boolean;
   t: (key: string, opts?: Record<string, unknown>) => string;
   rl: (fallback: string, translations?: TranslationMap) => string;
   rml: (fallback: string, translations?: MetamodelTranslations, property?: string) => string;
@@ -1504,7 +1564,11 @@ function ColumnsTab({
 
   const metaKeys = filteredMeta.map((m) => m.key);
   const attrKeys = filteredAttrs.map((f) => `attr_${f.key}`);
-  const relKeys = filteredRels.map((rt) => `rel_${rt.key}`);
+  const relKeys = filteredRels.map((rt) => {
+    const selType = filters.types.length === 1 ? filters.types[0] : "";
+    const isSource = rt.source_type_key === selType;
+    return `rel_${isSource ? rt.target_type_key : rt.source_type_key}`;
+  });
 
   const allMetaChecked = metaKeys.length > 0 && metaKeys.every((k) => selectedColumns.has(k));
   const someMetaChecked = metaKeys.some((k) => selectedColumns.has(k));
@@ -1551,19 +1615,31 @@ function ColumnsTab({
         </Typography>
       )}
 
-      {/* Selected count + clear */}
-      {totalSelected > 0 && (
+      {/* Selected count + reset/clear */}
+      {(totalSelected > 0 || columnsChanged) && (
         <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 1 }}>
           <Typography variant="caption" color="text.secondary">
             {t("columns.selectedCount", { count: totalSelected })}
           </Typography>
-          <Button
-            size="small"
-            onClick={() => onSelectedColumnsChange(new Set())}
-            sx={{ textTransform: "none", fontSize: 12, minWidth: 0, px: 1 }}
-          >
-            {t("columns.clearAll")}
-          </Button>
+          <Box sx={{ display: "flex", gap: 0.5 }}>
+            {columnsChanged && onResetColumns && (
+              <Button
+                size="small"
+                onClick={onResetColumns}
+                startIcon={<MaterialSymbol icon="restart_alt" size={14} />}
+                sx={{ textTransform: "none", fontSize: 12, minWidth: 0, px: 1 }}
+              >
+                {t("columns.reset")}
+              </Button>
+            )}
+            <Button
+              size="small"
+              onClick={() => onSelectedColumnsChange(new Set())}
+              sx={{ textTransform: "none", fontSize: 12, minWidth: 0, px: 1 }}
+            >
+              {t("columns.clearAll")}
+            </Button>
+          </Box>
         </Box>
       )}
 
@@ -1674,8 +1750,6 @@ function ColumnsTab({
                         {rl(f.key, f.translations)}
                       </Typography>
                     }
-                    secondary={f.type}
-                    secondaryTypographyProps={{ fontSize: 11 }}
                   />
                 </ListItemButton>
               ))}
@@ -1725,15 +1799,16 @@ function ColumnsTab({
                 const label = otherType
                   ? rml(otherType.key, otherType.translations, "label")
                   : otherKey;
+                const colKey = `rel_${otherKey}`;
 
                 return (
                   <ListItemButton
-                    key={rt.key}
+                    key={colKey}
                     sx={{ py: 0.25, px: 0.5, borderRadius: 1 }}
-                    onClick={() => toggleColumn(`rel_${rt.key}`)}
+                    onClick={() => toggleColumn(colKey)}
                   >
                     <ListItemIcon sx={{ minWidth: 28 }}>
-                      <Checkbox size="small" checked={selectedColumns.has(`rel_${rt.key}`)} sx={{ p: 0 }} />
+                      <Checkbox size="small" checked={selectedColumns.has(colKey)} sx={{ p: 0 }} />
                     </ListItemIcon>
                     {otherType && (
                       <ListItemIcon sx={{ minWidth: 24 }}>

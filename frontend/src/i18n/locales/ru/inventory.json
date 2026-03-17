@@ -23,6 +23,7 @@
   "columns.metadata": "Метаданные",
   "columns.attributes": "Атрибуты",
   "columns.relations": "Связи",
+  "columns.reset": "Сбросить",
   "filter.title": "Фильтры",
   "filter.expand": "Развернуть фильтры",
   "filter.searchPlaceholder": "Поиск карточек...",
