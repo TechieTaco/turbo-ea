@@ -87,6 +87,10 @@ ArchLens 仪表板提供您的全景分析概览。
 
 Architecture AI 是一个五步引导式向导，基于您现有的全景生成架构建议。它将您的业务目标和能力与具体解决方案建议、差距分析、依赖关系映射及目标架构图相关联。
 
+<div style="text-align: center;">
+<iframe width="560" height="315" src="https://www.youtube.com/embed/FDneDl0ULsA" title="Architecture AI 概览" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+</div>
+
 顶部的步骤条跟踪您在五个阶段的进度：需求、业务契合度、技术契合度、解决方案和目标架构。您可以点击任何先前到达的步骤以返回查看早期阶段——所有下游数据都将保留，只有在您主动重新提交某个阶段时才会清除。您的进度会自动保存在浏览器会话中，因此可以离开页面后返回而不丢失工作成果。您还可以将评估保存到数据库并在稍后继续（请参阅下方的[保存与恢复](#保存与恢复)）。随时点击 **New Assessment** 可开始新的分析。
 
 ### 步骤 1：需求

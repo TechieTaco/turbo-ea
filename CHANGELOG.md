@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.42.2] - 2026-03-17
+
+### Added
+- Docs: Embedded YouTube overview video in the Architecture AI section of the ArchLens guide (all 8 locales)
+
 ## [0.42.1] - 2026-03-17
 
 ### Fixed
