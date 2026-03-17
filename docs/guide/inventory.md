@@ -24,6 +24,30 @@ The left sidebar panel allows you to **filter** cards by different criteria:
 
 An **active filter count** badge shows how many filters are currently applied.
 
+### Columns Tab
+
+The **Columns** tab in the side panel lets you choose which additional columns to display in the grid. Available columns change dynamically based on the selected card types:
+
+- **Single type selected** — All attribute fields defined for that type are available, plus relation columns and metadata columns
+- **Multiple types selected** — Only fields that are **common across all selected types** are available
+- **No type selected** — A hint message prompts you to select a card type first
+
+Columns are grouped into three categories:
+
+| Category | Description |
+|----------|-------------|
+| **Metadata** | Created, Modified, Created by, Modified by |
+| **Attributes** | Custom fields defined in the metamodel (text, number, cost, date, select, etc.) |
+| **Relations** | Related card types (e.g., Applications linked to a Business Capability) |
+
+Each category has a **Select all** checkbox to quickly toggle all columns in that group. A search field at the top lets you find specific columns by name. The badge on each section header shows how many columns from that group are currently visible.
+
+When a card type is first selected, **all attribute and relation columns are enabled by default**. You can then uncheck columns you don't need. A **Reset** button at the bottom of the Columns tab restores the default column selection.
+
+A **change indicator dot** appears on the Columns tab header when the column selection differs from the defaults. The same indicator appears on the **Filters** tab when any filters are active, making it easy to see at a glance which settings have been modified.
+
+Your column selection, active filters, and sort order are **automatically persisted** in your browser. When you return to the inventory page, your previous configuration is restored. Saved views (bookmarks) also preserve the full column selection, so switching between views restores exactly the columns you had configured.
+
 ### Main Table
 
 The inventory uses an **AG Grid** data table with powerful features:
