@@ -1246,6 +1246,8 @@ export default function ArchLensArchitect() {
   const selectOption = async (optionId: string) => {
     setSelectedOptionId(optionId);
     // Clear downstream state so stepper greys out stale phases
+    setGapResult(null);
+    setSelectedRecs(new Set());
     setDepsResult(null);
     setSelectedDeps(new Set());
     setCapabilityMapping(null);
