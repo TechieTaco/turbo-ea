@@ -12,8 +12,6 @@ El módulo **ArchLens** proporciona análisis impulsado por IA de su paisaje de 
 
 El panel de control de ArchLens proporciona una visión general de un vistazo del análisis de su paisaje.
 
-![Panel de ArchLens](../assets/img/es/48_archlens_panel.png)
-
 | Indicador | Descripción |
 |-----------|-------------|
 | **Total de Tarjetas** | Número de tarjetas activas en su portafolio |
@@ -33,8 +31,6 @@ El panel de control también muestra:
 
 El análisis de proveedores utiliza IA para categorizar sus proveedores tecnológicos en más de 45 categorías del sector (p. ej., CRM, ERP, Infraestructura Cloud, Seguridad).
 
-![Análisis de Proveedores](../assets/img/es/49_archlens_proveedores.png)
-
 **Cómo usar:**
 
 1. Navegue a **ArchLens > Vendors**
@@ -48,8 +44,6 @@ Cada entrada de proveedor incluye la categoría, subcategoría, número de aplic
 
 La resolución de proveedores construye una jerarquía canónica de proveedores resolviendo alias e identificando relaciones padre-hijo.
 
-![Resolución de Proveedores](../assets/img/es/50_archlens_resolucion.png)
-
 **Cómo usar:**
 
 1. Navegue a **ArchLens > Resolution**
@@ -62,8 +56,6 @@ La jerarquía organiza los proveedores en cuatro niveles: proveedor, producto, p
 ## Detección de Duplicados
 
 La detección de duplicados identifica solapamientos funcionales en su portafolio — tarjetas que sirven el mismo propósito empresarial o uno similar.
-
-![Detección de Duplicados](../assets/img/es/51_archlens_duplicados.png)
 
 **Cómo usar:**
 
@@ -95,9 +87,7 @@ Los resultados se agrupan por prioridad para que pueda centrarse primero en las 
 
 La IA de Arquitectura es un asistente guiado de 5 pasos que genera recomendaciones de arquitectura basadas en su paisaje existente. Vincula sus objetivos empresariales y capacidades con propuestas de soluciones concretas, análisis de brechas, mapeo de dependencias y un diagrama de arquitectura objetivo.
 
-![IA de Arquitectura](../assets/img/es/52_archlens_arquitecto.png)
-
-Un indicador de progreso en la parte superior rastrea su avance a través de las cinco etapas: Requisitos, Adecuación al Negocio, Adecuación Técnica, Solución y Arquitectura Objetivo. Su progreso se guarda automáticamente en la sesión del navegador, por lo que puede navegar a otro lugar y regresar sin perder su trabajo. También puede guardar evaluaciones en la base de datos y retomarlas más tarde (consulte [Guardar y retomar](#guardar-y-retomar) a continuación). Haga clic en **Nueva Evaluación** para comenzar un análisis nuevo en cualquier momento.
+Un indicador de progreso en la parte superior rastrea su avance a través de las cinco etapas: Requisitos, Adecuación al Negocio, Adecuación Técnica, Solución y Arquitectura Objetivo. Puede hacer clic en cualquier paso previamente alcanzado para navegar hacia atrás y revisar fases anteriores — todos los datos posteriores se preservan y solo se eliminan cuando vuelve a enviar activamente una fase. Su progreso se guarda automáticamente en la sesión del navegador, por lo que puede navegar a otro lugar y regresar sin perder su trabajo. También puede guardar evaluaciones en la base de datos y retomarlas más tarde (consulte [Guardar y retomar](#guardar-y-retomar) a continuación). Haga clic en **Nueva Evaluación** para comenzar un análisis nuevo en cualquier momento.
 
 ### Paso 1: Requirements
 
@@ -138,7 +128,7 @@ La IA genera múltiples opciones de solución, cada una presentada como una tarj
 | **Estimates** | Coste estimado, duración y complejidad |
 | **Impact Preview** | Nuevos componentes, componentes modificados, componentes retirados y nuevas integraciones que introduciría esta opción |
 
-Haga clic en **Select** en la opción que desea seguir.
+Haga clic en **Select** en la opción que desea seguir. Si regresa a este paso después de seleccionar una opción, la opción previamente elegida se resalta visualmente con un borde y una insignia «Seleccionado» para que pueda identificar fácilmente su elección actual.
 
 #### 3b: Análisis de Brechas
 
@@ -226,8 +216,6 @@ Haga clic en **Choose Different** para volver a las opciones de solución y sele
 ## Historial de Análisis
 
 Todas las ejecuciones de análisis se rastrean en **ArchLens > History**, mostrando:
-
-![Historial de Análisis](../assets/img/es/53_archlens_historial.png)
 
 - Tipo de análisis (análisis de proveedores, resolución de proveedores, detección de duplicados, modernización, arquitecto)
 - Estado (en ejecución, completado, fallido)

@@ -122,7 +122,9 @@ export const ARCHITECT_STEPS = [
   { key: "requirements", phases: [0] },
   { key: "business_fit", phases: [1] },
   { key: "technical_fit", phases: [2] },
-  { key: "solution", phases: [3, 3.5, 4] },
+  { key: "solution_options", phases: [3] },
+  { key: "product_selection", phases: [3.5] },
+  { key: "dependencies", phases: [4] },
   { key: "target", phases: [5] },
 ] as const;
 
