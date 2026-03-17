@@ -24,6 +24,30 @@ Le panneau latéral gauche permet de **filtrer** les fiches selon différents cr
 
 Un **badge de nombre de filtres actifs** indique combien de filtres sont actuellement appliqués.
 
+### Onglet Colonnes
+
+L'onglet **Colonnes** dans le panneau latéral vous permet de choisir les colonnes supplémentaires à afficher dans la grille. Les colonnes disponibles changent dynamiquement en fonction des types de cartes sélectionnés :
+
+- **Un seul type sélectionné** — Tous les champs d'attributs définis pour ce type sont disponibles, ainsi que les colonnes de relations et de métadonnées
+- **Plusieurs types sélectionnés** — Seuls les champs **communs à tous les types sélectionnés** sont disponibles
+- **Aucun type sélectionné** — Un message d'indication vous invite à sélectionner d'abord un type de carte
+
+Les colonnes sont regroupées en trois catégories :
+
+| Catégorie | Description |
+|-----------|-------------|
+| **Métadonnées** | Créé, Modifié, Créé par, Modifié par |
+| **Attributs** | Champs personnalisés définis dans le métamodèle (texte, nombre, coût, date, sélection, etc.) |
+| **Relations** | Types de cartes liés (par ex., Applications liées à une Capacité Métier) |
+
+Chaque catégorie dispose d'une case à cocher **Tout sélectionner** pour activer ou désactiver rapidement toutes les colonnes du groupe. Un champ de recherche en haut permet de trouver des colonnes spécifiques par nom. Le badge sur chaque en-tête de section indique combien de colonnes de ce groupe sont actuellement visibles.
+
+Lorsqu'un type de carte est sélectionné pour la première fois, **toutes les colonnes d'attributs et de relations sont activées par défaut**. Vous pouvez ensuite décocher les colonnes dont vous n'avez pas besoin. Un bouton **Réinitialiser** en bas de l'onglet « Colonnes » restaure la sélection de colonnes par défaut.
+
+Un **point indicateur de modification** apparaît sur l'en-tête de l'onglet « Colonnes » lorsque la sélection de colonnes diffère des valeurs par défaut. Le même indicateur apparaît sur l'onglet **Filtres** lorsque des filtres sont actifs, permettant de voir d'un coup d'œil quels paramètres ont été modifiés.
+
+Votre sélection de colonnes, vos filtres actifs et votre ordre de tri sont **automatiquement conservés** dans votre navigateur. Lorsque vous revenez à la page d'inventaire, votre configuration précédente est restaurée. Les vues enregistrées (signets) conservent également la sélection complète des colonnes, de sorte que le passage d'une vue à l'autre restaure exactement les colonnes que vous aviez configurées.
+
 ### Tableau principal
 
 L'inventaire utilise un tableau de données **AG Grid** avec des fonctionnalités puissantes :

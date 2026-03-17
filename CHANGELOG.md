@@ -5,6 +5,14 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.42.0] - 2026-03-16
+
+### Added
+- Inventory: Dynamic columns tab in the side panel — choose which attribute, relation, and metadata columns to display in the grid
+- Inventory: Metadata columns (Created, Modified, Created by, Modified by) available as optional grid columns
+- Inventory: When multiple card types are selected, common fields across all types are offered as column options
+- Inventory: Column search and select-all/clear-all controls for efficient column management
+
 ## [0.41.0] - 2026-03-16
 
 ### Added

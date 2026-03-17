@@ -24,6 +24,30 @@ El panel lateral izquierdo permite **filtrar** las fichas por diferentes criteri
 
 Un **contador de filtros activos** muestra cuántos filtros están aplicados actualmente.
 
+### Pestaña Columnas
+
+La pestaña **Columnas** en el panel lateral le permite elegir qué columnas adicionales mostrar en la cuadrícula. Las columnas disponibles cambian dinámicamente según los tipos de tarjetas seleccionados:
+
+- **Un solo tipo seleccionado** — Todos los campos de atributos definidos para ese tipo están disponibles, además de columnas de relaciones y metadatos
+- **Varios tipos seleccionados** — Solo los campos que son **comunes a todos los tipos seleccionados** están disponibles
+- **Ningún tipo seleccionado** — Un mensaje de ayuda le solicita seleccionar primero un tipo de tarjeta
+
+Las columnas se agrupan en tres categorías:
+
+| Categoría | Descripción |
+|-----------|-------------|
+| **Metadatos** | Creado, Modificado, Creado por, Modificado por |
+| **Atributos** | Campos personalizados definidos en el metamodelo (texto, número, coste, fecha, selección, etc.) |
+| **Relaciones** | Tipos de tarjetas relacionados (p. ej., Aplicaciones vinculadas a una Capacidad de Negocio) |
+
+Cada categoría tiene una casilla **Seleccionar todo** para activar o desactivar rápidamente todas las columnas de ese grupo. Un campo de búsqueda en la parte superior permite encontrar columnas específicas por nombre. La insignia en cada encabezado de sección muestra cuántas columnas de ese grupo están actualmente visibles.
+
+Cuando se selecciona un tipo de tarjeta por primera vez, **todas las columnas de atributos y relaciones se activan por defecto**. Luego puede desmarcar las columnas que no necesite. Un botón **Restablecer** en la parte inferior de la pestaña «Columnas» restaura la selección de columnas predeterminada.
+
+Un **punto indicador de cambio** aparece en el encabezado de la pestaña «Columnas» cuando la selección de columnas difiere de los valores predeterminados. El mismo indicador aparece en la pestaña **Filtros** cuando hay filtros activos, lo que facilita ver de un vistazo qué configuraciones han sido modificadas.
+
+Su selección de columnas, filtros activos y orden de clasificación se **guardan automáticamente** en su navegador. Al volver a la página de inventario, se restaura su configuración anterior. Las vistas guardadas (marcadores) también conservan la selección completa de columnas, de modo que al cambiar entre vistas se restauran exactamente las columnas que había configurado.
+
 ### Tabla Principal
 
 El inventario utiliza una tabla de datos **AG Grid** con funciones avanzadas:
