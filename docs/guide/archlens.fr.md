@@ -87,6 +87,10 @@ Les résultats sont regroupés par priorité afin que vous puissiez vous concent
 
 L'Architecture IA est un assistant guidé en 5 étapes qui génère des recommandations d'architecture basées sur votre paysage existant. Elle relie vos objectifs métier et vos capacités à des propositions de solution concrètes, une analyse des écarts, une cartographie des dépendances et un diagramme d'architecture cible.
 
+<div style="text-align: center;">
+<iframe width="560" height="315" src="https://www.youtube.com/embed/FDneDl0ULsA" title="Aperçu de l'Architecture IA" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+</div>
+
 Un indicateur de progression en haut suit votre avancement à travers les cinq étapes : Exigences, Adéquation métier, Adéquation technique, Solution et Architecture cible. Vous pouvez cliquer sur n'importe quelle étape précédemment atteinte pour naviguer en arrière et consulter les phases antérieures — toutes les données en aval sont préservées et ne sont effacées que lorsque vous re-soumettez activement une phase. Votre progression est sauvegardée automatiquement dans la session du navigateur, vous pouvez donc naviguer ailleurs et revenir sans perdre votre travail. Vous pouvez également enregistrer les évaluations dans la base de données et les reprendre ultérieurement (voir [Sauvegarder et reprendre](#sauvegarder--reprendre) ci-dessous). Cliquez sur **Nouvelle évaluation** pour démarrer une nouvelle analyse à tout moment.
 
 ### Étape 1 : Exigences
