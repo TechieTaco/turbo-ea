@@ -31,6 +31,9 @@ vi.mock("@/components/NotificationBell", () => ({
 vi.mock("@/components/NotificationPreferencesDialog", () => ({
   default: () => null,
 }));
+vi.mock("@/components/SearchDialog", () => ({
+  default: () => null,
+}));
 
 import { api } from "@/api/client";
 import { useMetamodel } from "@/hooks/useMetamodel";
@@ -220,8 +223,8 @@ describe("AppLayout", () => {
     expect(screen.getByTestId("notification-bell")).toBeInTheDocument();
   });
 
-  it("renders search input", () => {
+  it("renders search icon button", () => {
     renderLayout();
-    expect(screen.getByPlaceholderText("Search cards...")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /search/i })).toBeInTheDocument();
   });
 });
