@@ -5,8 +5,6 @@ import AppBar from "@mui/material/AppBar";
 import Toolbar from "@mui/material/Toolbar";
 import Typography from "@mui/material/Typography";
 import IconButton from "@mui/material/IconButton";
-import TextField from "@mui/material/TextField";
-import InputAdornment from "@mui/material/InputAdornment";
 import Badge from "@mui/material/Badge";
 import Button from "@mui/material/Button";
 import Menu from "@mui/material/Menu";
@@ -19,27 +17,20 @@ import List from "@mui/material/List";
 import ListItemButton from "@mui/material/ListItemButton";
 import Collapse from "@mui/material/Collapse";
 import Tooltip from "@mui/material/Tooltip";
-import Popper from "@mui/material/Popper";
-import Paper from "@mui/material/Paper";
-import ClickAwayListener from "@mui/material/ClickAwayListener";
-import CircularProgress from "@mui/material/CircularProgress";
-import Chip from "@mui/material/Chip";
 import useMediaQuery from "@mui/material/useMediaQuery";
-import { useTheme } from "@mui/material/styles";
 import { useTranslation } from "react-i18next";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import NotificationBell from "@/components/NotificationBell";
 import NotificationPreferencesDialog from "@/components/NotificationPreferencesDialog";
 import { api } from "@/api/client";
 import { useEventStream } from "@/hooks/useEventStream";
-import { useMetamodel } from "@/hooks/useMetamodel";
 import { useBpmEnabled } from "@/hooks/useBpmEnabled";
 import { usePpmEnabled } from "@/hooks/usePpmEnabled";
 import { useArchLensReady } from "@/hooks/useArchLensReady";
 import { useThemeMode } from "@/hooks/useThemeMode";
-import { useResolveMetaLabel } from "@/hooks/useResolveLabel";
 import { SUPPORTED_LOCALES, LOCALE_LABELS, type SupportedLocale } from "@/i18n";
 import { useEnabledLocales } from "@/hooks/useEnabledLocales";
+import SearchDialog from "@/components/SearchDialog";
 import type { BadgeCounts } from "@/types";
 
 interface NavItemDef {
@@ -101,24 +92,13 @@ interface Props {
   onLogout: () => void;
 }
 
-interface SearchResult {
-  id: string;
-  name: string;
-  type: string;
-  subtype?: string;
-}
-
 export default function AppLayout({ children, user, onLogout }: Props) {
   const navigate = useNavigate();
   const location = useLocation();
-  const theme = useTheme();
   const { t, i18n } = useTranslation("nav");
   const isMobile = useMediaQuery("(max-width:767px)");
   const isCompact = useMediaQuery("(max-width:1023px)");
-  const isNarrow = useMediaQuery("(max-width:1160px)");
   const isCondensed = useMediaQuery("(max-width:1279px)");
-  const { getType } = useMetamodel();
-  const rml = useResolveMetaLabel();
   const { bpmEnabled } = useBpmEnabled();
   const { ppmEnabled } = usePpmEnabled();
   const { archLensReady } = useArchLensReady();
@@ -186,13 +166,7 @@ export default function AppLayout({ children, user, onLogout }: Props) {
 
   const [userMenu, setUserMenu] = useState<HTMLElement | null>(null);
   const [reportsMenu, setReportsMenu] = useState<HTMLElement | null>(null);
-  const [search, setSearch] = useState("");
-  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
-  const [searchLoading, setSearchLoading] = useState(false);
-  const [searchOpen, setSearchOpen] = useState(false);
-  const [searchExpanded, setSearchExpanded] = useState(false);
-  const searchAnchorRef = useRef<HTMLDivElement | null>(null);
-  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [searchDialogOpen, setSearchDialogOpen] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerReportsOpen, setDrawerReportsOpen] = useState(false);
   const [drawerAdminOpen, setDrawerAdminOpen] = useState(false);
@@ -259,69 +233,17 @@ export default function AppLayout({ children, user, onLogout }: Props) {
     fetchBadgeCounts();
   }, [location.pathname, fetchBadgeCounts]);
 
-  // Debounced live search
-  const doLiveSearch = useCallback(
-    async (query: string) => {
-      if (query.trim().length < 2) {
-        setSearchResults([]);
-        setSearchOpen(false);
-        return;
-      }
-      setSearchLoading(true);
-      try {
-        const res = await api.get<{ items: SearchResult[] }>(
-          `/cards?search=${encodeURIComponent(query.trim())}&page_size=10`
-        );
-        setSearchResults(res.items);
-        setSearchOpen(res.items.length > 0);
-      } catch {
-        setSearchResults([]);
-        setSearchOpen(false);
-      } finally {
-        setSearchLoading(false);
-      }
-    },
-    []
-  );
-
+  // Global Cmd/Ctrl+K keyboard shortcut to open search
   useEffect(() => {
-    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
-    if (search.trim().length < 2) {
-      setSearchResults([]);
-      setSearchOpen(false);
-      return;
-    }
-    searchTimerRef.current = setTimeout(() => doLiveSearch(search), 300);
-    return () => {
-      if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault();
+        setSearchDialogOpen(true);
+      }
     };
-  }, [search, doLiveSearch]);
-
-  // Close search results on navigation
-  useEffect(() => {
-    setSearchOpen(false);
-    setSearchExpanded(false);
-  }, [location.pathname]);
-
-  const handleSearchResultClick = (id: string) => {
-    setSearchOpen(false);
-    setSearchExpanded(false);
-    setSearch("");
-    navigate(`/cards/${id}`);
-  };
-
-  const handleSearch = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && search.trim()) {
-      setSearchOpen(false);
-      setSearchExpanded(false);
-      navigate(`/inventory?search=${encodeURIComponent(search.trim())}`);
-      setDrawerOpen(false);
-    }
-    if (e.key === "Escape") {
-      setSearchOpen(false);
-      setSearchExpanded(false);
-    }
-  };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, []);
 
   const isActive = (path?: string) =>
     !!(path && (location.pathname === path || (path !== "/" && location.pathname.startsWith(path))));
@@ -371,85 +293,27 @@ export default function AppLayout({ children, user, onLogout }: Props) {
       </Box>
       <Divider sx={{ borderColor: "rgba(255,255,255,0.1)" }} />
 
-      {/* Search */}
+      {/* Search button */}
       <Box sx={{ px: 2, py: 1.5 }}>
-        <TextField
-          size="small"
-          fullWidth
-          placeholder={t("search.placeholder")}
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          onKeyDown={handleSearch}
+        <ListItemButton
+          onClick={() => {
+            setDrawerOpen(false);
+            setSearchDialogOpen(true);
+          }}
           sx={{
-            bgcolor: "rgba(255,255,255,0.08)",
             borderRadius: 1,
-            "& .MuiOutlinedInput-notchedOutline": { border: "none" },
-            input: { color: "#fff", py: 0.75 },
+            bgcolor: "rgba(255,255,255,0.08)",
+            color: "rgba(255,255,255,0.5)",
+            py: 0.75,
+            px: 1.5,
+            gap: 1,
           }}
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <MaterialSymbol icon="search" size={20} color="#999" />
-              </InputAdornment>
-            ),
-            endAdornment: searchLoading ? (
-              <InputAdornment position="end">
-                <CircularProgress size={16} sx={{ color: "rgba(255,255,255,0.5)" }} />
-              </InputAdornment>
-            ) : null,
-          }}
-        />
-        {/* Mobile live search results */}
-        {searchResults.length > 0 && search.trim().length >= 2 && (
-          <Paper sx={{ mt: 1, borderRadius: 1.5, maxHeight: 300, overflow: "auto" }}>
-            {searchResults.map((item) => {
-              const typeConfig = getType(item.type);
-              return (
-                <Box
-                  key={item.id}
-                  onClick={() => {
-                    setDrawerOpen(false);
-                    setSearch("");
-                    setSearchResults([]);
-                    navigate(`/cards/${item.id}`);
-                  }}
-                  sx={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 1.5,
-                    px: 2,
-                    py: 1,
-                    cursor: "pointer",
-                    "&:hover": { bgcolor: "action.hover" },
-                    borderBottom: "1px solid",
-                    borderColor: "divider",
-                    "&:last-child": { borderBottom: "none" },
-                  }}
-                >
-                  <MaterialSymbol
-                    icon={typeConfig?.icon || "description"}
-                    size={18}
-                    color={typeConfig?.color || "#999"}
-                  />
-                  <Typography variant="body2" noWrap sx={{ flex: 1, fontWeight: 500 }}>
-                    {item.name}
-                  </Typography>
-                  <Chip
-                    label={typeConfig ? rml(typeConfig.key, typeConfig.translations, "label") : item.type}
-                    size="small"
-                    sx={{
-                      height: 18,
-                      fontSize: "0.65rem",
-                      bgcolor: typeConfig?.color ? `${typeConfig.color}18` : "action.selected",
-                      color: typeConfig?.color || "text.secondary",
-                      fontWeight: 600,
-                    }}
-                  />
-                </Box>
-              );
-            })}
-          </Paper>
-        )}
+        >
+          <MaterialSymbol icon="search" size={20} color="#999" />
+          <Typography variant="body2" sx={{ flex: 1 }}>
+            {t("search.placeholder")}
+          </Typography>
+        </ListItemButton>
       </Box>
 
       <List sx={{ px: 1 }}>
@@ -722,158 +586,23 @@ export default function AppLayout({ children, user, onLogout }: Props) {
           </Menu>
 
 
-          <Box sx={{ flex: !isMobile && isNarrow && searchExpanded ? 0 : 1 }} />
+          <Box sx={{ flex: 1 }} />
 
-          {/* Search: narrow mode shows icon that expands on click */}
-          {!isMobile && isNarrow && !searchExpanded && (
-            <Tooltip title={t("common:actions.search")}>
+          {/* Search icon button */}
+          {!isMobile && (
+            <Tooltip title={t("search.tooltip", { shortcut: /Mac|iPod|iPhone|iPad/.test(navigator.platform) ? "\u2318K" : "Ctrl+K" })}>
               <IconButton
                 sx={{ color: "rgba(255,255,255,0.7)" }}
-                onClick={() => setSearchExpanded(true)}
+                onClick={() => setSearchDialogOpen(true)}
               >
                 <MaterialSymbol icon="search" size={22} />
               </IconButton>
             </Tooltip>
           )}
-          {/* Search field: always visible on wide screens, expands on narrow */}
-          {!isMobile && (!isNarrow || searchExpanded) && (
-            <ClickAwayListener onClickAway={() => { setSearchOpen(false); if (isNarrow) setSearchExpanded(false); }}>
-              <Box
-                sx={{
-                  position: "relative",
-                  ...(isNarrow && searchExpanded
-                    ? { flex: 1 }
-                    : { flexShrink: 1 }),
-                  minWidth: 0,
-                }}
-                ref={searchAnchorRef}
-              >
-                <TextField
-                  size="small"
-                  fullWidth={isNarrow && searchExpanded}
-                  placeholder={t("search.placeholder")}
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  onKeyDown={handleSearch}
-                  onFocus={() => {
-                    if (searchResults.length > 0) setSearchOpen(true);
-                  }}
-                  autoFocus={isNarrow && searchExpanded}
-                  sx={{
-                    ...(!isNarrow ? { width: isCondensed ? 200 : 360 } : {}),
-                    maxWidth: "100%",
-                    bgcolor: "rgba(255,255,255,0.08)",
-                    borderRadius: 1,
-                    "& .MuiOutlinedInput-notchedOutline": { border: "none" },
-                    input: { color: "#fff", py: 0.75, fontSize: "0.85rem" },
-                  }}
-                  InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <MaterialSymbol icon="search" size={20} color="#999" />
-                      </InputAdornment>
-                    ),
-                    endAdornment: searchLoading ? (
-                      <InputAdornment position="end">
-                        <CircularProgress size={16} sx={{ color: "rgba(255,255,255,0.5)" }} />
-                      </InputAdornment>
-                    ) : null,
-                  }}
-                />
-                <Popper
-                  open={searchOpen}
-                  anchorEl={searchAnchorRef.current}
-                  placement="bottom-end"
-                  style={{ zIndex: theme.zIndex.modal + 1, width: Math.max(440, searchAnchorRef.current?.offsetWidth || 440), maxWidth: "calc(100vw - 32px)" }}
-                >
-                  <Paper
-                    elevation={8}
-                    sx={{
-                      mt: 0.5,
-                      maxHeight: 400,
-                      overflow: "auto",
-                      borderRadius: 1.5,
-                    }}
-                  >
-                    {searchResults.map((item) => {
-                      const typeConfig = getType(item.type);
-                      return (
-                        <Box
-                          key={item.id}
-                          onClick={() => handleSearchResultClick(item.id)}
-                          sx={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 1.5,
-                            px: 2,
-                            py: 1,
-                            cursor: "pointer",
-                            "&:hover": { bgcolor: "action.hover" },
-                            borderBottom: "1px solid",
-                            borderColor: "divider",
-                            "&:last-child": { borderBottom: "none" },
-                          }}
-                        >
-                          <MaterialSymbol
-                            icon={typeConfig?.icon || "description"}
-                            size={20}
-                            color={typeConfig?.color || "#999"}
-                          />
-                          <Box sx={{ flex: 1, minWidth: 0 }}>
-                            <Typography
-                              variant="body2"
-                              sx={{ fontWeight: 500, wordBreak: "break-word" }}
-                            >
-                              {item.name}
-                            </Typography>
-                          </Box>
-                          <Chip
-                            label={typeConfig ? rml(typeConfig.key, typeConfig.translations, "label") : item.type}
-                            size="small"
-                            sx={{
-                              height: 20,
-                              fontSize: "0.7rem",
-                              bgcolor: typeConfig?.color ? `${typeConfig.color}18` : "action.selected",
-                              color: typeConfig?.color || "text.secondary",
-                              fontWeight: 600,
-                            }}
-                          />
-                        </Box>
-                      );
-                    })}
-                    {search.trim().length >= 2 && (
-                      <Box
-                        onClick={() => {
-                          setSearchOpen(false);
-                          navigate(`/inventory?search=${encodeURIComponent(search.trim())}`);
-                        }}
-                        sx={{
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          gap: 0.5,
-                          px: 2,
-                          py: 1,
-                          cursor: "pointer",
-                          "&:hover": { bgcolor: "action.hover" },
-                          color: "primary.main",
-                        }}
-                      >
-                        <MaterialSymbol icon="search" size={16} />
-                        <Typography variant="body2" sx={{ fontSize: "0.8rem" }}>
-                          {t("search.viewAll", { query: search.trim() })}
-                        </Typography>
-                      </Box>
-                    )}
-                  </Paper>
-                </Popper>
-              </Box>
-            </ClickAwayListener>
-          )}
 
-          {/* Create button — icon-only on mobile or when search is expanded */}
+          {/* Create button — icon-only on mobile */}
           {can("inventory.create") && (
-            isMobile || (isNarrow && searchExpanded) ? (
+            isMobile ? (
               <Tooltip title={t("create")}>
                 <IconButton
                   sx={{ color: "#fff" }}
@@ -1002,6 +731,9 @@ export default function AppLayout({ children, user, onLogout }: Props) {
           </Menu>
         </Toolbar>
       </AppBar>
+
+      {/* Search dialog */}
+      <SearchDialog open={searchDialogOpen} onClose={() => setSearchDialogOpen(false)} />
 
       {/* Notification preferences dialog */}
       <NotificationPreferencesDialog
