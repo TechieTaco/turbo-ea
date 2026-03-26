@@ -481,6 +481,7 @@
   "eol.linkSuccess": "Successfully linked {{count}} card(s) to EOL data.",
   "eol.willLinkTo": "Will link to",
   "eol.suggestedMatches": "Suggested matches:",
+  "eol.clickToSelect": "Click a match to select version:",
   "eol.matchScore": "Match score: {{score}}% — Click to select version",
   "eol.noMatches": "No matches found on endoflife.date",
   "eol.emptyState": "Click \"Search EOL Data\" to scan your {{type}} against endoflife.date",

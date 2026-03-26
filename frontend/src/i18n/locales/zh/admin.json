@@ -481,6 +481,7 @@
   "eol.linkSuccess": "成功将 {{count}} 张卡片关联到 EOL 数据。",
   "eol.willLinkTo": "将关联到",
   "eol.suggestedMatches": "建议匹配：",
+  "eol.clickToSelect": "点击匹配项以选择版本：",
   "eol.matchScore": "匹配分数：{{score}}% — 点击选择版本",
   "eol.noMatches": "在 endoflife.date 上未找到匹配项",
   "eol.emptyState": "点击「搜索 EOL 数据」扫描您的 {{type}} 与 endoflife.date 的匹配",

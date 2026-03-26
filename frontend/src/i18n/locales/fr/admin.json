@@ -481,6 +481,7 @@
   "eol.linkSuccess": "{{count}} fiche(s) liée(s) avec succès aux données EOL.",
   "eol.willLinkTo": "Sera lié à",
   "eol.suggestedMatches": "Correspondances suggérées :",
+  "eol.clickToSelect": "Cliquez sur une correspondance pour sélectionner la version :",
   "eol.matchScore": "Score de correspondance : {{score}} % — Cliquez pour sélectionner la version",
   "eol.noMatches": "Aucune correspondance trouvée sur endoflife.date",
   "eol.emptyState": "Cliquez sur « Rechercher les données EOL » pour analyser vos {{type}} sur endoflife.date",

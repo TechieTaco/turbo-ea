@@ -244,9 +244,9 @@ export default function EolAdmin() {
         "/eol/mass-link",
         links
       );
-      setSaveResult({ count: res.count });
-      // Refresh results
+      // Refresh results first (clears old saveResult), then set success message
       await handleSearch();
+      setSaveResult({ count: res.count });
     } catch (e) {
       setError(e instanceof Error ? e.message : t("common:errors.generic"));
     } finally {
@@ -473,7 +473,7 @@ export default function EolAdmin() {
                         color="text.secondary"
                         sx={{ display: "block", mb: 0.5 }}
                       >
-                        {t("eol.suggestedMatches")}
+                        {t("eol.clickToSelect")}
                       </Typography>
                       <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
                         {r.candidates.map((c) => (
@@ -485,6 +485,7 @@ export default function EolAdmin() {
                               label={c.eol_product}
                               size="small"
                               variant="outlined"
+                              clickable
                               onClick={() =>
                                 openCyclePicker(
                                   r.card_id,
@@ -494,11 +495,9 @@ export default function EolAdmin() {
                               }
                               icon={<MaterialSymbol icon="link" size={14} />}
                               sx={{
-                                cursor: "pointer",
                                 borderColor:
                                   c.score >= 0.7 ? "success.main" : "divider",
                                 fontWeight: c.score >= 0.7 ? 600 : 400,
-                                "&:hover": { bgcolor: "action.hover" },
                               }}
                             />
                           </Tooltip>
