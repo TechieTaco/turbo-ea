@@ -12,6 +12,27 @@ Self-hosted Enterprise Architecture Management platform that creates a **digital
 
 ![Dashboard](marketing-site/assets/screenshots/dashboard.png)
 
+## Try the Demo
+
+No install needed — run a fully loaded demo in your browser using GitHub Codespaces:
+
+1. Click the button below (requires a free GitHub account):
+
+   [![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/vincentmakes/turbo-ea?quickstart=1)
+
+2. Wait for the build to complete (~5–10 minutes on first launch). The setup script will automatically start PostgreSQL, the backend, and the frontend with demo data pre-loaded.
+
+3. When the build finishes, Codespaces will open port **8920** in your browser. Log in with:
+
+   | | |
+   |---|---|
+   | **Email** | `admin@turboea.demo` |
+   | **Password** | `TurboEA!2025` |
+
+The demo comes pre-populated with the NexaTech Industries dataset — 150+ cards across all architecture layers, business processes, strategic initiatives, and 60+ relations.
+
+> **Cost**: Codespaces runs on **your** GitHub free tier (120 core-hours/month). A 4-core machine gives ~30 hours of demo time. Codespaces auto-stop after 30 minutes of inactivity and auto-delete after 30 days.
+
 ## Features
 
 ### Core EA Management
