@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.42.4] - 2026-03-26
+
+### Added
+- GitHub Codespaces support for one-click demo — new `.devcontainer/` config auto-builds and starts a fully seeded demo instance in the browser with zero local installs
+
 ## [0.42.3] - 2026-03-24
 
 ### Changed

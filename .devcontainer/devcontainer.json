@@ -1,0 +1,28 @@
+{
+  "name": "Turbo EA Demo",
+  "image": "mcr.microsoft.com/devcontainers/base:ubuntu",
+  "features": {
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {}
+  },
+  "hostRequirements": {
+    "cpus": 4
+  },
+  "forwardPorts": [8920],
+  "portsAttributes": {
+    "8920": {
+      "label": "Turbo EA",
+      "onAutoForward": "openBrowserOnce"
+    }
+  },
+  "postCreateCommand": "bash .devcontainer/setup-demo.sh",
+  "customizations": {
+    "codespaces": {
+      "openFiles": []
+    },
+    "vscode": {
+      "settings": {
+        "terminal.integrated.defaultProfile.linux": "bash"
+      }
+    }
+  }
+}
