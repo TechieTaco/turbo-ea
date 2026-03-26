@@ -481,6 +481,7 @@
   "eol.linkSuccess": "{{count}} ficha(s) vinculadas correctamente a datos EOL.",
   "eol.willLinkTo": "Se vinculará a",
   "eol.suggestedMatches": "Coincidencias sugeridas:",
+  "eol.clickToSelect": "Haga clic en una coincidencia para seleccionar la versión:",
   "eol.matchScore": "Puntuación de coincidencia: {{score}}% — Haga clic para seleccionar la versión",
   "eol.noMatches": "No se encontraron coincidencias en endoflife.date",
   "eol.emptyState": "Haga clic en \"Buscar datos EOL\" para escanear sus {{type}} en endoflife.date",

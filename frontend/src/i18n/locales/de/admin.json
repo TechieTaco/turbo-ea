@@ -481,6 +481,7 @@
   "eol.linkSuccess": "{{count}} Karte(n) erfolgreich mit EOL-Daten verknüpft.",
   "eol.willLinkTo": "Wird verknüpft mit",
   "eol.suggestedMatches": "Vorgeschlagene Treffer:",
+  "eol.clickToSelect": "Klicken Sie auf einen Treffer, um die Version auszuwählen:",
   "eol.matchScore": "Übereinstimmung: {{score}}% — Klicken zur Versionsauswahl",
   "eol.noMatches": "Keine Treffer auf endoflife.date gefunden",
   "eol.emptyState": "Klicken Sie auf \"EOL-Daten suchen\", um Ihre {{type}} gegen endoflife.date zu prüfen",
