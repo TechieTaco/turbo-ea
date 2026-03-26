@@ -15,6 +15,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm.attributes import flag_modified
 
 from app.api.deps import get_current_user
 from app.database import get_db
@@ -371,6 +372,7 @@ async def mass_eol_link(
         attrs["eol_product"] = product
         attrs["eol_cycle"] = cycle
         card.attributes = attrs
+        flag_modified(card, "attributes")
 
         # For ITComponent: sync lifecycle dates
         if card.type == "ITComponent":
@@ -393,6 +395,7 @@ async def mass_eol_link(
                         if isinstance(eol_val, str):
                             lifecycle["endOfLife"] = eol_val
                         card.lifecycle = lifecycle
+                        flag_modified(card, "lifecycle")
             except httpx.HTTPError:
                 pass  # Link without lifecycle sync on error
 
