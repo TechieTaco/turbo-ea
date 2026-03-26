@@ -481,6 +481,7 @@
   "eol.linkSuccess": "Успешно привязано {{count}} карточек к данным EOL.",
   "eol.willLinkTo": "Будет привязано к",
   "eol.suggestedMatches": "Предлагаемые совпадения:",
+  "eol.clickToSelect": "Нажмите на совпадение, чтобы выбрать версию:",
   "eol.matchScore": "Оценка совпадения: {{score}}% — Нажмите для выбора версии",
   "eol.noMatches": "Совпадений на endoflife.date не найдено",
   "eol.emptyState": "Нажмите «Поиск данных EOL» для сканирования ваших {{type}} по endoflife.date",
