@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.49.2] - 2026-04-26
+
+### Changed
+- Capability Catalogue browser: capability text sizes now match the public reference catalogue at `https://capabilities.turbo-ea.org/`. L1 names go from 15px/700 to 14px/600, L2/L3+ row names from 14px/500 to 13px/500, the L-level pill from 10px/700 to 11px/600, and the detail-modal tree name/description from 13/12px to 14/13px. Cap-count and cap-id badges already matched the reference and are unchanged.
+
 ## [0.49.1] - 2026-04-26
 
 ### Changed

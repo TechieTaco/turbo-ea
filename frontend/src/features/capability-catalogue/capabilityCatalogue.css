@@ -57,8 +57,8 @@
 
 .tcc-root .tcc-l1-name {
   flex: 1;
-  font-size: 15px;
-  font-weight: 700;
+  font-size: 14px;
+  font-weight: 600;
   color: #334155;
   background: none;
   border: 0;
@@ -192,7 +192,7 @@
   text-align: left;
   cursor: pointer;
   color: inherit;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 500;
   min-width: 0;
   word-break: break-word;
@@ -242,8 +242,8 @@
 }
 
 .tcc-root .tcc-cap-level {
-  font-size: 10px;
-  font-weight: 700;
+  font-size: 11px;
+  font-weight: 600;
   color: #1976d2;
   background: rgba(25, 118, 210, 0.12);
   padding: 1px 6px;
@@ -333,12 +333,12 @@
 
 .tcc-root .tcc-detail-tree-row .tcc-tree-name {
   font-weight: 600;
-  font-size: 13px;
+  font-size: 14px;
 }
 
 .tcc-root .tcc-detail-tree-row .tcc-tree-desc {
   width: 100%;
-  font-size: 12px;
+  font-size: 13px;
   color: var(--mui-palette-text-secondary);
   margin-left: 6px;
 }
