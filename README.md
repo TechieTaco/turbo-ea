@@ -1,5 +1,7 @@
 # Turbo EA
 
+## ! Important: history was rewritten on 26 Apr 2026, please re-clone or git fetch origin && git reset --hard origin/main
+
 Self-hosted Enterprise Architecture Management platform that creates a **digital twin of your IT landscape**. Inspired by LeanIX, with a fully admin-configurable metamodel — card types, fields, subtypes, and relations are all data, not code.
 
 [![CI](https://github.com/vincentmakes/turbo-ea/actions/workflows/ci.yml/badge.svg)](https://github.com/vincentmakes/turbo-ea/actions/workflows/ci.yml)
