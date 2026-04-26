@@ -6,8 +6,12 @@
      • Surfaces stay neutral (`background.paper`, divider borders).
      • Hierarchy is read from indentation + a single typography step-down
        (bold L1, semi-bold L2, regular L3+).
-     • The brand navy `#003399` is reserved for: the L1 type-icon prefix,
-       the L1 name, and the selected-state ring/wash.
+     • The brand navy `#003399` is the chrome accent (L1 type-icon prefix,
+       L1 name, hover ring), matching the public capability catalogue site
+       at https://capabilities.turbo-ea.org/.
+     • The magenta `#D63384` is reserved for the selected-state ring/wash
+       so selection always reads as a deliberate, attention-grabbing cue
+       (same convention as the reference site).
 */
 
 .tcc-root .tcc-l1-grid {
@@ -32,8 +36,8 @@
 }
 
 .tcc-root .tcc-l1-card.is-selected {
-  border-color: #003399;
-  box-shadow: 0 0 0 1px rgba(0, 51, 153, 0.15);
+  border-color: #D63384;
+  box-shadow: 0 0 0 1px #D63384;
 }
 
 /* L1 header — pale-blue band that visually anchors the card without
@@ -143,8 +147,9 @@
 /* Rows are neutral — paper bg, divider border, slate text. Depth is conveyed
    by indentation (.tcc-l2-children) + typography (is-l2 weight bump),
    plus a barely-there grey wash on the L2 group header. The brand navy
-   #003399 is reserved for hover + selected state, so the eye picks up
-   interaction without the catalog reading as a wall of navy. */
+   #003399 carries hover; the magenta #D63384 carries the selected state
+   (matching https://capabilities.turbo-ea.org/) so a chosen row visibly
+   pops without the catalog reading as a wall of navy. */
 .tcc-root .tcc-row {
   display: flex;
   align-items: center;
@@ -174,9 +179,9 @@
 }
 
 .tcc-root .tcc-row.is-selected {
-  background: rgba(0, 51, 153, 0.06);
-  color: #003399;
-  box-shadow: 0 0 0 1px rgba(0, 51, 153, 0.45);
+  background: rgba(214, 51, 132, 0.07);
+  color: #D63384;
+  box-shadow: 0 0 0 1px #D63384;
 }
 
 .tcc-root .tcc-row .tcc-name-btn {
@@ -357,8 +362,8 @@
 }
 
 .tcc-root.tcc-root--dark .tcc-l1-card.is-selected {
-  border-color: #6699ff;
-  box-shadow: 0 0 0 1px rgba(102, 153, 255, 0.35);
+  border-color: #f472b6;
+  box-shadow: 0 0 0 1px rgba(244, 114, 182, 0.55);
 }
 
 .tcc-root.tcc-root--dark .tcc-l1-header {
@@ -394,33 +399,34 @@
 }
 
 .tcc-root.tcc-root--dark .tcc-row.is-selected {
-  background: rgba(168, 196, 255, 0.08);
-  color: #a8c4ff;
-  box-shadow: 0 0 0 1px rgba(168, 196, 255, 0.6);
+  background: rgba(244, 114, 182, 0.10);
+  color: #f472b6;
+  box-shadow: 0 0 0 1px rgba(244, 114, 182, 0.7);
 }
 
 .tcc-root.tcc-root--dark .tcc-l2-children {
   border-left-color: rgba(168, 196, 255, 0.18);
 }
 
-/* MUI Checkbox in rows: navy in light, lifted lavender in dark. The CSS
-   selector chain (3 classes) wins over MUI's emotion-generated single-class
-   `sx` rule on specificity, so no !important needed. */
+/* MUI Checkbox in rows: magenta in both modes (selection cue), tuned
+   lighter for dark mode legibility. The CSS selector chain (3 classes)
+   wins over MUI's emotion-generated single-class `sx` rule on
+   specificity, so no !important needed. */
 .tcc-root.tcc-root--dark .tcc-row .MuiCheckbox-root {
-  color: rgba(168, 196, 255, 0.55);
+  color: rgba(244, 114, 182, 0.55);
 }
 
 .tcc-root.tcc-root--dark .tcc-row .MuiCheckbox-root.Mui-checked {
-  color: #a8c4ff;
+  color: #f472b6;
 }
 
 .tcc-root.tcc-root--dark .tcc-l1-header .MuiCheckbox-root {
-  color: rgba(168, 196, 255, 0.55);
+  color: rgba(244, 114, 182, 0.55);
 }
 
 .tcc-root.tcc-root--dark .tcc-l1-header .MuiCheckbox-root.Mui-checked,
 .tcc-root.tcc-root--dark .tcc-l1-header .MuiCheckbox-root.MuiCheckbox-indeterminate {
-  color: #a8c4ff;
+  color: #f472b6;
 }
 
 .tcc-root.tcc-root--dark .tcc-branch-stepper {
