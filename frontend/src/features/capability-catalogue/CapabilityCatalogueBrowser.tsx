@@ -653,8 +653,8 @@ function L1Card({
             inputProps={{ "aria-label": `Select ${node.id} ${node.name}` }}
             sx={{
               p: 0.5,
-              color: "rgba(0,51,153,0.55)",
-              "&.Mui-checked, &.MuiCheckbox-indeterminate": { color: "#003399" },
+              color: "rgba(214,51,132,0.55)",
+              "&.Mui-checked, &.MuiCheckbox-indeterminate": { color: "#D63384" },
             }}
           />
         )}
@@ -735,7 +735,7 @@ function ChildRow({
       checked={selfSelected}
       onChange={() => onToggleSelect(node.id)}
       inputProps={{ "aria-label": `Select ${node.id} ${node.name}` }}
-      sx={{ p: 0.5, color: "rgba(0,51,153,0.55)", "&.Mui-checked": { color: "#003399" } }}
+      sx={{ p: 0.5, color: "rgba(214,51,132,0.55)", "&.Mui-checked": { color: "#D63384" } }}
     />
   );
 
