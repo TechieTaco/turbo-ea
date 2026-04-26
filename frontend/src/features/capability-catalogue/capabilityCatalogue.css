@@ -1,0 +1,429 @@
+/* Tree-specific visuals for the Capability Catalogue browser.
+   Scoped under .tcc-root so it doesn't leak into other pages.
+
+   Visual model (matches the rest of the app — see HierarchySection,
+   CapabilityMapReport.CapabilityCard, PpmTaskCard):
+     • Surfaces stay neutral (`background.paper`, divider borders).
+     • Hierarchy is read from indentation + a single typography step-down
+       (bold L1, semi-bold L2, regular L3+).
+     • The brand navy `#003399` is reserved for: the L1 type-icon prefix,
+       the L1 name, and the selected-state ring/wash.
+*/
+
+.tcc-root .tcc-l1-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 12px;
+}
+
+.tcc-root .tcc-l1-card {
+  border: 1px solid var(--mui-palette-divider, rgba(0, 0, 0, 0.12));
+  border-radius: 8px;
+  background: var(--mui-palette-background-paper, #fff);
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+  transition: box-shadow 150ms ease, border-color 150ms ease;
+}
+
+.tcc-root .tcc-l1-card:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.tcc-root .tcc-l1-card.is-selected {
+  border-color: #003399;
+  box-shadow: 0 0 0 1px rgba(0, 51, 153, 0.15);
+}
+
+/* L1 header — pale-blue band that visually anchors the card without
+   competing with the neutral child rows. The tint is the same brand-navy
+   wash used for the selected-row state, just slightly lighter (4 % vs
+   6 %), so it reads as "this is the L1 banner" but stays well behind the
+   navy title. */
+.tcc-root .tcc-l1-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  min-width: 0;
+  background: rgba(0, 51, 153, 0.05);
+  border-bottom: 1px solid var(--mui-palette-divider, rgba(0, 0, 0, 0.08));
+}
+
+.tcc-root .tcc-l1-name {
+  flex: 1;
+  font-size: 15px;
+  font-weight: 700;
+  color: #003399;
+  background: none;
+  border: 0;
+  padding: 0;
+  text-align: left;
+  cursor: pointer;
+  min-width: 0;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  line-height: 1.3;
+}
+
+.tcc-root .tcc-l1-name:hover {
+  opacity: 0.85;
+}
+
+/* Cap-count badge — picks up the row's foreground colour via
+   currentColor + a translucent same-colour pill. Reads on neutral
+   surfaces in both modes without per-class overrides. */
+.tcc-root .tcc-cap-count {
+  font-size: 11px;
+  font-weight: 700;
+  background: color-mix(in srgb, currentColor 12%, transparent);
+  color: inherit;
+  border-radius: 999px;
+  padding: 2px 8px;
+  flex-shrink: 0;
+}
+
+/* Per-L1 ± stepper pill. Navy outline + tint on a white-paper header. */
+.tcc-root .tcc-branch-stepper {
+  display: inline-flex;
+  align-items: stretch;
+  border: 1px solid rgba(0, 51, 153, 0.35);
+  border-radius: 999px;
+  overflow: hidden;
+  background: transparent;
+  flex-shrink: 0;
+  color: #003399;
+}
+
+.tcc-root .tcc-branch-stepper button {
+  background: none;
+  border: 0;
+  padding: 2px 8px;
+  color: inherit;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 120ms ease;
+}
+
+.tcc-root .tcc-branch-stepper button + button {
+  border-left: 1px solid rgba(0, 51, 153, 0.35);
+}
+
+.tcc-root .tcc-branch-stepper button:hover:not(:disabled) {
+  background: rgba(0, 51, 153, 0.06);
+}
+
+.tcc-root .tcc-branch-stepper button:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.tcc-root .tcc-l2-list,
+.tcc-root .tcc-l2-children {
+  list-style: none;
+  margin: 0;
+  padding: 8px 10px 10px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* Nested levels: indent + a faint vertical rail that signals depth without
+   colour. Same idiom as .tcc-detail-tree-children below. */
+.tcc-root .tcc-l2-children {
+  padding: 4px 0 4px 16px;
+  margin-left: 14px;
+  border-left: 1px solid rgba(0, 51, 153, 0.10);
+}
+
+/* Rows are neutral — paper bg, divider border, navy text. Depth is conveyed
+   by indentation (.tcc-l2-children) + typography (is-l2 weight bump),
+   never by background tint. */
+.tcc-root .tcc-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border: 1px solid var(--mui-palette-divider, rgba(0, 0, 0, 0.08));
+  border-radius: 8px;
+  background: var(--mui-palette-background-paper, #fff);
+  color: #003399;
+  min-width: 0;
+  transition: box-shadow 120ms ease, background-color 120ms ease;
+}
+
+.tcc-root .tcc-row:hover {
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.tcc-root .tcc-row.is-selected {
+  background: rgba(0, 51, 153, 0.06);
+  box-shadow: 0 0 0 1px rgba(0, 51, 153, 0.45);
+}
+
+.tcc-root .tcc-row .tcc-name-btn {
+  flex: 1;
+  background: none;
+  border: 0;
+  padding: 0;
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  min-width: 0;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  line-height: 1.3;
+}
+
+.tcc-root .tcc-row .tcc-name-btn:hover {
+  opacity: 0.85;
+}
+
+.tcc-root .tcc-row.is-l2 .tcc-name-btn {
+  font-weight: 600;
+}
+
+.tcc-root .tcc-chevron {
+  background: none;
+  border: 0;
+  padding: 0;
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: inherit;
+  opacity: 0.85;
+}
+
+.tcc-root .tcc-chevron.is-empty {
+  visibility: hidden;
+  cursor: default;
+}
+
+.tcc-root .tcc-chevron.is-open {
+  transform: rotate(90deg);
+}
+
+.tcc-root .tcc-cap-id {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--mui-palette-text-secondary);
+  background: rgba(0, 0, 0, 0.04);
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
+.tcc-root .tcc-cap-level {
+  font-size: 10px;
+  font-weight: 700;
+  color: #1976d2;
+  background: rgba(25, 118, 210, 0.12);
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
+.tcc-root .tcc-deprecated-badge {
+  font-size: 10px;
+  font-weight: 700;
+  color: #b26500;
+  background: rgba(255, 224, 178, 0.92);
+  padding: 1px 6px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.tcc-root .tcc-existing-tick {
+  color: #2e7d32;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+}
+
+.tcc-root .tcc-action-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.tcc-root .tcc-stepper {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--mui-palette-divider, rgba(0, 0, 0, 0.12));
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.tcc-root .tcc-stepper button {
+  background: none;
+  border: 0;
+  padding: 4px 8px;
+  cursor: pointer;
+  color: var(--mui-palette-text-primary);
+  display: inline-flex;
+  align-items: center;
+}
+
+.tcc-root .tcc-stepper button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.tcc-root .tcc-stepper-label {
+  padding: 0 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--mui-palette-text-secondary);
+  border-left: 1px solid var(--mui-palette-divider, rgba(0, 0, 0, 0.12));
+  border-right: 1px solid var(--mui-palette-divider, rgba(0, 0, 0, 0.12));
+}
+
+.tcc-root .tcc-detail-tree {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.tcc-root .tcc-detail-tree-children {
+  padding-left: 18px;
+  border-left: 1px dashed rgba(0, 0, 0, 0.12);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.tcc-root .tcc-detail-tree-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.tcc-root .tcc-detail-tree-row .tcc-tree-name {
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.tcc-root .tcc-detail-tree-row .tcc-tree-desc {
+  width: 100%;
+  font-size: 12px;
+  color: var(--mui-palette-text-secondary);
+  margin-left: 6px;
+}
+
+/* -- Dark mode -------------------------------------------------------------
+   MUI 6 isn't running with `cssVariables: true`, so the
+   var(--mui-palette-…) tokens above don't actually resolve at runtime —
+   the browser falls back to the literal #fff / divider values. The
+   component reads `theme.palette.mode` and tags the root with
+   `tcc-root--dark`; everything below mirrors the neutral light-mode
+   layout on a #1e1e1e paper with lifted-lavender text. No per-level
+   tints in either mode — depth is read from indentation + typography. */
+
+.tcc-root.tcc-root--dark .tcc-l1-card {
+  background: #1e1e1e;
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.tcc-root.tcc-root--dark .tcc-l1-card:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+.tcc-root.tcc-root--dark .tcc-l1-card.is-selected {
+  border-color: #6699ff;
+  box-shadow: 0 0 0 1px rgba(102, 153, 255, 0.35);
+}
+
+.tcc-root.tcc-root--dark .tcc-l1-header {
+  background: rgba(168, 196, 255, 0.06);
+  border-bottom-color: rgba(255, 255, 255, 0.08);
+}
+
+.tcc-root.tcc-root--dark .tcc-l1-name {
+  color: #a8c4ff;
+}
+
+.tcc-root.tcc-root--dark .tcc-row {
+  background: #1e1e1e;
+  border-color: rgba(255, 255, 255, 0.10);
+  color: #cdd9ee;
+}
+
+.tcc-root.tcc-root--dark .tcc-row:hover {
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+
+.tcc-root.tcc-root--dark .tcc-row.is-selected {
+  background: rgba(168, 196, 255, 0.08);
+  box-shadow: 0 0 0 1px rgba(168, 196, 255, 0.6);
+}
+
+.tcc-root.tcc-root--dark .tcc-l2-children {
+  border-left-color: rgba(168, 196, 255, 0.18);
+}
+
+/* MUI Checkbox in rows: navy in light, lifted lavender in dark. The CSS
+   selector chain (3 classes) wins over MUI's emotion-generated single-class
+   `sx` rule on specificity, so no !important needed. */
+.tcc-root.tcc-root--dark .tcc-row .MuiCheckbox-root {
+  color: rgba(168, 196, 255, 0.55);
+}
+
+.tcc-root.tcc-root--dark .tcc-row .MuiCheckbox-root.Mui-checked {
+  color: #a8c4ff;
+}
+
+.tcc-root.tcc-root--dark .tcc-l1-header .MuiCheckbox-root {
+  color: rgba(168, 196, 255, 0.55);
+}
+
+.tcc-root.tcc-root--dark .tcc-l1-header .MuiCheckbox-root.Mui-checked,
+.tcc-root.tcc-root--dark .tcc-l1-header .MuiCheckbox-root.MuiCheckbox-indeterminate {
+  color: #a8c4ff;
+}
+
+.tcc-root.tcc-root--dark .tcc-branch-stepper {
+  border-color: rgba(168, 196, 255, 0.45);
+  color: #a8c4ff;
+}
+
+.tcc-root.tcc-root--dark .tcc-branch-stepper button + button {
+  border-left-color: rgba(168, 196, 255, 0.45);
+}
+
+.tcc-root.tcc-root--dark .tcc-branch-stepper button:hover:not(:disabled) {
+  background: rgba(168, 196, 255, 0.12);
+}
+
+.tcc-root.tcc-root--dark .tcc-cap-id {
+  color: rgba(255, 255, 255, 0.6);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.tcc-root.tcc-root--dark .tcc-existing-tick {
+  color: #a5d6a7;
+}
+
+.tcc-root.tcc-root--dark .tcc-detail-tree-children {
+  border-left-color: rgba(255, 255, 255, 0.18);
+}
+
+.tcc-root.tcc-root--dark .tcc-stepper {
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
+.tcc-root.tcc-root--dark .tcc-stepper-label {
+  border-color: rgba(255, 255, 255, 0.18);
+}
