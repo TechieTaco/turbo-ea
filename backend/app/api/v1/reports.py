@@ -125,6 +125,7 @@ async def dashboard(db: AsyncSession = Depends(get_db), user: User = Depends(get
     recent_events = [
         {
             "id": str(e.id),
+            "card_id": str(e.card_id) if e.card_id else None,
             "event_type": e.event_type,
             "data": e.data,
             "user_display_name": e.user.display_name if e.user else None,

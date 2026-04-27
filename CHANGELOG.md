@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.50.0] - 2026-04-27
+
+### Changed
+- Dashboard's **Recent Activity** panel redesigned. Each entry is now a timeline row with a category-coloured icon (created / edited / approved / rejected / archived / deleted / relation / comment / process / ADR / SoAW), a natural-language sentence ("Vincent approved **NexaCore ERP**") with the card name as a clickable link to the card detail, and a relative timestamp ("3 minutes ago") that reveals the absolute time on hover. Entries are grouped under day separators (Today, Yesterday, Mon Apr 27) and consecutive same-user same-card edits collapse into a single row ("Vincent made 4 edits to NexaCore ERP") with an expand chevron to inspect each change. New tab filters at the top of the panel — All / Cards / Approvals / Relations / Comments — let users focus on the activity stream they care about. Backend `/reports/dashboard` now returns `card_id` on each event so the link target works even on legacy events whose payload lacks the card name. Translated for all 8 supported UI locales (en/de/fr/es/it/pt/zh/ru).
+
 ## [0.49.6] - 2026-04-27
 
 ### Added
