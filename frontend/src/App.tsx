@@ -1,11 +1,12 @@
 import { lazy, Suspense, useMemo } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import CssBaseline from "@mui/material/CssBaseline";
-import { ThemeProvider, createTheme } from "@mui/material/styles";
+import { ThemeProvider } from "@mui/material/styles";
 import CircularProgress from "@mui/material/CircularProgress";
 import Box from "@mui/material/Box";
 import { useAuth } from "@/hooks/useAuth";
 import { ThemeModeContext, useThemeModeState } from "@/hooks/useThemeMode";
+import { buildTheme } from "@/theme";
 import AppLayout from "@/layouts/AppLayout";
 import LoginPage from "@/features/auth/LoginPage";
 import SsoCallback from "@/features/auth/SsoCallback";
@@ -56,27 +57,6 @@ const AssessmentViewer = lazy(() => import("@/features/turbolens/AssessmentViewe
 const CapabilityCataloguePage = lazy(
   () => import("@/features/capability-catalogue/CapabilityCataloguePage"),
 );
-
-function buildTheme(mode: "light" | "dark") {
-  return createTheme({
-    typography: {
-      fontFamily: "'Inter', sans-serif",
-    },
-    palette: {
-      mode,
-      primary: { main: "#1976d2" },
-      background:
-        mode === "dark"
-          ? { default: "#121212", paper: "#1e1e1e" }
-          : { default: "#fafbfc", paper: "#fff" },
-    },
-    components: {
-      MuiCard: {
-        defaultProps: { variant: "outlined" },
-      },
-    },
-  });
-}
 
 /** Centered spinner shown while lazy components are loading. */
 function PageLoader() {

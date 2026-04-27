@@ -58,6 +58,7 @@ When working on this codebase, follow these conventions:
 - Use MUI 6 components — do not introduce other UI libraries.
 - Icons use Google Material Symbols via the `MaterialSymbol` component.
 - When nesting MUI Dialogs, use `disableRestoreFocus` on inner dialogs.
+- **Design tokens**: All colors, spacing aliases, icon sizes, and typography defaults live in `frontend/src/theme/tokens.ts` (re-exported from `frontend/src/theme/index.ts`). Never hardcode hex codes — import the named token (`STATUS_COLORS.success`, `SEVERITY_COLORS.high`, `LAYER_COLORS["Application & Data"]`, etc.). See [`frontend/UI_GUIDELINES.md`](frontend/UI_GUIDELINES.md) for the full design system, layout patterns, and do's/don'ts.
 
 ### Internationalization (i18n)
 - **All user-facing strings must use translation keys**, never hardcoded English text. Use `useTranslation()` from `react-i18next` with the appropriate namespace.

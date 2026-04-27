@@ -29,24 +29,34 @@ import {
   PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, Legend, ResponsiveContainer,
 } from "recharts";
+import { brand, SEVERITY_COLORS, STATUS_COLORS } from "@/theme/tokens";
 import type { BpmDashboardData } from "@/types";
 import ProcessNavigator from "./ProcessNavigator";
 import BpmReportsContent from "./BpmReportPage";
 
-const COLORS = ["#1976d2", "#607d8b", "#9c27b0", "#4caf50", "#ff9800", "#f44336"];
+const COLORS = [
+  brand.primary,
+  "#607d8b",
+  "#9c27b0",
+  STATUS_COLORS.success,
+  STATUS_COLORS.warning,
+  STATUS_COLORS.error,
+];
 
+// Maturity is a 5-step CMMI scale; reuses severity hues to convey progression
+// from worst (red) to best (deep green).
 const MATURITY_COLORS: Record<string, string> = {
-  initial: "#d32f2f",
-  managed: "#ff9800",
-  defined: "#fbc02d",
-  measured: "#66bb6a",
+  initial: SEVERITY_COLORS.critical,
+  managed: SEVERITY_COLORS.high,
+  defined: SEVERITY_COLORS.medium,
+  measured: SEVERITY_COLORS.low,
   optimized: "#2e7d32",
 };
 
 const RISK_COLORS: Record<string, string> = {
-  low: "#4caf50",
-  medium: "#ff9800",
-  high: "#f44336",
+  low: STATUS_COLORS.success,
+  medium: STATUS_COLORS.warning,
+  high: STATUS_COLORS.error,
   critical: "#b71c1c",
 };
 

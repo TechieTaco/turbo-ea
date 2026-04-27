@@ -13,6 +13,7 @@ import Switch from "@mui/material/Switch";
 import TextField from "@mui/material/TextField";
 import Tooltip from "@mui/material/Tooltip";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import { brand, SEVERITY_COLORS, STATUS_COLORS } from "@/theme/tokens";
 import type { AiSuggestResponse, FieldDef, SectionDef } from "@/types";
 
 /** Resolved field suggestions: description + any extra attribute suggestions. */
@@ -38,9 +39,9 @@ interface Props {
 
 /** Confidence level label and color */
 function confidenceBadge(confidence: number) {
-  if (confidence >= 0.8) return { label: "High", color: "#4caf50" };
-  if (confidence >= 0.5) return { label: "Medium", color: "#ff9800" };
-  return { label: "Low", color: "#f44336" };
+  if (confidence >= 0.8) return { label: "High", color: STATUS_COLORS.success };
+  if (confidence >= 0.5) return { label: "Medium", color: STATUS_COLORS.warning };
+  return { label: "Low", color: STATUS_COLORS.error };
 }
 
 /** Resolve a FieldDef from fieldsSchema by key */
@@ -88,7 +89,7 @@ export default function AiSuggestPanel({
         sx={{ p: 2, mt: 2, borderColor: "primary.main", borderStyle: "dashed" }}
       >
         <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1.5 }}>
-          <MaterialSymbol icon="auto_awesome" size={20} color="#1976d2" />
+          <MaterialSymbol icon="auto_awesome" size={20} color={brand.primary} />
           <Typography variant="subtitle2" fontWeight={600}>
             {t("ai.searching")}
           </Typography>
@@ -109,7 +110,7 @@ export default function AiSuggestPanel({
         sx={{ p: 2, mt: 2, borderColor: "error.main", borderStyle: "dashed" }}
       >
         <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
-          <MaterialSymbol icon="error_outline" size={20} color="#d32f2f" />
+          <MaterialSymbol icon="error_outline" size={20} color={SEVERITY_COLORS.critical} />
           <Typography variant="subtitle2" fontWeight={600} color="error">
             {t("ai.error")}
           </Typography>
@@ -150,7 +151,7 @@ export default function AiSuggestPanel({
       sx={{ p: 2, mt: 2, borderColor: "primary.main", borderStyle: "dashed" }}
     >
       <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1.5 }}>
-        <MaterialSymbol icon="auto_awesome" size={20} color="#1976d2" />
+        <MaterialSymbol icon="auto_awesome" size={20} color={brand.primary} />
         <Typography variant="subtitle2" fontWeight={600}>
           {t("ai.suggestionsTitle")}
         </Typography>

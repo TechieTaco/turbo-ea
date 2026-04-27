@@ -5,6 +5,7 @@ import MenuItem from "@mui/material/MenuItem";
 import Typography from "@mui/material/Typography";
 import { useTranslation } from "react-i18next";
 import MaterialSymbol from "./MaterialSymbol";
+import { STATUS_COLORS } from "@/theme/tokens";
 
 interface Props {
   status: string;
@@ -63,21 +64,21 @@ export default function ApprovalStatusBadge({
             onClick={() => { onAction("approve"); setAnchorEl(null); }}
             disabled={status === "APPROVED"}
           >
-            <MaterialSymbol icon="verified" size={18} color="#4caf50" />
+            <MaterialSymbol icon="verified" size={18} color={STATUS_COLORS.success} />
             <Typography sx={{ ml: 1 }}>{t("actions.approve")}</Typography>
           </MenuItem>
           <MenuItem
             onClick={() => { onAction("reject"); setAnchorEl(null); }}
             disabled={status === "REJECTED"}
           >
-            <MaterialSymbol icon="cancel" size={18} color="#f44336" />
+            <MaterialSymbol icon="cancel" size={18} color={STATUS_COLORS.error} />
             <Typography sx={{ ml: 1 }}>{t("actions.reject")}</Typography>
           </MenuItem>
           <MenuItem
             onClick={() => { onAction("reset"); setAnchorEl(null); }}
             disabled={status === "DRAFT"}
           >
-            <MaterialSymbol icon="restart_alt" size={18} color="#9e9e9e" />
+            <MaterialSymbol icon="restart_alt" size={18} color={STATUS_COLORS.neutral} />
             <Typography sx={{ ml: 1 }}>
               {t("actions.resetToDraft")}
             </Typography>

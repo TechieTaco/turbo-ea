@@ -29,26 +29,13 @@ import MaterialSymbol from "@/components/MaterialSymbol";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useResolveMetaLabel } from "@/hooks/useResolveLabel";
 import { api } from "@/api/client";
+import { APPROVAL_STATUS_COLORS, DATA_QUALITY_COLORS, STATUS_COLORS } from "@/theme/tokens";
 import type { DashboardData } from "@/types";
 import TrendIndicator from "./TrendIndicator";
 
 /* ------------------------------------------------------------------ */
 /*  Constants                                                          */
 /* ------------------------------------------------------------------ */
-
-const APPROVAL_STATUS_COLORS: Record<string, string> = {
-  DRAFT: "#9e9e9e",
-  APPROVED: "#4caf50",
-  REJECTED: "#f44336",
-  BROKEN: "#ff9800",
-};
-
-const DATA_QUALITY_COLORS: Record<string, string> = {
-  "0-25": "#f44336",
-  "25-50": "#ff9800",
-  "50-75": "#2196f3",
-  "75-100": "#4caf50",
-};
 
 const DATA_QUALITY_LABELS: Record<string, string> = {
   "0-25": "0 - 25%",
@@ -87,7 +74,14 @@ export default function Dashboard() {
     if (!data) return [];
     return Object.entries(data.approval_statuses)
       .filter(([, v]) => v > 0)
-      .map(([k, v]) => ({ name: t(`status.${k.toLowerCase()}`) || k, value: v, color: APPROVAL_STATUS_COLORS[k] || "#999", key: k }));
+      .map(([k, v]) => ({
+        name: t(`status.${k.toLowerCase()}`) || k,
+        value: v,
+        color:
+          APPROVAL_STATUS_COLORS[k as keyof typeof APPROVAL_STATUS_COLORS] ||
+          STATUS_COLORS.neutral,
+        key: k,
+      }));
   }, [data, t]);
 
   const dataQualityChartData = useMemo(() => {
@@ -95,17 +89,17 @@ export default function Dashboard() {
     return Object.entries(data.data_quality_distribution).map(([k, v]) => ({
       name: DATA_QUALITY_LABELS[k] || k,
       count: v,
-      color: DATA_QUALITY_COLORS[k] || "#999",
+      color: DATA_QUALITY_COLORS[k as keyof typeof DATA_QUALITY_COLORS] || STATUS_COLORS.neutral,
     }));
   }, [data]);
 
   const lifecyclePhases = useMemo(() => [
-    { key: "plan", label: t("lifecycle.plan"), color: "#9e9e9e" },
-    { key: "phaseIn", label: t("lifecycle.phaseIn"), color: "#2196f3" },
-    { key: "active", label: t("lifecycle.active"), color: "#4caf50" },
-    { key: "phaseOut", label: t("lifecycle.phaseOut"), color: "#ff9800" },
-    { key: "endOfLife", label: t("lifecycle.endOfLife"), color: "#f44336" },
-    { key: "none", label: t("lifecycle.notSet"), color: "#9e9e9e" },
+    { key: "plan", label: t("lifecycle.plan"), color: STATUS_COLORS.neutral },
+    { key: "phaseIn", label: t("lifecycle.phaseIn"), color: STATUS_COLORS.info },
+    { key: "active", label: t("lifecycle.active"), color: STATUS_COLORS.success },
+    { key: "phaseOut", label: t("lifecycle.phaseOut"), color: STATUS_COLORS.warning },
+    { key: "endOfLife", label: t("lifecycle.endOfLife"), color: STATUS_COLORS.error },
+    { key: "none", label: t("lifecycle.notSet"), color: STATUS_COLORS.neutral },
   ], [t]);
 
   const lifecycleChartData = useMemo(() => {

@@ -6,6 +6,7 @@ import Typography from "@mui/material/Typography";
 import Chip from "@mui/material/Chip";
 import { useTheme } from "@mui/material/styles";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import { TIMELINE_COLORS } from "@/theme/tokens";
 
 const ONE_DAY_MS = 86_400_000;
 const TEN_YEARS_MS = 10 * 365.25 * ONE_DAY_MS;
@@ -99,10 +100,8 @@ export default function TimelineSlider({
   const isFuture = value > todayMs + ONE_DAY_MS;
 
   // Color shifts: amber for past, purple for future, primary for today
-  const PAST_COLOR = "#e68a00";
-  const FUTURE_COLOR = "#7c4dff";
-  const RESET_COLOR = "#ef6c00";
-  const accent = isPast ? PAST_COLOR : isFuture ? FUTURE_COLOR : primary;
+  const accent = isPast ? TIMELINE_COLORS.past : isFuture ? TIMELINE_COLORS.future : primary;
+  const RESET_COLOR = TIMELINE_COLORS.reset;
 
   return (
     <Box sx={{ width: "100%", maxWidth: 560, pt: 0.5, pb: 2 }}>

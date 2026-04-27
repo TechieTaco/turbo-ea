@@ -1,0 +1,153 @@
+/**
+ * Design tokens — single source of truth for color, spacing, radius, typography.
+ *
+ * Pure TypeScript (no React or MUI imports) so it is tree-shakeable and usable
+ * from non-component code. Every value here matches a value already used in
+ * the running app — introducing this module is not meant to change anything
+ * visually.
+ *
+ * Naming is semantic: prefer `STATUS_COLORS.success` over `green`. Card-type
+ * and layer hex values mirror the runtime canonical config in
+ * `backend/app/services/seed.py` and are used as fallbacks when a runtime
+ * lookup is not available (e.g. legend keys, static charts).
+ *
+ * See `frontend/UI_GUIDELINES.md` for usage rules.
+ */
+
+// ── Brand & surface ─────────────────────────────────────────────────────
+
+export const brand = {
+  primary: "#1976d2",
+} as const;
+
+export const surface = {
+  light: { default: "#fafbfc", paper: "#fff" },
+  dark: { default: "#121212", paper: "#1e1e1e" },
+} as const;
+
+// ── Status (matches MUI default success/warning/error/info hues) ─────────
+
+export const STATUS_COLORS = {
+  success: "#4caf50",
+  warning: "#ff9800",
+  error: "#f44336",
+  info: "#2196f3",
+  neutral: "#9e9e9e",
+} as const;
+
+// ── Approval status (cards) ─────────────────────────────────────────────
+
+export const APPROVAL_STATUS_COLORS = {
+  DRAFT: STATUS_COLORS.neutral,
+  APPROVED: STATUS_COLORS.success,
+  BROKEN: STATUS_COLORS.warning,
+  REJECTED: STATUS_COLORS.error,
+} as const;
+
+// ── Severity / priority (4-step scale) ───────────────────────────────────
+// Used by PPM tasks, TurboLens findings, risk levels.
+
+export const SEVERITY_COLORS = {
+  critical: "#d32f2f",
+  high: "#f57c00",
+  medium: "#fbc02d",
+  low: "#66bb6a",
+} as const;
+
+/** Alias — priority and severity share the same 4-step scale. */
+export const PRIORITY_COLORS = SEVERITY_COLORS;
+
+// ── Health / RAG (status reports, BPM dashboards) ────────────────────────
+
+export const HEALTH_COLORS = {
+  good: STATUS_COLORS.success,
+  warn: STATUS_COLORS.warning,
+  bad: STATUS_COLORS.error,
+} as const;
+
+export const RAG_COLORS = {
+  red: "#d32f2f",
+  amber: "#f57c00",
+  green: "#2e7d32",
+} as const;
+
+// ── Data quality buckets (Dashboard chart) ───────────────────────────────
+
+export const DATA_QUALITY_COLORS = {
+  "0-25": STATUS_COLORS.error,
+  "25-50": STATUS_COLORS.warning,
+  "50-75": STATUS_COLORS.info,
+  "75-100": STATUS_COLORS.success,
+} as const;
+
+// ── Card-type fallbacks ──────────────────────────────────────────────────
+// Runtime canonical values come from the per-type config in the database
+// (admin-editable). These are static fallbacks for legend keys and code that
+// needs a value before / without a metamodel lookup.
+
+export const CARD_TYPE_COLORS = {
+  Objective: "#c7527d",
+  Platform: "#027446",
+  Initiative: "#33cc58",
+  Organization: "#2889ff",
+  BusinessCapability: "#003399",
+  BusinessContext: "#fe6690",
+  BusinessProcess: "#e65100",
+  Application: "#0f7eb5",
+  Interface: "#02afa4",
+  DataObject: "#774fcc",
+  ITComponent: "#d29270",
+  TechCategory: "#a6566d",
+  Provider: "#ffa31f",
+  System: "#5B738B",
+} as const;
+
+// ── EA layers (C4 diagram, capability map, dependency report) ────────────
+
+export const LAYER_COLORS = {
+  "Strategy & Transformation": "#33cc58",
+  "Business Architecture": "#2889ff",
+  "Application & Data": "#0f7eb5",
+  "Technical Architecture": "#d29270",
+} as const;
+
+// ── Vendor accent (VendorField, Provider chips) ─────────────────────────
+
+export const VENDOR_ACCENT = {
+  fill: CARD_TYPE_COLORS.Provider, // #ffa31f
+  border: "#e68a00",
+} as const;
+
+// ── Time-travel slider accents ──────────────────────────────────────────
+
+export const TIMELINE_COLORS = {
+  past: "#e68a00",
+  future: "#7c4dff",
+  reset: "#ef6c00",
+} as const;
+
+// ── Non-color tokens ────────────────────────────────────────────────────
+
+/** Border radius scale (px). MUI's `borderRadius` `sx` prop also accepts numbers from the spacing scale. */
+export const radius = { sm: 4, md: 8, lg: 12 } as const;
+
+/** Spacing aliases for the MUI scale (1 unit = 8px by default). */
+export const spacing = { xs: 0.5, sm: 1, md: 1.5, lg: 2, xl: 3 } as const;
+
+/** Icon size scale (px) for `<MaterialSymbol size={...}>`. */
+export const iconSize = { xs: 16, sm: 18, md: 20, lg: 24, xl: 32 } as const;
+
+export const typography = {
+  fontFamily: "'Inter', sans-serif",
+  h1: { fontSize: "2rem", fontWeight: 600 },
+  h2: { fontSize: "1.5rem", fontWeight: 600 },
+  h3: { fontSize: "1.25rem", fontWeight: 600 },
+} as const;
+
+// ── Type exports ────────────────────────────────────────────────────────
+
+export type StatusKey = keyof typeof STATUS_COLORS;
+export type ApprovalStatusKey = keyof typeof APPROVAL_STATUS_COLORS;
+export type SeverityKey = keyof typeof SEVERITY_COLORS;
+export type CardTypeKey = keyof typeof CARD_TYPE_COLORS;
+export type LayerKey = keyof typeof LAYER_COLORS;
