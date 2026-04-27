@@ -1,6 +1,6 @@
 services:
   db:
-    image: postgres:17-alpine
+    image: postgres:18-alpine
     restart: unless-stopped
     networks:
       - turboea
@@ -8,6 +8,12 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-turboea}
       POSTGRES_USER: ${POSTGRES_USER:-turboea}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env}
+      # pg18 introduced a multi-version data layout (data lives in
+      # /var/lib/postgresql/18/docker by default) and refuses to start
+      # if it finds data at the legacy path. Set PGDATA explicitly so
+      # the legacy mount keeps working — both for existing pg17→pg18
+      # upgrades (volume layout is unchanged) and for fresh installs.
+      PGDATA: /var/lib/postgresql/data
     volumes:
       - turboea-pgdata:/var/lib/postgresql/data
     expose:
