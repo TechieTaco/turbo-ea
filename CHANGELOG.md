@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.49.5] - 2026-04-27
+
+### Changed
+- Card title is now editable directly at title level on the card detail page. Hovering the title reveals an edit pencil; clicking it swaps the heading for an inline text field with Save / Cancel buttons (Enter saves, Escape cancels). The redundant Name field has been removed from the Description panel's edit form, which now only edits description and extra fields. Permission gating (`card.edit`) and archived-card protection match the rest of the page.
+
 ## [0.49.4] - 2026-04-27
 
 ### Fixed

@@ -11,6 +11,7 @@ import ListItemIcon from "@mui/material/ListItemIcon";
 import ListItemText from "@mui/material/ListItemText";
 import Alert from "@mui/material/Alert";
 import LinearProgress from "@mui/material/LinearProgress";
+import TextField from "@mui/material/TextField";
 import Tooltip from "@mui/material/Tooltip";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import { useTheme } from "@mui/material/styles";
@@ -56,7 +57,7 @@ const DEFAULT_PERMISSIONS: CardEffectivePermissions["effective"] = {
 
 // ── Main Detail Page ────────────────────────────────────────────
 export default function CardDetail() {
-  const { t } = useTranslation(["cards", "common"]);
+  const { t } = useTranslation(["cards", "common", "validation"]);
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -72,6 +73,12 @@ export default function CardDetail() {
   const [archiveDialogOpen, setArchiveDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [actionsMenuAnchor, setActionsMenuAnchor] = useState<HTMLElement | null>(null);
+
+  // Inline title editing
+  const [editingName, setEditingName] = useState(false);
+  const [nameDraft, setNameDraft] = useState("");
+  const [nameSaving, setNameSaving] = useState(false);
+  const [nameError, setNameError] = useState<string | null>(null);
 
   // PPM auto-computed fields (for Initiative cards with PPM budget/cost lines)
   const [ppmHasBudget, setPpmHasBudget] = useState(false);
@@ -196,6 +203,41 @@ export default function CardDetail() {
     }
   };
 
+  // ── Inline title editing ─────────────────────────────────────
+  const beginEditName = () => {
+    setNameDraft(card.name);
+    setNameError(null);
+    setEditingName(true);
+  };
+
+  const cancelEditName = () => {
+    setEditingName(false);
+    setNameError(null);
+  };
+
+  const saveName = async () => {
+    const trimmed = nameDraft.trim();
+    if (!trimmed) {
+      setNameError(t("validation:required"));
+      return;
+    }
+    if (trimmed === card.name) {
+      setEditingName(false);
+      return;
+    }
+    setNameSaving(true);
+    setNameError(null);
+    try {
+      const updated = await api.patch<Card>(`/cards/${card.id}`, { name: trimmed });
+      setCard(updated);
+      setEditingName(false);
+    } catch (err) {
+      setNameError(err instanceof ApiError ? err.message : String(err));
+    } finally {
+      setNameSaving(false);
+    }
+  };
+
   // ── Archive / Restore / Delete ───────────────────────────────
   const handleArchive = async () => {
     setArchiveDialogOpen(false);
@@ -281,9 +323,81 @@ export default function CardDetail() {
           </Box>
         )}
         <Box sx={{ flex: 1, minWidth: 0 }}>
-          <Typography variant={isMobile ? "h6" : "h5"} fontWeight={700} noWrap>
-            {card.name}
-          </Typography>
+          {editingName ? (
+            <Box sx={{ display: "flex", alignItems: "flex-start", gap: 0.5 }}>
+              <TextField
+                autoFocus
+                fullWidth
+                size="small"
+                value={nameDraft}
+                onChange={(e) => setNameDraft(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    saveName();
+                  } else if (e.key === "Escape") {
+                    e.preventDefault();
+                    cancelEditName();
+                  }
+                }}
+                disabled={nameSaving}
+                error={!!nameError}
+                helperText={nameError ?? undefined}
+                InputProps={{
+                  sx: {
+                    fontSize: isMobile ? "1.25rem" : "1.5rem",
+                    fontWeight: 700,
+                  },
+                }}
+              />
+              <IconButton
+                size="small"
+                onClick={saveName}
+                disabled={nameSaving}
+                aria-label={t("common:actions.save")}
+              >
+                <MaterialSymbol icon="check" size={20} />
+              </IconButton>
+              <IconButton
+                size="small"
+                onClick={cancelEditName}
+                disabled={nameSaving}
+                aria-label={t("common:actions.cancel")}
+              >
+                <MaterialSymbol icon="close" size={20} />
+              </IconButton>
+            </Box>
+          ) : (
+            <Box
+              sx={{
+                display: "flex",
+                alignItems: "center",
+                gap: 0.5,
+                "&:hover .edit-name-btn": { opacity: 1 },
+              }}
+            >
+              <Typography variant={isMobile ? "h6" : "h5"} fontWeight={700} noWrap>
+                {card.name}
+              </Typography>
+              {perms.can_edit && !isArchived && (
+                <Tooltip title={t("common:actions.edit")}>
+                  <IconButton
+                    size="small"
+                    className="edit-name-btn"
+                    onClick={beginEditName}
+                    aria-label={t("common:actions.edit")}
+                    sx={{
+                      opacity: { xs: 1, sm: 0 },
+                      transition: "opacity 0.15s",
+                      flexShrink: 0,
+                    }}
+                  >
+                    <MaterialSymbol icon="edit" size={16} />
+                  </IconButton>
+                </Tooltip>
+              )}
+            </Box>
+          )}
           <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
             <Typography variant="body2" color="text.secondary">
               {rml(typeConfig?.key ?? "", typeConfig?.translations, "label") || card.type}
