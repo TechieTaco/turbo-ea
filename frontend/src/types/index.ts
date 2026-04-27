@@ -397,6 +397,7 @@ export interface SavedReport {
 export interface EventEntry {
   id: string;
   card_id?: string;
+  card_name?: string | null;
   user_id?: string;
   user_display_name?: string;
   event_type: string;

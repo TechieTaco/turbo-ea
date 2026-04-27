@@ -28,8 +28,6 @@ export interface FormattedActivity {
   actionText: string;
   cardName: string | null;
   cardLink: string | null;
-  /** Optional small detail (e.g. "3 fields") shown after the sentence. */
-  detail: string | null;
 }
 
 /* ------------------------------------------------------------------ */
@@ -133,23 +131,11 @@ export function formatActivityEvent(
 ): FormattedActivity {
   const category = categorize(e.event_type);
   const data = (e.data ?? {}) as Record<string, unknown>;
-  const dataName = asString(data.name);
   const cardId = e.card_id ?? asString(data.id);
   const cardLink = cardId ? `/cards/${cardId}` : null;
-  const cardName = dataName;
-
-  let detail: string | null = null;
-  if (category === "update") {
-    const changes = data.changes;
-    if (changes && typeof changes === "object") {
-      const count = Array.isArray(changes)
-        ? changes.length
-        : Object.keys(changes as Record<string, unknown>).length;
-      if (count > 0) {
-        detail = t("dashboard.activity.fieldCount", { count });
-      }
-    }
-  }
+  // Prefer the server-resolved name (set on every event with a card_id),
+  // then the legacy in-payload name, then null.
+  const cardName = asString(e.card_name) ?? asString(data.name);
 
   const actionKey = `dashboard.activity.action.${e.event_type}`;
   let actionText = t(actionKey, { defaultValue: "" }) as string;
@@ -166,7 +152,6 @@ export function formatActivityEvent(
     actionText,
     cardName,
     cardLink,
-    detail,
   };
 }
 

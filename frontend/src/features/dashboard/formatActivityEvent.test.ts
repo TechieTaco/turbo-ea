@@ -47,7 +47,6 @@ describe("formatActivityEvent", () => {
     expect(out.category).toBe("update");
     expect(out.cardLink).toBe("/cards/card-123");
     expect(out.cardName).toBe("NexaCore ERP");
-    expect(out.detail).toBe("dashboard.activity.fieldCount:2");
   });
 
   it("falls back to data.id when card_id is missing", () => {
@@ -56,6 +55,28 @@ describe("formatActivityEvent", () => {
       t,
     );
     expect(out.cardLink).toBe("/cards/card-123");
+  });
+
+  it("prefers server-resolved card_name over data.name when both are present", () => {
+    const out = formatActivityEvent(
+      { ...baseEvent, card_name: "Renamed Card", data: { id: "card-123", name: "Old Name" } },
+      t,
+    );
+    expect(out.cardName).toBe("Renamed Card");
+  });
+
+  it("uses card_name when data has no name (e.g. card.updated, approval events)", () => {
+    const out = formatActivityEvent(
+      {
+        ...baseEvent,
+        event_type: "card.approval_status.approve",
+        card_name: "NexaCore ERP",
+        data: { id: "card-123", approval_status: "APPROVED" },
+      },
+      t,
+    );
+    expect(out.cardName).toBe("NexaCore ERP");
+    expect(out.category).toBe("approve");
   });
 
   it("classifies approval events into approve/reject/reset", () => {
@@ -96,13 +117,6 @@ describe("formatActivityEvent", () => {
     expect(out.actionText).toBe("did weird thing");
   });
 
-  it("omits detail when an update has no changes payload", () => {
-    const out = formatActivityEvent(
-      { ...baseEvent, data: { id: "x", name: "foo" } },
-      t,
-    );
-    expect(out.detail).toBeNull();
-  });
 });
 
 describe("matchesFilter", () => {

@@ -118,20 +118,41 @@ async def dashboard(db: AsyncSession = Depends(get_db), user: User = Depends(get
         else:
             lifecycle_dist["none"] += 1
 
-    # Recent events
+    # Recent events. Many event payloads (`card.updated`, approval changes)
+    # don't include the card name in `data`, so we resolve names server-side
+    # in a single batch lookup keyed on `card_id` to keep the dashboard's
+    # Recent Activity panel readable without extra round-trips.
     events_result = await db.execute(
         select(Event).options(selectinload(Event.user)).order_by(Event.created_at.desc()).limit(20)
     )
+    events_list = list(events_result.scalars().all())
+    referenced_card_ids = {e.card_id for e in events_list if e.card_id is not None}
+    name_by_card_id: dict[uuid.UUID, str] = {}
+    if referenced_card_ids:
+        card_rows = await db.execute(
+            select(Card.id, Card.name).where(Card.id.in_(referenced_card_ids))
+        )
+        name_by_card_id = {cid: name for cid, name in card_rows.all()}
+
+    def _resolve_name(e: Event) -> str | None:
+        data_name = (e.data or {}).get("name") if isinstance(e.data, dict) else None
+        if isinstance(data_name, str) and data_name:
+            return data_name
+        if e.card_id is not None:
+            return name_by_card_id.get(e.card_id)
+        return None
+
     recent_events = [
         {
             "id": str(e.id),
             "card_id": str(e.card_id) if e.card_id else None,
+            "card_name": _resolve_name(e),
             "event_type": e.event_type,
             "data": e.data,
             "user_display_name": e.user.display_name if e.user else None,
             "created_at": e.created_at.isoformat() if e.created_at else None,
         }
-        for e in events_result.scalars().all()
+        for e in events_list
     ]
 
     # Trend indicators vs ~30 days ago (cold-start safe — returns nulls when
