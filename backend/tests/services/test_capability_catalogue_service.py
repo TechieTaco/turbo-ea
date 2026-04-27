@@ -481,6 +481,30 @@ async def test_get_catalogue_payload_unknown_locale_falls_back_to_english(db, mo
 
 
 @pytest.mark.asyncio
+async def test_get_catalogue_payload_strips_regional_subtag(db, monkeypatch):
+    """Browser-detected `navigator.language` values like "fr-FR" or "fr-CA"
+    must be normalized to the primary subtag so users on a fresh session
+    (where `i18next-browser-languagedetector` hasn't been overridden by an
+    explicit menu pick yet) still get the FR translations the wheel ships.
+    """
+    _install_fake_pkg(monkeypatch)
+    from app.services import capability_catalogue_service as svc
+
+    payload = await svc.get_catalogue_payload(db, locale="fr-FR")
+    by_id = {c["id"]: c for c in payload["capabilities"]}
+    assert by_id["BC-1"]["name"] == "Gestion de la clientèle"
+    assert payload["version"]["active_locale"] == "fr"
+
+    # And mixed-case region tags work too (the menu picker always sends a
+    # bare 2-letter code, but defensive coverage protects against any odd
+    # future caller).
+    payload2 = await svc.get_catalogue_payload(db, locale="FR-fr")
+    assert {c["id"]: c for c in payload2["capabilities"]}["BC-1"][
+        "name"
+    ] == "Gestion de la clientèle"
+
+
+@pytest.mark.asyncio
 async def test_existing_card_match_uses_english_name_under_localized_fetch(db, monkeypatch):
     """An existing card whose name matches the canonical English entry must
     keep its green tick when the catalogue is fetched in French — matching is

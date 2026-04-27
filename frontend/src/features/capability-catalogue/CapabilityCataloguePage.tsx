@@ -59,12 +59,13 @@ export default function CapabilityCataloguePage() {
 
   // Initial load -----------------------------------------------------------
   // Pass the active i18n language as `?locale=` so live UI language switches
-  // immediately re-fetch the catalogue with the matching translations. The
-  // backend falls back to `user.locale` (and then English) when the param is
-  // absent, and silently downgrades unknown locales to English — so this
-  // never breaks even if `i18n.language` carries a tag the catalogue
-  // package doesn't ship translations for.
-  const activeLocale = i18n.language || "en";
+  // immediately re-fetch the catalogue with the matching translations.
+  // `resolvedLanguage` is the negotiated 2-letter code (e.g. "fr") which
+  // matches what the catalogue wheel ships; falling back to `language` and
+  // then "en" handles the rare case where i18next hasn't resolved yet. The
+  // backend further normalizes BCP-47 regional tags ("fr-FR" → "fr") and
+  // silently downgrades unknown locales, so any value here is safe.
+  const activeLocale = i18n.resolvedLanguage || i18n.language || "en";
   const reload = useCallback(async () => {
     setLoading(true);
     setLoadError(null);

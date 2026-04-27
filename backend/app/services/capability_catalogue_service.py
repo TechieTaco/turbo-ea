@@ -78,7 +78,15 @@ def _bundled_payload(*, locale: str = "en") -> tuple[list[dict[str, Any]], dict[
     side is irrelevant here.
     """
     available = _bundled_available_locales()
-    effective = locale if locale in available else "en"
+    # Tolerate BCP-47 regional tags from browser-detected `navigator.language`
+    # (e.g. "fr-FR" → "fr"). The package's `available_locales()` is the
+    # canonical list — we match against it directly first, then try the
+    # primary subtag, then give up to English. Never hardcodes a locale list.
+    if locale in available:
+        effective = locale
+    else:
+        primary = locale.split("-", 1)[0].lower()
+        effective = primary if primary in available else "en"
     caps = catalogue_pkg.load_all()
     if effective != "en":
         caps = [c.localized(effective, fallback="en") for c in caps]
