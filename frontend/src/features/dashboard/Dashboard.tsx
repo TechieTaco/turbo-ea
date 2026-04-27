@@ -7,9 +7,6 @@ import CardContent from "@mui/material/CardContent";
 import Typography from "@mui/material/Typography";
 import Grid from "@mui/material/Grid";
 import Chip from "@mui/material/Chip";
-import List from "@mui/material/List";
-import ListItem from "@mui/material/ListItem";
-import ListItemText from "@mui/material/ListItemText";
 import LinearProgress from "@mui/material/LinearProgress";
 import {
   BarChart,
@@ -32,6 +29,7 @@ import { api } from "@/api/client";
 import { APPROVAL_STATUS_COLORS, DATA_QUALITY_COLORS, STATUS_COLORS } from "@/theme/tokens";
 import type { DashboardData } from "@/types";
 import TrendIndicator from "./TrendIndicator";
+import RecentActivity from "./RecentActivity";
 
 /* ------------------------------------------------------------------ */
 /*  Constants                                                          */
@@ -391,27 +389,7 @@ export default function Dashboard() {
         <Grid item xs={12} md={7}>
           <Card>
             <CardContent>
-              <Typography variant="subtitle1" fontWeight={600} gutterBottom>
-                {t("dashboard.recentActivity")}
-              </Typography>
-              <List dense>
-                {data.recent_events.slice(0, 10).map((e) => (
-                  <ListItem key={e.id} sx={{ px: 0 }}>
-                    <ListItemText
-                      primary={
-                        <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
-                          <Chip size="small" label={e.event_type.replace(".", " ")} sx={{ fontSize: 11 }} />
-                          <Typography variant="body2">{e.user_display_name || t("labels.system")}</Typography>
-                        </Box>
-                      }
-                      secondary={e.created_at ? new Date(e.created_at).toLocaleString() : ""}
-                    />
-                  </ListItem>
-                ))}
-                {data.recent_events.length === 0 && (
-                  <Typography variant="body2" color="text.secondary">{t("dashboard.noRecentActivity")}</Typography>
-                )}
-              </List>
+              <RecentActivity events={data.recent_events} />
             </CardContent>
           </Card>
         </Grid>
