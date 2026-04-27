@@ -2,19 +2,25 @@
 # postCreateCommand for Codespaces — runs once when the codespace is created.
 # Generates .env, builds the images, and brings up the demo stack.
 #
-# Note: don't use `set -e` here. We want the script to keep going on
-# transient failures and surface diagnostics rather than silently exiting
-# with the postCreateCommand still marked "successful".
-set -uo pipefail
+# This script always exits 0. The intent is "set up the demo as far as you
+# can, then surface diagnostics" — not "fail the codespace creation if
+# anything went wrong." Failing the postCreateCommand makes Codespaces
+# show a red cross and discourages the user from continuing, even when
+# the underlying issue is a transient network blip during a docker build.
+set -u +e
 
 cd "$(dirname "$0")/.."
 
-echo "======================================"
-echo "  Turbo EA Demo — Setting up..."
-echo "======================================"
+log()  { echo "[setup] $*"; }
+warn() { echo "[setup] WARNING: $*"; }
+fail() { echo "[setup] ERROR: $*"; }
 
-# Generate .env if missing. Re-running the script preserves the existing
-# secret so cached JWTs continue to validate.
+log "======================================"
+log "  Turbo EA Demo — Setting up..."
+log "======================================"
+
+# Generate .env if missing. Re-running the script preserves existing secrets
+# so cached JWTs continue to validate.
 if [ ! -f .env ]; then
   SECRET_KEY=$(openssl rand -base64 48)
   POSTGRES_PASSWORD=$(openssl rand -base64 24)
@@ -31,59 +37,87 @@ ALLOWED_ORIGINS=*
 HOST_PORT=8920
 SEED_DEMO=true
 EOF
-  echo "Generated .env with demo configuration."
+  log "Generated .env with demo configuration."
 else
-  echo "Existing .env detected — keeping current secrets."
+  log "Existing .env detected — keeping current secrets."
 fi
 
-# Build and start all services.
-echo "Building and starting containers (this may take 5–10 minutes on first run)..."
-if ! docker compose -f docker-compose.db.yml up --build -d; then
-  echo "ERROR: docker compose up failed. Run 'docker compose -f docker-compose.db.yml logs' for details."
-  exit 1
+COMPOSE="docker compose -f docker-compose.db.yml"
+
+# Build images with one retry. The frontend build clones jgraph/drawio
+# (~50 MB) from GitHub and runs npm ci, both of which can fail on a
+# flaky Codespaces network. A single retry is usually enough.
+log "Building images (first run takes 5–10 minutes)..."
+if ! $COMPOSE build; then
+  warn "Initial build failed, retrying after 10s..."
+  sleep 10
+  if ! $COMPOSE build; then
+    fail "Build failed twice. Diagnostics:"
+    $COMPOSE ps || true
+    docker images || true
+    fail "Re-run manually:  docker compose -f docker-compose.db.yml build"
+    exit 0
+  fi
+fi
+log "Build complete."
+
+# Bring up the stack.
+log "Starting containers..."
+if ! $COMPOSE up -d; then
+  fail "docker compose up failed. Diagnostics:"
+  $COMPOSE ps || true
+  $COMPOSE logs --tail=100 || true
+  exit 0
 fi
 
-# Wait for the full chain (nginx :8920 → backend :8000 → db) to respond.
-# Hitting the forwarded port from the host validates exactly what the
-# user's browser hits, so a healthy result here means port 8920 will not
-# 502 when opened. Up to 8 minutes — first run with SEED_DEMO is slow on
-# 2-core Codespaces.
-echo "Waiting for Turbo EA to be ready on http://localhost:8920 ..."
+# Wait for the full chain (Codespaces forward → nginx :8920 → backend → db)
+# to respond. Hitting the forwarded port from the host validates exactly
+# what the user's browser hits, so a healthy result here means port 8920
+# will not 502 when opened. 8-minute budget for first-run SEED_DEMO=true
+# on 2-core Codespaces.
+log "Waiting for Turbo EA on http://localhost:8920 ..."
 ready=0
 for i in $(seq 1 240); do
   if curl -sf -o /dev/null -m 3 "http://localhost:8920/api/health"; then
     ready=1
+    log "Backend is responding via the frontend proxy after $((i * 2))s."
     break
   fi
   if [ $((i % 15)) -eq 0 ]; then
-    echo "  ... still waiting ($((i * 2))s elapsed)"
+    log "  ... still waiting ($((i * 2))s elapsed)"
   fi
   sleep 2
 done
 
 if [ "$ready" -ne 1 ]; then
-  echo ""
-  echo "WARNING: Turbo EA did not respond on port 8920 within 8 minutes."
-  echo "         Containers are still running and may finish starting shortly."
-  echo "         Check status with:"
-  echo "           docker compose -f docker-compose.db.yml ps"
-  echo "           docker compose -f docker-compose.db.yml logs --tail=200"
+  warn "Turbo EA did not respond on port 8920 within 8 minutes."
+  warn "Container status:"
+  $COMPOSE ps || true
+  warn "Recent backend logs:"
+  $COMPOSE logs --tail=80 backend 2>/dev/null || true
+  warn "Recent frontend logs:"
+  $COMPOSE logs --tail=40 frontend 2>/dev/null || true
+  warn "The stack may still finish starting in the background — refresh the"
+  warn "forwarded port in a minute or two. If it stays broken:"
+  warn "  $COMPOSE ps"
+  warn "  $COMPOSE logs --tail=200"
   exit 0
 fi
 
-echo ""
-echo "======================================"
-echo "  Turbo EA Demo is running!"
-echo "======================================"
-echo ""
-echo "  Open the forwarded port 8920 in your browser."
-echo ""
-echo "  Login credentials:"
-echo "    Email:    admin@turboea.demo"
-echo "    Password: TurboEA!2025"
-echo ""
-echo "  Useful commands:"
-echo "    docker compose -f docker-compose.db.yml logs -f    # View logs"
-echo "    docker compose -f docker-compose.db.yml down       # Stop demo"
-echo "    docker compose -f docker-compose.db.yml restart    # Restart"
-echo ""
+log ""
+log "======================================"
+log "  Turbo EA Demo is running!"
+log "======================================"
+log ""
+log "  Open the forwarded port 8920 in your browser."
+log ""
+log "  Login credentials:"
+log "    Email:    admin@turboea.demo"
+log "    Password: TurboEA!2025"
+log ""
+log "  Useful commands:"
+log "    $COMPOSE logs -f       # View logs"
+log "    $COMPOSE down          # Stop demo"
+log "    $COMPOSE restart       # Restart"
+log ""
+exit 0
