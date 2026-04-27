@@ -463,6 +463,121 @@ describe("CardDetail", () => {
     expect(screen.getByTestId("relations-section")).toBeInTheDocument();
   });
 
+  it("enters inline title edit mode when the edit pencil is clicked", async () => {
+    const user = userEvent.setup();
+    vi.mocked(api.get).mockImplementation((path: string) => {
+      if (path.includes("/my-permissions")) return Promise.resolve(mockPerms);
+      return Promise.resolve(mockCard);
+    });
+
+    renderCardDetail();
+
+    await waitFor(() => {
+      expect(screen.getByText("My Application")).toBeInTheDocument();
+    });
+
+    // The header row contains the title plus an edit pencil. There are several "Edit" buttons
+    // on the page (each section has one), so we scope to the one next to the title.
+    const heading = screen.getByText("My Application");
+    const editBtn = heading.parentElement!.querySelector(
+      "button[aria-label='Edit']",
+    ) as HTMLElement;
+    expect(editBtn).toBeTruthy();
+
+    await user.click(editBtn);
+
+    // TextField with the current value should now be visible
+    const input = screen.getByDisplayValue("My Application");
+    expect(input).toBeInTheDocument();
+    expect(input.tagName).toBe("INPUT");
+  });
+
+  it("saves the new title via api.patch and exits edit mode", async () => {
+    const user = userEvent.setup();
+    vi.mocked(api.get).mockImplementation((path: string) => {
+      if (path.includes("/my-permissions")) return Promise.resolve(mockPerms);
+      return Promise.resolve(mockCard);
+    });
+    vi.mocked(api.patch).mockResolvedValueOnce({ ...mockCard, name: "Renamed App" });
+
+    renderCardDetail();
+
+    await waitFor(() => {
+      expect(screen.getByText("My Application")).toBeInTheDocument();
+    });
+
+    const heading = screen.getByText("My Application");
+    const editBtn = heading.parentElement!.querySelector(
+      "button[aria-label='Edit']",
+    ) as HTMLElement;
+    await user.click(editBtn);
+
+    const input = screen.getByDisplayValue("My Application");
+    await user.clear(input);
+    await user.type(input, "Renamed App");
+
+    await user.click(screen.getByRole("button", { name: /^save$/i }));
+
+    await waitFor(() => {
+      expect(api.patch).toHaveBeenCalledWith("/cards/card-1", { name: "Renamed App" });
+    });
+    await waitFor(() => {
+      expect(screen.getByText("Renamed App")).toBeInTheDocument();
+    });
+    expect(screen.queryByDisplayValue("Renamed App")).not.toBeInTheDocument();
+  });
+
+  it("cancels inline title edit without calling api.patch", async () => {
+    const user = userEvent.setup();
+    vi.mocked(api.get).mockImplementation((path: string) => {
+      if (path.includes("/my-permissions")) return Promise.resolve(mockPerms);
+      return Promise.resolve(mockCard);
+    });
+
+    renderCardDetail();
+
+    await waitFor(() => {
+      expect(screen.getByText("My Application")).toBeInTheDocument();
+    });
+
+    const heading = screen.getByText("My Application");
+    const editBtn = heading.parentElement!.querySelector(
+      "button[aria-label='Edit']",
+    ) as HTMLElement;
+    await user.click(editBtn);
+
+    const input = screen.getByDisplayValue("My Application");
+    await user.clear(input);
+    await user.type(input, "Should not stick");
+
+    await user.click(screen.getByRole("button", { name: /^cancel$/i }));
+
+    expect(api.patch).not.toHaveBeenCalled();
+    // Original title is still shown
+    expect(screen.getByText("My Application")).toBeInTheDocument();
+    expect(screen.queryByDisplayValue("Should not stick")).not.toBeInTheDocument();
+  });
+
+  it("does not show the inline title edit pencil when the user lacks edit permission", async () => {
+    const restrictedPerms = {
+      effective: { ...mockPerms.effective, can_edit: false },
+    };
+    vi.mocked(api.get).mockImplementation((path: string) => {
+      if (path.includes("/my-permissions")) return Promise.resolve(restrictedPerms);
+      return Promise.resolve(mockCard);
+    });
+
+    renderCardDetail();
+
+    await waitFor(() => {
+      expect(screen.getByText("My Application")).toBeInTheDocument();
+    });
+
+    const heading = screen.getByText("My Application");
+    const editBtn = heading.parentElement!.querySelector("button[aria-label='Edit']");
+    expect(editBtn).toBeNull();
+  });
+
   it("switches to Comments tab", async () => {
     const user = userEvent.setup();
     vi.mocked(api.get).mockImplementation((path: string) => {

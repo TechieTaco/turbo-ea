@@ -34,16 +34,14 @@ function DescriptionSection({
   const { t } = useTranslation(["cards", "common"]);
   const rl = useResolveLabel();
   const [editing, setEditing] = useState(false);
-  const [name, setName] = useState(card.name);
   const [description, setDescription] = useState(card.description || "");
   const [attrs, setAttrs] = useState<Record<string, unknown>>(card.attributes || {});
   const [saveError, setSaveError] = useState<string | null>(null);
 
   useEffect(() => {
-    setName(card.name);
     setDescription(card.description || "");
     setAttrs(card.attributes || {});
-  }, [card.name, card.description, card.attributes]);
+  }, [card.description, card.attributes]);
 
   // URL validation for extra fields
   const urlErrors: Record<string, string> = {};
@@ -63,7 +61,7 @@ function DescriptionSection({
     if (hasValidationErrors) return;
     setSaveError(null);
     try {
-      const updates: Record<string, unknown> = { name, description };
+      const updates: Record<string, unknown> = { description };
       if (extraFields && extraFields.length > 0) {
         updates.attributes = { ...(card.attributes || {}), ...attrs };
       }
@@ -99,14 +97,6 @@ function DescriptionSection({
           <Box>
             <TextField
               fullWidth
-              label={t("common:labels.name")}
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              size="small"
-              sx={{ mb: 2 }}
-            />
-            <TextField
-              fullWidth
               label={t("common:labels.description")}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
@@ -129,7 +119,6 @@ function DescriptionSection({
               <Button
                 size="small"
                 onClick={() => {
-                  setName(card.name);
                   setDescription(card.description || "");
                   setAttrs(card.attributes || {});
                   setEditing(false);
