@@ -9,6 +9,7 @@
 
 import dagre from "@dagrejs/dagre";
 import type { Node, Edge } from "@xyflow/react";
+import { LAYER_COLORS } from "@/theme/tokens";
 import type { CardType } from "@/types";
 
 /* ------------------------------------------------------------------ */
@@ -88,12 +89,7 @@ const CATEGORY_ORDER = [
   "Technical Architecture",
 ];
 
-const CATEGORY_COLORS: Record<string, string> = {
-  "Strategy & Transformation": "#33cc58",
-  "Business Architecture": "#2889ff",
-  "Application & Data": "#0f7eb5",
-  "Technical Architecture": "#d29270",
-};
+const CATEGORY_COLORS: Record<string, string> = LAYER_COLORS;
 
 /** Padding inside each group boundary */
 const PAD = 30;

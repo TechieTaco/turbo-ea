@@ -34,16 +34,10 @@ import { useResolveLabel, useResolveMetaLabel } from "@/hooks/useResolveLabel";
 import { useAuth } from "@/hooks/useAuth";
 import { useThemeMode } from "@/hooks/useThemeMode";
 import { api } from "@/api/client";
+import { APPROVAL_STATUS_COLORS } from "@/theme/tokens";
 import type { Card, CardListResponse, FieldDef, Relation, RelationType, TagGroup, TagRef } from "@/types";
 import "ag-grid-community/styles/ag-grid.css";
 import "ag-grid-community/styles/ag-theme-quartz.css";
-
-const APPROVAL_STATUS_COLORS: Record<string, string> = {
-  DRAFT: "#9e9e9e",
-  APPROVED: "#4caf50",
-  BROKEN: "#ff9800",
-  REJECTED: "#f44336",
-};
 
 const DEFAULT_SIDEBAR_WIDTH = 300;
 
@@ -857,7 +851,8 @@ export default function InventoryPage() {
         headerName: t("columns.approvalStatus"),
         width: 110,
         cellRenderer: (p: { value: string }) => {
-          const color = APPROVAL_STATUS_COLORS[p.value];
+          const color =
+            APPROVAL_STATUS_COLORS[p.value as keyof typeof APPROVAL_STATUS_COLORS];
           if (!color) return "";
           const labels: Record<string, string> = {
             DRAFT: t("common:status.draft"),

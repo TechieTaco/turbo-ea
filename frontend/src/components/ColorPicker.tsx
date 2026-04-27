@@ -167,7 +167,7 @@ export default function ColorPicker({
               >
                 {t("colorPicker.recent")}
               </Typography>
-              <Box sx={{ display: "flex", gap: "4px", flexWrap: "wrap" }}>
+              <Box sx={{ display: "flex", gap: 0.5, flexWrap: "wrap" }}>
                 {recent.map((c) => (
                   <Tooltip key={c} title={c} placement="top" arrow>
                     <Box

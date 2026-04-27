@@ -20,6 +20,7 @@ import Button from "@mui/material/Button";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import { useMetamodel } from "@/hooks/useMetamodel";
+import { VENDOR_ACCENT } from "@/theme/tokens";
 import type { Relation } from "@/types";
 
 interface ProviderOption {
@@ -271,7 +272,7 @@ export default function VendorField({
                   </Box>
                 ) : (
                   <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                    <MaterialSymbol icon="storefront" size={18} color="#ffa31f" />
+                    <MaterialSymbol icon="storefront" size={18} color={VENDOR_ACCENT.fill} />
                     <Typography variant="body2">{option.name}</Typography>
                   </Box>
                 )}
@@ -304,9 +305,9 @@ export default function VendorField({
             variant="outlined"
             sx={{
               alignSelf: "flex-start",
-              borderColor: "#ffa31f",
-              color: "#e68a00",
-              "& .MuiChip-icon": { color: "#ffa31f" },
+              borderColor: VENDOR_ACCENT.fill,
+              color: VENDOR_ACCENT.border,
+              "& .MuiChip-icon": { color: VENDOR_ACCENT.fill },
               fontSize: "0.75rem",
             }}
           />

@@ -8,14 +8,8 @@ import { useTranslation } from "react-i18next";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import { PRIORITY_COLORS } from "@/theme/tokens";
 import type { PpmTask } from "@/types";
-
-const PRIORITY_COLORS: Record<string, string> = {
-  critical: "#d32f2f",
-  high: "#f57c00",
-  medium: "#fbc02d",
-  low: "#66bb6a",
-};
 
 function initials(name: string): string {
   return name
@@ -67,7 +61,9 @@ export default function PpmTaskCard({ task, wbsName, onClick, onMarkDone, isDrag
         p: 1.5,
         mb: 1,
         cursor: "grab",
-        borderLeft: `3px solid ${PRIORITY_COLORS[task.priority] || "#bdbdbd"}`,
+        borderLeft: `3px solid ${
+          PRIORITY_COLORS[task.priority as keyof typeof PRIORITY_COLORS] || "#bdbdbd"
+        }`,
         "&:hover": { elevation: 3, bgcolor: "action.hover" },
         userSelect: "none",
         opacity: isDone ? 0.7 : 1,

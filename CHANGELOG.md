@@ -5,7 +5,15 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
-## [0.49.5] - 2026-04-27
+## [0.49.6] - 2026-04-27
+
+### Added
+- **UI guidelines and design tokens**. A new `frontend/src/theme/tokens.ts` module is now the single source of truth for color, spacing, radius, icon-size, and typography values used across the frontend — with semantic names (`STATUS_COLORS.success`, `SEVERITY_COLORS.high`, `APPROVAL_STATUS_COLORS.APPROVED`, `LAYER_COLORS["Application & Data"]`, `CARD_TYPE_COLORS.Application`, `VENDOR_ACCENT.fill`, `TIMELINE_COLORS.past`, etc.) instead of raw hex codes. The MUI theme now wires `success`/`warning`/`error`/`info` palette entries to these tokens so existing `<Chip color="…">` and `<Alert severity="…">` consumers automatically resolve to the canonical values, and a new `frontend/UI_GUIDELINES.md` document codifies layout patterns, button/dialog/form/table conventions, status representation, accessibility, and a full color-token reference table — written from what the app already does, so nothing changes visually.
+
+### Changed
+- Refactored duplicated color maps to import from the new tokens module: `APPROVAL_STATUS_COLORS` (Inventory + Dashboard), `DATA_QUALITY_COLORS` and lifecycle phase colors (Dashboard), `MATURITY_COLORS` + `RISK_COLORS` + chart palette (BPM Dashboard), `PRIORITY_COLORS` (PPM task card), `LAYER_COLORS` (C4 layout), `VENDOR_ACCENT` (VendorField), `TIMELINE_COLORS` (TimelineSlider), and the AI suggestion confidence colors (AiSuggestPanel). The hardcoded `gap: "4px"` in ColorPicker now uses the MUI scale (`gap: 0.5`). `SearchDialog` keeps its custom `DialogContent` `p: 0` padding but is now annotated as the documented exception.
+
+
 
 ### Changed
 - Card title is now editable directly at title level on the card detail page. Hovering the title reveals an edit pencil; clicking it swaps the heading for an inline text field with Save / Cancel buttons (Enter saves, Escape cancels). The redundant Name field has been removed from the Description panel's edit form, which now only edits description and extra fields. Permission gating (`card.edit`) and archived-card protection match the rest of the page.

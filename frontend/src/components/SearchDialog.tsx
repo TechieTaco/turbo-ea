@@ -129,6 +129,8 @@ export default function SearchDialog({ open, onClose }: Props) {
       }}
       slotProps={{ backdrop: { sx: { backdropFilter: "blur(4px)" } } }}
     >
+      {/* p: 0 is intentional — a quick-search command palette uses its own
+          internal section padding instead of the standard DialogContent gutter. */}
       <DialogContent sx={{ p: 0 }}>
         {/* Search input */}
         <Box sx={{ px: 2.5, py: 2 }}>
