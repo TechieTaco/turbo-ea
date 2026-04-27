@@ -28,7 +28,7 @@ import type {
 } from "./types";
 
 export default function CapabilityCataloguePage() {
-  const { t } = useTranslation(["cards", "common"]);
+  const { t, i18n } = useTranslation(["cards", "common"]);
   const { user } = useAuth();
   const navigate = useNavigate();
 
@@ -58,18 +58,28 @@ export default function CapabilityCataloguePage() {
   const [snackbar, setSnackbar] = useState<string | null>(null);
 
   // Initial load -----------------------------------------------------------
+  // Pass the active i18n language as `?locale=` so live UI language switches
+  // immediately re-fetch the catalogue with the matching translations.
+  // `resolvedLanguage` is the negotiated 2-letter code (e.g. "fr") which
+  // matches what the catalogue wheel ships; falling back to `language` and
+  // then "en" handles the rare case where i18next hasn't resolved yet. The
+  // backend further normalizes BCP-47 regional tags ("fr-FR" → "fr") and
+  // silently downgrades unknown locales, so any value here is safe.
+  const activeLocale = i18n.resolvedLanguage || i18n.language || "en";
   const reload = useCallback(async () => {
     setLoading(true);
     setLoadError(null);
     try {
-      const data = await api.get<CataloguePayload>("/capability-catalogue");
+      const data = await api.get<CataloguePayload>(
+        `/capability-catalogue?locale=${encodeURIComponent(activeLocale)}`,
+      );
       setPayload(data);
     } catch (e: any) {
       setLoadError(e?.detail || e?.message || "Failed to load catalogue");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [activeLocale]);
 
   useEffect(() => {
     reload();

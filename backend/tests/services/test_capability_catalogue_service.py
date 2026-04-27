@@ -99,10 +99,34 @@ _FAKE_CATALOGUE: list[dict[str, Any]] = [
 ]
 
 
+# A handful of French overrides — enough to verify the localize-then-serialise
+# pipeline. The fake mirrors the real package's `Capability.localized()`
+# semantics: `lang="en"` or any unbundled locale returns self unchanged, and
+# missing per-field translations fall back to English silently.
+_FAKE_FR: dict[str, dict[str, Any]] = {
+    "BC-1": {"name": "Gestion de la clientèle", "description": "Capacité client de premier niveau"},
+    "BC-1.1": {"name": "Acquisition de clients"},
+    # BC-1.1.1 intentionally has no FR override — it must fall back to English.
+    "BC-2": {"name": "Finance", "description": "Capacité financière de premier niveau"},
+}
+_FAKE_AVAILABLE_LOCALES: tuple[str, ...] = ("en", "fr")
+
+
 class _FakeCap:
     def __init__(self, **kw: Any) -> None:
         for k, v in kw.items():
             setattr(self, k, v)
+
+    def localized(self, lang: str, *, fallback: str = "en") -> "_FakeCap":
+        if lang == "en" or lang not in _FAKE_AVAILABLE_LOCALES:
+            return self
+        overrides = _FAKE_FR.get(self.id, {}) if lang == "fr" else {}
+        if not overrides:
+            return self
+        clone = _FakeCap(**self.__dict__)
+        for k, v in overrides.items():
+            setattr(clone, k, v)
+        return clone
 
 
 def _install_fake_pkg(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -119,6 +143,7 @@ def _install_fake_pkg(monkeypatch: pytest.MonkeyPatch) -> None:
     fake.GENERATED_AT = "2026-04-25T12:00:00Z"
     fake.NODE_COUNT = len(_FAKE_CATALOGUE)
     fake.Capability = _FakeCap
+    fake.available_locales = lambda: _FAKE_AVAILABLE_LOCALES
     fake.load_all = lambda: [_FakeCap(**c) for c in _FAKE_CATALOGUE]
     fake.load_tree = lambda: [_FakeCap(**c) for c in _FAKE_CATALOGUE if c["parent_id"] is None]
     from app.services import capability_catalogue_service as svc
@@ -402,3 +427,122 @@ async def test_version_tuple_handles_double_digit(monkeypatch):
     assert _version_tuple("1.10.0") > _version_tuple("1.9.0")
     assert _version_tuple("2.0.0") > _version_tuple("1.99.99")
     assert _version_tuple("0") == (0,)
+
+
+# ---------------------------------------------------------------------------
+# Localization
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_get_catalogue_payload_default_locale_is_english(db, monkeypatch):
+    _install_fake_pkg(monkeypatch)
+    from app.services import capability_catalogue_service as svc
+
+    payload = await svc.get_catalogue_payload(db)
+    by_id = {c["id"]: c for c in payload["capabilities"]}
+    assert by_id["BC-1"]["name"] == "Customer Management"
+    assert payload["version"]["active_locale"] == "en"
+    assert payload["version"]["available_locales"] == ["en", "fr"]
+
+
+@pytest.mark.asyncio
+async def test_get_catalogue_payload_localizes_to_french_with_fallback(db, monkeypatch):
+    _install_fake_pkg(monkeypatch)
+    from app.services import capability_catalogue_service as svc
+
+    payload = await svc.get_catalogue_payload(db, locale="fr")
+    by_id = {c["id"]: c for c in payload["capabilities"]}
+
+    # Translated nodes use the French override.
+    assert by_id["BC-1"]["name"] == "Gestion de la clientèle"
+    assert by_id["BC-1"]["description"] == "Capacité client de premier niveau"
+    assert by_id["BC-1.1"]["name"] == "Acquisition de clients"
+    # BC-1.1 has no FR description override → silently falls back to English.
+    assert by_id["BC-1.1"]["description"] == "Acquire new customers"
+    # BC-1.1.1 has no FR overrides at all → both fields fall back to English.
+    assert by_id["BC-1.1.1"]["name"] == "Lead Capture"
+    assert by_id["BC-1.1.1"]["description"] == "Capture leads"
+
+    assert payload["version"]["active_locale"] == "fr"
+    assert payload["version"]["available_locales"] == ["en", "fr"]
+
+
+@pytest.mark.asyncio
+async def test_get_catalogue_payload_unknown_locale_falls_back_to_english(db, monkeypatch):
+    _install_fake_pkg(monkeypatch)
+    from app.services import capability_catalogue_service as svc
+
+    payload = await svc.get_catalogue_payload(db, locale="zh")
+    by_id = {c["id"]: c for c in payload["capabilities"]}
+    # `zh` isn't bundled in the fake; service must downgrade to English.
+    assert by_id["BC-1"]["name"] == "Customer Management"
+    assert payload["version"]["active_locale"] == "en"
+
+
+@pytest.mark.asyncio
+async def test_get_catalogue_payload_strips_regional_subtag(db, monkeypatch):
+    """Browser-detected `navigator.language` values like "fr-FR" or "fr-CA"
+    must be normalized to the primary subtag so users on a fresh session
+    (where `i18next-browser-languagedetector` hasn't been overridden by an
+    explicit menu pick yet) still get the FR translations the wheel ships.
+    """
+    _install_fake_pkg(monkeypatch)
+    from app.services import capability_catalogue_service as svc
+
+    payload = await svc.get_catalogue_payload(db, locale="fr-FR")
+    by_id = {c["id"]: c for c in payload["capabilities"]}
+    assert by_id["BC-1"]["name"] == "Gestion de la clientèle"
+    assert payload["version"]["active_locale"] == "fr"
+
+    # And mixed-case region tags work too (the menu picker always sends a
+    # bare 2-letter code, but defensive coverage protects against any odd
+    # future caller).
+    payload2 = await svc.get_catalogue_payload(db, locale="FR-fr")
+    assert {c["id"]: c for c in payload2["capabilities"]}["BC-1"][
+        "name"
+    ] == "Gestion de la clientèle"
+
+
+@pytest.mark.asyncio
+async def test_existing_card_match_uses_english_name_under_localized_fetch(db, monkeypatch):
+    """An existing card whose name matches the canonical English entry must
+    keep its green tick when the catalogue is fetched in French — matching is
+    done against the English source-of-truth name, not the localized label.
+    """
+    _install_fake_pkg(monkeypatch)
+    from app.services import capability_catalogue_service as svc
+
+    user = await create_user(db, email="u@x.com")
+    existing = await create_card(
+        db, card_type="BusinessCapability", name="Customer Acquisition", user_id=user.id
+    )
+
+    payload = await svc.get_catalogue_payload(db, locale="fr")
+    by_id = {c["id"]: c for c in payload["capabilities"]}
+    assert by_id["BC-1.1"]["existing_card_id"] == str(existing.id)
+    # And the displayed name is still the localized one.
+    assert by_id["BC-1.1"]["name"] == "Acquisition de clients"
+
+
+@pytest.mark.asyncio
+async def test_import_uses_canonical_english_names_regardless_of_user_locale(db, monkeypatch):
+    """Imports go through `_resolve_active_catalogue` with no locale arg, so
+    catalogue cards always land in the database with their canonical English
+    names. This keeps the catalogueId/name source-of-truth stable across UI
+    language switches."""
+    _install_fake_pkg(monkeypatch)
+    from app.services import capability_catalogue_service as svc
+
+    user = await create_user(db, email="u@x.com")
+    result = await svc.import_capabilities(db, user=user, catalogue_ids=["BC-1"])
+    assert len(result["created"]) == 1
+
+    rows = (
+        (await db.execute(select(Card).where(Card.attributes["catalogueId"].astext == "BC-1")))
+        .scalars()
+        .all()
+    )
+    assert len(rows) == 1
+    # English canonical name, not the FR translation.
+    assert rows[0].name == "Customer Management"

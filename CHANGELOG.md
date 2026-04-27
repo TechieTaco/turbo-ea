@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.49.3] - 2026-04-27
+
+### Added
+- Capability Catalogue browser now follows the active UI language. When the user picks any of the 8 supported UI locales (en/de/fr/es/it/pt/zh/ru), the catalogue renders capability names, descriptions, aliases, and scope notes in that language if the bundled `turbo-ea-capabilities>=2026.4.27` package ships translations for it — falling back silently to English per-field when a translation is missing. The integration is fully locale-agnostic: it feature-detects via `available_locales()` at request time, so any future upstream translation drop (DE/ES/IT/PT/ZH/RU) lights up automatically with just a package version bump — no Turbo EA code change. Today the wheel ships English + French, so the other 6 UI locales render English and the response advertises that explicitly via `active_locale: "en"` in the version metadata. BCP-47 regional tags (`fr-FR`, `pt-BR`, etc.) from `navigator.language` are normalized to their primary subtag so first-time visitors who haven't picked a locale from the menu yet still see the correct translations. Existing-card matching, the import path, and the catalogueId hierarchy all stay on canonical English so a user switching languages mid-session never sees a green tick disappear or imports cards under non-English names. The remote-cached catalogue (`https://capabilities.turbo-ea.org`) is unaffected — it serves English only and is reported as `active_locale: "en"`.
+
 ## [0.49.2] - 2026-04-26
 
 ### Changed
