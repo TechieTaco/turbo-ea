@@ -30,11 +30,20 @@ class ImportRequest(BaseModel):
 
 @router.get("")
 async def get_catalogue(
+    locale: str | None = None,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_permission("inventory.view")),
 ):
-    """Return the full active catalogue with `existing_card_id` annotations."""
-    return await svc.get_catalogue_payload(db)
+    """Return the full active catalogue with `existing_card_id` annotations.
+
+    The optional `locale` query param overrides the user's saved locale —
+    used by the frontend to follow live UI language switches without waiting
+    for the `user.locale` PATCH to land. Falls back to `user.locale`, then
+    English. Translations themselves come from the bundled package; missing
+    per-field translations degrade silently to English.
+    """
+    effective_locale = (locale or user.locale or "en").strip() or "en"
+    return await svc.get_catalogue_payload(db, locale=effective_locale)
 
 
 @router.post("/import")

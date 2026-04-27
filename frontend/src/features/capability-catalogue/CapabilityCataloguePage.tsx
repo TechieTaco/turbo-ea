@@ -28,7 +28,7 @@ import type {
 } from "./types";
 
 export default function CapabilityCataloguePage() {
-  const { t } = useTranslation(["cards", "common"]);
+  const { t, i18n } = useTranslation(["cards", "common"]);
   const { user } = useAuth();
   const navigate = useNavigate();
 
@@ -58,18 +58,27 @@ export default function CapabilityCataloguePage() {
   const [snackbar, setSnackbar] = useState<string | null>(null);
 
   // Initial load -----------------------------------------------------------
+  // Pass the active i18n language as `?locale=` so live UI language switches
+  // immediately re-fetch the catalogue with the matching translations. The
+  // backend falls back to `user.locale` (and then English) when the param is
+  // absent, and silently downgrades unknown locales to English — so this
+  // never breaks even if `i18n.language` carries a tag the catalogue
+  // package doesn't ship translations for.
+  const activeLocale = i18n.language || "en";
   const reload = useCallback(async () => {
     setLoading(true);
     setLoadError(null);
     try {
-      const data = await api.get<CataloguePayload>("/capability-catalogue");
+      const data = await api.get<CataloguePayload>(
+        `/capability-catalogue?locale=${encodeURIComponent(activeLocale)}`,
+      );
       setPayload(data);
     } catch (e: any) {
       setLoadError(e?.detail || e?.message || "Failed to load catalogue");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [activeLocale]);
 
   useEffect(() => {
     reload();

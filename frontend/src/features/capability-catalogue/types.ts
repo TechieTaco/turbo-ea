@@ -27,6 +27,11 @@ export interface CatalogueVersion {
   source: "bundled" | "remote";
   bundled_version: string;
   fetched_at?: string | null;
+  /** Locales bundled in the active catalogue. Always at least `["en"]`. */
+  available_locales: string[];
+  /** Locale actually applied to this payload — falls back to `"en"` when the
+   *  requested locale isn't available, or when the active source is remote. */
+  active_locale: string;
 }
 
 export interface CataloguePayload {

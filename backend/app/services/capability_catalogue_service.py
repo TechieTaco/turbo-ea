@@ -63,13 +63,33 @@ def _capability_to_dict(c: catalogue_pkg.Capability) -> dict[str, Any]:
     }
 
 
-def _bundled_payload() -> tuple[list[dict[str, Any]], dict[str, Any]]:
-    flat = [_capability_to_dict(c) for c in catalogue_pkg.load_all()]
+def _bundled_available_locales() -> tuple[str, ...]:
+    """All locales bundled in the catalogue wheel (including 'en')."""
+    return tuple(catalogue_pkg.available_locales())
+
+
+def _bundled_payload(*, locale: str = "en") -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    """Bundled flat list, optionally localized.
+
+    `Capability.localized(lang, fallback="en")` is a no-op for `lang="en"`
+    or any locale not bundled with the wheel, and falls back per-field to
+    English silently for missing translations. Children are flat in the
+    `load_all()` view, so the recursive child localization on the package
+    side is irrelevant here.
+    """
+    available = _bundled_available_locales()
+    effective = locale if locale in available else "en"
+    caps = catalogue_pkg.load_all()
+    if effective != "en":
+        caps = [c.localized(effective, fallback="en") for c in caps]
+    flat = [_capability_to_dict(c) for c in caps]
     meta = {
         "catalogue_version": catalogue_pkg.VERSION,
         "schema_version": str(catalogue_pkg.SCHEMA_VERSION),
         "generated_at": catalogue_pkg.GENERATED_AT,
         "node_count": catalogue_pkg.NODE_COUNT,
+        "available_locales": list(available),
+        "active_locale": effective,
     }
     return flat, meta
 
@@ -109,12 +129,18 @@ def _version_tuple(v: str) -> tuple[int, ...]:
 
 async def _resolve_active_catalogue(
     db: AsyncSession,
+    *,
+    locale: str = "en",
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     """Return (capabilities_flat, version_meta) honouring remote override.
 
     Cached remote wins only if its version is strictly greater than bundled.
+    Localization is applied only on the bundled path — the remote site
+    (`https://capabilities.turbo-ea.org/api/capabilities.json`) currently
+    serves canonical English and has no per-locale endpoint, so cached-remote
+    payloads always advertise `active_locale="en"` regardless of the request.
     """
-    bundled_flat, bundled_meta = _bundled_payload()
+    bundled_flat, bundled_meta = _bundled_payload(locale=locale)
     cached = await _get_cached_remote(db)
     if cached and _version_tuple(cached.get("catalogue_version", "0")) > _version_tuple(
         bundled_meta["catalogue_version"]
@@ -127,6 +153,8 @@ async def _resolve_active_catalogue(
             "source": "remote",
             "fetched_at": cached.get("fetched_at"),
             "bundled_version": bundled_meta["catalogue_version"],
+            "available_locales": ["en"],
+            "active_locale": "en",
         }
     return bundled_flat, {
         **bundled_meta,
@@ -183,22 +211,40 @@ async def _existing_bc_catalogue_id_index(db: AsyncSession) -> dict[str, str]:
     return out
 
 
-async def get_catalogue_payload(db: AsyncSession) -> dict[str, Any]:
+async def get_catalogue_payload(
+    db: AsyncSession,
+    *,
+    locale: str = "en",
+) -> dict[str, Any]:
     """Build the response for `GET /capability-catalogue`.
 
     Each capability is annotated with `existing_card_id` (str | null) — the
     id of an already-created BusinessCapability card. Matching prefers
     `attributes.catalogueId` (so the green-tick survives display-name
     edits) and falls back to a case-insensitive, whitespace-collapsed name
-    match. The frontend uses this to render a green tick instead of a
-    checkbox.
+    match against the canonical English name. The frontend uses this to
+    render a green tick instead of a checkbox.
+
+    Localization is a presentation concern: `name`, `description`,
+    `aliases`, `in_scope`, and `out_of_scope` are returned in the requested
+    `locale` if the bundled wheel ships translations for it, with silent
+    per-field fallback to English. Existing-card matching always runs
+    against the canonical English name so a localized rerun produces the
+    same green ticks as the English fetch.
     """
-    flat, meta = await _resolve_active_catalogue(db)
+    flat, meta = await _resolve_active_catalogue(db, locale=locale)
     name_index = await _existing_bc_name_index(db)
     cat_id_index = await _existing_bc_catalogue_id_index(db)
+    # English flat (for stable name-based existing-card matching). We only
+    # rebuild it when localization actually changed the data.
+    if meta.get("active_locale", "en") != "en" and meta.get("source") == "bundled":
+        english_names = {c["id"]: c["name"] for c in _bundled_payload(locale="en")[0]}
+    else:
+        english_names = None
     annotated: list[dict[str, Any]] = []
     for cap in flat:
-        existing = cat_id_index.get(cap["id"]) or name_index.get(_normalize_name(cap["name"]))
+        match_name = english_names[cap["id"]] if english_names else cap["name"]
+        existing = cat_id_index.get(cap["id"]) or name_index.get(_normalize_name(match_name))
         annotated.append({**cap, "existing_card_id": existing})
     return {"version": meta, "capabilities": annotated}
 
