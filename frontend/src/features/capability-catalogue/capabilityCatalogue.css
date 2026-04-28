@@ -462,3 +462,194 @@
 .tcc-root.tcc-root--dark .tcc-stepper-label {
   border-color: rgba(255, 255, 255, 0.18);
 }
+
+/* -- Industry filter (matches capabilities.turbo-ea.org) -------------------
+   A bespoke dropdown rather than a vanilla MUI Select: the trigger is a
+   single rounded-rectangle button with the field name baked in (bold
+   navy "INDUSTRY" + value + chevron), and the popover surfaces a
+   pinned "Cross-Industry" row at the top, separated from the rest of
+   the alphabetical list by a hairline. Picks up the same #003399 navy
+   chrome / #D63384 magenta accent the rest of the catalogue uses. */
+
+.tcc-industry-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  height: 40px;
+  padding: 0 10px 0 16px;
+  border: 1.5px solid #003399;
+  border-radius: 8px;
+  background: var(--mui-palette-background-paper, #fff);
+  color: #003399;
+  font-family: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background-color 120ms ease, box-shadow 120ms ease;
+}
+
+.tcc-industry-trigger:hover {
+  background: rgba(0, 51, 153, 0.04);
+}
+
+.tcc-industry-trigger:focus-visible {
+  outline: 2px solid rgba(0, 51, 153, 0.35);
+  outline-offset: 2px;
+}
+
+.tcc-industry-trigger-label {
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-size: 12px;
+  color: inherit;
+}
+
+.tcc-industry-trigger-value {
+  font-weight: 500;
+  color: #0f172a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 220px;
+}
+
+.tcc-industry-trigger-chevron {
+  display: inline-flex;
+  align-items: center;
+  color: #0f172a;
+  transition: transform 150ms ease;
+}
+
+.tcc-industry-trigger.is-open .tcc-industry-trigger-chevron {
+  transform: rotate(180deg);
+}
+
+/* Popover surface */
+.tcc-industry-menu .tcc-industry-menu-paper {
+  border-radius: 10px;
+  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.12), 0 1px 3px rgba(15, 23, 42, 0.06);
+  border: 1px solid var(--mui-palette-divider, rgba(0, 0, 0, 0.08));
+  min-width: 280px;
+  max-width: 360px;
+  margin-top: 6px;
+  overflow: hidden;
+}
+
+/* "Clear (N)" row */
+.tcc-industry-menu .tcc-industry-clear.MuiMenuItem-root {
+  font-weight: 600;
+  font-size: 13px;
+  color: #D63384;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--mui-palette-divider, rgba(0, 0, 0, 0.08));
+}
+
+.tcc-industry-menu .tcc-industry-clear.MuiMenuItem-root:hover {
+  background: rgba(214, 51, 132, 0.06);
+}
+
+/* Industry rows */
+.tcc-industry-menu .tcc-industry-row.MuiMenuItem-root {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px 6px 8px;
+  font-size: 14px;
+  color: #0f172a;
+}
+
+.tcc-industry-menu .tcc-industry-row.MuiMenuItem-root:hover {
+  background: rgba(0, 51, 153, 0.05);
+}
+
+.tcc-industry-menu .tcc-industry-row.is-selected.MuiMenuItem-root {
+  background: rgba(0, 51, 153, 0.08);
+}
+
+.tcc-industry-menu .tcc-industry-row.is-selected.MuiMenuItem-root:hover {
+  background: rgba(0, 51, 153, 0.12);
+}
+
+.tcc-industry-menu .tcc-industry-row .tcc-industry-checkbox {
+  padding: 4px;
+  color: rgba(0, 51, 153, 0.45);
+}
+
+.tcc-industry-menu .tcc-industry-row .tcc-industry-checkbox.Mui-checked {
+  color: #003399;
+}
+
+.tcc-industry-menu .tcc-industry-row-label {
+  flex: 1;
+  line-height: 1.3;
+}
+
+/* Hairline separator below the pinned Cross-Industry block */
+.tcc-industry-menu .tcc-industry-separator {
+  list-style: none;
+  height: 1px;
+  margin: 4px 12px;
+  background: var(--mui-palette-divider, rgba(0, 0, 0, 0.10));
+}
+
+/* Dark mode — the trigger lives inside .tcc-root (so .tcc-root--dark works
+   as the ancestor), but the Menu portals to <body>, which is why the
+   IndustryFilter component tags the menu itself with .tcc-industry-menu--dark. */
+
+.tcc-root--dark .tcc-industry-trigger {
+  background: #1e1e1e;
+  border-color: #a8c4ff;
+  color: #a8c4ff;
+}
+
+.tcc-root--dark .tcc-industry-trigger:hover {
+  background: rgba(168, 196, 255, 0.08);
+}
+
+.tcc-root--dark .tcc-industry-trigger-value,
+.tcc-root--dark .tcc-industry-trigger-chevron {
+  color: #e5e7eb;
+}
+
+.tcc-industry-menu--dark .tcc-industry-menu-paper {
+  background: #1e1e1e;
+  border-color: rgba(255, 255, 255, 0.12);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.5), 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+
+.tcc-industry-menu--dark .tcc-industry-row.MuiMenuItem-root {
+  color: #cdd9ee;
+}
+
+.tcc-industry-menu--dark .tcc-industry-row.MuiMenuItem-root:hover {
+  background: rgba(168, 196, 255, 0.08);
+}
+
+.tcc-industry-menu--dark .tcc-industry-row.is-selected.MuiMenuItem-root {
+  background: rgba(168, 196, 255, 0.14);
+}
+
+.tcc-industry-menu--dark .tcc-industry-row.is-selected.MuiMenuItem-root:hover {
+  background: rgba(168, 196, 255, 0.20);
+}
+
+.tcc-industry-menu--dark .tcc-industry-row .tcc-industry-checkbox {
+  color: rgba(168, 196, 255, 0.45);
+}
+
+.tcc-industry-menu--dark .tcc-industry-row .tcc-industry-checkbox.Mui-checked {
+  color: #a8c4ff;
+}
+
+.tcc-industry-menu--dark .tcc-industry-clear.MuiMenuItem-root {
+  color: #f472b6;
+  border-bottom-color: rgba(255, 255, 255, 0.10);
+}
+
+.tcc-industry-menu--dark .tcc-industry-clear.MuiMenuItem-root:hover {
+  background: rgba(244, 114, 182, 0.10);
+}
+
+.tcc-industry-menu--dark .tcc-industry-separator {
+  background: rgba(255, 255, 255, 0.12);
+}
