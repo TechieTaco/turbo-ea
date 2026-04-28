@@ -311,7 +311,7 @@ turbo-ea/
 │   │   ├── api/
 │   │   │   ├── deps.py                # Auth dependencies (get_current_user, require_permission)
 │   │   │   └── v1/
-│   │   │       ├── router.py          # Mounts all 34 API routers
+│   │   │       ├── router.py          # Mounts all 39 API routers
 │   │   │       ├── auth.py            # /auth (login, register, me, SSO, set-password)
 │   │   │       ├── cards.py           # /cards CRUD + hierarchy + approval status + CSV export
 │   │   │       ├── metamodel.py       # /metamodel (types + relation types + field/section usage)
@@ -345,13 +345,16 @@ turbo-ea/
 │   │   │       ├── notifications.py   # /notifications (user notifications)
 │   │   │       ├── servicenow.py      # /servicenow (CMDB sync integration)
 │   │   │       ├── adr.py             # /adr (Architecture Decision Records)
-│   │   │       └── file_attachments.py # /cards/{id}/attachments (file uploads)
+│   │   │       ├── file_attachments.py # /cards/{id}/attachments (file uploads)
+│   │   │       ├── risks.py           # /risks + /cards/{id}/risks (TOGAF Risk Register)
+│   │   │       ├── favorites.py       # /favorites (per-user favorited cards)
+│   │   │       └── capability_catalogue.py # /capability-catalogue (industry catalogue)
 │   │   ├── core/
 │   │   │   ├── security.py            # JWT creation/validation (PyJWT HS256), bcrypt
 │   │   │   ├── permissions.py         # Permission key registry (single source of truth)
 │   │   │   ├── encryption.py          # Fernet symmetric encryption for DB secrets
 │   │   │   └── rate_limit.py          # slowapi rate limiter instance
-│   │   ├── models/                    # SQLAlchemy ORM models (30 files, see Database section)
+│   │   ├── models/                    # SQLAlchemy ORM models (44 files, see Database section)
 │   │   ├── schemas/                   # Pydantic request/response models
 │   │   │   ├── auth.py                # Auth schemas
 │   │   │   ├── card.py                # Card schemas
@@ -377,7 +380,7 @@ turbo-ea/
 │   │   ├── config.py                  # Settings from env vars + APP_VERSION
 │   │   ├── database.py                # Async engine + session factory
 │   │   └── main.py                    # FastAPI app, lifespan (migrations + seed + purge loop + AI auto-config)
-│   ├── alembic/                       # Database migrations (64 versions)
+│   ├── alembic/                       # Database migrations (65 versions)
 │   ├── tests/
 │   ├── pyproject.toml
 │   └── Dockerfile                     # Python 3.12-alpine + uvicorn (root context)
@@ -505,6 +508,11 @@ turbo-ea/
 │   │   │   │   ├── SurveyRespond.tsx        # Survey response form
 │   │   │   │   └── MySurveys.tsx            # User's pending surveys
 │   │   │   ├── web-portals/PortalViewer.tsx # Public portal (no auth)
+│   │   │   ├── capability-catalogue/        # Industry capability catalogue browser
+│   │   │   │   ├── CapabilityCataloguePage.tsx
+│   │   │   │   ├── CapabilityCatalogueBrowser.tsx
+│   │   │   │   └── IndustryFilter.tsx
+│   │   │   ├── turbolens/                   # AI-powered EA intelligence (see TurboLens section)
 │   │   │   └── admin/
 │   │   │       ├── MetamodelAdmin.tsx       # Type list + relation graph orchestrator
 │   │   │       ├── metamodel/               # Modular metamodel admin components
@@ -527,6 +535,9 @@ turbo-ea/
 │   │   │       ├── SurveyResults.tsx
 │   │   │       ├── WebPortalsAdmin.tsx
 │   │   │       ├── ServiceNowAdmin.tsx
+│   │   │       ├── AuthAdmin.tsx          # SSO / Authentication settings
+│   │   │       ├── PrinciplesAdmin.tsx    # EA principles CRUD (statement, rationale, implications)
+│   │   │       ├── TurboLensAdmin.tsx     # TurboLens analysis settings
 │   │   │       └── AiAdmin.tsx            # AI suggestion settings (provider, model, search)
 │   │   ├── App.tsx                          # Routes + MUI theme (lazy imports)
 │   │   └── main.tsx                         # React entry point
@@ -669,6 +680,14 @@ All tables use UUID primary keys and `created_at`/`updated_at` timestamps (from 
 | `web_portals` | `WebPortal` | Public portals with slug-based URLs |
 | `saved_reports` | `SavedReport` | Persisted report configurations with thumbnails |
 | `sso_invitations` | `SsoInvitation` | Pre-assigned SSO invitations |
+| `architecture_decisions` | `ArchitectureDecision` | ADR records (status, context, decision, alternatives, consequences) |
+| `architecture_decision_cards` | `ArchitectureDecisionCard` | M:N junction between ADRs and cards |
+| `ea_principles` | `EAPrinciple` | EA principles (statement, rationale, implications, sort_order) — exposed via `/metamodel/principles` |
+| `kpi_snapshots` | `KpiSnapshot` | Daily KPI snapshots powering the dashboard trend charts |
+| `user_favorites` | `UserFavorite` | Per-user favorited cards (M:N user × card) |
+| `risks` | `Risk` | EA Risk Register entries (TOGAF Phase G) — see Risk Register section |
+| `risk_cards` | `RiskCard` | M:N junction between risks and affected cards |
+| `turbolens_*` | TurboLens models | Vendor analysis, duplicates, modernizations, analysis runs, CVE + compliance findings — see TurboLens section |
 
 ### ServiceNow Integration Tables
 
@@ -683,7 +702,7 @@ All tables use UUID primary keys and `created_at`/`updated_at` timestamps (from 
 
 ### Migrations
 
-Located in `backend/alembic/versions/` (64 migration files, sequentially numbered `001_` through `064_`). The app auto-runs Alembic on startup:
+Located in `backend/alembic/versions/` (65 migration files, sequentially numbered `001_` through `065_`). The app auto-runs Alembic on startup:
 - Fresh DB: `create_all` + stamp head
 - Existing DB without Alembic: stamp head
 - Normal: `upgrade head` (run pending migrations)
@@ -986,7 +1005,7 @@ All route-level pages use `lazy()` imports for code splitting. Auth pages (Login
 
 ## Metamodel
 
-The default metamodel seeds 14 card types across 4 layers and 30+ relation types. Created on first startup by `backend/app/services/seed.py`.
+The default metamodel seeds 13 card types across 4 layers and 30+ relation types. Created on first startup by `backend/app/services/seed.py`.
 
 ### Card Types
 
@@ -1005,7 +1024,6 @@ The default metamodel seeds 14 card types across 4 layers and 30+ relation types
 | `ITComponent` | IT Component | memory | #d29270 | Technical Architecture | Yes | Software, Hardware, SaaS, PaaS, IaaS, Service, AI Model |
 | `TechCategory` | Tech Category | category | #a6566d | Technical Architecture | Yes | - |
 | `Provider` | Provider | storefront | #ffa31f | Technical Architecture | No | - |
-| `System` | System | dns | #5B738B | Technical Architecture | No | - |
 
 ### Fields Schema Structure
 
