@@ -120,6 +120,8 @@ async def _publish_risk_event(
         "title": risk.title,
         "level": risk.residual_level or risk.initial_level,
         "status": risk.status,
+        "category": risk.category,
+        "link": _risk_link(risk),
         "summary": _risk_summary(risk),
     }
     if extra:

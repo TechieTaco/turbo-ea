@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 - Card history now records changes to **Stakeholders**, **Relations**, **Risks**, and **Resources** (document links + file attachments), in addition to the existing card-level events. New event types: `stakeholder.added`, `stakeholder.role_changed`, `stakeholder.removed`, `relation.updated`, `risk.added`, `risk.updated`, `risk.removed`, `document.added`, `document.removed`, `file.uploaded`, `file.deleted`, plus a label for `comment.created`. Relations now log on both the source and target card so the change shows up wherever you open history. Each new entry shows a one-line summary (peer card name, role, risk reference + level, etc.) below the actor + timestamp. Translated for all 8 supported UI locales.
+- Relation entries in card history now show the human-readable relation label from the metamodel (e.g. _supports_ / _supported by_ instead of the raw key), pick the forward or reverse label depending on which side you're viewing from, and link the peer card name (with its type icon) directly to its detail page. Risk entries link the `R-NNNNNN` reference to the risk register and show a coloured level chip (critical / high / medium / low). Document-link events render the document name as a clickable external link.
 
 ## [0.51.0] - 2026-04-28
 

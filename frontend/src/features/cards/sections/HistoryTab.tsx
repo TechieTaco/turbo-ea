@@ -1,11 +1,15 @@
 import { useState, useEffect } from "react";
 import Box from "@mui/material/Box";
+import Chip from "@mui/material/Chip";
+import Link from "@mui/material/Link";
 import Typography from "@mui/material/Typography";
 import { alpha, useTheme } from "@mui/material/styles";
 import { useTranslation } from "react-i18next";
+import { Link as RouterLink } from "react-router-dom";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import { getPhaseLabels } from "@/features/cards/sections/cardDetailUtils";
+import { useMetamodel } from "@/hooks/useMetamodel";
 import type { EventEntry } from "@/types";
 
 // ── Tab: History ────────────────────────────────────────────────
@@ -89,6 +93,129 @@ function fmtVal(val: unknown, phaseLabels: Record<string, string>): string {
 
 interface ChangeRow { field: string; oldVal: string; newVal: string }
 
+const RISK_LEVEL_COLOR: Record<string, string> = {
+  critical: "#d32f2f",
+  high: "#f57c00",
+  medium: "#fbc02d",
+  low: "#388e3c",
+};
+
+interface EventDetailProps {
+  data: Record<string, unknown> | undefined;
+  eventType: string;
+  fallbackSummary: string | null;
+  typeIconFor: (typeKey: string | null | undefined) => { icon: string; color: string } | null;
+}
+
+/** Renders a richer one-liner for events that ship structured context
+ *  (relations, risks, documents, files). Falls back to the plain summary
+ *  for everything else. */
+function EventDetail({ data, eventType, fallbackSummary, typeIconFor }: EventDetailProps) {
+  if (!data) return fallbackSummary ? <PlainSummary text={fallbackSummary} /> : null;
+
+  if (eventType.startsWith("relation.")) {
+    const directional = (data.directional_label as string) || (data.relation_label as string) || (data.type as string);
+    const peerId = data.peer_id as string | undefined;
+    const peerName = (data.peer_name as string) || peerId || "";
+    const peerType = data.peer_type as string | null | undefined;
+    const direction = (data.direction as string) || "outgoing";
+    const peerIcon = typeIconFor(peerType);
+    return (
+      <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, flexWrap: "wrap", mt: 0.25 }}>
+        <Typography variant="body2" color="text.secondary">{directional}</Typography>
+        <MaterialSymbol icon={direction === "outgoing" ? "arrow_forward" : "arrow_back"} size={14} color="#9e9e9e" />
+        {peerIcon && (
+          <Box sx={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 18, height: 18, borderRadius: "50%", bgcolor: peerIcon.color + "22" }}>
+            <MaterialSymbol icon={peerIcon.icon} size={12} color={peerIcon.color} />
+          </Box>
+        )}
+        {peerId ? (
+          <Link component={RouterLink} to={`/cards/${peerId}`} variant="body2" underline="hover">
+            {peerName}
+          </Link>
+        ) : (
+          <Typography variant="body2">{peerName}</Typography>
+        )}
+        {peerType && (
+          <Typography variant="caption" color="text.disabled">{peerType}</Typography>
+        )}
+      </Box>
+    );
+  }
+
+  if (eventType.startsWith("risk.")) {
+    const reference = data.reference as string | undefined;
+    const title = data.title as string | undefined;
+    const level = (data.level as string | undefined)?.toLowerCase();
+    const link = data.link as string | undefined;
+    const levelColor = level ? RISK_LEVEL_COLOR[level] : undefined;
+    return (
+      <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, flexWrap: "wrap", mt: 0.25 }}>
+        {reference && (
+          link ? (
+            <Link component={RouterLink} to={link} variant="body2" underline="hover" sx={{ fontFamily: "monospace" }}>
+              {reference}
+            </Link>
+          ) : (
+            <Typography variant="body2" sx={{ fontFamily: "monospace" }}>{reference}</Typography>
+          )
+        )}
+        {level && (
+          <Chip
+            size="small"
+            label={level}
+            sx={{
+              height: 18,
+              fontSize: "0.7rem",
+              bgcolor: levelColor ? levelColor + "22" : undefined,
+              color: levelColor,
+              textTransform: "capitalize",
+            }}
+          />
+        )}
+        {title && <Typography variant="body2" color="text.secondary">{title}</Typography>}
+      </Box>
+    );
+  }
+
+  if (eventType === "document.added" || eventType === "document.removed") {
+    const name = (data.name as string) || (data.url as string) || fallbackSummary || "";
+    const url = data.url as string | undefined;
+    if (eventType === "document.added" && url) {
+      return (
+        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.25 }}>
+          <Link href={url} target="_blank" rel="noopener noreferrer" underline="hover">
+            {name}
+          </Link>
+        </Typography>
+      );
+    }
+    return <PlainSummary text={name} />;
+  }
+
+  if (eventType === "file.uploaded" || eventType === "file.deleted") {
+    const name = (data.name as string) || fallbackSummary || "";
+    const size = data.size as number | undefined;
+    const sizeText = size != null ? ` · ${(size / 1024).toFixed(1)} KB` : "";
+    return <PlainSummary text={`${name}${sizeText}`} />;
+  }
+
+  if (eventType.startsWith("stakeholder.")) {
+    // Stakeholder events ship a clean summary already (user · role[ · old → new]).
+    return fallbackSummary ? <PlainSummary text={fallbackSummary} /> : null;
+  }
+
+  return fallbackSummary ? <PlainSummary text={fallbackSummary} /> : null;
+}
+
+function PlainSummary({ text }: { text: string }) {
+  return (
+    <Typography variant="body2" color="text.secondary" sx={{ mt: 0.25 }}>
+      {text}
+    </Typography>
+  );
+}
+
 function parseChanges(changes: Record<string, unknown>, fieldLabels: Record<string, string>, phaseLabels: Record<string, string>): ChangeRow[] {
   const rows: ChangeRow[] = [];
   for (const [field, change] of Object.entries(changes)) {
@@ -126,6 +253,13 @@ function HistoryTab({ fsId }: { fsId: string }) {
   const eventMeta = getEventMeta(t);
   const fieldLabels = getFieldLabels(t);
   const phaseLabels = getPhaseLabels(t);
+  const { getType } = useMetamodel();
+  const typeIconFor = (typeKey: string | null | undefined) => {
+    if (!typeKey) return null;
+    const ct = getType(typeKey);
+    if (!ct) return null;
+    return { icon: ct.icon || "category", color: ct.color || "#9e9e9e" };
+  };
   const [events, setEvents] = useState<EventEntry[]>([]);
   useEffect(() => {
     api.get<EventEntry[]>(`/cards/${fsId}/history`).then(setEvents).catch(() => {});
@@ -166,12 +300,17 @@ function HistoryTab({ fsId }: { fsId: string }) {
                 </Typography>
               </Box>
 
-              {/* Summary line — used by events that don't carry a field-level diff
-                  (relations, stakeholders, risks, documents, files). */}
-              {summary && rows.length === 0 && (
-                <Typography variant="body2" color="text.secondary" sx={{ mt: 0.25 }}>
-                  {summary}
-                </Typography>
+              {/* Detail line — for events that don't carry a field-level diff
+                  (relations, stakeholders, risks, documents, files). Renders
+                  clickable peer cards for relations, links to the risk page
+                  for risk events, etc. Falls back to plain summary text. */}
+              {rows.length === 0 && (
+                <EventDetail
+                  data={e.data}
+                  eventType={e.event_type}
+                  fallbackSummary={summary}
+                  typeIconFor={typeIconFor}
+                />
               )}
 
               {/* Change rows */}
