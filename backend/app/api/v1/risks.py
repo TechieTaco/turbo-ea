@@ -15,7 +15,7 @@ import uuid
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
-from sqlalchemy import delete, or_, select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
@@ -643,10 +643,14 @@ async def unlink_risk_card(
         cid = uuid.UUID(card_id)
     except ValueError as exc:
         raise HTTPException(400, "Invalid card_id") from exc
-    result = await db.execute(
-        delete(RiskCard).where(RiskCard.risk_id == risk.id, RiskCard.card_id == cid)
+    # Look up the junction row first so we can emit the history event only
+    # when an actual unlink happens (idempotent unlinks stay silent).
+    existing_res = await db.execute(
+        select(RiskCard).where(RiskCard.risk_id == risk.id, RiskCard.card_id == cid)
     )
-    if result.rowcount:
+    link_row = existing_res.scalar_one_or_none()
+    if link_row is not None:
+        await db.delete(link_row)
         await _publish_risk_event(db, risk, "risk.removed", [cid], actor_id=user.id)
     await db.commit()
     await db.refresh(risk)
