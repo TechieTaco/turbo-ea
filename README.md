@@ -46,10 +46,14 @@ The demo comes pre-populated with the NexaTech Industries dataset — 150+ cards
 - **Inventory Management** — AG Grid-powered data table with search, dynamic multi-select filtering for all columns (subtype, lifecycle, data quality, attributes), column customization, Excel import/export, mass archive/delete, and select-all across filtered rows.
 - **Card Detail Pages** — Full detail view with fields, lifecycle, hierarchy, relations, stakeholders, comments, todos, documents, and event history. Approval workflow (Draft/Approved/Rejected/Broken) with auto-breaking on substantive edits. Auto-computed data quality scoring (0–100%) based on field weights.
 - **Hierarchy Support** — Parent-child trees for hierarchical card types. Business Capabilities enforce max 5-level depth with auto-computed capability levels.
+- **Inline Title Editing** — Rename cards directly from the title in the detail page header (no dialog needed) with permission-gated controls.
+- **Favorites** — Per-user favorited cards for quick access from the dashboard.
+- **Capability Catalogue** — Browsable industry capability catalogue (`/capabilities`) grouped by industry, with sticky filter bars, quick-filter chips, and a back-to-top button. Use as a reference when designing your own capability map.
 
 ### Reporting & Analytics
 
-- **Interactive Reports** — Portfolio bubble chart, capability heatmap, lifecycle roadmap, dependency graph, cost treemap, matrix cross-reference, data quality dashboard, and EOL risk report. All report filters, colors, and grouping are dynamically generated from card type field schemas with auto-persist to localStorage.
+- **Interactive Reports** — Portfolio bubble chart, capability heatmap, lifecycle roadmap, dependency graph, cost treemap, matrix cross-reference, data quality dashboard, EOL risk report, and process map. All report filters, colors, and grouping are dynamically generated from card type field schemas with auto-persist to localStorage.
+- **Dashboard with Trend Charts** — Daily KPI snapshots feed trend charts on the home dashboard (cards by type, average data quality, approvals over time) alongside a redesigned Recent Activity panel.
 - **Time-Travel** — View any report as it appeared at a historical date using a timeline slider with year-level granularity.
 - **Saved Reports** — Save report configurations (filters, axes, colors, grouping), share with other users (edit/view permissions), and generate OData feeds for programmatic access.
 - **Print-to-PDF** — Native browser print for all reports with optimized compact layout, white background, and time-travel date display.
@@ -73,10 +77,9 @@ The demo comes pre-populated with the NexaTech Industries dataset — 150+ cards
 - **Risk Management** — Risk register with probability/impact scoring (1-5), auto-computed risk score, status tracking (open/mitigating/mitigated/closed/accepted), mitigation plans, and risk matrix visualization.
 - **PPM Reports** — Portfolio-level dashboard with KPIs (total budget, actual spend, health distribution) and Gantt timeline with optional grouping.
 
-### Diagrams & Documents
+### Diagrams
 
 - **Diagram Editor** — Self-hosted DrawIO integration for creating architecture diagrams linked to your cards. Shapes are colored by card type with synced/pending states.
-- **EA Delivery** — TOGAF-compliant Statement of Architecture Work (SoAW) editor with rich text editing (TipTap), version history, sign-off requests, and DOCX export.
 
 ### AI-Powered Assistance
 
@@ -90,7 +93,15 @@ AI-powered EA analysis module — originally ported from [ArchLens](https://gith
 - **Vendor Resolution** — Builds a canonical vendor hierarchy by resolving aliases, parent-child relationships, and product groupings. Displays confidence scores for each resolution.
 - **Duplicate Detection** — Identifies functional duplicate cards using AI clustering across Application, IT Component, and Interface types. Union-find algorithm merges overlapping clusters across batches. Each cluster includes evidence and retirement recommendations.
 - **Modernization Assessment** — Evaluates cards for modernization opportunities based on current technology trends, providing effort estimates, priority levels, and specific recommendations.
-- **Architecture AI** — 3-phase conversational architecture assistant: (1) business clarification questions, (2) technical deep-dive questions, (3) structured architecture recommendation with component layers, gap analysis with market recommendations, integration map, risk assessment, and interactive Mermaid diagrams.
+- **Architecture AI** — 5-step guided wizard: (1) Requirements (objective + capability selection), (2) Business Fit clarification questions, (3) Technical Fit deep-dive, (4) Solution (options → gap analysis → dependency analysis), (5) Target Architecture with capability mapping and an interactive C4 dependency diagram (React Flow). Commits to a real Initiative card with proposed cards, relations, and a draft ADR.
+- **Security & Compliance** — On-demand CVE scans (NIST NVD-backed with deterministic probability scoring) and compliance scans across EU AI Act, GDPR, NIS2, DORA, SOC 2, and ISO 27001. Findings show severity, business impact, and remediation. A clickable risk matrix drills through to filtered findings; any finding can be promoted to a Risk Register entry in one click.
+
+### EA Delivery (TOGAF)
+
+- **Architecture Decision Records (ADR)** — Capture decisions, context, alternatives considered, consequences, and links to affected cards. Sign-off workflow with audit trail.
+- **EA Risk Register (TOGAF Phase G)** — Landscape-level register separate from initiative risks. Auto-generated `R-000123` references, initial vs residual 4×4 probability×impact matrices, sequential status workflow (analysis → mitigation → monitoring → closed) with explicit Accept / Reopen side actions, owner→Todo→notification loop, and idempotent promote-from-finding for CVE and compliance findings.
+- **EA Principles** — Admin-curated list of architecture principles (statement, rationale, implications) referenced from SoAW and ADR documents.
+- **Statement of Architecture Work** — TOGAF-compliant SoAW editor with rich text editing (TipTap), version history, sign-off requests, and DOCX export.
 
 ### Data Governance
 
@@ -106,7 +117,7 @@ AI-powered EA analysis module — originally ported from [ArchLens](https://gith
 - **Todos** — Task management linked to cards with assignment, due dates, and status tracking. Badge counts for open todos shown in navigation.
 - **Stakeholders** — Per-card stakeholder roles (responsible, observer, technical/business application owner) with configurable custom roles per card type.
 - **Documents** — URL/link attachments on cards.
-- **Tags** — Hierarchical tag groups with single/multi-select modes and open/restricted creation. Filter-by-tag across inventory and reports.
+- **Tags** — Tag groups with single/multi-select modes, mandatory flags, and per-card-type restrictions. Filter-by-tag across inventory and reports.
 
 ### Integrations
 
@@ -130,6 +141,7 @@ AI-powered EA analysis module — originally ported from [ArchLens](https://gith
 - **Custom Branding** — Upload a custom logo (max 2 MB; PNG, JPEG, SVG, WebP, GIF) and favicon. Per-portal logo visibility toggle.
 - **Currency Settings** — Global display currency for all cost values with compact formatting.
 - **SMTP Email Configuration** — Configure SMTP settings from the admin UI with test email support.
+- **Design Tokens & UI Guidelines** — Centralized colors, spacing, typography, status/severity/layer palettes and icon sizes (`frontend/src/theme/tokens.ts`). See [`frontend/UI_GUIDELINES.md`](frontend/UI_GUIDELINES.md) for the full design system.
 
 ## Screenshots
 
@@ -539,9 +551,12 @@ turbo-ea/
 │   │   │   ├── cards/       # Card detail page
 │   │   │   ├── dashboard/   # KPI cards + recent activity
 │   │   │   ├── diagrams/    # DrawIO editor + shape system
-│   │   │   ├── ea-delivery/ # SoAW editor + preview + DOCX export
+│   │   │   ├── ea-delivery/ # SoAW + ADR editor, EA Risk Register, DOCX export
 │   │   │   ├── inventory/   # AG Grid table + Excel import/export
-│   │   │   ├── reports/     # 9 report types + saved reports
+│   │   │   ├── reports/     # 10 report types + saved reports
+│   │   │   ├── turbolens/   # AI-powered EA intelligence (vendors, duplicates,
+│   │   │   │                # modernization, architecture AI, security & compliance)
+│   │   │   ├── capability-catalogue/ # Industry capability catalogue browser
 │   │   │   ├── surveys/     # Survey response page
 │   │   │   ├── todos/       # Todos + surveys combined page
 │   │   │   └── web-portals/ # Public portal viewer
