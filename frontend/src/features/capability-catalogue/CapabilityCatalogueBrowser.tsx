@@ -9,13 +9,10 @@ import Chip from "@mui/material/Chip";
 import Button from "@mui/material/Button";
 import Checkbox from "@mui/material/Checkbox";
 import Typography from "@mui/material/Typography";
-import Select from "@mui/material/Select";
-import MenuItem from "@mui/material/MenuItem";
-import OutlinedInput from "@mui/material/OutlinedInput";
-import ListItemText from "@mui/material/ListItemText";
 import Tooltip from "@mui/material/Tooltip";
 import { useTheme } from "@mui/material/styles";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import IndustryFilter from "./IndustryFilter";
 import type { FlatCapability } from "./types";
 import "./capabilityCatalogue.css";
 
@@ -382,31 +379,11 @@ export default function CapabilityCatalogueBrowser({
           </Stack>
 
           {allIndustries.length > 1 && (
-            <Select
-              multiple
-              size="small"
-              displayEmpty
-              value={Array.from(industries)}
-              onChange={(e) => {
-                const v = e.target.value as string[];
-                setIndustries(new Set(v));
-              }}
-              input={<OutlinedInput />}
-              renderValue={(v) => {
-                const arr = v as string[];
-                if (arr.length === 0) return t("cards:catalogue.industryAll");
-                if (arr.length === 1) return arr[0];
-                return t("cards:catalogue.industryNSelected", { count: arr.length });
-              }}
-              sx={{ minWidth: 160 }}
-            >
-              {allIndustries.map((ind) => (
-                <MenuItem key={ind} value={ind}>
-                  <Checkbox size="small" checked={industries.has(ind)} />
-                  <ListItemText primary={ind} />
-                </MenuItem>
-              ))}
-            </Select>
+            <IndustryFilter
+              industries={allIndustries}
+              selected={industries}
+              onChange={setIndustries}
+            />
           )}
 
           <Tooltip title={t("cards:catalogue.deprecatedTooltip")}>
