@@ -12,5 +12,5 @@
   "key.lettersAndDigitsOnly": "仅允许字母和数字（驼峰命名法）",
   "key.cannotChange": "键值在创建后无法更改",
   "key.valid": "有效的键值",
-  "key.hint": "仅允许字母和数字，使用驼峰命名法（例如 businessFit）"
+  "key.hint": "仅允许字母和数字，不含分隔符（例如 businessFit 或 ApplicationToITComponent）"
 }

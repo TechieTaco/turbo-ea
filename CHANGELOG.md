@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 - Creating a new relation type from the Metamodel admin no longer leaves the **Create** button silently disabled. The auto-generated key was being prefilled in `source_to_target` (snake_case) form, which the key validator correctly rejects (no underscores), but the validation error stayed hidden until the user touched the field — so the only visible symptom was a greyed-out button with no explanation. The auto-generated key now follows the same `relSourceToTarget` camelCase convention used by all built-in relation types (e.g. `ApplicationToITComponent`), so the prefilled value is valid by default and the dialog works as expected.
+- Key-input helper text now matches what the validator actually accepts. The hint previously said "camelCase (e.g. businessFit)", but the validator allows any letters/digits sequence starting with a letter — so PascalCase keys like `BusinessCapability` or `ApplicationToITComponent` (the same convention used by all built-in card types and the auto-prefilled relation key) are equally valid. Hint reworded to "Letters and digits only, no separators (e.g. businessFit or ApplicationToITComponent)" and translated for all 8 supported UI locales (en/de/fr/es/it/pt/zh/ru).
+- Removed snake_case examples from key-input labels and placeholders that contradicted the validator. The Metamodel admin's "Key" field used to show `Key (e.g. my_custom_type)` and the new stakeholder role panel showed `e.g. data_steward` — both contained underscores that the validator rejects. Updated to `myCustomType` and `dataSteward` respectively, in all 8 supported UI locales.
 
 ## [0.50.1] - 2026-04-28
 
