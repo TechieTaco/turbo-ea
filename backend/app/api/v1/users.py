@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, EmailStr
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -82,8 +82,22 @@ def _invitation_response(inv: SsoInvitation) -> dict:
 
 
 @router.get("")
-async def list_users(db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
-    result = await db.execute(select(User).order_by(User.display_name))
+async def list_users(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+    include_inactive: bool = Query(
+        False,
+        description=(
+            "Include disabled (is_active=False) users in the result. "
+            "Default False so owner / assignee / stakeholder pickers don't "
+            "list disabled accounts. The Users admin page passes True."
+        ),
+    ),
+):
+    stmt = select(User).order_by(User.display_name)
+    if not include_inactive:
+        stmt = stmt.where(User.is_active.is_(True))
+    result = await db.execute(stmt)
     return [_user_response(u) for u in result.scalars().all()]
 
 

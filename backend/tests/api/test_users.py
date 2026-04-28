@@ -60,6 +60,37 @@ class TestListUsers:
         resp = await client.get("/api/v1/users")
         assert resp.status_code == 401
 
+    async def test_disabled_users_excluded_by_default(self, client, db, users_env):
+        """A disabled (is_active=False) user must not appear in the picker
+        list — that's what owner / assignee / stakeholder dropdowns hit."""
+        admin = users_env["admin"]
+        disabled = await create_user(db, email="disabled@test.com", role="member")
+        disabled.is_active = False
+        await db.flush()
+
+        resp = await client.get("/api/v1/users", headers=auth_headers(admin))
+        assert resp.status_code == 200
+        emails = [u["email"] for u in resp.json()]
+        assert "disabled@test.com" not in emails
+        assert "admin@test.com" in emails
+
+    async def test_include_inactive_returns_disabled_users(self, client, db, users_env):
+        """The Users admin page passes include_inactive=true so admins can
+        still see and re-enable disabled users."""
+        admin = users_env["admin"]
+        disabled = await create_user(db, email="disabled@test.com", role="member")
+        disabled.is_active = False
+        await db.flush()
+
+        resp = await client.get(
+            "/api/v1/users?include_inactive=true",
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 200
+        emails = [u["email"] for u in resp.json()]
+        assert "disabled@test.com" in emails
+        assert "admin@test.com" in emails
+
 
 # -------------------------------------------------------------------
 # POST /users  (create)

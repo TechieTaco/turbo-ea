@@ -11,6 +11,7 @@ from app.api.deps import get_current_user
 from app.database import get_db
 from app.models.file_attachment import FileAttachment
 from app.models.user import User
+from app.services.event_bus import event_bus
 from app.services.permission_service import PermissionService
 
 router = APIRouter(tags=["file-attachments"])
@@ -107,6 +108,21 @@ async def upload_file_attachment(
         created_by=user.id,
     )
     db.add(attachment)
+    await db.flush()
+    await event_bus.publish(
+        "file.uploaded",
+        {
+            "attachment_id": str(attachment.id),
+            "name": attachment.name,
+            "mime_type": attachment.mime_type,
+            "size": attachment.size,
+            "category": attachment.category,
+            "summary": attachment.name,
+        },
+        db=db,
+        card_id=card_uuid,
+        user_id=user.id,
+    )
     await db.commit()
     await db.refresh(attachment)
 
@@ -164,5 +180,18 @@ async def delete_file_attachment(
         "card.manage_documents",
     ):
         raise HTTPException(403, "Not enough permissions")
+    await event_bus.publish(
+        "file.deleted",
+        {
+            "attachment_id": str(attachment.id),
+            "name": attachment.name,
+            "mime_type": attachment.mime_type,
+            "size": attachment.size,
+            "summary": attachment.name,
+        },
+        db=db,
+        card_id=attachment.card_id,
+        user_id=user.id,
+    )
     await db.delete(attachment)
     await db.commit()

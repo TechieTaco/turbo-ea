@@ -15,7 +15,7 @@ import uuid
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
-from sqlalchemy import delete, or_, select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
@@ -33,6 +33,7 @@ from app.schemas.risk import (
     RiskUpdate,
 )
 from app.services import notification_service
+from app.services.event_bus import event_bus
 from app.services.permission_service import PermissionService
 from app.services.risk_service import (
     STATUS_VALUES,
@@ -84,6 +85,55 @@ def _parse_card_ids(raw: list[str]) -> list[uuid.UUID]:
 
 def _risk_link(risk: Risk) -> str:
     return f"/ea-delivery/risks/{risk.id}"
+
+
+async def _linked_card_ids(db: AsyncSession, risk_id: uuid.UUID) -> list[uuid.UUID]:
+    res = await db.execute(select(RiskCard.card_id).where(RiskCard.risk_id == risk_id))
+    return [cid for (cid,) in res.all()]
+
+
+def _risk_summary(risk: Risk) -> str:
+    level = (risk.residual_level or risk.initial_level or "").lower()
+    parts = [risk.reference]
+    if level:
+        parts.append(level.capitalize())
+    parts.append(risk.title or "")
+    return " · ".join(p for p in parts if p)
+
+
+async def _publish_risk_event(
+    db: AsyncSession,
+    risk: Risk,
+    event_type: str,
+    card_ids: list[uuid.UUID],
+    *,
+    actor_id: uuid.UUID,
+    extra: dict | None = None,
+) -> None:
+    """Fan-out a risk-related event to every affected card so the
+    register changes show up in the per-card history timeline."""
+    if not card_ids:
+        return
+    payload: dict = {
+        "risk_id": str(risk.id),
+        "reference": risk.reference,
+        "title": risk.title,
+        "level": risk.residual_level or risk.initial_level,
+        "status": risk.status,
+        "category": risk.category,
+        "link": _risk_link(risk),
+        "summary": _risk_summary(risk),
+    }
+    if extra:
+        payload.update(extra)
+    for cid in card_ids:
+        await event_bus.publish(
+            event_type,
+            payload,
+            db=db,
+            card_id=cid,
+            user_id=actor_id,
+        )
 
 
 async def sync_owner_todo(
@@ -375,6 +425,9 @@ async def create_risk(
 
     await sync_owner_todo(db, risk, actor_id=user.id, previous_owner=None)
 
+    linked = await _linked_card_ids(db, risk.id)
+    await _publish_risk_event(db, risk, "risk.added", linked, actor_id=user.id)
+
     await db.commit()
     await db.refresh(risk)
     return RiskOut.model_validate(await risk_to_dict(db, risk))
@@ -477,6 +530,17 @@ async def update_risk(
     # on the assignee's Todos page; notification only fires on owner change.
     await sync_owner_todo(db, risk, actor_id=user.id, previous_owner=previous_owner)
 
+    if data:
+        linked = await _linked_card_ids(db, risk.id)
+        await _publish_risk_event(
+            db,
+            risk,
+            "risk.updated",
+            linked,
+            actor_id=user.id,
+            extra={"fields": sorted(data.keys())},
+        )
+
     await db.commit()
     await db.refresh(risk)
     return RiskOut.model_validate(await risk_to_dict(db, risk))
@@ -519,6 +583,9 @@ async def delete_risk(
     await PermissionService.require_permission(db, user, "risks.manage")
     risk = await _load_risk(db, risk_id)
     link = _risk_link(risk)
+    # Capture linked cards before cascade-delete wipes the junction rows.
+    linked = await _linked_card_ids(db, risk.id)
+    await _publish_risk_event(db, risk, "risk.removed", linked, actor_id=user.id)
     # Clean up the owner's system Todo before removing the risk row.
     todo_res = await db.execute(select(Todo).where(Todo.link == link, Todo.is_system.is_(True)))
     for t in todo_res.scalars().all():
@@ -547,7 +614,12 @@ async def link_risk_cards(
             409,
             "Risk is closed and read-only. Reopen it first to link cards.",
         )
-    await link_cards(db, risk.id, _parse_card_ids(body.card_ids), body.role)
+    requested = _parse_card_ids(body.card_ids)
+    existing = set(await _linked_card_ids(db, risk.id))
+    await link_cards(db, risk.id, requested, body.role)
+    # Re-query to get the actually-inserted set (link_cards skips invalid ids).
+    new_links = [cid for cid in await _linked_card_ids(db, risk.id) if cid not in existing]
+    await _publish_risk_event(db, risk, "risk.added", new_links, actor_id=user.id)
     await db.commit()
     await db.refresh(risk)
     return RiskOut.model_validate(await risk_to_dict(db, risk))
@@ -571,7 +643,15 @@ async def unlink_risk_card(
         cid = uuid.UUID(card_id)
     except ValueError as exc:
         raise HTTPException(400, "Invalid card_id") from exc
-    await db.execute(delete(RiskCard).where(RiskCard.risk_id == risk.id, RiskCard.card_id == cid))
+    # Look up the junction row first so we can emit the history event only
+    # when an actual unlink happens (idempotent unlinks stay silent).
+    existing_res = await db.execute(
+        select(RiskCard).where(RiskCard.risk_id == risk.id, RiskCard.card_id == cid)
+    )
+    link_row = existing_res.scalar_one_or_none()
+    if link_row is not None:
+        await db.delete(link_row)
+        await _publish_risk_event(db, risk, "risk.removed", [cid], actor_id=user.id)
     await db.commit()
     await db.refresh(risk)
     return RiskOut.model_validate(await risk_to_dict(db, risk))
@@ -612,6 +692,10 @@ async def promote_cve(
     except LookupError as exc:
         raise HTTPException(404, str(exc)) from exc
     await sync_owner_todo(db, risk, actor_id=user.id, previous_owner=None)
+    linked = await _linked_card_ids(db, risk.id)
+    await _publish_risk_event(
+        db, risk, "risk.added", linked, actor_id=user.id, extra={"promoted_from": "cve"}
+    )
     await db.commit()
     await db.refresh(risk)
     return RiskOut.model_validate(await risk_to_dict(db, risk))
@@ -637,6 +721,10 @@ async def promote_compliance(
     except LookupError as exc:
         raise HTTPException(404, str(exc)) from exc
     await sync_owner_todo(db, risk, actor_id=user.id, previous_owner=None)
+    linked = await _linked_card_ids(db, risk.id)
+    await _publish_risk_event(
+        db, risk, "risk.added", linked, actor_id=user.id, extra={"promoted_from": "compliance"}
+    )
     await db.commit()
     await db.refresh(risk)
     return RiskOut.model_validate(await risk_to_dict(db, risk))

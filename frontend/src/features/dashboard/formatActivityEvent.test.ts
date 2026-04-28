@@ -9,11 +9,11 @@ import {
 } from "./formatActivityEvent";
 import type { EventEntry } from "@/types";
 
-// Minimal i18n stub: returns the key (or interpolated form) so tests can
-// assert against deterministic strings without booting react-i18next.
+// Minimal i18n stub: returns a non-empty string so tests can assert against
+// deterministic strings without booting react-i18next. Mirrors the real
+// behaviour of returning a translated value when a key is present.
 const t = ((key: string, opts?: Record<string, unknown>) => {
   if (key.startsWith("dashboard.activity.action.") && opts?.defaultValue !== undefined) {
-    // Return a value so tests don't trigger fallback unless we want them to.
     return key;
   }
   if (opts && typeof opts === "object" && "count" in opts) {
@@ -22,12 +22,17 @@ const t = ((key: string, opts?: Record<string, unknown>) => {
   return key;
 }) as unknown as TFunction<"common">;
 
-const tFallback = ((key: string, opts?: Record<string, unknown>) => {
-  if (key.startsWith("dashboard.activity.action.") && opts?.defaultValue !== undefined) {
-    return ""; // force fallback
-  }
+// Stub that mimics the production i18n config (`returnEmptyString: false`)
+// where a missing key is returned verbatim, ignoring `defaultValue`. This
+// is the exact path that previously leaked raw keys like
+// `dashboard.activity.action.risk.added` into the UI.
+const tMissingKeyReturnsKey = ((key: string, opts?: Record<string, unknown>) => {
   if (key === "dashboard.activity.action.fallback") {
     return `did ${(opts as { type: string }).type}`;
+  }
+  // Action keys: pretend they're missing → return the key (production behaviour).
+  if (key.startsWith("dashboard.activity.action.")) {
+    return key;
   }
   return key;
 }) as unknown as TFunction<"common">;
@@ -108,13 +113,53 @@ describe("formatActivityEvent", () => {
     );
   });
 
+  it("classifies stakeholder/risk/document/file events into their own categories", () => {
+    expect(
+      formatActivityEvent({ ...baseEvent, event_type: "stakeholder.added" }, t).category,
+    ).toBe("stakeholder");
+    expect(
+      formatActivityEvent({ ...baseEvent, event_type: "stakeholder.role_changed" }, t).category,
+    ).toBe("stakeholder");
+    expect(
+      formatActivityEvent({ ...baseEvent, event_type: "stakeholder.removed" }, t).category,
+    ).toBe("stakeholder");
+    expect(formatActivityEvent({ ...baseEvent, event_type: "risk.added" }, t).category).toBe(
+      "risk",
+    );
+    expect(formatActivityEvent({ ...baseEvent, event_type: "risk.updated" }, t).category).toBe(
+      "risk",
+    );
+    expect(formatActivityEvent({ ...baseEvent, event_type: "risk.removed" }, t).category).toBe(
+      "risk",
+    );
+    expect(
+      formatActivityEvent({ ...baseEvent, event_type: "document.added" }, t).category,
+    ).toBe("document");
+    expect(
+      formatActivityEvent({ ...baseEvent, event_type: "file.uploaded" }, t).category,
+    ).toBe("document");
+  });
+
   it("uses a generic 'other' category and the fallback action text for unknown event types", () => {
     const out = formatActivityEvent(
       { ...baseEvent, event_type: "weird.thing" },
-      tFallback,
+      tMissingKeyReturnsKey,
     );
     expect(out.category).toBe("other");
     expect(out.actionText).toBe("did weird thing");
+  });
+
+  it("never leaks the raw translation key when the production i18n config returns the key for a missing label", () => {
+    // Regression test: the i18n config has `returnEmptyString: false`,
+    // which makes a missing key resolve to itself. A brand-new backend
+    // event type must therefore never render the raw "dashboard.activity.action.X"
+    // string in the UI; the fallback ("performed {{type}}") must take over.
+    const out = formatActivityEvent(
+      { ...baseEvent, event_type: "brand.new" },
+      tMissingKeyReturnsKey,
+    );
+    expect(out.actionText).not.toContain("dashboard.activity.action.");
+    expect(out.actionText).toBe("did brand new");
   });
 
 });

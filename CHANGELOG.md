@@ -5,6 +5,19 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.52.0] - 2026-04-28
+
+### Fixed
+- Disabled (`is_active=false`) users no longer appear in owner / assignee / stakeholder pickers across the app. `GET /users` now excludes inactive accounts by default; the Users admin page opts back in via `?include_inactive=true` so admins can still see and re-enable disabled users.
+- Dashboard Recent Activity no longer leaks raw translation keys (e.g. `dashboard.activity.action.risk.added`) for the new event types. Added action labels for all stakeholder / relation.updated / risk / document / file events in every supported locale, and gave them dedicated icons + colours (group / report / attachment) instead of falling into the generic "other" bucket. The fallback path is now resilient to the i18n config (`returnEmptyString: false` makes missing keys resolve to themselves), so any future backend event type renders as _"performed {{type}}"_ instead of the raw key. Locked in with a regression test.
+
+### Changed
+- Capability Catalogue's filter + action bars and the bulk-import bar at the bottom no longer stick on mobile (`xs` breakpoint). They scroll with the page so they don't eat scarce vertical space on small phones; on tablets and desktops they still stick as before.
+
+### Added
+- Card history now records changes to **Stakeholders**, **Relations**, **Risks**, and **Resources** (document links + file attachments), in addition to the existing card-level events. New event types: `stakeholder.added`, `stakeholder.role_changed`, `stakeholder.removed`, `relation.updated`, `risk.added`, `risk.updated`, `risk.removed`, `document.added`, `document.removed`, `file.uploaded`, `file.deleted`, plus a label for `comment.created`. Relations now log on both the source and target card so the change shows up wherever you open history. Each new entry shows a one-line summary (peer card name, role, risk reference + level, etc.) below the actor + timestamp. Translated for all 8 supported UI locales.
+- Relation entries in card history now show the human-readable relation label from the metamodel (e.g. _supports_ / _supported by_ instead of the raw key), pick the forward or reverse label depending on which side you're viewing from, and link the peer card name (with its type icon) directly to its detail page. Risk entries link the `R-NNNNNN` reference to the risk register and show a coloured level chip (critical / high / medium / low). Document-link events render the document name as a clickable external link.
+
 ## [0.51.0] - 2026-04-28
 
 ### Changed

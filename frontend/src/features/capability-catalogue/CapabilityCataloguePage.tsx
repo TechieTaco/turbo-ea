@@ -279,8 +279,8 @@ export default function CapabilityCataloguePage() {
         <Paper
           elevation={4}
           sx={{
-            position: "sticky",
-            bottom: 16,
+            position: { xs: "static", sm: "sticky" },
+            bottom: { sm: 16 },
             mt: 2,
             p: 1.5,
             display: "flex",

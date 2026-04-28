@@ -12,6 +12,7 @@ from app.database import get_db
 from app.models.card import Card
 from app.models.card_type import CardType
 from app.models.relation import Relation
+from app.models.relation_type import RelationType
 from app.models.user import User
 from app.schemas.relation import CardRef, RelationCreate, RelationResponse, RelationUpdate
 from app.services.calculation_engine import run_calculations_for_card
@@ -19,6 +20,93 @@ from app.services.event_bus import event_bus
 from app.services.permission_service import PermissionService
 
 router = APIRouter(prefix="/relations", tags=["relations"])
+
+
+async def _resolve_relation_labels(
+    db: AsyncSession, type_key: str
+) -> tuple[str | None, str | None]:
+    """Look up the human-readable label + reverse_label for a relation type.
+    Returns (None, None) if the type is unknown — we fall back to the raw key."""
+    result = await db.execute(
+        select(RelationType.label, RelationType.reverse_label).where(RelationType.key == type_key)
+    )
+    row = result.first()
+    if row is None:
+        return None, None
+    return row[0], row[1]
+
+
+async def _emit_relation_events(
+    db: AsyncSession,
+    *,
+    event_type: str,
+    rel: Relation,
+    source_card: Card | None,
+    target_card: Card | None,
+    actor_id: uuid.UUID,
+    extra: dict | None = None,
+) -> None:
+    """Fan out a relation mutation event to both endpoints.
+
+    Each side's payload carries the directional label so the history
+    timeline reads naturally — the source sees the forward label
+    (e.g. "supports → ITComponent X"), the target sees the reverse
+    label (e.g. "supported by ← Application Y").
+    """
+    label, reverse_label = await _resolve_relation_labels(db, rel.type)
+    forward = label or rel.type
+    backward = reverse_label or label or rel.type
+
+    source_name = source_card.name if source_card else None
+    target_name = target_card.name if target_card else None
+    source_type = source_card.type if source_card else None
+    target_type = target_card.type if target_card else None
+
+    base = {
+        "id": str(rel.id),
+        "type": rel.type,
+        "relation_label": label,
+        "relation_reverse_label": reverse_label,
+        "source_id": str(rel.source_id),
+        "target_id": str(rel.target_id),
+        "source_name": source_name,
+        "target_name": target_name,
+        "source_type": source_type,
+        "target_type": target_type,
+    }
+    if extra:
+        base.update(extra)
+
+    await event_bus.publish(
+        event_type,
+        {
+            **base,
+            "direction": "outgoing",
+            "peer_id": str(rel.target_id),
+            "peer_name": target_name,
+            "peer_type": target_type,
+            "directional_label": forward,
+            "summary": f"{forward} → {target_name or str(rel.target_id)}",
+        },
+        db=db,
+        card_id=rel.source_id,
+        user_id=actor_id,
+    )
+    await event_bus.publish(
+        event_type,
+        {
+            **base,
+            "direction": "incoming",
+            "peer_id": str(rel.source_id),
+            "peer_name": source_name,
+            "peer_type": source_type,
+            "directional_label": backward,
+            "summary": f"{backward} ← {source_name or str(rel.source_id)}",
+        },
+        db=db,
+        card_id=rel.target_id,
+        user_id=actor_id,
+    )
 
 
 def _rel_to_response(r: Relation) -> RelationResponse:
@@ -82,18 +170,6 @@ async def create_relation(
     )
     db.add(rel)
     await db.flush()
-    await event_bus.publish(
-        "relation.created",
-        {
-            "id": str(rel.id),
-            "type": rel.type,
-            "source_id": body.source_id,
-            "target_id": body.target_id,
-        },
-        db=db,
-        card_id=uuid.UUID(body.source_id),
-        user_id=user.id,
-    )
 
     # Run calculated fields for both source and target cards
     source_card = await db.get(Card, uuid.UUID(body.source_id))
@@ -102,6 +178,15 @@ async def create_relation(
         await run_calculations_for_card(db, source_card)
     if target_card:
         await run_calculations_for_card(db, target_card)
+
+    await _emit_relation_events(
+        db,
+        event_type="relation.created",
+        rel=rel,
+        source_card=source_card,
+        target_card=target_card,
+        actor_id=user.id,
+    )
 
     await db.commit()
     result = await db.execute(
@@ -125,7 +210,9 @@ async def update_relation(
     rel = result.scalar_one_or_none()
     if not rel:
         raise HTTPException(404, "Relation not found")
-    for field, value in body.model_dump(exclude_unset=True).items():
+    update_data = body.model_dump(exclude_unset=True)
+    changed_fields = sorted(update_data.keys())
+    for field, value in update_data.items():
         setattr(rel, field, value)
 
     # Run calculated fields for both source and target cards
@@ -135,6 +222,17 @@ async def update_relation(
         await run_calculations_for_card(db, source_card)
     if target_card:
         await run_calculations_for_card(db, target_card)
+
+    if changed_fields:
+        await _emit_relation_events(
+            db,
+            event_type="relation.updated",
+            rel=rel,
+            source_card=source_card,
+            target_card=target_card,
+            actor_id=user.id,
+            extra={"fields": changed_fields},
+        )
 
     await db.commit()
     result = await db.execute(
@@ -157,20 +255,19 @@ async def delete_relation(
     rel = result.scalar_one_or_none()
     if not rel:
         raise HTTPException(404, "Relation not found")
-    source_id = rel.source_id
-    target_id = rel.target_id
-    await event_bus.publish(
-        "relation.deleted",
-        {"id": str(rel.id), "type": rel.type},
-        db=db,
-        card_id=source_id,
-        user_id=user.id,
+    source_card = await db.get(Card, rel.source_id)
+    target_card = await db.get(Card, rel.target_id)
+    await _emit_relation_events(
+        db,
+        event_type="relation.deleted",
+        rel=rel,
+        source_card=source_card,
+        target_card=target_card,
+        actor_id=user.id,
     )
     await db.delete(rel)
 
     # Run calculated fields for both source and target cards
-    source_card = await db.get(Card, source_id)
-    target_card = await db.get(Card, target_id)
     if source_card:
         await run_calculations_for_card(db, source_card)
     if target_card:

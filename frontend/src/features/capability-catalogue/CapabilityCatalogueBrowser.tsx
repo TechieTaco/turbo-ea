@@ -358,17 +358,22 @@ export default function CapabilityCatalogueBrowser({
 
   return (
     <Box className={`tcc-root${isDark ? " tcc-root--dark" : ""}`}>
-      {/* Sticky filter + action bar — sticks just below the AppBar (64 px) */}
+      {/* Sticky filter + action bar — sticks just below the AppBar (64 px).
+          On mobile (xs) it stays in the normal flow so it doesn't eat scarce
+          vertical real-estate. */}
       <Box
         sx={{
-          position: "sticky",
-          top: 64,
+          position: { xs: "static", sm: "sticky" },
+          top: { sm: 64 },
           zIndex: 100,
           bgcolor: "background.default",
           pb: 1.5,
-          boxShadow: isDark
-            ? "0 2px 6px -1px rgba(0,0,0,0.45)"
-            : "0 2px 6px -1px rgba(0,0,0,0.08)",
+          boxShadow: {
+            xs: "none",
+            sm: isDark
+              ? "0 2px 6px -1px rgba(0,0,0,0.45)"
+              : "0 2px 6px -1px rgba(0,0,0,0.08)",
+          },
         }}
       >
       {/* Filter bar */}
