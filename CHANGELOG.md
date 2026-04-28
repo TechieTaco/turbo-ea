@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.50.1] - 2026-04-28
+
+### Changed
+- Capability Catalogue's **Industry filter** restyled to match the public reference catalogue at `https://capabilities.turbo-ea.org/`. The trigger is now a single rounded button with a bold uppercase **INDUSTRY** label baked in alongside the value (`All`, the industry name, or `{n} selected`) and a chevron. The popover pins **Cross-Industry** at the top above a hairline separator, surfaces a magenta `Clear ({{count}})` row whenever any items are selected, and washes selected rows in soft navy with a filled-navy checkbox. The trigger has a fixed width and the menu's anchor is captured on open so the popover no longer drifts when filtering the catalogue resizes the page (scrollbar appearing/disappearing was reflowing the filter row); the menu remains vertically scrollable when the industry list overflows the viewport. Translated for all 8 supported UI locales (en/de/fr/es/it/pt/zh/ru).
+
 ## [0.50.0] - 2026-04-27
 
 ### Changed
