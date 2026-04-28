@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.50.2] - 2026-04-28
+
+### Fixed
+- Creating a new relation type from the Metamodel admin no longer leaves the **Create** button silently disabled. The auto-generated key was being prefilled in `source_to_target` (snake_case) form, which the key validator correctly rejects (no underscores), but the validation error stayed hidden until the user touched the field — so the only visible symptom was a greyed-out button with no explanation. The auto-generated key now follows the same `relSourceToTarget` camelCase convention used by all built-in relation types (e.g. `ApplicationToITComponent`), so the prefilled value is valid by default and the dialog works as expected.
+
 ## [0.50.1] - 2026-04-28
 
 ### Changed
