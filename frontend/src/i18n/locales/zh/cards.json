@@ -282,5 +282,7 @@
   "catalogue.aliasesLabel": "别名",
   "catalogue.referencesLabel": "参考资料",
   "catalogue.subtreeHeader_one": "子树 · {{count}} 项后代",
-  "catalogue.subtreeHeader_other": "子树 · {{count}} 项后代"
+  "catalogue.subtreeHeader_other": "子树 · {{count}} 项后代",
+  "catalogue.industryGroupUnknown": "通用",
+  "catalogue.backToTop": "返回顶部"
 }

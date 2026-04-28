@@ -282,5 +282,7 @@
   "catalogue.aliasesLabel": "Aliases",
   "catalogue.referencesLabel": "Referências",
   "catalogue.subtreeHeader_one": "Subárvore · {{count}} descendente",
-  "catalogue.subtreeHeader_other": "Subárvore · {{count}} descendentes"
+  "catalogue.subtreeHeader_other": "Subárvore · {{count}} descendentes",
+  "catalogue.industryGroupUnknown": "Geral",
+  "catalogue.backToTop": "Voltar ao topo"
 }

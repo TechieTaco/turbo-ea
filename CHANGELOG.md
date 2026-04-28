@@ -5,6 +5,15 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.51.0] - 2026-04-28
+
+### Changed
+- Capability Catalogue's **filter bar** and **action bar** now stick just below the top navigation as you scroll, so the search field, level chips, industry filter, deprecated toggle, match counters, level stepper, and select-visible / clear-selection buttons stay reachable even when you're deep inside an L1 subtree. A subtle drop-shadow (tuned for both light and dark modes) separates the sticky band from the grid content scrolling underneath.
+- Capability Catalogue's **L1 grid** is now grouped under industry headings. The pinned **Cross-Industry** group always renders first; other industries follow alphabetically; capabilities with no industry tag fall into a localised **General** bucket pinned to the bottom. Filtering by industry collapses every other group out of the view.
+
+### Added
+- Capability Catalogue gained a floating **back-to-top** button (a circular Material `Fab` with an upward arrow) that fades in once you've scrolled 300 px past the header and smoothly scrolls the page back to the top on click. The button auto-slides up to clear the bulk **Create N capabilities** sticky bar whenever capabilities are selected, so it never overlaps the import action. Translated for all 8 supported UI locales (en/de/fr/es/it/pt/zh/ru).
+
 ## [0.50.2] - 2026-04-28
 
 ### Fixed

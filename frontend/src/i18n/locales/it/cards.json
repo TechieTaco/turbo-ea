@@ -282,5 +282,7 @@
   "catalogue.aliasesLabel": "Alias",
   "catalogue.referencesLabel": "Riferimenti",
   "catalogue.subtreeHeader_one": "Sottoalbero · {{count}} discendente",
-  "catalogue.subtreeHeader_other": "Sottoalbero · {{count}} discendenti"
+  "catalogue.subtreeHeader_other": "Sottoalbero · {{count}} discendenti",
+  "catalogue.industryGroupUnknown": "Generale",
+  "catalogue.backToTop": "Torna su"
 }
