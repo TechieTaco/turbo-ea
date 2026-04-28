@@ -5,6 +5,14 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.52.0] - 2026-04-28
+
+### Changed
+- Capability Catalogue's filter + action bars and the bulk-import bar at the bottom no longer stick on mobile (`xs` breakpoint). They scroll with the page so they don't eat scarce vertical space on small phones; on tablets and desktops they still stick as before.
+
+### Added
+- Card history now records changes to **Stakeholders**, **Relations**, **Risks**, and **Resources** (document links + file attachments), in addition to the existing card-level events. New event types: `stakeholder.added`, `stakeholder.role_changed`, `stakeholder.removed`, `relation.updated`, `risk.added`, `risk.updated`, `risk.removed`, `document.added`, `document.removed`, `file.uploaded`, `file.deleted`, plus a label for `comment.created`. Relations now log on both the source and target card so the change shows up wherever you open history. Each new entry shows a one-line summary (peer card name, role, risk reference + level, etc.) below the actor + timestamp. Translated for all 8 supported UI locales.
+
 ## [0.51.0] - 2026-04-28
 
 ### Changed

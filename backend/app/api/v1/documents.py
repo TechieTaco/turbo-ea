@@ -11,6 +11,7 @@ from app.database import get_db
 from app.models.document import Document
 from app.models.user import User
 from app.schemas.common import DocumentCreate
+from app.services.event_bus import event_bus
 from app.services.permission_service import PermissionService
 
 router = APIRouter(tags=["documents"])
@@ -58,6 +59,20 @@ async def create_document(
         created_by=user.id,
     )
     db.add(doc)
+    await db.flush()
+    await event_bus.publish(
+        "document.added",
+        {
+            "document_id": str(doc.id),
+            "name": doc.name,
+            "url": doc.url,
+            "type": doc.type,
+            "summary": doc.name or doc.url,
+        },
+        db=db,
+        card_id=card_uuid,
+        user_id=user.id,
+    )
     await db.commit()
     await db.refresh(doc)
     return {"id": str(doc.id), "name": doc.name, "url": doc.url}
@@ -77,5 +92,18 @@ async def delete_document(
         db, user, "documents.manage", doc.card_id, "card.manage_documents"
     ):
         raise HTTPException(403, "Not enough permissions")
+    await event_bus.publish(
+        "document.removed",
+        {
+            "document_id": str(doc.id),
+            "name": doc.name,
+            "url": doc.url,
+            "type": doc.type,
+            "summary": doc.name or doc.url,
+        },
+        db=db,
+        card_id=doc.card_id,
+        user_id=user.id,
+    )
     await db.delete(doc)
     await db.commit()

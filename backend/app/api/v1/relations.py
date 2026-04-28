@@ -82,18 +82,6 @@ async def create_relation(
     )
     db.add(rel)
     await db.flush()
-    await event_bus.publish(
-        "relation.created",
-        {
-            "id": str(rel.id),
-            "type": rel.type,
-            "source_id": body.source_id,
-            "target_id": body.target_id,
-        },
-        db=db,
-        card_id=uuid.UUID(body.source_id),
-        user_id=user.id,
-    )
 
     # Run calculated fields for both source and target cards
     source_card = await db.get(Card, uuid.UUID(body.source_id))
@@ -102,6 +90,43 @@ async def create_relation(
         await run_calculations_for_card(db, source_card)
     if target_card:
         await run_calculations_for_card(db, target_card)
+
+    # Emit an event on both endpoints so the relation appears in either
+    # card's history. Each side gets a peer-oriented summary.
+    source_name = source_card.name if source_card else None
+    target_name = target_card.name if target_card else None
+    base_payload = {
+        "id": str(rel.id),
+        "type": rel.type,
+        "source_id": body.source_id,
+        "target_id": body.target_id,
+        "source_name": source_name,
+        "target_name": target_name,
+    }
+    await event_bus.publish(
+        "relation.created",
+        {
+            **base_payload,
+            "peer_id": body.target_id,
+            "peer_name": target_name,
+            "summary": f"{rel.type} → {target_name or body.target_id}",
+        },
+        db=db,
+        card_id=uuid.UUID(body.source_id),
+        user_id=user.id,
+    )
+    await event_bus.publish(
+        "relation.created",
+        {
+            **base_payload,
+            "peer_id": body.source_id,
+            "peer_name": source_name,
+            "summary": f"{rel.type} ← {source_name or body.source_id}",
+        },
+        db=db,
+        card_id=uuid.UUID(body.target_id),
+        user_id=user.id,
+    )
 
     await db.commit()
     result = await db.execute(
@@ -125,7 +150,9 @@ async def update_relation(
     rel = result.scalar_one_or_none()
     if not rel:
         raise HTTPException(404, "Relation not found")
-    for field, value in body.model_dump(exclude_unset=True).items():
+    update_data = body.model_dump(exclude_unset=True)
+    changed_fields = sorted(update_data.keys())
+    for field, value in update_data.items():
         setattr(rel, field, value)
 
     # Run calculated fields for both source and target cards
@@ -135,6 +162,43 @@ async def update_relation(
         await run_calculations_for_card(db, source_card)
     if target_card:
         await run_calculations_for_card(db, target_card)
+
+    if changed_fields:
+        source_name = source_card.name if source_card else None
+        target_name = target_card.name if target_card else None
+        base_payload = {
+            "id": str(rel.id),
+            "type": rel.type,
+            "source_id": str(rel.source_id),
+            "target_id": str(rel.target_id),
+            "source_name": source_name,
+            "target_name": target_name,
+            "fields": changed_fields,
+        }
+        await event_bus.publish(
+            "relation.updated",
+            {
+                **base_payload,
+                "peer_id": str(rel.target_id),
+                "peer_name": target_name,
+                "summary": f"{rel.type} → {target_name or str(rel.target_id)}",
+            },
+            db=db,
+            card_id=rel.source_id,
+            user_id=user.id,
+        )
+        await event_bus.publish(
+            "relation.updated",
+            {
+                **base_payload,
+                "peer_id": str(rel.source_id),
+                "peer_name": source_name,
+                "summary": f"{rel.type} ← {source_name or str(rel.source_id)}",
+            },
+            db=db,
+            card_id=rel.target_id,
+            user_id=user.id,
+        )
 
     await db.commit()
     result = await db.execute(
@@ -159,18 +223,46 @@ async def delete_relation(
         raise HTTPException(404, "Relation not found")
     source_id = rel.source_id
     target_id = rel.target_id
+    rel_type = rel.type
+    source_card = await db.get(Card, source_id)
+    target_card = await db.get(Card, target_id)
+    source_name = source_card.name if source_card else None
+    target_name = target_card.name if target_card else None
+    base_payload = {
+        "id": str(rel.id),
+        "type": rel_type,
+        "source_id": str(source_id),
+        "target_id": str(target_id),
+        "source_name": source_name,
+        "target_name": target_name,
+    }
     await event_bus.publish(
         "relation.deleted",
-        {"id": str(rel.id), "type": rel.type},
+        {
+            **base_payload,
+            "peer_id": str(target_id),
+            "peer_name": target_name,
+            "summary": f"{rel_type} → {target_name or str(target_id)}",
+        },
         db=db,
         card_id=source_id,
+        user_id=user.id,
+    )
+    await event_bus.publish(
+        "relation.deleted",
+        {
+            **base_payload,
+            "peer_id": str(source_id),
+            "peer_name": source_name,
+            "summary": f"{rel_type} ← {source_name or str(source_id)}",
+        },
+        db=db,
+        card_id=target_id,
         user_id=user.id,
     )
     await db.delete(rel)
 
     # Run calculated fields for both source and target cards
-    source_card = await db.get(Card, source_id)
-    target_card = await db.get(Card, target_id)
     if source_card:
         await run_calculations_for_card(db, source_card)
     if target_card:

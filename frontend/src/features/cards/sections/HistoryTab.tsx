@@ -18,6 +18,20 @@ const EVENT_META_ICONS: Record<string, { icon: string; color: string }> = {
   "card.approval_status.approve": { icon: "verified", color: "#4caf50" },
   "card.approval_status.reject": { icon: "cancel", color: "#f44336" },
   "card.approval_status.reset": { icon: "restart_alt", color: "#9e9e9e" },
+  "stakeholder.added": { icon: "person_add", color: "#1976d2" },
+  "stakeholder.role_changed": { icon: "manage_accounts", color: "#1976d2" },
+  "stakeholder.removed": { icon: "person_remove", color: "#f44336" },
+  "relation.created": { icon: "link", color: "#1976d2" },
+  "relation.updated": { icon: "sync_alt", color: "#1976d2" },
+  "relation.deleted": { icon: "link_off", color: "#f44336" },
+  "risk.added": { icon: "report", color: "#ff9800" },
+  "risk.updated": { icon: "edit_note", color: "#ff9800" },
+  "risk.removed": { icon: "report_off", color: "#9e9e9e" },
+  "document.added": { icon: "link", color: "#1976d2" },
+  "document.removed": { icon: "link_off", color: "#f44336" },
+  "file.uploaded": { icon: "upload_file", color: "#1976d2" },
+  "file.deleted": { icon: "delete", color: "#f44336" },
+  "comment.created": { icon: "chat", color: "#1976d2" },
 };
 
 function getEventMeta(t: (key: string) => string): Record<string, { label: string; icon: string; color: string }> {
@@ -30,6 +44,20 @@ function getEventMeta(t: (key: string) => string): Record<string, { label: strin
     "card.approval_status.approve": { label: t("history.events.approved"), ...EVENT_META_ICONS["card.approval_status.approve"] },
     "card.approval_status.reject": { label: t("history.events.rejected"), ...EVENT_META_ICONS["card.approval_status.reject"] },
     "card.approval_status.reset": { label: t("history.events.resetToDraft"), ...EVENT_META_ICONS["card.approval_status.reset"] },
+    "stakeholder.added": { label: t("history.events.stakeholderAdded"), ...EVENT_META_ICONS["stakeholder.added"] },
+    "stakeholder.role_changed": { label: t("history.events.stakeholderRoleChanged"), ...EVENT_META_ICONS["stakeholder.role_changed"] },
+    "stakeholder.removed": { label: t("history.events.stakeholderRemoved"), ...EVENT_META_ICONS["stakeholder.removed"] },
+    "relation.created": { label: t("history.events.relationCreated"), ...EVENT_META_ICONS["relation.created"] },
+    "relation.updated": { label: t("history.events.relationUpdated"), ...EVENT_META_ICONS["relation.updated"] },
+    "relation.deleted": { label: t("history.events.relationDeleted"), ...EVENT_META_ICONS["relation.deleted"] },
+    "risk.added": { label: t("history.events.riskAdded"), ...EVENT_META_ICONS["risk.added"] },
+    "risk.updated": { label: t("history.events.riskUpdated"), ...EVENT_META_ICONS["risk.updated"] },
+    "risk.removed": { label: t("history.events.riskRemoved"), ...EVENT_META_ICONS["risk.removed"] },
+    "document.added": { label: t("history.events.documentAdded"), ...EVENT_META_ICONS["document.added"] },
+    "document.removed": { label: t("history.events.documentRemoved"), ...EVENT_META_ICONS["document.removed"] },
+    "file.uploaded": { label: t("history.events.fileUploaded"), ...EVENT_META_ICONS["file.uploaded"] },
+    "file.deleted": { label: t("history.events.fileDeleted"), ...EVENT_META_ICONS["file.deleted"] },
+    "comment.created": { label: t("history.events.commentCreated"), ...EVENT_META_ICONS["comment.created"] },
   };
 }
 
@@ -113,6 +141,7 @@ function HistoryTab({ fsId }: { fsId: string }) {
         const meta = eventMeta[e.event_type] || { label: e.event_type, icon: "info", color: "#9e9e9e" };
         const changes = e.data?.changes as Record<string, unknown> | undefined;
         const rows = changes ? parseChanges(changes, fieldLabels, phaseLabels) : [];
+        const summary = typeof e.data?.summary === "string" ? (e.data.summary as string) : null;
 
         return (
           <Box key={e.id} sx={{ display: "flex", gap: 1.5, mb: 2 }}>
@@ -136,6 +165,14 @@ function HistoryTab({ fsId }: { fsId: string }) {
                   {e.created_at ? new Date(e.created_at).toLocaleString() : ""}
                 </Typography>
               </Box>
+
+              {/* Summary line — used by events that don't carry a field-level diff
+                  (relations, stakeholders, risks, documents, files). */}
+              {summary && rows.length === 0 && (
+                <Typography variant="body2" color="text.secondary" sx={{ mt: 0.25 }}>
+                  {summary}
+                </Typography>
+              )}
 
               {/* Change rows */}
               {rows.length > 0 && (

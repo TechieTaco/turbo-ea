@@ -15,6 +15,7 @@ from app.models.stakeholder import Stakeholder
 from app.models.stakeholder_role_definition import StakeholderRoleDefinition
 from app.models.user import User
 from app.schemas.common import StakeholderCreate
+from app.services.event_bus import event_bus
 from app.services.permission_service import PermissionService
 
 router = APIRouter(tags=["stakeholders"])
@@ -173,7 +174,7 @@ async def create_stakeholder(
         role=body.role,
     )
     db.add(stakeholder)
-    await db.commit()
+    await db.flush()
     result = await db.execute(
         select(Stakeholder)
         .options(selectinload(Stakeholder.user))
@@ -182,12 +183,33 @@ async def create_stakeholder(
     stakeholder = result.scalar_one()
 
     labels = _role_labels(roles)
+    role_label = labels.get(stakeholder.role, stakeholder.role)
+    user_name = stakeholder.user.display_name if stakeholder.user else None
+    await event_bus.publish(
+        "stakeholder.added",
+        {
+            "stakeholder_id": str(stakeholder.id),
+            "user_id": str(stakeholder.user_id),
+            "user_display_name": user_name,
+            "role": stakeholder.role,
+            "role_label": role_label,
+            "summary": (
+                f"{user_name or stakeholder.user.email if stakeholder.user else 'User'}"
+                f" · {role_label}"
+            ),
+        },
+        db=db,
+        card_id=uuid.UUID(card_id),
+        user_id=user.id,
+    )
+    await db.commit()
+
     return {
         "id": str(stakeholder.id),
         "user_id": str(stakeholder.user_id),
-        "user_display_name": stakeholder.user.display_name if stakeholder.user else None,
+        "user_display_name": user_name,
         "role": stakeholder.role,
-        "role_label": labels.get(stakeholder.role, stakeholder.role),
+        "role_label": role_label,
     }
 
 
@@ -216,10 +238,35 @@ async def update_stakeholder(
     if body.role not in valid_keys:
         raise HTTPException(400, f"Invalid role '{body.role}'. Valid: {sorted(valid_keys)}")
 
-    stakeholder.role = body.role
+    labels = _role_labels(roles)
+    old_role = stakeholder.role
+    if old_role != body.role:
+        # Pre-load user for the summary line.
+        await db.refresh(stakeholder, attribute_names=["user"])
+        user_name = stakeholder.user.display_name if stakeholder.user else None
+        await event_bus.publish(
+            "stakeholder.role_changed",
+            {
+                "stakeholder_id": str(stakeholder.id),
+                "user_id": str(stakeholder.user_id),
+                "user_display_name": user_name,
+                "old_role": old_role,
+                "old_role_label": labels.get(old_role, old_role),
+                "new_role": body.role,
+                "new_role_label": labels.get(body.role, body.role),
+                "summary": (
+                    f"{user_name or 'User'} · "
+                    f"{labels.get(old_role, old_role)} → {labels.get(body.role, body.role)}"
+                ),
+            },
+            db=db,
+            card_id=stakeholder.card_id,
+            user_id=user.id,
+        )
+        stakeholder.role = body.role
+
     await db.commit()
 
-    labels = _role_labels(roles)
     return {
         "id": str(stakeholder.id),
         "user_id": str(stakeholder.user_id),
@@ -244,5 +291,29 @@ async def delete_stakeholder(
         db, user, "stakeholders.manage", stakeholder.card_id, "card.manage_stakeholders"
     ):
         raise HTTPException(403, "Not enough permissions")
+
+    # Capture context for the history event before the row is gone.
+    await db.refresh(stakeholder, attribute_names=["user"])
+    card_result = await db.execute(select(Card.type).where(Card.id == stakeholder.card_id))
+    card_type_key = card_result.scalar_one_or_none()
+    roles = await _roles_for_type(db, card_type_key) if card_type_key else _DEFAULT_ROLES
+    labels = _role_labels(roles)
+    user_name = stakeholder.user.display_name if stakeholder.user else None
+    await event_bus.publish(
+        "stakeholder.removed",
+        {
+            "stakeholder_id": str(stakeholder.id),
+            "user_id": str(stakeholder.user_id),
+            "user_display_name": user_name,
+            "role": stakeholder.role,
+            "role_label": labels.get(stakeholder.role, stakeholder.role),
+            "summary": (
+                f"{user_name or 'User'} · {labels.get(stakeholder.role, stakeholder.role)}"
+            ),
+        },
+        db=db,
+        card_id=stakeholder.card_id,
+        user_id=user.id,
+    )
     await db.delete(stakeholder)
     await db.commit()
