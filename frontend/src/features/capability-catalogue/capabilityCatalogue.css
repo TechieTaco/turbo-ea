@@ -542,7 +542,11 @@
   min-width: 280px;
   max-width: 360px;
   margin-top: 6px;
-  overflow: hidden;
+  /* overflow-y: auto so the list scrolls when there are more industries
+     than fit on screen — the rounded corners still clip via border-radius
+     on modern browsers. (overflow: hidden was clipping the scrollbar
+     and making the list unreachable past the visible items.) */
+  overflow-y: auto;
 }
 
 /* "Clear (N)" row */
