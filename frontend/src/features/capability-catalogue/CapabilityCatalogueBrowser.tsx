@@ -322,7 +322,29 @@ export default function CapabilityCatalogueBrowser({
     setShowDeprecated(false);
   };
 
-  const roots = (byParent.get(null) ?? []).filter((r) => visibleSet.has(r.id));
+  const roots = useMemo(
+    () => (byParent.get(null) ?? []).filter((r) => visibleSet.has(r.id)),
+    [byParent, visibleSet],
+  );
+
+  const industryGroups = useMemo(() => {
+    const map = new Map<string, FlatCapability[]>();
+    for (const r of roots) {
+      const key = splitIndustry(r.industry)[0] || "__none__";
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(r);
+    }
+    return Array.from(map.entries())
+      .sort(([a], [b]) => {
+        if (a === "Cross-Industry") return -1;
+        if (b === "Cross-Industry") return 1;
+        if (a === "__none__") return 1;
+        if (b === "__none__") return -1;
+        return a.localeCompare(b);
+      })
+      .map(([key, items]) => ({ key, items }));
+  }, [roots]);
+
   const selectionCount = selected.size;
 
   const visibleCreatable = useMemo(
@@ -336,8 +358,21 @@ export default function CapabilityCatalogueBrowser({
 
   return (
     <Box className={`tcc-root${isDark ? " tcc-root--dark" : ""}`}>
+      {/* Sticky filter + action bar — sticks just below the AppBar (64 px) */}
+      <Box
+        sx={{
+          position: "sticky",
+          top: 64,
+          zIndex: 100,
+          bgcolor: "background.default",
+          pb: 1.5,
+          boxShadow: isDark
+            ? "0 2px 6px -1px rgba(0,0,0,0.45)"
+            : "0 2px 6px -1px rgba(0,0,0,0.08)",
+        }}
+      >
       {/* Filter bar */}
-      <Paper variant="outlined" sx={{ p: 1.5, mb: 1.5 }}>
+      <Paper variant="outlined" sx={{ p: 1.5, mb: 1 }}>
         <Stack direction="row" spacing={1.5} alignItems="center" flexWrap="wrap" useFlexGap>
           <TextField
             size="small"
@@ -409,7 +444,6 @@ export default function CapabilityCatalogueBrowser({
         spacing={1}
         alignItems="center"
         flexWrap="wrap"
-        sx={{ mb: 1.5 }}
         useFlexGap
       >
         <Typography variant="body2" color="text.secondary" sx={{ flex: 1 }}>
@@ -474,8 +508,9 @@ export default function CapabilityCatalogueBrowser({
           {t("cards:catalogue.clearSelection")}
         </Button>
       </Stack>
+      </Box>{/* end sticky wrapper */}
 
-      {/* L1 grid */}
+      {/* L1 grid — grouped by industry */}
       {roots.length === 0 ? (
         <Paper variant="outlined" sx={{ p: 4, textAlign: "center" }}>
           <Typography variant="h6">{t("cards:catalogue.noMatches")}</Typography>
@@ -484,27 +519,40 @@ export default function CapabilityCatalogueBrowser({
           </Typography>
         </Paper>
       ) : (
-        <div className="tcc-l1-grid">
-          {roots.map((r) => (
-            <L1Card
-              key={r.id}
-              node={r}
-              byParent={byParent}
-              visible={visibleSet}
-              expanded={expanded}
-              selected={selected}
-              descendantsOf={descendantsOf}
-              onToggleExpand={toggleExpand}
-              onExpandL1={expandL1OneLevel}
-              onCollapseL1={collapseL1OneLevel}
-              openDepth={l1OpenDepth(r.id)}
-              maxDepth={l1MaxDepth(r.id)}
-              onToggleSelect={toggleSelect}
-              onOpenDetail={onOpenDetail}
-              isSelectable={isSelectable}
-            />
+        <>
+          {industryGroups.map(({ key, items }) => (
+            <Box key={key} sx={{ mb: 3 }}>
+              <Typography
+                variant="overline"
+                color="text.secondary"
+                sx={{ display: "block", mb: 1, pl: 0.5, fontWeight: 700 }}
+              >
+                {key === "__none__" ? t("cards:catalogue.industryGroupUnknown") : key}
+              </Typography>
+              <div className="tcc-l1-grid">
+                {items.map((r) => (
+                  <L1Card
+                    key={r.id}
+                    node={r}
+                    byParent={byParent}
+                    visible={visibleSet}
+                    expanded={expanded}
+                    selected={selected}
+                    descendantsOf={descendantsOf}
+                    onToggleExpand={toggleExpand}
+                    onExpandL1={expandL1OneLevel}
+                    onCollapseL1={collapseL1OneLevel}
+                    openDepth={l1OpenDepth(r.id)}
+                    maxDepth={l1MaxDepth(r.id)}
+                    onToggleSelect={toggleSelect}
+                    onOpenDetail={onOpenDetail}
+                    isSelectable={isSelectable}
+                  />
+                ))}
+              </div>
+            </Box>
           ))}
-        </div>
+        </>
       )}
     </Box>
   );

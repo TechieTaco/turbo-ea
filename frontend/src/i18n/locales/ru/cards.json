@@ -282,5 +282,7 @@
   "catalogue.aliasesLabel": "Псевдонимы",
   "catalogue.referencesLabel": "Ссылки",
   "catalogue.subtreeHeader_one": "Поддерево · {{count}} потомок",
-  "catalogue.subtreeHeader_other": "Поддерево · {{count}} потомков"
+  "catalogue.subtreeHeader_other": "Поддерево · {{count}} потомков",
+  "catalogue.industryGroupUnknown": "Общее",
+  "catalogue.backToTop": "Наверх"
 }

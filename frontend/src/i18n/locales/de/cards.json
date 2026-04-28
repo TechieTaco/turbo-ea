@@ -282,5 +282,7 @@
   "catalogue.aliasesLabel": "Aliase",
   "catalogue.referencesLabel": "Referenzen",
   "catalogue.subtreeHeader_one": "Teilbaum · {{count}} Unterelement",
-  "catalogue.subtreeHeader_other": "Teilbaum · {{count}} Unterelemente"
+  "catalogue.subtreeHeader_other": "Teilbaum · {{count}} Unterelemente",
+  "catalogue.industryGroupUnknown": "Allgemein",
+  "catalogue.backToTop": "Nach oben"
 }

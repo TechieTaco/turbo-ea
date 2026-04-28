@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import Fab from "@mui/material/Fab";
+import Fade from "@mui/material/Fade";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import Box from "@mui/material/Box";
@@ -56,6 +58,13 @@ export default function CapabilityCataloguePage() {
   const [updateChecking, setUpdateChecking] = useState(false);
   const [updateFetching, setUpdateFetching] = useState(false);
   const [snackbar, setSnackbar] = useState<string | null>(null);
+  const [showScrollTop, setShowScrollTop] = useState(false);
+
+  useEffect(() => {
+    const onScroll = () => setShowScrollTop(window.scrollY > 300);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
 
   // Initial load -----------------------------------------------------------
   // Pass the active i18n language as `?locale=` so live UI language switches
@@ -403,6 +412,24 @@ export default function CapabilityCataloguePage() {
         message={snackbar}
         anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
       />
+
+      {/* Scroll-to-top button — appears after 300 px, floats above the import bar when active */}
+      <Fade in={showScrollTop}>
+        <Fab
+          size="small"
+          aria-label={t("cards:catalogue.backToTop")}
+          onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+          sx={{
+            position: "fixed",
+            bottom: selected.size > 0 ? 88 : 24,
+            right: 24,
+            zIndex: 200,
+            transition: "bottom 0.2s ease",
+          }}
+        >
+          <MaterialSymbol icon="arrow_upward" size={20} />
+        </Fab>
+      </Fade>
     </Box>
   );
 }
