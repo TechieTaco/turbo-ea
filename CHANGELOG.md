@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 - Disabled (`is_active=false`) users no longer appear in owner / assignee / stakeholder pickers across the app. `GET /users` now excludes inactive accounts by default; the Users admin page opts back in via `?include_inactive=true` so admins can still see and re-enable disabled users.
+- Dashboard Recent Activity no longer leaks raw translation keys (e.g. `dashboard.activity.action.risk.added`) for the new event types. Added action labels for all stakeholder / relation.updated / risk / document / file events in every supported locale, and gave them dedicated icons + colours (group / report / attachment) instead of falling into the generic "other" bucket. The fallback path is now resilient to the i18n config (`returnEmptyString: false` makes missing keys resolve to themselves), so any future backend event type renders as _"performed {{type}}"_ instead of the raw key. Locked in with a regression test.
 
 ### Changed
 - Capability Catalogue's filter + action bars and the bulk-import bar at the bottom no longer stick on mobile (`xs` breakpoint). They scroll with the page so they don't eat scarce vertical space on small phones; on tablets and desktops they still stick as before.

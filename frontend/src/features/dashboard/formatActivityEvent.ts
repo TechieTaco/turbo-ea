@@ -12,6 +12,9 @@ export type ActivityCategory =
   | "restore"
   | "delete"
   | "relation"
+  | "stakeholder"
+  | "risk"
+  | "document"
   | "comment"
   | "diagram"
   | "process"
@@ -44,6 +47,9 @@ const CATEGORY_ICONS: Record<ActivityCategory, string> = {
   restore: "history",
   delete: "delete",
   relation: "link",
+  stakeholder: "group",
+  risk: "report",
+  document: "attach_file",
   comment: "chat_bubble",
   diagram: "schema",
   process: "account_tree",
@@ -63,6 +69,9 @@ const CATEGORY_COLORS: Record<ActivityCategory, string> = {
   restore: STATUS_COLORS.success,
   delete: SEVERITY_COLORS.critical,
   relation: "#774fcc",
+  stakeholder: "#2889ff",
+  risk: STATUS_COLORS.warning,
+  document: "#0f7eb5",
   comment: "#0f7eb5",
   diagram: "#02afa4",
   process: "#8e24aa",
@@ -89,6 +98,9 @@ function categorize(eventType: string): ActivityCategory {
     if (action === "reset") return "reset";
   }
   if (eventType.startsWith("relation.")) return "relation";
+  if (eventType.startsWith("stakeholder.")) return "stakeholder";
+  if (eventType.startsWith("risk.")) return "risk";
+  if (eventType.startsWith("document.") || eventType.startsWith("file.")) return "document";
   if (eventType.startsWith("comment.")) return "comment";
   if (eventType.startsWith("process_diagram.")) return "diagram";
   if (eventType.startsWith("process_flow.")) return "process";
@@ -137,9 +149,15 @@ export function formatActivityEvent(
   // then the legacy in-payload name, then null.
   const cardName = asString(e.card_name) ?? asString(data.name);
 
+  // The i18n config has `returnEmptyString: false`, which causes a missing
+  // key to be returned verbatim instead of honouring `defaultValue`. We
+  // therefore detect "missing" by comparing the result to a sentinel AND to
+  // the key itself, so a brand-new backend event type doesn't leak its raw
+  // translation key into the UI.
   const actionKey = `dashboard.activity.action.${e.event_type}`;
-  let actionText = t(actionKey, { defaultValue: "" }) as string;
-  if (!actionText) {
+  const MISSING = "__missing_action_label__";
+  let actionText = t(actionKey, { defaultValue: MISSING }) as string;
+  if (actionText === MISSING || actionText === actionKey || !actionText) {
     actionText = t("dashboard.activity.action.fallback", {
       type: e.event_type.replace(/[._]/g, " "),
     }) as string;
