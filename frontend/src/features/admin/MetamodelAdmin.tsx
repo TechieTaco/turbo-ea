@@ -156,7 +156,7 @@ export default function MetamodelAdmin() {
 
   const autoRelKey =
     newRel.source_type_key && newRel.target_type_key
-      ? `${newRel.source_type_key}_to_${newRel.target_type_key}`
+      ? `${newRel.source_type_key}To${newRel.target_type_key}`
       : "";
 
   /* ---- Handlers ---- */
@@ -866,7 +866,7 @@ export default function MetamodelAdmin() {
                   source_type_key: src,
                   key:
                     src && newRel.target_type_key
-                      ? `${src}_to_${newRel.target_type_key}`
+                      ? `${src}To${newRel.target_type_key}`
                       : newRel.key,
                 });
               }}
@@ -904,7 +904,7 @@ export default function MetamodelAdmin() {
                   target_type_key: tgt,
                   key:
                     newRel.source_type_key && tgt
-                      ? `${newRel.source_type_key}_to_${tgt}`
+                      ? `${newRel.source_type_key}To${tgt}`
                       : newRel.key,
                 });
               }}
