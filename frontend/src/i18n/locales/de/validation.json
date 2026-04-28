@@ -11,5 +11,5 @@
   "key.lettersAndDigitsOnly": "Nur Buchstaben und Ziffern erlaubt (camelCase)",
   "key.cannotChange": "Schlüssel kann nach der Erstellung nicht geändert werden",
   "key.valid": "Gültiger Schlüssel",
-  "key.hint": "Nur Buchstaben und Ziffern, camelCase (z. B. businessFit)"
+  "key.hint": "Nur Buchstaben und Ziffern, keine Trennzeichen (z. B. businessFit oder ApplicationToITComponent)"
 }

@@ -11,5 +11,5 @@
   "key.lettersAndDigitsOnly": "Только буквы и цифры (camelCase)",
   "key.cannotChange": "Ключ нельзя изменить после создания",
   "key.valid": "Корректный ключ",
-  "key.hint": "Только буквы и цифры, camelCase (например, businessFit)"
+  "key.hint": "Только буквы и цифры, без разделителей (например, businessFit или ApplicationToITComponent)"
 }

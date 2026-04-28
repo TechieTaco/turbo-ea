@@ -12,5 +12,5 @@
   "key.lettersAndDigitsOnly": "Apenas letras e dígitos são permitidos (camelCase)",
   "key.cannotChange": "A chave não pode ser alterada após a criação",
   "key.valid": "Chave válida",
-  "key.hint": "Apenas letras e dígitos, camelCase (ex: businessFit)"
+  "key.hint": "Apenas letras e dígitos, sem separadores (ex: businessFit ou ApplicationToITComponent)"
 }
