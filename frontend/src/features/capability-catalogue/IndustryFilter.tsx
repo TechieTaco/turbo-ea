@@ -24,6 +24,12 @@ export default function IndustryFilter({ industries, selected, onChange }: Props
   const { t } = useTranslation(["cards"]);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const [open, setOpen] = useState(false);
+  // Snapshot the trigger's screen position at open time and pin the menu
+  // there. Selecting an industry filters the BC tree below, which can show
+  // or hide the page scrollbar; that ~16px viewport-width swing was making
+  // the menu visibly slide left/right on every toggle. With a captured
+  // anchorPosition the menu stays put for the lifetime of the open state.
+  const [anchorPos, setAnchorPos] = useState<{ top: number; left: number } | null>(null);
   // The Menu portals to <body>, so it can't inherit the .tcc-root--dark class
   // we set on the catalogue browser. Tag the menu directly instead.
   const isDark = useTheme().palette.mode === "dark";
@@ -52,6 +58,14 @@ export default function IndustryFilter({ industries, selected, onChange }: Props
   const clearAll = () => {
     onChange(new Set());
     setOpen(false);
+  };
+
+  const openMenu = () => {
+    if (triggerRef.current) {
+      const rect = triggerRef.current.getBoundingClientRect();
+      setAnchorPos({ top: rect.bottom, left: rect.left });
+    }
+    setOpen(true);
   };
 
   const renderRow = (name: string) => {
@@ -85,7 +99,7 @@ export default function IndustryFilter({ industries, selected, onChange }: Props
         className={`tcc-industry-trigger${open ? " is-open" : ""}`}
         aria-haspopup="listbox"
         aria-expanded={open}
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => (open ? setOpen(false) : openMenu())}
       >
         <span className="tcc-industry-trigger-label">
           {t("cards:catalogue.industryTriggerLabel")}
@@ -98,10 +112,10 @@ export default function IndustryFilter({ industries, selected, onChange }: Props
 
       <Menu
         className={`tcc-industry-menu${isDark ? " tcc-industry-menu--dark" : ""}`}
-        anchorEl={triggerRef.current}
-        open={open}
+        anchorReference="anchorPosition"
+        anchorPosition={anchorPos ?? undefined}
+        open={open && anchorPos !== null}
         onClose={() => setOpen(false)}
-        anchorOrigin={{ vertical: "bottom", horizontal: "left" }}
         transformOrigin={{ vertical: "top", horizontal: "left" }}
         slotProps={{
           paper: {
