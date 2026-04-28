@@ -102,7 +102,7 @@ export default function UsersAdmin() {
   const fetchUsers = useCallback(async () => {
     try {
       setLoading(true);
-      const data = await api.get<User[]>("/users");
+      const data = await api.get<User[]>("/users?include_inactive=true");
       setUsers(data);
       setError(null);
     } catch (err) {

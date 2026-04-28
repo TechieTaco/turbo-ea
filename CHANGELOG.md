@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [0.52.0] - 2026-04-28
 
+### Fixed
+- Disabled (`is_active=false`) users no longer appear in owner / assignee / stakeholder pickers across the app. `GET /users` now excludes inactive accounts by default; the Users admin page opts back in via `?include_inactive=true` so admins can still see and re-enable disabled users.
+
 ### Changed
 - Capability Catalogue's filter + action bars and the bulk-import bar at the bottom no longer stick on mobile (`xs` breakpoint). They scroll with the page so they don't eat scarce vertical space on small phones; on tablets and desktops they still stick as before.
 
