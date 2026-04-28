@@ -476,8 +476,12 @@
   align-items: center;
   gap: 12px;
   height: 40px;
+  /* Locked width so the trigger doesn't reflow as the value text changes
+     ("All" → "Cross-Industry" → "3 selected") — otherwise the parent flex
+     row resizes on each toggle and the open Menu re-anchors visibly. */
+  min-width: 220px;
   padding: 0 10px 0 16px;
-  border: 1.5px solid #003399;
+  border: 0;
   border-radius: 8px;
   background: var(--mui-palette-background-paper, #fff);
   color: #003399;
@@ -488,7 +492,7 @@
 }
 
 .tcc-industry-trigger:hover {
-  background: rgba(0, 51, 153, 0.04);
+  background: rgba(0, 51, 153, 0.06);
 }
 
 .tcc-industry-trigger:focus-visible {
@@ -502,21 +506,24 @@
   text-transform: uppercase;
   font-size: 12px;
   color: inherit;
+  flex-shrink: 0;
 }
 
 .tcc-industry-trigger-value {
+  flex: 1;
   font-weight: 500;
   color: #0f172a;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 220px;
+  min-width: 0;
 }
 
 .tcc-industry-trigger-chevron {
   display: inline-flex;
   align-items: center;
   color: #0f172a;
+  flex-shrink: 0;
   transition: transform 150ms ease;
 }
 
@@ -598,12 +605,11 @@
 
 .tcc-root--dark .tcc-industry-trigger {
   background: #1e1e1e;
-  border-color: #a8c4ff;
   color: #a8c4ff;
 }
 
 .tcc-root--dark .tcc-industry-trigger:hover {
-  background: rgba(168, 196, 255, 0.08);
+  background: rgba(168, 196, 255, 0.10);
 }
 
 .tcc-root--dark .tcc-industry-trigger-value,
