@@ -53,9 +53,9 @@ Turbo EA 自带 **[Business Capability Reference Catalogue](https://capabilities
 
 目录作为 Python 依赖**随版本一起打包**发布，因此即便离线 / 在隔网部署中页面也可使用。管理员（`admin.metamodel`）可按需拉取更新版本：
 
-1. 点击 **检查更新**。Turbo EA 会查询 `https://capabilities.turbo-ea.org/api/version.json` 并告诉您是否有更新版本。
-2. 若有，点击随之出现的 **获取 v…** 按钮。Turbo EA 会下载最新目录并将其作为服务器端覆盖保存，对所有用户立即生效。
+1. 点击 **检查更新**。Turbo EA 会查询 PyPI 的 JSON API `https://pypi.org/pypi/turbo-ea-capabilities/json` 并告诉您是否有更新的已发布版本。PyPI 是发布时的唯一可信源，因此几分钟前刚上线的 wheel 也能立即被识别。
+2. 若有，点击随之出现的 **获取 v…** 按钮。Turbo EA 会从 PyPI 下载最新 wheel，从中提取目录数据，并将其作为服务器端覆盖保存，对所有用户立即生效。
 
 当前生效的目录版本始终显示在页头的 chip 上。只有当覆盖版本严格大于打包版本时，覆盖才会优先于打包包——所以一次带有更新打包目录的 Turbo EA 升级仍会按预期工作。
 
-远程 URL 可通过环境变量 `CAPABILITY_CATALOGUE_URL` 进行配置，方便那些在内部镜像公开目录的自托管部署使用。
+PyPI 索引 URL 可通过环境变量 `CAPABILITY_CATALOGUE_PYPI_URL` 进行配置，方便隔网部署或私有镜像使用。

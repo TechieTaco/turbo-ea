@@ -53,9 +53,9 @@ Click any capability name to open a detail dialog showing its breadcrumb, descri
 
 The catalogue ships **bundled** as a Python dependency, so the page works offline / in airgapped deployments. Admins (`admin.metamodel`) can pull a newer version on demand:
 
-1. Click **Check for update**. Turbo EA queries `https://capabilities.turbo-ea.org/api/version.json` and tells you whether a newer version is available.
-2. If yes, click the **Fetch v…** button that appears. Turbo EA downloads the latest catalogue and stores it as a server-side override, taking effect immediately for all users.
+1. Click **Check for update**. Turbo EA queries PyPI's JSON API at `https://pypi.org/pypi/turbo-ea-capabilities/json` and tells you whether a newer published version is available. PyPI is the source of truth at publish time, so a wheel that went live a few minutes ago is detected immediately.
+2. If yes, click the **Fetch v…** button that appears. Turbo EA downloads the latest wheel from PyPI, extracts the catalogue payload from inside it, and stores it as a server-side override, taking effect immediately for all users.
 
 The active catalogue version is always shown in the header chip. The override is preferred over the bundled package only when its version is strictly greater — so a Turbo EA upgrade that ships a newer bundled catalogue will continue to work as expected.
 
-The remote URL is configurable via the `CAPABILITY_CATALOGUE_URL` environment variable for self-hosted deployments that mirror the public catalogue internally.
+The PyPI index URL is configurable via the `CAPABILITY_CATALOGUE_PYPI_URL` environment variable for airgapped deployments or private mirrors.

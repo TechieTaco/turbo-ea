@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.52.1] - 2026-04-29
+
+### Fixed
+- Capability Catalogue's **Check for update** no longer reports "you're on the latest version" right after a new `turbo-ea-capabilities` package is published to PyPI. The check now queries `https://pypi.org/pypi/turbo-ea-capabilities/json` directly — the source of truth at publish time — instead of the docs site at `capabilities.turbo-ea.org`, which only refreshes when the GitHub Pages deploy completes and could lag a successful publish by many minutes. **Fetch update** likewise pulls the wheel artefact from PyPI and extracts the cached payload from inside it, so a successful fetch reliably matches what the check reports and clears the "update available" badge. Override the index URL with `CAPABILITY_CATALOGUE_PYPI_URL` for airgapped or private-mirror deployments (the previous `CAPABILITY_CATALOGUE_URL` env var no longer applies).
+
 ## [0.52.0] - 2026-04-28
 
 ### Fixed
