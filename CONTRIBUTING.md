@@ -25,6 +25,9 @@ If you want to help, the best ways are:
   code.
 - **Security vulnerability?** Please do not open a public issue. Contact me directly
   via the details in my GitHub profile.
+- **Want to support the project financially?** Donations are genuinely appreciated and
+  help offset the cost of the AI tooling that makes this project possible. You can find
+  sponsorship options on my GitHub profile.
 
 Please be kind. This project costs me real time and money to run. Constructive, patient
 communication goes a long way.
