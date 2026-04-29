@@ -43,6 +43,7 @@ import type {
 } from "@/types";
 import Tooltip from "@mui/material/Tooltip";
 import { useThemeMode } from "@/hooks/useThemeMode";
+import { useDateFormat } from "@/hooks/useDateFormat";
 import CreateRiskDialog from "./CreateRiskDialog";
 import RiskFilterSidebar, {
   EMPTY_RISK_FILTERS,
@@ -60,6 +61,7 @@ export default function RiskRegisterPage() {
   const { t } = useTranslation("delivery");
   const navigate = useNavigate();
   const { mode } = useThemeMode();
+  const { formatDate } = useDateFormat();
   const gridRef = useRef<AgGridReact<Risk> | null>(null);
 
   const [rows, setRows] = useState<Risk[]>([]);
@@ -284,8 +286,7 @@ export default function RiskRegisterPage() {
         headerName: t("risks.col.target"),
         width: 140,
         filter: "agDateColumnFilter",
-        valueFormatter: (p) =>
-          p.value ? new Date(p.value as string).toLocaleDateString() : "—",
+        valueFormatter: (p) => (p.value ? formatDate(p.value as string) : "—"),
         cellStyle: (p) => {
           if (!p.data) return null;
           const d = p.data.target_resolution_date;
@@ -325,11 +326,10 @@ export default function RiskRegisterPage() {
         width: 150,
         filter: "agDateColumnFilter",
         sort: "desc",
-        valueFormatter: (p) =>
-          p.value ? new Date(p.value as string).toLocaleDateString() : "",
+        valueFormatter: (p) => formatDate(p.value as string | null | undefined),
       },
     ],
-    [t, today, levelWeight],
+    [t, today, levelWeight, formatDate],
   );
 
   // ── KPI helpers ──────────────────────────────────────────────────

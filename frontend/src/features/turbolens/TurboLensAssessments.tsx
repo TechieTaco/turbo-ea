@@ -13,10 +13,12 @@ import Typography from "@mui/material/Typography";
 import Button from "@mui/material/Button";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
+import { useDateFormat } from "@/hooks/useDateFormat";
 import type { TurboLensAssessment } from "@/types";
 
 export default function TurboLensAssessments() {
   const { t } = useTranslation("admin");
+  const { formatDate } = useDateFormat();
   const navigate = useNavigate();
   const [assessments, setAssessments] = useState<TurboLensAssessment[]>([]);
 
@@ -92,9 +94,7 @@ export default function TurboLensAssessments() {
                   )}
                 </TableCell>
                 <TableCell>
-                  {a.created_at
-                    ? new Date(a.created_at).toLocaleDateString()
-                    : "—"}
+                  {a.created_at ? formatDate(a.created_at) : "—"}
                 </TableCell>
                 <TableCell align="right">
                   {a.status !== "committed" && (

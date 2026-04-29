@@ -9,6 +9,7 @@ import Tab from "@mui/material/Tab";
 import Tooltip from "@mui/material/Tooltip";
 import { alpha } from "@mui/material/styles";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import { useDateFormat } from "@/hooks/useDateFormat";
 import type { EventEntry } from "@/types";
 import {
   formatActivityEvent,
@@ -124,10 +125,11 @@ interface RowProps {
 
 function ActivityRow({ group, isLast }: RowProps) {
   const { t } = useTranslation("common");
+  const { formatDateTime } = useDateFormat();
   const primary = group.events[0];
   const formatted = formatActivityEvent(primary, t);
   const isCluster = group.count > 1;
-  const absoluteTime = primary.created_at ? new Date(primary.created_at).toLocaleString() : "";
+  const absoluteTime = primary.created_at ? formatDateTime(primary.created_at) : "";
   const userName = primary.user_display_name || t("labels.system");
 
   return (

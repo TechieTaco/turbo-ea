@@ -10,12 +10,14 @@ import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import Typography from "@mui/material/Typography";
 import { api } from "@/api/client";
+import { useDateFormat } from "@/hooks/useDateFormat";
 import type { TurboLensAnalysisRun } from "@/types";
 import { statusColor } from "./utils";
 
 
 export default function TurboLensHistory() {
   const { t } = useTranslation("admin");
+  const { formatDateTime } = useDateFormat();
   const [runs, setRuns] = useState<TurboLensAnalysisRun[]>([]);
 
   useEffect(() => {
@@ -47,8 +49,8 @@ export default function TurboLensHistory() {
                     color={statusColor(run.status)}
                   />
                 </TableCell>
-                <TableCell>{run.started_at ? new Date(run.started_at).toLocaleString() : "—"}</TableCell>
-                <TableCell>{run.completed_at ? new Date(run.completed_at).toLocaleString() : "—"}</TableCell>
+                <TableCell>{run.started_at ? formatDateTime(run.started_at) : "—"}</TableCell>
+                <TableCell>{run.completed_at ? formatDateTime(run.completed_at) : "—"}</TableCell>
                 <TableCell>{run.error_message || "—"}</TableCell>
               </TableRow>
             ))}

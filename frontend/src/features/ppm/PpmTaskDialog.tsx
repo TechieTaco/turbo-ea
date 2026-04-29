@@ -21,6 +21,7 @@ import Slider from "@mui/material/Slider";
 import { useTranslation } from "react-i18next";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
+import { useDateFormat } from "@/hooks/useDateFormat";
 import type {
   PpmTask,
   PpmTaskStatus,
@@ -63,6 +64,7 @@ export default function PpmTaskDialog({
   onSaved,
 }: Props) {
   const { t } = useTranslation("ppm");
+  const { formatDateTime } = useDateFormat();
   const isEdit = !!task;
 
   const [title, setTitle] = useState(task?.title || "");
@@ -360,7 +362,7 @@ export default function PpmTaskDialog({
                         variant="caption"
                         color="text.secondary"
                       >
-                        {new Date(c.created_at).toLocaleString()}
+                        {formatDateTime(c.created_at)}
                       </Typography>
                     </Box>
                     <Typography

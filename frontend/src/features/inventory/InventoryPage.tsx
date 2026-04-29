@@ -33,6 +33,7 @@ import { useMetamodel } from "@/hooks/useMetamodel";
 import { useResolveLabel, useResolveMetaLabel } from "@/hooks/useResolveLabel";
 import { useAuth } from "@/hooks/useAuth";
 import { useThemeMode } from "@/hooks/useThemeMode";
+import { useDateFormat } from "@/hooks/useDateFormat";
 import { api } from "@/api/client";
 import { APPROVAL_STATUS_COLORS } from "@/theme/tokens";
 import type { Card, CardListResponse, FieldDef, Relation, RelationType, TagGroup, TagRef } from "@/types";
@@ -145,6 +146,7 @@ export default function InventoryPage() {
   const { t } = useTranslation(["inventory", "common"]);
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+  const { formatDate, formatDateTime } = useDateFormat();
   const { types, relationTypes } = useMetamodel();
   const rl = useResolveLabel();
   const rml = useResolveMetaLabel();
@@ -1148,14 +1150,14 @@ export default function InventoryPage() {
         headerName: t("columns.createdAt"),
         width: 160,
         hide: !selectedColumns.has("meta_created_at"),
-        valueFormatter: (p) => p.value ? new Date(p.value).toLocaleString() : "",
+        valueFormatter: (p) => (p.value ? formatDateTime(p.value) : ""),
       },
       {
         field: "updated_at",
         headerName: t("columns.updatedAt"),
         width: 160,
         hide: !selectedColumns.has("meta_updated_at"),
-        valueFormatter: (p) => p.value ? new Date(p.value).toLocaleString() : "",
+        valueFormatter: (p) => (p.value ? formatDateTime(p.value) : ""),
       },
       {
         field: "created_by",
@@ -1176,7 +1178,7 @@ export default function InventoryPage() {
     );
 
     return cols;
-  }, [types, typeConfig, commonFields, gridEditMode, relevantRelTypes, relTypeGroupMap, relationsMap, selectedType, hierarchyPaths, filters.showArchived, selectedColumns, userNameMap, t]);
+  }, [types, typeConfig, commonFields, gridEditMode, relevantRelTypes, relTypeGroupMap, relationsMap, selectedType, hierarchyPaths, filters.showArchived, selectedColumns, userNameMap, t, formatDate, formatDateTime]);
 
   // Render mass edit value input based on field type
   const renderMassEditInput = () => {

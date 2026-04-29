@@ -20,6 +20,13 @@ import Checkbox from "@mui/material/Checkbox";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import { useCurrency } from "@/hooks/useCurrency";
+import {
+  DATE_FORMAT_OPTIONS,
+  DEFAULT_DATE_FORMAT,
+  formatDateWith,
+  invalidateDateFormat,
+  type DateFormatKey,
+} from "@/hooks/useDateFormat";
 import { invalidateAppTitle } from "@/hooks/useAppTitle";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useEnabledLocales } from "@/hooks/useEnabledLocales";
@@ -137,6 +144,13 @@ function GeneralTab() {
   const [selectedCurrency, setSelectedCurrency] = useState("USD");
   const [savingCurrency, setSavingCurrency] = useState(false);
 
+  // Date format state
+  const [currentDateFormat, setCurrentDateFormat] =
+    useState<DateFormatKey>(DEFAULT_DATE_FORMAT);
+  const [selectedDateFormat, setSelectedDateFormat] =
+    useState<DateFormatKey>(DEFAULT_DATE_FORMAT);
+  const [savingDateFormat, setSavingDateFormat] = useState(false);
+
   // App title state
   const [appTitle, setAppTitle] = useState("Turbo EA");
   const [savingAppTitle, setSavingAppTitle] = useState(false);
@@ -182,8 +196,9 @@ function GeneralTab() {
       api.get<{ enabled: boolean }>("/settings/ppm-enabled"),
       api.get<{ month: number }>("/settings/fiscal-year-start"),
       api.get<{ app_title: string }>("/settings/app-title"),
+      api.get<{ date_format: string }>("/settings/date-format"),
     ])
-      .then(([emailData, logoData, faviconData, currencyData, bpmData, localesData, ppmData, fiscalData, appTitleData]) => {
+      .then(([emailData, logoData, faviconData, currencyData, bpmData, localesData, ppmData, fiscalData, appTitleData, dateFormatData]) => {
         setSmtpHost(emailData.smtp_host);
         setSmtpPort(emailData.smtp_port);
         setSmtpUser(emailData.smtp_user);
@@ -199,6 +214,11 @@ function GeneralTab() {
         setPpmEnabled(ppmData.enabled);
         setFiscalYearStart(fiscalData.month);
         setAppTitle(appTitleData.app_title || "Turbo EA");
+        const fmt = (DATE_FORMAT_OPTIONS as string[]).includes(dateFormatData.date_format)
+          ? (dateFormatData.date_format as DateFormatKey)
+          : DEFAULT_DATE_FORMAT;
+        setCurrentDateFormat(fmt);
+        setSelectedDateFormat(fmt);
         const validLocales = (localesData.locales || []).filter((l: string): l is SupportedLocale =>
           (SUPPORTED_LOCALES as readonly string[]).includes(l),
         );
@@ -377,6 +397,23 @@ function GeneralTab() {
       setError(e instanceof Error ? e.message : t("common:errors.generic"));
     } finally {
       setSavingCurrency(false);
+    }
+  };
+
+  const handleDateFormatSave = async () => {
+    setSavingDateFormat(true);
+    setError("");
+    try {
+      await api.patch("/settings/date-format", {
+        date_format: selectedDateFormat,
+      });
+      invalidateDateFormat(selectedDateFormat);
+      setCurrentDateFormat(selectedDateFormat);
+      setSnack(t("settings.dateFormat.updated"));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t("common:errors.generic"));
+    } finally {
+      setSavingDateFormat(false);
     }
   };
 
@@ -697,6 +734,58 @@ function GeneralTab() {
             disabled={savingCurrency || selectedCurrency === currentCurrency}
           >
             {savingCurrency ? t("common:labels.loading") : t("common:actions.save")}
+          </Button>
+        </Box>
+      </Paper>
+
+      {/* Date Format Settings */}
+      <Paper sx={{ p: 3, mb: 3 }}>
+        <Box sx={{ display: "flex", alignItems: "center", mb: 2, gap: 1 }}>
+          <MaterialSymbol icon="calendar_today" size={22} color="#555" />
+          <Typography variant="h6" fontWeight={600}>
+            {t("settings.dateFormat.title")}
+          </Typography>
+          <Chip
+            label={currentDateFormat}
+            size="small"
+            color="default"
+            sx={{ ml: 1 }}
+          />
+        </Box>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+          {t("settings.dateFormat.description")}
+        </Typography>
+
+        <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+          <TextField
+            select
+            size="small"
+            label={t("settings.dateFormat.label")}
+            value={selectedDateFormat}
+            onChange={(e) =>
+              setSelectedDateFormat(e.target.value as DateFormatKey)
+            }
+            sx={{ minWidth: 320 }}
+          >
+            {DATE_FORMAT_OPTIONS.map((fmt) => (
+              <MenuItem key={fmt} value={fmt}>
+                {fmt} — {formatDateWith(fmt, new Date(2026, 3, 29))}
+              </MenuItem>
+            ))}
+          </TextField>
+          <Button
+            variant="contained"
+            size="small"
+            startIcon={<MaterialSymbol icon="save" size={18} />}
+            sx={{ textTransform: "none" }}
+            onClick={handleDateFormatSave}
+            disabled={
+              savingDateFormat || selectedDateFormat === currentDateFormat
+            }
+          >
+            {savingDateFormat
+              ? t("common:labels.loading")
+              : t("common:actions.save")}
           </Button>
         </Box>
       </Paper>

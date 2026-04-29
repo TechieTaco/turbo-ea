@@ -37,6 +37,7 @@ import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useResolveMetaLabel, useResolveLabel } from "@/hooks/useResolveLabel";
+import { useDateFormat } from "@/hooks/useDateFormat";
 import type { Calculation, Card as CardItem, CardType, FieldDef, RelationType } from "@/types";
 
 // ── Suggestion types ───────────────────────────────────────────────
@@ -1065,6 +1066,7 @@ function TestDialog({ open, calculation, onClose }: TestDialogProps) {
 
 export default function CalculationsAdmin() {
   const { t } = useTranslation(["admin", "common"]);
+  const { formatDateTime } = useDateFormat();
   const { types, relationTypes } = useMetamodel();
   const rml = useResolveMetaLabel();
   const rl = useResolveLabel();
@@ -1286,7 +1288,7 @@ export default function CalculationsAdmin() {
                   <TableCell>
                     {calc.last_run_at ? (
                       <Typography variant="caption">
-                        {new Date(calc.last_run_at).toLocaleString()}
+                        {formatDateTime(calc.last_run_at)}
                       </Typography>
                     ) : (
                       <Typography variant="caption" color="text.secondary">

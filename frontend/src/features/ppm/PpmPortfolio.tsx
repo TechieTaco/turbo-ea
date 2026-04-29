@@ -20,6 +20,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import { useCurrency } from "@/hooks/useCurrency";
+import { useDateFormat } from "@/hooks/useDateFormat";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useResolveLabel, useResolveMetaLabel } from "@/hooks/useResolveLabel";
 import type {
@@ -56,12 +57,6 @@ function fmtMonthYear(dateStr: string): string {
   const m = d.toLocaleString("en", { month: "short" });
   const y = String(d.getFullYear()).slice(2);
   return `${m}-${y}`;
-}
-
-/** Format a date as "Mar 11, 2026" */
-function fmtDateLong(dateStr: string): string {
-  const d = new Date(dateStr);
-  return d.toLocaleDateString("en", { month: "short", day: "numeric", year: "numeric" });
 }
 
 function getQuarters(startMonth: Date, months: number) {
@@ -192,6 +187,7 @@ const GRID_MIN_WIDTH = 1100;
 
 export default function PpmPortfolio() {
   const { t } = useTranslation("ppm");
+  const { formatDate } = useDateFormat();
   const theme = useTheme();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -1111,7 +1107,7 @@ export default function PpmPortfolio() {
           <Box>
             {/* Date + Reporter */}
             <Typography variant="subtitle2" fontWeight={600}>
-              {fmtDateLong(hoveredReport.report_date)}
+              {formatDate(hoveredReport.report_date)}
             </Typography>
             {hoveredReport.reporter && (
               <Typography variant="caption" color="text.secondary">

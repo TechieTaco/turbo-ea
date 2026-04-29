@@ -9,6 +9,7 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { PRIORITY_COLORS } from "@/theme/tokens";
+import { useDateFormat } from "@/hooks/useDateFormat";
 import type { PpmTask } from "@/types";
 
 function initials(name: string): string {
@@ -30,6 +31,7 @@ interface Props {
 
 export default function PpmTaskCard({ task, wbsName, onClick, onMarkDone, isDragOverlay }: Props) {
   const { t } = useTranslation("ppm");
+  const { formatDate } = useDateFormat();
   const {
     attributes,
     listeners,
@@ -139,7 +141,7 @@ export default function PpmTaskCard({ task, wbsName, onClick, onMarkDone, isDrag
             color={isOverdue ? "error" : "text.secondary"}
             fontWeight={isOverdue ? 600 : 400}
           >
-            {new Date(task.due_date).toLocaleDateString()}
+            {formatDate(task.due_date)}
           </Typography>
         )}
       </Box>

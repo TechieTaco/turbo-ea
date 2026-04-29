@@ -26,6 +26,7 @@ import DialogContent from "@mui/material/DialogContent";
 import DialogActions from "@mui/material/DialogActions";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { useResolveLabel } from "@/hooks/useResolveLabel";
+import { useDateFormat } from "@/hooks/useDateFormat";
 import { api } from "@/api/client";
 import type { Survey, SurveyResponseDetail, SurveyField } from "@/types";
 
@@ -52,6 +53,7 @@ function formatValue(val: unknown, field?: SurveyField, boolLabels?: { yes: stri
 export default function SurveyResults() {
   const { t } = useTranslation(["admin", "common"]);
   const rl = useResolveLabel();
+  const { formatDate } = useDateFormat();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
 
@@ -346,7 +348,7 @@ export default function SurveyResults() {
                   <TableCell>
                     {r.responded_at && (
                       <Typography variant="caption" color="text.secondary">
-                        {new Date(r.responded_at).toLocaleDateString()}
+                        {formatDate(r.responded_at)}
                       </Typography>
                     )}
                   </TableCell>

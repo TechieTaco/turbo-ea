@@ -18,6 +18,18 @@ Faça upload de um ícone de navegador personalizado (favicon). A alteração en
 
 Selecione a moeda usada para campos de custo em toda a plataforma. Isso afeta como os valores de custo são formatados nas páginas de detalhe de cards, relatórios e exportações. Mais de 20 moedas são suportadas, incluindo USD, EUR, GBP, JPY, CNY, CHF, INR, BRL e mais.
 
+### Formato de data
+
+Escolha como as datas são exibidas em todo o aplicativo. O formato selecionado aplica-se às datas de ciclo de vida dos cards, à grade de inventário, às assinaturas de ADR e SoAW, ao Registro de Riscos, aos relatórios e tarefas do PPM, às versões de fluxos de processos BPM, aos comentários, ao histórico, ao feed de atividade do painel, às notificações e às páginas de administração. Cinco formatos são oferecidos com pré-visualização em tempo real:
+
+- `MM/DD/YYYY` — estilo EUA (ex. `04/29/2026`)
+- `DD/MM/YYYY` — estilo europeu (ex. `29/04/2026`)
+- `YYYY-MM-DD` — ISO 8601 (ex. `2026-04-29`)
+- `DD MMM YYYY` (ex. `29 abr 2026`)
+- `MMM DD, YYYY` — padrão (ex. `abr 29, 2026`)
+
+As alterações entram em vigor imediatamente para todos os usuários — não é necessário recarregar.
+
 ### Idiomas Habilitados
 
 Alterne quais idiomas estão disponíveis para os usuários no seletor de idioma. Todos os oito idiomas suportados podem ser individualmente habilitados ou desabilitados:

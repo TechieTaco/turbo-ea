@@ -8,6 +8,7 @@ import Divider from "@mui/material/Divider";
 import { useTranslation } from "react-i18next";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
+import { useDateFormat } from "@/hooks/useDateFormat";
 import StatusReportDialog from "./StatusReportDialog";
 import type { PpmStatusReport } from "@/types";
 
@@ -25,6 +26,7 @@ interface Props {
 
 export default function PpmReportsTab({ initiativeId, reports, onRefresh }: Props) {
   const { t } = useTranslation("ppm");
+  const { formatDate } = useDateFormat();
   const [reportDialog, setReportDialog] = useState<{
     open: boolean;
     report?: PpmStatusReport;
@@ -64,7 +66,7 @@ export default function PpmReportsTab({ initiativeId, reports, onRefresh }: Prop
             >
               <Box display="flex" alignItems="center" gap={2}>
                 <Typography variant="subtitle1" fontWeight={600}>
-                  {new Date(report.report_date).toLocaleDateString()}
+                  {formatDate(report.report_date)}
                 </Typography>
                 <Box display="flex" gap={0.75}>
                   {(

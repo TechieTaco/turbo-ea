@@ -41,6 +41,7 @@ import {
 import { useDroppable } from "@dnd-kit/core";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
+import { useDateFormat } from "@/hooks/useDateFormat";
 import PpmTaskCard from "./PpmTaskCard";
 import PpmTaskDialog from "./PpmTaskDialog";
 import type { PpmTask, PpmTaskStatus, PpmWbs } from "@/types";
@@ -103,6 +104,7 @@ function DroppableColumn({
 
 export default function PpmTaskBoard({ initiativeId }: Props) {
   const { t } = useTranslation("ppm");
+  const { formatDate } = useDateFormat();
   const [searchParams, setSearchParams] = useSearchParams();
   const [tasks, setTasks] = useState<PpmTask[]>([]);
   const [wbsList, setWbsList] = useState<PpmWbs[]>([]);
@@ -466,9 +468,7 @@ export default function PpmTaskBoard({ initiativeId }: Props) {
               color={isOverdue ? "error" : "text.secondary"}
               fontWeight={isOverdue ? 600 : 400}
             >
-              {task.due_date
-                ? new Date(task.due_date).toLocaleDateString()
-                : "\u2014"}
+              {task.due_date ? formatDate(task.due_date) : "\u2014"}
             </Typography>
           </TableCell>
           <TableCell>

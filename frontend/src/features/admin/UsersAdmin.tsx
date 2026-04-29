@@ -29,6 +29,7 @@ import Checkbox from "@mui/material/Checkbox";
 import Alert from "@mui/material/Alert";
 import Stack from "@mui/material/Stack";
 import { api } from "@/api/client";
+import { useDateFormat } from "@/hooks/useDateFormat";
 import type { User, SsoInvitation, AppRole } from "@/types";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import RolesAdmin from "@/features/admin/RolesAdmin";
@@ -59,6 +60,7 @@ interface EditFormState {
 
 export default function UsersAdmin() {
   const { t } = useTranslation(["admin", "common"]);
+  const { formatDate, formatDateTime } = useDateFormat();
   const [tab, setTab] = useState(0);
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
@@ -486,12 +488,7 @@ export default function UsersAdmin() {
                   </TableCell>
                   <TableCell>
                     <Typography variant="body2" color="text.secondary">
-                      {u.last_login
-                        ? new Date(u.last_login).toLocaleString(undefined, {
-                            dateStyle: "medium",
-                            timeStyle: "short",
-                          })
-                        : "—"}
+                      {u.last_login ? formatDateTime(u.last_login) : "—"}
                     </Typography>
                   </TableCell>
                   <TableCell align="right">
@@ -556,9 +553,7 @@ export default function UsersAdmin() {
                       {getRoleChip(inv.role)}
                     </TableCell>
                     <TableCell>
-                      {inv.created_at
-                        ? new Date(inv.created_at).toLocaleDateString()
-                        : "—"}
+                      {inv.created_at ? formatDate(inv.created_at) : "—"}
                     </TableCell>
                     <TableCell align="right">
                       <Tooltip title={t("users.invitations.revokeTooltip")}>
