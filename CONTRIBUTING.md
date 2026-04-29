@@ -1,11 +1,41 @@
 # Contributing to Turbo EA
 
-Thank you for your interest in contributing to Turbo EA. This guide walks through the
-process of proposing changes, submitting pull requests, and getting your code reviewed.
+Thank you for your interest in Turbo EA. Before diving in, please read the note below.
 
 ---
 
-## Getting Started
+## A Note from the Maintainer
+
+Turbo EA is a solo side project. I build and maintain it in my free time, and I rely on
+paid AI tooling to keep up the pace. If you're curious about the backstory,
+[here's why I built it](https://www.turbo-ea.org/blog/why-i-built-turbo-ea). I genuinely
+appreciate every star, issue, donation, and kind word — they make it worth continuing.
+
+**I am not actively reviewing pull requests at this time.** Reviewing PRs properly takes
+real time and focus that I don't reliably have. Rather than leave contributions in limbo,
+I'd rather be upfront about it. The technical reference below is kept for anyone who wants
+to maintain their own fork — feel free to use it.
+
+If you want to help, the best ways are:
+
+- **Found a bug?** [Open an issue](../../issues/new) with steps to reproduce, expected
+  behavior, and actual behavior. Clear, minimal reproductions get looked at first.
+- **Have an idea or improvement in mind?** [Start a discussion](../../discussions/new)
+  in the Ideas category. This is the right place to float suggestions, get early
+  feedback, and see whether something fits the project direction before anyone writes
+  code.
+- **Security vulnerability?** Please do not open a public issue. Contact me directly
+  via the details in my GitHub profile.
+- **Want to support the project financially?** Donations are genuinely appreciated and
+  help offset the cost of the AI tooling that makes this project possible. You can find
+  sponsorship options on my GitHub profile.
+
+Please be kind. This project costs me real time and money to run. Constructive, patient
+communication goes a long way.
+
+---
+
+## Getting Started (for fork developers)
 
 1. **Fork the repository** and clone it locally.
 2. Follow the [README](README.md) to set up your development environment.
@@ -301,14 +331,6 @@ triaged and resolved, promote them to required checks.
 
 ---
 
-## Reporting Issues
-
-- **Bugs**: Open an issue with steps to reproduce, expected behavior, and actual behavior.
-- **Feature requests**: Start a discussion in the Ideas category first.
-- **Security vulnerabilities**: Do not open a public issue. Email the maintainers directly.
-
----
-
 ## Code of Conduct
 
-Be respectful and constructive. We are all here to build a better tool.
+Be respectful and constructive. This is a one-person project maintained on personal time.
