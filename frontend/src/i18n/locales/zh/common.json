@@ -249,5 +249,12 @@
   "iconPicker.categories.navigationMaps": "导航与地图",
   "iconPicker.categories.processesWorkflow": "流程与工作流",
   "iconPicker.categories.statusIndicators": "状态与指标",
-  "iconPicker.categories.miscellaneous": "其他"
+  "iconPicker.categories.miscellaneous": "其他",
+  "modules.bpm": "BPM",
+  "modules.ppm": "PPM",
+  "modules.turbolens": "TurboLens",
+  "moduleDisabled.title": "{{module}} 已停用",
+  "moduleDisabled.body": "{{module}} 模块当前已被管理员停用。请在管理员设置中启用以访问此区域。",
+  "moduleDisabled.backToDashboard": "返回仪表板",
+  "moduleDisabled.openSettings": "打开设置"
 }

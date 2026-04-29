@@ -263,5 +263,12 @@
   "iconPicker.categories.navigationMaps": "Navegaci\u00f3n y mapas",
   "iconPicker.categories.processesWorkflow": "Procesos y flujos de trabajo",
   "iconPicker.categories.statusIndicators": "Estado e indicadores",
-  "iconPicker.categories.miscellaneous": "Varios"
+  "iconPicker.categories.miscellaneous": "Varios",
+  "modules.bpm": "BPM",
+  "modules.ppm": "PPM",
+  "modules.turbolens": "TurboLens",
+  "moduleDisabled.title": "{{module}} está desactivado",
+  "moduleDisabled.body": "El módulo {{module}} está actualmente desactivado por un administrador. Actívelo en la configuración de administración para acceder a esta sección.",
+  "moduleDisabled.backToDashboard": "Volver al panel",
+  "moduleDisabled.openSettings": "Abrir configuración"
 }

@@ -25,13 +25,22 @@ async function _fetch() {
 
 export function usePpmEnabled() {
   const [enabled, setEnabled] = useState<boolean>(_cached ?? false);
+  const [loaded, setLoaded] = useState<boolean>(_cached !== null);
 
   useEffect(() => {
-    _listeners.push(setEnabled);
-    if (_cached === null) _fetch();
-    else setEnabled(_cached);
+    const listener = (v: boolean) => {
+      setEnabled(v);
+      setLoaded(true);
+    };
+    _listeners.push(listener);
+    if (_cached === null) {
+      _fetch();
+    } else {
+      setEnabled(_cached);
+      setLoaded(true);
+    }
     return () => {
-      _listeners = _listeners.filter((fn) => fn !== setEnabled);
+      _listeners = _listeners.filter((fn) => fn !== listener);
     };
   }, []);
 
@@ -44,5 +53,5 @@ export function usePpmEnabled() {
     }
   }, []);
 
-  return { ppmEnabled: enabled, invalidatePpm: invalidate };
+  return { ppmEnabled: enabled, ppmLoaded: loaded, invalidatePpm: invalidate };
 }

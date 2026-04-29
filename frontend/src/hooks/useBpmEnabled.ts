@@ -25,13 +25,22 @@ async function _fetch() {
 
 export function useBpmEnabled() {
   const [enabled, setEnabled] = useState<boolean>(_cached ?? true);
+  const [loaded, setLoaded] = useState<boolean>(_cached !== null);
 
   useEffect(() => {
-    _listeners.push(setEnabled);
-    if (_cached === null) _fetch();
-    else setEnabled(_cached);
+    const listener = (v: boolean) => {
+      setEnabled(v);
+      setLoaded(true);
+    };
+    _listeners.push(listener);
+    if (_cached === null) {
+      _fetch();
+    } else {
+      setEnabled(_cached);
+      setLoaded(true);
+    }
     return () => {
-      _listeners = _listeners.filter((fn) => fn !== setEnabled);
+      _listeners = _listeners.filter((fn) => fn !== listener);
     };
   }, []);
 
@@ -44,5 +53,5 @@ export function useBpmEnabled() {
     }
   }, []);
 
-  return { bpmEnabled: enabled, invalidateBpm: invalidate };
+  return { bpmEnabled: enabled, bpmLoaded: loaded, invalidateBpm: invalidate };
 }

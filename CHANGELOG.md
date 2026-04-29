@@ -10,9 +10,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ### Added
 - **TurboLens enable/disable toggle** under Admin → Settings → TurboLens. Administrators can now turn the module on or off without having to remove the AI provider configuration; when disabled, the TurboLens menu entry and dashboard link are hidden across the app.
 - **Standard third-party data-exchange warning** on the AI and TurboLens settings tabs, prompting administrators to confirm that AI processing of card metadata, descriptions, and portfolio data is aligned with the organisation's IT, security, and data-protection policies before enabling. Translated into all 8 supported UI locales.
+- **Module access guard** for the optional modules (BPM, PPM, TurboLens). Direct navigation to `/bpm`, `/ppm`, `/turbolens` (and their sub-routes) when the module is disabled now renders a friendly "module is disabled" placeholder with links back to the dashboard and to the relevant admin settings tab, instead of loading an empty page or firing API calls that would fail. Translated into all 8 supported UI locales.
 
 ### Changed
 - `GET /turbolens/status` now also returns the `enabled` flag and only reports `ready: true` when both AI is configured and the module is enabled. New public `GET /settings/turbolens-enabled` and admin-only `PATCH /settings/turbolens-enabled` endpoints back the toggle.
+- `useBpmEnabled`, `usePpmEnabled`, and `useTurboLensReady` hooks now also expose a `loaded` flag so route guards can wait for the first status fetch to resolve before deciding whether to render the page or the disabled placeholder.
 
 ## [0.54.0] - 2026-04-29
 

@@ -33,13 +33,22 @@ async function _fetch() {
 
 export function useTurboLensReady() {
   const [status, setStatus] = useState<TurboLensStatus>(_cached ?? _default);
+  const [loaded, setLoaded] = useState<boolean>(_cached !== null);
 
   useEffect(() => {
-    _listeners.add(setStatus);
-    if (_cached === null) _fetch();
-    else setStatus(_cached);
+    const listener = (v: TurboLensStatus) => {
+      setStatus(v);
+      setLoaded(true);
+    };
+    _listeners.add(listener);
+    if (_cached === null) {
+      _fetch();
+    } else {
+      setStatus(_cached);
+      setLoaded(true);
+    }
     return () => {
-      _listeners.delete(setStatus);
+      _listeners.delete(listener);
     };
   }, []);
 
@@ -52,6 +61,7 @@ export function useTurboLensReady() {
     turboLensReady: status.ready,
     turboLensAiConfigured: status.ai_configured,
     turboLensEnabled: status.enabled ?? true,
+    turboLensLoaded: loaded,
     invalidateTurboLens: invalidate,
   };
 }
