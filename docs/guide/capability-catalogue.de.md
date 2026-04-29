@@ -53,9 +53,9 @@ Klicken Sie auf den Namen einer Capability, um einen Detail-Dialog zu öffnen, d
 
 Der Katalog wird **mitgeliefert** als Python-Abhängigkeit, sodass die Seite offline / in Air-Gap-Umgebungen funktioniert. Administratoren (`admin.metamodel`) können bei Bedarf eine neuere Version laden:
 
-1. Klicken Sie auf **Auf Update prüfen**. Turbo EA fragt `https://capabilities.turbo-ea.org/api/version.json` ab und meldet, ob eine neuere Version verfügbar ist.
-2. Falls ja, klicken Sie auf die erscheinende Schaltfläche **v… abrufen**. Turbo EA lädt den aktuellen Katalog herunter und speichert ihn als serverseitigen Override; er wirkt sofort für alle Nutzer.
+1. Klicken Sie auf **Auf Update prüfen**. Turbo EA fragt die PyPI-JSON-API unter `https://pypi.org/pypi/turbo-ea-capabilities/json` ab und meldet, ob eine neuere veröffentlichte Version verfügbar ist. PyPI ist die maßgebliche Quelle zum Zeitpunkt der Veröffentlichung, sodass ein vor wenigen Minuten freigegebenes Wheel sofort erkannt wird.
+2. Falls ja, klicken Sie auf die erscheinende Schaltfläche **v… abrufen**. Turbo EA lädt das aktuelle Wheel von PyPI herunter, extrahiert die Katalog-Daten daraus und speichert sie als serverseitigen Override; er wirkt sofort für alle Nutzer.
 
 Die aktive Katalogversion wird stets im Header-Chip angezeigt. Der Override wird nur dann dem mitgelieferten Paket vorgezogen, wenn seine Version strikt größer ist — eine Turbo-EA-Aktualisierung mit einem neueren mitgelieferten Katalog funktioniert also weiterhin wie erwartet.
 
-Die Remote-URL ist über die Umgebungsvariable `CAPABILITY_CATALOGUE_URL` konfigurierbar, für selbst gehostete Bereitstellungen, die den öffentlichen Katalog intern spiegeln.
+Die PyPI-Index-URL ist über die Umgebungsvariable `CAPABILITY_CATALOGUE_PYPI_URL` konfigurierbar, für Air-Gap-Bereitstellungen oder private Spiegel.

@@ -14,8 +14,11 @@ Three responsibilities:
 
 from __future__ import annotations
 
+import io
+import json
 import os
 import uuid
+import zipfile
 from datetime import datetime, timezone
 from typing import Any
 
@@ -28,12 +31,22 @@ from app.models.app_settings import AppSettings
 from app.models.card import Card
 from app.models.user import User
 
-CATALOGUE_REMOTE_URL: str = os.environ.get(
-    "CAPABILITY_CATALOGUE_URL", "https://capabilities.turbo-ea.org"
-).rstrip("/")
-CATALOGUE_FETCH_TIMEOUT_SECONDS: float = 15.0
+# PyPI is the source of truth for the catalogue package. Querying its JSON API
+# means a freshly-published wheel is detectable within seconds, whereas the
+# previous static-site check (`https://capabilities.turbo-ea.org`) lagged by
+# however long the docs site took to redeploy and could even mask a successful
+# publish. Both the version probe and the data fetch read from PyPI, so the
+# "update available" badge and the "Fetch update" action stay in sync.
+PYPI_PROJECT_NAME: str = "turbo-ea-capabilities"
+PYPI_INDEX_URL: str = os.environ.get(
+    "CAPABILITY_CATALOGUE_PYPI_URL",
+    f"https://pypi.org/pypi/{PYPI_PROJECT_NAME}/json",
+)
+CATALOGUE_FETCH_TIMEOUT_SECONDS: float = 30.0
 BUSINESS_CAPABILITY_TYPE: str = "BusinessCapability"
 SETTINGS_KEY: str = "capability_catalogue"
+WHEEL_VERSION_PATH: str = "turbo_ea_capabilities/data/version.json"
+WHEEL_CAPABILITIES_PATH: str = "turbo_ea_capabilities/data/capabilities.json"
 
 
 # ---------------------------------------------------------------------------
@@ -143,10 +156,12 @@ async def _resolve_active_catalogue(
     """Return (capabilities_flat, version_meta) honouring remote override.
 
     Cached remote wins only if its version is strictly greater than bundled.
-    Localization is applied only on the bundled path — the remote site
-    (`https://capabilities.turbo-ea.org/api/capabilities.json`) currently
-    serves canonical English and has no per-locale endpoint, so cached-remote
-    payloads always advertise `active_locale="en"` regardless of the request.
+    Localization is applied only on the bundled path — the cached-remote
+    payload comes from the PyPI wheel's `data/capabilities.json`, which is
+    canonical English (per-locale strings live in `data/i18n/<lang>.json`
+    inside the wheel and are only applied when the wheel is imported as a
+    Python package). Cached-remote payloads therefore always advertise
+    `active_locale="en"` regardless of the request.
     """
     bundled_flat, bundled_meta = _bundled_payload(locale=locale)
     cached = await _get_cached_remote(db)
@@ -431,10 +446,13 @@ async def import_capabilities(
 
 
 async def check_remote_version(db: AsyncSession) -> dict[str, Any]:
-    """Fetch /api/version.json from the remote catalogue site.
+    """Query PyPI for the latest published `turbo-ea-capabilities` version.
 
-    Returns local + remote version metadata so the UI can decide whether to
-    surface "update available". Does NOT modify any state.
+    PyPI's JSON API exposes the published version at `info.version` the moment
+    the wheel goes live, which is what the user expects when they ask "is my
+    just-published package detected?". Returns local + remote version metadata
+    so the UI can decide whether to surface "update available". Does NOT
+    modify any state.
     """
     bundled_flat, bundled_meta = _bundled_payload()
     cached = await _get_cached_remote(db)
@@ -449,12 +467,22 @@ async def check_remote_version(db: AsyncSession) -> dict[str, Any]:
     remote_meta: dict[str, Any] | None = None
     error: str | None = None
     try:
-        async with httpx.AsyncClient(timeout=CATALOGUE_FETCH_TIMEOUT_SECONDS) as client:
-            resp = await client.get(f"{CATALOGUE_REMOTE_URL}/api/version.json")
+        async with httpx.AsyncClient(
+            timeout=CATALOGUE_FETCH_TIMEOUT_SECONDS, follow_redirects=True
+        ) as client:
+            resp = await client.get(PYPI_INDEX_URL, headers={"Accept": "application/json"})
             resp.raise_for_status()
-            remote_meta = resp.json()
+            payload = resp.json()
+        info = payload.get("info") or {}
+        latest = info.get("version")
+        if isinstance(latest, str) and latest:
+            remote_meta = {
+                "catalogue_version": latest,
+                "source": "pypi",
+                "project": PYPI_PROJECT_NAME,
+            }
     except (httpx.HTTPError, ValueError) as exc:
-        error = f"Could not reach catalogue: {exc}"
+        error = f"Could not reach PyPI: {exc}"
 
     update_available = False
     if remote_meta and "catalogue_version" in remote_meta:
@@ -473,40 +501,86 @@ async def check_remote_version(db: AsyncSession) -> dict[str, Any]:
     }
 
 
+def _wheel_url_from_pypi_payload(payload: dict[str, Any]) -> tuple[str, str]:
+    """Pick the wheel artefact URL and version from a PyPI JSON response.
+
+    Raises ValueError if the response shape is unexpected (no version, no
+    wheel artefact). Falls back to a sdist if no wheel is published — the
+    extraction logic only depends on the `data/*.json` paths which both
+    distribution formats use.
+    """
+    info = payload.get("info") or {}
+    version = info.get("version")
+    if not isinstance(version, str) or not version:
+        raise ValueError("PyPI response missing info.version")
+    urls = payload.get("urls") or []
+    wheel = next((u for u in urls if u.get("packagetype") == "bdist_wheel"), None)
+    fallback = next((u for u in urls if u.get("packagetype") == "sdist"), None)
+    chosen = wheel or fallback
+    if not chosen or not chosen.get("url"):
+        raise ValueError(f"PyPI did not list a downloadable artefact for {PYPI_PROJECT_NAME}")
+    return str(chosen["url"]), version
+
+
+def _extract_catalogue_from_wheel(
+    wheel_bytes: bytes,
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    """Read the bundled catalogue JSON files out of a wheel byte-string.
+
+    The wheel ships `data/capabilities.json` as a flat list (each entry's
+    `children` field is a list of child IDs, not nested objects), so we just
+    drop `children` to keep the cached payload aligned with the rest of the
+    code path that re-derives the hierarchy from `parent_id`.
+    """
+    with zipfile.ZipFile(io.BytesIO(wheel_bytes)) as zf:
+        with zf.open(WHEEL_VERSION_PATH) as vf:
+            ver = json.loads(vf.read().decode("utf-8"))
+        with zf.open(WHEEL_CAPABILITIES_PATH) as cf:
+            caps_raw = json.loads(cf.read().decode("utf-8"))
+    if not isinstance(caps_raw, list):
+        raise ValueError(f"{WHEEL_CAPABILITIES_PATH} did not contain a list")
+    caps = [{k: v for k, v in c.items() if k != "children"} for c in caps_raw]
+    return caps, ver
+
+
 async def fetch_remote_catalogue(db: AsyncSession) -> dict[str, Any]:
-    """Download the latest catalogue from the public site and cache it.
+    """Download the latest wheel from PyPI and cache its catalogue payload.
 
     Stores into `app_settings.general_settings.capability_catalogue`. The next
     `_resolve_active_catalogue` call will prefer it over the bundled data
-    (when newer).
+    (when newer). Pulling the actual wheel — rather than a static API mirror —
+    means the cached version always matches whatever PyPI reports as latest,
+    so a successful fetch reliably clears the "update available" badge.
     """
-    async with httpx.AsyncClient(timeout=CATALOGUE_FETCH_TIMEOUT_SECONDS) as client:
-        ver_resp = await client.get(f"{CATALOGUE_REMOTE_URL}/api/version.json")
-        ver_resp.raise_for_status()
-        ver = ver_resp.json()
+    async with httpx.AsyncClient(
+        timeout=CATALOGUE_FETCH_TIMEOUT_SECONDS, follow_redirects=True
+    ) as client:
+        meta_resp = await client.get(PYPI_INDEX_URL, headers={"Accept": "application/json"})
+        meta_resp.raise_for_status()
+        wheel_url, pypi_version = _wheel_url_from_pypi_payload(meta_resp.json())
 
-        caps_resp = await client.get(f"{CATALOGUE_REMOTE_URL}/api/capabilities.json")
-        caps_resp.raise_for_status()
-        caps = caps_resp.json()
+        wheel_resp = await client.get(wheel_url)
+        wheel_resp.raise_for_status()
+        wheel_bytes = wheel_resp.content
 
-    if not isinstance(caps, list):
-        raise ValueError("Remote /api/capabilities.json did not return a list")
+    caps, ver = _extract_catalogue_from_wheel(wheel_bytes)
 
     settings = await _get_app_settings(db)
     general = dict(settings.general_settings or {})
     general[SETTINGS_KEY] = {
         "data": caps,
-        "catalogue_version": ver.get("catalogue_version"),
+        "catalogue_version": ver.get("catalogue_version") or pypi_version,
         "schema_version": str(ver.get("schema_version", "")),
         "generated_at": ver.get("generated_at"),
         "node_count": ver.get("node_count", len(caps)),
         "fetched_at": datetime.now(timezone.utc).isoformat(),
+        "source": "pypi",
     }
     settings.general_settings = general
     await db.commit()
 
     return {
-        "catalogue_version": ver.get("catalogue_version"),
-        "node_count": ver.get("node_count", len(caps)),
+        "catalogue_version": general[SETTINGS_KEY]["catalogue_version"],
+        "node_count": general[SETTINGS_KEY]["node_count"],
         "fetched_at": general[SETTINGS_KEY]["fetched_at"],
     }

@@ -53,9 +53,9 @@ Clique no nome de qualquer capacidade para abrir um diálogo de detalhe que most
 
 O catálogo é distribuído **embutido** como dependência Python, pelo que a página funciona offline / em implementações isoladas. Os administradores (`admin.metamodel`) podem obter uma versão mais recente quando quiserem:
 
-1. Clique em **Verificar atualizações**. O Turbo EA consulta `https://capabilities.turbo-ea.org/api/version.json` e indica se há uma versão mais recente disponível.
-2. Em caso afirmativo, clique no botão **Obter v…** que aparece. O Turbo EA descarrega o catálogo mais recente e armazena-o como sobreposição do lado do servidor; tem efeito imediato para todos os utilizadores.
+1. Clique em **Verificar atualizações**. O Turbo EA consulta a API JSON do PyPI em `https://pypi.org/pypi/turbo-ea-capabilities/json` e indica se há uma versão publicada mais recente disponível. O PyPI é a fonte da verdade no momento da publicação, pelo que um wheel publicado há poucos minutos é detetado de imediato.
+2. Em caso afirmativo, clique no botão **Obter v…** que aparece. O Turbo EA descarrega o wheel mais recente do PyPI, extrai a carga útil do catálogo do seu interior e armazena-a como sobreposição do lado do servidor; tem efeito imediato para todos os utilizadores.
 
 A versão ativa do catálogo é sempre apresentada no chip de cabeçalho. A sobreposição só prevalece sobre o pacote embutido quando a sua versão é estritamente superior — uma atualização do Turbo EA que entregue um catálogo embutido mais recente continuará, portanto, a funcionar como esperado.
 
-O URL remoto é configurável através da variável de ambiente `CAPABILITY_CATALOGUE_URL`, para implementações auto-hospedadas que façam espelho interno do catálogo público.
+O URL do índice do PyPI é configurável através da variável de ambiente `CAPABILITY_CATALOGUE_PYPI_URL`, para implementações isoladas ou espelhos privados.

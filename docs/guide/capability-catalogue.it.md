@@ -53,9 +53,9 @@ Fare clic sul nome di una capacità per aprire una finestra di dettaglio che mos
 
 Il catalogo è distribuito **incluso** come dipendenza Python, quindi la pagina funziona offline / in deployment isolati. Gli amministratori (`admin.metamodel`) possono ottenere una versione più recente su richiesta:
 
-1. Fare clic su **Verifica aggiornamenti**. Turbo EA interroga `https://capabilities.turbo-ea.org/api/version.json` e segnala se è disponibile una versione più recente.
-2. In caso affermativo, fare clic sul pulsante **Ottieni v…** che appare. Turbo EA scarica il catalogo più recente e lo memorizza come override lato server; ha effetto immediato per tutti gli utenti.
+1. Fare clic su **Verifica aggiornamenti**. Turbo EA interroga l'API JSON di PyPI all'indirizzo `https://pypi.org/pypi/turbo-ea-capabilities/json` e segnala se è disponibile una versione pubblicata più recente. PyPI è la fonte di verità al momento della pubblicazione, quindi un wheel pubblicato pochi minuti fa viene rilevato immediatamente.
+2. In caso affermativo, fare clic sul pulsante **Ottieni v…** che appare. Turbo EA scarica il wheel più recente da PyPI, ne estrae il payload del catalogo e lo memorizza come override lato server; ha effetto immediato per tutti gli utenti.
 
 La versione attiva del catalogo è sempre indicata nel chip di intestazione. L'override prevale sul pacchetto incluso solo quando la sua versione è strettamente maggiore — così un aggiornamento di Turbo EA che fornisce un catalogo incluso più recente continuerà a funzionare come previsto.
 
-L'URL remoto è configurabile tramite la variabile d'ambiente `CAPABILITY_CATALOGUE_URL`, per i deployment self-hosted che fanno mirror interno del catalogo pubblico.
+L'URL dell'indice PyPI è configurabile tramite la variabile d'ambiente `CAPABILITY_CATALOGUE_PYPI_URL`, per deployment isolati o mirror privati.

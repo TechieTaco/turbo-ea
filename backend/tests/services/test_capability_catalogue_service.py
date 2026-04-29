@@ -9,6 +9,8 @@ and the patch wins regardless of when the service module was first imported.
 
 from __future__ import annotations
 
+import io
+import json
 import types
 from datetime import datetime, timezone
 from typing import Any
@@ -546,3 +548,249 @@ async def test_import_uses_canonical_english_names_regardless_of_user_locale(db,
     assert len(rows) == 1
     # English canonical name, not the FR translation.
     assert rows[0].name == "Customer Management"
+
+
+# ---------------------------------------------------------------------------
+# PyPI update detection + fetch
+# ---------------------------------------------------------------------------
+
+
+def _build_fake_wheel(*, version: str = "1.5.0", caps: list[dict[str, Any]] | None = None) -> bytes:
+    """Build an in-memory zip mimicking a `turbo-ea-capabilities` wheel.
+
+    Only the two JSON paths the service reads are populated. `children` on
+    each capability is an ID list (matching the real wheel's flat shape) so
+    the extractor's drop-children pass is exercised.
+    """
+    import zipfile as _zipfile
+
+    if caps is None:
+        caps = [
+            {
+                "id": "BC-1",
+                "name": "Customer Management",
+                "level": 1,
+                "parent_id": None,
+                "description": "Top-level customer capability",
+                "industry": "Cross-Industry",
+                "children": ["BC-1.1"],
+            },
+            {
+                "id": "BC-1.1",
+                "name": "Customer Acquisition",
+                "level": 2,
+                "parent_id": "BC-1",
+                "description": "Acquire new customers",
+                "industry": "Retail",
+                "children": [],
+            },
+        ]
+    ver = {
+        "catalogue_version": version,
+        "schema_version": 1,
+        "generated_at": "2026-04-29T03:40:15.511Z",
+        "node_count": len(caps),
+    }
+    buf = io.BytesIO()
+    with _zipfile.ZipFile(buf, mode="w", compression=_zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr("turbo_ea_capabilities/data/version.json", json.dumps(ver))
+        zf.writestr("turbo_ea_capabilities/data/capabilities.json", json.dumps(caps))
+    return buf.getvalue()
+
+
+class _FakeHttpResponse:
+    def __init__(
+        self, *, json_data: Any | None = None, content: bytes | None = None, status: int = 200
+    ) -> None:
+        self._json = json_data
+        self.content = content if content is not None else b""
+        self.status_code = status
+
+    def json(self) -> Any:
+        return self._json
+
+    def raise_for_status(self) -> None:
+        if self.status_code >= 400:
+            import httpx as _httpx
+
+            raise _httpx.HTTPStatusError(
+                f"{self.status_code}",
+                request=None,
+                response=None,  # type: ignore[arg-type]
+            )
+
+
+class _FakeHttpClient:
+    """Minimal async-context-manager httpx replacement.
+
+    Routes URLs through a callable so each test can shape its own scenario
+    (PyPI down, wheel 404, etc.) without spinning up a real HTTP server.
+    """
+
+    def __init__(self, route: Any, **_: Any) -> None:
+        self._route = route
+
+    async def __aenter__(self) -> "_FakeHttpClient":
+        return self
+
+    async def __aexit__(self, *_: Any) -> None:
+        return None
+
+    async def get(self, url: str, **_: Any) -> _FakeHttpResponse:
+        return self._route(url)
+
+
+@pytest.mark.asyncio
+async def test_check_remote_version_reports_pypi_update(db, monkeypatch):
+    """A freshly-published PyPI version greater than the bundled wheel must
+    surface as `update_available=true`. This is the exact regression the user
+    hit: bundled 1.2.3, just-published 1.5.0 → check should NOT say "latest".
+    """
+    _install_fake_pkg(monkeypatch)
+    from app.services import capability_catalogue_service as svc
+
+    def route(url: str) -> _FakeHttpResponse:
+        assert url == svc.PYPI_INDEX_URL
+        return _FakeHttpResponse(json_data={"info": {"version": "1.5.0"}, "urls": []})
+
+    monkeypatch.setattr(svc.httpx, "AsyncClient", lambda **kw: _FakeHttpClient(route, **kw))
+
+    result = await svc.check_remote_version(db)
+
+    assert result["update_available"] is True
+    assert result["remote"] == {
+        "catalogue_version": "1.5.0",
+        "source": "pypi",
+        "project": svc.PYPI_PROJECT_NAME,
+    }
+    assert result["bundled_version"] == "1.2.3"
+    assert result["active_version"] == "1.2.3"
+    assert result["error"] is None
+
+
+@pytest.mark.asyncio
+async def test_check_remote_version_no_update_when_pypi_matches_bundled(db, monkeypatch):
+    """Equal versions must report `update_available=false` (strictly-greater
+    semantics already covered by `_version_tuple` but worth pinning at the
+    integration level so a future regression here is loud)."""
+    _install_fake_pkg(monkeypatch)
+    from app.services import capability_catalogue_service as svc
+
+    def route(_: str) -> _FakeHttpResponse:
+        return _FakeHttpResponse(json_data={"info": {"version": "1.2.3"}, "urls": []})
+
+    monkeypatch.setattr(svc.httpx, "AsyncClient", lambda **kw: _FakeHttpClient(route, **kw))
+
+    result = await svc.check_remote_version(db)
+    assert result["update_available"] is False
+    assert result["error"] is None
+
+
+@pytest.mark.asyncio
+async def test_check_remote_version_handles_pypi_unreachable(db, monkeypatch):
+    _install_fake_pkg(monkeypatch)
+    from app.services import capability_catalogue_service as svc
+
+    def route(_: str) -> _FakeHttpResponse:
+        import httpx as _httpx
+
+        raise _httpx.ConnectError("network down")
+
+    monkeypatch.setattr(svc.httpx, "AsyncClient", lambda **kw: _FakeHttpClient(route, **kw))
+
+    result = await svc.check_remote_version(db)
+    assert result["update_available"] is False
+    assert result["remote"] is None
+    assert result["error"] is not None
+    assert "PyPI" in result["error"]
+
+
+@pytest.mark.asyncio
+async def test_fetch_remote_catalogue_downloads_wheel_from_pypi(db, monkeypatch):
+    """Fetch must pull the wheel artefact from the URL PyPI advertises and
+    cache the extracted payload — including a `source: pypi` marker — so the
+    next `check_remote_version` call sees `cached_remote_version` matching
+    PyPI's `info.version` and the "update available" badge clears.
+    """
+    _install_fake_pkg(monkeypatch)
+    from app.services import capability_catalogue_service as svc
+
+    wheel_bytes = _build_fake_wheel(version="1.5.0")
+    wheel_url = (
+        "https://files.pythonhosted.org/packages/aa/bb/turbo_ea_capabilities-1.5.0-py3-none-any.whl"
+    )
+
+    def route(url: str) -> _FakeHttpResponse:
+        if url == svc.PYPI_INDEX_URL:
+            return _FakeHttpResponse(
+                json_data={
+                    "info": {"version": "1.5.0"},
+                    "urls": [{"packagetype": "bdist_wheel", "url": wheel_url}],
+                }
+            )
+        if url == wheel_url:
+            return _FakeHttpResponse(content=wheel_bytes)
+        raise AssertionError(f"unexpected URL {url}")
+
+    monkeypatch.setattr(svc.httpx, "AsyncClient", lambda **kw: _FakeHttpClient(route, **kw))
+
+    result = await svc.fetch_remote_catalogue(db)
+    assert result["catalogue_version"] == "1.5.0"
+    assert result["node_count"] == 2
+
+    # Cached payload is the source of truth for subsequent check_remote_version
+    # calls — a working fetch must clear the update-available flag.
+    cached = await svc._get_cached_remote(db)
+    assert cached is not None
+    assert cached["catalogue_version"] == "1.5.0"
+    assert cached["source"] == "pypi"
+    # `children` field is dropped — the rest of the service rebuilds the tree
+    # from `parent_id`, so cached entries must not duplicate that information.
+    assert all("children" not in c for c in cached["data"])
+
+
+@pytest.mark.asyncio
+async def test_fetch_remote_catalogue_falls_back_to_sdist_when_no_wheel(db, monkeypatch):
+    """If a release ships an sdist but no wheel (rare, but legal on PyPI),
+    the extractor still works because the `.tar.gz` carries the same JSON
+    paths. We exercise the fallback by serving the wheel bytes through an
+    sdist-typed URL — same payload, different `packagetype`."""
+    _install_fake_pkg(monkeypatch)
+    from app.services import capability_catalogue_service as svc
+
+    wheel_bytes = _build_fake_wheel(version="1.5.0")
+    sdist_url = "https://files.pythonhosted.org/packages/cc/dd/turbo_ea_capabilities-1.5.0.tar.gz"
+
+    def route(url: str) -> _FakeHttpResponse:
+        if url == svc.PYPI_INDEX_URL:
+            return _FakeHttpResponse(
+                json_data={
+                    "info": {"version": "1.5.0"},
+                    "urls": [{"packagetype": "sdist", "url": sdist_url}],
+                }
+            )
+        if url == sdist_url:
+            return _FakeHttpResponse(content=wheel_bytes)
+        raise AssertionError(f"unexpected URL {url}")
+
+    monkeypatch.setattr(svc.httpx, "AsyncClient", lambda **kw: _FakeHttpClient(route, **kw))
+
+    result = await svc.fetch_remote_catalogue(db)
+    assert result["catalogue_version"] == "1.5.0"
+
+
+@pytest.mark.asyncio
+async def test_fetch_remote_catalogue_rejects_unparseable_pypi_response(db, monkeypatch):
+    _install_fake_pkg(monkeypatch)
+    from app.services import capability_catalogue_service as svc
+
+    def route(_: str) -> _FakeHttpResponse:
+        # No `info.version`, no `urls` — should not silently cache anything.
+        return _FakeHttpResponse(json_data={"info": {}, "urls": []})
+
+    monkeypatch.setattr(svc.httpx, "AsyncClient", lambda **kw: _FakeHttpClient(route, **kw))
+
+    with pytest.raises(ValueError):
+        await svc.fetch_remote_catalogue(db)
+
+    assert await svc._get_cached_remote(db) is None
