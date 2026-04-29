@@ -104,15 +104,21 @@ export default function ProcessAssessmentPanel({ processId }: Props) {
   return (
     <Box>
       <Box sx={{ display: "flex", justifyContent: "space-between", mb: 2, alignItems: "center" }}>
-        <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
           <Typography variant="subtitle1">{t("assessment.title")}</Typography>
           <Tooltip title={t("assessment.helpButton")}>
             <IconButton
-              size="small"
+              color="primary"
               onClick={() => setHelpOpen(true)}
               aria-label={t("assessment.helpButton")}
+              sx={{
+                bgcolor: (theme) => theme.palette.primary.main + "14",
+                "&:hover": {
+                  bgcolor: (theme) => theme.palette.primary.main + "29",
+                },
+              }}
             >
-              <MaterialSymbol icon="help_outline" size={18} />
+              <MaterialSymbol icon="help_outline" size={22} />
             </IconButton>
           </Tooltip>
         </Box>

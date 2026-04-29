@@ -99,16 +99,26 @@ function LifecycleSection({
                 break;
               }
             }
-            // Progress fill goes from start to the current dot
+            if (currentIdx < 0) return null;
+            // Progress fill goes from start dot to the current dot, stopping
+            // at each reached phase color so the gradient walks through every
+            // phase the card has been through (e.g. grey → blue → green → orange).
             const fillLeftPct = 100 / (PHASES.length * 2);
             const fillRightPct =
-              currentIdx >= 0
-                ? 100 - ((currentIdx * 2 + 1) * 100) / (PHASES.length * 2)
-                : 100;
-            const activeColor =
-              currentIdx >= 0
-                ? PHASE_PALETTE[PHASES[currentIdx]]
-                : theme.palette.primary.main;
+              100 - ((currentIdx * 2 + 1) * 100) / (PHASES.length * 2);
+            let gradient: string;
+            if (currentIdx === 0) {
+              // Single phase reached — fill is zero-width, just render the colour.
+              gradient = PHASE_PALETTE[PHASES[0]];
+            } else {
+              const stops = PHASES.slice(0, currentIdx + 1)
+                .map((phase, i) => {
+                  const pct = (i / currentIdx) * 100;
+                  return `${PHASE_PALETTE[phase]} ${pct.toFixed(2)}%`;
+                })
+                .join(", ");
+              gradient = `linear-gradient(90deg, ${stops})`;
+            }
             return (
               <Box
                 sx={{
@@ -118,10 +128,7 @@ function LifecycleSection({
                   top: 36,
                   height: 6,
                   borderRadius: 3,
-                  background:
-                    currentIdx >= 0
-                      ? `linear-gradient(90deg, ${PHASE_PALETTE.plan}, ${activeColor})`
-                      : "transparent",
+                  background: gradient,
                   zIndex: 1,
                   transition: "all 0.3s ease",
                 }}
