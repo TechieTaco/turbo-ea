@@ -22,9 +22,13 @@ import TableContainer from "@mui/material/TableContainer";
 import Paper from "@mui/material/Paper";
 import Chip from "@mui/material/Chip";
 import IconButton from "@mui/material/IconButton";
+import Tooltip from "@mui/material/Tooltip";
+import Drawer from "@mui/material/Drawer";
+import Divider from "@mui/material/Divider";
 import { useTheme } from "@mui/material/styles";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
+import { useDateFormat } from "@/hooks/useDateFormat";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RTooltip,
   Legend, ResponsiveContainer,
@@ -46,8 +50,10 @@ const DIMENSIONS = [
 export default function ProcessAssessmentPanel({ processId }: Props) {
   const { t } = useTranslation(["bpm", "common"]);
   const theme = useTheme();
+  const { formatDate } = useDateFormat();
   const [assessments, setAssessments] = useState<ProcessAssessment[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
   const [form, setForm] = useState({
     assessment_date: new Date().toISOString().split("T")[0],
     overall_score: 3,
@@ -87,7 +93,7 @@ export default function ProcessAssessmentPanel({ processId }: Props) {
 
   // Chart data (oldest first)
   const chartData = [...assessments].reverse().map((a) => ({
-    date: a.assessment_date,
+    date: formatDate(a.assessment_date),
     Overall: a.overall_score,
     Efficiency: a.efficiency,
     Effectiveness: a.effectiveness,
@@ -98,7 +104,18 @@ export default function ProcessAssessmentPanel({ processId }: Props) {
   return (
     <Box>
       <Box sx={{ display: "flex", justifyContent: "space-between", mb: 2, alignItems: "center" }}>
-        <Typography variant="subtitle1">{t("assessment.title")}</Typography>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+          <Typography variant="subtitle1">{t("assessment.title")}</Typography>
+          <Tooltip title={t("assessment.helpButton")}>
+            <IconButton
+              size="small"
+              onClick={() => setHelpOpen(true)}
+              aria-label={t("assessment.helpButton")}
+            >
+              <MaterialSymbol icon="help_outline" size={18} />
+            </IconButton>
+          </Tooltip>
+        </Box>
         <Button
           variant="contained"
           size="small"
@@ -112,13 +129,35 @@ export default function ProcessAssessmentPanel({ processId }: Props) {
       {/* Trend Chart */}
       {chartData.length > 1 && (
         <Box sx={{ mb: 3 }}>
-          <ResponsiveContainer width="100%" height={250}>
-            <LineChart data={chartData}>
+          <ResponsiveContainer width="100%" height={260}>
+            <LineChart data={chartData} margin={{ top: 8, right: 16, left: 0, bottom: 8 }}>
               <CartesianGrid strokeDasharray="3 3" stroke={theme.palette.divider} />
-              <XAxis dataKey="date" tick={{ fill: theme.palette.text.secondary }} />
-              <YAxis domain={[1, 5]} ticks={[1, 2, 3, 4, 5]} tick={{ fill: theme.palette.text.secondary }} />
-              <RTooltip contentStyle={{ backgroundColor: theme.palette.background.paper, borderColor: theme.palette.divider, color: theme.palette.text.primary }} />
-              <Legend formatter={(value: string) => <span style={{ color: theme.palette.text.primary }}>{value}</span>} />
+              <XAxis
+                dataKey="date"
+                tick={{ fill: theme.palette.text.secondary, fontSize: 11 }}
+                tickMargin={8}
+                minTickGap={16}
+              />
+              <YAxis
+                domain={[1, 5]}
+                ticks={[1, 2, 3, 4, 5]}
+                tick={{ fill: theme.palette.text.secondary, fontSize: 11 }}
+                width={28}
+              />
+              <RTooltip
+                contentStyle={{
+                  backgroundColor: theme.palette.background.paper,
+                  borderColor: theme.palette.divider,
+                  color: theme.palette.text.primary,
+                  fontSize: 12,
+                }}
+              />
+              <Legend
+                wrapperStyle={{ fontSize: 12 }}
+                formatter={(value: string) => (
+                  <span style={{ color: theme.palette.text.primary }}>{value}</span>
+                )}
+              />
               {DIMENSIONS.map((d) => (
                 <Line
                   key={d.key}
@@ -154,7 +193,7 @@ export default function ProcessAssessmentPanel({ processId }: Props) {
             <TableBody>
               {assessments.map((a) => (
                 <TableRow key={a.id} hover>
-                  <TableCell>{a.assessment_date}</TableCell>
+                  <TableCell>{formatDate(a.assessment_date)}</TableCell>
                   <TableCell>{a.assessor_name || "—"}</TableCell>
                   <TableCell align="center"><ScoreChip score={a.overall_score} /></TableCell>
                   <TableCell align="center"><ScoreChip score={a.efficiency} /></TableCell>
@@ -229,6 +268,79 @@ export default function ProcessAssessmentPanel({ processId }: Props) {
           <Button variant="contained" onClick={handleSubmit}>{t("common:actions.save")}</Button>
         </DialogActions>
       </Dialog>
+
+      {/* Help / Guide Drawer */}
+      <Drawer
+        anchor="right"
+        open={helpOpen}
+        onClose={() => setHelpOpen(false)}
+        PaperProps={{ sx: { width: { xs: "100%", sm: 420 } } }}
+      >
+        <Box sx={{ p: 2.5 }}>
+          <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 1.5 }}>
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+              <MaterialSymbol icon="help_outline" size={22} />
+              <Typography variant="h6">{t("assessment.helpTitle")}</Typography>
+            </Box>
+            <IconButton size="small" onClick={() => setHelpOpen(false)}>
+              <MaterialSymbol icon="close" size={20} />
+            </IconButton>
+          </Box>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            {t("assessment.helpIntro")}
+          </Typography>
+
+          <Divider sx={{ my: 2 }} />
+          <Typography variant="subtitle2" sx={{ mb: 1 }}>
+            {t("assessment.helpDimensions")}
+          </Typography>
+          {[
+            { title: "helpEfficiencyTitle", desc: "helpEfficiencyDesc", color: "#4caf50" },
+            { title: "helpEffectivenessTitle", desc: "helpEffectivenessDesc", color: "#ff9800" },
+            { title: "helpComplianceTitle", desc: "helpComplianceDesc", color: "#9c27b0" },
+            { title: "helpAutomationTitle", desc: "helpAutomationDesc", color: "#00bcd4" },
+            { title: "helpOverallTitle", desc: "helpOverallDesc", color: "#1976d2" },
+          ].map((d) => (
+            <Box
+              key={d.title}
+              sx={{
+                mb: 1.5,
+                pl: 1.5,
+                borderLeft: `3px solid ${d.color}`,
+              }}
+            >
+              <Typography variant="body2" fontWeight={600}>
+                {t(`assessment.${d.title}`)}
+              </Typography>
+              <Typography variant="caption" color="text.secondary" sx={{ display: "block", lineHeight: 1.5 }}>
+                {t(`assessment.${d.desc}`)}
+              </Typography>
+            </Box>
+          ))}
+
+          <Divider sx={{ my: 2 }} />
+          <Typography variant="subtitle2" sx={{ mb: 1 }}>
+            {t("assessment.helpBestPracticesTitle")}
+          </Typography>
+          <Box component="ul" sx={{ pl: 2.5, m: 0, "& li": { mb: 0.75 } }}>
+            {[1, 2, 3, 4, 5].map((n) => (
+              <li key={n}>
+                <Typography variant="caption" color="text.secondary" sx={{ lineHeight: 1.5 }}>
+                  {t(`assessment.helpBestPractice${n}`)}
+                </Typography>
+              </li>
+            ))}
+          </Box>
+
+          <Divider sx={{ my: 2 }} />
+          <Typography variant="subtitle2" sx={{ mb: 0.5 }}>
+            {t("assessment.helpReferencesTitle")}
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            {t("assessment.helpReferences")}
+          </Typography>
+        </Box>
+      </Drawer>
     </Box>
   );
 }

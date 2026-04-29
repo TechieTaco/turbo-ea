@@ -80,10 +80,10 @@ describe("ProcessAssessmentPanel", () => {
   it("shows assessment table with data", async () => {
     renderPanel();
     await waitFor(() => {
-      expect(screen.getByText("2025-06-15")).toBeInTheDocument();
+      expect(screen.getByText("15 Jun 2025")).toBeInTheDocument();
       expect(screen.getByText("John Doe")).toBeInTheDocument();
       expect(screen.getByText("Good progress")).toBeInTheDocument();
-      expect(screen.getByText("2025-05-01")).toBeInTheDocument();
+      expect(screen.getByText("01 May 2025")).toBeInTheDocument();
       expect(screen.getByText("Jane Smith")).toBeInTheDocument();
     });
   });
@@ -111,7 +111,7 @@ describe("ProcessAssessmentPanel", () => {
     vi.mocked(api.get).mockResolvedValue([mockAssessments[0]]);
     renderPanel();
     await waitFor(() => {
-      expect(screen.getByText("2025-06-15")).toBeInTheDocument();
+      expect(screen.getByText("15 Jun 2025")).toBeInTheDocument();
     });
     expect(screen.queryByTestId("line-chart")).not.toBeInTheDocument();
   });

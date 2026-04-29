@@ -5,6 +5,19 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.54.0] - 2026-04-29
+
+### Changed
+- Inventory **Lifecycle** column now renders the localized phase label with a phase-specific icon (Plan / Phase In / Active / Phase Out / End of Life) instead of the raw phase key.
+- Card Detail **Lifecycle** bar redesigned: phase icons replace plain dots, the connecting line is hidden behind the markers, the reached-phase progress is shown as a coloured gradient, and the current phase gets a soft halo so the active step is unmistakable.
+- BPM Process Navigator drawer: the **Open Card** action moved out of the Overview body and into the top banner as an icon next to the process name, so it's always visible regardless of the active tab.
+
+### Added
+- BPM **Process Assessments** tab now has a **help icon** next to the title that opens a side panel explaining each dimension (Efficiency, Effectiveness, Compliance, Automation, Overall) with definitions, scoring anchors, and references to APQC PCF, CMMI, Lean Six Sigma, BPMN 2.0, COBIT, ISO 9001, and TOGAF Business Architecture, plus general best-practice scoring guidelines. Translated into all 8 supported UI locales.
+
+### Fixed
+- BPM Process Assessments trend chart: smaller x-axis font, better tick spacing, and dates now respect the configured **Date Format** general setting (both in the chart and in the assessments table).
+
 ## [0.53.0] - 2026-04-29
 
 ### Added

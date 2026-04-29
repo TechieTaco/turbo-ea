@@ -2,6 +2,7 @@ import Box from "@mui/material/Box";
 import Chip from "@mui/material/Chip";
 import { useTheme } from "@mui/material/styles";
 import { useTranslation } from "react-i18next";
+import MaterialSymbol from "@/components/MaterialSymbol";
 
 const PHASE_COLORS: Record<string, "default" | "primary" | "success" | "warning" | "error"> = {
   plan: "default",
@@ -9,6 +10,14 @@ const PHASE_COLORS: Record<string, "default" | "primary" | "success" | "warning"
   active: "success",
   phaseOut: "warning",
   endOfLife: "error",
+};
+
+export const PHASE_ICONS: Record<string, string> = {
+  plan: "edit_calendar",
+  phaseIn: "trending_up",
+  active: "check_circle",
+  phaseOut: "trending_down",
+  endOfLife: "block",
 };
 
 export function getCurrentPhase(lifecycle?: Record<string, string>): string | null {
@@ -37,6 +46,7 @@ export default function LifecycleBadge({ lifecycle, size = "small" }: Props) {
     chipColor === "default"
       ? theme.palette.text.secondary
       : theme.palette[chipColor].main;
+  const iconName = PHASE_ICONS[phase];
   return (
     <Chip
       size={size}
@@ -44,15 +54,28 @@ export default function LifecycleBadge({ lifecycle, size = "small" }: Props) {
       color={chipColor}
       variant="outlined"
       icon={
-        <Box
-          sx={{
-            width: 8,
-            height: 8,
-            borderRadius: "50%",
-            bgcolor: dotColor,
-            flexShrink: 0,
-          }}
-        />
+        iconName ? (
+          <Box
+            sx={{
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              color: dotColor,
+            }}
+          >
+            <MaterialSymbol icon={iconName} size={size === "small" ? 16 : 18} />
+          </Box>
+        ) : (
+          <Box
+            sx={{
+              width: 8,
+              height: 8,
+              borderRadius: "50%",
+              bgcolor: dotColor,
+              flexShrink: 0,
+            }}
+          />
+        )
       }
     />
   );
