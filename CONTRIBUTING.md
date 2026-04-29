@@ -9,7 +9,7 @@ Thank you for your interest in Turbo EA. Before diving in, please read the note 
 Turbo EA is a solo side project. I build and maintain it in my free time, and I rely on
 paid AI tooling to keep up the pace. If you're curious about the backstory,
 [here's why I built it](https://www.turbo-ea.org/blog/why-i-built-turbo-ea). I genuinely
-appreciate every star, issue, and kind word — they make it worth continuing.
+appreciate every star, issue, donation, and kind word — they make it worth continuing.
 
 **I am not actively reviewing pull requests at this time.** Reviewing PRs properly takes
 real time and focus that I don't reliably have. Rather than leave contributions in limbo,
