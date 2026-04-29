@@ -8,6 +8,7 @@ import type { ChipProps } from "@mui/material/Chip";
 export interface TurboLensStatus {
   ai_configured: boolean;
   ready: boolean;
+  enabled?: boolean;
 }
 
 // ── Cost formatting ─────────────────────────────────────────────────────

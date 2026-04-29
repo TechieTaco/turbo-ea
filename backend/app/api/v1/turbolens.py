@@ -154,10 +154,22 @@ async def turbolens_status(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ) -> TurboLensStatusOut:
-    """Check if TurboLens AI is configured and ready."""
+    """Check if TurboLens AI is configured, enabled, and ready."""
+    from app.models.app_settings import AppSettings
+
     config = await get_ai_config(db)
     configured = is_ai_configured(config)
-    return TurboLensStatusOut(ai_configured=configured, ready=configured)
+
+    settings_row = await db.execute(select(AppSettings).where(AppSettings.id == "default"))
+    row = settings_row.scalar_one_or_none()
+    general = (row.general_settings if row else None) or {}
+    enabled = bool(general.get("turboLensEnabled", True))
+
+    return TurboLensStatusOut(
+        ai_configured=configured,
+        ready=configured and enabled,
+        enabled=enabled,
+    )
 
 
 @router.get("/overview")

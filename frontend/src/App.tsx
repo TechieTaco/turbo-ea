@@ -11,6 +11,7 @@ import AppLayout from "@/layouts/AppLayout";
 import LoginPage from "@/features/auth/LoginPage";
 import SsoCallback from "@/features/auth/SsoCallback";
 import SetPasswordPage from "@/features/auth/SetPasswordPage";
+import ModuleGate from "@/components/ModuleGate";
 
 // --- Lazy-loaded page components (route-level code splitting) ---
 const Dashboard = lazy(() => import("@/features/dashboard/Dashboard"));
@@ -117,10 +118,10 @@ function AppRoutes() {
                 <Route path="/reports/data-quality" element={<DataQualityReport />} />
                 <Route path="/reports/eol" element={<EolReport />} />
                 <Route path="/reports/saved" element={<SavedReportsPage />} />
-                <Route path="/bpm" element={<BpmDashboard />} />
-                <Route path="/bpm/processes/:id/flow" element={<ProcessFlowEditorPage />} />
-                <Route path="/ppm" element={<PpmPortfolio />} />
-                <Route path="/ppm/:id" element={<PpmProjectDetail />} />
+                <Route path="/bpm" element={<ModuleGate module="bpm"><BpmDashboard /></ModuleGate>} />
+                <Route path="/bpm/processes/:id/flow" element={<ModuleGate module="bpm"><ProcessFlowEditorPage /></ModuleGate>} />
+                <Route path="/ppm" element={<ModuleGate module="ppm"><PpmPortfolio /></ModuleGate>} />
+                <Route path="/ppm/:id" element={<ModuleGate module="ppm"><PpmProjectDetail /></ModuleGate>} />
                 <Route path="/diagrams" element={<DiagramsPage />} />
                 <Route path="/diagrams/:id" element={<DiagramEditor />} />
                 <Route path="/ea-delivery" element={<EADeliveryPage />} />
@@ -145,8 +146,8 @@ function AppRoutes() {
                 <Route path="/admin/surveys/new" element={<SurveyBuilder />} />
                 <Route path="/admin/surveys/:id/results" element={<SurveyResults />} />
                 <Route path="/admin/surveys/:id" element={<SurveyBuilder />} />
-                <Route path="/turbolens" element={<TurboLensPage />} />
-                <Route path="/turbolens/assessments/:id" element={<AssessmentViewer />} />
+                <Route path="/turbolens" element={<ModuleGate module="turbolens"><TurboLensPage /></ModuleGate>} />
+                <Route path="/turbolens/assessments/:id" element={<ModuleGate module="turbolens"><AssessmentViewer /></ModuleGate>} />
                 <Route path="/admin/turbolens" element={<Navigate to="/admin/settings?tab=turbolens" />} />
                 <Route path="/capability-catalogue" element={<CapabilityCataloguePage />} />
                 <Route path="*" element={<Navigate to="/" />} />

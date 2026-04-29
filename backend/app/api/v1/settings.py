@@ -400,6 +400,41 @@ async def update_ppm_enabled(
     return {"ok": True}
 
 
+class TurboLensEnabledPayload(BaseModel):
+    enabled: bool
+
+
+@router.get("/turbolens-enabled")
+async def get_turbolens_enabled(db: AsyncSession = Depends(get_db)):
+    """Public endpoint — returns whether the TurboLens module is enabled.
+
+    Defaults to True so existing installations keep their previous behaviour;
+    administrators can opt out via the admin UI.
+    """
+    result = await db.execute(select(AppSettings).where(AppSettings.id == "default"))
+    row = result.scalar_one_or_none()
+    general = (row.general_settings if row else None) or {}
+    return {"enabled": general.get("turboLensEnabled", True)}
+
+
+@router.patch("/turbolens-enabled")
+async def update_turbolens_enabled(
+    body: TurboLensEnabledPayload,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Admin endpoint — enable or disable the TurboLens module."""
+    await PermissionService.require_permission(db, user, "admin.settings")
+
+    row = await _get_or_create_row(db)
+    general = dict(row.general_settings or {})
+    general["turboLensEnabled"] = body.enabled
+    row.general_settings = general
+
+    await db.commit()
+    return {"ok": True}
+
+
 @router.get("/bpm-row-order")
 async def get_bpm_row_order(db: AsyncSession = Depends(get_db)):
     """Public endpoint — returns the configured BPM process type row order."""

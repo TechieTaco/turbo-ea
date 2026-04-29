@@ -9,6 +9,7 @@ import Button from "@mui/material/Button";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import Switch from "@mui/material/Switch";
 import Alert from "@mui/material/Alert";
+import AlertTitle from "@mui/material/AlertTitle";
 import Snackbar from "@mui/material/Snackbar";
 import CircularProgress from "@mui/material/CircularProgress";
 import Checkbox from "@mui/material/Checkbox";
@@ -191,6 +192,11 @@ export default function AiAdmin() {
 
   return (
     <Box sx={{ maxWidth: 720, mx: "auto" }}>
+      <Alert severity="warning" icon={<MaterialSymbol icon="policy" size={20} />} sx={{ mb: 2 }}>
+        <AlertTitle>{t("ai_third_party_warning_title")}</AlertTitle>
+        {t("ai_third_party_warning_body")}
+      </Alert>
+
       {error && (
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError("")}>
           {error}

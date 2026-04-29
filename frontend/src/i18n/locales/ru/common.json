@@ -249,5 +249,12 @@
   "iconPicker.categories.navigationMaps": "Навигация и карты",
   "iconPicker.categories.processesWorkflow": "Процессы и рабочие потоки",
   "iconPicker.categories.statusIndicators": "Статус и индикаторы",
-  "iconPicker.categories.miscellaneous": "Разное"
+  "iconPicker.categories.miscellaneous": "Разное",
+  "modules.bpm": "BPM",
+  "modules.ppm": "PPM",
+  "modules.turbolens": "TurboLens",
+  "moduleDisabled.title": "{{module}} отключён",
+  "moduleDisabled.body": "Модуль {{module}} в настоящее время отключён администратором. Включите его в настройках администратора, чтобы получить доступ к этому разделу.",
+  "moduleDisabled.backToDashboard": "Вернуться к панели",
+  "moduleDisabled.openSettings": "Открыть настройки"
 }

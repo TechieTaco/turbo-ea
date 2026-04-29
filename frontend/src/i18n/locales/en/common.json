@@ -263,5 +263,12 @@
   "iconPicker.categories.navigationMaps": "Navigation & Maps",
   "iconPicker.categories.processesWorkflow": "Processes & Workflow",
   "iconPicker.categories.statusIndicators": "Status & Indicators",
-  "iconPicker.categories.miscellaneous": "Miscellaneous"
+  "iconPicker.categories.miscellaneous": "Miscellaneous",
+  "modules.bpm": "BPM",
+  "modules.ppm": "PPM",
+  "modules.turbolens": "TurboLens",
+  "moduleDisabled.title": "{{module}} is disabled",
+  "moduleDisabled.body": "The {{module}} module is currently disabled by an administrator. Enable it from the admin settings to access this area.",
+  "moduleDisabled.backToDashboard": "Back to dashboard",
+  "moduleDisabled.openSettings": "Open settings"
 }
