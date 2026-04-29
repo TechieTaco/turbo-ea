@@ -21,7 +21,7 @@ import ToggleButton from "@mui/material/ToggleButton";
 import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import ReportShell from "./ReportShell";
 import SaveReportDialog from "./SaveReportDialog";
-import C4DiagramView from "./C4DiagramView";
+import LayeredDependencyView from "./LayeredDependencyView";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useSavedReport } from "@/hooks/useSavedReport";
@@ -360,6 +360,8 @@ export default function DependencyReport() {
   const [edges, setEdges] = useState<GEdge[]>([]);
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState<"chart" | "table">("chart");
+  // chartMode value "c4" is a stable identifier persisted in saved reports —
+  // do not rename. The view it selects is the Layered Dependency View (LDV).
   const [chartMode, setChartMode] = useState<"tree" | "c4">("c4");
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [hovered, setHovered] = useState<string | null>(null);
@@ -374,14 +376,14 @@ export default function DependencyReport() {
   const [pickerSearch, setPickerSearch] = useState("");
   const [pickerTypeFilter, setPickerTypeFilter] = useState<string | null>(null);
 
-  /* -- C4 expanded nodes (expand mode digs into a card's relations) -- */
-  const [c4ExpandedNodes, setC4ExpandedNodes] = useState<Set<string>>(new Set());
+  /* -- LDV expanded nodes (expand mode digs into a card's relations) -- */
+  const [ldvExpandedNodes, setLdvExpandedNodes] = useState<Set<string>>(new Set());
 
-  /* -- C4 navigation history (browser-style back/forward) -- */
+  /* -- LDV navigation history (browser-style back/forward) -- */
   const [navHistory, setNavHistory] = useState<string[]>([]);
   const [navIndex, setNavIndex] = useState(-1);
 
-  const navigateToC4 = useCallback(
+  const navigateToLdv = useCallback(
     (cardId: string) => {
       setChartMode("c4");
       setCenter(cardId);
@@ -443,7 +445,7 @@ export default function DependencyReport() {
     setPickerTypeFilter(null);
   }, [saved]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Fetch data — in C4 mode skip type filter to preserve cross-layer edges
+  // Fetch data — in LDV mode skip type filter to preserve cross-layer edges
   useEffect(() => {
     setLoading(true);
     const p = new URLSearchParams();
@@ -478,9 +480,9 @@ export default function DependencyReport() {
     return m;
   }, [nodes, adjMap]);
 
-  // C4 mode: BFS from center to get dependency neighborhood (all types)
+  // LDV mode: BFS from center to get dependency neighborhood (all types)
   // Also include depth-1 neighbors of any nodes that have been "expanded"
-  const c4Data = useMemo(() => {
+  const ldvData = useMemo(() => {
     if (!center || !nodeMap.has(center)) return { nodes: [] as GNode[], edges: [] as GEdge[] };
     // Start with depth-1 BFS from center
     const visited = new Set<string>([center]);
@@ -488,7 +490,7 @@ export default function DependencyReport() {
       if (nodeMap.has(neighbor.nodeId)) visited.add(neighbor.nodeId);
     }
     // Also include depth-1 neighbors of any expanded nodes
-    for (const expId of c4ExpandedNodes) {
+    for (const expId of ldvExpandedNodes) {
       if (!visited.has(expId)) continue; // only expand visible nodes
       for (const neighbor of adjMap.get(expId) || []) {
         if (nodeMap.has(neighbor.nodeId)) visited.add(neighbor.nodeId);
@@ -497,7 +499,7 @@ export default function DependencyReport() {
     const filteredNodes = nodes.filter((n) => visited.has(n.id));
     const filteredEdges = edges.filter((e) => visited.has(e.source) && visited.has(e.target));
     return { nodes: filteredNodes, edges: filteredEdges };
-  }, [center, nodes, edges, adjMap, nodeMap, c4ExpandedNodes]);
+  }, [center, nodes, edges, adjMap, nodeMap, ldvExpandedNodes]);
 
   // Reset expansion when center changes
   useEffect(() => {
@@ -506,12 +508,12 @@ export default function DependencyReport() {
     } else {
       setExpanded(new Set());
     }
-    setC4ExpandedNodes(new Set());
+    setLdvExpandedNodes(new Set());
   }, [center]);
 
-  // C4 expand mode: toggle a node's neighbors into the visible set
-  const handleC4Expand = useCallback((nodeId: string) => {
-    setC4ExpandedNodes((prev) => {
+  // LDV expand mode: toggle a node's neighbors into the visible set
+  const handleLdvExpand = useCallback((nodeId: string) => {
+    setLdvExpandedNodes((prev) => {
       const next = new Set(prev);
       if (next.has(nodeId)) next.delete(nodeId);
       else next.add(nodeId);
@@ -519,8 +521,8 @@ export default function DependencyReport() {
     });
   }, []);
 
-  const handleC4ExpandReset = useCallback(() => {
-    setC4ExpandedNodes(new Set());
+  const handleLdvExpandReset = useCallback(() => {
+    setLdvExpandedNodes(new Set());
   }, []);
 
   const toggleExpand = useCallback((instanceId: string) => {
@@ -615,7 +617,7 @@ export default function DependencyReport() {
     }
     if (centerNode) params.push({ label: t("dependency.center"), value: centerNode.name });
     if (view === "table") params.push({ label: t("common.view"), value: t("common.table") });
-    if (chartMode === "c4") params.push({ label: t("common.view"), value: t("dependency.c4View") });
+    if (chartMode === "c4") params.push({ label: t("common.view"), value: t("dependency.ldvView") });
     return params;
   }, [cardTypeKey, types, centerNode, view, chartMode]);
 
@@ -725,7 +727,7 @@ export default function DependencyReport() {
                 </Tooltip>
               </ToggleButton>
               <ToggleButton value="c4">
-                <Tooltip title={t("dependency.c4View")}>
+                <Tooltip title={t("dependency.ldvView")}>
                   <Box sx={{ display: "flex" }}>
                     <MaterialSymbol icon="hub" size={18} />
                   </Box>
@@ -757,17 +759,17 @@ export default function DependencyReport() {
     >
       {/* ==================== CHART VIEW ==================== */}
       {view === "chart" ? (
-        chartMode === "c4" && center && c4Data.nodes.length > 0 ? (
-          /* ---------- C4 DIAGRAM VIEW ---------- */
+        chartMode === "c4" && center && ldvData.nodes.length > 0 ? (
+          /* ---------- LAYERED DEPENDENCY VIEW ---------- */
           <Box sx={{ height: 600 }}>
-            <C4DiagramView
-              nodes={c4Data.nodes}
-              edges={c4Data.edges}
+            <LayeredDependencyView
+              nodes={ldvData.nodes}
+              edges={ldvData.edges}
               types={types}
               onNodeClick={setSidePanelCardId}
-              onNodeShiftClick={navigateToC4}
-              onNodeExpand={handleC4Expand}
-              onExpandReset={handleC4ExpandReset}
+              onNodeShiftClick={navigateToLdv}
+              onNodeExpand={handleLdvExpand}
+              onExpandReset={handleLdvExpandReset}
               onHome={handleNavHome}
               onPrev={handleNavPrev}
               onNext={handleNavNext}

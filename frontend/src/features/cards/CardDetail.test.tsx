@@ -41,7 +41,7 @@ vi.mock("@/features/cards/sections", () => ({
   SuccessorsSection: () => <div data-testid="successors-section" />,
   TagsSection: () => <div data-testid="tags-section" />,
   RelationsSection: () => <div data-testid="relations-section" />,
-  C4DiagramSection: () => <div data-testid="c4-diagram-section" />,
+  LayeredDependencySection: () => <div data-testid="ldv-section" />,
   CommentsTab: () => <div data-testid="comments-tab" />,
   TodosTab: () => <div data-testid="todos-tab" />,
   StakeholdersTab: () => <div data-testid="stakeholders-tab" />,

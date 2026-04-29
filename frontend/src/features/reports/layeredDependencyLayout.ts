@@ -1,8 +1,7 @@
 /**
  * Layout engine for the Layered Dependency View — Turbo EA's house notation
  * for showing dependencies between cards across the four EA layers
- * (see frontend/UI_GUIDELINES.md § 3.10). File and symbol names are kept on
- * the historical "C4" prefix for backwards compatibility.
+ * (see frontend/UI_GUIDELINES.md § 3.10).
  *
  * Converts GNode / GEdge data into React Flow nodes and edges.
  * Nodes are grouped by architectural-layer category using React Flow
@@ -43,7 +42,7 @@ export interface GEdge {
 /*  Custom node data                                                   */
 /* ------------------------------------------------------------------ */
 
-export interface C4NodeData {
+export interface LdvNodeData {
   name: string;
   typeKey: string;
   typeLabel: string;
@@ -58,13 +57,13 @@ export interface C4NodeData {
   [key: string]: unknown;
 }
 
-export interface C4GroupData {
+export interface LdvGroupData {
   label: string;
   color: string;
   [key: string]: unknown;
 }
 
-export interface C4EdgeData {
+export interface LdvEdgeData {
   relLabel: string;
   description?: string;
   connectedToHovered?: boolean;
@@ -82,8 +81,8 @@ export interface C4EdgeData {
 /*  Constants                                                          */
 /* ------------------------------------------------------------------ */
 
-export const C4_NODE_W = 200;
-export const C4_NODE_H = 72;
+export const LDV_NODE_W = 200;
+export const LDV_NODE_H = 72;
 
 const CATEGORY_ORDER = [
   "Strategy & Transformation",
@@ -153,7 +152,7 @@ function layoutGroup(
     g.setDefaultEdgeLabel(() => ({}));
 
     for (const n of catNodes) {
-      g.setNode(n.id, { width: C4_NODE_W, height: C4_NODE_H });
+      g.setNode(n.id, { width: LDV_NODE_W, height: LDV_NODE_H });
     }
     for (const e of edges) {
       g.setEdge(e.source, e.target);
@@ -170,13 +169,13 @@ function layoutGroup(
     for (const n of catNodes) {
       const pos = g.node(n.id);
       if (!pos) continue;
-      const x = pos.x - C4_NODE_W / 2;
-      const y = pos.y - C4_NODE_H / 2;
+      const x = pos.x - LDV_NODE_W / 2;
+      const y = pos.y - LDV_NODE_H / 2;
       positioned.push({ id: n.id, x, y });
       minX = Math.min(minX, x);
       minY = Math.min(minY, y);
-      maxX = Math.max(maxX, x + C4_NODE_W);
-      maxY = Math.max(maxY, y + C4_NODE_H);
+      maxX = Math.max(maxX, x + LDV_NODE_W);
+      maxY = Math.max(maxY, y + LDV_NODE_H);
     }
 
     // Normalize to origin
@@ -198,15 +197,15 @@ function layoutGroup(
   const vGap = 30;
   const positioned: PositionedNode[] = catNodes.map((n, i) => ({
     id: n.id,
-    x: (i % cols) * (C4_NODE_W + hGap),
-    y: Math.floor(i / cols) * (C4_NODE_H + vGap),
+    x: (i % cols) * (LDV_NODE_W + hGap),
+    y: Math.floor(i / cols) * (LDV_NODE_H + vGap),
   }));
 
   const rows = Math.ceil(catNodes.length / cols);
   return {
     positioned,
-    width: cols * C4_NODE_W + (cols - 1) * hGap,
-    height: rows * C4_NODE_H + (rows - 1) * vGap,
+    width: cols * LDV_NODE_W + (cols - 1) * hGap,
+    height: rows * LDV_NODE_H + (rows - 1) * vGap,
   };
 }
 
@@ -214,7 +213,7 @@ function layoutGroup(
 /*  Build React Flow nodes + edges with per-group layout               */
 /* ------------------------------------------------------------------ */
 
-export function buildC4Flow(
+export function buildLdvFlow(
   gNodes: GNode[],
   gEdges: GEdge[],
   types: CardType[],
@@ -292,12 +291,12 @@ export function buildC4Flow(
 
     rfNodes.push({
       id: groupId,
-      type: "c4Group",
+      type: "ldvGroup",
       position: { x: gx, y: gy },
       data: {
         label: gl.cat,
         color: CATEGORY_COLORS[gl.cat] || "#999",
-      } satisfies C4GroupData,
+      } satisfies LdvGroupData,
       style: { width: gl.groupW, height: gl.groupH },
       selectable: false,
       draggable: false,
@@ -311,7 +310,7 @@ export function buildC4Flow(
 
       rfNodes.push({
         id: nd.id,
-        type: "c4Node",
+        type: "ldvNode",
         position: { x: relX, y: relY },
         parentId: groupId,
         extent: "parent" as const,
@@ -322,8 +321,8 @@ export function buildC4Flow(
           typeColor: typeColor(nd.type, types),
           category: gl.cat,
           proposed: nd.proposed,
-        } satisfies C4NodeData,
-        style: { width: C4_NODE_W, height: C4_NODE_H },
+        } satisfies LdvNodeData,
+        style: { width: LDV_NODE_W, height: LDV_NODE_H },
         draggable: false,
       });
     }
@@ -334,12 +333,12 @@ export function buildC4Flow(
   // Compute absolute center positions for each node (for edge routing)
   const absPos = new Map<string, { x: number; y: number }>();
   for (const n of rfNodes) {
-    if (n.type === "c4Node" && n.parentId) {
+    if (n.type === "ldvNode" && n.parentId) {
       const parent = rfNodes.find((p) => p.id === n.parentId);
       if (parent) {
         absPos.set(n.id, {
-          x: parent.position.x + n.position.x + C4_NODE_W / 2,
-          y: parent.position.y + n.position.y + C4_NODE_H / 2,
+          x: parent.position.x + n.position.x + LDV_NODE_W / 2,
+          y: parent.position.y + n.position.y + LDV_NODE_H / 2,
         });
       }
     }
@@ -468,20 +467,20 @@ export function buildC4Flow(
   // 5 positions: 12%, 30%, 50%, 70%, 88% of node width
   function handleOffset(h: string): { dx: number; dy: number } {
     switch (h) {
-      case "b-1": case "bt-1": return { dx: -C4_NODE_W * 0.38, dy: C4_NODE_H / 2 };
-      case "b-2": case "bt-2": return { dx: -C4_NODE_W * 0.20, dy: C4_NODE_H / 2 };
-      case "b-3": case "bt-3": return { dx: 0, dy: C4_NODE_H / 2 };
-      case "b-4": case "bt-4": return { dx: C4_NODE_W * 0.20, dy: C4_NODE_H / 2 };
-      case "b-5": case "bt-5": return { dx: C4_NODE_W * 0.38, dy: C4_NODE_H / 2 };
-      case "t-1": case "ts-1": return { dx: -C4_NODE_W * 0.38, dy: -C4_NODE_H / 2 };
-      case "t-2": case "ts-2": return { dx: -C4_NODE_W * 0.20, dy: -C4_NODE_H / 2 };
-      case "t-3": case "ts-3": return { dx: 0, dy: -C4_NODE_H / 2 };
-      case "t-4": case "ts-4": return { dx: C4_NODE_W * 0.20, dy: -C4_NODE_H / 2 };
-      case "t-5": case "ts-5": return { dx: C4_NODE_W * 0.38, dy: -C4_NODE_H / 2 };
+      case "b-1": case "bt-1": return { dx: -LDV_NODE_W * 0.38, dy: LDV_NODE_H / 2 };
+      case "b-2": case "bt-2": return { dx: -LDV_NODE_W * 0.20, dy: LDV_NODE_H / 2 };
+      case "b-3": case "bt-3": return { dx: 0, dy: LDV_NODE_H / 2 };
+      case "b-4": case "bt-4": return { dx: LDV_NODE_W * 0.20, dy: LDV_NODE_H / 2 };
+      case "b-5": case "bt-5": return { dx: LDV_NODE_W * 0.38, dy: LDV_NODE_H / 2 };
+      case "t-1": case "ts-1": return { dx: -LDV_NODE_W * 0.38, dy: -LDV_NODE_H / 2 };
+      case "t-2": case "ts-2": return { dx: -LDV_NODE_W * 0.20, dy: -LDV_NODE_H / 2 };
+      case "t-3": case "ts-3": return { dx: 0, dy: -LDV_NODE_H / 2 };
+      case "t-4": case "ts-4": return { dx: LDV_NODE_W * 0.20, dy: -LDV_NODE_H / 2 };
+      case "t-5": case "ts-5": return { dx: LDV_NODE_W * 0.38, dy: -LDV_NODE_H / 2 };
       case "left-src":
-      case "left": return { dx: -C4_NODE_W / 2, dy: 0 };
+      case "left": return { dx: -LDV_NODE_W / 2, dy: 0 };
       case "right":
-      case "right-tgt": return { dx: C4_NODE_W / 2, dy: 0 };
+      case "right-tgt": return { dx: LDV_NODE_W / 2, dy: 0 };
       default:     return { dx: 0, dy: 0 };
     }
   }
@@ -491,10 +490,10 @@ export function buildC4Flow(
   for (const [nid, pos] of absPos) {
     allNodeBounds.push({
       id: nid,
-      x1: pos.x - C4_NODE_W / 2,
-      y1: pos.y - C4_NODE_H / 2,
-      x2: pos.x + C4_NODE_W / 2,
-      y2: pos.y + C4_NODE_H / 2,
+      x1: pos.x - LDV_NODE_W / 2,
+      y1: pos.y - LDV_NODE_H / 2,
+      x2: pos.x + LDV_NODE_W / 2,
+      y2: pos.y + LDV_NODE_H / 2,
     });
   }
 
@@ -502,7 +501,7 @@ export function buildC4Flow(
   // These are not used for obstruction routing, only for label placement.
   const groupLabelBounds: { x1: number; y1: number; x2: number; y2: number }[] = [];
   for (const n of rfNodes) {
-    if (n.type === "c4Group") {
+    if (n.type === "ldvGroup") {
       const w = (n.style?.width as number) ?? 0;
       groupLabelBounds.push({
         x1: n.position.x,
@@ -533,7 +532,7 @@ export function buildC4Flow(
         const midX = (sx + tx) / 2;
         const halfW = (b.x2 - b.x1) / 2;
         const distFromCenter = Math.abs((b.x1 + b.x2) / 2 - midX);
-        const clearance = halfW - distFromCenter + C4_NODE_W * 0.15; // extra margin
+        const clearance = halfW - distFromCenter + LDV_NODE_W * 0.15; // extra margin
         maxClearance = Math.max(maxClearance, clearance);
       }
     }
@@ -554,9 +553,9 @@ export function buildC4Flow(
   // Map each node to its group category
   const nodeGroupCat = new Map<string, string>();
   for (const n of rfNodes) {
-    if (n.type === "c4Node" && n.parentId) {
+    if (n.type === "ldvNode" && n.parentId) {
       const parent = rfNodes.find((p) => p.id === n.parentId);
-      if (parent && parent.type === "c4Group") {
+      if (parent && parent.type === "ldvGroup") {
         nodeGroupCat.set(n.id, parent.id);
       }
     }
@@ -589,13 +588,13 @@ export function buildC4Flow(
     });
 
     // Compute the minimum handle-to-handle vertical gap among edges in this
-    // group. absPos stores node centers; handles are at center ± C4_NODE_H/2.
+    // group. absPos stores node centers; handles are at center ± LDV_NODE_H/2.
     let minVertGap = Infinity;
     for (const idx of indices) {
       const sP = absPos.get(oriented[idx].source);
       const tP = absPos.get(oriented[idx].target);
       if (sP && tP) {
-        const handleGap = Math.abs(tP.y - sP.y) - C4_NODE_H;
+        const handleGap = Math.abs(tP.y - sP.y) - LDV_NODE_H;
         minVertGap = Math.min(minVertGap, Math.max(handleGap, 40));
       }
     }
@@ -785,12 +784,12 @@ export function buildC4Flow(
   }
 
   const rfEdges: Edge[] = oriented.map((e, i) => ({
-    id: `c4e-${i}`,
+    id: `ldve-${i}`,
     source: e.source,
     target: e.target,
     sourceHandle: edgeHandles[i].src,
     targetHandle: edgeHandles[i].tgt,
-    type: "c4Edge",
+    type: "ldvEdge",
     label: e.relLabel,
     data: {
       relLabel: e.relLabel,
@@ -798,16 +797,16 @@ export function buildC4Flow(
       pathOffset: pathOffsets[i],
       minOffset: edgeHandles[i].minOffset,
       labelT: labelTs[i],
-    } satisfies C4EdgeData,
+    } satisfies LdvEdgeData,
     animated: false,
     markerEnd: { type: "arrowclosed" as const, color: "#888" },
   }));
 
-  // Inject used handles into c4Node data (handle selection happens after node creation)
+  // Inject used handles into ldvNode data (handle selection happens after node creation)
   for (const n of rfNodes) {
-    if (n.type === "c4Node") {
+    if (n.type === "ldvNode") {
       const used = allUsedHandles.get(n.id);
-      (n.data as C4NodeData).usedHandles = used ? [...used] : [];
+      (n.data as LdvNodeData).usedHandles = used ? [...used] : [];
     }
   }
 

@@ -102,7 +102,7 @@ export const CARD_TYPE_COLORS = {
   System: "#5B738B",
 } as const;
 
-// ── EA layers (C4 diagram, capability map, dependency report) ────────────
+// ── EA layers (Layered Dependency View, capability map, dependency report) ─
 
 export const LAYER_COLORS = {
   "Strategy & Transformation": "#33cc58",

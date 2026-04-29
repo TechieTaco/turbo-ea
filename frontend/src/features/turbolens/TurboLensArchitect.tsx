@@ -29,7 +29,7 @@ import type {
   DependencyAnalysisResult,
   GapAnalysisResult,
 } from "@/types";
-import type { GNode, GEdge } from "@/features/reports/c4Layout";
+import type { GNode, GEdge } from "@/features/reports/layeredDependencyLayout";
 import Step from "@mui/material/Step";
 import StepLabel from "@mui/material/StepLabel";
 import Stepper from "@mui/material/Stepper";
@@ -41,7 +41,7 @@ import {
   ARCHITECT_STEPS,
   phaseToStepIndex,
 } from "./utils";
-import C4DiagramView from "@/features/reports/C4DiagramView";
+import LayeredDependencyView from "@/features/reports/LayeredDependencyView";
 
 // --- Option card component ---
 
@@ -2638,7 +2638,7 @@ export default function TurboLensArchitect() {
                       </Typography>
                     </Box>
                     <Box sx={{ height: { xs: 400, md: 600 } }}>
-                      <C4DiagramView
+                      <LayeredDependencyView
                         nodes={merged.nodes}
                         edges={merged.edges}
                         types={types}
