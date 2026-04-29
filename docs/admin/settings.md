@@ -25,8 +25,8 @@ Choose how dates are displayed throughout the application. The selected format a
 - `MM/DD/YYYY` — US style (e.g. `04/29/2026`)
 - `DD/MM/YYYY` — European style (e.g. `29/04/2026`)
 - `YYYY-MM-DD` — ISO 8601 (e.g. `2026-04-29`)
-- `DD MMM YYYY` (e.g. `29 Apr 2026`)
-- `MMM DD, YYYY` — default (e.g. `Apr 29, 2026`)
+- `DD MMM YYYY` — default (e.g. `29 Apr 2026`)
+- `MMM DD, YYYY` (e.g. `Apr 29, 2026`)
 
 Changes take effect immediately for everyone — no reload required.
 

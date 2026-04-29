@@ -25,8 +25,8 @@ Choisissez la manière dont les dates sont affichées dans toute l'application. 
 - `MM/DD/YYYY` — style US (ex. `04/29/2026`)
 - `DD/MM/YYYY` — style européen (ex. `29/04/2026`)
 - `YYYY-MM-DD` — ISO 8601 (ex. `2026-04-29`)
-- `DD MMM YYYY` (ex. `29 avr. 2026`)
-- `MMM DD, YYYY` — par défaut (ex. `avr. 29, 2026`)
+- `DD MMM YYYY` — par défaut (ex. `29 avr. 2026`)
+- `MMM DD, YYYY` (ex. `avr. 29, 2026`)
 
 Les changements prennent effet immédiatement pour tous — aucun rechargement nécessaire.
 

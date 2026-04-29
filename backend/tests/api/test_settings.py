@@ -92,7 +92,7 @@ class TestDateFormatSettings:
         """Date format endpoint is public (no auth required)."""
         resp = await client.get("/api/v1/settings/date-format")
         assert resp.status_code == 200
-        assert resp.json()["date_format"] == "MMM DD, YYYY"
+        assert resp.json()["date_format"] == "DD MMM YYYY"
 
     async def test_admin_can_set_date_format(self, client, db, settings_env):
         admin = settings_env["admin"]

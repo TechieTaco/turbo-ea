@@ -25,8 +25,8 @@ Scegli come vengono visualizzate le date in tutta l'applicazione. Il formato sel
 - `MM/DD/YYYY` — stile USA (es. `04/29/2026`)
 - `DD/MM/YYYY` — stile europeo (es. `29/04/2026`)
 - `YYYY-MM-DD` — ISO 8601 (es. `2026-04-29`)
-- `DD MMM YYYY` (es. `29 apr 2026`)
-- `MMM DD, YYYY` — predefinito (es. `apr 29, 2026`)
+- `DD MMM YYYY` — predefinito (es. `29 apr 2026`)
+- `MMM DD, YYYY` (es. `apr 29, 2026`)
 
 Le modifiche hanno effetto immediato per tutti gli utenti — non è richiesto alcun ricaricamento.
 

@@ -8,7 +8,7 @@ export type DateFormatKey =
   | "DD MMM YYYY"
   | "MMM DD, YYYY";
 
-export const DEFAULT_DATE_FORMAT: DateFormatKey = "MMM DD, YYYY";
+export const DEFAULT_DATE_FORMAT: DateFormatKey = "DD MMM YYYY";
 
 export const DATE_FORMAT_OPTIONS: DateFormatKey[] = [
   "MM/DD/YYYY",
@@ -52,11 +52,11 @@ export function formatDateWith(
       return `${dd}/${mm}/${yyyy}`;
     case "YYYY-MM-DD":
       return `${yyyy}-${mm}-${dd}`;
-    case "DD MMM YYYY":
-      return `${dd} ${shortMonth(d)} ${yyyy}`;
     case "MMM DD, YYYY":
-    default:
       return `${shortMonth(d)} ${dd}, ${yyyy}`;
+    case "DD MMM YYYY":
+    default:
+      return `${dd} ${shortMonth(d)} ${yyyy}`;
   }
 }
 

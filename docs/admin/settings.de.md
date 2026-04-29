@@ -25,8 +25,8 @@ Wählen Sie, wie Datumsangaben in der gesamten Anwendung dargestellt werden. Das
 - `MM/DD/YYYY` — US-Stil (z. B. `04/29/2026`)
 - `DD/MM/YYYY` — Europäischer Stil (z. B. `29/04/2026`)
 - `YYYY-MM-DD` — ISO 8601 (z. B. `2026-04-29`)
-- `DD MMM YYYY` (z. B. `29 Apr 2026`)
-- `MMM DD, YYYY` — Standard (z. B. `Apr 29, 2026`)
+- `DD MMM YYYY` — Standard (z. B. `29 Apr 2026`)
+- `MMM DD, YYYY` (z. B. `Apr 29, 2026`)
 
 Änderungen werden für alle Benutzer sofort wirksam — kein Neuladen erforderlich.
 

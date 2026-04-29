@@ -25,8 +25,8 @@ Elija cómo se muestran las fechas en toda la aplicación. El formato selecciona
 - `MM/DD/YYYY` — estilo EE. UU. (p. ej. `04/29/2026`)
 - `DD/MM/YYYY` — estilo europeo (p. ej. `29/04/2026`)
 - `YYYY-MM-DD` — ISO 8601 (p. ej. `2026-04-29`)
-- `DD MMM YYYY` (p. ej. `29 abr 2026`)
-- `MMM DD, YYYY` — predeterminado (p. ej. `abr 29, 2026`)
+- `DD MMM YYYY` — predeterminado (p. ej. `29 abr 2026`)
+- `MMM DD, YYYY` (p. ej. `abr 29, 2026`)
 
 Los cambios surten efecto de inmediato para todos los usuarios — no se requiere recargar la página.
 
