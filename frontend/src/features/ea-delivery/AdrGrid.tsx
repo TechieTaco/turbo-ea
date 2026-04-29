@@ -14,6 +14,7 @@ import ListItemIcon from "@mui/material/ListItemIcon";
 import ListItemText from "@mui/material/ListItemText";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { useThemeMode } from "@/hooks/useThemeMode";
+import { useDateFormat } from "@/hooks/useDateFormat";
 import type { ArchitectureDecision, CardType } from "@/types";
 import "ag-grid-community/styles/ag-grid.css";
 import "ag-grid-community/styles/ag-theme-quartz.css";
@@ -63,6 +64,7 @@ export default function AdrGrid({
   const { t } = useTranslation("delivery");
   const navigate = useNavigate();
   const { mode } = useThemeMode();
+  const { formatDate } = useDateFormat();
   const gridRef = useRef<AgGridReact>(null);
 
   const [contextMenu, setContextMenu] = useState<{
@@ -199,21 +201,21 @@ export default function AdrGrid({
         field: "created_at",
         width: 130,
         valueFormatter: (params: { value: string | null }) =>
-          params.value ? new Date(params.value).toLocaleDateString() : "",
+          formatDate(params.value),
       },
       {
         headerName: t("adr.grid.lastModified"),
         field: "updated_at",
         width: 150,
         valueFormatter: (params: { value: string | null }) =>
-          params.value ? new Date(params.value).toLocaleDateString() : "",
+          formatDate(params.value),
       },
       {
         headerName: t("adr.grid.signed"),
         field: "signed_at",
         width: 130,
         valueFormatter: (params: { value: string | null }) =>
-          params.value ? new Date(params.value).toLocaleDateString() : "",
+          formatDate(params.value),
       },
       {
         headerName: t("adr.grid.signedBy"),
@@ -268,7 +270,7 @@ export default function AdrGrid({
         },
       },
     ],
-    [t, typeColorMap],
+    [t, typeColorMap, formatDate],
   );
 
   const onRowClicked = useCallback(

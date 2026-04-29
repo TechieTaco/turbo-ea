@@ -17,6 +17,7 @@ import Divider from "@mui/material/Divider";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { buildPreviewBody, exportToPdf, PREVIEW_CSS } from "./soawExport";
 import { api } from "@/api/client";
+import { useDateFormat } from "@/hooks/useDateFormat";
 import type { SoAW, SoAWSectionData } from "@/types";
 
 const STATUS_COLORS: Record<string, "default" | "warning" | "success" | "info"> = {
@@ -30,6 +31,7 @@ export default function SoAWPreview() {
   const { t } = useTranslation(["delivery", "common"]);
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { formatDateTime } = useDateFormat();
 
   const STATUS_LABELS: Record<string, string> = {
     draft: t("status.draft"),
@@ -267,7 +269,7 @@ export default function SoAWPreview() {
                       sx={{ display: "block", mt: 0.5 }}
                     >
                       {t("editor.sigSignedAt", { date: sig.signed_at
-                        ? new Date(sig.signed_at).toLocaleString()
+                        ? formatDateTime(sig.signed_at)
                         : "N/A" })}
                     </Typography>
                   </>

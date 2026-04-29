@@ -45,6 +45,7 @@ import MaterialSymbol from "@/components/MaterialSymbol";
 import BpmnViewer from "./BpmnViewer";
 import BpmnTemplateChooser from "./BpmnTemplateChooser";
 import { api } from "@/api/client";
+import { useDateFormat } from "@/hooks/useDateFormat";
 import type { ProcessFlowVersion, ProcessFlowPermissions, ProcessElement } from "@/types";
 
 interface Props {
@@ -67,6 +68,7 @@ const STATUS_COLORS: Record<string, "success" | "warning" | "info" | "default" |
 
 export default function ProcessFlowTab({ processId, processName, initialSubTab }: Props) {
   const { t } = useTranslation(["bpm", "common"]);
+  const { formatDate, formatDateTime } = useDateFormat();
   const navigate = useNavigate();
   const [subTab, setSubTab] = useState(initialSubTab ?? 0);
 
@@ -384,15 +386,9 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
     }
   };
 
-  const formatDate = (iso?: string) => {
+  const formatVersionDate = (iso?: string) => {
     if (!iso) return "\u2014";
-    return new Date(iso).toLocaleDateString(undefined, {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
+    return formatDateTime(iso);
   };
 
   // ── Print / PDF ────────────────────────────────────────────────────
@@ -422,7 +418,7 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
 
     const title = processName || t("flowTab.processFlow");
     const watermarkText = version.approved_by_name
-      ? t("flowTab.revisionApprovedBy", { revision: version.revision, name: version.approved_by_name, date: formatDate(version.approved_at) })
+      ? t("flowTab.revisionApprovedBy", { revision: version.revision, name: version.approved_by_name, date: formatVersionDate(version.approved_at) })
       : t("flowTab.revisionLabel", { revision: version.revision });
 
     const printWindow = window.open("", "_blank");
@@ -469,7 +465,7 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
   </div>
   <div class="diagram">${svgContent}</div>
   <div class="footer">
-    <span>${t("flowTab.printedOn", { date: new Date().toLocaleDateString() })}</span>
+    <span>${t("flowTab.printedOn", { date: formatDate(new Date()) })}</span>
     <span>${watermarkText}</span>
   </div>
 </body>
@@ -740,7 +736,7 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
           icon={<MaterialSymbol icon="verified" size={20} />}
           sx={{ mb: 2 }}
         >
-          <strong>{t("common:status.approved")}</strong> {t("flowTab.byOnRevision", { name: published.approved_by_name || "\u2014", date: formatDate(published.approved_at), revision: published.revision })}
+          <strong>{t("common:status.approved")}</strong> {t("flowTab.byOnRevision", { name: published.approved_by_name || "\u2014", date: formatVersionDate(published.approved_at), revision: published.revision })}
         </Alert>
 
         {/* Actions */}
@@ -860,7 +856,7 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
                     }
                     secondary={
                       <>
-                        {t("flowTab.createdByOn", { name: d.created_by_name || "\u2014", date: formatDate(d.created_at) })}
+                        {t("flowTab.createdByOn", { name: d.created_by_name || "\u2014", date: formatVersionDate(d.created_at) })}
                         {d.status === "pending" && d.submitted_by_name && (
                           <> &mdash; {t("flowTab.submittedBy", { name: d.submitted_by_name })}</>
                         )}
@@ -1042,7 +1038,7 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
                 }
                 secondary={
                   <>
-                    {t("flowTab.approvedByOnArchivedOn", { name: a.approved_by_name || "\u2014", approvedDate: formatDate(a.approved_at), archivedDate: formatDate(a.archived_at) })}
+                    {t("flowTab.approvedByOnArchivedOn", { name: a.approved_by_name || "\u2014", approvedDate: formatVersionDate(a.approved_at), archivedDate: formatVersionDate(a.archived_at) })}
                   </>
                 }
               />
@@ -1100,17 +1096,17 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
                 icon={<MaterialSymbol icon="verified" size={20} />}
                 sx={{ borderRadius: 0 }}
               >
-                <strong>{t("common:status.approved")}</strong> {t("flowTab.byOnRevision", { name: viewingVersion.approved_by_name || "\u2014", date: formatDate(viewingVersion.approved_at), revision: viewingVersion.revision })}
+                <strong>{t("common:status.approved")}</strong> {t("flowTab.byOnRevision", { name: viewingVersion.approved_by_name || "\u2014", date: formatVersionDate(viewingVersion.approved_at), revision: viewingVersion.revision })}
               </Alert>
             )}
             {viewingVersion.status === "archived" && (
               <Alert severity="info" sx={{ borderRadius: 0 }}>
-                <strong>{t("common:status.archived")}</strong> {t("flowTab.archivedOnOriginallyApproved", { archivedDate: formatDate(viewingVersion.archived_at), name: viewingVersion.approved_by_name || "\u2014", approvedDate: formatDate(viewingVersion.approved_at), revision: viewingVersion.revision })}
+                <strong>{t("common:status.archived")}</strong> {t("flowTab.archivedOnOriginallyApproved", { archivedDate: formatVersionDate(viewingVersion.archived_at), name: viewingVersion.approved_by_name || "\u2014", approvedDate: formatVersionDate(viewingVersion.approved_at), revision: viewingVersion.revision })}
               </Alert>
             )}
             {viewingVersion.status === "pending" && (
               <Alert severity="warning" sx={{ borderRadius: 0 }}>
-                <strong>{t("flowTab.pendingApproval")}</strong> &mdash; {t("flowTab.submittedByOnRevision", { name: viewingVersion.submitted_by_name || "\u2014", date: formatDate(viewingVersion.submitted_at), revision: viewingVersion.revision })}
+                <strong>{t("flowTab.pendingApproval")}</strong> &mdash; {t("flowTab.submittedByOnRevision", { name: viewingVersion.submitted_by_name || "\u2014", date: formatVersionDate(viewingVersion.submitted_at), revision: viewingVersion.revision })}
               </Alert>
             )}
 

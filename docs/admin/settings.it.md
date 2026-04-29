@@ -18,6 +18,18 @@ Caricate un'icona personalizzata per il browser (favicon). La modifica ha effett
 
 Selezionate la valuta utilizzata per i campi costo in tutta la piattaforma. Questo influisce sulla formattazione dei valori di costo nelle pagine di dettaglio delle card, nei report e nelle esportazioni. Sono supportate oltre 20 valute, tra cui USD, EUR, GBP, JPY, CNY, CHF, INR, BRL e altre.
 
+### Formato data
+
+Scegli come vengono visualizzate le date in tutta l'applicazione. Il formato selezionato si applica alle date del ciclo di vita delle card, alla griglia inventario, alle firme di ADR e SoAW, al Registro dei rischi, ai report e alle attività PPM, alle versioni dei flussi di processo BPM, ai commenti, alla cronologia, al feed di attività della dashboard, alle notifiche e alle pagine di amministrazione. Vengono offerti cinque formati con anteprima in tempo reale:
+
+- `MM/DD/YYYY` — stile USA (es. `04/29/2026`)
+- `DD/MM/YYYY` — stile europeo (es. `29/04/2026`)
+- `YYYY-MM-DD` — ISO 8601 (es. `2026-04-29`)
+- `DD MMM YYYY` — predefinito (es. `29 apr 2026`)
+- `MMM DD, YYYY` (es. `apr 29, 2026`)
+
+Le modifiche hanno effetto immediato per tutti gli utenti — non è richiesto alcun ricaricamento.
+
 ### Lingue abilitate
 
 Attivate/disattivate quali lingue sono disponibili per gli utenti nel selettore della lingua. Tutte e otto le localizzazioni supportate possono essere abilitate o disabilitate individualmente:

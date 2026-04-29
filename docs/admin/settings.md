@@ -18,6 +18,18 @@ Upload a custom browser icon (favicon). The change takes effect on the next page
 
 Select the currency used for cost fields across the platform. This affects how cost values are formatted in card detail pages, reports, and exports. Over 20 currencies are supported, including USD, EUR, GBP, JPY, CNY, CHF, INR, BRL, and more.
 
+### Date Format
+
+Choose how dates are displayed throughout the application. The selected format applies to card lifecycle dates, the inventory grid, ADR and SoAW signed dates, the Risk Register, PPM reports and tasks, BPM process flow versions, comments, history, the dashboard activity feed, notifications, and admin pages. Five formats are offered with a live preview as you choose:
+
+- `MM/DD/YYYY` — US style (e.g. `04/29/2026`)
+- `DD/MM/YYYY` — European style (e.g. `29/04/2026`)
+- `YYYY-MM-DD` — ISO 8601 (e.g. `2026-04-29`)
+- `DD MMM YYYY` — default (e.g. `29 Apr 2026`)
+- `MMM DD, YYYY` (e.g. `Apr 29, 2026`)
+
+Changes take effect immediately for everyone — no reload required.
+
 ### Enabled Languages
 
 Toggle which languages are available to users in their language selector. All eight supported locales can be individually enabled or disabled:

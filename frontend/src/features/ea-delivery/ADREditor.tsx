@@ -26,6 +26,7 @@ import MaterialSymbol from "@/components/MaterialSymbol";
 import RichTextEditor from "./RichTextEditor";
 import SignatureRequestDialog from "./SignatureRequestDialog";
 import { api } from "@/api/client";
+import { useDateFormat } from "@/hooks/useDateFormat";
 import type { Card, ArchitectureDecision, SoAWSignatory } from "@/types";
 
 const STATUS_COLORS: Record<string, "default" | "warning" | "success"> = {
@@ -38,6 +39,7 @@ export default function ADREditor() {
   const { t } = useTranslation(["delivery", "common"]);
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { formatDate } = useDateFormat();
   const isNew = !id;
 
   // ADR state
@@ -379,7 +381,7 @@ export default function ADREditor() {
       {isSigned && signedAt && (
         <Alert severity="info" sx={{ mb: 2 }}>
           {t("adr.editor.signedBanner", {
-            date: new Date(signedAt).toLocaleDateString(),
+            date: formatDate(signedAt),
           })}
           {revisionNumber > 1 &&
             t("adr.editor.signedBannerRevision", { number: revisionNumber })}
@@ -654,7 +656,7 @@ export default function ADREditor() {
                   secondary={
                     sig.status === "signed" && sig.signed_at
                       ? t("adr.editor.sigSignedAt", {
-                          date: new Date(sig.signed_at).toLocaleDateString(),
+                          date: formatDate(sig.signed_at),
                         })
                       : t("adr.editor.sigPending")
                   }

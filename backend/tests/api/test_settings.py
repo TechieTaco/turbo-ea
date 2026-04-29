@@ -83,6 +83,59 @@ class TestCurrencySettings:
 
 
 # -------------------------------------------------------------------
+# GET /settings/date-format + PATCH /settings/date-format
+# -------------------------------------------------------------------
+
+
+class TestDateFormatSettings:
+    async def test_get_default_date_format(self, client, db, settings_env):
+        """Date format endpoint is public (no auth required)."""
+        resp = await client.get("/api/v1/settings/date-format")
+        assert resp.status_code == 200
+        assert resp.json()["date_format"] == "DD MMM YYYY"
+
+    async def test_admin_can_set_date_format(self, client, db, settings_env):
+        admin = settings_env["admin"]
+        resp = await client.patch(
+            "/api/v1/settings/date-format",
+            json={"date_format": "DD/MM/YYYY"},
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 200
+        assert resp.json()["ok"] is True
+
+        get_resp = await client.get("/api/v1/settings/date-format")
+        assert get_resp.json()["date_format"] == "DD/MM/YYYY"
+
+    async def test_invalid_date_format_rejected(self, client, db, settings_env):
+        admin = settings_env["admin"]
+        resp = await client.patch(
+            "/api/v1/settings/date-format",
+            json={"date_format": "totally-bogus"},
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 400
+
+    async def test_member_cannot_set_date_format(self, client, db, settings_env):
+        member = settings_env["member"]
+        resp = await client.patch(
+            "/api/v1/settings/date-format",
+            json={"date_format": "YYYY-MM-DD"},
+            headers=auth_headers(member),
+        )
+        assert resp.status_code == 403
+
+    async def test_viewer_cannot_set_date_format(self, client, db, settings_env):
+        viewer = settings_env["viewer"]
+        resp = await client.patch(
+            "/api/v1/settings/date-format",
+            json={"date_format": "DD/MM/YYYY"},
+            headers=auth_headers(viewer),
+        )
+        assert resp.status_code == 403
+
+
+# -------------------------------------------------------------------
 # GET /settings/bpm-enabled + PATCH /settings/bpm-enabled
 # -------------------------------------------------------------------
 

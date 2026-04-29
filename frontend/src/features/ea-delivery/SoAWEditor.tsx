@@ -38,6 +38,7 @@ import {
 } from "./soawTemplate";
 import { exportToDocx, exportToPdf } from "./soawExport";
 import { api } from "@/api/client";
+import { useDateFormat } from "@/hooks/useDateFormat";
 import type { Card, SoAW, SoAWSectionData, SoAWSignatory } from "@/types";
 
 // ─── constants ──────────────────────────────────────────────────────────────
@@ -48,6 +49,7 @@ export default function SoAWEditor() {
   const { t } = useTranslation(["delivery", "common"]);
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { formatDate, formatDateTime } = useDateFormat();
 
   const STATUS_CHIP: Record<string, { label: string; color: "default" | "warning" | "success" | "info" }> = {
     draft: { label: t("status.draft"), color: "default" },
@@ -622,7 +624,7 @@ export default function SoAWEditor() {
       {/* Signed banner */}
       {isSigned && (
         <Alert severity="success" sx={{ mb: 2 }} icon={<MaterialSymbol icon="verified" size={20} />}>
-          {t("editor.signedBanner", { date: signedAt ? new Date(signedAt).toLocaleDateString() : "N/A" })}
+          {t("editor.signedBanner", { date: signedAt ? formatDate(signedAt) : "N/A" })}
           {revisionNumber > 1 && t("editor.signedBannerRevision", { number: revisionNumber })}
         </Alert>
       )}
@@ -1130,7 +1132,7 @@ export default function SoAWEditor() {
                       </Typography>
                     )}
                     <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.5 }}>
-                      {t("editor.sigSignedAt", { date: sig.signed_at ? new Date(sig.signed_at).toLocaleString() : "N/A" })}
+                      {t("editor.sigSignedAt", { date: sig.signed_at ? formatDateTime(sig.signed_at) : "N/A" })}
                     </Typography>
                   </>
                 ) : (

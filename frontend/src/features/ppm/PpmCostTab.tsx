@@ -25,6 +25,7 @@ import { useTranslation } from "react-i18next";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import { useCurrency } from "@/hooks/useCurrency";
+import { useDateFormat } from "@/hooks/useDateFormat";
 import type { PpmCostLine, PpmBudgetLine } from "@/types";
 
 interface Props {
@@ -36,6 +37,7 @@ interface Props {
 export default function PpmCostTab({ initiativeId, costLines, onRefresh }: Props) {
   const { t } = useTranslation("ppm");
   const { fmt } = useCurrency();
+  const { formatDate } = useDateFormat();
 
   // ── Budget lines (planned) ──
   const [budgetLines, setBudgetLines] = useState<PpmBudgetLine[]>([]);
@@ -342,9 +344,7 @@ export default function PpmCostTab({ initiativeId, costLines, onRefresh }: Props
                   />
                 </TableCell>
                 <TableCell>
-                  {cl.date
-                    ? new Date(cl.date).toLocaleDateString()
-                    : "\u2014"}
+                  {cl.date ? formatDate(cl.date) : "\u2014"}
                 </TableCell>
                 <TableCell align="right">{fmt.format(cl.actual)}</TableCell>
                 <TableCell>

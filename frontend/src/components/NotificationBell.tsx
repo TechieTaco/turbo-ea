@@ -17,6 +17,7 @@ import CircularProgress from "@mui/material/CircularProgress";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import { useEventStream } from "@/hooks/useEventStream";
+import { formatDateWith, getCachedDateFormat } from "@/hooks/useDateFormat";
 import type { Notification, NotificationListResponse } from "@/types";
 
 const NOTIFICATION_ICONS: Record<string, { icon: string; color: string }> = {
@@ -39,7 +40,7 @@ function timeAgo(dateStr: string, t: (key: string, opts?: Record<string, unknown
   if (hrs < 24) return t("common:time.hoursAgo", { count: hrs });
   const days = Math.floor(hrs / 24);
   if (days < 7) return t("common:time.daysAgo", { count: days });
-  return new Date(dateStr).toLocaleDateString();
+  return formatDateWith(getCachedDateFormat(), dateStr);
 }
 
 export default function NotificationBell({ userId }: { userId: string }) {

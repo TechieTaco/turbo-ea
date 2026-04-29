@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.53.0] - 2026-04-29
+
+### Added
+- New **Date Format** preference under General Settings, mirroring the existing currency picker. Five formats are offered — `MM/DD/YYYY` (US), `DD/MM/YYYY` (EU), `YYYY-MM-DD` (ISO), `DD MMM YYYY` (default), and `MMM DD, YYYY` — with a live preview against a sample date. Once changed, all displayed dates across the app update without a page refresh: card lifecycle phases, inventory grid columns, ADR/SoAW signed dates, the Risk Register, PPM tasks/reports/costs, BPM process flow versions, comments and history timestamps, dashboard activity, notifications, the public web portal, and admin pages. Backed by a public `GET /settings/date-format` endpoint and admin-only `PATCH /settings/date-format`. Translated into all 8 supported UI locales.
+
 ## [0.52.1] - 2026-04-29
 
 ### Fixed

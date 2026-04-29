@@ -18,6 +18,18 @@ Téléchargez une icône de navigateur personnalisée (favicon). Le changement p
 
 Sélectionnez la devise utilisée pour les champs de coût dans toute la plateforme. Cela affecte la manière dont les valeurs de coût sont formatées dans les pages de détail des fiches, les rapports et les exports. Plus de 20 devises sont prises en charge, incluant USD, EUR, GBP, JPY, CNY, CHF, INR, BRL, et plus.
 
+### Format de date
+
+Choisissez la manière dont les dates sont affichées dans toute l'application. Le format sélectionné s'applique aux dates de cycle de vie des fiches, à l'inventaire, aux signatures ADR et SoAW, au registre des risques, aux rapports et tâches PPM, aux versions de flux de processus BPM, aux commentaires, à l'historique, au flux d'activité du tableau de bord, aux notifications et aux pages d'administration. Cinq formats sont proposés avec un aperçu en direct :
+
+- `MM/DD/YYYY` — style US (ex. `04/29/2026`)
+- `DD/MM/YYYY` — style européen (ex. `29/04/2026`)
+- `YYYY-MM-DD` — ISO 8601 (ex. `2026-04-29`)
+- `DD MMM YYYY` — par défaut (ex. `29 avr. 2026`)
+- `MMM DD, YYYY` (ex. `avr. 29, 2026`)
+
+Les changements prennent effet immédiatement pour tous — aucun rechargement nécessaire.
+
 ### Langues activées
 
 Basculez les langues disponibles pour les utilisateurs dans leur sélecteur de langue. Les huit langues supportées peuvent être activées ou désactivées individuellement :

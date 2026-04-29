@@ -65,6 +65,19 @@ class SsoSettingsPayload(BaseModel):
 
 DEFAULT_CURRENCY = "USD"
 
+DEFAULT_DATE_FORMAT = "DD MMM YYYY"
+ALLOWED_DATE_FORMATS = {
+    "MM/DD/YYYY",
+    "DD/MM/YYYY",
+    "YYYY-MM-DD",
+    "DD MMM YYYY",
+    "MMM DD, YYYY",
+}
+
+
+class DateFormatPayload(BaseModel):
+    date_format: str = DEFAULT_DATE_FORMAT
+
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -206,6 +219,41 @@ async def update_currency(
     row = await _get_or_create_row(db)
     general = dict(row.general_settings or {})
     general["currency"] = body.currency
+    row.general_settings = general
+    await db.commit()
+
+    return {"ok": True}
+
+
+# ---------------------------------------------------------------------------
+# Date format endpoint
+# ---------------------------------------------------------------------------
+
+
+@router.get("/date-format")
+async def get_date_format(db: AsyncSession = Depends(get_db)):
+    """Public endpoint — returns the configured date display format."""
+    result = await db.execute(select(AppSettings).where(AppSettings.id == "default"))
+    row = result.scalar_one_or_none()
+    general = (row.general_settings if row else None) or {}
+    return {"date_format": general.get("dateFormat", DEFAULT_DATE_FORMAT)}
+
+
+@router.patch("/date-format")
+async def update_date_format(
+    body: DateFormatPayload,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Admin endpoint — set the display format for all dates in the UI."""
+    await PermissionService.require_permission(db, user, "admin.settings")
+
+    if body.date_format not in ALLOWED_DATE_FORMATS:
+        raise HTTPException(400, "Unsupported date format")
+
+    row = await _get_or_create_row(db)
+    general = dict(row.general_settings or {})
+    general["dateFormat"] = body.date_format
     row.general_settings = general
     await db.commit()
 

@@ -41,6 +41,7 @@ import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useResolveMetaLabel, useResolveLabel } from "@/hooks/useResolveLabel";
+import { useDateFormat } from "@/hooks/useDateFormat";
 import type { SnowConnection, SnowMapping, SnowSyncRun, SnowStagedRecord, CardType } from "@/types";
 
 // ---------------------------------------------------------------------------
@@ -950,6 +951,7 @@ function MappingDialog({ open, mapping, connections, onClose, onSaved }: Mapping
 
 function SyncDashboardTab() {
   const { t } = useTranslation(["admin", "common"]);
+  const { formatDateTime } = useDateFormat();
   const [mappings, setMappings] = useState<SnowMapping[]>([]);
   const [runs, setRuns] = useState<SnowSyncRun[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1094,7 +1096,7 @@ function SyncDashboardTab() {
                 return (
                   <TableRow key={run.id} hover>
                     <TableCell sx={{ fontSize: "0.8rem" }}>
-                      {run.started_at ? new Date(run.started_at).toLocaleString() : "-"}
+                      {run.started_at ? formatDateTime(run.started_at) : "-"}
                     </TableCell>
                     <TableCell>
                       <Chip
@@ -1154,7 +1156,7 @@ function SyncDashboardTab() {
       >
         <DialogTitle>
           {t("servicenow.sync.stagedRecords")} — {selectedRun?.direction} sync
-          {selectedRun?.started_at && ` (${new Date(selectedRun.started_at).toLocaleString()})`}
+          {selectedRun?.started_at && ` (${formatDateTime(selectedRun.started_at)})`}
         </DialogTitle>
         <DialogContent>
           {stagedLoading ? (

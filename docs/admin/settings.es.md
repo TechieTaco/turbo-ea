@@ -18,6 +18,18 @@ Cargue un icono de navegador personalizado (favicon). El cambio se aplicará en 
 
 Seleccione la moneda utilizada para los campos de costo en toda la plataforma. Esto afecta a cómo se formatean los valores de costo en las páginas de detalle de fichas, informes y exportaciones. Se admiten más de 20 monedas, incluyendo USD, EUR, GBP, JPY, CNY, CHF, INR, BRL, entre otras.
 
+### Formato de fecha
+
+Elija cómo se muestran las fechas en toda la aplicación. El formato seleccionado se aplica a las fechas de ciclo de vida de las fichas, a la cuadrícula de inventario, a las firmas de ADR y SoAW, al Registro de Riesgos, a los informes y tareas de PPM, a las versiones de flujos de procesos BPM, a los comentarios, al historial, al panel de actividad del dashboard, a las notificaciones y a las páginas de administración. Se ofrecen cinco formatos con vista previa en vivo:
+
+- `MM/DD/YYYY` — estilo EE. UU. (p. ej. `04/29/2026`)
+- `DD/MM/YYYY` — estilo europeo (p. ej. `29/04/2026`)
+- `YYYY-MM-DD` — ISO 8601 (p. ej. `2026-04-29`)
+- `DD MMM YYYY` — predeterminado (p. ej. `29 abr 2026`)
+- `MMM DD, YYYY` (p. ej. `abr 29, 2026`)
+
+Los cambios surten efecto de inmediato para todos los usuarios — no se requiere recargar la página.
+
 ### Idiomas Habilitados
 
 Active o desactive los idiomas disponibles para los usuarios en su selector de idioma. Los ocho idiomas soportados pueden habilitarse o deshabilitarse individualmente:

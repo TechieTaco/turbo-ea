@@ -14,6 +14,7 @@ import Tabs from "@mui/material/Tabs";
 import Tab from "@mui/material/Tab";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
+import { useDateFormat } from "@/hooks/useDateFormat";
 import type { Survey } from "@/types";
 
 const STATUS_COLORS: Record<string, "default" | "warning" | "success" | "info"> = {
@@ -24,6 +25,7 @@ const STATUS_COLORS: Record<string, "default" | "warning" | "success" | "info"> 
 
 export default function SurveysAdmin() {
   const { t } = useTranslation(["admin", "common"]);
+  const { formatDate } = useDateFormat();
   const navigate = useNavigate();
   const [surveys, setSurveys] = useState<Survey[]>([]);
   const [loading, setLoading] = useState(true);
@@ -156,12 +158,12 @@ export default function SurveysAdmin() {
                 )}
                 {s.sent_at && (
                   <Typography variant="caption" color="text.secondary">
-                    {t("surveysAdmin.sentDate", { date: new Date(s.sent_at).toLocaleDateString() })}
+                    {t("surveysAdmin.sentDate", { date: formatDate(s.sent_at) })}
                   </Typography>
                 )}
                 {s.closed_at && (
                   <Typography variant="caption" color="text.secondary">
-                    {t("surveysAdmin.closedDate", { date: new Date(s.closed_at).toLocaleDateString() })}
+                    {t("surveysAdmin.closedDate", { date: formatDate(s.closed_at) })}
                   </Typography>
                 )}
               </Box>

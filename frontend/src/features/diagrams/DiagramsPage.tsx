@@ -35,6 +35,7 @@ import ListItemIcon from "@mui/material/ListItemIcon";
 import ListItemText from "@mui/material/ListItemText";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { useMetamodel } from "@/hooks/useMetamodel";
+import { useDateFormat } from "@/hooks/useDateFormat";
 import { api } from "@/api/client";
 import type { Card, DiagramSummary } from "@/types";
 
@@ -43,6 +44,7 @@ type ViewMode = "card" | "list";
 export default function DiagramsPage() {
   const { t } = useTranslation(["diagrams", "common"]);
   const navigate = useNavigate();
+  const { formatDate } = useDateFormat();
   const { types: metamodelTypes } = useMetamodel();
   const [diagrams, setDiagrams] = useState<DiagramSummary[]>([]);
   const [viewMode, setViewMode] = useState<ViewMode>(
@@ -157,8 +159,7 @@ export default function DiagramsPage() {
 
   const typeLabel = (typeKey: string) => (typeKey === "data_flow" ? t("gallery.types.dataFlow") : t("gallery.types.freeDraw"));
   const typeIcon = (typeKey: string) => (typeKey === "data_flow" ? "device_hub" : "draw");
-  const fmtDate = (iso?: string) =>
-    iso ? new Date(iso).toLocaleDateString() : "";
+  const fmtDate = (iso?: string) => (iso ? formatDate(iso) : "");
 
   // Helper: resolve linked card names from IDs
   const linkedCardNames = (ids: string[]) =>

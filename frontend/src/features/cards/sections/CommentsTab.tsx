@@ -7,11 +7,13 @@ import MuiCard from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
 import { useTranslation } from "react-i18next";
 import { api } from "@/api/client";
+import { useDateFormat } from "@/hooks/useDateFormat";
 import type { Comment as CommentType } from "@/types";
 
 // ── Tab: Comments ───────────────────────────────────────────────
 function CommentsTab({ fsId, canCreateComments = true, canManageComments: _canManageComments = true }: { fsId: string; canCreateComments?: boolean; canManageComments?: boolean }) {
   const { t } = useTranslation(["cards", "common"]);
+  const { formatDateTime } = useDateFormat();
   const [comments, setComments] = useState<CommentType[]>([]);
   const [newComment, setNewComment] = useState("");
 
@@ -66,7 +68,7 @@ function CommentsTab({ fsId, canCreateComments = true, canManageComments: _canMa
                 {c.user_display_name || t("stakeholders.user")}
               </Typography>
               <Typography variant="caption" color="text.secondary">
-                {c.created_at ? new Date(c.created_at).toLocaleString() : ""}
+                {c.created_at ? formatDateTime(c.created_at) : ""}
               </Typography>
             </Box>
             <Typography variant="body2">{c.content}</Typography>

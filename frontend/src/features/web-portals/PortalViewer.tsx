@@ -26,6 +26,7 @@ import Tooltip from "@mui/material/Tooltip";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import { useTheme } from "@mui/material/styles";
 import { useResolveMetaLabel, useResolveLabel } from "@/hooks/useResolveLabel";
+import { useDateFormat } from "@/hooks/useDateFormat";
 import TagPicker from "@/components/TagPicker";
 import type {
   PublicPortal,
@@ -241,6 +242,7 @@ function FieldValue({
 
 export default function PortalViewer() {
   const { t } = useTranslation("common");
+  const { formatDate } = useDateFormat();
   const rml = useResolveMetaLabel();
   const rl = useResolveLabel();
   const { slug } = useParams<{ slug: string }>();
@@ -1552,10 +1554,7 @@ export default function PortalViewer() {
                     variant="caption"
                     sx={{ color: "text.disabled", fontSize: "0.75rem" }}
                   >
-                    {t("portal.lastUpdated", { date: new Date(selectedFs.updated_at).toLocaleDateString(
-                      undefined,
-                      { year: "numeric", month: "long", day: "numeric" }
-                    ) })}
+                    {t("portal.lastUpdated", { date: formatDate(selectedFs.updated_at) })}
                   </Typography>
                 </>
               )}

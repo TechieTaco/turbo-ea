@@ -10,6 +10,7 @@ import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import { getPhaseLabels } from "@/features/cards/sections/cardDetailUtils";
 import { useMetamodel } from "@/hooks/useMetamodel";
+import { useDateFormat } from "@/hooks/useDateFormat";
 import type { EventEntry } from "@/types";
 
 // ── Tab: History ────────────────────────────────────────────────
@@ -250,6 +251,7 @@ function parseChanges(changes: Record<string, unknown>, fieldLabels: Record<stri
 function HistoryTab({ fsId }: { fsId: string }) {
   const { t } = useTranslation(["cards", "common"]);
   const theme = useTheme();
+  const { formatDateTime } = useDateFormat();
   const eventMeta = getEventMeta(t);
   const fieldLabels = getFieldLabels(t);
   const phaseLabels = getPhaseLabels(t);
@@ -296,7 +298,7 @@ function HistoryTab({ fsId }: { fsId: string }) {
                   {t("history.by", { user: e.user_display_name || t("common:labels.system") })}
                 </Typography>
                 <Typography variant="caption" color="text.disabled" sx={{ ml: "auto", whiteSpace: "nowrap" }}>
-                  {e.created_at ? new Date(e.created_at).toLocaleString() : ""}
+                  {e.created_at ? formatDateTime(e.created_at) : ""}
                 </Typography>
               </Box>
 

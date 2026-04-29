@@ -11,6 +11,7 @@ import { useTheme } from "@mui/material/styles";
 import { useTranslation } from "react-i18next";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { PHASES, getPhaseLabels } from "@/features/cards/sections/cardDetailUtils";
+import { useDateFormat } from "@/hooks/useDateFormat";
 import type { Card } from "@/types";
 
 // ── Section: Lifecycle ──────────────────────────────────────────
@@ -27,6 +28,7 @@ function LifecycleSection({
 }) {
   const { t } = useTranslation(["cards", "common"]);
   const theme = useTheme();
+  const { formatDate } = useDateFormat();
   const phaseLabels = getPhaseLabels(t);
   const [editing, setEditing] = useState(false);
   const [lifecycle, setLifecycle] = useState<Record<string, string>>(
@@ -112,7 +114,7 @@ function LifecycleSection({
                   {phaseLabels[phase]}
                 </Typography>
                 <Typography variant="caption" color="text.secondary">
-                  {date || "—"}
+                  {date ? formatDate(date) : "—"}
                 </Typography>
               </Box>
             );

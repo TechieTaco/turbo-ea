@@ -16,6 +16,7 @@ import Stack from "@mui/material/Stack";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import { formatDateTimeWith, getCachedDateFormat } from "@/hooks/useDateFormat";
 import type { SecurityScanRun } from "@/types";
 
 interface Props {
@@ -36,11 +37,7 @@ interface Props {
 
 function formatTimestamp(iso: string | null | undefined): string {
   if (!iso) return "—";
-  try {
-    return new Date(iso).toLocaleString();
-  } catch {
-    return iso;
-  }
+  return formatDateTimeWith(getCachedDateFormat(), iso) || iso;
 }
 
 export default function SecurityScanCard({

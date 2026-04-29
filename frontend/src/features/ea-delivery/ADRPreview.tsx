@@ -16,6 +16,7 @@ import useMediaQuery from "@mui/material/useMediaQuery";
 import { useTheme } from "@mui/material/styles";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
+import { useDateFormat } from "@/hooks/useDateFormat";
 import type { ArchitectureDecision } from "@/types";
 
 const STATUS_COLORS: Record<string, "default" | "warning" | "success" | "info"> = {
@@ -28,6 +29,7 @@ export default function ADRPreview() {
   const { t } = useTranslation(["delivery", "common"]);
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { formatDateTime } = useDateFormat();
   const theme = useTheme();
   const compact = useMediaQuery(theme.breakpoints.down("sm"));
 
@@ -267,7 +269,7 @@ export default function ADRPreview() {
                       )}
                       <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.5 }}>
                         {t("adr.editor.sigSignedAt", {
-                          date: sig.signed_at ? new Date(sig.signed_at).toLocaleString() : "N/A",
+                          date: sig.signed_at ? formatDateTime(sig.signed_at) : "N/A",
                         })}
                       </Typography>
                     </>

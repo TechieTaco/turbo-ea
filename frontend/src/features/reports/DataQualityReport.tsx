@@ -21,6 +21,7 @@ import { useMetamodel } from "@/hooks/useMetamodel";
 import { useSavedReport } from "@/hooks/useSavedReport";
 import { useThumbnailCapture } from "@/hooks/useThumbnailCapture";
 import { useResolveMetaLabel } from "@/hooks/useResolveLabel";
+import { useDateFormat } from "@/hooks/useDateFormat";
 import CardDetailSidePanel from "@/components/CardDetailSidePanel";
 import { api } from "@/api/client";
 
@@ -72,6 +73,7 @@ function dataQualityLabelKey(v: number): string {
 export default function DataQualityReport() {
   const { t } = useTranslation(["reports", "common"]);
   const theme = useTheme();
+  const { formatDate } = useDateFormat();
   const { types } = useMetamodel();
   const rml = useResolveMetaLabel();
   const saved = useSavedReport("data-quality");
@@ -381,7 +383,7 @@ export default function DataQualityReport() {
                     </TableCell>
                     <TableCell>
                       <Typography variant="caption" color="text.secondary">
-                        {item.updated_at ? new Date(item.updated_at).toLocaleDateString() : "—"}
+                        {item.updated_at ? formatDate(item.updated_at) : "—"}
                       </Typography>
                     </TableCell>
                   </TableRow>

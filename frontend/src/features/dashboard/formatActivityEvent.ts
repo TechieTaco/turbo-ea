@@ -1,6 +1,7 @@
 import type { TFunction } from "i18next";
 import type { EventEntry } from "@/types";
 import { STATUS_COLORS, SEVERITY_COLORS } from "@/theme/tokens";
+import { formatDateWith, getCachedDateFormat } from "@/hooks/useDateFormat";
 
 export type ActivityCategory =
   | "create"
@@ -190,7 +191,7 @@ export function relativeTime(iso: string | undefined, t: TFunction<"common">): s
   if (hr < 24) return t("dashboard.activity.time.hoursAgo", { count: hr });
   const day = Math.floor(hr / 24);
   if (day < 7) return t("dashboard.activity.time.daysAgo", { count: day });
-  return new Date(iso).toLocaleDateString();
+  return formatDateWith(getCachedDateFormat(), iso);
 }
 
 /** Returns a stable bucket key per day, plus a localized label for the heading. */
