@@ -10,9 +10,18 @@ import IconButton from "@mui/material/IconButton";
 import { useTheme } from "@mui/material/styles";
 import { useTranslation } from "react-i18next";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import { PHASE_ICONS } from "@/components/LifecycleBadge";
 import { PHASES, getPhaseLabels } from "@/features/cards/sections/cardDetailUtils";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import type { Card } from "@/types";
+
+const PHASE_PALETTE: Record<string, string> = {
+  plan: "#9e9e9e",
+  phaseIn: "#1976d2",
+  active: "#2e7d32",
+  phaseOut: "#ed6c02",
+  endOfLife: "#c62828",
+};
 
 // ── Section: Lifecycle ──────────────────────────────────────────
 function LifecycleSection({
@@ -65,60 +74,148 @@ function LifecycleSection({
       </AccordionSummary>
       <AccordionDetails>
         {/* Timeline visualization */}
-        <Box sx={{ display: "flex", alignItems: "center", gap: 0, mb: 2 }}>
-          {PHASES.map((phase, i) => {
-            const date = lifecycle[phase];
+        <Box sx={{ position: "relative", px: 1, pt: 3, pb: 1, mb: 2 }}>
+          {/* Connecting track behind the dots */}
+          <Box
+            sx={{
+              position: "absolute",
+              left: `calc(${100 / (PHASES.length * 2)}% + 8px)`,
+              right: `calc(${100 / (PHASES.length * 2)}% + 8px)`,
+              top: 36,
+              height: 6,
+              borderRadius: 3,
+              bgcolor: theme.palette.action.hover,
+              zIndex: 0,
+            }}
+          />
+          {(() => {
             const now = new Date().toISOString().slice(0, 10);
-            const isCurrent = date && date <= now;
-            const isPast =
-              i < PHASES.length - 1 &&
-              PHASES.slice(i + 1).some((p) => lifecycle[p] && lifecycle[p]! <= now);
+            // Determine current phase index (latest phase whose date has passed)
+            let currentIdx = -1;
+            for (let i = PHASES.length - 1; i >= 0; i--) {
+              const d = lifecycle[PHASES[i]];
+              if (d && d <= now) {
+                currentIdx = i;
+                break;
+              }
+            }
+            if (currentIdx < 0) return null;
+            // Progress fill goes from start dot to the current dot, stopping
+            // at each reached phase color so the gradient walks through every
+            // phase the card has been through (e.g. grey → blue → green → orange).
+            const fillLeftPct = 100 / (PHASES.length * 2);
+            const fillRightPct =
+              100 - ((currentIdx * 2 + 1) * 100) / (PHASES.length * 2);
+            let gradient: string;
+            if (currentIdx === 0) {
+              // Single phase reached — fill is zero-width, just render the colour.
+              gradient = PHASE_PALETTE[PHASES[0]];
+            } else {
+              const stops = PHASES.slice(0, currentIdx + 1)
+                .map((phase, i) => {
+                  const pct = (i / currentIdx) * 100;
+                  return `${PHASE_PALETTE[phase]} ${pct.toFixed(2)}%`;
+                })
+                .join(", ");
+              gradient = `linear-gradient(90deg, ${stops})`;
+            }
             return (
               <Box
-                key={phase}
                 sx={{
-                  flex: 1,
-                  textAlign: "center",
-                  position: "relative",
+                  position: "absolute",
+                  left: `calc(${fillLeftPct}% + 8px)`,
+                  right: `calc(${fillRightPct}% + 8px)`,
+                  top: 36,
+                  height: 6,
+                  borderRadius: 3,
+                  background: gradient,
+                  zIndex: 1,
+                  transition: "all 0.3s ease",
                 }}
-              >
+              />
+            );
+          })()}
+          <Box
+            sx={{
+              display: "flex",
+              alignItems: "flex-start",
+              position: "relative",
+              zIndex: 2,
+            }}
+          >
+            {PHASES.map((phase, i) => {
+              const date = lifecycle[phase];
+              const now = new Date().toISOString().slice(0, 10);
+              const isPast =
+                i < PHASES.length - 1 &&
+                PHASES.slice(i + 1).some(
+                  (p) => lifecycle[p] && lifecycle[p]! <= now,
+                );
+              const isCurrent = !!date && date <= now && !isPast;
+              const isReached = isCurrent || isPast;
+              const phaseColor = PHASE_PALETTE[phase];
+              const dotBg = isReached ? phaseColor : theme.palette.background.paper;
+              const dotBorder = isReached
+                ? phaseColor
+                : theme.palette.action.disabled;
+              const iconColor = isReached
+                ? "#fff"
+                : theme.palette.text.disabled;
+              return (
                 <Box
+                  key={phase}
                   sx={{
-                    height: 4,
-                    bgcolor: isPast || isCurrent ? "#1976d2" : theme.palette.action.disabled,
-                    borderRadius: i === 0 ? "2px 0 0 2px" : i === 4 ? "0 2px 2px 0" : 0,
-                  }}
-                />
-                <Box
-                  sx={{
-                    width: 12,
-                    height: 12,
-                    borderRadius: "50%",
-                    bgcolor: isCurrent && !isPast ? "#1976d2" : isPast ? "#1976d2" : theme.palette.action.disabled,
-                    border: isCurrent && !isPast ? "2px solid #0d47a1" : "none",
-                    position: "absolute",
-                    top: -4,
-                    left: "50%",
-                    transform: "translateX(-50%)",
-                  }}
-                />
-                <Typography
-                  variant="caption"
-                  display="block"
-                  sx={{
-                    mt: 1.5,
-                    fontWeight: isCurrent && !isPast ? 700 : 400,
-                    color: isCurrent || isPast ? "text.primary" : "text.secondary",
+                    flex: 1,
+                    textAlign: "center",
+                    position: "relative",
                   }}
                 >
-                  {phaseLabels[phase]}
-                </Typography>
-                <Typography variant="caption" color="text.secondary">
-                  {date ? formatDate(date) : "—"}
-                </Typography>
-              </Box>
-            );
-          })}
+                  <Box
+                    sx={{
+                      width: 28,
+                      height: 28,
+                      borderRadius: "50%",
+                      bgcolor: dotBg,
+                      border: `2px solid ${dotBorder}`,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      mx: "auto",
+                      boxShadow: isCurrent
+                        ? `0 0 0 4px ${phaseColor}33`
+                        : "none",
+                      transition: "all 0.2s ease",
+                    }}
+                  >
+                    <MaterialSymbol
+                      icon={PHASE_ICONS[phase] || "circle"}
+                      size={16}
+                      color={iconColor}
+                    />
+                  </Box>
+                  <Typography
+                    variant="caption"
+                    display="block"
+                    sx={{
+                      mt: 1,
+                      fontWeight: isCurrent ? 700 : 500,
+                      color: isReached ? "text.primary" : "text.secondary",
+                      lineHeight: 1.2,
+                    }}
+                  >
+                    {phaseLabels[phase]}
+                  </Typography>
+                  <Typography
+                    variant="caption"
+                    color="text.secondary"
+                    sx={{ fontSize: "0.7rem" }}
+                  >
+                    {date ? formatDate(date) : "—"}
+                  </Typography>
+                </Box>
+              );
+            })}
+          </Box>
         </Box>
         {editing && (
           <Box>

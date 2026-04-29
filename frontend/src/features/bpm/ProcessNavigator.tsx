@@ -772,36 +772,30 @@ function DrawerOverview({
       </Box>
 
       {/* Actions */}
-      <Box sx={{ display: "flex", gap: 1, mb: 2, flexWrap: "wrap" }}>
-        <Chip
-          size="small"
-          icon={<MaterialSymbol icon="open_in_new" size={14} />}
-          label={t("navigator.openCard")}
-          onClick={() => onNavigate(node.id)}
-          color="primary"
-          sx={{ cursor: "pointer" }}
-        />
-        {node.children.length > 0 && (
-          <Chip
-            size="small"
-            icon={<MaterialSymbol icon="zoom_in" size={14} />}
-            label={t("navigator.drillDown")}
-            onClick={() => onDrill(node.id)}
-            color="secondary"
-            sx={{ cursor: "pointer" }}
-          />
-        )}
-        {node.has_diagram ? (
-          <Chip
-            size="small"
-            icon={<MaterialSymbol icon="schema" size={14} />}
-            label={t("navigator.viewFlow")}
-            onClick={() => onNavigate(`/cards/${node.id}?tab=1`)}
-            variant="outlined"
-            sx={{ cursor: "pointer" }}
-          />
-        ) : null}
-      </Box>
+      {(node.children.length > 0 || node.has_diagram) && (
+        <Box sx={{ display: "flex", gap: 1, mb: 2, flexWrap: "wrap" }}>
+          {node.children.length > 0 && (
+            <Chip
+              size="small"
+              icon={<MaterialSymbol icon="zoom_in" size={14} />}
+              label={t("navigator.drillDown")}
+              onClick={() => onDrill(node.id)}
+              color="secondary"
+              sx={{ cursor: "pointer" }}
+            />
+          )}
+          {node.has_diagram ? (
+            <Chip
+              size="small"
+              icon={<MaterialSymbol icon="schema" size={14} />}
+              label={t("navigator.viewFlow")}
+              onClick={() => onNavigate(`/cards/${node.id}?tab=1`)}
+              variant="outlined"
+              sx={{ cursor: "pointer" }}
+            />
+          ) : null}
+        </Box>
+      )}
 
       {loading && <LinearProgress sx={{ mb: 2 }} />}
 
@@ -1478,6 +1472,16 @@ function ProcessDrawer({
           <Typography variant="h6" sx={{ fontWeight: 700, flex: 1, fontSize: "1.1rem" }} noWrap>
             {node.name}
           </Typography>
+          <Tooltip title={t("navigator.openCard")}>
+            <IconButton
+              onClick={() => onNavigate(node.id)}
+              size="small"
+              sx={{ color: "#fff" }}
+              aria-label={t("navigator.openCard")}
+            >
+              <MaterialSymbol icon="open_in_new" size={20} />
+            </IconButton>
+          </Tooltip>
           <IconButton onClick={onClose} size="small" sx={{ color: "#fff" }}>
             <MaterialSymbol icon="close" size={20} />
           </IconButton>

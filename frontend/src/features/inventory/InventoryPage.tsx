@@ -24,6 +24,7 @@ import Tooltip from "@mui/material/Tooltip";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import { useTheme } from "@mui/material/styles";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import LifecycleBadge from "@/components/LifecycleBadge";
 import CreateCardDialog from "@/components/CreateCardDialog";
 import InventoryFilterSidebar, { type Filters } from "./InventoryFilterSidebar";
 import ImportDialog from "./ImportDialog";
@@ -832,7 +833,7 @@ export default function InventoryPage() {
     cols.push(
       {
         headerName: t("columns.lifecycle"),
-        width: 120,
+        width: 150,
         valueGetter: (p: { data: Card }) => {
           const lc = p.data?.lifecycle || {};
           const now = new Date().toISOString().slice(0, 10);
@@ -846,6 +847,13 @@ export default function InventoryPage() {
             if (lc[phase] && lc[phase] <= now) return phase;
           }
           return "";
+        },
+        cellRenderer: (p: { data: Card }) => {
+          const lifecycle = p.data?.lifecycle as
+            | Record<string, string>
+            | undefined;
+          if (!lifecycle) return "";
+          return <LifecycleBadge lifecycle={lifecycle} />;
         },
       },
       {
