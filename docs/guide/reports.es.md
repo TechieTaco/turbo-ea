@@ -54,17 +54,22 @@ El **Informe de Dependencias** visualiza las **conexiones entre componentes** co
 - **Exploración interactiva** — Haga clic en cualquier nodo para recentrar el grafo en esa ficha
 - **Análisis de impacto** — Comprenda el radio de impacto de los cambios en un componente específico
 
-### Vista de Diagrama C4
+### Layered Dependency View (vista de dependencias por capas)
 
-![Vista de Diagrama C4](../assets/img/es/13b_dependencies_c4.png)
+![Layered Dependency View](../assets/img/es/13b_dependencies_c4.png)
 
-Cambie a la vista de **Diagrama C4** utilizando los botones de modo de vista en la barra de herramientas. Esta vista renderiza los mismos datos de dependencias usando notación C4:
+Cambie a la **Layered Dependency View** utilizando los botones de modo de vista en la barra de herramientas. Es la notación propia de Turbo EA para mostrar dependencias entre fichas a través de las cuatro capas EA — inspirada en el principio de estratificación de ArchiMate y en la filosofía de «buenos valores por defecto» del modelo C4, pero distinta de ambos:
 
-- **Cajas de contorno** — Las fichas se agrupan por capa arquitectónica (Estrategia, Negocio, Aplicación, Técnica) dentro de rectángulos de contorno punteados
+- **Carriles por capa** — Las fichas se agrupan por capa arquitectónica (Estrategia y Transformación, Arquitectura de Negocio, Aplicación y Datos, Arquitectura Técnica) dentro de rectángulos de contorno punteados, en orden fijo
+- **Nodos coloreados por tipo** — Cada nodo se colorea según su tipo de ficha y se etiqueta con el nombre y el tipo de la ficha
+- **Aristas dirigidas y etiquetadas** — Las aristas siguen la dirección de la relación del metamodelo (origen → destino) y llevan la etiqueta directa de la relación (por ej. *usa*, *soporta*, *se ejecuta en*)
+- **Fichas propuestas** — En el asistente de TurboLens Architect, las fichas aún no confirmadas tienen un borde punteado y una insignia verde **NEW**
 - **Lienzo interactivo** — Desplace, haga zoom y use el minimapa para navegar por diagramas grandes
 - **Clic para inspeccionar** — Haga clic en cualquier nodo para abrir el panel lateral de detalle de la ficha
-- **Sin ficha central requerida** — La vista C4 muestra todas las fichas que coinciden con el filtro de tipo actual
+- **Sin ficha central requerida** — La Layered Dependency View muestra todas las fichas que coinciden con el filtro de tipo actual
 - **Resaltado de conexiones** — Pase el cursor sobre una ficha para resaltar sus conexiones; en dispositivos táctiles, use el botón de resaltado en el panel de controles para resaltar al tocar
+
+La misma vista se reutiliza en la página de detalle de la ficha (mostrando el vecindario inmediato de dependencias de la ficha) y en el asistente [TurboLens Architect](turbolens.md#architecture-ai), de modo que las dependencias se ven igual en todas partes.
 
 ## Informe de Costos
 

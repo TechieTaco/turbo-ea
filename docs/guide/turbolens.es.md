@@ -164,7 +164,7 @@ El paso final genera un mapeo de capacidades completo:
 | **Capabilities** | Lista de Business Capabilities coincidentes — las existentes (en verde) y las nuevas propuestas (en azul) |
 | **Proposed Cards** | Nuevas tarjetas que se crearán en su paisaje, mostradas con sus iconos de tipo de tarjeta y subtipos |
 | **Proposed Relations** | Conexiones entre las tarjetas propuestas y los elementos del paisaje existente |
-| **Dependency Diagram** | Diagrama C4 interactivo que muestra los nodos existentes junto con los nodos propuestos (bordes discontinuos con insignia verde «NEW»). Desplácese, amplíe y explore la arquitectura visualmente |
+| **Dependency Diagram** | [Layered Dependency View](reports.md#layered-dependency-view-vista-de-dependencias-por-capas) interactiva que muestra los nodos existentes junto con los nodos propuestos (bordes discontinuos con insignia verde «NEW»). Desplácese, amplíe y explore la arquitectura visualmente |
 
 Desde este paso, puede hacer clic en **Choose Different** para volver y seleccionar una opción de solución diferente, o en **Start Over** para comenzar una evaluación completamente nueva.
 

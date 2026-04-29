@@ -46,7 +46,7 @@ import {
 let _longPressFired = false;
 
 /* ------------------------------------------------------------------ */
-/*  Custom C4 Node                                                     */
+/*  Custom Layered Dependency View Node                                */
 /* ------------------------------------------------------------------ */
 
 const LP_CIRCUMFERENCE = 2 * Math.PI * 15; // ~94.25
@@ -264,7 +264,7 @@ const C4Node = memo(({ data }: NodeProps<Node<C4NodeData>>) => {
 C4Node.displayName = "C4Node";
 
 /* ------------------------------------------------------------------ */
-/*  Custom C4 Group (boundary)                                         */
+/*  Custom Layered Dependency View Group (layer boundary)              */
 /* ------------------------------------------------------------------ */
 
 const C4Group = memo(({ data }: NodeProps<Node<C4GroupData>>) => {
@@ -301,7 +301,7 @@ const C4Group = memo(({ data }: NodeProps<Node<C4GroupData>>) => {
 C4Group.displayName = "C4Group";
 
 /* ------------------------------------------------------------------ */
-/*  Custom C4 Edge (smoothstep + hover highlight)                      */
+/*  Custom Layered Dependency View Edge (smoothstep + hover highlight) */
 /* ------------------------------------------------------------------ */
 
 const C4EdgeComponent = (

@@ -164,7 +164,7 @@ La dernière étape génère une cartographie complète des capacités :
 | **Capacités** | Liste des Business Capabilities correspondantes — existantes (vert) et nouvellement proposées (bleu) |
 | **Cartes proposées** | Nouvelles cartes à créer dans votre paysage, affichées avec leurs icônes de type de carte et leurs sous-types |
 | **Relations proposées** | Connexions entre les cartes proposées et les éléments du paysage existant |
-| **Diagramme de dépendances** | Diagramme C4 interactif affichant les nœuds existants aux côtés des nœuds proposés (bordures en pointillés avec badge vert «NEW»). Déplacez, zoomez et explorez l'architecture visuellement |
+| **Diagramme de dépendances** | [Layered Dependency View](reports.md#layered-dependency-view-vue-de-dependances-par-couches) interactive affichant les nœuds existants aux côtés des nœuds proposés (bordures en pointillés avec badge vert «NEW»). Déplacez, zoomez et explorez l'architecture visuellement |
 
 À partir de cette étape, vous pouvez cliquer sur **Choisir une autre option** pour revenir en arrière et sélectionner une option de solution différente, ou sur **Recommencer** pour démarrer une évaluation entièrement nouvelle.
 

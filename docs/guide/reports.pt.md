@@ -54,17 +54,22 @@ O **Relatório de Dependências** visualiza **conexões entre componentes** como
 - **Exploração interativa** — Clique em qualquer nó para recentrar o grafo naquele card
 - **Análise de impacto** — Entenda o raio de impacto de alterações em um componente específico
 
-### Vista de Diagrama C4
+### Layered Dependency View (vista de dependências em camadas)
 
-![Vista de Diagrama C4](../assets/img/en/13b_dependencies_c4.png)
+![Layered Dependency View](../assets/img/en/13b_dependencies_c4.png)
 
-Alterne para a vista de **Diagrama C4** usando os botões de modo de visualização na barra de ferramentas. Esta vista renderiza os mesmos dados de dependências usando notação C4:
+Alterne para a **Layered Dependency View** usando os botões de modo de visualização na barra de ferramentas. É a notação própria do Turbo EA para mostrar dependências entre cards nas quatro camadas EA — inspirada no princípio de estratificação do ArchiMate e na filosofia de «bons padrões» do modelo C4, mas distinta de ambos:
 
-- **Caixas de contorno** — Os cards são agrupados por camada arquitetural (Estratégia, Negócio, Aplicação, Técnica) dentro de retângulos de contorno tracejados
+- **Faixas por camada** — Os cards são agrupados por camada arquitetural (Estratégia e Transformação, Arquitetura de Negócio, Aplicação e Dados, Arquitetura Técnica) dentro de retângulos de contorno tracejados, em ordem fixa
+- **Nós coloridos por tipo** — Cada nó é colorido segundo o seu tipo de card e rotulado com o nome e o tipo do card
+- **Arestas dirigidas e rotuladas** — As arestas seguem a direção da relação do metamodelo (origem → destino) e carregam o rótulo direto da relação (por ex. *usa*, *suporta*, *executa em*)
+- **Cards propostos** — No assistente TurboLens Architect, os cards ainda não confirmados têm uma borda tracejada e um selo verde **NEW**
 - **Canvas interativo** — Mova, amplie e use o minimapa para navegar em diagramas grandes
 - **Clique para inspecionar** — Clique em qualquer nó para abrir o painel lateral de detalhes do card
-- **Sem card central necessário** — A vista C4 mostra todos os cards que correspondem ao filtro de tipo atual
+- **Sem card central necessário** — A Layered Dependency View mostra todos os cards que correspondem ao filtro de tipo atual
 - **Destaque de conexões** — Passe o mouse sobre um card para destacar suas conexões; em dispositivos touch, use o botão de destaque no painel de controles para destacar ao tocar
+
+A mesma vista é reutilizada na página de detalhes do card (mostrando a vizinhança imediata de dependências do card) e no assistente [TurboLens Architect](turbolens.md#architecture-ai), de modo que as dependências aparecem da mesma forma em toda parte.
 
 ## Relatório de Custos
 

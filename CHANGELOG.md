@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.55.1] - 2026-04-29
+
+### Changed
+- **Layered Dependency View** — Turbo EA's dependency-diagram notation is now formally named the **Layered Dependency View (LDV)**: a layered EA dependency view inspired by ArchiMate's layering and the C4 Model's "good defaults" philosophy, but distinct from both. The Dependencies Report toolbar, the Card Detail dependency section, and the TurboLens Architect target architecture all surface the new label across all 8 supported UI locales. The standard is documented in [`frontend/UI_GUIDELINES.md`](frontend/UI_GUIDELINES.md) § 3.10 and the user manual ([Reports → Layered Dependency View](docs/guide/reports.md)). The renderer (`C4DiagramView` / `c4Layout`) keeps its file and symbol names for backwards compatibility — only user-facing labels and documentation change.
+
 ## [0.55.0] - 2026-04-29
 
 ### Added

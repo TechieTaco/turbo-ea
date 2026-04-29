@@ -1,10 +1,13 @@
 /**
- * C4-notation layout engine for the Dependency Report.
+ * Layout engine for the Layered Dependency View — Turbo EA's house notation
+ * for showing dependencies between cards across the four EA layers
+ * (see frontend/UI_GUIDELINES.md § 3.10). File and symbol names are kept on
+ * the historical "C4" prefix for backwards compatibility.
  *
  * Converts GNode / GEdge data into React Flow nodes and edges.
  * Nodes are grouped by architectural-layer category using React Flow
  * group nodes. Each category group is laid out independently using dagre,
- * then groups are stacked vertically in C4 layer order so they never overlap.
+ * then groups are stacked vertically in EA layer order so they never overlap.
  */
 
 import dagre from "@dagrejs/dagre";

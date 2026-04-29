@@ -233,6 +233,82 @@ Skeleton loaders are not used today — that's a deliberate choice. If introduce
 - Sizes come from `iconSize` (16 / 18 / 20 / 24 / 32). Pick the closest existing size; don't introduce new ones.
 - Pass `color` from a token or theme palette key (e.g. `color="action.active"`), not a hex.
 
+### 3.10 Layered Dependency View
+
+The **Layered Dependency View (LDV)** is Turbo EA's house notation for showing dependencies between cards. It is used in:
+
+- The **Dependencies Report** (`/reports/dependencies`)
+- The **Card Detail** dependency section (the immediate neighbourhood of one card)
+- The **TurboLens Architect** target architecture (existing + proposed cards)
+
+It is implemented by `C4DiagramView` and `c4Layout` (file names retained for backwards compatibility — the public name of the view is **Layered Dependency View**).
+
+**Grouping — the four EA layers, fixed order**
+
+Cards are grouped into swim-lane boundaries representing the four metamodel layers:
+
+1. **Strategy & Transformation** — Objective, Platform, Initiative
+2. **Business Architecture** — Organization, Business Capability, Business Context, Business Process
+3. **Application & Data** — Application, Interface, Data Object
+4. **Technical Architecture** — IT Component, Tech Category, Provider
+
+Layer order is invariant. Layer color = `LAYER_COLORS[layer]` from `theme/tokens.ts`.
+
+**Nodes**
+
+| Property | Convention |
+| --- | --- |
+| Shape | Rounded rectangle, 200 × 72 px (`C4_NODE_W`, `C4_NODE_H` in `c4Layout.ts`) |
+| Color | Card type color from the metamodel (`CARD_TYPE_COLORS` / type record) |
+| Label | Card name (top, semibold) + card-type label (bottom, italic) |
+| Border — existing | 1.5 px solid, type color |
+| Border — proposed | 2 px dashed, type color, plus a green **NEW** badge top-right |
+| Hover | Connected nodes stay full opacity; unconnected nodes dim to 0.35 |
+
+**Edges**
+
+| Property | Convention |
+| --- | --- |
+| Routing | Smooth-step (curved, orthogonal) |
+| Direction | Always source → target as defined in the metamodel `relation_type` |
+| Label | Forward label of the relation type (e.g. *uses*, *supports*, *runs on*) |
+| Style — idle | 1.5 px dashed (5 / 3 px) |
+| Style — hovered | 2 px solid, label background gains opacity |
+| Cross-layer | Mirrored top/bottom handles so the line stays orthogonal |
+
+**Layout**
+
+- Within each layer: Dagre graph layout for connected nodes; grid layout (max 3 columns) for disconnected nodes.
+- Between layers: vertical stacking with a 72 px gap, in the fixed order above.
+
+**What the view is — and isn't**
+
+- It **is** an opinionated, layered EA dependency view, inspired by ArchiMate's layering principle and the C4 Model's "good defaults, fewer choices" philosophy.
+- It **is not** the [C4 Model](https://c4model.com) (Context / Container / Component / Code zoom levels of one system).
+- It **is not** ArchiMate — there are no fixed stencils, formal relationship semantics, or viewpoints. Element vocabulary is driven by the admin-configurable metamodel.
+- It **is not** UML, BPMN, or a deployment diagram.
+
+**Rosetta stone**
+
+| Layered Dependency View layer | Closest ArchiMate layer |
+| --- | --- |
+| Strategy & Transformation | Strategy + Motivation + Implementation & Migration |
+| Business Architecture | Business |
+| Application & Data | Application |
+| Technical Architecture | Technology + Physical |
+
+**Do's and don'ts (specific to this view)**
+
+✅ Do
+- Use the same view component everywhere a dependency graph is shown — consistency across Card Detail, Reports, and TurboLens is the whole point.
+- Mark proposed/uncommitted cards with the dashed border + **NEW** badge so users can distinguish them at a glance.
+- Use the relation type's `forward_label` for edges. If the relation has no label, fall back to the type key.
+
+❌ Don't
+- Don't introduce a fifth layer or reorder the four. Layer identity is part of the standard.
+- Don't reuse this view for runtime / deployment / sequence diagrams — it is a *dependency* view of the EA metamodel, not a behavioural diagram.
+- Don't substitute another graph library (vis.js, Cytoscape, mermaid) for the Layered Dependency View. Mermaid is still fine for one-off illustrative diagrams (e.g. ArchitectureDiagram in TurboLens reports), but the canonical interactive dependency view is React Flow + `c4Layout`.
+
 ---
 
 ## 4. Internationalization

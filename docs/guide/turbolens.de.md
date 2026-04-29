@@ -164,7 +164,7 @@ Der letzte Schritt generiert ein umfassendes Capability-Mapping:
 | **Capabilities** | Liste der zugeordneten Business Capabilities — bestehende (grün) und neu vorgeschlagene (blau) |
 | **Vorgeschlagene Karten** | Neue Karten, die in Ihrer Landschaft erstellt werden sollen, dargestellt mit Kartentyp-Icons und Subtypen |
 | **Vorgeschlagene Beziehungen** | Verbindungen zwischen vorgeschlagenen Karten und bestehenden Landschaftselementen |
-| **Abhängigkeitsdiagramm** | Interaktives C4-Diagramm mit bestehenden Knoten neben vorgeschlagenen Knoten (gestrichelte Rahmen mit grünem «NEU»-Badge). Schwenken, zoomen und die Architektur visuell erkunden |
+| **Abhängigkeitsdiagramm** | Interaktive [Layered Dependency View](reports.md#layered-dependency-view-geschichtete-abhangigkeitsansicht) mit bestehenden Knoten neben vorgeschlagenen Knoten (gestrichelte Rahmen mit grünem «NEU»-Badge). Schwenken, zoomen und die Architektur visuell erkunden |
 
 In diesem Schritt können Sie auf **Andere Auswahl** klicken, um zurückzugehen und eine andere Lösungsoption zu wählen, oder auf **Neu starten**, um eine völlig neue Bewertung zu beginnen.
 

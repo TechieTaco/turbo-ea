@@ -164,7 +164,7 @@ L'ultimo passaggio genera una mappatura completa delle capacità:
 | **Capacità** | Elenco di Business Capability corrispondenti — quelle esistenti (verde) e quelle di nuova proposta (blu) |
 | **Card proposte** | Nuove card da creare nel tuo panorama, mostrate con le icone del tipo di card e i sottotipi |
 | **Relazioni proposte** | Connessioni tra le card proposte e gli elementi del panorama esistente |
-| **Diagramma delle dipendenze** | Diagramma C4 interattivo che mostra i nodi esistenti accanto a quelli proposti (bordi tratteggiati con badge verde «NUOVO»). Esplora l'architettura visivamente con pan e zoom |
+| **Diagramma delle dipendenze** | [Layered Dependency View](reports.md#layered-dependency-view-vista-delle-dipendenze-a-livelli) interattiva che mostra i nodi esistenti accanto a quelli proposti (bordi tratteggiati con badge verde «NUOVO»). Esplora l'architettura visivamente con pan e zoom |
 
 Da questo passaggio, puoi fare clic su **Scegli un'alternativa** per tornare indietro e selezionare un'opzione di soluzione diversa, oppure su **Ricomincia** per avviare una valutazione completamente nuova.
 

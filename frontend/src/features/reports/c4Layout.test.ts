@@ -177,7 +177,7 @@ describe("buildC4Flow", () => {
     }
   });
 
-  it("orders categories according to standard C4 layer order", () => {
+  it("orders categories according to the fixed EA layer order", () => {
     const nodes: GNode[] = [
       { id: "it1", name: "Server 1", type: "ITComponent" },
       { id: "o1", name: "Org 1", type: "Organization" },
