@@ -13,6 +13,7 @@ const _listeners = new Set<(v: TurboLensStatus) => void>();
 const _default: TurboLensStatus = {
   ai_configured: false,
   ready: false,
+  enabled: true,
 };
 
 function _notify(v: TurboLensStatus) {
@@ -50,6 +51,7 @@ export function useTurboLensReady() {
   return {
     turboLensReady: status.ready,
     turboLensAiConfigured: status.ai_configured,
+    turboLensEnabled: status.enabled ?? true,
     invalidateTurboLens: invalidate,
   };
 }

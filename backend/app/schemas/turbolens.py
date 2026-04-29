@@ -89,6 +89,7 @@ class TurboLensCommitRequest(BaseModel):
 class TurboLensStatusOut(BaseModel):
     ai_configured: bool
     ready: bool
+    enabled: bool = True
 
 
 class TurboLensOverviewOut(BaseModel):

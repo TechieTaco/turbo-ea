@@ -5,6 +5,15 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.55.0] - 2026-04-29
+
+### Added
+- **TurboLens enable/disable toggle** under Admin → Settings → TurboLens. Administrators can now turn the module on or off without having to remove the AI provider configuration; when disabled, the TurboLens menu entry and dashboard link are hidden across the app.
+- **Standard third-party data-exchange warning** on the AI and TurboLens settings tabs, prompting administrators to confirm that AI processing of card metadata, descriptions, and portfolio data is aligned with the organisation's IT, security, and data-protection policies before enabling. Translated into all 8 supported UI locales.
+
+### Changed
+- `GET /turbolens/status` now also returns the `enabled` flag and only reports `ready: true` when both AI is configured and the module is enabled. New public `GET /settings/turbolens-enabled` and admin-only `PATCH /settings/turbolens-enabled` endpoints back the toggle.
+
 ## [0.54.0] - 2026-04-29
 
 ### Changed
