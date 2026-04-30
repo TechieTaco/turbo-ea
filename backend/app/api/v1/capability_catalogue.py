@@ -26,6 +26,12 @@ router = APIRouter(prefix="/capability-catalogue", tags=["capability-catalogue"]
 
 class ImportRequest(BaseModel):
     catalogue_ids: list[str] = Field(..., min_length=1, max_length=2000)
+    # Locale the user was browsing the catalogue in when they triggered the
+    # import. Cards land with `name`, `description`, and `aliases` in this
+    # language so a French catalogue produces French cards. Identity stays
+    # locale-agnostic via `catalogueId`, so a green tick survives a language
+    # switch and there's no risk of duplicate cards across languages.
+    locale: str | None = None
 
 
 @router.get("")
@@ -58,8 +64,19 @@ async def import_capabilities(
     BusinessCapability are skipped (and reported in the `skipped` list).
     Hierarchy is preserved automatically when both parent and child are
     selected, or when the parent already exists.
+
+    The optional `locale` in the request body controls which language the
+    new cards are written in (`name`, `description`, `aliases`); falls back
+    to the user's saved locale, then English. Existing-card matching is
+    always English-anchored so a localized import never duplicates a card.
     """
-    return await svc.import_capabilities(db, user=user, catalogue_ids=payload.catalogue_ids)
+    effective_locale = (payload.locale or user.locale or "en").strip() or "en"
+    return await svc.import_capabilities(
+        db,
+        user=user,
+        catalogue_ids=payload.catalogue_ids,
+        locale=effective_locale,
+    )
 
 
 @router.get("/update-status")

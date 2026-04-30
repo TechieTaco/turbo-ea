@@ -5,10 +5,14 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
-## [0.55.1] - 2026-04-29
+## [0.55.1] - 2026-04-30
+
+### Fixed
+- Capability Catalogue now actually follows the active UI language for users who have a **remote-fetched** catalogue cached. Previously, after an admin clicked **Fetch update**, the cached payload was served as canonical English regardless of the requested locale — language switching looked like a no-op even though `turbo-ea-capabilities` ships translations for all 8 locales. The fetch path now extracts and stores the wheel's `data/i18n/<lang>.json` files alongside the catalogue data, and the serve path applies them. Caches stored before this fix continue to work too: they fall back to the bundled package's translations matched by capability id, so no manual re-fetch is needed to get back into sync.
 
 ### Changed
 - **Layered Dependency View** — Turbo EA's dependency-diagram notation is now formally named the **Layered Dependency View (LDV)**: a layered EA dependency view inspired by ArchiMate's layering and the C4 Model's "good defaults" philosophy, but distinct from both. The Dependencies Report toolbar, the Card Detail dependency section, and the TurboLens Architect target architecture all surface the new label across all 8 supported UI locales. The standard is documented in [`frontend/UI_GUIDELINES.md`](frontend/UI_GUIDELINES.md) § 3.10 and the user manual ([Reports → Layered Dependency View](docs/guide/reports.md)). The renderer was also renamed: `C4DiagramView` → `LayeredDependencyView`, `C4DiagramSection` → `LayeredDependencySection`, `c4Layout` → `layeredDependencyLayout`, plus all internal symbols (`buildC4Flow` → `buildLdvFlow`, `C4_NODE_W/H` → `LDV_NODE_W/H`, `C4Node`/`C4Group`/`C4Edge*` → `LdvNode`/`LdvGroup`/`LdvEdge*`, React Flow node-type strings, CSS class `c4-hover-active` → `ldv-hover-active`, keyframe `c4-lp-ring` → `ldv-lp-ring`, i18n keys `dependency.c4*` → `dependency.ldv*`). The toggle-button / saved-report `chartMode` value `"c4"` is intentionally kept for backwards compatibility with existing saved reports.
+- Importing a capability from a localized catalogue view now creates the card in that language. A user browsing the catalogue in French and clicking **Create** lands a card whose `name`, `description`, and `aliases` are French — previously every imported card was written in English regardless of which language the user was reading. Card identity stays locale-agnostic via the immutable `catalogueId` attribute, so the green-tick "already exists" check still survives a language switch and there's no risk of duplicate cards across languages. The locale used at import time is recorded under `attributes.catalogueLocale` for auditing.
 
 ## [0.55.0] - 2026-04-29
 

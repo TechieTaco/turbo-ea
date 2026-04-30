@@ -146,8 +146,12 @@ export default function CapabilityCataloguePage() {
     setImporting(true);
     setImportError(null);
     try {
+      // Pass the active locale so cards land in the language the user was
+      // browsing the catalogue in. Identity stays locale-agnostic via
+      // `catalogueId` server-side, so no risk of duplicates across languages.
       const r = await api.post<ImportResult>("/capability-catalogue/import", {
         catalogue_ids: selectedCaps.map((c) => c.id),
+        locale: activeLocale,
       });
       setImportResult(r);
       setSelected(new Set());
