@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.55.1] - 2026-04-30
+
+### Fixed
+- Capability Catalogue now actually follows the active UI language for users who have a **remote-fetched** catalogue cached. Previously, after an admin clicked **Fetch update**, the cached payload was served as canonical English regardless of the requested locale — language switching looked like a no-op even though `turbo-ea-capabilities` ships translations for all 8 locales. The fetch path now extracts and stores the wheel's `data/i18n/<lang>.json` files alongside the catalogue data, and the serve path applies them. Caches stored before this fix continue to work too: they fall back to the bundled package's translations matched by capability id, so no manual re-fetch is needed to get back into sync.
+
 ## [0.55.0] - 2026-04-29
 
 ### Added

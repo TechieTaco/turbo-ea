@@ -148,6 +148,10 @@ def _install_fake_pkg(monkeypatch: pytest.MonkeyPatch) -> None:
     fake.available_locales = lambda: _FAKE_AVAILABLE_LOCALES
     fake.load_all = lambda: [_FakeCap(**c) for c in _FAKE_CATALOGUE]
     fake.load_tree = lambda: [_FakeCap(**c) for c in _FAKE_CATALOGUE if c["parent_id"] is None]
+    fake.get_by_id = lambda cid: next(
+        (_FakeCap(**c) for c in _FAKE_CATALOGUE if c["id"] == cid),
+        None,
+    )
     from app.services import capability_catalogue_service as svc
 
     monkeypatch.setattr(svc, "catalogue_pkg", fake)
@@ -555,12 +559,18 @@ async def test_import_uses_canonical_english_names_regardless_of_user_locale(db,
 # ---------------------------------------------------------------------------
 
 
-def _build_fake_wheel(*, version: str = "1.5.0", caps: list[dict[str, Any]] | None = None) -> bytes:
+def _build_fake_wheel(
+    *,
+    version: str = "1.5.0",
+    caps: list[dict[str, Any]] | None = None,
+    i18n: dict[str, dict[str, dict[str, Any]]] | None = None,
+) -> bytes:
     """Build an in-memory zip mimicking a `turbo-ea-capabilities` wheel.
 
-    Only the two JSON paths the service reads are populated. `children` on
-    each capability is an ID list (matching the real wheel's flat shape) so
-    the extractor's drop-children pass is exercised.
+    `i18n`, when provided, is a `{locale: {capability_id: {name?, ...}}}`
+    map that gets written to `data/i18n/<locale>.json` so the extractor's
+    i18n-collection branch is exercised. Wheels that pre-date i18n leave
+    this empty and the extractor must just yield no tables.
     """
     import zipfile as _zipfile
 
@@ -595,6 +605,8 @@ def _build_fake_wheel(*, version: str = "1.5.0", caps: list[dict[str, Any]] | No
     with _zipfile.ZipFile(buf, mode="w", compression=_zipfile.ZIP_DEFLATED) as zf:
         zf.writestr("turbo_ea_capabilities/data/version.json", json.dumps(ver))
         zf.writestr("turbo_ea_capabilities/data/capabilities.json", json.dumps(caps))
+        for lang, table in (i18n or {}).items():
+            zf.writestr(f"turbo_ea_capabilities/data/i18n/{lang}.json", json.dumps(table))
     return buf.getvalue()
 
 
@@ -794,3 +806,284 @@ async def test_fetch_remote_catalogue_rejects_unparseable_pypi_response(db, monk
         await svc.fetch_remote_catalogue(db)
 
     assert await svc._get_cached_remote(db) is None
+
+
+# ---------------------------------------------------------------------------
+# Cached-remote localization (regression: language switch was a no-op when a
+# remote catalogue had been fetched, because the cached payload was always
+# returned in canonical English).
+# ---------------------------------------------------------------------------
+
+
+def _seed_cached_remote(
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    version: str,
+    data: list[dict[str, Any]],
+    i18n: dict[str, dict[str, dict[str, Any]]] | None = None,
+) -> None:
+    """Pre-populate the cached-remote slot via the fetch flow.
+
+    Going through `fetch_remote_catalogue` (instead of writing directly into
+    `app_settings`) keeps tests honest about the on-disk shape — if the
+    fetch path stops storing `i18n`, these tests will catch it.
+    """
+    from app.services import capability_catalogue_service as svc
+
+    wheel_bytes = _build_fake_wheel(version=version, caps=data, i18n=i18n)
+    wheel_url = f"https://example.invalid/turbo_ea_capabilities-{version}.whl"
+
+    def route(url: str) -> _FakeHttpResponse:
+        if url == svc.PYPI_INDEX_URL:
+            return _FakeHttpResponse(
+                json_data={
+                    "info": {"version": version},
+                    "urls": [{"packagetype": "bdist_wheel", "url": wheel_url}],
+                }
+            )
+        if url == wheel_url:
+            return _FakeHttpResponse(content=wheel_bytes)
+        raise AssertionError(f"unexpected URL {url}")
+
+    monkeypatch.setattr(svc.httpx, "AsyncClient", lambda **kw: _FakeHttpClient(route, **kw))
+
+
+@pytest.mark.asyncio
+async def test_cached_remote_payload_localizes_via_cached_i18n(db, monkeypatch):
+    """When the cached remote wheel ships its own i18n tables, the cached
+    payload must use them — not silently flatten back to English. This is
+    the user-visible regression: after clicking 'Fetch update', switching
+    languages did nothing because the cached path hardcoded `active_locale=en`.
+    """
+    _install_fake_pkg(monkeypatch)
+    from app.services import capability_catalogue_service as svc
+
+    cached_caps = [
+        {
+            "id": "BC-1",
+            "name": "Customer Management",
+            "level": 1,
+            "parent_id": None,
+            "description": "Top-level customer capability",
+            "industry": "Cross-Industry",
+            "children": [],
+        },
+        {
+            "id": "BC-NEW",
+            "name": "New Capability Only In Cached",
+            "level": 1,
+            "parent_id": None,
+            "description": "Brand-new node from the newer wheel",
+            "industry": None,
+            "children": [],
+        },
+    ]
+    cached_i18n = {
+        "fr": {
+            "BC-1": {
+                "name": "Gestion de la clientèle",
+                "description": "Capacité client de premier niveau",
+            },
+            "BC-NEW": {"name": "Nouvelle capacité"},
+        },
+        "de": {
+            "BC-1": {"name": "Kundenmanagement"},
+        },
+    }
+    _seed_cached_remote(
+        monkeypatch,
+        version="9.9.9",  # > bundled (1.2.3) so cached wins
+        data=cached_caps,
+        i18n=cached_i18n,
+    )
+    await svc.fetch_remote_catalogue(db)
+
+    payload_fr = await svc.get_catalogue_payload(db, locale="fr")
+    fr_by_id = {c["id"]: c for c in payload_fr["capabilities"]}
+    assert payload_fr["version"]["source"] == "remote"
+    assert payload_fr["version"]["active_locale"] == "fr"
+    assert fr_by_id["BC-1"]["name"] == "Gestion de la clientèle"
+    assert fr_by_id["BC-1"]["description"] == "Capacité client de premier niveau"
+    # BC-NEW only ships a French name — description stays English.
+    assert fr_by_id["BC-NEW"]["name"] == "Nouvelle capacité"
+    assert fr_by_id["BC-NEW"]["description"] == "Brand-new node from the newer wheel"
+
+    payload_de = await svc.get_catalogue_payload(db, locale="de")
+    de_by_id = {c["id"]: c for c in payload_de["capabilities"]}
+    assert payload_de["version"]["active_locale"] == "de"
+    assert de_by_id["BC-1"]["name"] == "Kundenmanagement"
+    # No German entry for BC-NEW → falls back to English silently.
+    assert de_by_id["BC-NEW"]["name"] == "New Capability Only In Cached"
+
+    # Available locales advertised on the response is the union of cached
+    # + bundled (so the UI can offer everything that will actually translate).
+    assert "fr" in payload_fr["version"]["available_locales"]
+    assert "de" in payload_fr["version"]["available_locales"]
+    assert "en" in payload_fr["version"]["available_locales"]
+
+
+@pytest.mark.asyncio
+async def test_cached_remote_payload_normalizes_regional_subtag(db, monkeypatch):
+    _install_fake_pkg(monkeypatch)
+    from app.services import capability_catalogue_service as svc
+
+    _seed_cached_remote(
+        monkeypatch,
+        version="9.9.9",
+        data=[
+            {
+                "id": "BC-1",
+                "name": "Customer Management",
+                "level": 1,
+                "parent_id": None,
+                "description": "Top-level",
+                "industry": None,
+                "children": [],
+            }
+        ],
+        i18n={"fr": {"BC-1": {"name": "Gestion de la clientèle"}}},
+    )
+    await svc.fetch_remote_catalogue(db)
+
+    payload = await svc.get_catalogue_payload(db, locale="fr-FR")
+    by_id = {c["id"]: c for c in payload["capabilities"]}
+    assert by_id["BC-1"]["name"] == "Gestion de la clientèle"
+    assert payload["version"]["active_locale"] == "fr"
+
+
+@pytest.mark.asyncio
+async def test_cached_remote_payload_falls_back_to_bundled_translations(db, monkeypatch):
+    """An older cache that pre-dates i18n caching (no `i18n` key on disk)
+    must still translate via the bundled package's per-id `localized()` —
+    so users on a stale cache pick up translations the moment the bundled
+    package ships them, without a manual re-fetch."""
+    _install_fake_pkg(monkeypatch)
+    from app.services import capability_catalogue_service as svc
+
+    # Manually shape a cached payload that lacks the `i18n` key (simulates a
+    # cache stored by a version of Turbo EA before i18n caching landed).
+    settings = await svc._get_app_settings(db)
+    settings.general_settings = {
+        svc.SETTINGS_KEY: {
+            "data": [
+                {
+                    "id": "BC-1",
+                    "name": "Customer Management",
+                    "level": 1,
+                    "parent_id": None,
+                    "description": "Top-level customer capability",
+                    "industry": None,
+                },
+            ],
+            "catalogue_version": "9.9.9",  # > bundled 1.2.3
+            "schema_version": "1",
+            "generated_at": "2026-04-29T00:00:00Z",
+            "node_count": 1,
+            "fetched_at": "2026-04-29T00:00:00Z",
+            "source": "pypi",
+            # Crucially: no `i18n` key — this simulates the pre-fix caches.
+        }
+    }
+    await db.flush()
+
+    payload = await svc.get_catalogue_payload(db, locale="fr")
+    by_id = {c["id"]: c for c in payload["capabilities"]}
+    # Bundled fake ships an FR translation for BC-1; cached path picks it up.
+    assert by_id["BC-1"]["name"] == "Gestion de la clientèle"
+    assert payload["version"]["active_locale"] == "fr"
+
+
+@pytest.mark.asyncio
+async def test_cached_remote_existing_card_match_uses_english_under_localized_fetch(
+    db, monkeypatch
+):
+    """A green tick (existing-card match) must survive a language switch on
+    the cached path too. Matching runs against canonical English names so a
+    French fetch produces the same ticks as an English one."""
+    _install_fake_pkg(monkeypatch)
+    from app.services import capability_catalogue_service as svc
+
+    user = await create_user(db, email="u@x.com")
+    existing = await create_card(
+        db,
+        card_type="BusinessCapability",
+        name="Customer Management",
+        user_id=user.id,
+    )
+
+    _seed_cached_remote(
+        monkeypatch,
+        version="9.9.9",
+        data=[
+            {
+                "id": "BC-1",
+                "name": "Customer Management",
+                "level": 1,
+                "parent_id": None,
+                "description": "Top-level",
+                "industry": None,
+                "children": [],
+            }
+        ],
+        i18n={"fr": {"BC-1": {"name": "Gestion de la clientèle"}}},
+    )
+    await svc.fetch_remote_catalogue(db)
+
+    payload = await svc.get_catalogue_payload(db, locale="fr")
+    by_id = {c["id"]: c for c in payload["capabilities"]}
+    assert by_id["BC-1"]["existing_card_id"] == str(existing.id)
+    # Display name stays localized for the user.
+    assert by_id["BC-1"]["name"] == "Gestion de la clientèle"
+
+
+@pytest.mark.asyncio
+async def test_fetch_remote_catalogue_persists_i18n_tables(db, monkeypatch):
+    """The fetch path must extract i18n files from the wheel and write them
+    into the cached payload. Without this the cached path can't translate
+    on subsequent reads — exactly the original bug."""
+    _install_fake_pkg(monkeypatch)
+    from app.services import capability_catalogue_service as svc
+
+    wheel_bytes = _build_fake_wheel(
+        version="2.0.0",
+        i18n={
+            "fr": {"BC-1": {"name": "Gestion de la clientèle"}},
+            "de": {"BC-1": {"name": "Kundenmanagement"}},
+        },
+    )
+    wheel_url = "https://example.invalid/turbo_ea_capabilities-2.0.0.whl"
+
+    def route(url: str) -> _FakeHttpResponse:
+        if url == svc.PYPI_INDEX_URL:
+            return _FakeHttpResponse(
+                json_data={
+                    "info": {"version": "2.0.0"},
+                    "urls": [{"packagetype": "bdist_wheel", "url": wheel_url}],
+                }
+            )
+        if url == wheel_url:
+            return _FakeHttpResponse(content=wheel_bytes)
+        raise AssertionError(f"unexpected URL {url}")
+
+    monkeypatch.setattr(svc.httpx, "AsyncClient", lambda **kw: _FakeHttpClient(route, **kw))
+
+    result = await svc.fetch_remote_catalogue(db)
+    assert sorted(result["available_locales"]) == ["de", "en", "fr"]
+
+    cached = await svc._get_cached_remote(db)
+    assert cached is not None
+    assert sorted(cached["i18n"].keys()) == ["de", "fr"]
+    assert cached["i18n"]["fr"]["BC-1"]["name"] == "Gestion de la clientèle"
+
+
+@pytest.mark.asyncio
+async def test_extract_catalogue_from_wheel_handles_missing_i18n_dir():
+    """Wheels published before i18n shipped must still extract cleanly —
+    they just yield an empty i18n dict."""
+    from app.services import capability_catalogue_service as svc
+
+    wheel_bytes = _build_fake_wheel(version="1.0.0")  # no i18n kw
+    caps, ver, i18n = svc._extract_catalogue_from_wheel(wheel_bytes)
+    assert ver["catalogue_version"] == "1.0.0"
+    assert len(caps) == 2
+    assert i18n == {}

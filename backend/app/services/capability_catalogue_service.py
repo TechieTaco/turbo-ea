@@ -47,6 +47,14 @@ BUSINESS_CAPABILITY_TYPE: str = "BusinessCapability"
 SETTINGS_KEY: str = "capability_catalogue"
 WHEEL_VERSION_PATH: str = "turbo_ea_capabilities/data/version.json"
 WHEEL_CAPABILITIES_PATH: str = "turbo_ea_capabilities/data/capabilities.json"
+WHEEL_I18N_DIR: str = "turbo_ea_capabilities/data/i18n/"
+LOCALIZABLE_FIELDS: tuple[str, ...] = (
+    "name",
+    "description",
+    "aliases",
+    "in_scope",
+    "out_of_scope",
+)
 
 
 # ---------------------------------------------------------------------------
@@ -92,14 +100,8 @@ def _bundled_payload(*, locale: str = "en") -> tuple[list[dict[str, Any]], dict[
     """
     available = _bundled_available_locales()
     # Tolerate BCP-47 regional tags from browser-detected `navigator.language`
-    # (e.g. "fr-FR" → "fr"). The package's `available_locales()` is the
-    # canonical list — we match against it directly first, then try the
-    # primary subtag, then give up to English. Never hardcodes a locale list.
-    if locale in available:
-        effective = locale
-    else:
-        primary = locale.split("-", 1)[0].lower()
-        effective = primary if primary in available else "en"
+    # (e.g. "fr-FR" → "fr"); falls back to English for unbundled locales.
+    effective = _resolve_effective_locale(locale, available)
     caps = catalogue_pkg.load_all()
     if effective != "en":
         caps = [c.localized(effective, fallback="en") for c in caps]
@@ -134,6 +136,149 @@ async def _get_cached_remote(db: AsyncSession) -> dict[str, Any] | None:
     return cached
 
 
+def _resolve_effective_locale(locale: str, available: tuple[str, ...] | list[str]) -> str:
+    """Pick the locale to actually serve, normalizing BCP-47 regional tags.
+
+    Match the canonical list first, then fall back to the primary subtag
+    ("fr-FR" → "fr"), then to "en". `available` is whatever the data source
+    advertises — the bundled wheel for the bundled path, the cached i18n
+    table for the remote path.
+    """
+    if locale in available:
+        return locale
+    primary = locale.split("-", 1)[0].lower()
+    if primary in available:
+        return primary
+    return "en"
+
+
+def _localize_flat_with_table(
+    flat: list[dict[str, Any]],
+    table: dict[str, dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Apply a {capability_id → localized fields} table to a flat payload.
+
+    Mirrors the behaviour of `Capability.localized()` in the upstream
+    package: only fields that the table actually carries are overwritten;
+    everything else (including a missing entry for the whole capability)
+    silently falls back to the cached English source.
+    """
+    if not table:
+        return flat
+    out: list[dict[str, Any]] = []
+    for entry in flat:
+        overrides = table.get(entry["id"])
+        if not overrides:
+            out.append(entry)
+            continue
+        merged = dict(entry)
+        for field in LOCALIZABLE_FIELDS:
+            value = overrides.get(field)
+            if value is None:
+                continue
+            if field in ("aliases", "in_scope", "out_of_scope"):
+                if value:
+                    merged[field] = list(value)
+            else:
+                if value:
+                    merged[field] = value
+        out.append(merged)
+    return out
+
+
+def _localize_via_bundled_package(
+    flat: list[dict[str, Any]],
+    *,
+    locale: str,
+) -> list[dict[str, Any]]:
+    """Fallback localizer for cached payloads that pre-date i18n caching.
+
+    Looks each cached entry up in the bundled package by id and applies the
+    bundled package's `localized()` to grab a translation. Capabilities
+    that don't exist in the bundled package (e.g. cached payload is from a
+    newer catalogue version) stay English. This means an old cache silently
+    starts translating as soon as the bundled package ships translations
+    for matching ids — no re-fetch required.
+    """
+    if locale == "en":
+        return flat
+    out: list[dict[str, Any]] = []
+    for entry in flat:
+        bundled_cap = catalogue_pkg.get_by_id(entry["id"])
+        if bundled_cap is None:
+            out.append(entry)
+            continue
+        localized = bundled_cap.localized(locale, fallback="en")
+        merged = dict(entry)
+        # Only overwrite a field if the bundled package actually has a
+        # different value for it in this locale — otherwise the cached
+        # value (which may be from a newer catalogue version) wins.
+        for field in LOCALIZABLE_FIELDS:
+            bundled_value = getattr(bundled_cap, field, None)
+            localized_value = getattr(localized, field, None)
+            if localized_value is None or localized_value == bundled_value:
+                continue
+            if field in ("aliases", "in_scope", "out_of_scope"):
+                merged[field] = list(localized_value)
+            else:
+                merged[field] = localized_value
+        out.append(merged)
+    return out
+
+
+async def _resolve_active_catalogue(
+    db: AsyncSession,
+    *,
+    locale: str = "en",
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    """Return (capabilities_flat, version_meta) honouring remote override.
+
+    Cached remote wins only if its version is strictly greater than bundled.
+    Both paths are now fully localizable: the cached-remote path uses the
+    i18n tables captured from the wheel at fetch time (newer caches), or
+    falls back to the bundled package's translations matched by capability
+    id (older caches that pre-date i18n caching). Missing per-field
+    translations always degrade silently to English.
+    """
+    bundled_flat, bundled_meta = _bundled_payload(locale=locale)
+    cached = await _get_cached_remote(db)
+    if cached and _version_tuple(cached.get("catalogue_version", "0")) > _version_tuple(
+        bundled_meta["catalogue_version"]
+    ):
+        cached_data = list(cached["data"])
+        cached_i18n = cached.get("i18n") or {}
+        # Locales actually carried by this cache. Old caches without an
+        # `i18n` blob can still translate via the bundled package, so
+        # advertise the union so the UI / `active_locale` field reflect
+        # what the user can really get.
+        cached_locales = set(cached_i18n.keys())
+        bundled_locales = set(_bundled_available_locales())
+        available = sorted({"en"} | cached_locales | bundled_locales)
+        effective = _resolve_effective_locale(locale, available)
+        if effective != "en":
+            table = cached_i18n.get(effective)
+            if table:
+                cached_data = _localize_flat_with_table(cached_data, table)
+            else:
+                cached_data = _localize_via_bundled_package(cached_data, locale=effective)
+        return cached_data, {
+            "catalogue_version": cached["catalogue_version"],
+            "schema_version": str(cached.get("schema_version", "")),
+            "generated_at": cached.get("generated_at"),
+            "node_count": cached.get("node_count", len(cached["data"])),
+            "source": "remote",
+            "fetched_at": cached.get("fetched_at"),
+            "bundled_version": bundled_meta["catalogue_version"],
+            "available_locales": available,
+            "active_locale": effective,
+        }
+    return bundled_flat, {
+        **bundled_meta,
+        "source": "bundled",
+        "bundled_version": bundled_meta["catalogue_version"],
+    }
+
+
 def _version_tuple(v: str) -> tuple[int, ...]:
     """Best-effort semver-ish parse so '1.10.0' > '1.9.0'."""
     parts: list[int] = []
@@ -146,44 +291,6 @@ def _version_tuple(v: str) -> tuple[int, ...]:
                 break
         parts.append(int(digits) if digits else 0)
     return tuple(parts)
-
-
-async def _resolve_active_catalogue(
-    db: AsyncSession,
-    *,
-    locale: str = "en",
-) -> tuple[list[dict[str, Any]], dict[str, Any]]:
-    """Return (capabilities_flat, version_meta) honouring remote override.
-
-    Cached remote wins only if its version is strictly greater than bundled.
-    Localization is applied only on the bundled path — the cached-remote
-    payload comes from the PyPI wheel's `data/capabilities.json`, which is
-    canonical English (per-locale strings live in `data/i18n/<lang>.json`
-    inside the wheel and are only applied when the wheel is imported as a
-    Python package). Cached-remote payloads therefore always advertise
-    `active_locale="en"` regardless of the request.
-    """
-    bundled_flat, bundled_meta = _bundled_payload(locale=locale)
-    cached = await _get_cached_remote(db)
-    if cached and _version_tuple(cached.get("catalogue_version", "0")) > _version_tuple(
-        bundled_meta["catalogue_version"]
-    ):
-        return list(cached["data"]), {
-            "catalogue_version": cached["catalogue_version"],
-            "schema_version": str(cached.get("schema_version", "")),
-            "generated_at": cached.get("generated_at"),
-            "node_count": cached.get("node_count", len(cached["data"])),
-            "source": "remote",
-            "fetched_at": cached.get("fetched_at"),
-            "bundled_version": bundled_meta["catalogue_version"],
-            "available_locales": ["en"],
-            "active_locale": "en",
-        }
-    return bundled_flat, {
-        **bundled_meta,
-        "source": "bundled",
-        "bundled_version": bundled_meta["catalogue_version"],
-    }
 
 
 # ---------------------------------------------------------------------------
@@ -258,15 +365,19 @@ async def get_catalogue_payload(
     flat, meta = await _resolve_active_catalogue(db, locale=locale)
     name_index = await _existing_bc_name_index(db)
     cat_id_index = await _existing_bc_catalogue_id_index(db)
-    # English flat (for stable name-based existing-card matching). We only
-    # rebuild it when localization actually changed the data.
-    if meta.get("active_locale", "en") != "en" and meta.get("source") == "bundled":
-        english_names = {c["id"]: c["name"] for c in _bundled_payload(locale="en")[0]}
-    else:
-        english_names = None
+    # Existing-card matching always runs against canonical English names so a
+    # green tick survives a language switch. Source the canonical names from
+    # whichever path actually produced the payload: bundled paths have their
+    # English flat available via `_bundled_payload`; cached paths carry the
+    # canonical English data inside `cached["data"]`, so re-resolve in
+    # English and grab the names from there.
+    english_names: dict[str, str] | None = None
+    if meta.get("active_locale", "en") != "en":
+        english_flat, _ = await _resolve_active_catalogue(db, locale="en")
+        english_names = {c["id"]: c["name"] for c in english_flat}
     annotated: list[dict[str, Any]] = []
     for cap in flat:
-        match_name = english_names[cap["id"]] if english_names else cap["name"]
+        match_name = (english_names or {}).get(cap["id"], cap["name"])
         existing = cat_id_index.get(cap["id"]) or name_index.get(_normalize_name(match_name))
         annotated.append({**cap, "existing_card_id": existing})
     return {"version": meta, "capabilities": annotated}
@@ -524,23 +635,41 @@ def _wheel_url_from_pypi_payload(payload: dict[str, Any]) -> tuple[str, str]:
 
 def _extract_catalogue_from_wheel(
     wheel_bytes: bytes,
-) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+) -> tuple[list[dict[str, Any]], dict[str, Any], dict[str, dict[str, Any]]]:
     """Read the bundled catalogue JSON files out of a wheel byte-string.
 
-    The wheel ships `data/capabilities.json` as a flat list (each entry's
-    `children` field is a list of child IDs, not nested objects), so we just
-    drop `children` to keep the cached payload aligned with the rest of the
-    code path that re-derives the hierarchy from `parent_id`.
+    Returns `(caps_flat, version_meta, i18n_tables)`. The wheel ships
+    `data/capabilities.json` as a flat list (each entry's `children` field
+    is a list of child ids, not nested objects), so we drop `children` to
+    keep the cached payload aligned with the rest of the code path that
+    re-derives the hierarchy from `parent_id`.
+
+    `i18n_tables` is `{locale: {capability_id: {name?, description?, ...}}}`
+    extracted from every `data/i18n/<lang>.json` shipped with the wheel.
+    Older wheels without that directory yield an empty dict — the service
+    falls back to the bundled package's per-id `localized()` lookup in
+    that case so language switching keeps working.
     """
+    i18n_tables: dict[str, dict[str, Any]] = {}
     with zipfile.ZipFile(io.BytesIO(wheel_bytes)) as zf:
         with zf.open(WHEEL_VERSION_PATH) as vf:
             ver = json.loads(vf.read().decode("utf-8"))
         with zf.open(WHEEL_CAPABILITIES_PATH) as cf:
             caps_raw = json.loads(cf.read().decode("utf-8"))
+        for name in zf.namelist():
+            if not name.startswith(WHEEL_I18N_DIR) or not name.endswith(".json"):
+                continue
+            lang = name[len(WHEEL_I18N_DIR) : -len(".json")]
+            if not lang:
+                continue
+            with zf.open(name) as lf:
+                table = json.loads(lf.read().decode("utf-8"))
+            if isinstance(table, dict):
+                i18n_tables[lang] = table
     if not isinstance(caps_raw, list):
         raise ValueError(f"{WHEEL_CAPABILITIES_PATH} did not contain a list")
     caps = [{k: v for k, v in c.items() if k != "children"} for c in caps_raw]
-    return caps, ver
+    return caps, ver, i18n_tables
 
 
 async def fetch_remote_catalogue(db: AsyncSession) -> dict[str, Any]:
@@ -563,12 +692,17 @@ async def fetch_remote_catalogue(db: AsyncSession) -> dict[str, Any]:
         wheel_resp.raise_for_status()
         wheel_bytes = wheel_resp.content
 
-    caps, ver = _extract_catalogue_from_wheel(wheel_bytes)
+    caps, ver, i18n = _extract_catalogue_from_wheel(wheel_bytes)
 
     settings = await _get_app_settings(db)
     general = dict(settings.general_settings or {})
     general[SETTINGS_KEY] = {
         "data": caps,
+        # Per-locale translation tables extracted from the wheel — empty for
+        # wheels that pre-date i18n. Stored alongside the canonical English
+        # data so language switching works against this cached payload
+        # without a re-fetch.
+        "i18n": i18n,
         "catalogue_version": ver.get("catalogue_version") or pypi_version,
         "schema_version": str(ver.get("schema_version", "")),
         "generated_at": ver.get("generated_at"),
@@ -583,4 +717,5 @@ async def fetch_remote_catalogue(db: AsyncSession) -> dict[str, Any]:
         "catalogue_version": general[SETTINGS_KEY]["catalogue_version"],
         "node_count": general[SETTINGS_KEY]["node_count"],
         "fetched_at": general[SETTINGS_KEY]["fetched_at"],
+        "available_locales": sorted(i18n.keys() | {"en"}),
     }
