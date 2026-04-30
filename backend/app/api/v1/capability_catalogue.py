@@ -12,6 +12,8 @@ Visibility:
 
 from __future__ import annotations
 
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -20,6 +22,8 @@ from app.api.deps import require_permission
 from app.database import get_db
 from app.models.user import User
 from app.services import capability_catalogue_service as svc
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/capability-catalogue", tags=["capability-catalogue"])
 
@@ -96,5 +100,6 @@ async def update_fetch(
     """Download the latest catalogue from the public site and cache it."""
     try:
         return await svc.fetch_remote_catalogue(db)
-    except Exception as exc:
-        raise HTTPException(status_code=502, detail=f"Catalogue fetch failed: {exc}")
+    except Exception:
+        logger.exception("Capability catalogue fetch failed")
+        raise HTTPException(status_code=502, detail="Catalogue fetch failed")
