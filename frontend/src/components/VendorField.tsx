@@ -47,6 +47,13 @@ interface VendorFieldProps {
   label?: string;
   /** Called after a relation is created/removed (to refresh RelationsSection) */
   onRelationChange?: () => void;
+  /**
+   * Fired whenever the user picks an existing Provider, creates a new one,
+   * or clears the selection. Used by the Create Card flow (where `fsId` is
+   * not yet available) to remember which Provider to link once the new
+   * card has been saved.
+   */
+  onProviderSelected?: (provider: { id: string; name: string } | null) => void;
 }
 
 export default function VendorField({
@@ -57,6 +64,7 @@ export default function VendorField({
   size = "small",
   label,
   onRelationChange,
+  onProviderSelected,
 }: VendorFieldProps) {
   const { t } = useTranslation(["cards", "common"]);
   const resolvedLabel = label ?? t("vendor.label");
@@ -150,9 +158,17 @@ export default function VendorField({
     onChange(provider.name);
     setInputValue(provider.name);
 
-    // Create relation if we have a card ID
+    // Always notify parent — the Create Card flow needs the id to link the
+    // relation after the new card is saved (no fsId yet at that point).
+    onProviderSelected?.({ id: provider.id, name: provider.name });
+
+    // Create relation if we have a card ID (detail-page editing flow)
     if (fsId) {
       await linkProvider(provider.id);
+    } else {
+      // Show the chip optimistically so the user gets the same feedback
+      // as in the detail-page flow.
+      setLinkedProvider({ id: provider.id, name: provider.name });
     }
   };
 
@@ -168,6 +184,8 @@ export default function VendorField({
       onChange(newFs.name);
       setInputValue(newFs.name);
       setLinkedProvider({ id: newFs.id, name: newFs.name });
+
+      onProviderSelected?.({ id: newFs.id, name: newFs.name });
 
       if (fsId) {
         await linkProvider(newFs.id);
@@ -240,6 +258,10 @@ export default function VendorField({
               handleSelect(newVal as ProviderOption);
             } else if (typeof newVal === "string") {
               onChange(newVal || undefined);
+            } else if (newVal === null) {
+              onChange(undefined);
+              setLinkedProvider(null);
+              onProviderSelected?.(null);
             }
           }}
           options={options}

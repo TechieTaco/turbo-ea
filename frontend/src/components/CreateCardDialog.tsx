@@ -71,7 +71,7 @@ export default function CreateCardDialog({
 }: Props) {
   const navigate = useNavigate();
   const { t } = useTranslation(["cards", "common"]);
-  const { types } = useMetamodel();
+  const { types, relationTypes } = useMetamodel();
   const rl = useResolveLabel();
   const rml = useResolveMetaLabel();
 
@@ -104,6 +104,13 @@ export default function CreateCardDialog({
   // Tag picker state
   const [tagGroups, setTagGroups] = useState<TagGroup[]>([]);
   const [tagIds, setTagIds] = useState<string[]>([]);
+
+  // Provider linkage staged in VendorField — `fsId` doesn't exist yet during
+  // create, so the relation is posted after the card is saved.
+  const [pendingProvider, setPendingProvider] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
 
   const typeConfig = useMemo(
     () => types.find((t) => t.key === selectedType),
@@ -167,6 +174,7 @@ export default function CreateCardDialog({
     setAiResponse(null);
     setAiError("");
     setTagIds([]);
+    setPendingProvider(null);
   }, [selectedType]);
 
   // Set initial type when dialog opens
@@ -198,6 +206,7 @@ export default function CreateCardDialog({
       setAiLoading(false);
       setAiError("");
       setTagIds([]);
+      setPendingProvider(null);
     }
   }, [open, initialType]);
 
@@ -344,6 +353,10 @@ export default function CreateCardDialog({
         }
       }
 
+      // Defensive: never persist an orphan vendor text attribute. Provider
+      // linkage is owned by the relation created below.
+      delete finalAttrs.vendor;
+
       const newId = await onCreate({
         type: selectedType,
         subtype: subtype || undefined,
@@ -359,6 +372,28 @@ export default function CreateCardDialog({
           await api.post(`/cards/${newId}/tags`, tagIds);
         } catch {
           // Card was created successfully; tag-assignment failure is non-fatal.
+        }
+      }
+      if (pendingProvider) {
+        const relType = relationTypes.find(
+          (r) =>
+            (r.source_type_key === "Provider" &&
+              r.target_type_key === selectedType) ||
+            (r.target_type_key === "Provider" &&
+              r.source_type_key === selectedType),
+        );
+        if (relType) {
+          const providerIsSource = relType.source_type_key === "Provider";
+          try {
+            await api.post("/relations", {
+              type: relType.key,
+              source_id: providerIsSource ? pendingProvider.id : newId,
+              target_id: providerIsSource ? newId : pendingProvider.id,
+            });
+          } catch {
+            // Card is created; failing to link the Provider is non-fatal —
+            // the user can re-link from the card detail page.
+          }
         }
       }
       onClose();
@@ -785,20 +820,26 @@ export default function CreateCardDialog({
           </Box>
         )}
 
-        {/* Vendor field for eligible types */}
+        {/* Provider linker for eligible types — posts the relation after
+            the card is created (handleSubmit), since fsId doesn't exist yet. */}
         {VENDOR_ELIGIBLE_TYPES.includes(selectedType) && (
           <Box sx={{ mb: 2 }}>
             <VendorField
-              value={(attributes.vendor as string) ?? ""}
-              onChange={(v) => setAttr("vendor", v)}
+              value={pendingProvider?.name ?? ""}
+              onChange={() => {
+                /* input value is owned by VendorField in the create flow;
+                   no `attributes.vendor` is stored — the relation is the
+                   source of truth. */
+              }}
+              onProviderSelected={setPendingProvider}
               cardTypeKey={selectedType}
               size="small"
             />
           </Box>
         )}
 
-        {/* Required fields from schema (skip vendor since we render it above) */}
-        {requiredFields.length > 0 && requiredFields.filter((f) => f.key !== "vendor").map((f) => renderField(f))}
+        {/* Required fields from schema */}
+        {requiredFields.length > 0 && requiredFields.map((f) => renderField(f))}
 
         {/* EOL picker dialog */}
         <EolLinkDialog

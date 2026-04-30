@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [0.55.3] - 2026-04-30
 
+### Fixed
+- **Create Card modal — Provider relation was never created.** Selecting an existing Provider or creating a new one in the Provider linker showed an optimistic "linked" chip but the resulting Application / IT Component had no inbound Provider relation; instead the Provider's name was silently saved as a plain-text `vendor` attribute. The picker now stages the picked / created Provider and the dialog posts the `relProviderToApp` / `relProviderToITC` relation immediately after the card is saved, with the correct source/target direction. The orphan `vendor` text attribute is no longer written.
+
 ### Changed
 - **Create Card modal — Provider linker is now labelled "Provider"** instead of "Vendor" on Application and IT Component (English UI). The picker has always written to the Provider relation; the old "Vendor" label was a leftover from before that relation existed and confused it with the separate `vendor` text attribute. The other 7 supported locales already used their localised "Provider" term and are unchanged.
 
