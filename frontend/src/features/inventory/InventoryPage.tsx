@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { AgGridReact } from "ag-grid-react";
@@ -21,6 +21,10 @@ import DialogActions from "@mui/material/DialogActions";
 import Alert from "@mui/material/Alert";
 import Drawer from "@mui/material/Drawer";
 import Tooltip from "@mui/material/Tooltip";
+import ListSubheader from "@mui/material/ListSubheader";
+import Autocomplete from "@mui/material/Autocomplete";
+import ToggleButton from "@mui/material/ToggleButton";
+import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import { useTheme } from "@mui/material/styles";
 import MaterialSymbol from "@/components/MaterialSymbol";
@@ -294,6 +298,11 @@ export default function InventoryPage() {
     }[]
   >([]);
   const [massEditSucceeded, setMassEditSucceeded] = useState(0);
+  // Relation mass-edit state
+  const [massEditRelMode, setMassEditRelMode] = useState<"add" | "remove">("add");
+  const [massEditRelTargets, setMassEditRelTargets] = useState<{ id: string; name: string; type: string }[]>([]);
+  const [massEditRelSearch, setMassEditRelSearch] = useState("");
+  const [massEditRelOptions, setMassEditRelOptions] = useState<{ id: string; name: string; type: string }[]>([]);
 
   // Mass archive / delete state
   const [massArchiveOpen, setMassArchiveOpen] = useState(false);
@@ -685,25 +694,103 @@ export default function InventoryPage() {
   }, [gridEditMode, navigate]);
 
   // Mass-editable fields for current type
-  const massEditableFields = useMemo(() => {
-    const fields: { key: string; label: string; fieldDef?: FieldDef; isCore: boolean }[] = [
-      { key: "approval_status", label: t("columns.approvalStatus"), isCore: true },
+  type MassEditField = {
+    key: string;
+    label: string;
+    fieldDef?: FieldDef;
+    relInfo?: { relType: RelationType; otherTypeKey: string; isSource: boolean };
+    group: "core" | "attribute" | "relation";
+  };
+  const massEditableFields = useMemo<MassEditField[]>(() => {
+    const fields: MassEditField[] = [
+      { key: "approval_status", label: t("columns.approvalStatus"), group: "core" },
     ];
     if (typeConfig?.subtypes && typeConfig.subtypes.length > 0) {
-      fields.push({ key: "subtype", label: t("common:labels.subtype"), isCore: true });
+      fields.push({ key: "subtype", label: t("common:labels.subtype"), group: "core" });
     }
     if (typeConfig) {
       for (const section of typeConfig.fields_schema) {
         for (const field of section.fields) {
           if (field.readonly) continue;
-          fields.push({ key: `attr_${field.key}`, label: rl(field.key, field.translations), fieldDef: field, isCore: false });
+          fields.push({
+            key: `attr_${field.key}`,
+            label: rl(field.key, field.translations),
+            fieldDef: field,
+            group: "attribute",
+          });
+        }
+      }
+    }
+    // Relation fields — only when a single type is selected. Each (relation type × direction)
+    // becomes a distinct mass-edit option, so self-referential relation types appear twice
+    // (once in each direction). Hidden relation types and relations to hidden types are skipped.
+    if (selectedType) {
+      for (const rt of relationTypes) {
+        if (rt.is_hidden) continue;
+        const sourceMatches = rt.source_type_key === selectedType;
+        const targetMatches = rt.target_type_key === selectedType;
+        if (!sourceMatches && !targetMatches) continue;
+        // "out" direction: selected card is source
+        if (sourceMatches && visibleTypeKeys.has(rt.target_type_key)) {
+          const verb = rml(rt.key, rt.translations, "label");
+          const otherLabel = (() => {
+            const ot = types.find((tp) => tp.key === rt.target_type_key);
+            return ot ? rml(ot.key, ot.translations, "label") : rt.target_type_key;
+          })();
+          fields.push({
+            key: `rel_${rt.key}__out`,
+            label: `${verb} → ${otherLabel}`,
+            relInfo: { relType: rt, otherTypeKey: rt.target_type_key, isSource: true },
+            group: "relation",
+          });
+        }
+        // "in" direction: selected card is target. Only render if it's not the same as out
+        // (i.e. self-referential, where we already added the "out" side and want both verbs).
+        if (targetMatches && visibleTypeKeys.has(rt.source_type_key)) {
+          const isSelf = sourceMatches && targetMatches;
+          if (!isSelf && sourceMatches) continue; // already covered by out
+          const reverse = rml(rt.key, rt.translations, "reverse_label");
+          const verb = reverse || rml(rt.key, rt.translations, "label");
+          const otherLabel = (() => {
+            const ot = types.find((tp) => tp.key === rt.source_type_key);
+            return ot ? rml(ot.key, ot.translations, "label") : rt.source_type_key;
+          })();
+          fields.push({
+            key: `rel_${rt.key}__in`,
+            label: `${verb} → ${otherLabel}`,
+            relInfo: { relType: rt, otherTypeKey: rt.source_type_key, isSource: false },
+            group: "relation",
+          });
         }
       }
     }
     return fields;
-  }, [typeConfig, t]);
+  }, [typeConfig, selectedType, relationTypes, visibleTypeKeys, types, t, rl, rml]);
 
   const currentMassField = massEditableFields.find((f) => f.key === massEditField);
+
+  // Search for relation targets when the user is in relation mass-edit mode.
+  // Excludes the cards being mass-edited so users can't accidentally link a card to itself.
+  useEffect(() => {
+    if (!massEditOpen || !currentMassField?.relInfo) return;
+    if (massEditRelSearch.length < 1) {
+      setMassEditRelOptions([]);
+      return;
+    }
+    const otherTypeKey = currentMassField.relInfo.otherTypeKey;
+    const selectedSet = new Set(selectedIds);
+    const timer = setTimeout(() => {
+      api
+        .get<{ items: { id: string; name: string; type: string }[] }>(
+          `/cards?type=${otherTypeKey}&search=${encodeURIComponent(massEditRelSearch)}&page_size=20`,
+        )
+        .then((res) => {
+          setMassEditRelOptions(res.items.filter((item) => !selectedSet.has(item.id)));
+        })
+        .catch(() => setMassEditRelOptions([]));
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [massEditRelSearch, massEditOpen, currentMassField, selectedIds]);
 
   const handleMassEdit = async () => {
     if (selectedIds.length === 0 || !massEditField) return;
@@ -772,6 +859,118 @@ export default function InventoryPage() {
           setMassEditOpen(false);
           setMassEditField("");
           setMassEditValue("");
+          return;
+        }
+        setMassEditSucceeded(succeeded);
+        setMassEditBlockers(blockers);
+        return;
+      }
+
+      if (currentMassField?.relInfo) {
+        if (massEditRelTargets.length === 0) {
+          setMassEditError(t("massEdit.rel.noTargetsSelected"));
+          return;
+        }
+        const { relType, isSource } = currentMassField.relInfo;
+        // Pre-fetch all relations of this type to determine what already exists,
+        // so "add" is idempotent and "remove" can locate the relation IDs to delete.
+        const allRels = await api
+          .get<Relation[]>(`/relations?type=${relType.key}`)
+          .catch(() => [] as Relation[]);
+        const targetIdSet = new Set(massEditRelTargets.map((tg) => tg.id));
+
+        const ops: Promise<unknown>[] = [];
+        const opSourceIds: string[] = [];
+
+        if (massEditRelMode === "add") {
+          // For each selected card × each target, create a relation if not already present.
+          // We treat already-existing relations as a no-op success (idempotent).
+          for (const sourceId of selectedIds) {
+            const existingPairs = new Set<string>();
+            for (const r of allRels) {
+              const a = isSource ? r.source_id : r.target_id;
+              const b = isSource ? r.target_id : r.source_id;
+              if (a === sourceId) existingPairs.add(b);
+            }
+            for (const tg of massEditRelTargets) {
+              if (existingPairs.has(tg.id)) continue;
+              if (tg.id === sourceId) continue; // can't link to self
+              ops.push(
+                api.post("/relations", {
+                  type: relType.key,
+                  source_id: isSource ? sourceId : tg.id,
+                  target_id: isSource ? tg.id : sourceId,
+                }),
+              );
+              opSourceIds.push(sourceId);
+            }
+          }
+        } else {
+          // remove: find relations of this type whose other-end is in the chosen targets
+          for (const sourceId of selectedIds) {
+            for (const r of allRels) {
+              const a = isSource ? r.source_id : r.target_id;
+              const b = isSource ? r.target_id : r.source_id;
+              if (a !== sourceId) continue;
+              if (!targetIdSet.has(b)) continue;
+              ops.push(api.delete(`/relations/${r.id}`));
+              opSourceIds.push(sourceId);
+            }
+          }
+        }
+
+        if (ops.length === 0) {
+          // nothing to do — surface as a soft message, not an error
+          setMassEditError(
+            massEditRelMode === "add"
+              ? t("massEdit.rel.nothingToAdd")
+              : t("massEdit.rel.nothingToRemove"),
+          );
+          return;
+        }
+
+        const results = await Promise.allSettled(ops);
+        // Aggregate per-source-card status: a card "succeeded" if every op for it resolved.
+        const cardStatus = new Map<string, { ok: number; fail: number; firstError?: string }>();
+        results.forEach((r, i) => {
+          const sid = opSourceIds[i];
+          const cur = cardStatus.get(sid) ?? { ok: 0, fail: 0 };
+          if (r.status === "fulfilled") cur.ok += 1;
+          else {
+            cur.fail += 1;
+            if (!cur.firstError) {
+              cur.firstError =
+                r.reason instanceof Error ? r.reason.message : t("massEdit.failed");
+            }
+          }
+          cardStatus.set(sid, cur);
+        });
+
+        const blockers: typeof massEditBlockers = [];
+        let succeeded = 0;
+        for (const sid of selectedIds) {
+          const status = cardStatus.get(sid);
+          if (!status || status.fail === 0) {
+            succeeded += 1;
+            continue;
+          }
+          const card = data.find((d) => d.id === sid);
+          blockers.push({
+            id: sid,
+            name: card?.name ?? sid,
+            missingRelations: [],
+            missingTagGroups: [],
+            message: status.firstError ?? t("massEdit.failed"),
+          });
+        }
+        await loadData();
+        await fetchRelations();
+        if (blockers.length === 0) {
+          setMassEditOpen(false);
+          setMassEditField("");
+          setMassEditValue("");
+          setMassEditRelTargets([]);
+          setMassEditRelSearch("");
           return;
         }
         setMassEditSucceeded(succeeded);
@@ -1327,6 +1526,85 @@ export default function InventoryPage() {
       );
     }
 
+    if (currentMassField.relInfo) {
+      const otherType = types.find((tp) => tp.key === currentMassField.relInfo!.otherTypeKey);
+      const otherLabel = otherType
+        ? rml(otherType.key, otherType.translations, "label")
+        : currentMassField.relInfo.otherTypeKey;
+      return (
+        <Box>
+          <ToggleButtonGroup
+            value={massEditRelMode}
+            exclusive
+            size="small"
+            onChange={(_, val) => { if (val) setMassEditRelMode(val); }}
+            sx={{ mb: 2 }}
+          >
+            <ToggleButton value="add" sx={{ textTransform: "none", px: 2 }}>
+              <MaterialSymbol icon="add_link" size={16} style={{ marginRight: 6 }} />
+              {t("massEdit.rel.add")}
+            </ToggleButton>
+            <ToggleButton value="remove" sx={{ textTransform: "none", px: 2 }}>
+              <MaterialSymbol icon="link_off" size={16} style={{ marginRight: 6 }} />
+              {t("massEdit.rel.remove")}
+            </ToggleButton>
+          </ToggleButtonGroup>
+          <Autocomplete
+            multiple
+            size="small"
+            fullWidth
+            options={massEditRelOptions}
+            value={massEditRelTargets}
+            getOptionLabel={(opt) => opt.name}
+            isOptionEqualToValue={(a, b) => a.id === b.id}
+            onChange={(_, val) => setMassEditRelTargets(val)}
+            inputValue={massEditRelSearch}
+            onInputChange={(_, val) => setMassEditRelSearch(val)}
+            filterOptions={(x) => x}
+            renderOption={(props, opt) => {
+              const tConf = types.find((tp) => tp.key === opt.type);
+              return (
+                <li {...props} key={opt.id}>
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                    {tConf && <Box sx={{ width: 10, height: 10, borderRadius: "50%", bgcolor: tConf.color }} />}
+                    <Typography variant="body2">{opt.name}</Typography>
+                  </Box>
+                </li>
+              );
+            }}
+            renderTags={(value, getTagProps) =>
+              value.map((opt, i) => (
+                <Chip
+                  size="small"
+                  label={opt.name}
+                  {...getTagProps({ index: i })}
+                  key={opt.id}
+                  sx={otherType ? { bgcolor: `${otherType.color}22` } : undefined}
+                />
+              ))
+            }
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                label={t("massEdit.rel.targets", { type: otherLabel })}
+                placeholder={t("massEdit.rel.searchPlaceholder", { type: otherLabel })}
+              />
+            )}
+            noOptionsText={
+              massEditRelSearch
+                ? t("common:labels.noResults")
+                : t("massEdit.rel.typeToSearch", { type: otherLabel })
+            }
+          />
+          <Typography variant="caption" color="text.secondary" sx={{ mt: 1.5, display: "block" }}>
+            {massEditRelMode === "add"
+              ? t("massEdit.rel.addHint", { count: selectedIds.length, type: otherLabel })
+              : t("massEdit.rel.removeHint", { count: selectedIds.length, type: otherLabel })}
+          </Typography>
+        </Box>
+      );
+    }
+
     const fd = currentMassField.fieldDef;
     if (!fd) return null;
 
@@ -1543,7 +1821,17 @@ export default function InventoryPage() {
               color="inherit"
               sx={{ color: "primary.main", bgcolor: "background.paper", textTransform: "none", "&:hover": { bgcolor: "action.selected" } }}
               startIcon={<MaterialSymbol icon="edit" size={16} />}
-              onClick={() => { setMassEditOpen(true); setMassEditField(""); setMassEditValue(""); setMassEditError(""); setMassEditBlockers([]); setMassEditSucceeded(0); }}
+              onClick={() => {
+                setMassEditOpen(true);
+                setMassEditField("");
+                setMassEditValue("");
+                setMassEditError("");
+                setMassEditBlockers([]);
+                setMassEditSucceeded(0);
+                setMassEditRelTargets([]);
+                setMassEditRelSearch("");
+                setMassEditRelMode("add");
+              }}
             >
               {t("massEdit.title")}
             </Button>
@@ -1693,11 +1981,61 @@ export default function InventoryPage() {
             <Select
               value={massEditField}
               label={t("massEdit.field")}
-              onChange={(e) => { setMassEditField(e.target.value); setMassEditValue(""); }}
+              onChange={(e) => {
+                setMassEditField(e.target.value);
+                setMassEditValue("");
+                setMassEditRelTargets([]);
+                setMassEditRelSearch("");
+                setMassEditRelMode("add");
+                setMassEditError("");
+              }}
             >
-              {massEditableFields.map((f) => (
-                <MenuItem key={f.key} value={f.key}>{f.label}</MenuItem>
-              ))}
+              {(() => {
+                const items: ReactNode[] = [];
+                const coreFields = massEditableFields.filter((f) => f.group === "core");
+                const attrFields = massEditableFields.filter((f) => f.group === "attribute");
+                const relFields = massEditableFields.filter((f) => f.group === "relation");
+                if (coreFields.length > 0) {
+                  items.push(
+                    <ListSubheader key="hdr-core">{t("massEdit.groupCore")}</ListSubheader>,
+                  );
+                  for (const f of coreFields) items.push(<MenuItem key={f.key} value={f.key}>{f.label}</MenuItem>);
+                }
+                if (attrFields.length > 0) {
+                  items.push(
+                    <ListSubheader key="hdr-attr">{t("massEdit.groupAttributes")}</ListSubheader>,
+                  );
+                  for (const f of attrFields) items.push(<MenuItem key={f.key} value={f.key}>{f.label}</MenuItem>);
+                }
+                if (relFields.length > 0) {
+                  items.push(
+                    <ListSubheader key="hdr-rel">{t("massEdit.groupRelations")}</ListSubheader>,
+                  );
+                  for (const f of relFields) {
+                    const otherType = f.relInfo
+                      ? types.find((tp) => tp.key === f.relInfo!.otherTypeKey)
+                      : undefined;
+                    items.push(
+                      <MenuItem key={f.key} value={f.key}>
+                        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                          {otherType && (
+                            <Box
+                              sx={{
+                                width: 10,
+                                height: 10,
+                                borderRadius: "50%",
+                                bgcolor: otherType.color,
+                              }}
+                            />
+                          )}
+                          <span>{f.label}</span>
+                        </Box>
+                      </MenuItem>,
+                    );
+                  }
+                }
+                return items;
+              })()}
             </Select>
           </FormControl>
           {massEditField && renderMassEditInput()}

@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.56.0] - 2026-04-30
+
+### Added
+- **Inventory mass edit — link / unlink related cards across many cards at once.** The mass-edit modal now exposes every relation type valid for the currently-filtered card type as its own field option, listed under a dedicated **Relations** group beneath **General** and **Attributes** (so attributes and relations can never be confused for each other). Picking a relation reveals an Add link / Remove link toggle and a multi-select autocomplete of candidate target cards (typed search against the correct other-end card type, with the type's brand colour rendered next to each option). Hitting **Apply** then iterates the selection: in **Add** mode every selected card is linked to every chosen target — duplicates are detected up-front via a single `GET /relations?type=…` and skipped, so re-running is idempotent and won't create stacked duplicates; in **Remove** mode every matching link between a selected card and a chosen target is deleted. Self-links are blocked, and self-referential relation types appear twice in the dropdown (once per direction with the verb / reverse_label of each side) so the user can pick the semantically correct direction. Per-card failures surface in the existing partial-summary banner ("X updated, Y blocked") with deep-links back to the offending card, and a soft message explains the no-op cases ("Every selected card is already linked …" / "None of the selected cards are linked …") instead of a hard error. Hidden relation types and relations to hidden card types are filtered out so the option list only ever shows links the user could actually create. Translated into all 8 supported UI locales with proper `_one` / `_other` plural variants on the "this will affect N cards" hint.
+
 ## [0.55.3] - 2026-04-30
 
 ### Fixed
