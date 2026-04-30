@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.55.2] - 2026-04-30
+
+### Added
+- **EOL section — one-click product suggestions on Card Detail.** The EOL accordion on the Card Detail page now mirrors the **Suggested matches** pill pattern that already ships in the Create Card flow: as soon as the user expands the accordion on an Application or IT Component, Turbo EA debounce-fuzzy-searches `endoflife.date` using the card's name and renders the top 5 matches as scored pills (gold border + bold for high-confidence matches with score ≥ 0.7, plain outline for weaker matches). One click on a pill selects the product and immediately surfaces the cycle dropdown — no more manual retyping the card name into the search field. The pills only appear while the search is empty and the card isn't already linked, so they stay out of the way once the user starts typing or has confirmed a link. Reuses the existing `/eol/products/fuzzy` endpoint, the existing `EolProductMatch` type, and the existing `eol.searching` / `eol.suggestedMatches` / `eol.noMatches` translations from the Create Card flow — no new translation keys required.
+
 ## [0.55.1] - 2026-04-30
 
 ### Fixed

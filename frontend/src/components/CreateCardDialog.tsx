@@ -810,6 +810,7 @@ export default function CreateCardDialog({
             setEolSuggestions([]);
           }}
           initialProduct={eolProduct || undefined}
+          cardName={name.trim() || undefined}
         />
       </DialogContent>
 
