@@ -60,6 +60,10 @@
   "massEdit.applyToCount": "Appliquer \u00e0 {{count}} \u00e9l\u00e9ments",
   "massEdit.deletePermanently": "Supprimer d\u00e9finitivement",
   "massEdit.clearSelection": "Effacer la s\u00e9lection",
+  "massEdit.partialSummary": "{{succeeded}} mis à jour, {{blocked}} bloqués. Corrigez les éléments ci-dessous puis réessayez.",
+  "massEdit.missingRelations": "relation manquante : {{items}}",
+  "massEdit.missingTagGroups": "groupe d’étiquettes manquant : {{items}}",
+  "massEdit.andMore": "…et {{count}} de plus",
 
   "massArchive.dialogTitle": "Archiver {{count}} fiches",
   "massArchive.confirmMessage_one": "\u00cates-vous s\u00fbr de vouloir archiver {{count}} fiche ? Les fiches archiv\u00e9es peuvent \u00eatre restaur\u00e9es dans les 30 jours.",

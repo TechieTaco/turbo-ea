@@ -60,6 +60,10 @@
   "massEdit.applyToCount": "Apply to {{count}} items",
   "massEdit.deletePermanently": "Delete Permanently",
   "massEdit.clearSelection": "Clear Selection",
+  "massEdit.partialSummary": "{{succeeded}} updated, {{blocked}} blocked. Resolve the items below and retry.",
+  "massEdit.missingRelations": "missing relation: {{items}}",
+  "massEdit.missingTagGroups": "missing tag group: {{items}}",
+  "massEdit.andMore": "…and {{count}} more",
 
   "massArchive.dialogTitle": "Archive {{count}} Cards",
   "massArchive.confirmMessage_one": "Are you sure you want to archive {{count}} card? Archived cards can be restored within 30 days.",

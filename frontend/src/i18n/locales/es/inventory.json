@@ -60,6 +60,10 @@
   "massEdit.applyToCount": "Aplicar a {{count}} elementos",
   "massEdit.deletePermanently": "Eliminar permanentemente",
   "massEdit.clearSelection": "Limpiar selecci\u00f3n",
+  "massEdit.partialSummary": "{{succeeded}} actualizados, {{blocked}} bloqueados. Resuelva los elementos siguientes y vuelva a intentarlo.",
+  "massEdit.missingRelations": "relación faltante: {{items}}",
+  "massEdit.missingTagGroups": "grupo de etiquetas faltante: {{items}}",
+  "massEdit.andMore": "…y {{count}} más",
 
   "massArchive.dialogTitle": "Archivar {{count}} fichas",
   "massArchive.confirmMessage_one": "\u00bfEst\u00e1 seguro de que desea archivar {{count}} ficha? Las fichas archivadas pueden restaurarse en un plazo de 30 d\u00edas.",
