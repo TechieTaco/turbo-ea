@@ -5,6 +5,14 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.55.3] - 2026-04-30
+
+### Changed
+- **Create Card modal — Provider linker is now labelled "Provider"** instead of "Vendor" on Application and IT Component (English UI). The picker has always written to the Provider relation; the old "Vendor" label was a leftover from before that relation existed and confused it with the separate `vendor` text attribute. The other 7 supported locales already used their localised "Provider" term and are unchanged.
+
+### Removed
+- **Redundant `vendor` text attribute on Application and IT Component card types.** Provider linkage is now exclusively expressed as the `relProviderToApp` / `relProviderToITC` relation that the Create Card modal already manages. On installs where any card has the attribute populated the field is left intact automatically (per-instance migration check), so existing data is never silently dropped.
+
 ## [0.55.2] - 2026-04-30
 
 ### Added

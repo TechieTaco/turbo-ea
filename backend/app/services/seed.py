@@ -2731,21 +2731,6 @@ TYPES = [
                         },
                     },
                     {
-                        "key": "vendor",
-                        "label": "Vendor",
-                        "type": "text",
-                        "weight": 0,
-                        "translations": {
-                            "de": "Anbieter",
-                            "fr": "Fournisseur",
-                            "es": "Proveedor",
-                            "it": "Fornitore",
-                            "pt": "Fornecedor",
-                            "zh": "供应商",
-                            "ru": "Поставщик",
-                        },
-                    },
-                    {
                         "key": "productName",
                         "label": "Product Name",
                         "type": "text",
@@ -3169,21 +3154,6 @@ TYPES = [
                             "pt": "Classificação de recursos",
                             "zh": "资源分类",
                             "ru": "Классификация ресурсов",
-                        },
-                    },
-                    {
-                        "key": "vendor",
-                        "label": "Vendor",
-                        "type": "text",
-                        "weight": 0,
-                        "translations": {
-                            "de": "Anbieter",
-                            "fr": "Fournisseur",
-                            "es": "Proveedor",
-                            "it": "Fornitore",
-                            "pt": "Fornecedor",
-                            "zh": "供应商",
-                            "ru": "Поставщик",
                         },
                     },
                     {
