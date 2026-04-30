@@ -415,6 +415,7 @@ async def import_capabilities(
     *,
     user: User,
     catalogue_ids: list[str],
+    locale: str = "en",
 ) -> dict[str, Any]:
     """Bulk-create BusinessCapability cards for the given catalogue ids.
 
@@ -425,11 +426,29 @@ async def import_capabilities(
     - Stores `catalogueId`, `catalogueVersion`, `catalogueImportedAt`, and
       `capabilityLevel` on each new card's `attributes`.
 
+    `locale` controls the language of the new card's `name`, `description`,
+    and `aliases` — so a user browsing the catalogue in French gets cards
+    written in French. Existing-card matching always runs against the
+    canonical English source so the green tick survives a localized rerun
+    (no duplicate cards across languages); the immutable `catalogueId` is
+    the source of truth for identity. Once created, the card is a regular
+    card and stops following the catalogue's locale.
+
     Permission: callers must already have been gated on `inventory.create`
     by the route layer.
     """
-    flat, meta = await _resolve_active_catalogue(db)
+    flat, meta = await _resolve_active_catalogue(db, locale=locale)
     by_id = {c["id"]: c for c in flat}
+    # English flat is the source of truth for existing-card name matching —
+    # users may have created cards manually with the canonical English name
+    # before importing, and we don't want a French rerun to bypass those
+    # matches and create duplicates. The catalogueId match is locale-agnostic
+    # and runs first regardless.
+    if meta.get("active_locale", "en") != "en":
+        english_flat, _ = await _resolve_active_catalogue(db, locale="en")
+        english_by_id = {c["id"]: c for c in english_flat}
+    else:
+        english_by_id = by_id
     name_index = await _existing_bc_name_index(db)
     cat_id_index = await _existing_bc_catalogue_id_index(db)
 
@@ -440,12 +459,15 @@ async def import_capabilities(
     #   1. catalogueId on attributes — the most reliable signal, set every
     #      time a card was imported through the catalogue. Survives display-
     #      name edits.
-    #   2. case-insensitive display-name match — covers cards the user
-    #      created manually before discovering the catalogue.
+    #   2. case-insensitive display-name match against the canonical English
+    #      name — covers cards the user created manually before discovering
+    #      the catalogue. Always English-anchored so a French import can't
+    #      accidentally duplicate an English-named existing card.
     catalogue_id_to_card_id: dict[str, str] = {}
     for cap in flat:
+        english_name = english_by_id.get(cap["id"], cap)["name"]
         existing_card_id = cat_id_index.get(cap["id"]) or name_index.get(
-            _normalize_name(cap["name"])
+            _normalize_name(english_name)
         )
         if existing_card_id:
             catalogue_id_to_card_id[cap["id"]] = existing_card_id
@@ -485,6 +507,11 @@ async def import_capabilities(
             "catalogueImportedAt": now,
             "capabilityLevel": f"L{cap['level']}",
         }
+        # Track which locale the card was authored in so admins can audit
+        # it later — useful when a tenant is partially translated and rows
+        # land in a mix of languages over time.
+        if meta.get("active_locale", "en") != "en":
+            attrs["catalogueLocale"] = meta["active_locale"]
         if cap.get("aliases"):
             attrs["aliases"] = list(cap["aliases"])
         if cap.get("industry"):
@@ -506,9 +533,14 @@ async def import_capabilities(
         db.add(card)
         await db.flush()  # need card.id to wire any children we create later
         catalogue_id_to_card_id[cap["id"]] = str(card.id)
-        # Keep name_index in sync so a duplicate name within the same batch
-        # doesn't get created twice.
+        # Keep name_index in sync (against the localized name we just wrote
+        # AND the English canonical name) so duplicate selections within the
+        # batch — or a follow-up English import after a French one — both
+        # see the existing match and skip.
         name_index[_normalize_name(cap["name"])] = str(card.id)
+        english_name = english_by_id.get(cap["id"], cap)["name"]
+        if english_name and english_name != cap["name"]:
+            name_index[_normalize_name(english_name)] = str(card.id)
         created.append({"catalogue_id": cap["id"], "card_id": str(card.id)})
         created_in_batch.add(cap["id"])
 

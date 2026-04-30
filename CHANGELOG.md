@@ -10,6 +10,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ### Fixed
 - Capability Catalogue now actually follows the active UI language for users who have a **remote-fetched** catalogue cached. Previously, after an admin clicked **Fetch update**, the cached payload was served as canonical English regardless of the requested locale — language switching looked like a no-op even though `turbo-ea-capabilities` ships translations for all 8 locales. The fetch path now extracts and stores the wheel's `data/i18n/<lang>.json` files alongside the catalogue data, and the serve path applies them. Caches stored before this fix continue to work too: they fall back to the bundled package's translations matched by capability id, so no manual re-fetch is needed to get back into sync.
 
+### Changed
+- Importing a capability from a localized catalogue view now creates the card in that language. A user browsing the catalogue in French and clicking **Create** lands a card whose `name`, `description`, and `aliases` are French — previously every imported card was written in English regardless of which language the user was reading. Card identity stays locale-agnostic via the immutable `catalogueId` attribute, so the green-tick "already exists" check still survives a language switch and there's no risk of duplicate cards across languages. The locale used at import time is recorded under `attributes.catalogueLocale` for auditing.
+
 ## [0.55.0] - 2026-04-29
 
 ### Added

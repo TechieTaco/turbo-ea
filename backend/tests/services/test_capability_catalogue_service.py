@@ -532,11 +532,9 @@ async def test_existing_card_match_uses_english_name_under_localized_fetch(db, m
 
 
 @pytest.mark.asyncio
-async def test_import_uses_canonical_english_names_regardless_of_user_locale(db, monkeypatch):
-    """Imports go through `_resolve_active_catalogue` with no locale arg, so
-    catalogue cards always land in the database with their canonical English
-    names. This keeps the catalogueId/name source-of-truth stable across UI
-    language switches."""
+async def test_import_default_locale_uses_english_names(db, monkeypatch):
+    """Imports without an explicit locale default to English so existing
+    code paths and tests behave unchanged."""
     _install_fake_pkg(monkeypatch)
     from app.services import capability_catalogue_service as svc
 
@@ -550,8 +548,118 @@ async def test_import_uses_canonical_english_names_regardless_of_user_locale(db,
         .all()
     )
     assert len(rows) == 1
-    # English canonical name, not the FR translation.
     assert rows[0].name == "Customer Management"
+
+
+@pytest.mark.asyncio
+async def test_import_localized_writes_card_in_requested_language(db, monkeypatch):
+    """A user browsing the catalogue in French and importing must get a card
+    written in French — name, description, and (when present) aliases all
+    in the active locale. Identity attributes (catalogueId, capabilityLevel,
+    etc.) stay locale-agnostic."""
+    _install_fake_pkg(monkeypatch)
+    from app.services import capability_catalogue_service as svc
+
+    user = await create_user(db, email="u@x.com")
+    result = await svc.import_capabilities(db, user=user, catalogue_ids=["BC-1"], locale="fr")
+    assert len(result["created"]) == 1
+
+    row = (
+        (await db.execute(select(Card).where(Card.attributes["catalogueId"].astext == "BC-1")))
+        .scalars()
+        .one()
+    )
+    assert row.name == "Gestion de la clientèle"
+    assert row.description == "Capacité client de premier niveau"
+    assert row.attributes["catalogueId"] == "BC-1"
+    assert row.attributes["catalogueLocale"] == "fr"
+
+
+@pytest.mark.asyncio
+async def test_import_localized_skips_existing_english_card_no_duplicate(db, monkeypatch):
+    """A French import must NOT create a second card when a card with the
+    canonical English name already exists. The catalogueId / English-name
+    match is the identity check; locale only affects the name written for
+    NEW cards."""
+    _install_fake_pkg(monkeypatch)
+    from app.services import capability_catalogue_service as svc
+
+    user = await create_user(db, email="u@x.com")
+    existing = await create_card(
+        db,
+        card_type="BusinessCapability",
+        name="Customer Management",
+        user_id=user.id,
+    )
+
+    result = await svc.import_capabilities(db, user=user, catalogue_ids=["BC-1"], locale="fr")
+    assert result["created"] == []
+    assert len(result["skipped"]) == 1
+    assert result["skipped"][0]["catalogue_id"] == "BC-1"
+    assert result["skipped"][0]["card_id"] == str(existing.id)
+
+    # Still exactly one card in the DB, English-named (the original).
+    rows = (
+        (await db.execute(select(Card).where(Card.attributes["catalogueId"].astext == "BC-1")))
+        .scalars()
+        .all()
+    ) + (
+        (
+            await db.execute(
+                select(Card).where(Card.type == "BusinessCapability", Card.id == existing.id)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    assert any(r.id == existing.id for r in rows)
+
+
+@pytest.mark.asyncio
+async def test_import_localized_then_english_does_not_duplicate(db, monkeypatch):
+    """Re-importing the same catalogueId in English after a French import
+    must skip — the localized name written by the French run is also tracked
+    against its canonical English name in the in-batch index, so subsequent
+    English calls see the match through `catalogueId`."""
+    _install_fake_pkg(monkeypatch)
+    from app.services import capability_catalogue_service as svc
+
+    user = await create_user(db, email="u@x.com")
+    first = await svc.import_capabilities(db, user=user, catalogue_ids=["BC-1"], locale="fr")
+    assert len(first["created"]) == 1
+
+    second = await svc.import_capabilities(db, user=user, catalogue_ids=["BC-1"])
+    assert second["created"] == []
+    assert len(second["skipped"]) == 1
+
+    # Single row in the DB, still bearing the French name from the first import.
+    rows = (
+        (await db.execute(select(Card).where(Card.attributes["catalogueId"].astext == "BC-1")))
+        .scalars()
+        .all()
+    )
+    assert len(rows) == 1
+    assert rows[0].name == "Gestion de la clientèle"
+
+
+@pytest.mark.asyncio
+async def test_import_localized_field_falls_back_to_english_when_missing(db, monkeypatch):
+    """A French import of a node with no FR translation must still work — the
+    cap inherits English values silently (Capability.localized fallback)."""
+    _install_fake_pkg(monkeypatch)
+    from app.services import capability_catalogue_service as svc
+
+    user = await create_user(db, email="u@x.com")
+    # BC-1.1.1 has no FR override in the fake — expect English fallback.
+    result = await svc.import_capabilities(db, user=user, catalogue_ids=["BC-1.1.1"], locale="fr")
+    assert len(result["created"]) == 1
+    row = (
+        (await db.execute(select(Card).where(Card.attributes["catalogueId"].astext == "BC-1.1.1")))
+        .scalars()
+        .one()
+    )
+    assert row.name == "Lead Capture"  # fallback
+    assert row.attributes["catalogueLocale"] == "fr"
 
 
 # ---------------------------------------------------------------------------
