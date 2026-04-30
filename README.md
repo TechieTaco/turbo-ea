@@ -1,18 +1,27 @@
 # Turbo EA
 
-## ! Important: history was rewritten on 26 Apr 2026, please re-clone or git fetch origin && git reset --hard origin/main
-
-Self-hosted Enterprise Architecture Management platform that creates a **digital twin of your IT landscape**. Inspired by LeanIX, with a fully admin-configurable metamodel — card types, fields, subtypes, and relations are all data, not code.
 
 [![CI](https://github.com/vincentmakes/turbo-ea/actions/workflows/ci.yml/badge.svg)](https://github.com/vincentmakes/turbo-ea/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.12](https://img.shields.io/badge/python-3.12-3776AB.svg)](https://www.python.org/)
 [![React 18](https://img.shields.io/badge/react-18-61DAFB.svg)](https://react.dev/)
-[![Ko-fi](https://img.shields.io/badge/Ko--fi-Support%20this%20project-FF5E5B?logo=ko-fi&logoColor=white)](https://ko-fi.com/vincentmakes)
+[![GitHub Sponsors Badge](https://img.shields.io/badge/GitHub%20Sponsors-FF009D?logo=githubsponsors&logoColor=fff&style=flat-square)](https://github.com/sponsors/vincentmakes)
 
-[Website](https://www.turbo-ea.org) | [User Guide](https://docs.turbo-ea.org) | [Blog](https://www.turbo-ea.org/blog) | [Business Case / Pitch](https://github.com/vincentmakes/turbo-ea/blob/main/business%20case/turbo%20ea%20pitch%20business%20case.pdf)
 
-![Dashboard](marketing-site/assets/screenshots/dashboard.png)
+[Website](https://www.turbo-ea.org) | [User Guide](https://docs.turbo-ea.org) | [Blog](https://www.turbo-ea.org/blog) | [Business Case / Pitch](https://github.com/vincentmakes/turbo-ea/blob/main/business%20case/turbo%20ea%20pitch%20business%20case.pdf)  
+
+<img width="3508" height="731" alt="banner_turboea" src="https://github.com/user-attachments/assets/0d87314b-4e46-4011-b39b-1e5765700f13" />
+
+
+
+  
+
+
+Self-hosted Enterprise Architecture Management platform that creates a **digital twin of your IT landscape**. Inspired by LeanIX, with a fully admin-configurable metamodel — card types, fields, subtypes, and relations are all data, not code.
+
+
+
+
 
 ## Try the Demo
 
@@ -49,6 +58,8 @@ The demo comes pre-populated with the NexaTech Industries dataset — 150+ cards
 - **Inline Title Editing** — Rename cards directly from the title in the detail page header (no dialog needed) with permission-gated controls.
 - **Favorites** — Per-user favorited cards for quick access from the dashboard.
 - **Capability Catalogue** — Browsable industry capability catalogue (`/capabilities`) grouped by industry, with sticky filter bars, quick-filter chips, and a back-to-top button. Use as a reference when designing your own capability map.
+
+![Dashboard](marketing-site/assets/screenshots/dashboard.png)
 
 ### Reporting & Analytics
 
