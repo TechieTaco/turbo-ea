@@ -95,9 +95,10 @@ interface EolPickerProps {
   onCancel: () => void;
   initialProduct?: string;
   resetKey?: number;
+  cardName?: string;
 }
 
-function EolPicker({ onSelect, onCancel, initialProduct, resetKey }: EolPickerProps) {
+function EolPicker({ onSelect, onCancel, initialProduct, resetKey, cardName }: EolPickerProps) {
   const { t } = useTranslation(["cards", "common"]);
   const [productSearch, setProductSearch] = useState(initialProduct || "");
   const [productOptions, setProductOptions] = useState<EolProduct[]>([]);
@@ -201,8 +202,30 @@ function EolPicker({ onSelect, onCancel, initialProduct, resetKey }: EolPickerPr
             }}
           />
         )}
-        sx={{ mb: 2 }}
+        sx={{ mb: 1 }}
       />
+
+      {cardName && cardName.trim() && productSearch.trim() !== cardName.trim() && (
+        <Box sx={{ mb: 2, display: "flex", alignItems: "center", gap: 0.75, flexWrap: "wrap" }}>
+          <Typography variant="caption" color="text.secondary">
+            {t("eol.quickFillHint")}
+          </Typography>
+          <Chip
+            size="small"
+            icon={<MaterialSymbol icon="auto_fix_high" size={14} />}
+            label={cardName}
+            onClick={() => setProductSearch(cardName.trim())}
+            sx={{
+              cursor: "pointer",
+              fontWeight: 500,
+              bgcolor: "primary.main",
+              color: "primary.contrastText",
+              "& .MuiChip-icon": { color: "primary.contrastText" },
+              "&:hover": { bgcolor: "primary.dark" },
+            }}
+          />
+        </Box>
+      )}
 
       {selectedProduct && cyclesLoading && <LinearProgress sx={{ mb: 2 }} />}
 
@@ -597,6 +620,7 @@ export default function EolLinkSection({ card, onSave, initialExpanded }: EolLin
               }}
               initialProduct={eolProduct}
               resetKey={pickerResetKey}
+              cardName={card.name}
             />
           </Box>
         ) : null}
@@ -612,9 +636,16 @@ interface EolLinkDialogProps {
   onClose: () => void;
   onLink: (product: string, cycle: string) => void;
   initialProduct?: string;
+  cardName?: string;
 }
 
-export function EolLinkDialog({ open, onClose, onLink, initialProduct }: EolLinkDialogProps) {
+export function EolLinkDialog({
+  open,
+  onClose,
+  onLink,
+  initialProduct,
+  cardName,
+}: EolLinkDialogProps) {
   const { t } = useTranslation("cards");
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
@@ -630,6 +661,7 @@ export function EolLinkDialog({ open, onClose, onLink, initialProduct }: EolLink
           }}
           onCancel={onClose}
           initialProduct={initialProduct}
+          cardName={cardName}
         />
       </DialogContent>
       <DialogActions />

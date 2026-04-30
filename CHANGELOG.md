@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.55.2] - 2026-04-30
+
+### Added
+- **EOL section — one-click quick fill.** When linking an Application or IT Component to a product on endoflife.date, the picker now shows a clickable "Quick fill: «card name»" chip next to the search field. One click populates the search with the card's name and triggers the existing product search, removing the need to retype it manually. The chip uses the primary brand colour with a magic-wand icon and only appears when the search is empty (or differs from the card name), so it stays out of the way once the user has started typing. Available both on the Card Detail EOL section and in the manual-search dialog from Create Card. Translated into all 8 supported UI locales.
+
 ## [0.55.1] - 2026-04-30
 
 ### Fixed
