@@ -35,7 +35,7 @@ import { useResolveLabel, useResolveMetaLabel } from "@/hooks/useResolveLabel";
 import { useAuth } from "@/hooks/useAuth";
 import { useThemeMode } from "@/hooks/useThemeMode";
 import { useDateFormat } from "@/hooks/useDateFormat";
-import { api } from "@/api/client";
+import { api, ApiError } from "@/api/client";
 import { APPROVAL_STATUS_COLORS } from "@/theme/tokens";
 import type { Card, CardListResponse, FieldDef, Relation, RelationType, TagGroup, TagRef } from "@/types";
 import "ag-grid-community/styles/ag-grid.css";
@@ -282,6 +282,18 @@ export default function InventoryPage() {
   const [massEditValue, setMassEditValue] = useState<unknown>("");
   const [massEditError, setMassEditError] = useState("");
   const [massEditLoading, setMassEditLoading] = useState(false);
+  // Per-card blockers from a partial mass-update — populated when at least
+  // one card couldn't be processed (e.g. approval gate triggered).
+  const [massEditBlockers, setMassEditBlockers] = useState<
+    {
+      id: string;
+      name: string;
+      missingRelations: string[];
+      missingTagGroups: string[];
+      message: string | null;
+    }[]
+  >([]);
+  const [massEditSucceeded, setMassEditSucceeded] = useState(0);
 
   // Mass archive / delete state
   const [massArchiveOpen, setMassArchiveOpen] = useState(false);
@@ -697,27 +709,123 @@ export default function InventoryPage() {
     if (selectedIds.length === 0 || !massEditField) return;
     setMassEditLoading(true);
     setMassEditError("");
+    setMassEditBlockers([]);
+    setMassEditSucceeded(0);
     try {
       if (massEditField === "approval_status") {
-        const action = massEditValue === "APPROVED" ? "approve" : massEditValue === "REJECTED" ? "reject" : "reset";
-        await Promise.all(
-          selectedIds.map((id) => api.post(`/cards/${id}/approval-status?action=${action}`))
+        const action =
+          massEditValue === "APPROVED"
+            ? "approve"
+            : massEditValue === "REJECTED"
+              ? "reject"
+              : "reset";
+        const results = await Promise.allSettled(
+          selectedIds.map((id) =>
+            api.post(`/cards/${id}/approval-status?action=${action}`),
+          ),
         );
-      } else if (massEditField === "subtype") {
+
+        const blockers: typeof massEditBlockers = [];
+        let succeeded = 0;
+        results.forEach((r, i) => {
+          if (r.status === "fulfilled") {
+            succeeded += 1;
+            return;
+          }
+          const id = selectedIds[i];
+          const card = data.find((d) => d.id === id);
+          const name = card?.name ?? id;
+          const reason = r.reason;
+          if (reason instanceof ApiError && reason.status === 400) {
+            const detail = reason.detail as
+              | {
+                  code?: string;
+                  missing_relations?: { label: string }[];
+                  missing_tag_groups?: { name: string }[];
+                }
+              | string
+              | undefined;
+            if (detail && typeof detail === "object" && detail.code === "approval_blocked_mandatory_missing") {
+              blockers.push({
+                id,
+                name,
+                missingRelations: (detail.missing_relations ?? []).map((x) => x.label),
+                missingTagGroups: (detail.missing_tag_groups ?? []).map((x) => x.name),
+                message: null,
+              });
+              return;
+            }
+          }
+          blockers.push({
+            id,
+            name,
+            missingRelations: [],
+            missingTagGroups: [],
+            message: reason instanceof Error ? reason.message : t("massEdit.failed"),
+          });
+        });
+
+        // Always reload — successful approves committed server-side.
+        await loadData();
+
+        if (blockers.length === 0) {
+          setMassEditOpen(false);
+          setMassEditField("");
+          setMassEditValue("");
+          return;
+        }
+        setMassEditSucceeded(succeeded);
+        setMassEditBlockers(blockers);
+        return;
+      }
+
+      if (massEditField === "subtype") {
         await api.patch("/cards/bulk", {
           ids: selectedIds,
           updates: { subtype: massEditValue || null },
         });
       } else if (massEditField.startsWith("attr_")) {
         const attrKey = massEditField.replace("attr_", "");
-        await Promise.all(
+        const results = await Promise.allSettled(
           selectedIds.map((id) => {
             const existing = data.find((d) => d.id === id);
-            const attrs = { ...(existing?.attributes || {}), [attrKey]: massEditValue || null };
+            const attrs = {
+              ...(existing?.attributes || {}),
+              [attrKey]: massEditValue || null,
+            };
             return api.patch(`/cards/${id}`, { attributes: attrs });
-          })
+          }),
         );
+        const blockers: typeof massEditBlockers = [];
+        let succeeded = 0;
+        results.forEach((r, i) => {
+          if (r.status === "fulfilled") {
+            succeeded += 1;
+            return;
+          }
+          const id = selectedIds[i];
+          const card = data.find((d) => d.id === id);
+          blockers.push({
+            id,
+            name: card?.name ?? id,
+            missingRelations: [],
+            missingTagGroups: [],
+            message:
+              r.reason instanceof Error ? r.reason.message : t("massEdit.failed"),
+          });
+        });
+        await loadData();
+        if (blockers.length === 0) {
+          setMassEditOpen(false);
+          setMassEditField("");
+          setMassEditValue("");
+          return;
+        }
+        setMassEditSucceeded(succeeded);
+        setMassEditBlockers(blockers);
+        return;
       }
+
       setMassEditOpen(false);
       setMassEditField("");
       setMassEditValue("");
@@ -1435,7 +1543,7 @@ export default function InventoryPage() {
               color="inherit"
               sx={{ color: "primary.main", bgcolor: "background.paper", textTransform: "none", "&:hover": { bgcolor: "action.selected" } }}
               startIcon={<MaterialSymbol icon="edit" size={16} />}
-              onClick={() => { setMassEditOpen(true); setMassEditField(""); setMassEditValue(""); setMassEditError(""); }}
+              onClick={() => { setMassEditOpen(true); setMassEditField(""); setMassEditValue(""); setMassEditError(""); setMassEditBlockers([]); setMassEditSucceeded(0); }}
             >
               {t("massEdit.title")}
             </Button>
@@ -1511,12 +1619,75 @@ export default function InventoryPage() {
       </Box>
 
       {/* Mass Edit Dialog */}
-      <Dialog open={massEditOpen} onClose={() => setMassEditOpen(false)} maxWidth="xs" fullWidth>
+      <Dialog open={massEditOpen} onClose={() => setMassEditOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle>
           {t("massEdit.dialogTitle", { count: selectedIds.length })}
         </DialogTitle>
         <DialogContent>
           {massEditError && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setMassEditError("")}>{massEditError}</Alert>}
+          {massEditBlockers.length > 0 && (
+            <Alert
+              severity={massEditSucceeded > 0 ? "warning" : "error"}
+              sx={{ mb: 2 }}
+              onClose={() => {
+                setMassEditBlockers([]);
+                setMassEditSucceeded(0);
+              }}
+            >
+              <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.5 }}>
+                {t("massEdit.partialSummary", {
+                  succeeded: massEditSucceeded,
+                  blocked: massEditBlockers.length,
+                })}
+              </Typography>
+              <Box
+                component="ul"
+                sx={{ m: 0, pl: 2, maxHeight: 220, overflowY: "auto" }}
+              >
+                {massEditBlockers.slice(0, 50).map((b) => {
+                  const reasons: string[] = [];
+                  if (b.missingRelations.length)
+                    reasons.push(
+                      t("massEdit.missingRelations", {
+                        items: b.missingRelations.join(", "),
+                      }),
+                    );
+                  if (b.missingTagGroups.length)
+                    reasons.push(
+                      t("massEdit.missingTagGroups", {
+                        items: b.missingTagGroups.join(", "),
+                      }),
+                    );
+                  if (b.message) reasons.push(b.message);
+                  return (
+                    <li key={b.id}>
+                      <Box
+                        component="a"
+                        href={`/cards/${b.id}`}
+                        target="_blank"
+                        rel="noopener"
+                        sx={{ fontWeight: 500, color: "inherit" }}
+                      >
+                        {b.name}
+                      </Box>
+                      {reasons.length > 0 && (
+                        <span> — {reasons.join("; ")}</span>
+                      )}
+                    </li>
+                  );
+                })}
+                {massEditBlockers.length > 50 && (
+                  <li>
+                    <em>
+                      {t("massEdit.andMore", {
+                        count: massEditBlockers.length - 50,
+                      })}
+                    </em>
+                  </li>
+                )}
+              </Box>
+            </Alert>
+          )}
           <FormControl fullWidth size="small" sx={{ mt: 1, mb: 2 }}>
             <InputLabel>{t("massEdit.field")}</InputLabel>
             <Select

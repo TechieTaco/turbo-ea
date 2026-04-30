@@ -152,7 +152,7 @@
   "eol.status.supported": "Supported",
   "eol.status.yesEol": "Yes (EOL)",
   "eol.status.unknown": "Unknown",
-  "vendor.label": "Vendor",
+  "vendor.label": "Provider",
   "vendor.searchPlaceholder": "Search existing providers or type a new name...",
   "vendor.createProvider": "Create Provider \"{{name}}\"",
   "vendor.createNew.title": "Create New Provider",

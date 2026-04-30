@@ -1,8 +1,18 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import CreateCardDialog from "./CreateCardDialog";
+
+// Side-channel for the VendorField mock to expose its onProviderSelected
+// callback to the test, so we can simulate the user picking a Provider.
+const { vendorFieldRef } = vi.hoisted(() => ({
+  vendorFieldRef: {
+    onProviderSelected: null as
+      | ((p: { id: string; name: string } | null) => void)
+      | null,
+  },
+}));
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -27,7 +37,12 @@ vi.mock("@/components/EolLinkSection", () => ({
   EolLinkDialog: () => null,
 }));
 vi.mock("@/components/VendorField", () => ({
-  default: () => null,
+  default: (props: {
+    onProviderSelected?: (p: { id: string; name: string } | null) => void;
+  }) => {
+    vendorFieldRef.onProviderSelected = props.onProviderSelected ?? null;
+    return null;
+  },
 }));
 
 import { api } from "@/api/client";
@@ -72,13 +87,37 @@ const MOCK_TYPES = [
     fields_schema: [],
     is_hidden: false,
   },
+  {
+    key: "ITComponent",
+    label: "IT Component",
+    icon: "memory",
+    color: "#d29270",
+    category: "Technical Architecture",
+    has_hierarchy: true,
+    translations: { label: { en: "IT Component" } },
+    subtypes: [],
+    fields_schema: [],
+    is_hidden: false,
+  },
+];
+
+const MOCK_RELATION_TYPES = [
+  {
+    key: "relProviderToITC",
+    label: "offers",
+    reverse_label: "is offered by",
+    source_type_key: "Provider",
+    target_type_key: "ITComponent",
+    cardinality: "n:m",
+  },
 ];
 
 beforeEach(() => {
   vi.clearAllMocks();
+  vendorFieldRef.onProviderSelected = null;
   vi.mocked(useMetamodel).mockReturnValue({
     types: MOCK_TYPES,
-    relationTypes: [],
+    relationTypes: MOCK_RELATION_TYPES,
     loading: false,
     getType: (key: string) => MOCK_TYPES.find((t) => t.key === key),
     getRelationsForType: () => [],
@@ -222,6 +261,59 @@ describe("CreateCardDialog", () => {
     renderDialog({ open: false });
 
     expect(screen.queryByText("Create Card")).not.toBeInTheDocument();
+  });
+
+  it("posts a Provider relation after the card is created when one was picked", async () => {
+    onCreate.mockResolvedValueOnce("itc-id-456");
+    const user = userEvent.setup();
+
+    renderDialog({ initialType: "ITComponent" });
+
+    // Simulate the user picking a Provider in VendorField (mocked).
+    expect(vendorFieldRef.onProviderSelected).not.toBeNull();
+    act(() =>
+      vendorFieldRef.onProviderSelected!({ id: "prov-1", name: "Acme" }),
+    );
+
+    await user.type(screen.getByRole("textbox", { name: /name/i }), "Server X");
+    await user.click(screen.getByRole("button", { name: /^create$/i }));
+
+    await waitFor(() => {
+      expect(onCreate).toHaveBeenCalled();
+    });
+
+    // Provider is the source side of relProviderToITC, so source_id is the
+    // Provider id and target_id is the freshly created card id.
+    await waitFor(() => {
+      expect(api.post).toHaveBeenCalledWith("/relations", {
+        type: "relProviderToITC",
+        source_id: "prov-1",
+        target_id: "itc-id-456",
+      });
+    });
+
+    // The orphan `attributes.vendor` must NOT be persisted on the card.
+    const createCall = onCreate.mock.calls[0][0];
+    expect(createCall.attributes?.vendor).toBeUndefined();
+  });
+
+  it("does not post a relation when no Provider was picked", async () => {
+    onCreate.mockResolvedValueOnce("itc-id-789");
+    const user = userEvent.setup();
+
+    renderDialog({ initialType: "ITComponent" });
+    await user.type(screen.getByRole("textbox", { name: /name/i }), "No-link");
+    await user.click(screen.getByRole("button", { name: /^create$/i }));
+
+    await waitFor(() => {
+      expect(onCreate).toHaveBeenCalled();
+    });
+
+    // No /relations POST should have happened.
+    const relationsCall = vi
+      .mocked(api.post)
+      .mock.calls.find((c) => c[0] === "/relations");
+    expect(relationsCall).toBeUndefined();
   });
 
   it("searches for parent cards with debounce", async () => {
