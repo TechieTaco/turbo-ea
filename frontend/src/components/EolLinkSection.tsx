@@ -23,7 +23,7 @@ import InputLabel from "@mui/material/InputLabel";
 import LinearProgress from "@mui/material/LinearProgress";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
-import type { Card, EolProduct, EolCycle } from "@/types";
+import type { Card, EolProduct, EolCycle, EolProductMatch } from "@/types";
 
 const EOL_TYPES = ["Application", "ITComponent"];
 
@@ -110,6 +110,9 @@ function EolPicker({ onSelect, onCancel, initialProduct, resetKey, cardName }: E
   const [cyclesLoading, setCyclesLoading] = useState(false);
   const [selectedCycle, setSelectedCycle] = useState("");
   const [error, setError] = useState("");
+  const [eolSuggestions, setEolSuggestions] = useState<EolProductMatch[]>([]);
+  const [eolSearching, setEolSearching] = useState(false);
+  const [eolAutoSearchDone, setEolAutoSearchDone] = useState(false);
 
   // Reset all fields when resetKey changes
   useEffect(() => {
@@ -119,7 +122,36 @@ function EolPicker({ onSelect, onCancel, initialProduct, resetKey, cardName }: E
     setCycles([]);
     setSelectedCycle("");
     setError("");
+    setEolSuggestions([]);
+    setEolAutoSearchDone(false);
   }, [resetKey]);  // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Auto-fuzzy-search using card name (mirrors CreateCardDialog pattern)
+  useEffect(() => {
+    const trimmed = (cardName || "").trim();
+    if (!trimmed || trimmed.length < 2 || selectedProduct) {
+      setEolSuggestions([]);
+      setEolAutoSearchDone(false);
+      return;
+    }
+    if (productSearch && productSearch !== trimmed) return;
+    const timer = setTimeout(async () => {
+      setEolSearching(true);
+      try {
+        const res = await api.get<EolProductMatch[]>(
+          `/eol/products/fuzzy?search=${encodeURIComponent(trimmed)}&limit=5`,
+        );
+        setEolSuggestions(res);
+        setEolAutoSearchDone(true);
+      } catch {
+        setEolSuggestions([]);
+        setEolAutoSearchDone(true);
+      } finally {
+        setEolSearching(false);
+      }
+    }, 600);
+    return () => clearTimeout(timer);
+  }, [cardName, productSearch, selectedProduct]);
 
   // Search products
   useEffect(() => {
@@ -205,26 +237,56 @@ function EolPicker({ onSelect, onCancel, initialProduct, resetKey, cardName }: E
         sx={{ mb: 1 }}
       />
 
-      {cardName && cardName.trim() && productSearch.trim() !== cardName.trim() && (
-        <Box sx={{ mb: 2, display: "flex", alignItems: "center", gap: 0.75, flexWrap: "wrap" }}>
+      {eolSearching && (
+        <Box sx={{ mb: 2 }}>
+          <LinearProgress sx={{ mb: 0.5, borderRadius: 1 }} />
           <Typography variant="caption" color="text.secondary">
-            {t("eol.quickFillHint")}
+            {t("eol.searching", { name: (cardName || "").trim() })}
           </Typography>
-          <Chip
-            size="small"
-            icon={<MaterialSymbol icon="auto_fix_high" size={14} />}
-            label={cardName}
-            onClick={() => setProductSearch(cardName.trim())}
-            sx={{
-              cursor: "pointer",
-              fontWeight: 500,
-              bgcolor: "primary.main",
-              color: "primary.contrastText",
-              "& .MuiChip-icon": { color: "primary.contrastText" },
-              "&:hover": { bgcolor: "primary.dark" },
-            }}
-          />
         </Box>
+      )}
+
+      {!eolSearching && eolAutoSearchDone && eolSuggestions.length > 0 && (
+        <Box sx={{ mb: 2 }}>
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            sx={{ display: "block", mb: 0.5 }}
+          >
+            {t("eol.suggestedMatches")}
+          </Typography>
+          <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
+            {eolSuggestions.map((s) => (
+              <Chip
+                key={s.name}
+                label={s.name}
+                size="small"
+                variant="outlined"
+                onClick={() => {
+                  setProductSearch(s.name);
+                  setSelectedProduct(s.name);
+                }}
+                icon={<MaterialSymbol icon="link" size={14} />}
+                sx={{
+                  cursor: "pointer",
+                  borderColor: s.score >= 0.7 ? "success.main" : "divider",
+                  fontWeight: s.score >= 0.7 ? 600 : 400,
+                  "&:hover": { bgcolor: "action.hover" },
+                }}
+              />
+            ))}
+          </Box>
+        </Box>
+      )}
+
+      {!eolSearching && eolAutoSearchDone && eolSuggestions.length === 0 && (
+        <Typography
+          variant="caption"
+          color="text.secondary"
+          sx={{ mt: 0.5, mb: 2, display: "block" }}
+        >
+          {t("eol.noMatches")}
+        </Typography>
       )}
 
       {selectedProduct && cyclesLoading && <LinearProgress sx={{ mb: 2 }} />}

@@ -130,7 +130,6 @@
   "eol.linkDialog.description": "在 endoflife.date 上搜索产品并选择您正在使用的版本以跟踪其支持生命周期。",
   "eol.searchProduct": "在 endoflife.date 上搜索产品",
   "eol.searchPlaceholder": "例如 python、nodejs、postgresql...",
-  "eol.quickFillHint": "快速填充：",
   "eol.versionCycle": "版本/周期",
   "eol.noCycles": "未找到 \"{{product}}\" 的发布周期。",
   "eol.latest": "最新：{{version}}",

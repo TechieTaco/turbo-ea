@@ -130,7 +130,6 @@
   "eol.linkDialog.description": "Recherchez un produit sur endoflife.date et sélectionnez la version que vous utilisez pour suivre son cycle de support.",
   "eol.searchProduct": "Rechercher un produit sur endoflife.date",
   "eol.searchPlaceholder": "ex. python, nodejs, postgresql…",
-  "eol.quickFillHint": "Remplir rapidement :",
   "eol.versionCycle": "Version / Cycle",
   "eol.noCycles": "Aucun cycle de publication trouvé pour « {{product}} ».",
   "eol.latest": "dernière : {{version}}",
