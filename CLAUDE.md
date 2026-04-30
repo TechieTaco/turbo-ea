@@ -59,6 +59,7 @@ When working on this codebase, follow these conventions:
 - Icons use Google Material Symbols via the `MaterialSymbol` component.
 - When nesting MUI Dialogs, use `disableRestoreFocus` on inner dialogs.
 - **Design tokens**: All colors, spacing aliases, icon sizes, and typography defaults live in `frontend/src/theme/tokens.ts` (re-exported from `frontend/src/theme/index.ts`). Never hardcode hex codes — import the named token (`STATUS_COLORS.success`, `SEVERITY_COLORS.high`, `LAYER_COLORS["Application & Data"]`, etc.). See [`frontend/UI_GUIDELINES.md`](frontend/UI_GUIDELINES.md) for the full design system, layout patterns, and do's/don'ts.
+- **Dependency diagrams — Layered Dependency View (LDV)**: All dependency visualizations (Dependencies Report, Card Detail dependency section, TurboLens Architect target architecture) use Turbo EA's house notation, the **Layered Dependency View**. Cards are grouped into the four EA layers (Strategy & Transformation → Business Architecture → Application & Data → Technical Architecture) as swim lanes; nodes are colored by card type; edges follow metamodel `relation_type` direction with the forward label; proposed/uncommitted cards have a dashed border + green "NEW" badge. Inspired by ArchiMate's layering and the C4 Model's "good defaults" philosophy, but distinct from both — do **not** describe it as "C4" in user-facing strings or documentation. The renderer is `frontend/src/features/reports/C4DiagramView.tsx` + `c4Layout.ts` (file/symbol names retained for compatibility); reuse it for any new dependency view. See `frontend/UI_GUIDELINES.md` § 3.10 for the full spec.
 
 ### Internationalization (i18n)
 - **All user-facing strings must use translation keys**, never hardcoded English text. Use `useTranslation()` from `react-i18next` with the appropriate namespace.
@@ -1225,7 +1226,7 @@ Native AI analysis module — originally ported from [ArchLens](https://github.c
 | `services/turbolens_ai.py` | Shared AI caller + JSON repair (truncation recovery, bracket balancing) |
 | `services/turbolens_vendors.py` | Vendor categorization (45+ categories, batch=15) + resolution (batch=60, hierarchy building) |
 | `services/turbolens_duplicates.py` | Duplicate detection (union-find merge, batch=40) + modernization assessment (batch=25) |
-| `services/turbolens_architect.py` | 5-step architecture AI: objective-driven capability mapping, solution options, gap analysis, dependency analysis, and target architecture with C4 diagram visualization |
+| `services/turbolens_architect.py` | 5-step architecture AI: objective-driven capability mapping, solution options, gap analysis, dependency analysis, and target architecture rendered with the Layered Dependency View |
 | `services/turbolens_nvd.py` | NIST NVD REST client — CPE builder, severity banding, deterministic probability heuristic, 24 h in-memory cache, request throttling (5 req/30 s default, 50 req/30 s with `NVD_API_KEY`), v3.1 → v3.0 → v2 CVSS fallback |
 | `services/turbolens_security.py` | Security & Compliance orchestrator. Two entry points (`run_cve_scan`, `run_compliance_scan`) that can run concurrently, each emitting phase-aware progress to `run.results["progress"]`. Includes the EU AI Act **semantic detector** that flags cards embedding AI regardless of subtype. |
 
@@ -1240,7 +1241,7 @@ The Architecture AI follows a 5-step guided wizard:
    - **3a: Options** — AI generates solution option cards (buy/build/extend/reuse) with impact preview (new/modified/retired components, integrations), estimated cost, duration, and complexity.
    - **3b: Gap Analysis** — After selecting an option, AI identifies capability gaps with ranked market product recommendations (gold/silver/bronze). Users select products via checkboxes.
    - **3c: Dependencies** — After selecting products, AI identifies additional infrastructure/platform dependencies needed. Users select dependencies via checkboxes.
-5. **Target Architecture** (Phase 5) — Capability mapping with matched capabilities (existing vs new), proposed new cards (typed per metamodel, including new BusinessCapabilities), proposed relations, and an interactive C4 dependency diagram rendered via `C4DiagramView` (React Flow). Proposed nodes appear with dashed borders and a green "NEW" badge. Backend guardrails automatically enforce: every new Application links to a BusinessCapability, every new BusinessCapability links to selected Objectives, and orphan cards (no relations) are removed.
+5. **Target Architecture** (Phase 5) — Capability mapping with matched capabilities (existing vs new), proposed new cards (typed per metamodel, including new BusinessCapabilities), proposed relations, and an interactive **Layered Dependency View** rendered via `C4DiagramView` (React Flow). Proposed nodes appear with dashed borders and a green "NEW" badge. Backend guardrails automatically enforce: every new Application links to a BusinessCapability, every new BusinessCapability links to selected Objectives, and orphan cards (no relations) are removed.
 6. **Commit** — Save assessment, then commit via `CommitInitiativeDialog`: creates Initiative card (name defaults to selected option title, editable), all selected new cards with AI-generated descriptions, relations, and a draft ADR capturing the decision context, selected products, and alternatives. Changing approach resets the assessment for re-saving.
 
 ### API Routes (`/turbolens`)
@@ -1312,7 +1313,7 @@ Owner assignment on create / patch / promote auto-creates a single `is_system` T
 | `/turbolens` (Vendors tab) | `TurboLensVendors` | Vendor analysis with category breakdown, grid/table toggle |
 | `/turbolens` (Resolution tab) | `TurboLensResolution` | Canonical vendor hierarchy with confidence scores |
 | `/turbolens` (Duplicates tab) | `TurboLensDuplicates` | Duplicate clusters + modernization assessment (sub-tabs) |
-| `/turbolens` (Architect tab) | `TurboLensArchitect` | 5-step architecture AI wizard with C4 diagram visualization |
+| `/turbolens` (Architect tab) | `TurboLensArchitect` | 5-step architecture AI wizard with Layered Dependency View visualization |
 | `/turbolens` (Security tab) | `TurboLensSecurity` | On-demand CVE + compliance scans with split triggers, phase-aware progress bars, **clickable risk matrix** (drill-through to filtered CVEs), compliance heatmap, and **Create risk** / **Open risk** actions on every finding |
 | `/turbolens` (History tab) | `TurboLensHistory` | Analysis run history table |
 | `/ea-delivery?tab=risks` | `RiskRegisterPage` (embedded in `EADeliveryPage`) | Risk Register — KPIs, Initial/Residual 4×4 matrix toggle, filters, risk table |
@@ -1324,9 +1325,9 @@ Owner assignment on create / patch / promote auto-creates a single `is_system` T
 |-----------|---------|
 | `TurboLensArchitect.tsx` | 5-step wizard: requirement input → Q&A → options → gaps → deps → capability mapping |
 | `CommitInitiativeDialog.tsx` | Initiative creation dialog with card/relation selection, renaming, and progress tracking |
-| `AssessmentViewer.tsx` | Read-only assessment viewer with C4 diagram |
-| `C4DiagramView.tsx` | React Flow-based C4 diagram with grouped swim lanes and mirrored handles for cross-layer edges |
-| `c4Layout.ts` | Automatic layout engine for C4 diagrams (node positioning, edge routing, handle allocation) |
+| `AssessmentViewer.tsx` | Read-only assessment viewer with the Layered Dependency View |
+| `C4DiagramView.tsx` | React Flow-based renderer for the **Layered Dependency View** — grouped swim lanes per EA layer with mirrored handles for cross-layer edges (file name retained for backwards compatibility) |
+| `c4Layout.ts` | Automatic layout engine for the Layered Dependency View (node positioning, edge routing, handle allocation) |
 | `ArchitectureDiagram.tsx` | Mermaid diagram renderer for architecture visualizations |
 | `useAnalysisPolling.ts` | Custom hook: polls analysis runs every 3s until completion/failure |
 | `utils.ts` | Shared helpers: `formatCost()`, color mappers, `ARCHITECT_STEPS` stepper config |

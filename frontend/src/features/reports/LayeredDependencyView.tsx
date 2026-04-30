@@ -24,34 +24,35 @@ import {
   EdgeLabelRenderer,
   ReactFlowProvider,
   useNodes,
+  useReactFlow,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { useResolveMetaLabel } from "@/hooks/useResolveLabel";
 import type { CardType } from "@/types";
 import {
-  buildC4Flow,
-  C4_NODE_W,
-  C4_NODE_H,
+  buildLdvFlow,
+  LDV_NODE_W,
+  LDV_NODE_H,
   type GNode,
   type GEdge,
-  type C4NodeData,
-  type C4GroupData,
-  type C4EdgeData,
-} from "./c4Layout";
+  type LdvNodeData,
+  type LdvGroupData,
+  type LdvEdgeData,
+} from "./layeredDependencyLayout";
 
 /* ------------------------------------------------------------------ */
-/*  Module-level long-press flag (shared between C4Node and click handler) */
+/*  Module-level long-press flag (shared between LdvNode and click handler) */
 /* ------------------------------------------------------------------ */
 
 let _longPressFired = false;
 
 /* ------------------------------------------------------------------ */
-/*  Custom C4 Node                                                     */
+/*  Custom Layered Dependency View Node                                */
 /* ------------------------------------------------------------------ */
 
 const LP_CIRCUMFERENCE = 2 * Math.PI * 15; // ~94.25
 
-const C4Node = memo(({ data }: NodeProps<Node<C4NodeData>>) => {
+const LdvNode = memo(({ data }: NodeProps<Node<LdvNodeData>>) => {
   const rml = useResolveMetaLabel();
   const theme = useTheme();
   const isDark = theme.palette.mode === "dark";
@@ -145,8 +146,8 @@ const C4Node = memo(({ data }: NodeProps<Node<C4NodeData>>) => {
       onPointerCancel={clearTimer}
       onPointerLeave={clearTimer}
       sx={{
-        width: C4_NODE_W,
-        height: C4_NODE_H,
+        width: LDV_NODE_W,
+        height: LDV_NODE_H,
         borderRadius: "8px",
         border: data.proposed ? `2px dashed ${color}` : `1.5px solid ${color}`,
         bgcolor: data.proposed ? (isDark ? `rgba(${r},${g},${b},0.06)` : `rgba(${r},${g},${b},0.06)`) : bg,
@@ -197,7 +198,7 @@ const C4Node = memo(({ data }: NodeProps<Node<C4NodeData>>) => {
               strokeDasharray={LP_CIRCUMFERENCE}
               strokeDashoffset={LP_CIRCUMFERENCE}
               style={{
-                animation: "c4-lp-ring 850ms linear forwards",
+                animation: "ldv-lp-ring 850ms linear forwards",
                 transformOrigin: "center",
                 transform: "rotate(-90deg)",
               }}
@@ -205,7 +206,7 @@ const C4Node = memo(({ data }: NodeProps<Node<C4NodeData>>) => {
           </svg>
         </Box>
       )}
-      <style>{`@keyframes c4-lp-ring{to{stroke-dashoffset:0}}`}</style>
+      <style>{`@keyframes ldv-lp-ring{to{stroke-dashoffset:0}}`}</style>
       {/* Top edge: target handles + source mirrors for flipped (upward) edges */}
       <Handle type="target" position={Position.Top} id="t-1" style={hs("t-1", { left: "12%" })} />
       <Handle type="target" position={Position.Top} id="t-2" style={hs("t-2", { left: "30%" })} />
@@ -261,13 +262,13 @@ const C4Node = memo(({ data }: NodeProps<Node<C4NodeData>>) => {
     </Box>
   );
 });
-C4Node.displayName = "C4Node";
+LdvNode.displayName = "LdvNode";
 
 /* ------------------------------------------------------------------ */
-/*  Custom C4 Group (boundary)                                         */
+/*  Custom Layered Dependency View Group (layer boundary)              */
 /* ------------------------------------------------------------------ */
 
-const C4Group = memo(({ data }: NodeProps<Node<C4GroupData>>) => {
+const LdvGroup = memo(({ data }: NodeProps<Node<LdvGroupData>>) => {
   const theme = useTheme();
   const isDark = theme.palette.mode === "dark";
 
@@ -298,17 +299,17 @@ const C4Group = memo(({ data }: NodeProps<Node<C4GroupData>>) => {
     </Box>
   );
 });
-C4Group.displayName = "C4Group";
+LdvGroup.displayName = "LdvGroup";
 
 /* ------------------------------------------------------------------ */
-/*  Custom C4 Edge (smoothstep + hover highlight)                      */
+/*  Custom Layered Dependency View Edge (smoothstep + hover highlight) */
 /* ------------------------------------------------------------------ */
 
-const C4EdgeComponent = (
+const LdvEdgeComponent = (
   { id, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, data, markerEnd }: EdgeProps,
 ) => {
     const theme = useTheme();
-    const edgeData = data as C4EdgeData | undefined;
+    const edgeData = data as LdvEdgeData | undefined;
     const connectedToHovered = edgeData?.connectedToHovered ?? false;
     // Use parent-managed hover state to prevent stale highlights when
     // React Flow reorders SVG elements (local useState would go stale).
@@ -353,15 +354,15 @@ const C4EdgeComponent = (
     const obstacleBounds = useMemo(() => {
       const bounds: { x1: number; y1: number; x2: number; y2: number }[] = [];
       for (const n of rfNodes) {
-        if (n.type === "c4Node" && n.parentId) {
+        if (n.type === "ldvNode" && n.parentId) {
           const parent = rfNodes.find((p) => p.id === n.parentId);
           if (!parent) continue;
-          const w = (n.style?.width as number) ?? C4_NODE_W;
-          const h = (n.style?.height as number) ?? C4_NODE_H;
+          const w = (n.style?.width as number) ?? LDV_NODE_W;
+          const h = (n.style?.height as number) ?? LDV_NODE_H;
           const ax = parent.position.x + n.position.x;
           const ay = parent.position.y + n.position.y;
           bounds.push({ x1: ax, y1: ay, x2: ax + w, y2: ay + h });
-        } else if (n.type === "c4Group") {
+        } else if (n.type === "ldvGroup") {
           // Group label text area (top-left corner of group box)
           const gx = n.position.x;
           const gy = n.position.y;
@@ -493,12 +494,12 @@ const C4EdgeComponent = (
 /* ------------------------------------------------------------------ */
 
 const nodeTypes = {
-  c4Node: C4Node,
-  c4Group: C4Group,
+  ldvNode: LdvNode,
+  ldvGroup: LdvGroup,
 };
 
 const edgeTypes = {
-  c4Edge: C4EdgeComponent,
+  ldvEdge: LdvEdgeComponent,
 };
 
 /* ------------------------------------------------------------------ */
@@ -525,7 +526,7 @@ interface Props {
 /*  Inner component (needs ReactFlowProvider ancestor)                 */
 /* ------------------------------------------------------------------ */
 
-function C4DiagramInner({
+function LayeredDependencyInner({
   nodes,
   edges,
   types,
@@ -544,9 +545,31 @@ function C4DiagramInner({
   const theme = useTheme();
 
   const { nodes: builtNodes, edges: rfEdges } = useMemo(
-    () => buildC4Flow(nodes, edges, types),
+    () => buildLdvFlow(nodes, edges, types),
     [nodes, edges, types],
   );
+
+  // ReactFlow's `fitView` prop only fits on the initial render. When the parent
+  // navigates to a new centre, the new graph is laid out at different coordinates
+  // and the user sees an empty (off-screen) canvas until the page is refreshed.
+  // Re-fit imperatively whenever the underlying data changes.
+  const { fitView } = useReactFlow();
+  const initialFitDone = useRef(false);
+  useEffect(() => {
+    // Skip the very first effect run — the static `fitView` prop handles the
+    // initial mount with the right timing (after measure-and-layout).
+    if (!initialFitDone.current) {
+      initialFitDone.current = true;
+      return;
+    }
+    // Defer one tick so React Flow has time to apply the new node positions
+    // before computing the bounding box.
+    const handle = window.setTimeout(
+      () => fitView({ padding: 0.15, duration: 300 }),
+      50,
+    );
+    return () => window.clearTimeout(handle);
+  }, [builtNodes, rfEdges, fitView]);
 
   // Interaction mode: "normal" (default), "highlight" (sticky hover), "expand" (add relations)
   type InteractionMode = "normal" | "highlight" | "expand";
@@ -559,9 +582,9 @@ function C4DiagramInner({
   const highlightMode = mode === "highlight";
   const expandMode = mode === "expand";
 
-  // Click handler injected into each c4Node via data.onClick —
+  // Click handler injected into each ldvNode via data.onClick —
   // uses modeRef so the callback always reads the latest mode.
-  const handleC4NodeClick = useCallback(
+  const handleLdvNodeClick = useCallback(
     (nodeId: string, shiftKey: boolean) => {
       const currentMode = modeRef.current;
       if (currentMode === "highlight") {
@@ -580,23 +603,36 @@ function C4DiagramInner({
     [onNodeClick, onNodeShiftClick, onNodeExpand],
   );
 
-  // Inject click + long-press callbacks into c4Node data
+  // Long-press fires onNodeShiftClick directly from the LdvNode pointer-down
+  // timer without going through handleLdvNodeClick. Wrap it here so we still
+  // clear the hover state — otherwise the parent's `ldv-hover-active` dimming
+  // sticks around and the re-centred graph looks empty (only the long-pressed
+  // card stays at full opacity, all neighbours are dimmed to 0.35).
+  const handleLongPress = useCallback(
+    (nodeId: string) => {
+      setHoveredNode(null);
+      onNodeShiftClick?.(nodeId);
+    },
+    [onNodeShiftClick],
+  );
+
+  // Inject click + long-press callbacks into ldvNode data
   const rfNodes = useMemo(
     () =>
       builtNodes.map((n) =>
-        n.type === "c4Node"
+        n.type === "ldvNode"
           ? {
               ...n,
               data: {
                 ...n.data,
                 nodeId: n.id,
-                onClick: handleC4NodeClick,
-                ...(onNodeShiftClick && { onLongPress: onNodeShiftClick }),
+                onClick: handleLdvNodeClick,
+                ...(onNodeShiftClick && { onLongPress: handleLongPress }),
               },
             }
           : n,
       ),
-    [builtNodes, handleC4NodeClick, onNodeShiftClick],
+    [builtNodes, handleLdvNodeClick, onNodeShiftClick, handleLongPress],
   );
 
   // In highlight mode, clicking the canvas (not a node) dismisses the highlight
@@ -632,7 +668,7 @@ function C4DiagramInner({
   const leaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const handleNodeMouseEnter = useCallback((_: React.MouseEvent, node: Node) => {
     if (modeRef.current !== "normal") return; // hover only in normal mode
-    if (node.type === "c4Node") {
+    if (node.type === "ldvNode") {
       if (leaveTimer.current) { clearTimeout(leaveTimer.current); leaveTimer.current = null; }
       setHoveredNode(node.id);
     }
@@ -690,7 +726,7 @@ function C4DiagramInner({
       .map((id) => `.react-flow__node[data-id="${id}"]`)
       .join(",");
     return [
-      `.c4-hover-active .react-flow__node-c4Node { opacity: 0.35; transition: opacity 0.15s; }`,
+      `.ldv-hover-active .react-flow__node-ldvNode { opacity: 0.35; transition: opacity 0.15s; }`,
       `${keep} { opacity: 1 !important; }`,
     ].join("\n");
   }, [hoveredNeighbors]);
@@ -698,7 +734,7 @@ function C4DiagramInner({
   if (rfNodes.length === 0) {
     return (
       <Paper variant="outlined" sx={{ p: 6, textAlign: "center", borderRadius: 2 }}>
-        <Typography color="text.disabled">{t("dependency.c4NoData")}</Typography>
+        <Typography color="text.disabled">{t("dependency.ldvNoData")}</Typography>
       </Paper>
     );
   }
@@ -762,7 +798,7 @@ function C4DiagramInner({
           {t("dependency.shiftClickHint")}
         </Typography>
       </Box>
-      <Box sx={{ flex: 1, minHeight: 0 }} className={hoveredNode ? "c4-hover-active" : undefined}>
+      <Box sx={{ flex: 1, minHeight: 0 }} className={hoveredNode ? "ldv-hover-active" : undefined}>
         {hoverStyle && <style>{hoverStyle}</style>}
         <ReactFlow
           nodes={rfNodes}
@@ -844,10 +880,10 @@ function C4DiagramInner({
 /*  Exported wrapper with ReactFlowProvider                            */
 /* ------------------------------------------------------------------ */
 
-export default function C4DiagramView(props: Props) {
+export default function LayeredDependencyView(props: Props) {
   return (
     <ReactFlowProvider>
-      <C4DiagramInner {...props} />
+      <LayeredDependencyInner {...props} />
     </ReactFlowProvider>
   );
 }

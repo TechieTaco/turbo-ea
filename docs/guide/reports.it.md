@@ -54,17 +54,22 @@ Il **Report Dipendenze** visualizza le **connessioni tra componenti** come un gr
 - **Esplorazione interattiva** — Cliccate su qualsiasi nodo per ricentrare il grafo su quella card
 - **Analisi dell'impatto** — Comprendete il raggio d'azione delle modifiche a un componente specifico
 
-### Vista Diagramma C4
+### Layered Dependency View (vista delle dipendenze a livelli)
 
-![Vista Diagramma C4](../assets/img/en/13b_dependencies_c4.png)
+![Layered Dependency View](../assets/img/en/13b_dependencies_c4.png)
 
-Passate alla vista **Diagramma C4** usando i pulsanti di modalità di visualizzazione nella barra degli strumenti. Questa mostra gli stessi dati di dipendenza utilizzando la notazione C4:
+Passate alla **Layered Dependency View** usando i pulsanti di modalità di visualizzazione nella barra degli strumenti. È la notazione interna di Turbo EA per mostrare le dipendenze tra le card sui quattro livelli EA — ispirata al principio di stratificazione di ArchiMate e alla filosofia dei «buoni valori predefiniti» del modello C4, ma distinta da entrambi:
 
-- **Riquadri di confine** — Le card sono raggruppate per livello architetturale (Strategia, Business, Applicazione, Tecnico) all'interno di rettangoli di confine tratteggiati
+- **Corsie per livello** — Le card sono raggruppate per livello architetturale (Strategia e Trasformazione, Architettura di Business, Applicazione e Dati, Architettura Tecnica) all'interno di rettangoli di confine tratteggiati, in ordine fisso
+- **Nodi colorati per tipo** — Ogni nodo è colorato in base al suo tipo di card ed etichettato con il nome e il tipo della card
+- **Archi orientati ed etichettati** — Gli archi seguono la direzione della relazione del metamodello (origine → destinazione) e portano l'etichetta diretta della relazione (per es. *usa*, *supporta*, *gira su*)
+- **Card proposte** — Nell'assistente TurboLens Architect, le card non ancora confermate hanno un bordo tratteggiato e un badge verde **NEW**
 - **Canvas interattivo** — Spostate, zoomate e usate la minimappa per navigare diagrammi di grandi dimensioni
 - **Cliccate per ispezionare** — Cliccate su qualsiasi nodo per aprire il pannello laterale di dettaglio della card
-- **Nessuna card centrale richiesta** — La vista C4 mostra tutte le card che corrispondono al filtro di tipo corrente
+- **Nessuna card centrale richiesta** — La Layered Dependency View mostra tutte le card che corrispondono al filtro di tipo corrente
 - **Evidenziazione delle connessioni** — Passate il mouse su una card per evidenziare le sue connessioni; sui dispositivi touch, usate il pulsante di evidenziazione nel pannello dei controlli per evidenziare con il tocco
+
+La stessa vista viene riutilizzata nella pagina di dettaglio della card (mostrando il vicinato di dipendenze immediato della card) e nell'assistente [TurboLens Architect](turbolens.md#architecture-ai), così le dipendenze appaiono uguali ovunque.
 
 ## Report Costi
 

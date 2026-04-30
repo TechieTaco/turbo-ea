@@ -21,8 +21,8 @@ import type {
   GapAnalysisResult,
   RelationType,
 } from "@/types";
-import type { GNode, GEdge } from "@/features/reports/c4Layout";
-import C4DiagramView from "@/features/reports/C4DiagramView";
+import type { GNode, GEdge } from "@/features/reports/layeredDependencyLayout";
+import LayeredDependencyView from "@/features/reports/LayeredDependencyView";
 import { approachColor, effortColor, urgencyColor } from "./utils";
 
 function buildMergedGraph(
@@ -667,7 +667,7 @@ export default function AssessmentViewer() {
                   </Typography>
                 </Box>
                 <Box sx={{ height: 500 }}>
-                  <C4DiagramView
+                  <LayeredDependencyView
                     nodes={merged.nodes}
                     edges={merged.edges}
                     types={types}

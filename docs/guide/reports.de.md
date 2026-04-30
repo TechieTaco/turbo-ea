@@ -54,17 +54,22 @@ Der **Abhängigkeitsbericht** visualisiert **Verbindungen zwischen Komponenten**
 - **Interaktive Erkundung** — Klicken Sie auf einen beliebigen Knoten, um den Graph auf diese Karte zu zentrieren
 - **Auswirkungsanalyse** — Den Wirkungsradius von Änderungen an einer bestimmten Komponente verstehen
 
-### C4-Diagrammansicht
+### Layered Dependency View (geschichtete Abhängigkeitsansicht)
 
-![C4-Diagrammansicht](../assets/img/en/13b_dependencies_c4.png)
+![Layered Dependency View](../assets/img/en/13b_dependencies_c4.png)
 
-Wechseln Sie über die Ansichtsmodus-Schaltflächen in der Symbolleiste zur **C4-Diagramm**-Ansicht. Diese stellt die gleichen Abhängigkeitsdaten in C4-Notation dar:
+Wechseln Sie über die Ansichtsmodus-Schaltflächen in der Symbolleiste zur **Layered Dependency View**. Dies ist die hauseigene Notation von Turbo EA, um Abhängigkeiten zwischen Karten über die vier EA-Ebenen hinweg darzustellen — inspiriert vom Schichtenprinzip von ArchiMate und der „Good Defaults"-Philosophie des C4-Modells, aber von beiden zu unterscheiden:
 
-- **Grenzrahmen** — Karten werden nach Architekturebene (Strategie, Business, Anwendung, Technologie) in gestrichelten Grenzrechtecken gruppiert
+- **Geschichtete Swimlanes** — Karten werden nach Architekturebene (Strategie & Transformation, Geschäftsarchitektur, Anwendung & Daten, Technische Architektur) in gestrichelten Grenzrechtecken in fester Reihenfolge gruppiert
+- **Typ-farbige Knoten** — Jeder Knoten ist nach seinem Kartentyp eingefärbt und mit Kartenname und Typ beschriftet
+- **Gerichtete, beschriftete Kanten** — Kanten folgen der Beziehungsrichtung des Metamodells (Quelle → Ziel) und tragen die Vorwärtsbeschriftung der Beziehung (z. B. *verwendet*, *unterstützt*, *läuft auf*)
+- **Vorgeschlagene Karten** — Im TurboLens-Architect-Wizard haben noch nicht festgeschriebene Karten einen gestrichelten Rand und ein grünes **NEW**-Abzeichen
 - **Interaktive Leinwand** — Schwenken, Zoomen und die Minimap nutzen, um große Diagramme zu navigieren
 - **Klicken zum Inspizieren** — Klicken Sie auf einen beliebigen Knoten, um das Kartendetail-Seitenpanel zu öffnen
-- **Kein Zentralknoten erforderlich** — Die C4-Ansicht zeigt alle Karten an, die dem aktuellen Typfilter entsprechen
+- **Kein Zentralknoten erforderlich** — Die Layered Dependency View zeigt alle Karten an, die dem aktuellen Typfilter entsprechen
 - **Verbindungshervorhebung** — Fahren Sie mit der Maus über eine Karte, um ihre Verbindungen hervorzuheben; auf Touch-Geräten verwenden Sie die Hervorhebungs-Schaltfläche im Bedienfeld zum Tippen-Hervorheben
+
+Dieselbe Ansicht wird auf der Kartendetailseite (zeigt die unmittelbare Abhängigkeits-Nachbarschaft der Karte) und im [TurboLens-Architect](turbolens.md#architecture-ai)-Wizard wiederverwendet, sodass Abhängigkeiten überall gleich aussehen.
 
 ## Kostenbericht
 

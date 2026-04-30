@@ -2,7 +2,8 @@
  * ArchitectureDiagram — React Flow visualization for TurboLens Architect results.
  *
  * Converts the structured ArchitectureResult (layers + components + integrations)
- * into an interactive C4-style diagram using @xyflow/react and dagre layout.
+ * into an interactive Layered Dependency View (Turbo EA's house notation; see
+ * frontend/UI_GUIDELINES.md § 3.10) using @xyflow/react and dagre layout.
  */
 
 import { useMemo, memo, useState, useCallback } from "react";

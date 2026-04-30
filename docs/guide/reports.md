@@ -54,17 +54,22 @@ The **Dependencies Report** visualizes **connections between components** as a n
 - **Interactive exploration** — Click any node to recenter the graph on that card
 - **Impact analysis** — Understand the blast radius of changes to a specific component
 
-### C4 Diagram View
+### Layered Dependency View
 
-![C4 Diagram View](../assets/img/en/13b_dependencies_c4.png)
+![Layered Dependency View](../assets/img/en/13b_dependencies_c4.png)
 
-Toggle to the **C4 Diagram** view using the view-mode buttons in the toolbar. This renders the same dependency data using C4-notation:
+Toggle to the **Layered Dependency View** using the view-mode buttons in the toolbar. This is Turbo EA's house notation for showing dependencies between cards across the four EA layers — inspired by ArchiMate's layering and the C4 Model's "good defaults" philosophy, but distinct from both:
 
-- **Boundary boxes** — Cards are grouped by architectural layer (Strategy, Business, Application, Technical) inside dashed boundary rectangles
+- **Layered swim lanes** — Cards are grouped by architectural layer (Strategy & Transformation, Business Architecture, Application & Data, Technical Architecture) inside dashed boundary rectangles, in fixed order
+- **Type-colored nodes** — Each node is colored by its card type and labelled with the card name and type
+- **Directional labelled edges** — Edges follow the metamodel relation direction (source → target) and carry the relation's forward label (e.g. *uses*, *supports*, *runs on*)
+- **Proposed cards** — In the TurboLens Architect wizard, not-yet-committed cards have a dashed border and a green **NEW** badge
 - **Interactive canvas** — Pan, zoom, and use the minimap to navigate large diagrams
 - **Click to inspect** — Click any node to open the card detail side panel
-- **No center card required** — The C4 view shows all cards matching the current type filter
+- **No center card required** — The Layered Dependency View shows all cards matching the current type filter
 - **Connection highlighting** — Hover over a card to highlight its connections; on touch devices, use the highlight toggle button in the controls panel to tap-highlight instead
+
+The same view is reused on the Card Detail page (showing the card's immediate dependency neighbourhood) and in the [TurboLens Architect](turbolens.md#architecture-ai) wizard, so dependencies look the same everywhere.
 
 ## Cost Report
 

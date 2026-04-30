@@ -164,7 +164,7 @@ A etapa final gera um mapeamento de capacidades abrangente:
 | **Capacidades** | Lista de Business Capabilities correspondentes — as existentes (verde) e as recentemente propostas (azul) |
 | **Cards Propostos** | Novos cards a criar no seu panorama, mostrados com os respetivos ícones de tipo de card e subtipos |
 | **Relações Propostas** | Ligações entre cards propostos e elementos do panorama existente |
-| **Diagrama de Dependências** | Diagrama C4 interativo que mostra nós existentes ao lado de nós propostos (bordas tracejadas com distintivo verde «NOVO»). Mova, aproxime e explore a arquitetura visualmente |
+| **Diagrama de Dependências** | [Layered Dependency View](reports.md#layered-dependency-view-vista-de-dependencias-em-camadas) interativa que mostra nós existentes ao lado de nós propostos (bordas tracejadas com distintivo verde «NOVO»). Mova, aproxime e explore a arquitetura visualmente |
 
 Nesta etapa, pode clicar em **Escolher Diferente** para voltar atrás e selecionar uma opção de solução diferente, ou **Recomeçar** para iniciar uma avaliação completamente nova.
 

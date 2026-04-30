@@ -181,7 +181,7 @@ export default function CardDetailSidePanel({ cardId, open, onClose }: Props) {
             perms={perms}
             onCardUpdate={setCard}
             showBpmTabs={false}
-            showC4Section={false}
+            showLdvSection={false}
           />
         )}
       </Box>

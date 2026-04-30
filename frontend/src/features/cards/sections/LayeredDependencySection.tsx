@@ -7,16 +7,16 @@ import AccordionDetails from "@mui/material/AccordionDetails";
 import CircularProgress from "@mui/material/CircularProgress";
 import { useTranslation } from "react-i18next";
 import MaterialSymbol from "@/components/MaterialSymbol";
-import C4DiagramView from "@/features/reports/C4DiagramView";
+import LayeredDependencyView from "@/features/reports/LayeredDependencyView";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { api } from "@/api/client";
-import type { GNode, GEdge } from "@/features/reports/c4Layout";
+import type { GNode, GEdge } from "@/features/reports/layeredDependencyLayout";
 
 interface Props {
   cardId: string;
 }
 
-export default function C4DiagramSection({ cardId }: Props) {
+export default function LayeredDependencySection({ cardId }: Props) {
   const { t } = useTranslation(["cards"]);
   const { types } = useMetamodel();
 
@@ -91,7 +91,7 @@ export default function C4DiagramSection({ cardId }: Props) {
 
   const nodeMap = useMemo(() => new Map(nodes.map((n) => [n.id, n])), [nodes]);
 
-  // (c4Visible computed below with expand support)
+  // (ldvVisible computed below with expand support)
 
   const centerNode = nodeMap.get(center);
 
@@ -146,7 +146,7 @@ export default function C4DiagramSection({ cardId }: Props) {
   }, []);
 
   // BFS from center + expanded nodes to build visible neighborhood
-  const c4Visible = useMemo(() => {
+  const ldvVisible = useMemo(() => {
     if (!center || !nodeMap.has(center))
       return { nodes: [] as GNode[], edges: [] as GEdge[] };
     const visited = new Set<string>([center]);
@@ -167,7 +167,7 @@ export default function C4DiagramSection({ cardId }: Props) {
     };
   }, [center, nodes, edges, adjMap, nodeMap, expandedNodes]);
 
-  const hasData = c4Visible.nodes.length > 0;
+  const hasData = ldvVisible.nodes.length > 0;
 
   return (
     <Accordion
@@ -201,9 +201,9 @@ export default function C4DiagramSection({ cardId }: Props) {
         )}
         {!loading && !error && hasData && (
           <Box sx={{ height: 600 }}>
-            <C4DiagramView
-              nodes={c4Visible.nodes}
-              edges={c4Visible.edges}
+            <LayeredDependencyView
+              nodes={ldvVisible.nodes}
+              edges={ldvVisible.edges}
               types={types}
               onNodeClick={handleNodeClick}
               onNodeShiftClick={navigateTo}

@@ -54,17 +54,22 @@ Le **Rapport Dépendances** visualise les **connexions entre composants** sous f
 - **Exploration interactive** -- Cliquer sur n'importe quel nœud pour recentrer le graphe sur cette fiche
 - **Analyse d'impact** -- Comprendre le rayon d'impact des modifications sur un composant spécifique
 
-### Vue Diagramme C4
+### Layered Dependency View (vue de dépendances par couches)
 
-![Vue Diagramme C4](../assets/img/en/13b_dependencies_c4.png)
+![Layered Dependency View](../assets/img/en/13b_dependencies_c4.png)
 
-Basculez vers la vue **Diagramme C4** à l'aide des boutons de mode d'affichage dans la barre d'outils. Celle-ci restitue les mêmes données de dépendances en notation C4 :
+Basculez vers la **Layered Dependency View** à l'aide des boutons de mode d'affichage dans la barre d'outils. Il s'agit de la notation maison de Turbo EA pour représenter les dépendances entre fiches selon les quatre couches EA — inspirée du principe de stratification d'ArchiMate et de la philosophie « bons défauts » du modèle C4, mais distincte des deux :
 
-- **Cadres de périmètre** — Les fiches sont regroupées par couche architecturale (Stratégie, Métier, Application, Technique) dans des rectangles de périmètre en pointillés
+- **Couloirs par couche** — Les fiches sont regroupées par couche architecturale (Stratégie & Transformation, Architecture Métier, Application & Données, Architecture Technique) dans des rectangles de périmètre en pointillés, dans un ordre fixe
+- **Nœuds colorés par type** — Chaque nœud est coloré selon son type de fiche et étiqueté avec le nom et le type de la fiche
+- **Arêtes orientées et étiquetées** — Les arêtes suivent la direction de la relation du métamodèle (source → cible) et portent l'étiquette directe de la relation (par ex. *utilise*, *supporte*, *s'exécute sur*)
+- **Fiches proposées** — Dans l'assistant TurboLens Architect, les fiches non encore validées ont une bordure en pointillés et un badge vert **NEW**
 - **Canevas interactif** — Déplacez, zoomez et utilisez la minimap pour naviguer dans les grands diagrammes
 - **Cliquer pour inspecter** — Cliquez sur n'importe quel nœud pour ouvrir le panneau latéral de détail de la fiche
-- **Pas de fiche centrale requise** — La vue C4 affiche toutes les fiches correspondant au filtre de type actuel
+- **Pas de fiche centrale requise** — La Layered Dependency View affiche toutes les fiches correspondant au filtre de type actuel
 - **Mise en surbrillance des connexions** — Survolez une fiche pour mettre en surbrillance ses connexions ; sur les appareils tactiles, utilisez le bouton de surbrillance dans le panneau de contrôle pour mettre en surbrillance par toucher
+
+La même vue est réutilisée sur la page de détail de fiche (montrant le voisinage de dépendances immédiat de la fiche) et dans l'assistant [TurboLens Architect](turbolens.md#architecture-ai), afin que les dépendances apparaissent de la même manière partout.
 
 ## Rapport Coûts
 

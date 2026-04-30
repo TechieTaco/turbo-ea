@@ -164,7 +164,7 @@ The final step generates a comprehensive capability mapping:
 | **Capabilities** | List of matched Business Capabilities — existing ones (green) and newly proposed ones (blue) |
 | **Proposed Cards** | New cards to be created in your landscape, shown with their card type icons and subtypes |
 | **Proposed Relations** | Connections between proposed cards and existing landscape elements |
-| **Dependency Diagram** | Interactive C4 diagram showing existing nodes alongside proposed nodes (dashed borders with green "NEW" badge). Pan, zoom, and explore the architecture visually |
+| **Dependency Diagram** | Interactive [Layered Dependency View](reports.md#layered-dependency-view) showing existing nodes alongside proposed nodes (dashed borders with green "NEW" badge). Pan, zoom, and explore the architecture visually |
 
 From this step, you can click **Choose Different** to go back and select a different solution option, or **Start Over** to begin a completely new assessment.
 
