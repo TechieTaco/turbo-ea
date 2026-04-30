@@ -24,6 +24,7 @@ import {
   EdgeLabelRenderer,
   ReactFlowProvider,
   useNodes,
+  useReactFlow,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { useResolveMetaLabel } from "@/hooks/useResolveLabel";
@@ -547,6 +548,28 @@ function LayeredDependencyInner({
     () => buildLdvFlow(nodes, edges, types),
     [nodes, edges, types],
   );
+
+  // ReactFlow's `fitView` prop only fits on the initial render. When the parent
+  // navigates to a new centre, the new graph is laid out at different coordinates
+  // and the user sees an empty (off-screen) canvas until the page is refreshed.
+  // Re-fit imperatively whenever the underlying data changes.
+  const { fitView } = useReactFlow();
+  const initialFitDone = useRef(false);
+  useEffect(() => {
+    // Skip the very first effect run — the static `fitView` prop handles the
+    // initial mount with the right timing (after measure-and-layout).
+    if (!initialFitDone.current) {
+      initialFitDone.current = true;
+      return;
+    }
+    // Defer one tick so React Flow has time to apply the new node positions
+    // before computing the bounding box.
+    const handle = window.setTimeout(
+      () => fitView({ padding: 0.15, duration: 300 }),
+      50,
+    );
+    return () => window.clearTimeout(handle);
+  }, [builtNodes, rfEdges, fitView]);
 
   // Interaction mode: "normal" (default), "highlight" (sticky hover), "expand" (add relations)
   type InteractionMode = "normal" | "highlight" | "expand";
