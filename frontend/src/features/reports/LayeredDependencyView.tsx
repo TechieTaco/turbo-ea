@@ -580,6 +580,19 @@ function LayeredDependencyInner({
     [onNodeClick, onNodeShiftClick, onNodeExpand],
   );
 
+  // Long-press fires onNodeShiftClick directly from the LdvNode pointer-down
+  // timer without going through handleLdvNodeClick. Wrap it here so we still
+  // clear the hover state — otherwise the parent's `ldv-hover-active` dimming
+  // sticks around and the re-centred graph looks empty (only the long-pressed
+  // card stays at full opacity, all neighbours are dimmed to 0.35).
+  const handleLongPress = useCallback(
+    (nodeId: string) => {
+      setHoveredNode(null);
+      onNodeShiftClick?.(nodeId);
+    },
+    [onNodeShiftClick],
+  );
+
   // Inject click + long-press callbacks into ldvNode data
   const rfNodes = useMemo(
     () =>
@@ -591,12 +604,12 @@ function LayeredDependencyInner({
                 ...n.data,
                 nodeId: n.id,
                 onClick: handleLdvNodeClick,
-                ...(onNodeShiftClick && { onLongPress: onNodeShiftClick }),
+                ...(onNodeShiftClick && { onLongPress: handleLongPress }),
               },
             }
           : n,
       ),
-    [builtNodes, handleLdvNodeClick, onNodeShiftClick],
+    [builtNodes, handleLdvNodeClick, onNodeShiftClick, handleLongPress],
   );
 
   // In highlight mode, clicking the canvas (not a node) dismisses the highlight
