@@ -49,12 +49,19 @@ export default function MyFavoritesSection() {
   }, []);
 
   const removeFavorite = async (card: CardType) => {
+    // Optimistic update — show the snackbar and remove the card from the
+    // list immediately so iOS users on slower connections don't wait on
+    // the network round-trip before the undo affordance appears. Roll
+    // back if the request fails.
+    setCards((prev) => prev.filter((c) => c.id !== card.id));
+    setUndoSnack(card);
     try {
       await api.delete(`/favorites/${card.id}`);
-      setCards((prev) => prev.filter((c) => c.id !== card.id));
-      setUndoSnack(card);
     } catch {
-      // best effort
+      setCards((prev) =>
+        prev.some((c) => c.id === card.id) ? prev : [card, ...prev].slice(0, MAX_VISIBLE),
+      );
+      setUndoSnack(null);
     }
   };
 
@@ -122,7 +129,15 @@ export default function MyFavoritesSection() {
       <Snackbar
         open={!!undoSnack}
         autoHideDuration={UNDO_TIMEOUT_MS}
-        onClose={() => setUndoSnack(null)}
+        // iOS Safari fires touchstart on virtually every tap or scroll,
+        // which MUI translates into a "clickaway" close — that was
+        // dismissing the snackbar after roughly a second on iPhone.
+        // Only honour timeouts and the explicit close button.
+        onClose={(_event, reason) => {
+          if (reason === "clickaway") return;
+          setUndoSnack(null);
+        }}
+        ClickAwayListenerProps={{ mouseEvent: false, touchEvent: false }}
         anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
         message={
           undoSnack
@@ -130,9 +145,19 @@ export default function MyFavoritesSection() {
             : ""
         }
         action={
-          <Button color="secondary" size="small" onClick={undoRemove}>
-            {t("common:actions.undo")}
-          </Button>
+          <>
+            <Button color="secondary" size="small" onClick={undoRemove}>
+              {t("common:actions.undo")}
+            </Button>
+            <IconButton
+              size="small"
+              color="inherit"
+              aria-label={t("common:actions.close")}
+              onClick={() => setUndoSnack(null)}
+            >
+              <MaterialSymbol icon="close" size={18} />
+            </IconButton>
+          </>
         }
       />
     </SectionPaper>
