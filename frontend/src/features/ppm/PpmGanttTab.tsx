@@ -1284,48 +1284,35 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
     };
   }, [ganttTasks, dependencies]);
 
+  // Direct (non-debounced) bump. React 18 already auto-batches state updates
+  // within a microtask, so multiple bumps in the same task collapse to one
+  // render — and for cross-task bursts (e.g. mouse-wheel scroll fires one
+  // event per frame) we genuinely WANT a render per event, not less.
+  const bumpArrowTick = useCallback(() => {
+    setArrowTick((t) => t + 1);
+  }, []);
+
   useEffect(() => {
     const el = ganttRef.current;
     if (!el) return;
+    bumpArrowTick();
 
-    // rAF-throttled state bump — cap to one measurement per animation frame,
-    // but DON'T cancel a pending frame on each call (so updates land every
-    // frame during continuous scroll instead of being held to the end).
-    let scheduled = false;
-    const bump = () => {
-      if (scheduled) return;
-      scheduled = true;
-      requestAnimationFrame(() => {
-        scheduled = false;
-        setArrowTick((t) => t + 1);
-      });
-    };
-
-    bump();
-
-    // Capture-phase scroll on document. `scroll` events don't bubble, so a
-    // listener on a specific element only fires if that exact element scrolls
-    // — if the library's scroll containers don't exist yet at mount time, an
-    // attached-once listener never fires. Capture-phase on document catches
-    // ALL scrolls regardless of timing or which element scrolled. The rAF
-    // throttle keeps the cost negligible.
+    // Capture-phase scroll on document picks up scrolls on ANY descendant
+    // element of the gantt regardless of when that element was created.
     const onAnyScroll = (e: Event) => {
       const target = e.target;
-      if (target instanceof Node && el.contains(target)) bump();
+      if (target instanceof Node && el.contains(target)) bumpArrowTick();
     };
     document.addEventListener("scroll", onAnyScroll, true);
 
-    const resize = new ResizeObserver(bump);
+    const resize = new ResizeObserver(bumpArrowTick);
     resize.observe(el);
 
-    // Catch lib re-renders (drags, view-mode changes) that move bars without
-    // scroll. We ignore mutations inside our own overlay so an arrow repaint
-    // can't re-trigger measurement.
     const mut = new MutationObserver((mutations) => {
       for (const m of mutations) {
         const t = m.target;
         if (t instanceof Element && t.closest(".ppm-arrow-overlay")) continue;
-        bump();
+        bumpArrowTick();
         return;
       }
     });
@@ -1336,7 +1323,7 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
       resize.disconnect();
       mut.disconnect();
     };
-  }, []);
+  }, [bumpArrowTick]);
 
   /** Compute pixel coords for every dependency arrow.  Returns viewport-
    *  relative coordinates we then translate to overlay-local in render. */
@@ -1584,6 +1571,10 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
       {/* Gantt Chart — always shown, with empty row at bottom */}
       <Box
         ref={ganttRef}
+        // Belt-and-suspenders: React's onScrollCapture catches scroll events
+        // in the capture phase on any descendant. Pairs with the
+        // `document.addEventListener('scroll', …, true)` listener above.
+        onScrollCapture={bumpArrowTick}
         sx={{
           position: "relative",
           /* ── Base styles ── */
