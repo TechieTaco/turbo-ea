@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.57.1] - 2026-05-01
+
+### Changed
+- **Card Detail header — quality and subtype redesigned for visual consistency.** The data-quality circular wheel is replaced with a pill-shaped progress bar that matches the height of the Lifecycle and Approval Status pills next to it (24px, outlined, color-coded green / orange / red with an internal fill that visualises the percentage). The subtype, which used to render as a small outlined pill displaying the raw subtype key, is now inline text rendered after a middle-dot separator next to the card type label, both colored with the card type's brand color and resolved through the i18n translation map so it displays the localised label instead of the key.
+
 ## [0.57.0] - 2026-05-01
 
 ### Added

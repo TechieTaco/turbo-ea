@@ -1,5 +1,5 @@
 export {
-  DataQualityRing,
+  DataQualityPill,
   PHASES,
   PHASE_LABELS,
   safeString,

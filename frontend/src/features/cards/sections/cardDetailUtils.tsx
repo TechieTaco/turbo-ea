@@ -10,7 +10,6 @@ import Switch from "@mui/material/Switch";
 import TextField from "@mui/material/TextField";
 import Tooltip from "@mui/material/Tooltip";
 import InputAdornment from "@mui/material/InputAdornment";
-import { useTheme } from "@mui/material/styles";
 import { useTranslation } from "react-i18next";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { useResolveLabel } from "@/hooks/useResolveLabel";
@@ -28,55 +27,51 @@ export function getUrlErrorMsg(t: (key: string) => string): string {
   return t("utils.urlError");
 }
 
-// ── Data Quality Ring ───────────────────────────────────────────
-export function DataQualityRing({ value }: { value: number }) {
+// ── Data Quality Pill ───────────────────────────────────────────
+export function DataQualityPill({ value }: { value: number }) {
   const { t } = useTranslation(["cards", "common"]);
-  const theme = useTheme();
-  const size = 36;
-  const sw = 3.5;
-  const r = (size - sw) / 2;
-  const circ = 2 * Math.PI * r;
-  const offset = circ - (value / 100) * circ;
-  const color = value >= 80 ? "#4caf50" : value >= 50 ? "#ff9800" : "#f44336";
+  const v = Math.max(0, Math.min(100, Math.round(value)));
+  const color = v >= 80 ? "#4caf50" : v >= 50 ? "#ff9800" : "#f44336";
   return (
-    <Tooltip title={t("utils.dataQuality", { value: Math.round(value) })}>
+    <Tooltip title={t("utils.dataQuality", { value: v })}>
       <Box
         sx={{
           position: "relative",
+          height: 24,
+          minWidth: 52,
+          borderRadius: "12px",
+          border: `1px solid ${color}`,
+          overflow: "hidden",
           display: "inline-flex",
           alignItems: "center",
           justifyContent: "center",
-          width: size,
-          height: size,
+          bgcolor: "transparent",
+          px: 1,
+          boxSizing: "border-box",
         }}
       >
-        <svg width={size} height={size} style={{ transform: "rotate(-90deg)" }}>
-          <circle
-            cx={size / 2}
-            cy={size / 2}
-            r={r}
-            fill="none"
-            stroke={theme.palette.divider}
-            strokeWidth={sw}
-          />
-          <circle
-            cx={size / 2}
-            cy={size / 2}
-            r={r}
-            fill="none"
-            stroke={color}
-            strokeWidth={sw}
-            strokeDasharray={circ}
-            strokeDashoffset={offset}
-            strokeLinecap="round"
-          />
-        </svg>
+        <Box
+          sx={{
+            position: "absolute",
+            top: 0,
+            bottom: 0,
+            left: 0,
+            width: `${v}%`,
+            bgcolor: color,
+            opacity: 0.18,
+          }}
+        />
         <Typography
           variant="caption"
           fontWeight={700}
-          sx={{ position: "absolute", fontSize: "0.625rem" }}
+          sx={{
+            position: "relative",
+            color,
+            lineHeight: 1,
+            fontSize: "0.7rem",
+          }}
         >
-          {Math.round(value)}%
+          {v}%
         </Typography>
       </Box>
     </Tooltip>

@@ -15,7 +15,7 @@ import LifecycleBadge from "@/components/LifecycleBadge";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useResolveMetaLabel } from "@/hooks/useResolveLabel";
 import { api } from "@/api/client";
-import { DataQualityRing } from "@/features/cards/sections";
+import { DataQualityPill } from "@/features/cards/sections";
 import CardDetailContent from "@/features/cards/CardDetailContent";
 import type { Card, CardEffectivePermissions } from "@/types";
 
@@ -149,7 +149,7 @@ export default function CardDetailSidePanel({ cardId, open, onClose }: Props) {
           </Box>
           {card && (
             <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-              <DataQualityRing value={card.data_quality} />
+              <DataQualityPill value={card.data_quality} />
               <LifecycleBadge lifecycle={card.lifecycle} />
               <ApprovalStatusBadge status={card.approval_status} />
             </Box>
