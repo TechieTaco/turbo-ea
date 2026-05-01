@@ -190,7 +190,7 @@ class TestAdminDashboardReport:
         app_pipeline = next(r for r in body["approval_pipeline"] if r["type"] == "Application")
         assert app_pipeline["draft"] == 1
         assert app_pipeline["broken"] == 1
-        assert app_pipeline["pending"] == 0
+        assert app_pipeline["rejected"] == 0
 
         # Oldest overdue todo includes the assignee name.
         assert len(body["oldest_overdue_todos"]) == 1

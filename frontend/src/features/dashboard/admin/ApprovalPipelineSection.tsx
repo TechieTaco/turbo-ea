@@ -5,13 +5,14 @@ import LinearProgress from "@mui/material/LinearProgress";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import { useMetamodel } from "@/hooks/useMetamodel";
+import { APPROVAL_STATUS_COLORS } from "@/theme/tokens";
 import SectionPaper, { EmptyState } from "../workspace/SectionPaper";
 
 export interface PipelineRow {
   type: string;
   draft: number;
-  pending: number;
   broken: number;
+  rejected: number;
   total: number;
 }
 
@@ -20,10 +21,12 @@ interface Props {
   loading: boolean;
 }
 
-const COLORS = {
-  draft: "#90a4ae",
-  pending: "#f5a623",
-  broken: "#d32f2f",
+type PipelineStatus = "DRAFT" | "BROKEN" | "REJECTED";
+
+const STATUS_COLOR: Record<PipelineStatus, string> = {
+  DRAFT: APPROVAL_STATUS_COLORS.DRAFT,
+  BROKEN: APPROVAL_STATUS_COLORS.BROKEN,
+  REJECTED: APPROVAL_STATUS_COLORS.REJECTED,
 };
 
 export default function ApprovalPipelineSection({ rows, loading }: Props) {
@@ -34,10 +37,12 @@ export default function ApprovalPipelineSection({ rows, loading }: Props) {
 
   const visible = rows.slice(0, 8);
 
-  const goTo = (type: string, status?: "DRAFT" | "PENDING" | "BROKEN") => {
+  const goTo = (type: string, status?: PipelineStatus) => {
     const qs = status ? `?type=${type}&approval_status=${status}` : `?type=${type}`;
     navigate(`/inventory${qs}`);
   };
+
+  const labelFor = (status: PipelineStatus) => t(`status.${status.toLowerCase()}`);
 
   return (
     <SectionPaper
@@ -52,12 +57,17 @@ export default function ApprovalPipelineSection({ rows, loading }: Props) {
       ) : (
         <Box>
           <Box sx={{ display: "flex", gap: 1, mb: 1, px: 1, alignItems: "center" }}>
-            <LegendDot color={COLORS.draft} label={t("dashboard.admin.legend.draft")} />
-            <LegendDot color={COLORS.pending} label={t("dashboard.admin.legend.pending")} />
-            <LegendDot color={COLORS.broken} label={t("dashboard.admin.legend.broken")} />
+            <LegendDot color={STATUS_COLOR.DRAFT} label={labelFor("DRAFT")} />
+            <LegendDot color={STATUS_COLOR.BROKEN} label={labelFor("BROKEN")} />
+            <LegendDot color={STATUS_COLOR.REJECTED} label={labelFor("REJECTED")} />
           </Box>
           {visible.map((r) => {
             const total = Math.max(1, r.total);
+            const segments: { key: PipelineStatus; count: number }[] = [
+              { key: "DRAFT", count: r.draft },
+              { key: "BROKEN", count: r.broken },
+              { key: "REJECTED", count: r.rejected },
+            ];
             return (
               <Box
                 key={r.type}
@@ -89,41 +99,19 @@ export default function ApprovalPipelineSection({ rows, loading }: Props) {
                     bgcolor: "action.hover",
                   }}
                 >
-                  {r.draft > 0 && (
-                    <Tooltip title={t("dashboard.admin.legend.draft")}>
-                      <Box
-                        onClick={() => goTo(r.type, "DRAFT")}
-                        sx={{
-                          width: `${(r.draft / total) * 100}%`,
-                          bgcolor: COLORS.draft,
-                          cursor: "pointer",
-                        }}
-                      />
-                    </Tooltip>
-                  )}
-                  {r.pending > 0 && (
-                    <Tooltip title={t("dashboard.admin.legend.pending")}>
-                      <Box
-                        onClick={() => goTo(r.type, "PENDING")}
-                        sx={{
-                          width: `${(r.pending / total) * 100}%`,
-                          bgcolor: COLORS.pending,
-                          cursor: "pointer",
-                        }}
-                      />
-                    </Tooltip>
-                  )}
-                  {r.broken > 0 && (
-                    <Tooltip title={t("dashboard.admin.legend.broken")}>
-                      <Box
-                        onClick={() => goTo(r.type, "BROKEN")}
-                        sx={{
-                          width: `${(r.broken / total) * 100}%`,
-                          bgcolor: COLORS.broken,
-                          cursor: "pointer",
-                        }}
-                      />
-                    </Tooltip>
+                  {segments.map((s) =>
+                    s.count > 0 ? (
+                      <Tooltip key={s.key} title={`${labelFor(s.key)}: ${s.count}`}>
+                        <Box
+                          onClick={() => goTo(r.type, s.key)}
+                          sx={{
+                            width: `${(s.count / total) * 100}%`,
+                            bgcolor: STATUS_COLOR[s.key],
+                            cursor: "pointer",
+                          }}
+                        />
+                      </Tooltip>
+                    ) : null,
                   )}
                 </Box>
                 <Typography
@@ -131,7 +119,7 @@ export default function ApprovalPipelineSection({ rows, loading }: Props) {
                   color="text.secondary"
                   sx={{ flexShrink: 0, minWidth: 80, textAlign: "right" }}
                 >
-                  {r.draft}/{r.pending}/{r.broken}
+                  {r.draft}/{r.broken}/{r.rejected}
                 </Typography>
               </Box>
             );

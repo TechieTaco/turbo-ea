@@ -345,7 +345,7 @@ async def admin_dashboard_summary(
             select(func.count(Card.id)).where(
                 Card.status == "ACTIVE",
                 Card.type.not_in(hidden_types_sq),
-                Card.approval_status.in_(("DRAFT", "PENDING")),
+                Card.approval_status == "DRAFT",
                 Card.updated_at < thirty_days_ago,
             )
         )
@@ -480,22 +480,22 @@ async def admin_dashboard_summary(
             .where(
                 Card.status == "ACTIVE",
                 Card.type.not_in(hidden_types_sq),
-                Card.approval_status.in_(("DRAFT", "PENDING", "BROKEN")),
+                Card.approval_status.in_(("DRAFT", "BROKEN", "REJECTED")),
             )
             .group_by(Card.type, Card.approval_status)
         )
     ).all()
     pipeline_by_type: dict[str, dict[str, int]] = {}
     for type_key, status, count in pipeline_rows:
-        bucket = pipeline_by_type.setdefault(type_key, {"DRAFT": 0, "PENDING": 0, "BROKEN": 0})
+        bucket = pipeline_by_type.setdefault(type_key, {"DRAFT": 0, "BROKEN": 0, "REJECTED": 0})
         bucket[status] = int(count)
     approval_pipeline = [
         {
             "type": type_key,
             "draft": buckets["DRAFT"],
-            "pending": buckets["PENDING"],
             "broken": buckets["BROKEN"],
-            "total": buckets["DRAFT"] + buckets["PENDING"] + buckets["BROKEN"],
+            "rejected": buckets["REJECTED"],
+            "total": buckets["DRAFT"] + buckets["BROKEN"] + buckets["REJECTED"],
         }
         for type_key, buckets in pipeline_by_type.items()
     ]

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useNavigate } from "react-router-dom";
 import Box from "@mui/material/Box";
 import Grid from "@mui/material/Grid";
 import LinearProgress from "@mui/material/LinearProgress";
@@ -12,7 +13,17 @@ import IdleUsersSection, { type IdleUserRow } from "./IdleUsersSection";
 import ApprovalPipelineSection, { type PipelineRow } from "./ApprovalPipelineSection";
 import SystemActivitySection from "./SystemActivitySection";
 import UnassignedTodosSection, { type OverdueTodoRow } from "./UnassignedTodosSection";
-import OverallQualitySection from "./OverallQualitySection";
+
+interface QualitySummary {
+  overall_data_quality: number;
+  total_items: number;
+}
+
+function qualityColor(pct: number): string {
+  if (pct >= 75) return "#43a047";
+  if (pct >= 50) return "#f5a623";
+  return "#d32f2f";
+}
 
 interface AdminKpis {
   total_users: number;
@@ -48,7 +59,9 @@ const ZERO_KPIS: AdminKpis = {
 
 export default function AdminTab() {
   const { t } = useTranslation("common");
+  const navigate = useNavigate();
   const [data, setData] = useState<AdminPayload | null>(null);
+  const [quality, setQuality] = useState<QualitySummary | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -57,9 +70,14 @@ export default function AdminTab() {
       .then(setData)
       .catch(() => {})
       .finally(() => setLoading(false));
+    api
+      .get<QualitySummary>("/reports/data-quality")
+      .then(setQuality)
+      .catch(() => {});
   }, []);
 
   const kpis = data?.kpis ?? ZERO_KPIS;
+  const qualityPct = quality?.overall_data_quality ?? 0;
 
   return (
     <Box>
@@ -101,10 +119,24 @@ export default function AdminTab() {
               : undefined
           }
         />
-      </Box>
-
-      <Box sx={{ mb: 3 }}>
-        <OverallQualitySection />
+        <Box
+          onClick={() => navigate("/reports/data-quality")}
+          sx={{
+            cursor: "pointer",
+            flex: "1 1 150px",
+            minWidth: 150,
+            display: "flex",
+            "&:hover": { opacity: 0.85 },
+          }}
+        >
+          <MetricCard
+            icon="verified"
+            iconColor={qualityColor(qualityPct)}
+            label={t("dashboard.admin.metric.overallQuality")}
+            value={`${qualityPct}%`}
+            subtitle={t("dashboard.admin.metric.overallQualityLink")}
+          />
+        </Box>
       </Box>
 
       <Grid container spacing={3}>

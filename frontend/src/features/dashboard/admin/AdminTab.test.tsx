@@ -27,9 +27,6 @@ vi.mock("./UnassignedTodosSection", () => ({
     <div data-testid="overdue" data-unassigned={unassignedCount} />
   ),
 }));
-vi.mock("./OverallQualitySection", () => ({
-  default: () => <div data-testid="quality" />,
-}));
 
 import { api } from "@/api/client";
 import AdminTab from "./AdminTab";
@@ -40,24 +37,35 @@ beforeEach(() => {
 
 describe("AdminTab", () => {
   it("renders KPI tiles + all sections from the admin payload", async () => {
-    vi.mocked(api.get).mockResolvedValue({
-      kpis: {
-        total_users: 12,
-        active_users_30d: 7,
-        cards_without_stakeholders: 5,
-        overdue_todos_total: 4,
-        stuck_approvals: 3,
-        broken_total: 2,
-        pending_sso_invitations: 1,
-        unassigned_todo_count: 6,
-      },
-      top_contributors: [],
-      stakeholder_coverage: [],
-      idle_users: [],
-      approval_pipeline: [],
-      recent_activity: [],
-      oldest_overdue_todos: [],
-    });
+    vi.mocked(api.get).mockImplementation(((path: string) => {
+      if (path === "/reports/data-quality") {
+        return Promise.resolve({
+          overall_data_quality: 73.2,
+          total_items: 42,
+          with_lifecycle: 0,
+          orphaned: 0,
+          stale: 0,
+        });
+      }
+      return Promise.resolve({
+        kpis: {
+          total_users: 12,
+          active_users_30d: 7,
+          cards_without_stakeholders: 5,
+          overdue_todos_total: 4,
+          stuck_approvals: 3,
+          broken_total: 2,
+          pending_sso_invitations: 1,
+          unassigned_todo_count: 6,
+        },
+        top_contributors: [],
+        stakeholder_coverage: [],
+        idle_users: [],
+        approval_pipeline: [],
+        recent_activity: [],
+        oldest_overdue_todos: [],
+      });
+    }) as typeof api.get);
 
     render(
       <MemoryRouter>
@@ -68,6 +76,7 @@ describe("AdminTab", () => {
     await waitFor(() => {
       expect(api.get).toHaveBeenCalledWith("/reports/admin-dashboard");
     });
+    expect(api.get).toHaveBeenCalledWith("/reports/data-quality");
 
     // The Active users KPI shows "active / total".
     await waitFor(() => {
@@ -83,6 +92,7 @@ describe("AdminTab", () => {
     expect(screen.getByTestId("pipeline")).toBeInTheDocument();
     expect(screen.getByTestId("sysactivity")).toBeInTheDocument();
     expect(screen.getByTestId("overdue")).toHaveAttribute("data-unassigned", "6");
-    expect(screen.getByTestId("quality")).toBeInTheDocument();
+    // Overall quality KPI tile renders the percentage from /reports/data-quality.
+    expect(screen.getByText("73.2%")).toBeInTheDocument();
   });
 });
