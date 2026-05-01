@@ -110,6 +110,12 @@ Le diagramme de Gantt visualise le calendrier du projet avec :
 - **Barres de progression** — Pourcentage d'achèvement visuel, ajustable par glisser-déposer
 - **Repères trimestriels** — Grille de chronologie pour l'orientation
 
+Interagir avec le diagramme de Gantt :
+
+- **Sélecteur d'échelle** — Choisissez entre Jour, Semaine, Mois, Trimestre et Année ; le choix est mémorisé dans votre navigateur
+- **Boutons +/− de zoom** — Naviguez d'un cran à la fois dans la même série de cinq échelles
+- **Points aux extrémités des barres** — Glissez du point droit d'une barre vers le point gauche d'une autre pour créer une dépendance « finish-to-start ». Fonctionne entre lots de travaux et tâches dans toutes les combinaisons. Les cycles sont rejetés automatiquement. **Double-cliquez sur une flèche** pour la supprimer.
+
 ### Onglet Détails de la Carte
 
 Le dernier onglet affiche la vue complète des détails de la carte, y compris toutes les sections standard.

@@ -6,12 +6,14 @@ import uuid
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, get_db
 from app.models.card import Card
 from app.models.card_type import CardType
 from app.models.ppm_cost_line import PpmBudgetLine, PpmCostLine
+from app.models.ppm_dependency import PpmDependency
 from app.models.ppm_risk import PpmRisk
 from app.models.ppm_status_report import PpmStatusReport
 from app.models.ppm_task import PpmTask
@@ -26,6 +28,8 @@ from app.schemas.ppm import (
     PpmCostLineCreate,
     PpmCostLineOut,
     PpmCostLineUpdate,
+    PpmDependencyCreate,
+    PpmDependencyOut,
     PpmRiskCreate,
     PpmRiskOut,
     PpmRiskUpdate,
@@ -1071,6 +1075,171 @@ async def delete_wbs(
     if not wbs:
         raise HTTPException(status_code=404, detail="WBS item not found")
     await db.delete(wbs)
+    await db.commit()
+
+
+# ── Dependencies (FS only, polymorphic task/wbs endpoints) ────────
+
+
+def _dep_to_out(d: PpmDependency) -> PpmDependencyOut:
+    pred_kind = "task" if d.pred_task_id else "wbs"
+    pred_id = str(d.pred_task_id or d.pred_wbs_id)
+    succ_kind = "task" if d.succ_task_id else "wbs"
+    succ_id = str(d.succ_task_id or d.succ_wbs_id)
+    return PpmDependencyOut(
+        id=str(d.id),
+        initiative_id=str(d.initiative_id),
+        pred_kind=pred_kind,
+        pred_id=pred_id,
+        succ_kind=succ_kind,
+        succ_id=succ_id,
+        kind=d.kind,
+        created_at=d.created_at,
+    )
+
+
+async def _verify_endpoint_in_initiative(
+    db: AsyncSession, initiative_id: str, kind: str, endpoint_id: str, label: str
+) -> None:
+    """Confirm a task/WBS endpoint exists and belongs to the given initiative."""
+    if kind == "task":
+        result = await db.execute(select(PpmTask).where(PpmTask.id == endpoint_id))
+    else:
+        result = await db.execute(select(PpmWbs).where(PpmWbs.id == endpoint_id))
+    row = result.scalar_one_or_none()
+    if not row:
+        raise HTTPException(status_code=404, detail=f"{label} not found")
+    if str(row.initiative_id) != str(initiative_id):
+        raise HTTPException(status_code=422, detail=f"{label} does not belong to this initiative")
+
+
+def _node_key(kind: str, ident: str) -> str:
+    return f"{kind}:{ident}"
+
+
+async def _would_create_cycle(
+    db: AsyncSession,
+    initiative_id: str,
+    pred_kind: str,
+    pred_id: str,
+    succ_kind: str,
+    succ_id: str,
+) -> bool:
+    """Return True if adding pred→succ would form a cycle in the dep graph.
+
+    Walks the existing graph from `succ` along outgoing edges; cycle exists
+    if we can reach `pred`.
+    """
+    pred_key = _node_key(pred_kind, pred_id)
+    if pred_key == _node_key(succ_kind, succ_id):
+        return True
+
+    result = await db.execute(
+        select(PpmDependency).where(PpmDependency.initiative_id == initiative_id)
+    )
+    edges: dict[str, list[str]] = {}
+    for d in result.scalars().all():
+        p_kind = "task" if d.pred_task_id else "wbs"
+        p_id = str(d.pred_task_id or d.pred_wbs_id)
+        s_kind = "task" if d.succ_task_id else "wbs"
+        s_id = str(d.succ_task_id or d.succ_wbs_id)
+        edges.setdefault(_node_key(p_kind, p_id), []).append(_node_key(s_kind, s_id))
+
+    # BFS from successor
+    seen: set[str] = set()
+    stack = [_node_key(succ_kind, succ_id)]
+    while stack:
+        node = stack.pop()
+        if node == pred_key:
+            return True
+        if node in seen:
+            continue
+        seen.add(node)
+        stack.extend(edges.get(node, []))
+    return False
+
+
+@router.get(
+    "/initiatives/{initiative_id}/dependencies",
+    response_model=list[PpmDependencyOut],
+)
+async def list_dependencies(
+    initiative_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    await PermissionService.require_permission(db, user, "ppm.view")
+    await _get_initiative_or_404(db, initiative_id)
+    result = await db.execute(
+        select(PpmDependency)
+        .where(PpmDependency.initiative_id == initiative_id)
+        .order_by(PpmDependency.created_at)
+    )
+    return [_dep_to_out(d) for d in result.scalars().all()]
+
+
+@router.post(
+    "/initiatives/{initiative_id}/dependencies",
+    response_model=PpmDependencyOut,
+)
+async def create_dependency(
+    initiative_id: str,
+    body: PpmDependencyCreate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    await PermissionService.require_permission(db, user, "ppm.manage")
+    await _get_initiative_or_404(db, initiative_id)
+
+    if body.pred_kind == body.succ_kind and body.pred_id == body.succ_id:
+        raise HTTPException(status_code=422, detail="A row cannot depend on itself")
+
+    await _verify_endpoint_in_initiative(
+        db, initiative_id, body.pred_kind, body.pred_id, "Predecessor"
+    )
+    await _verify_endpoint_in_initiative(
+        db, initiative_id, body.succ_kind, body.succ_id, "Successor"
+    )
+
+    if await _would_create_cycle(
+        db, initiative_id, body.pred_kind, body.pred_id, body.succ_kind, body.succ_id
+    ):
+        raise HTTPException(
+            status_code=422,
+            detail="This dependency would create a cycle",
+        )
+
+    dep = PpmDependency(
+        id=uuid.uuid4(),
+        initiative_id=initiative_id,
+        kind="FS",
+        pred_task_id=body.pred_id if body.pred_kind == "task" else None,
+        pred_wbs_id=body.pred_id if body.pred_kind == "wbs" else None,
+        succ_task_id=body.succ_id if body.succ_kind == "task" else None,
+        succ_wbs_id=body.succ_id if body.succ_kind == "wbs" else None,
+    )
+    db.add(dep)
+    try:
+        await db.commit()
+    except IntegrityError:
+        await db.rollback()
+        raise HTTPException(status_code=409, detail="This dependency already exists") from None
+    await db.refresh(dep)
+    return _dep_to_out(dep)
+
+
+@router.delete("/dependencies/{dep_id}", status_code=204)
+async def delete_dependency(
+    dep_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    await PermissionService.require_permission(db, user, "ppm.manage")
+    result = await db.execute(select(PpmDependency).where(PpmDependency.id == dep_id))
+    dep = result.scalar_one_or_none()
+    if not dep:
+        raise HTTPException(status_code=404, detail="Dependency not found")
+    await db.delete(dep)
     await db.commit()
 
 

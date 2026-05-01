@@ -19,6 +19,9 @@ import type {
   Task,
   OnDateChange,
   OnProgressChange,
+  OnRelationChange,
+  OnArrowDoubleClick,
+  Dependency,
   TaskOrEmpty,
   Column,
   ColumnProps,
@@ -28,12 +31,13 @@ import "@wamra/gantt-task-react/dist/style.css";
 import Chip from "@mui/material/Chip";
 import Popover from "@mui/material/Popover";
 import Slider from "@mui/material/Slider";
+import Snackbar from "@mui/material/Snackbar";
 import Typography from "@mui/material/Typography";
 import MaterialSymbol from "@/components/MaterialSymbol";
-import { api } from "@/api/client";
+import { api, ApiError } from "@/api/client";
 import PpmWbsDialog from "./PpmWbsDialog";
 import PpmTaskDialog from "./PpmTaskDialog";
-import type { PpmWbs, PpmTask, PpmTaskStatus } from "@/types";
+import type { PpmDependency, PpmWbs, PpmTask, PpmTaskStatus } from "@/types";
 
 /** Bar colors per task status — reuses the standard palette from PpmTaskBoard. */
 const TASK_STATUS_BAR_COLORS: Record<
@@ -70,6 +74,43 @@ const TASK_STATUS_BAR_COLORS: Record<
     barProgressSelectedColor: "#c62828",
   },
 };
+
+/** Ordered view scale used by both the picker and the +/- zoom buttons.
+ *  Index 0 = most zoomed-in (Day), last = most zoomed-out (Year). */
+const VIEW_SCALE: ViewMode[] = [
+  ViewMode.Day,
+  ViewMode.Week,
+  ViewMode.Month,
+  ViewMode.QuarterYear,
+  ViewMode.Year,
+];
+
+const VIEW_MODE_KEY = "ppm.gantt.viewMode";
+
+function loadInitialViewMode(): ViewMode {
+  try {
+    const raw = localStorage.getItem(VIEW_MODE_KEY) as ViewMode | null;
+    if (raw && VIEW_SCALE.includes(raw)) return raw;
+  } catch {
+    /* localStorage unavailable */
+  }
+  return ViewMode.Week;
+}
+
+/** Convert a Gantt task id ("task-uuid" / "wbs-uuid") to the API's
+ *  (kind, id) pair. Returns null for the placeholder __empty__ row. */
+function parseGanttId(
+  ganttId: string,
+): { kind: "task" | "wbs"; id: string } | null {
+  if (ganttId.startsWith("task-")) return { kind: "task", id: ganttId.slice(5) };
+  if (ganttId.startsWith("wbs-")) return { kind: "wbs", id: ganttId.slice(4) };
+  return null;
+}
+
+/** Build the gantt task id for a (kind, id) pair from a PpmDependency. */
+function depEndpointToGanttId(kind: "task" | "wbs", id: string): string {
+  return `${kind}-${id}`;
+}
 
 /** Extra metadata for Gantt rows, keyed by gantt task id (e.g. "wbs-xxx", "task-xxx"). */
 interface GanttRowMeta {
@@ -179,9 +220,25 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
 
   const [wbsList, setWbsList] = useState<PpmWbs[]>([]);
   const [tasks, setTasks] = useState<PpmTask[]>([]);
+  const [dependencies, setDependencies] = useState<PpmDependency[]>([]);
   const [loading, setLoading] = useState(true);
-  const [viewMode, setViewMode] = useState<ViewMode>(ViewMode.Week);
+  const [viewMode, _setViewMode] = useState<ViewMode>(() => loadInitialViewMode());
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const [snack, setSnack] = useState<string>("");
+
+  /** Persist scale changes so they survive a reload. */
+  const setViewMode = useCallback((mode: ViewMode) => {
+    _setViewMode(mode);
+    try {
+      localStorage.setItem(VIEW_MODE_KEY, mode);
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  const viewIndex = VIEW_SCALE.indexOf(viewMode);
+  const canZoomIn = viewIndex > 0;
+  const canZoomOut = viewIndex >= 0 && viewIndex < VIEW_SCALE.length - 1;
 
   // WBS dialog state
   const [wbsDialogOpen, setWbsDialogOpen] = useState(false);
@@ -211,12 +268,14 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
 
   const loadData = useCallback(async () => {
     try {
-      const [w, t] = await Promise.all([
+      const [w, t, d] = await Promise.all([
         api.get<PpmWbs[]>(`/ppm/initiatives/${initiativeId}/wbs`),
         api.get<PpmTask[]>(`/ppm/initiatives/${initiativeId}/tasks`),
+        api.get<PpmDependency[]>(`/ppm/initiatives/${initiativeId}/dependencies`),
       ]);
       setWbsList(w);
       setTasks(t);
+      setDependencies(d);
     } finally {
       setLoading(false);
     }
@@ -229,6 +288,25 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
   /** Set of WBS IDs that have children (completion auto-rolled up). */
   const parentIds = useMemo(() => getParentIds(wbsList, tasks), [wbsList, tasks]);
 
+  /** Per-successor list of arrows the library should draw.
+   *  Library shape: { sourceId, sourceTarget: "endOfTask", ownTarget: "startOfTask" }
+   *  for finish-to-start. */
+  const depsBySuccessor = useMemo(() => {
+    const map = new Map<string, Dependency[]>();
+    for (const d of dependencies) {
+      const succGanttId = depEndpointToGanttId(d.succ_kind, d.succ_id);
+      const predGanttId = depEndpointToGanttId(d.pred_kind, d.pred_id);
+      const arr = map.get(succGanttId) ?? [];
+      arr.push({
+        sourceId: predGanttId,
+        sourceTarget: "endOfTask",
+        ownTarget: "startOfTask",
+      });
+      map.set(succGanttId, arr);
+    }
+    return map;
+  }, [dependencies]);
+
   /** Map WBS + Tasks → gantt-task-react Task[] with trailing empty row. */
   const ganttTasks: TaskOrEmpty[] = useMemo(() => {
     const items: TaskOrEmpty[] = [];
@@ -237,16 +315,19 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
 
     // WBS items as "project" or "milestone" type
     for (const w of wbsList) {
+      const wbsId = `wbs-${w.id}`;
       const start = startOfDay(parseDate(w.start_date, defStart));
+      const deps = depsBySuccessor.get(wbsId);
       if (w.is_milestone) {
         items.push({
-          id: `wbs-${w.id}`,
+          id: wbsId,
           name: w.title,
           type: "milestone",
           start,
           end: start,
           progress: w.completion,
           parent: w.parent_id ? `wbs-${w.parent_id}` : undefined,
+          dependencies: deps,
           isDisabled: false,
         });
       } else {
@@ -256,7 +337,7 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
           end.setDate(end.getDate() + 7);
         }
         items.push({
-          id: `wbs-${w.id}`,
+          id: wbsId,
           name: w.title,
           type: "project",
           start,
@@ -264,6 +345,7 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
           progress: w.completion,
           parent: w.parent_id ? `wbs-${w.parent_id}` : undefined,
           hideChildren: collapsed.has(w.id),
+          dependencies: deps,
           isDisabled: false,
           styles: {
             projectBackgroundColor: theme.palette.primary.light,
@@ -277,6 +359,7 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
 
     // Tasks as "task" type
     for (const tk of tasks) {
+      const taskId = `task-${tk.id}`;
       const start = startOfDay(
         parseDate(tk.start_date, parseDate(tk.created_at, defStart)),
       );
@@ -291,13 +374,14 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
         tk.status === "done" ? 100 : tk.status === "in_progress" ? 50 : 0;
       const barColors = TASK_STATUS_BAR_COLORS[tk.status] ?? TASK_STATUS_BAR_COLORS.todo;
       items.push({
-        id: `task-${tk.id}`,
+        id: taskId,
         name: tk.title,
         type: "task",
         start,
         end,
         progress,
         parent: tk.wbs_id ? `wbs-${tk.wbs_id}` : undefined,
+        dependencies: depsBySuccessor.get(taskId),
         isDisabled: false,
         styles: barColors,
       });
@@ -311,7 +395,7 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
     });
 
     return items;
-  }, [wbsList, tasks, collapsed, theme, timelineRange]);
+  }, [wbsList, tasks, collapsed, theme, timelineRange, depsBySuccessor]);
 
   /** Metadata map for custom Gantt columns (completion, assignee). */
   const rowMeta = useMemo(() => {
@@ -379,6 +463,85 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
       }
     },
     [loadData, parentIds],
+  );
+
+  /** Drag-create a finish-to-start dependency by connecting the relation handles.
+   *  The library passes `isOneDescendant=true` when one row is a descendant of
+   *  the other in the WBS hierarchy — a parent-child link doesn't model a
+   *  meaningful schedule dependency (and would create implicit cycles via the
+   *  WBS rollup), so skip those drags silently. */
+  const handleRelationChange: OnRelationChange = useCallback(
+    async (from, to, isOneDescendant) => {
+      if (isOneDescendant) {
+        setSnack(t("dependencyCycleError"));
+        return;
+      }
+      const [fromTask, fromTarget] = from;
+      const [toTask] = to;
+      // We only model FS today: predecessor's "endOfTask" → successor's "startOfTask".
+      // If the user dragged backwards (left dot first, right dot second), swap roles.
+      const [predTask, succTask] =
+        fromTarget === "endOfTask" ? [fromTask, toTask] : [toTask, fromTask];
+      const pred = parseGanttId(predTask.id);
+      const succ = parseGanttId(succTask.id);
+      if (!pred || !succ) return;
+      try {
+        await api.post(`/ppm/initiatives/${initiativeId}/dependencies`, {
+          pred_kind: pred.kind,
+          pred_id: pred.id,
+          succ_kind: succ.kind,
+          succ_id: succ.id,
+        });
+        await loadData();
+        setSnack(t("dependencyCreated"));
+      } catch (err) {
+        if (err instanceof ApiError) {
+          if (err.status === 409) setSnack(t("dependencyDuplicateError"));
+          else if (err.status === 422) setSnack(t("dependencyCycleError"));
+          else setSnack(err.message || t("dependencyCreateFailed"));
+        } else {
+          setSnack(t("dependencyCreateFailed"));
+        }
+      }
+    },
+    [initiativeId, loadData, t],
+  );
+
+  /** Find the dependency row matching two endpoints (in either direction). */
+  const findDependency = useCallback(
+    (taskA: Task, taskB: Task): PpmDependency | undefined => {
+      const a = parseGanttId(taskA.id);
+      const b = parseGanttId(taskB.id);
+      if (!a || !b) return undefined;
+      return dependencies.find(
+        (d) =>
+          (d.pred_kind === a.kind &&
+            d.pred_id === a.id &&
+            d.succ_kind === b.kind &&
+            d.succ_id === b.id) ||
+          (d.pred_kind === b.kind &&
+            d.pred_id === b.id &&
+            d.succ_kind === a.kind &&
+            d.succ_id === a.id),
+      );
+    },
+    [dependencies],
+  );
+
+  const handleArrowDoubleClick: OnArrowDoubleClick = useCallback(
+    async (taskFrom, _fi, taskTo) => {
+      const dep = findDependency(taskFrom, taskTo);
+      if (!dep) return;
+      if (!window.confirm(t("confirmDeleteDependency"))) return;
+      try {
+        await api.delete(`/ppm/dependencies/${dep.id}`);
+        await loadData();
+        setSnack(t("dependencyDeleted"));
+      } catch {
+        setSnack(t("dependencyDeleteFailed"));
+      }
+    },
+    [findDependency, loadData, t],
   );
 
   const ganttRef = useRef<HTMLDivElement>(null);
@@ -707,6 +870,10 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
         return 200;
       case ViewMode.Month:
         return 300;
+      case ViewMode.QuarterYear:
+        return 180;
+      case ViewMode.Year:
+        return 240;
       default:
         return 200;
     }
@@ -1047,6 +1214,29 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
             <MaterialSymbol icon="today" size={20} />
           </IconButton>
         </Tooltip>
+        <Tooltip title={t("zoomIn")}>
+          {/* span avoids MUI Tooltip warning when the IconButton is disabled */}
+          <span>
+            <IconButton
+              size="small"
+              disabled={!canZoomIn}
+              onClick={() => setViewMode(VIEW_SCALE[viewIndex - 1])}
+            >
+              <MaterialSymbol icon="zoom_in" size={20} />
+            </IconButton>
+          </span>
+        </Tooltip>
+        <Tooltip title={t("zoomOut")}>
+          <span>
+            <IconButton
+              size="small"
+              disabled={!canZoomOut}
+              onClick={() => setViewMode(VIEW_SCALE[viewIndex + 1])}
+            >
+              <MaterialSymbol icon="zoom_out" size={20} />
+            </IconButton>
+          </span>
+        </Tooltip>
         <ToggleButtonGroup
           value={viewMode}
           exclusive
@@ -1056,6 +1246,8 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
           <ToggleButton value={ViewMode.Day}>{t("viewDay")}</ToggleButton>
           <ToggleButton value={ViewMode.Week}>{t("viewWeek")}</ToggleButton>
           <ToggleButton value={ViewMode.Month}>{t("viewMonth")}</ToggleButton>
+          <ToggleButton value={ViewMode.QuarterYear}>{t("viewQuarter")}</ToggleButton>
+          <ToggleButton value={ViewMode.Year}>{t("viewYear")}</ToggleButton>
         </ToggleButtonGroup>
       </Box>
 
@@ -1183,6 +1375,8 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
           onDateChange={handleDateChange}
           onProgressChange={handleProgressChange}
           onChangeExpandState={handleExpanderClick}
+          onRelationChange={handleRelationChange}
+          onArrowDoubleClick={handleArrowDoubleClick}
           contextMenuOptions={contextMenuOptions}
           enableTableListContextMenu={2}
           roundDate={roundToDay}
@@ -1223,6 +1417,11 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
             dateColumnFormat: "dd MMM ''yy",
             dayBottomHeaderFormat: "d",
             dayTopHeaderFormat: "LLLL yyyy",
+            // Bottom row of the Month scale ("Jan" / "Feb" / …). The library
+            // renders Year + QuarterYear headers natively (year + "Qn yyyy")
+            // and ignores this format for those scales.
+            monthBottomHeaderFormat: "LLL",
+            monthTopHeaderFormat: "LLLL",
           }}
           distances={{
             columnWidth,
@@ -1283,6 +1482,15 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
           }}
         />
       )}
+
+      {/* Feedback for dependency CRUD + dependency errors */}
+      <Snackbar
+        open={!!snack}
+        autoHideDuration={3000}
+        onClose={() => setSnack("")}
+        message={snack}
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+      />
 
       {/* Task Dialog */}
       {taskDialogOpen && (

@@ -258,6 +258,28 @@ class PpmWbsOut(BaseModel):
     updated_at: datetime
 
 
+# --- Gantt Dependencies (FS only for now) ---
+
+
+class PpmDependencyCreate(BaseModel):
+    pred_kind: Literal["task", "wbs"]
+    pred_id: str
+    succ_kind: Literal["task", "wbs"]
+    succ_id: str
+    kind: Literal["FS"] = "FS"
+
+
+class PpmDependencyOut(BaseModel):
+    id: str
+    initiative_id: str
+    pred_kind: Literal["task", "wbs"]
+    pred_id: str
+    succ_kind: Literal["task", "wbs"]
+    succ_id: str
+    kind: str
+    created_at: datetime
+
+
 # --- Gantt / Dashboard ---
 
 

@@ -110,6 +110,12 @@ Il diagramma di Gantt visualizza la tempistica del progetto con:
 - **Barre di avanzamento** — Percentuale di completamento visiva, trascinabile per regolare direttamente
 - **Segni trimestrali** — Griglia temporale per orientamento
 
+Interagisci con il diagramma di Gantt:
+
+- **Selettore della scala** — Scegli tra Giorno, Settimana, Mese, Trimestre e Anno; la scelta viene memorizzata nel browser
+- **Pulsanti di zoom +/−** — Naviga di un livello alla volta lungo le stesse cinque scale
+- **Punti alle estremità delle barre** — Trascina dal punto destro di una barra al punto sinistro di un'altra per creare una dipendenza finish-to-start. Funziona tra pacchetti di lavoro e attività in qualsiasi combinazione. I cicli vengono rifiutati automaticamente. **Fai doppio clic su una freccia** per rimuoverla.
+
 ### Scheda Dettagli della Card
 
 L'ultima scheda mostra la vista completa dei dettagli della card, incluse tutte le sezioni standard.

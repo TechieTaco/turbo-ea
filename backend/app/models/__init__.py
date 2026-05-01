@@ -15,6 +15,7 @@ from app.models.file_attachment import FileAttachment
 from app.models.kpi_snapshot import KpiSnapshot
 from app.models.notification import Notification
 from app.models.ppm_cost_line import PpmBudgetLine, PpmCostLine
+from app.models.ppm_dependency import PpmDependency
 from app.models.ppm_risk import PpmRisk
 from app.models.ppm_status_report import PpmStatusReport
 from app.models.ppm_task import PpmTask
@@ -96,6 +97,7 @@ __all__ = [
     "Notification",
     "PpmBudgetLine",
     "PpmCostLine",
+    "PpmDependency",
     "PpmRisk",
     "PpmStatusReport",
     "PpmTask",
