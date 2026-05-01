@@ -281,5 +281,7 @@
   "dashboard.workspace.attention.overdueTodos_one": "{{count}} attività in ritardo",
   "dashboard.workspace.attention.overdueTodos_other": "{{count}} attività in ritardo",
   "dashboard.workspace.attention.brokenCards_one": "{{count}} carta non valida di cui sei responsabile",
-  "dashboard.workspace.attention.brokenCards_other": "{{count}} carte non valide di cui sei responsabile"
+  "dashboard.workspace.attention.brokenCards_other": "{{count}} carte non valide di cui sei responsabile",
+  "dashboard.workspace.andMore_one": "e {{count}} altro",
+  "dashboard.workspace.andMore_other": "e altri {{count}}"
 }

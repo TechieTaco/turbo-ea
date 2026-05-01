@@ -6,6 +6,7 @@ import LinearProgress from "@mui/material/LinearProgress";
 import Typography from "@mui/material/Typography";
 import { api } from "@/api/client";
 import type { Card as CardType } from "@/types";
+import CardTypePill from "./CardTypePill";
 import SectionPaper, { EmptyState } from "./SectionPaper";
 
 interface Props {
@@ -61,12 +62,10 @@ export default function MyCreatedSection({ createdCount }: Props) {
               }}
               onClick={() => navigate(`/cards/${card.id}`)}
             >
-              <Typography variant="body2" sx={{ flex: 1 }} noWrap>
+              <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }} noWrap>
                 {card.name}
               </Typography>
-              <Typography variant="caption" color="text.secondary" noWrap>
-                {card.type}
-              </Typography>
+              <CardTypePill typeKey={card.type} />
             </Box>
           ))}
         </Box>

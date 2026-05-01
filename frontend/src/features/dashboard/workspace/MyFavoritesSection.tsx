@@ -9,6 +9,7 @@ import Typography from "@mui/material/Typography";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import type { Card as CardType } from "@/types";
+import CardTypePill from "./CardTypePill";
 import SectionPaper, { EmptyState } from "./SectionPaper";
 
 interface FavoriteRow {
@@ -79,12 +80,10 @@ export default function MyFavoritesSection() {
               }}
               onClick={() => navigate(`/cards/${card.id}`)}
             >
-              <Typography variant="body2" sx={{ flex: 1 }} noWrap>
+              <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }} noWrap>
                 {card.name}
               </Typography>
-              <Typography variant="caption" color="text.secondary" sx={{ mr: 1 }} noWrap>
-                {card.type}
-              </Typography>
+              <CardTypePill typeKey={card.type} />
               <Tooltip title={t("cards.actions.removeFromFavorites")}>
                 <IconButton
                   size="small"

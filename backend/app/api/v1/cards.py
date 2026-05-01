@@ -19,6 +19,7 @@ from app.models.event import Event
 from app.models.ppm_cost_line import PpmBudgetLine, PpmCostLine
 from app.models.relation import Relation
 from app.models.stakeholder import Stakeholder
+from app.models.stakeholder_role_definition import StakeholderRoleDefinition
 from app.models.tag import Tag
 from app.models.user import User
 from app.schemas.card import (
@@ -367,8 +368,11 @@ async def list_my_stakeholder_cards(
 ):
     """Cards on which the current user holds at least one stakeholder role.
 
-    Returns cards plus a ``roles_by_card_id`` map so the UI can group/label
-    the rows by the role(s) the user holds.
+    Returns cards plus a ``roles_by_card_id`` map keyed by card id, where
+    each entry is a list of role descriptors ``{key, label, color,
+    translations}`` resolved from the matching ``StakeholderRoleDefinition``
+    for the card's type. The frontend uses ``label`` + ``translations`` to
+    render a localised role chip per role.
     """
     await PermissionService.require_permission(db, user, "inventory.view")
 
@@ -398,11 +402,48 @@ async def list_my_stakeholder_cards(
     )
 
     result = await db.execute(q)
+    rows = list(result.all())
+
+    # Resolve role definitions for the (card_type, role_key) pairs we just
+    # fetched, in a single query.
+    needed_pairs: set[tuple[str, str]] = set()
+    for card, roles in rows:
+        for r in roles or []:
+            needed_pairs.add((card.type, r))
+
+    role_def_map: dict[tuple[str, str], StakeholderRoleDefinition] = {}
+    if needed_pairs:
+        type_keys = {pair[0] for pair in needed_pairs}
+        role_keys = {pair[1] for pair in needed_pairs}
+        srd_rows = await db.execute(
+            select(StakeholderRoleDefinition).where(
+                StakeholderRoleDefinition.card_type_key.in_(type_keys),
+                StakeholderRoleDefinition.key.in_(role_keys),
+            )
+        )
+        for srd in srd_rows.scalars().all():
+            role_def_map[(srd.card_type_key, srd.key)] = srd
+
     items = []
-    roles_by_card_id: dict[str, list[str]] = {}
-    for card, roles in result.all():
+    roles_by_card_id: dict[str, list[dict]] = {}
+    for card, roles in rows:
         items.append(_card_to_response(card))
-        roles_by_card_id[str(card.id)] = list(roles or [])
+        descriptors: list[dict] = []
+        seen: set[str] = set()
+        for role_key in roles or []:
+            if role_key in seen:
+                continue
+            seen.add(role_key)
+            srd = role_def_map.get((card.type, role_key))
+            descriptors.append(
+                {
+                    "key": role_key,
+                    "label": srd.label if srd else role_key,
+                    "color": srd.color if srd else "#757575",
+                    "translations": srd.translations if srd else {},
+                }
+            )
+        roles_by_card_id[str(card.id)] = descriptors
 
     return {"items": items, "roles_by_card_id": roles_by_card_id}
 

@@ -281,5 +281,7 @@
   "dashboard.workspace.attention.overdueTodos_one": "{{count}} tâche en retard",
   "dashboard.workspace.attention.overdueTodos_other": "{{count}} tâches en retard",
   "dashboard.workspace.attention.brokenCards_one": "{{count}} carte défaillante dont vous êtes responsable",
-  "dashboard.workspace.attention.brokenCards_other": "{{count}} cartes défaillantes dont vous êtes responsable"
+  "dashboard.workspace.attention.brokenCards_other": "{{count}} cartes défaillantes dont vous êtes responsable",
+  "dashboard.workspace.andMore_one": "et {{count}} de plus",
+  "dashboard.workspace.andMore_other": "et {{count}} de plus"
 }

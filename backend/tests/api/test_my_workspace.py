@@ -25,6 +25,7 @@ from tests.conftest import (
     create_card,
     create_card_type,
     create_role,
+    create_stakeholder_role_def,
     create_user,
 )
 
@@ -124,6 +125,20 @@ class TestMyStakeholderCards:
         await create_role(db, key="member", permissions=MEMBER_PERMISSIONS)
         await create_card_type(db, key="Application", label="Application")
         await create_card_type(db, key="Hidden", label="Hidden", is_hidden=True)
+        # Stakeholder role definitions for Application — the endpoint uses
+        # them to resolve role labels, colours and translations.
+        await create_stakeholder_role_def(
+            db,
+            card_type_key="Application",
+            key="responsible",
+            label="Responsible",
+        )
+        await create_stakeholder_role_def(
+            db,
+            card_type_key="Application",
+            key="observer",
+            label="Observer",
+        )
         admin = await create_user(db, email="admin@test.com", role="admin")
         alice = await create_user(db, email="alice@test.com", role="member")
         bob = await create_user(db, email="bob@test.com", role="member")
@@ -143,8 +158,12 @@ class TestMyStakeholderCards:
         body = resp.json()
         names = {item["name"] for item in body["items"]}
         assert names == {"A", "C"}
-        assert set(body["roles_by_card_id"][str(c1.id)]) == {"responsible"}
-        assert set(body["roles_by_card_id"][str(c3.id)]) == {"observer"}
+        c1_roles = body["roles_by_card_id"][str(c1.id)]
+        assert {r["key"] for r in c1_roles} == {"responsible"}
+        assert c1_roles[0]["label"] == "Responsible"
+        c3_roles = body["roles_by_card_id"][str(c3.id)]
+        assert {r["key"] for r in c3_roles} == {"observer"}
+        assert c3_roles[0]["label"] == "Observer"
 
     async def test_aggregates_multiple_roles_per_card(self, client, db, env):
         card = await create_card(
@@ -158,7 +177,26 @@ class TestMyStakeholderCards:
         body = resp.json()
         assert len(body["items"]) == 1
         roles = body["roles_by_card_id"][str(card.id)]
-        assert set(roles) == {"responsible", "observer"}
+        assert {r["key"] for r in roles} == {"responsible", "observer"}
+        labels = {r["label"] for r in roles}
+        assert labels == {"Responsible", "Observer"}
+
+    async def test_unknown_role_falls_back_to_key(self, client, db, env):
+        """If a stakeholder row references a role with no SRD (e.g. it was
+        archived), the endpoint should still return the row using the role
+        key as the label fallback rather than dropping the card."""
+        card = await create_card(
+            db, card_type="Application", name="OrphanRole", user_id=env["admin"].id
+        )
+        db.add(Stakeholder(card_id=card.id, user_id=env["alice"].id, role="legacy_role"))
+        await db.flush()
+
+        resp = await client.get("/api/v1/cards/my-stakeholder", headers=auth_headers(env["alice"]))
+        body = resp.json()
+        roles = body["roles_by_card_id"][str(card.id)]
+        assert roles == [
+            {"key": "legacy_role", "label": "legacy_role", "color": "#757575", "translations": {}}
+        ]
 
     async def test_excludes_hidden_card_types(self, client, db, env):
         visible = await create_card(
