@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import uuid
+from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func, select
@@ -1082,9 +1083,9 @@ async def delete_wbs(
 
 
 def _dep_to_out(d: PpmDependency) -> PpmDependencyOut:
-    pred_kind = "task" if d.pred_task_id else "wbs"
+    pred_kind: Literal["task", "wbs"] = "task" if d.pred_task_id else "wbs"
     pred_id = str(d.pred_task_id or d.pred_wbs_id)
-    succ_kind = "task" if d.succ_task_id else "wbs"
+    succ_kind: Literal["task", "wbs"] = "task" if d.succ_task_id else "wbs"
     succ_id = str(d.succ_task_id or d.succ_wbs_id)
     return PpmDependencyOut(
         id=str(d.id),

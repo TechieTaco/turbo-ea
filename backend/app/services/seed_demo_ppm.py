@@ -1338,10 +1338,10 @@ async def seed_ppm_demo_data(db: AsyncSession) -> dict:
     task_result = await db.execute(
         select(PpmTask).where(PpmTask.initiative_id.in_(list(ids.values())))
     )
-    for t in task_result.scalars().all():
+    for task_row in task_result.scalars().all():
         for init_name, init_id in ids.items():
-            if t.initiative_id == init_id:
-                task_lookup[(init_name, init_id, t.title)] = t.id
+            if task_row.initiative_id == init_id:
+                task_lookup[(init_name, init_id, task_row.title)] = task_row.id
                 break
 
     sap_id = ids.get(INIT_SAP)
@@ -1353,24 +1353,26 @@ async def seed_ppm_demo_data(db: AsyncSession) -> dict:
     def _task(init_name: str, init_id: uuid.UUID, title: str) -> uuid.UUID | None:
         return task_lookup.get((init_name, init_id, title))
 
+    # Distinct local names (`pa` / `pb`) avoid mypy variable-shadowing errors
+    # — the names `a` / `b` are bound to dicts earlier in the function.
     sample_deps: list[dict] = []
     if sap_id:
         # WBS → WBS: classic phase-gate sequencing
-        if (a := _wbs(INIT_SAP, "Data Migration")) and (
-            b := _wbs(INIT_SAP, "Integration & Testing")
+        if (pa := _wbs(INIT_SAP, "Data Migration")) and (
+            pb := _wbs(INIT_SAP, "Integration & Testing")
         ):
-            sample_deps.append({"initiative_id": sap_id, "pred_wbs_id": a, "succ_wbs_id": b})
-        if (a := _wbs(INIT_SAP, "Integration & Testing")) and (
-            b := _wbs(INIT_SAP, "User Training & Change Mgmt")
+            sample_deps.append({"initiative_id": sap_id, "pred_wbs_id": pa, "succ_wbs_id": pb})
+        if (pa := _wbs(INIT_SAP, "Integration & Testing")) and (
+            pb := _wbs(INIT_SAP, "User Training & Change Mgmt")
         ):
-            sample_deps.append({"initiative_id": sap_id, "pred_wbs_id": a, "succ_wbs_id": b})
-        if (a := _wbs(INIT_SAP, "Go-Live & Hypercare")) and (b := _wbs(INIT_SAP, "Go-Live")):
-            sample_deps.append({"initiative_id": sap_id, "pred_wbs_id": a, "succ_wbs_id": b})
+            sample_deps.append({"initiative_id": sap_id, "pred_wbs_id": pa, "succ_wbs_id": pb})
+        if (pa := _wbs(INIT_SAP, "Go-Live & Hypercare")) and (pb := _wbs(INIT_SAP, "Go-Live")):
+            sample_deps.append({"initiative_id": sap_id, "pred_wbs_id": pa, "succ_wbs_id": pb})
         # Task → Task within the SAP UAT stream
-        if (a := _task(INIT_SAP, sap_id, "Run data migration dry-run #3")) and (
-            b := _task(INIT_SAP, sap_id, "Execute UAT phase 2 test cases")
+        if (pa := _task(INIT_SAP, sap_id, "Run data migration dry-run #3")) and (
+            pb := _task(INIT_SAP, sap_id, "Execute UAT phase 2 test cases")
         ):
-            sample_deps.append({"initiative_id": sap_id, "pred_task_id": a, "succ_task_id": b})
+            sample_deps.append({"initiative_id": sap_id, "pred_task_id": pa, "succ_task_id": pb})
 
     for dep in sample_deps:
         db.add(
