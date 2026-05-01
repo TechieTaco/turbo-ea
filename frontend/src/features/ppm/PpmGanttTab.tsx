@@ -177,6 +177,7 @@ function DependencyArrowOverlay({
   return (
     <svg
       ref={overlayRef}
+      className="ppm-arrow-overlay"
       style={{
         position: "absolute",
         inset: 0,
@@ -1291,8 +1292,17 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
     const resize = new ResizeObserver(bump);
     resize.observe(el);
 
-    // Catch lib re-renders (drags, view-mode changes) that move bars without scroll
-    const mut = new MutationObserver(bump);
+    // Catch lib re-renders (drags, view-mode changes) that move bars without
+    // scroll. We MUST ignore mutations inside our own overlay or each arrow
+    // re-paint would re-trigger measurement → infinite loop.
+    const mut = new MutationObserver((mutations) => {
+      for (const m of mutations) {
+        const t = m.target;
+        if (t instanceof Element && t.closest(".ppm-arrow-overlay")) continue;
+        bump();
+        return;
+      }
+    });
     mut.observe(el, { childList: true, subtree: true, attributes: true });
 
     return () => {
@@ -1333,14 +1343,22 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
       clipBottom: number;
     }> = [];
 
+    // Selector covering all three bar-shape classes the library uses:
+    // tasks → barBackground_*, WBS items → projectBackground_*,
+    // milestones (rotated diamonds) → milestoneBackground_*.
+    const BAR_SEL =
+      "[class*='barBackground_'], [class*='projectBackground_'], [class*='milestoneBackground_']";
+
     for (const d of dependencies) {
       const predId = `${d.pred_kind === "task" ? "task" : "wbs"}-${d.pred_id}`;
       const succId = `${d.succ_kind === "task" ? "task" : "wbs"}-${d.succ_id}`;
-      const predEl = document.getElementById(predId);
-      const succEl = document.getElementById(succId);
+      // Scope the lookup inside ganttRef so duplicate IDs elsewhere on
+      // the page (extremely unlikely, but cheap to guard) can't collide.
+      const predEl = el.querySelector(`[id="${predId}"]`);
+      const succEl = el.querySelector(`[id="${succId}"]`);
       if (!predEl || !succEl) continue;
-      const predBar = predEl.querySelector("[class*='barBackground_']");
-      const succBar = succEl.querySelector("[class*='barBackground_']");
+      const predBar = predEl.querySelector(BAR_SEL);
+      const succBar = succEl.querySelector(BAR_SEL);
       if (!(predBar instanceof Element) || !(succBar instanceof Element)) continue;
       const pr = predBar.getBoundingClientRect();
       const sr = succBar.getBoundingClientRect();
