@@ -495,7 +495,7 @@ export default function CardDetail() {
                           p: 0,
                           font: "inherit",
                           color: typeConfig?.color || "text.secondary",
-                          "&:hover": { textDecoration: "underline" },
+                          "&:hover": { opacity: 0.8 },
                         }}
                       >
                         <Typography variant="body2" component="span" color="inherit">
