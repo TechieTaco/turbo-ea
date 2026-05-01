@@ -97,7 +97,7 @@ function DescriptionSection({
                 }}
                 sx={{ color: "#1976d2" }}
               >
-                <MaterialSymbol icon="auto_awesome" size={16} />
+                <MaterialSymbol icon="auto_awesome" size={20} />
               </IconButton>
             </span>
           </Tooltip>
