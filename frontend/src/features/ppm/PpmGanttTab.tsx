@@ -1153,6 +1153,145 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
     };
   }, []);
 
+  /**
+   * Smooth dependency arrows: the underlying gantt library hard-codes a
+   * staircase path (M H V H V H) with sharp 90° corners. We rewrite each
+   * arrow's `d` attribute on the fly:
+   *
+   *   • Forward routing (target row's start is past source row's end):
+   *     collapse the staircase to a single elbow at the gap midpoint.
+   *   • Loop-back routing (target overlaps or sits before source):
+   *     keep the 5-segment shape but smooth all four corners.
+   *
+   * In both cases corners use a quadratic curve (Q) of fixed pixel radius.
+   * A MutationObserver re-runs the rewrite when the library re-renders
+   * (scroll, zoom, data change). Click-zone paths are also rewritten so
+   * the hit-target follows the visible curve.
+   */
+  useEffect(() => {
+    const el = ganttRef.current;
+    if (!el) return;
+
+    const RADIUS = 6;
+    const SMOOTHED_ATTR = "data-turbo-smoothed";
+    const ARROW_RE =
+      /^\s*M\s+(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)\s+H\s+(-?\d+(?:\.\d+)?)\s+V\s+(-?\d+(?:\.\d+)?)\s+H\s+(-?\d+(?:\.\d+)?)\s+V\s+(-?\d+(?:\.\d+)?)\s+H\s+(-?\d+(?:\.\d+)?)\s*$/;
+
+    type P = { x: number; y: number };
+    const sign = (a: number, b: number): -1 | 0 | 1 => (a < b ? -1 : a > b ? 1 : 0);
+
+    /** Build a rounded corner from `prev` to `next` via `corner`.
+     *  Caller is responsible for emitting the initial M and a final L. */
+    const round = (prev: P, corner: P, next: P, r: number): string => {
+      const enter = {
+        x: corner.x + sign(prev.x, corner.x) * r,
+        y: corner.y + sign(prev.y, corner.y) * r,
+      };
+      const exit = {
+        x: corner.x - sign(next.x, corner.x) * r,
+        y: corner.y - sign(next.y, corner.y) * r,
+      };
+      return `L ${enter.x} ${enter.y} Q ${corner.x} ${corner.y} ${exit.x} ${exit.y}`;
+    };
+
+    const rewrite = (d: string): string | null => {
+      const m = ARROW_RE.exec(d);
+      if (!m) return null;
+      const sx = +m[1],
+        sy = +m[2];
+      const stubFromX = +m[3],
+        midY = +m[4];
+      const stubToX = +m[5],
+        ty = +m[6];
+      const tx = +m[7];
+
+      // If radius would invert a segment, shrink it to fit.
+      const r = Math.min(
+        RADIUS,
+        Math.abs(stubFromX - sx) / 2,
+        Math.abs(midY - sy) / 2,
+        Math.abs(stubToX - stubFromX) / 2,
+        Math.abs(ty - midY) / 2,
+        Math.abs(tx - stubToX) / 2,
+      );
+      if (r <= 0) return null;
+
+      // Forward routing: clean L-elbow at the midpoint of the gap.
+      if (stubFromX + 2 * r < stubToX) {
+        const midX = (stubFromX + stubToX) / 2;
+        const c1: P = { x: midX, y: sy };
+        const c2: P = { x: midX, y: ty };
+        return [
+          `M ${sx} ${sy}`,
+          round({ x: sx, y: sy }, c1, c2, r),
+          round(c1, c2, { x: tx, y: ty }, r),
+          `L ${tx} ${ty}`,
+        ].join(" ");
+      }
+
+      // Loop-back: keep the staircase but soften every corner.
+      const p0: P = { x: sx, y: sy };
+      const p1: P = { x: stubFromX, y: sy };
+      const p2: P = { x: stubFromX, y: midY };
+      const p3: P = { x: stubToX, y: midY };
+      const p4: P = { x: stubToX, y: ty };
+      const p5: P = { x: tx, y: ty };
+      return [
+        `M ${sx} ${sy}`,
+        round(p0, p1, p2, r),
+        round(p1, p2, p3, r),
+        round(p2, p3, p4, r),
+        round(p3, p4, p5, r),
+        `L ${tx} ${ty}`,
+      ].join(" ");
+    };
+
+    const processPath = (path: SVGPathElement) => {
+      const d = path.getAttribute("d") || "";
+      // Skip if we've already smoothed this exact upstream path.
+      if (path.getAttribute(SMOOTHED_ATTR) === d) return;
+      const next = rewrite(d);
+      if (next == null) return;
+      // Stamp the upstream value so we recognise it on subsequent passes.
+      path.setAttribute(SMOOTHED_ATTR, d);
+      path.setAttribute("d", next);
+    };
+
+    const processAll = () => {
+      el.querySelectorAll<SVGPathElement>(
+        "path[class*='mainPath_'], path[class*='clickZone_']",
+      ).forEach(processPath);
+    };
+
+    processAll();
+
+    const observer = new MutationObserver((mutations) => {
+      let needsScan = false;
+      for (const mut of mutations) {
+        if (mut.type === "childList" && mut.addedNodes.length > 0) {
+          needsScan = true;
+          continue;
+        }
+        if (
+          mut.type === "attributes" &&
+          mut.attributeName === "d" &&
+          mut.target instanceof SVGPathElement
+        ) {
+          processPath(mut.target);
+        }
+      }
+      if (needsScan) processAll();
+    });
+    observer.observe(el, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ["d"],
+    });
+
+    return () => observer.disconnect();
+  }, [dependencies, viewMode, wbsList, tasks]);
+
   if (loading) {
     return (
       <Box display="flex" justifyContent="center" mt={4}>
@@ -1270,6 +1409,14 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
           /* Remove 45-degree angled ends on project (WBS) bars — make them rectangular */
           "& [class*='projectTop_']": { display: "none" },
           "& [class*='projectBackground_']": { opacity: "1 !important" },
+          /* Dependency arrows — soften any straight-segment joins. The
+             arrow rewriter (see useEffect above) replaces the upstream
+             staircase with quadratic curves, so this mostly affects the
+             tiny remaining straight runs and the click zone. */
+          "& [class*='mainPath_']": {
+            strokeLinejoin: "round",
+            strokeLinecap: "round",
+          },
           /* Context menu: ensure it renders above everything and captures hover */
           "& [class*='menuOption_']": {
             position: "relative",
