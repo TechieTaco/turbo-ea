@@ -300,5 +300,7 @@
   "catalogue.industryGroupUnknown": "Общее",
   "catalogue.backToTop": "Наверх",
   "actions.addToFavorites": "Добавить в избранное",
-  "actions.removeFromFavorites": "Удалить из избранного"
+  "actions.removeFromFavorites": "Удалить из избранного",
+  "subtype.editTooltip": "Изменить подтип",
+  "subtype.empty": "Задать подтип"
 }

@@ -7,6 +7,7 @@ import AccordionDetails from "@mui/material/AccordionDetails";
 import TextField from "@mui/material/TextField";
 import Button from "@mui/material/Button";
 import IconButton from "@mui/material/IconButton";
+import Tooltip from "@mui/material/Tooltip";
 import Alert from "@mui/material/Alert";
 import { useTranslation } from "react-i18next";
 import MaterialSymbol from "@/components/MaterialSymbol";
@@ -23,6 +24,8 @@ function DescriptionSection({
   initialExpanded = true,
   extraFields,
   currencyFmt,
+  onAiSuggest,
+  aiBusy = false,
 }: {
   card: Card;
   onSave: (u: Record<string, unknown>) => Promise<void>;
@@ -30,6 +33,8 @@ function DescriptionSection({
   initialExpanded?: boolean;
   extraFields?: FieldDef[];
   currencyFmt?: Intl.NumberFormat;
+  onAiSuggest?: () => void;
+  aiBusy?: boolean;
 }) {
   const { t } = useTranslation(["cards", "common"]);
   const rl = useResolveLabel();
@@ -80,6 +85,23 @@ function DescriptionSection({
           <MaterialSymbol icon="description" size={20} />
           <Typography fontWeight={600}>{t("description.title")}</Typography>
         </Box>
+        {!editing && canEdit && onAiSuggest && (
+          <Tooltip title={t("common:ai.buttonTooltip")}>
+            <span>
+              <IconButton
+                size="small"
+                disabled={aiBusy}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onAiSuggest();
+                }}
+                sx={{ color: "#1976d2" }}
+              >
+                <MaterialSymbol icon="auto_awesome" size={20} />
+              </IconButton>
+            </span>
+          </Tooltip>
+        )}
         {!editing && canEdit && (
           <IconButton
             size="small"
