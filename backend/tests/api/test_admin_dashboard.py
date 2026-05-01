@@ -38,6 +38,9 @@ class TestAdminDashboardReport:
     async def test_admin_zero_state(self, client, db):
         await create_role(db, key="admin", permissions={"*": True})
         admin = await create_user(db, email="admin@test.com", role="admin")
+        # Mirror the real flow: the admin just logged in to view the dashboard.
+        admin.last_login = datetime.now(timezone.utc)
+        await db.flush()
 
         resp = await client.get("/api/v1/reports/admin-dashboard", headers=auth_headers(admin))
         assert resp.status_code == 200
@@ -186,9 +189,10 @@ class TestAdminDashboardReport:
         idle_emails = {u["email"] for u in body["idle_users"]}
         assert "bob@test.com" in idle_emails
 
-        # Approval pipeline: Application has 1 DRAFT + 1 BROKEN.
+        # Approval pipeline: cards default to DRAFT, so Covered + Orphan +
+        # Stuck = 3 DRAFT cards, plus 1 BROKEN.
         app_pipeline = next(r for r in body["approval_pipeline"] if r["type"] == "Application")
-        assert app_pipeline["draft"] == 1
+        assert app_pipeline["draft"] == 3
         assert app_pipeline["broken"] == 1
         assert app_pipeline["rejected"] == 0
 
