@@ -1,4 +1,11 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import {
+  useState,
+  useEffect,
+  useLayoutEffect,
+  useCallback,
+  useMemo,
+  useRef,
+} from "react";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import ToggleButton from "@mui/material/ToggleButton";
@@ -20,7 +27,6 @@ import type {
   OnDateChange,
   OnProgressChange,
   OnRelationChange,
-  OnArrowDoubleClick,
   Dependency,
   TaskOrEmpty,
   Column,
@@ -110,6 +116,125 @@ function parseGanttId(
 /** Build the gantt task id for a (kind, id) pair from a PpmDependency. */
 function depEndpointToGanttId(kind: "task" | "wbs", id: string): string {
   return `${kind}-${id}`;
+}
+
+/** Geometry passed from parent to the dependency overlay.
+ *  Coordinates are in viewport pixels (i.e. `getBoundingClientRect`-relative). */
+interface ArrowGeometry {
+  id: string;
+  fromX: number;
+  fromY: number;
+  toX: number;
+  toY: number;
+  /** Visible-area top/bottom — arrows that escape this range are clipped. */
+  clipTop: number;
+  clipBottom: number;
+}
+
+interface DependencyArrowOverlayProps {
+  arrows: ArrowGeometry[];
+  buildPath: (fromX: number, fromY: number, toX: number, toY: number) => string;
+  onClick: (depId: string) => void;
+  color: string;
+  dangerColor: string;
+}
+
+/** Custom SVG overlay that draws dependency arrows on top of the gantt
+ *  chart. Sits as a `position: absolute` child of the gantt's `Box` so
+ *  it inherits the gantt's clipping (overflow: hidden via the gantt's
+ *  scroll container). Coordinates are stored as viewport-pixels by the
+ *  parent and converted to overlay-local in `useLayoutEffect`. */
+function DependencyArrowOverlay({
+  arrows,
+  buildPath,
+  onClick,
+  color,
+  dangerColor: _dangerColor,
+}: DependencyArrowOverlayProps) {
+  const overlayRef = useRef<SVGSVGElement>(null);
+  const [hoverId, setHoverId] = useState<string | null>(null);
+  const [origin, setOrigin] = useState<{ x: number; y: number }>({
+    x: 0,
+    y: 0,
+  });
+
+  // Convert the parent-supplied viewport coords to overlay-local on every
+  // render — synchronous via useLayoutEffect so we don't paint the wrong
+  // positions for one frame before correcting. Re-runs when `arrows`
+  // changes, which the parent ticks on scroll / resize / data updates.
+  useLayoutEffect(() => {
+    const el = overlayRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    if (rect.left !== origin.x || rect.top !== origin.y) {
+      setOrigin({ x: rect.left, y: rect.top });
+    }
+    // origin.x / .y intentionally omitted: comparing against stale state
+    // is correct here, and including them would cause an infinite loop.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [arrows]);
+
+  return (
+    <svg
+      ref={overlayRef}
+      style={{
+        position: "absolute",
+        inset: 0,
+        width: "100%",
+        height: "100%",
+        pointerEvents: "none",
+        overflow: "hidden",
+        zIndex: 5,
+      }}
+    >
+      <defs>
+        <marker
+          id="ppm-gantt-arrowhead"
+          viewBox="0 0 10 10"
+          refX="8"
+          refY="5"
+          markerWidth="6"
+          markerHeight="6"
+          orient="auto-start-reverse"
+        >
+          <path d="M 0 0 L 10 5 L 0 10 z" fill={color} />
+        </marker>
+      </defs>
+      {arrows.map((a) => {
+        const fromX = a.fromX - origin.x;
+        const fromY = a.fromY - origin.y;
+        const toX = a.toX - origin.x;
+        const toY = a.toY - origin.y;
+        const d = buildPath(fromX, fromY, toX, toY);
+        const isHover = hoverId === a.id;
+        return (
+          <g key={a.id} style={{ pointerEvents: "auto", cursor: "pointer" }}>
+            {/* Wide invisible hit target */}
+            <path
+              d={d}
+              fill="none"
+              stroke="transparent"
+              strokeWidth={12}
+              onClick={() => onClick(a.id)}
+              onMouseEnter={() => setHoverId(a.id)}
+              onMouseLeave={() => setHoverId(null)}
+            />
+            {/* Visible arrow */}
+            <path
+              d={d}
+              fill="none"
+              stroke={color}
+              strokeWidth={isHover ? 2 : 1.5}
+              strokeLinejoin="round"
+              strokeLinecap="round"
+              markerEnd="url(#ppm-gantt-arrowhead)"
+              style={{ pointerEvents: "none", transition: "stroke-width 120ms" }}
+            />
+          </g>
+        );
+      })}
+    </svg>
+  );
 }
 
 /** Extra metadata for Gantt rows, keyed by gantt task id (e.g. "wbs-xxx", "task-xxx"). */
@@ -505,43 +630,6 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
       }
     },
     [initiativeId, loadData, t],
-  );
-
-  /** Find the dependency row matching two endpoints (in either direction). */
-  const findDependency = useCallback(
-    (taskA: Task, taskB: Task): PpmDependency | undefined => {
-      const a = parseGanttId(taskA.id);
-      const b = parseGanttId(taskB.id);
-      if (!a || !b) return undefined;
-      return dependencies.find(
-        (d) =>
-          (d.pred_kind === a.kind &&
-            d.pred_id === a.id &&
-            d.succ_kind === b.kind &&
-            d.succ_id === b.id) ||
-          (d.pred_kind === b.kind &&
-            d.pred_id === b.id &&
-            d.succ_kind === a.kind &&
-            d.succ_id === a.id),
-      );
-    },
-    [dependencies],
-  );
-
-  const handleArrowDoubleClick: OnArrowDoubleClick = useCallback(
-    async (taskFrom, _fi, taskTo) => {
-      const dep = findDependency(taskFrom, taskTo);
-      if (!dep) return;
-      if (!window.confirm(t("confirmDeleteDependency"))) return;
-      try {
-        await api.delete(`/ppm/dependencies/${dep.id}`);
-        await loadData();
-        setSnack(t("dependencyDeleted"));
-      } catch {
-        setSnack(t("dependencyDeleteFailed"));
-      }
-    },
-    [findDependency, loadData, t],
   );
 
   const ganttRef = useRef<HTMLDivElement>(null);
@@ -1154,143 +1242,203 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
   }, []);
 
   /**
-   * Smooth dependency arrows: the underlying gantt library hard-codes a
-   * staircase path (M H V H V H) with sharp 90° corners. We rewrite each
-   * arrow's `d` attribute on the fly:
+   * Custom dependency arrow overlay.
    *
-   *   • Forward routing (target row's start is past source row's end):
-   *     collapse the staircase to a single elbow at the gap midpoint.
-   *   • Loop-back routing (target overlaps or sits before source):
-   *     keep the 5-segment shape but smooth all four corners.
+   * The underlying gantt library renders dependency arrows as a hard-coded
+   * 5-segment staircase with sharp 90° corners and exposes no override.
+   * We hide its arrows via CSS (see `arrow_clickable_*` rule below) and
+   * draw our own arrows in an absolute-positioned `<svg>` overlay sitting
+   * on top of the gantt. Routing follows the milestone-planner project's
+   * conventions:
+   *   • Forward case (predecessor ends before successor starts): three
+   *     segments H–V–H with two rounded corners (SVG arc, r = 6px).
+   *   • Loop-back case (overlapping bars): five segments routing around
+   *     to the LEFT of both bars, with four rounded corners.
+   *   • Same-row case: a single horizontal segment.
    *
-   * In both cases corners use a quadratic curve (Q) of fixed pixel radius.
-   * A MutationObserver re-runs the rewrite when the library re-renders
-   * (scroll, zoom, data change). Click-zone paths are also rewritten so
-   * the hit-target follows the visible curve.
+   * Coordinates come from `getBoundingClientRect()` of each bar's
+   * `<rect class="barBackground_">`, looked up by the per-task SVG's DOM
+   * `id` (which the library sets to our gantt task id, e.g. `task-uuid`
+   * or `wbs-uuid`). A `tick` counter triggers re-measurement on:
+   *   - dependency / data / view-mode changes
+   *   - scroll inside either gantt scroll container
+   *   - any size change of the gantt or its parents (ResizeObserver)
+   *   - mutations to the gantt subtree (catches the lib's animation frames)
    */
+  const [arrowTick, setArrowTick] = useState(0);
+
   useEffect(() => {
     const el = ganttRef.current;
     if (!el) return;
-
-    const RADIUS = 6;
-    const SMOOTHED_ATTR = "data-turbo-smoothed";
-    const ARROW_RE =
-      /^\s*M\s+(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)\s+H\s+(-?\d+(?:\.\d+)?)\s+V\s+(-?\d+(?:\.\d+)?)\s+H\s+(-?\d+(?:\.\d+)?)\s+V\s+(-?\d+(?:\.\d+)?)\s+H\s+(-?\d+(?:\.\d+)?)\s*$/;
-
-    type P = { x: number; y: number };
-    const sign = (a: number, b: number): -1 | 0 | 1 => (a < b ? -1 : a > b ? 1 : 0);
-
-    /** Build a rounded corner from `prev` to `next` via `corner`.
-     *  Caller is responsible for emitting the initial M and a final L. */
-    const round = (prev: P, corner: P, next: P, r: number): string => {
-      const enter = {
-        x: corner.x + sign(prev.x, corner.x) * r,
-        y: corner.y + sign(prev.y, corner.y) * r,
-      };
-      const exit = {
-        x: corner.x - sign(next.x, corner.x) * r,
-        y: corner.y - sign(next.y, corner.y) * r,
-      };
-      return `L ${enter.x} ${enter.y} Q ${corner.x} ${corner.y} ${exit.x} ${exit.y}`;
+    let raf = 0;
+    const bump = () => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => setArrowTick((t) => t + 1));
     };
 
-    const rewrite = (d: string): string | null => {
-      const m = ARROW_RE.exec(d);
-      if (!m) return null;
-      const sx = +m[1],
-        sy = +m[2];
-      const stubFromX = +m[3],
-        midY = +m[4];
-      const stubToX = +m[5],
-        ty = +m[6];
-      const tx = +m[7];
+    // Trigger one measurement after first paint (lib renders bars asynchronously)
+    bump();
 
-      // If radius would invert a segment, shrink it to fit.
-      const r = Math.min(
-        RADIUS,
-        Math.abs(stubFromX - sx) / 2,
-        Math.abs(midY - sy) / 2,
-        Math.abs(stubToX - stubFromX) / 2,
-        Math.abs(ty - midY) / 2,
-        Math.abs(tx - stubToX) / 2,
-      );
-      if (r <= 0) return null;
+    const scrollContainers = [
+      el.querySelector("[class*='ganttTaskContent_']"),
+      el.querySelector("[class*='ganttTaskRoot_']"),
+      el.querySelector("[class*='ganttTableWrapper_']"),
+    ].filter(Boolean) as HTMLElement[];
+    scrollContainers.forEach((c) =>
+      c.addEventListener("scroll", bump, { passive: true }),
+    );
 
-      // Forward routing: clean L-elbow at the midpoint of the gap.
-      if (stubFromX + 2 * r < stubToX) {
-        const midX = (stubFromX + stubToX) / 2;
-        const c1: P = { x: midX, y: sy };
-        const c2: P = { x: midX, y: ty };
+    const resize = new ResizeObserver(bump);
+    resize.observe(el);
+
+    // Catch lib re-renders (drags, view-mode changes) that move bars without scroll
+    const mut = new MutationObserver(bump);
+    mut.observe(el, { childList: true, subtree: true, attributes: true });
+
+    return () => {
+      cancelAnimationFrame(raf);
+      scrollContainers.forEach((c) => c.removeEventListener("scroll", bump));
+      resize.disconnect();
+      mut.disconnect();
+    };
+  }, []);
+
+  /** Compute pixel coords for every dependency arrow.  Returns viewport-
+   *  relative coordinates we then translate to overlay-local in render. */
+  const arrowGeometry = useMemo(() => {
+    void arrowTick; // re-run when DOM-derived data may have shifted
+    const el = ganttRef.current;
+    if (!el) return [] as Array<{
+      id: string;
+      fromX: number;
+      fromY: number;
+      toX: number;
+      toY: number;
+      clipTop: number;
+      clipBottom: number;
+    }>;
+
+    // Gantt scroll viewport — used to clip arrows to the visible area.
+    const viewportEl =
+      el.querySelector("[class*='ganttTaskContent_']") ?? el;
+    const viewport = viewportEl.getBoundingClientRect();
+
+    const out: Array<{
+      id: string;
+      fromX: number;
+      fromY: number;
+      toX: number;
+      toY: number;
+      clipTop: number;
+      clipBottom: number;
+    }> = [];
+
+    for (const d of dependencies) {
+      const predId = `${d.pred_kind === "task" ? "task" : "wbs"}-${d.pred_id}`;
+      const succId = `${d.succ_kind === "task" ? "task" : "wbs"}-${d.succ_id}`;
+      const predEl = document.getElementById(predId);
+      const succEl = document.getElementById(succId);
+      if (!predEl || !succEl) continue;
+      const predBar = predEl.querySelector("[class*='barBackground_']");
+      const succBar = succEl.querySelector("[class*='barBackground_']");
+      if (!(predBar instanceof Element) || !(succBar instanceof Element)) continue;
+      const pr = predBar.getBoundingClientRect();
+      const sr = succBar.getBoundingClientRect();
+      if (pr.width === 0 || sr.width === 0) continue;
+      out.push({
+        id: d.id,
+        fromX: pr.right,
+        fromY: pr.top + pr.height / 2,
+        toX: sr.left,
+        toY: sr.top + sr.height / 2,
+        clipTop: viewport.top,
+        clipBottom: viewport.bottom,
+      });
+    }
+    return out;
+  }, [dependencies, arrowTick]);
+
+  /** Build the SVG path for one arrow.  Coordinates are already overlay-local. */
+  const buildArrowPath = useCallback(
+    (fromX: number, fromY: number, toX: number, toY: number): string => {
+      const RADIUS = 6;
+      const STUB = 14; // horizontal exit/entry length for loop-back routing
+      const DETOUR_PAD = 18; // gap between detour line and bars
+
+      // Same row → one straight segment
+      if (Math.abs(toY - fromY) < 1) {
+        return `M ${fromX} ${fromY} H ${toX}`;
+      }
+
+      const vDir = toY > fromY ? 1 : -1; // +1 down, -1 up
+
+      // Forward routing — clean 3-segment H/V/H with 2 rounded corners
+      if (toX > fromX + 2 * RADIUS) {
+        const midX = (fromX + toX) / 2;
+        const r = Math.min(
+          RADIUS,
+          (toX - fromX) / 4,
+          Math.abs(toY - fromY) / 2,
+        );
+        if (r < 1) {
+          return `M ${fromX} ${fromY} H ${midX} V ${toY} H ${toX}`;
+        }
+        // sweep flags: R→D=1, D→R=0; flip both for vDir=-1
+        const s1 = vDir > 0 ? 1 : 0;
+        const s2 = vDir > 0 ? 0 : 1;
         return [
-          `M ${sx} ${sy}`,
-          round({ x: sx, y: sy }, c1, c2, r),
-          round(c1, c2, { x: tx, y: ty }, r),
-          `L ${tx} ${ty}`,
+          `M ${fromX} ${fromY}`,
+          `H ${midX - r}`,
+          `A ${r} ${r} 0 0 ${s1} ${midX} ${fromY + vDir * r}`,
+          `V ${toY - vDir * r}`,
+          `A ${r} ${r} 0 0 ${s2} ${midX + r} ${toY}`,
+          `H ${toX}`,
         ].join(" ");
       }
 
-      // Loop-back: keep the staircase but soften every corner.
-      const p0: P = { x: sx, y: sy };
-      const p1: P = { x: stubFromX, y: sy };
-      const p2: P = { x: stubFromX, y: midY };
-      const p3: P = { x: stubToX, y: midY };
-      const p4: P = { x: stubToX, y: ty };
-      const p5: P = { x: tx, y: ty };
+      // Loop-back — exit right, drop past source row, run LEFT past both
+      // bars, drop to target row, re-enter target.
+      const r = RADIUS;
+      const exitX = fromX + STUB;
+      const turnY = fromY + vDir * STUB;
+      const detourX = Math.min(fromX, toX) - DETOUR_PAD;
+      // Sweep flags by direction:
+      //   vDir +1 (down):  R→D=1, D→L=1, L→D=0, D→R=0
+      //   vDir -1 (up):    R→U=0, U→L=0, L→U=1, U→R=1
+      const s1 = vDir > 0 ? 1 : 0;
+      const s2 = vDir > 0 ? 1 : 0;
+      const s3 = vDir > 0 ? 0 : 1;
+      const s4 = vDir > 0 ? 0 : 1;
       return [
-        `M ${sx} ${sy}`,
-        round(p0, p1, p2, r),
-        round(p1, p2, p3, r),
-        round(p2, p3, p4, r),
-        round(p3, p4, p5, r),
-        `L ${tx} ${ty}`,
+        `M ${fromX} ${fromY}`,
+        `H ${exitX - r}`,
+        `A ${r} ${r} 0 0 ${s1} ${exitX} ${fromY + vDir * r}`,
+        `V ${turnY - vDir * r}`,
+        `A ${r} ${r} 0 0 ${s2} ${exitX - r} ${turnY}`,
+        `H ${detourX + r}`,
+        `A ${r} ${r} 0 0 ${s3} ${detourX} ${turnY + vDir * r}`,
+        `V ${toY - vDir * r}`,
+        `A ${r} ${r} 0 0 ${s4} ${detourX + r} ${toY}`,
+        `H ${toX}`,
       ].join(" ");
-    };
+    },
+    [],
+  );
 
-    const processPath = (path: SVGPathElement) => {
-      const d = path.getAttribute("d") || "";
-      // Skip if we've already smoothed this exact upstream path.
-      if (path.getAttribute(SMOOTHED_ATTR) === d) return;
-      const next = rewrite(d);
-      if (next == null) return;
-      // Stamp the upstream value so we recognise it on subsequent passes.
-      path.setAttribute(SMOOTHED_ATTR, d);
-      path.setAttribute("d", next);
-    };
-
-    const processAll = () => {
-      el.querySelectorAll<SVGPathElement>(
-        "path[class*='mainPath_'], path[class*='clickZone_']",
-      ).forEach(processPath);
-    };
-
-    processAll();
-
-    const observer = new MutationObserver((mutations) => {
-      let needsScan = false;
-      for (const mut of mutations) {
-        if (mut.type === "childList" && mut.addedNodes.length > 0) {
-          needsScan = true;
-          continue;
-        }
-        if (
-          mut.type === "attributes" &&
-          mut.attributeName === "d" &&
-          mut.target instanceof SVGPathElement
-        ) {
-          processPath(mut.target);
-        }
+  /** Click handler for arrows: confirm + delete. */
+  const handleArrowClick = useCallback(
+    async (depId: string) => {
+      if (!window.confirm(t("confirmDeleteDependency"))) return;
+      try {
+        await api.delete(`/ppm/dependencies/${depId}`);
+        await loadData();
+        setSnack(t("dependencyDeleted"));
+      } catch {
+        setSnack(t("dependencyDeleteFailed"));
       }
-      if (needsScan) processAll();
-    });
-    observer.observe(el, {
-      childList: true,
-      subtree: true,
-      attributes: true,
-      attributeFilter: ["d"],
-    });
-
-    return () => observer.disconnect();
-  }, [dependencies, viewMode, wbsList, tasks]);
+    },
+    [loadData, t],
+  );
 
   if (loading) {
     return (
@@ -1394,6 +1542,7 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
       <Box
         ref={ganttRef}
         sx={{
+          position: "relative",
           /* ── Base styles ── */
           "& .ganttTable": { fontFamily: theme.typography.fontFamily },
           "& .ganttTable_Header": {
@@ -1409,14 +1558,11 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
           /* Remove 45-degree angled ends on project (WBS) bars — make them rectangular */
           "& [class*='projectTop_']": { display: "none" },
           "& [class*='projectBackground_']": { opacity: "1 !important" },
-          /* Dependency arrows — soften any straight-segment joins. The
-             arrow rewriter (see useEffect above) replaces the upstream
-             staircase with quadratic curves, so this mostly affects the
-             tiny remaining straight runs and the click zone. */
-          "& [class*='mainPath_']": {
-            strokeLinejoin: "round",
-            strokeLinecap: "round",
-          },
+          /* Hide the library's built-in dependency arrows (hard-coded
+             staircase). We render our own rounded-elbow arrows on a
+             custom SVG overlay (see DependencyArrowOverlay below).
+             The drag-preview `relationLine` is left visible. */
+          "& [class*='arrow_clickable_']": { display: "none" },
           /* Context menu: ensure it renders above everything and captures hover */
           "& [class*='menuOption_']": {
             position: "relative",
@@ -1523,7 +1669,6 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
           onProgressChange={handleProgressChange}
           onChangeExpandState={handleExpanderClick}
           onRelationChange={handleRelationChange}
-          onArrowDoubleClick={handleArrowDoubleClick}
           contextMenuOptions={contextMenuOptions}
           enableTableListContextMenu={2}
           roundDate={roundToDay}
@@ -1576,6 +1721,13 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
             headerHeight: 50,
             barCornerRadius: 4,
           }}
+        />
+        <DependencyArrowOverlay
+          arrows={arrowGeometry}
+          buildPath={buildArrowPath}
+          onClick={handleArrowClick}
+          color={theme.palette.text.secondary}
+          dangerColor={theme.palette.error.main}
         />
       </Box>
 
