@@ -13,7 +13,7 @@ import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import CircularProgress from "@mui/material/CircularProgress";
 import IconButton from "@mui/material/IconButton";
 import Tooltip from "@mui/material/Tooltip";
-import { alpha, useTheme } from "@mui/material/styles";
+import { useTheme } from "@mui/material/styles";
 import { useTranslation } from "react-i18next";
 import {
   Gantt,
@@ -1270,46 +1270,57 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
    */
   const [arrowTick, setArrowTick] = useState(0);
 
+  // Safety-net: when the gantt rows or dependencies change (e.g. after the
+  // initial API response on a fresh page load), schedule explicit
+  // measurements at 50ms and 250ms to cover the lib's render cadence in
+  // case the MutationObserver below hasn't attached yet.
+  useEffect(() => {
+    const t1 = setTimeout(() => setArrowTick((x) => x + 1), 50);
+    const t2 = setTimeout(() => setArrowTick((x) => x + 1), 250);
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+    };
+  }, [ganttTasks, dependencies]);
+
   useEffect(() => {
     const el = ganttRef.current;
     if (!el) return;
-    let raf = 0;
+
+    // rAF-throttled state bump — cap to one measurement per animation frame,
+    // but DON'T cancel a pending frame on each call (so updates land every
+    // frame during continuous scroll instead of being held to the end).
+    let scheduled = false;
     const bump = () => {
-      cancelAnimationFrame(raf);
-      raf = requestAnimationFrame(() => setArrowTick((t) => t + 1));
+      if (scheduled) return;
+      scheduled = true;
+      requestAnimationFrame(() => {
+        scheduled = false;
+        setArrowTick((t) => t + 1);
+      });
     };
 
-    // Trigger one measurement after first paint (lib renders bars asynchronously)
     bump();
 
-    // Idempotently attach scroll listeners. We can't do this once on mount —
-    // the library's DOM doesn't exist yet — so we retry whenever the gantt
-    // subtree mutates (which includes the lib's first render).
-    const attachedScroll = new Set<HTMLElement>();
-    const attachScrollListeners = () => {
-      const candidates = [
-        el.querySelector("[class*='ganttTaskContent_']"),
-        el.querySelector("[class*='ganttTaskRoot_']"),
-        el.querySelector("[class*='ganttTableWrapper_']"),
-      ].filter((c): c is HTMLElement => c instanceof HTMLElement);
-      for (const c of candidates) {
-        if (!attachedScroll.has(c)) {
-          c.addEventListener("scroll", bump, { passive: true });
-          attachedScroll.add(c);
-        }
-      }
+    // Capture-phase scroll on document. `scroll` events don't bubble, so a
+    // listener on a specific element only fires if that exact element scrolls
+    // — if the library's scroll containers don't exist yet at mount time, an
+    // attached-once listener never fires. Capture-phase on document catches
+    // ALL scrolls regardless of timing or which element scrolled. The rAF
+    // throttle keeps the cost negligible.
+    const onAnyScroll = (e: Event) => {
+      const target = e.target;
+      if (target instanceof Node && el.contains(target)) bump();
     };
-    attachScrollListeners();
+    document.addEventListener("scroll", onAnyScroll, true);
 
     const resize = new ResizeObserver(bump);
     resize.observe(el);
 
     // Catch lib re-renders (drags, view-mode changes) that move bars without
-    // scroll. We MUST ignore mutations inside our own overlay or each arrow
-    // re-paint would re-trigger measurement → infinite loop.
+    // scroll. We ignore mutations inside our own overlay so an arrow repaint
+    // can't re-trigger measurement.
     const mut = new MutationObserver((mutations) => {
-      // Late-bind any scroll containers the lib has rendered since last tick.
-      attachScrollListeners();
       for (const m of mutations) {
         const t = m.target;
         if (t instanceof Element && t.closest(".ppm-arrow-overlay")) continue;
@@ -1320,8 +1331,7 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
     mut.observe(el, { childList: true, subtree: true, attributes: true });
 
     return () => {
-      cancelAnimationFrame(raf);
-      attachedScroll.forEach((c) => c.removeEventListener("scroll", bump));
+      document.removeEventListener("scroll", onAnyScroll, true);
       resize.disconnect();
       mut.disconnect();
     };
@@ -1758,7 +1768,13 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
           arrows={arrowGeometry}
           buildPath={buildArrowPath}
           onClick={handleArrowClick}
-          color={alpha(theme.palette.text.primary, 0.42)}
+          /* Hardcoded greys (light vs dark) instead of `alpha(text.primary)`
+             so the change can't be masked by any cached MUI theme output. */
+          color={
+            theme.palette.mode === "dark"
+              ? "rgba(255, 255, 255, 0.38)"
+              : "rgba(0, 0, 0, 0.32)"
+          }
           dangerColor={theme.palette.error.main}
         />
       </Box>
