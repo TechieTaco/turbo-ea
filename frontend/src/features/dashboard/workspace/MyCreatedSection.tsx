@@ -22,7 +22,12 @@ interface MyCreatedResponse {
   has_more: boolean;
 }
 
-const PAGE_SIZE = 8;
+const INITIAL_PAGE_SIZE = 50;
+// Show more loads the rest in one go. Capped at the backend's maximum
+// limit; in the rare case a user has created more than INITIAL +
+// SHOW_MORE_PAGE_SIZE cards the button just appears again to load
+// another batch.
+const SHOW_MORE_PAGE_SIZE = 200;
 
 export default function MyCreatedSection({ createdCount }: Props) {
   const { t } = useTranslation("common");
@@ -35,7 +40,7 @@ export default function MyCreatedSection({ createdCount }: Props) {
 
   useEffect(() => {
     api
-      .get<MyCreatedResponse>(`/cards/my-created?limit=${PAGE_SIZE}&offset=0`)
+      .get<MyCreatedResponse>(`/cards/my-created?limit=${INITIAL_PAGE_SIZE}&offset=0`)
       .then((data) => {
         setCards(data.items);
         setHasMore(data.has_more);
@@ -49,7 +54,7 @@ export default function MyCreatedSection({ createdCount }: Props) {
     setLoadingMore(true);
     try {
       const data = await api.get<MyCreatedResponse>(
-        `/cards/my-created?limit=${PAGE_SIZE}&offset=${cards.length}`,
+        `/cards/my-created?limit=${SHOW_MORE_PAGE_SIZE}&offset=${cards.length}`,
       );
       setCards((prev) => [...prev, ...data.items]);
       setHasMore(data.has_more);
