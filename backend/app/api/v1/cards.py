@@ -453,30 +453,53 @@ async def list_my_created_cards(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
     limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
 ):
     """Cards the current user originally created (via ``Card.created_by``).
 
-    Returns at most ``limit`` cards ordered by creation date desc.
+    Supports simple offset/limit pagination so the Dashboard → My
+    Workspace → Cards I Created section can offer a "Show more" button
+    on long lists.
     """
     await PermissionService.require_permission(db, user, "inventory.view")
 
     hidden_types_sq = select(CardType.key).where(CardType.is_hidden == True)  # noqa: E712
 
-    q = (
+    base = (
         select(Card)
         .where(Card.created_by == user.id)
         .where(Card.status == "ACTIVE")
         .where(Card.type.not_in(hidden_types_sq))
-        .order_by(Card.created_at.desc())
+    )
+
+    total = (
+        await db.execute(
+            select(func.count())
+            .select_from(Card)
+            .where(Card.created_by == user.id)
+            .where(Card.status == "ACTIVE")
+            .where(Card.type.not_in(hidden_types_sq))
+        )
+    ).scalar() or 0
+
+    q = (
+        base.order_by(Card.created_at.desc())
+        .offset(offset)
         .limit(limit)
         .options(
             selectinload(Card.tags).selectinload(Tag.group),
             selectinload(Card.stakeholders).selectinload(Stakeholder.user),
         )
     )
-
     result = await db.execute(q)
-    return [_card_to_response(card) for card in result.scalars().all()]
+    items = [_card_to_response(card) for card in result.scalars().all()]
+    return {
+        "items": items,
+        "total": total,
+        "offset": offset,
+        "limit": limit,
+        "has_more": (offset + len(items)) < total,
+    }
 
 
 @router.post("", response_model=CardResponse, status_code=201)

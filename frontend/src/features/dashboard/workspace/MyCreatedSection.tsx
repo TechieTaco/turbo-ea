@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import Box from "@mui/material/Box";
+import Button from "@mui/material/Button";
 import LinearProgress from "@mui/material/LinearProgress";
 import Typography from "@mui/material/Typography";
 import { api } from "@/api/client";
@@ -13,20 +14,50 @@ interface Props {
   createdCount: number;
 }
 
-const MAX_VISIBLE = 8;
+interface MyCreatedResponse {
+  items: CardType[];
+  total: number;
+  offset: number;
+  limit: number;
+  has_more: boolean;
+}
+
+const PAGE_SIZE = 8;
 
 export default function MyCreatedSection({ createdCount }: Props) {
   const { t } = useTranslation("common");
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [cards, setCards] = useState<CardType[]>([]);
+  const [hasMore, setHasMore] = useState(false);
+  const [total, setTotal] = useState(createdCount);
 
   useEffect(() => {
     api
-      .get<CardType[]>(`/cards/my-created?limit=${MAX_VISIBLE}`)
-      .then(setCards)
+      .get<MyCreatedResponse>(`/cards/my-created?limit=${PAGE_SIZE}&offset=0`)
+      .then((data) => {
+        setCards(data.items);
+        setHasMore(data.has_more);
+        setTotal(data.total);
+      })
       .finally(() => setLoading(false));
   }, []);
+
+  const showMore = async () => {
+    if (loadingMore || !hasMore) return;
+    setLoadingMore(true);
+    try {
+      const data = await api.get<MyCreatedResponse>(
+        `/cards/my-created?limit=${PAGE_SIZE}&offset=${cards.length}`,
+      );
+      setCards((prev) => [...prev, ...data.items]);
+      setHasMore(data.has_more);
+      setTotal(data.total);
+    } finally {
+      setLoadingMore(false);
+    }
+  };
 
   return (
     <SectionPaper
@@ -34,9 +65,9 @@ export default function MyCreatedSection({ createdCount }: Props) {
       iconColor="#00897b"
       title={t("dashboard.workspace.myCreated")}
       action={
-        createdCount > MAX_VISIBLE ? (
+        total > 0 ? (
           <Typography variant="caption" color="text.secondary">
-            {t("dashboard.workspace.showingNofM", { shown: MAX_VISIBLE, total: createdCount })}
+            {t("dashboard.workspace.showingNofM", { shown: cards.length, total })}
           </Typography>
         ) : undefined
       }
@@ -68,6 +99,13 @@ export default function MyCreatedSection({ createdCount }: Props) {
               <CardTypePill typeKey={card.type} />
             </Box>
           ))}
+          {hasMore && (
+            <Box sx={{ display: "flex", justifyContent: "center", mt: 1 }}>
+              <Button size="small" onClick={showMore} disabled={loadingMore}>
+                {loadingMore ? t("labels.loading") : t("actions.showMore")}
+              </Button>
+            </Box>
+          )}
         </Box>
       )}
     </SectionPaper>

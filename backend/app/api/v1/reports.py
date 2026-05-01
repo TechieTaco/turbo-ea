@@ -258,12 +258,15 @@ async def my_workspace_summary(
     attention_count = overdue_todo_count + broken_card_count
 
     # Cards the user created (uses Card.created_by — much cheaper than the
-    # events table).
+    # events table). Excludes archived cards and hidden card types so the
+    # count agrees with the /cards/my-created listing.
+    hidden_types_sq = select(CardType.key).where(CardType.is_hidden == True)  # noqa: E712
     created_count = (
         await db.execute(
             select(func.count(Card.id)).where(
                 Card.created_by == user.id,
                 Card.status == "ACTIVE",
+                Card.type.not_in(hidden_types_sq),
             )
         )
     ).scalar() or 0

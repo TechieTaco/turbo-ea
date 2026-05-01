@@ -250,8 +250,11 @@ class TestMyCreatedCards:
 
         resp = await client.get("/api/v1/cards/my-created", headers=auth_headers(alice))
         assert resp.status_code == 200
-        names = {c["name"] for c in resp.json()}
+        body = resp.json()
+        names = {c["name"] for c in body["items"]}
         assert names == {"By alice 1", "By alice 2"}
+        assert body["total"] == 2
+        assert body["has_more"] is False
 
     async def test_excludes_archived(self, client, db):
         await create_role(db, key="admin", permissions={"*": True})
@@ -262,8 +265,50 @@ class TestMyCreatedCards:
         await create_card(db, name="Archived", user_id=admin.id, status="ARCHIVED")
 
         resp = await client.get("/api/v1/cards/my-created", headers=auth_headers(admin))
-        names = {c["name"] for c in resp.json()}
+        names = {c["name"] for c in resp.json()["items"]}
         assert names == {"Active"}
+
+    async def test_pagination_via_offset_and_limit(self, client, db):
+        await create_role(db, key="admin", permissions={"*": True})
+        await create_card_type(db, key="Application", label="Application")
+        admin = await create_user(db, email="admin@test.com", role="admin")
+
+        # Create 12 cards with deterministic names so we can spot-check
+        # that order is preserved across pages (created_at desc).
+        for i in range(12):
+            await create_card(db, name=f"Card {i:02d}", user_id=admin.id)
+
+        first = await client.get(
+            "/api/v1/cards/my-created?limit=5&offset=0", headers=auth_headers(admin)
+        )
+        assert first.status_code == 200
+        body1 = first.json()
+        assert body1["total"] == 12
+        assert body1["has_more"] is True
+        assert len(body1["items"]) == 5
+
+        second = await client.get(
+            "/api/v1/cards/my-created?limit=5&offset=5", headers=auth_headers(admin)
+        )
+        body2 = second.json()
+        assert body2["has_more"] is True
+        assert len(body2["items"]) == 5
+
+        third = await client.get(
+            "/api/v1/cards/my-created?limit=5&offset=10", headers=auth_headers(admin)
+        )
+        body3 = third.json()
+        assert body3["has_more"] is False
+        assert len(body3["items"]) == 2
+
+        # All three pages combined should equal the full set with no
+        # duplicates.
+        names = (
+            {c["name"] for c in body1["items"]}
+            | {c["name"] for c in body2["items"]}
+            | {c["name"] for c in body3["items"]}
+        )
+        assert len(names) == 12
 
 
 # ---------------------------------------------------------------------------
