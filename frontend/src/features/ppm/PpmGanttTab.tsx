@@ -1293,49 +1293,34 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
   /**
    * The overlay is rendered via React Portal into the library's own
    * scroll-content wrapper (`<div style={gridStyle}>`, the unique-class
-   * child of `[class*='ganttTaskContent_']`).  Because the overlay then
+   * child of `[class*='ganttTaskContent_']`). Because the overlay then
    * shares a parent with the bars SVG, browser scroll moves them together
    * automatically — no scroll listener, no shake.
    */
   const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
 
+  // Re-find the portal target on every render. The library can re-mount
+  // the wrapper div on view-mode changes; if we cached the old node, our
+  // portal would render into orphaned DOM. A render-time check + bail-out
+  // on identity keeps the cost negligible.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useLayoutEffect(() => {
+    const el = ganttRef.current;
+    if (!el) return;
+    const content = el.querySelector(
+      "[class*='ganttTaskContent_']",
+    ) as HTMLElement | null;
+    const target = (content?.firstElementChild as HTMLElement | null) ?? content;
+    if (!target) return;
+    // Make the wrapper a positioned ancestor so our `position: absolute`
+    // overlay anchors correctly. Setting `relative` is harmless.
+    if (target.style.position !== "relative") target.style.position = "relative";
+    if (target !== portalTarget) setPortalTarget(target);
+  });
+
   useEffect(() => {
     const el = ganttRef.current;
     if (!el) return;
-
-    /** Locate the gridStyle div (the wrapper around the bars SVG). */
-    const findTarget = (): HTMLElement | null => {
-      const content = el.querySelector(
-        "[class*='ganttTaskContent_']",
-      ) as HTMLElement | null;
-      // The lib renders exactly one child div inside ganttTaskContent
-      // (the gridStyle wrapper); fall back to ganttTaskContent itself if
-      // the structure changes.
-      return (content?.firstElementChild as HTMLElement | null) ?? content;
-    };
-
-    const tryAttach = () => {
-      const t = findTarget();
-      if (!t) return false;
-      // The lib's wrapper isn't positioned by default; we need it to be a
-      // positioned ancestor so our `position: absolute` overlay anchors
-      // correctly. Setting `relative` is harmless to the lib's layout.
-      if (t.style.position !== "relative") t.style.position = "relative";
-      setPortalTarget((prev) => (prev === t ? prev : t));
-      return true;
-    };
-
-    if (tryAttach()) {
-      // Already there — still subscribe for re-measure on data changes.
-    } else {
-      // Wait for the lib's first render to inject the wrapper.
-      const findObs = new MutationObserver(() => {
-        if (tryAttach()) findObs.disconnect();
-      });
-      findObs.observe(el, { childList: true, subtree: true });
-      // Cleanup will overwrite, but if lib never renders we still bail.
-    }
-
     bumpArrowTick();
 
     const resize = new ResizeObserver(bumpArrowTick);
