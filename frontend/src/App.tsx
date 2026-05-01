@@ -5,6 +5,7 @@ import { ThemeProvider } from "@mui/material/styles";
 import CircularProgress from "@mui/material/CircularProgress";
 import Box from "@mui/material/Box";
 import { useAuth } from "@/hooks/useAuth";
+import { AuthProvider } from "@/hooks/AuthContext";
 import { ThemeModeContext, useThemeModeState } from "@/hooks/useThemeMode";
 import { buildTheme } from "@/theme";
 import AppLayout from "@/layouts/AppLayout";
@@ -70,7 +71,8 @@ function PageLoader() {
 
 /** Inner component that handles authenticated vs public routes. */
 function AppRoutes() {
-  const { user, loading, login, register, ssoCallback, setPassword, logout } = useAuth();
+  const { user, loading, login, register, ssoCallback, setPassword, logout, refreshUser } =
+    useAuth();
 
   if (loading) {
     return (
@@ -103,6 +105,7 @@ function AppRoutes() {
       <Route
         path="*"
         element={
+          <AuthProvider user={user} refreshUser={refreshUser}>
           <AppLayout user={user} onLogout={logout}>
             <Suspense fallback={<PageLoader />}>
               <Routes>
@@ -154,6 +157,7 @@ function AppRoutes() {
               </Routes>
             </Suspense>
           </AppLayout>
+          </AuthProvider>
         }
       />
     </Routes>

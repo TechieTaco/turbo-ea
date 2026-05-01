@@ -317,6 +317,7 @@ async def login(
 
 @router.get("/me", response_model=UserResponse)
 async def me(user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    from app.models.user import DEFAULT_UI_PREFERENCES
     from app.services.permission_service import PermissionService
 
     role_data = await PermissionService.load_role(db, user.role)
@@ -330,6 +331,7 @@ async def me(user: User = Depends(get_current_user), db: AsyncSession = Depends(
         is_active=user.is_active,
         locale=user.locale or "en",
         permissions=role_data["permissions"] if role_data else {},
+        ui_preferences=user.ui_preferences or DEFAULT_UI_PREFERENCES,
     )
 
 

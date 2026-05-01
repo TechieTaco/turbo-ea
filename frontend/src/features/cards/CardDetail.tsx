@@ -74,6 +74,10 @@ export default function CardDetail() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [actionsMenuAnchor, setActionsMenuAnchor] = useState<HTMLElement | null>(null);
 
+  // Favorite star
+  const [isFavorite, setIsFavorite] = useState(false);
+  const [favoriteSaving, setFavoriteSaving] = useState(false);
+
   // Inline title editing
   const [editingName, setEditingName] = useState(false);
   const [nameDraft, setNameDraft] = useState("");
@@ -151,7 +155,31 @@ export default function CardDetail() {
       .get<Card>(`/cards/${id}`)
       .then(setCard)
       .catch((e) => setError(e.message));
+
+    // Check whether the current user has favorited this card.
+    api
+      .get<{ id: string; card_id: string }[]>("/favorites")
+      .then((favs) => setIsFavorite(favs.some((f) => f.card_id === id)))
+      .catch(() => setIsFavorite(false));
   }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const toggleFavorite = async () => {
+    if (!id || favoriteSaving) return;
+    setFavoriteSaving(true);
+    try {
+      if (isFavorite) {
+        await api.delete(`/favorites/${id}`);
+        setIsFavorite(false);
+      } else {
+        await api.post(`/favorites/${id}`, undefined);
+        setIsFavorite(true);
+      }
+    } catch {
+      // best effort
+    } finally {
+      setFavoriteSaving(false);
+    }
+  };
 
   const ppmAutoFieldKeys = useMemo(() => {
     const keys: string[] = [];
@@ -416,6 +444,34 @@ export default function CardDetail() {
             canChange={perms.can_approval_status}
             onAction={handleApprovalAction}
           />
+          <Tooltip
+            title={
+              isFavorite
+                ? t("cards:actions.removeFromFavorites")
+                : t("cards:actions.addToFavorites")
+            }
+          >
+            <span>
+              <IconButton
+                size="small"
+                onClick={toggleFavorite}
+                disabled={favoriteSaving}
+                aria-label={
+                  isFavorite
+                    ? t("cards:actions.removeFromFavorites")
+                    : t("cards:actions.addToFavorites")
+                }
+                sx={{ color: isFavorite ? "#fbc02d" : "text.secondary" }}
+              >
+                <MaterialSymbol
+                  icon="star"
+                  size={20}
+                  color={isFavorite ? "#fbc02d" : undefined}
+                  style={isFavorite ? { fontVariationSettings: "'FILL' 1" } : undefined}
+                />
+              </IconButton>
+            </span>
+          </Tooltip>
           {aiEnabled && perms.can_edit && !isArchived && !aiLoading && !aiResponse && (
             <Tooltip title={t("common:ai.buttonTooltip")}>
               <IconButton

@@ -353,6 +353,91 @@ async def list_cards(
     return CardListResponse(items=items, total=total, page=page, page_size=page_size)
 
 
+# ---------------------------------------------------------------------------
+# Personal "My Workspace" endpoints — must be declared BEFORE /{card_id}
+# so the literal paths win over the UUID catch-all.
+# ---------------------------------------------------------------------------
+
+
+@router.get("/my-stakeholder")
+async def list_my_stakeholder_cards(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+    limit: int = Query(200, ge=1, le=500),
+):
+    """Cards on which the current user holds at least one stakeholder role.
+
+    Returns cards plus a ``roles_by_card_id`` map so the UI can group/label
+    the rows by the role(s) the user holds.
+    """
+    await PermissionService.require_permission(db, user, "inventory.view")
+
+    hidden_types_sq = select(CardType.key).where(CardType.is_hidden == True)  # noqa: E712
+
+    roles_subq = (
+        select(
+            Stakeholder.card_id.label("card_id"),
+            func.array_agg(Stakeholder.role).label("roles"),
+        )
+        .where(Stakeholder.user_id == user.id)
+        .group_by(Stakeholder.card_id)
+        .subquery()
+    )
+
+    q = (
+        select(Card, roles_subq.c.roles)
+        .join(roles_subq, roles_subq.c.card_id == Card.id)
+        .where(Card.status == "ACTIVE")
+        .where(Card.type.not_in(hidden_types_sq))
+        .order_by(Card.updated_at.desc())
+        .limit(limit)
+        .options(
+            selectinload(Card.tags).selectinload(Tag.group),
+            selectinload(Card.stakeholders).selectinload(Stakeholder.user),
+        )
+    )
+
+    result = await db.execute(q)
+    items = []
+    roles_by_card_id: dict[str, list[str]] = {}
+    for card, roles in result.all():
+        items.append(_card_to_response(card))
+        roles_by_card_id[str(card.id)] = list(roles or [])
+
+    return {"items": items, "roles_by_card_id": roles_by_card_id}
+
+
+@router.get("/my-created")
+async def list_my_created_cards(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+    limit: int = Query(50, ge=1, le=200),
+):
+    """Cards the current user originally created (via ``Card.created_by``).
+
+    Returns at most ``limit`` cards ordered by creation date desc.
+    """
+    await PermissionService.require_permission(db, user, "inventory.view")
+
+    hidden_types_sq = select(CardType.key).where(CardType.is_hidden == True)  # noqa: E712
+
+    q = (
+        select(Card)
+        .where(Card.created_by == user.id)
+        .where(Card.status == "ACTIVE")
+        .where(Card.type.not_in(hidden_types_sq))
+        .order_by(Card.created_at.desc())
+        .limit(limit)
+        .options(
+            selectinload(Card.tags).selectinload(Tag.group),
+            selectinload(Card.stakeholders).selectinload(Stakeholder.user),
+        )
+    )
+
+    result = await db.execute(q)
+    return [_card_to_response(card) for card in result.scalars().all()]
+
+
 @router.post("", response_model=CardResponse, status_code=201)
 async def create_card(
     body: CardCreate,

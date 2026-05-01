@@ -298,5 +298,7 @@
   "catalogue.subtreeHeader_one": "子树 · {{count}} 项后代",
   "catalogue.subtreeHeader_other": "子树 · {{count}} 项后代",
   "catalogue.industryGroupUnknown": "通用",
-  "catalogue.backToTop": "返回顶部"
+  "catalogue.backToTop": "返回顶部",
+  "actions.addToFavorites": "添加到收藏",
+  "actions.removeFromFavorites": "从收藏中移除"
 }

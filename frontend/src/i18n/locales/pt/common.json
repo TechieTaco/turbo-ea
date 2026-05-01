@@ -37,7 +37,6 @@
   "actions.change": "Alterar",
   "actions.link": "Vincular",
   "actions.retry": "Tentar novamente",
-
   "status.active": "Ativo",
   "status.inactive": "Inativo",
   "status.archived": "Arquivado",
@@ -48,14 +47,12 @@
   "status.pending": "Pendente",
   "status.published": "Publicado",
   "status.completed": "Concluído",
-
   "lifecycle.plan": "Planejamento",
   "lifecycle.phaseIn": "Entrada",
   "lifecycle.active": "Ativo",
   "lifecycle.phaseOut": "Saída",
   "lifecycle.endOfLife": "Fim de vida",
   "lifecycle.notSet": "Não definido",
-
   "labels.name": "Nome",
   "labels.type": "Tipo",
   "labels.subtype": "Subtipo",
@@ -80,23 +77,19 @@
   "labels.count": "Quantidade",
   "labels.cards": "Fichas",
   "labels.empty": "(vazio)",
-
   "emptyStates.noCards": "Nenhuma ficha encontrada.",
   "emptyStates.noData": "Nenhum dado disponível.",
   "emptyStates.noResults": "Nenhum resultado corresponde à sua pesquisa.",
-
   "errors.generic": "Algo deu errado",
   "errors.notFound": "Não encontrado",
   "errors.unauthorized": "Não autorizado",
   "errors.forbidden": "Você não tem permissão para realizar esta ação",
   "errors.occurred": "Ocorreu um erro",
   "errors.failedToRender": "Falha ao renderizar",
-
   "time.justNow": "agora mesmo",
   "time.minutesAgo": "{{count}}min atrás",
   "time.hoursAgo": "{{count}}h atrás",
   "time.daysAgo": "{{count}}d atrás",
-
   "fieldTypes.text": "Texto",
   "fieldTypes.number": "Número",
   "fieldTypes.cost": "Custo",
@@ -105,10 +98,8 @@
   "fieldTypes.url": "URL",
   "fieldTypes.singleSelect": "Seleção única",
   "fieldTypes.multipleSelect": "Seleção múltipla",
-
   "items_one": "{{count}} item",
   "items_other": "{{count}} itens",
-
   "dashboard.title": "Painel",
   "dashboard.totalCards": "Total de fichas",
   "dashboard.avgCompletion": "Completude média",
@@ -126,7 +117,6 @@
   "dashboard.trend.collecting": "Coletando dados de tendência…",
   "dashboard.trend.points": "pts",
   "dashboard.trend.caption": "Os indicadores de tendência baseiam-se nos últimos 30 dias",
-
   "dashboard.activity.filter.all": "Tudo",
   "dashboard.activity.filter.cards": "Fichas",
   "dashboard.activity.filter.approvals": "Aprovações",
@@ -181,15 +171,12 @@
   "dashboard.activity.action.soaw.signed": "assinou um SoAW",
   "dashboard.activity.action.soaw.rejected": "rejeitou um SoAW",
   "dashboard.activity.action.soaw.signatures_recalled": "retirou as assinaturas de um SoAW",
-
   "colorPicker.pickColor": "Escolher cor",
   "colorPicker.recent": "Recentes",
-
   "timelineSlider.timeTravel": "Viagem no tempo",
   "timelineSlider.past": "Passado",
   "timelineSlider.future": "Futuro",
   "timelineSlider.resetToToday": "Redefinir para hoje",
-
   "todos.title": "Minhas tarefas",
   "todos.tabs.open": "Abertas",
   "todos.tabs.done": "Concluídas",
@@ -203,7 +190,6 @@
   "todos.surveysEmpty": "Nenhuma pesquisa pendente. Você está em dia!",
   "todos.surveyPendingCount": "{{count}} pendente(s)",
   "todos.respond": "Responder",
-
   "portal.loading": "Carregando...",
   "portal.notFound": "Portal não encontrado",
   "portal.notFoundHint": "Este portal pode não existir ou ainda não estar publicado.",
@@ -233,7 +219,6 @@
   "portal.roles.observer": "Observador",
   "portal.roles.technical_application_owner": "Proprietário técnico",
   "portal.roles.business_application_owner": "Proprietário de negócio",
-
   "ai.suggestButton": "Sugerir com IA",
   "ai.buttonTooltip": "Usar IA para sugerir uma descrição para este cartão",
   "ai.searching": "Gerando descrição...",
@@ -245,7 +230,6 @@
   "ai.dismiss": "Dispensar",
   "ai.applyDescription": "Aplicar descrição",
   "ai.applySuggestions": "Aplicar sugestões",
-
   "iconPicker.searchPlaceholder": "Pesquisar ícones...",
   "iconPicker.resultCount_one": "{{count}} resultado",
   "iconPicker.resultCount_other": "{{count}} resultados",
@@ -270,5 +254,32 @@
   "moduleDisabled.title": "{{module}} está desativado",
   "moduleDisabled.body": "O módulo {{module}} está atualmente desativado por um administrador. Ative-o nas configurações de administração para acessar esta seção.",
   "moduleDisabled.backToDashboard": "Voltar ao painel",
-  "moduleDisabled.openSettings": "Abrir configurações"
+  "moduleDisabled.openSettings": "Abrir configurações",
+  "dashboard.tabs.overview": "Visão geral",
+  "dashboard.tabs.workspace": "Meu espaço",
+  "dashboard.pinAsDefault": "Fixar como aba padrão",
+  "dashboard.unpinDefault": "Remover aba padrão",
+  "dashboard.workspace.myFavorites": "Meus favoritos",
+  "dashboard.workspace.myRoles": "Cartões com meu papel",
+  "dashboard.workspace.myTodos": "Minhas tarefas abertas",
+  "dashboard.workspace.myPendingSurveys": "Minhas pesquisas pendentes",
+  "dashboard.workspace.needsAttention": "Precisa da minha atenção",
+  "dashboard.workspace.recentActivity": "Atividade recente nos meus cartões",
+  "dashboard.workspace.myCreated": "Cartões que criei",
+  "dashboard.workspace.viewAll": "Ver tudo",
+  "dashboard.workspace.showingNofM": "Mostrando {{shown}} de {{total}}",
+  "dashboard.workspace.empty.favorites": "Navegue pelo inventário e clique na estrela para fixar cartões aqui.",
+  "dashboard.workspace.empty.roles": "Você ainda não está atribuído como parte interessada em nenhum cartão.",
+  "dashboard.workspace.empty.todos": "Sem tarefas abertas. Você está em dia.",
+  "dashboard.workspace.empty.surveys": "Nenhuma pesquisa aguardando sua resposta.",
+  "dashboard.workspace.empty.activity": "Sem atividade recente nos cartões que você acompanha.",
+  "dashboard.workspace.empty.created": "Você ainda não criou nenhum cartão.",
+  "dashboard.workspace.metric.favorites": "Favoritos",
+  "dashboard.workspace.metric.stakeholderCards": "Meus cartões com papel",
+  "dashboard.workspace.metric.openTodos": "Tarefas abertas",
+  "dashboard.workspace.metric.pendingSurveys": "Pesquisas pendentes",
+  "dashboard.workspace.attention.overdueTodos_one": "{{count}} tarefa atrasada",
+  "dashboard.workspace.attention.overdueTodos_other": "{{count}} tarefas atrasadas",
+  "dashboard.workspace.attention.brokenCards_one": "{{count}} cartão quebrado pelo qual você é responsável",
+  "dashboard.workspace.attention.brokenCards_other": "{{count}} cartões quebrados pelos quais você é responsável"
 }

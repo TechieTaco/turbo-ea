@@ -1,3 +1,9 @@
+export type DashboardTabKey = "overview" | "workspace";
+
+export interface UiPreferences {
+  dashboard_default_tab?: DashboardTabKey;
+}
+
 export interface User {
   id: string;
   email: string;
@@ -13,6 +19,7 @@ export interface User {
   created_at?: string;
   last_login?: string;
   permissions?: Record<string, boolean>;
+  ui_preferences?: UiPreferences | null;
 }
 
 export interface AppRole {

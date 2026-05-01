@@ -44,5 +44,6 @@ class UserResponse(BaseModel):
     is_active: bool
     locale: str = "en"
     permissions: dict[str, bool] | None = None
+    ui_preferences: dict | None = None
 
     model_config = {"from_attributes": True}
