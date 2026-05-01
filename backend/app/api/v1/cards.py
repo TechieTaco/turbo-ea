@@ -19,6 +19,7 @@ from app.models.event import Event
 from app.models.ppm_cost_line import PpmBudgetLine, PpmCostLine
 from app.models.relation import Relation
 from app.models.stakeholder import Stakeholder
+from app.models.stakeholder_role_definition import StakeholderRoleDefinition
 from app.models.tag import Tag
 from app.models.user import User
 from app.schemas.card import (
@@ -351,6 +352,154 @@ async def list_cards(
     items = [_card_to_response(card) for card in result.scalars().all()]
 
     return CardListResponse(items=items, total=total, page=page, page_size=page_size)
+
+
+# ---------------------------------------------------------------------------
+# Personal "My Workspace" endpoints — must be declared BEFORE /{card_id}
+# so the literal paths win over the UUID catch-all.
+# ---------------------------------------------------------------------------
+
+
+@router.get("/my-stakeholder")
+async def list_my_stakeholder_cards(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+    limit: int = Query(200, ge=1, le=500),
+):
+    """Cards on which the current user holds at least one stakeholder role.
+
+    Returns cards plus a ``roles_by_card_id`` map keyed by card id, where
+    each entry is a list of role descriptors ``{key, label, color,
+    translations}`` resolved from the matching ``StakeholderRoleDefinition``
+    for the card's type. The frontend uses ``label`` + ``translations`` to
+    render a localised role chip per role.
+    """
+    await PermissionService.require_permission(db, user, "inventory.view")
+
+    hidden_types_sq = select(CardType.key).where(CardType.is_hidden == True)  # noqa: E712
+
+    roles_subq = (
+        select(
+            Stakeholder.card_id.label("card_id"),
+            func.array_agg(Stakeholder.role).label("roles"),
+        )
+        .where(Stakeholder.user_id == user.id)
+        .group_by(Stakeholder.card_id)
+        .subquery()
+    )
+
+    q = (
+        select(Card, roles_subq.c.roles)
+        .join(roles_subq, roles_subq.c.card_id == Card.id)
+        .where(Card.status == "ACTIVE")
+        .where(Card.type.not_in(hidden_types_sq))
+        .order_by(Card.updated_at.desc())
+        .limit(limit)
+        .options(
+            selectinload(Card.tags).selectinload(Tag.group),
+            selectinload(Card.stakeholders).selectinload(Stakeholder.user),
+        )
+    )
+
+    result = await db.execute(q)
+    rows = list(result.all())
+
+    # Resolve role definitions for the (card_type, role_key) pairs we just
+    # fetched, in a single query.
+    needed_pairs: set[tuple[str, str]] = set()
+    for card, roles in rows:
+        for r in roles or []:
+            needed_pairs.add((card.type, r))
+
+    role_def_map: dict[tuple[str, str], StakeholderRoleDefinition] = {}
+    if needed_pairs:
+        type_keys = {pair[0] for pair in needed_pairs}
+        role_keys = {pair[1] for pair in needed_pairs}
+        srd_rows = await db.execute(
+            select(StakeholderRoleDefinition).where(
+                StakeholderRoleDefinition.card_type_key.in_(type_keys),
+                StakeholderRoleDefinition.key.in_(role_keys),
+            )
+        )
+        for srd in srd_rows.scalars().all():
+            role_def_map[(srd.card_type_key, srd.key)] = srd
+
+    items = []
+    roles_by_card_id: dict[str, list[dict]] = {}
+    for card, roles in rows:
+        items.append(_card_to_response(card))
+        descriptors: list[dict] = []
+        seen: set[str] = set()
+        for role_key in roles or []:
+            if role_key in seen:
+                continue
+            seen.add(role_key)
+            srd = role_def_map.get((card.type, role_key))
+            descriptors.append(
+                {
+                    "key": role_key,
+                    "label": srd.label if srd else role_key,
+                    "color": srd.color if srd else "#757575",
+                    "translations": srd.translations if srd else {},
+                }
+            )
+        roles_by_card_id[str(card.id)] = descriptors
+
+    return {"items": items, "roles_by_card_id": roles_by_card_id}
+
+
+@router.get("/my-created")
+async def list_my_created_cards(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+):
+    """Cards the current user originally created (via ``Card.created_by``).
+
+    Supports simple offset/limit pagination so the Dashboard → My
+    Workspace → Cards I Created section can offer a "Show more" button
+    on long lists.
+    """
+    await PermissionService.require_permission(db, user, "inventory.view")
+
+    hidden_types_sq = select(CardType.key).where(CardType.is_hidden == True)  # noqa: E712
+
+    base = (
+        select(Card)
+        .where(Card.created_by == user.id)
+        .where(Card.status == "ACTIVE")
+        .where(Card.type.not_in(hidden_types_sq))
+    )
+
+    total = (
+        await db.execute(
+            select(func.count())
+            .select_from(Card)
+            .where(Card.created_by == user.id)
+            .where(Card.status == "ACTIVE")
+            .where(Card.type.not_in(hidden_types_sq))
+        )
+    ).scalar() or 0
+
+    q = (
+        base.order_by(Card.created_at.desc())
+        .offset(offset)
+        .limit(limit)
+        .options(
+            selectinload(Card.tags).selectinload(Tag.group),
+            selectinload(Card.stakeholders).selectinload(Stakeholder.user),
+        )
+    )
+    result = await db.execute(q)
+    items = [_card_to_response(card) for card in result.scalars().all()]
+    return {
+        "items": items,
+        "total": total,
+        "offset": offset,
+        "limit": limit,
+        "has_more": (offset + len(items)) < total,
+    }
 
 
 @router.post("", response_model=CardResponse, status_code=201)

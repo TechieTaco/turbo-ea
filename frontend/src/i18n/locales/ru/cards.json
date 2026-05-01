@@ -298,5 +298,7 @@
   "catalogue.subtreeHeader_one": "Поддерево · {{count}} потомок",
   "catalogue.subtreeHeader_other": "Поддерево · {{count}} потомков",
   "catalogue.industryGroupUnknown": "Общее",
-  "catalogue.backToTop": "Наверх"
+  "catalogue.backToTop": "Наверх",
+  "actions.addToFavorites": "Добавить в избранное",
+  "actions.removeFromFavorites": "Удалить из избранного"
 }

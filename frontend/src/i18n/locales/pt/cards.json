@@ -298,5 +298,7 @@
   "catalogue.subtreeHeader_one": "Subárvore · {{count}} descendente",
   "catalogue.subtreeHeader_other": "Subárvore · {{count}} descendentes",
   "catalogue.industryGroupUnknown": "Geral",
-  "catalogue.backToTop": "Voltar ao topo"
+  "catalogue.backToTop": "Voltar ao topo",
+  "actions.addToFavorites": "Adicionar aos favoritos",
+  "actions.removeFromFavorites": "Remover dos favoritos"
 }

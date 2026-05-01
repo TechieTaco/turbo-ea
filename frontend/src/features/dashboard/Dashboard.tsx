@@ -1,399 +1,152 @@
-import { useState, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import { useNavigate } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import Box from "@mui/material/Box";
-import Card from "@mui/material/Card";
-import CardContent from "@mui/material/CardContent";
+import IconButton from "@mui/material/IconButton";
+import Tab from "@mui/material/Tab";
+import Tabs from "@mui/material/Tabs";
+import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
-import Grid from "@mui/material/Grid";
-import Chip from "@mui/material/Chip";
-import LinearProgress from "@mui/material/LinearProgress";
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip as RTooltip,
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
-  Legend,
-} from "recharts";
-import { useTheme } from "@mui/material/styles";
 import MaterialSymbol from "@/components/MaterialSymbol";
-import { useMetamodel } from "@/hooks/useMetamodel";
-import { useResolveMetaLabel } from "@/hooks/useResolveLabel";
+import { useAuthContext } from "@/hooks/AuthContext";
 import { api } from "@/api/client";
-import { APPROVAL_STATUS_COLORS, DATA_QUALITY_COLORS, STATUS_COLORS } from "@/theme/tokens";
-import type { DashboardData } from "@/types";
-import TrendIndicator from "./TrendIndicator";
-import RecentActivity from "./RecentActivity";
+import type { DashboardTabKey } from "@/types";
+import OverviewTab from "./OverviewTab";
+import WorkspaceTab from "./workspace/WorkspaceTab";
 
-/* ------------------------------------------------------------------ */
-/*  Constants                                                          */
-/* ------------------------------------------------------------------ */
+const VALID_TABS: DashboardTabKey[] = ["overview", "workspace"];
 
-const DATA_QUALITY_LABELS: Record<string, string> = {
-  "0-25": "0 - 25%",
-  "25-50": "25 - 50%",
-  "50-75": "50 - 75%",
-  "75-100": "75 - 100%",
-};
+function isValidTab(value: string | null): value is DashboardTabKey {
+  return value === "overview" || value === "workspace";
+}
 
-/* ------------------------------------------------------------------ */
-/*  Component                                                          */
-/* ------------------------------------------------------------------ */
+interface PinTabLabelProps {
+  label: string;
+  isDefault: boolean;
+  onTogglePin: () => void;
+  setAsDefaultTooltip: string;
+  unsetAsDefaultTooltip: string;
+}
+
+function PinTabLabel({
+  label,
+  isDefault,
+  onTogglePin,
+  setAsDefaultTooltip,
+  unsetAsDefaultTooltip,
+}: PinTabLabelProps) {
+  return (
+    <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+      <span>{label}</span>
+      <Tooltip title={isDefault ? unsetAsDefaultTooltip : setAsDefaultTooltip}>
+        <IconButton
+          size="small"
+          aria-label={isDefault ? unsetAsDefaultTooltip : setAsDefaultTooltip}
+          onClick={(e) => {
+            e.stopPropagation();
+            onTogglePin();
+          }}
+          sx={{ p: 0.25, ml: 0.25 }}
+        >
+          <MaterialSymbol
+            icon="push_pin"
+            size={16}
+            color={isDefault ? "#1976d2" : "#9e9e9e"}
+            style={isDefault ? { fontVariationSettings: "'FILL' 1" } : undefined}
+          />
+        </IconButton>
+      </Tooltip>
+    </Box>
+  );
+}
 
 export default function Dashboard() {
-  const navigate = useNavigate();
-  const theme = useTheme();
   const { t } = useTranslation("common");
-  const { types } = useMetamodel();
-  const rml = useResolveMetaLabel();
-  const [data, setData] = useState<DashboardData | null>(null);
+  const { user, refreshUser } = useAuthContext();
+  const [searchParams, setSearchParams] = useSearchParams();
 
+  const rawTab = searchParams.get("tab");
+  const preferredTab: DashboardTabKey =
+    user?.ui_preferences?.dashboard_default_tab ?? "overview";
+  const activeTab: DashboardTabKey = isValidTab(rawTab) ? rawTab : preferredTab;
+
+  // If the URL has no explicit ?tab=, write the resolved tab back so deep
+  // links and refreshes are stable. Only run when there is no rawTab.
   useEffect(() => {
-    api.get<DashboardData>("/reports/dashboard").then(setData);
-  }, []);
+    if (rawTab === null) {
+      const next = new URLSearchParams(searchParams);
+      next.set("tab", activeTab);
+      setSearchParams(next, { replace: true });
+    }
+  }, [rawTab, activeTab, searchParams, setSearchParams]);
 
-  /* ---------- derived chart data ---------- */
+  const setActiveTab = useCallback(
+    (tab: DashboardTabKey) => {
+      const next = new URLSearchParams(searchParams);
+      next.set("tab", tab);
+      setSearchParams(next, { replace: true });
+    },
+    [searchParams, setSearchParams],
+  );
 
-  const typeChartData = useMemo(() => {
-    if (!data) return [];
-    return types
-      .filter((t) => (data.by_type[t.key] ?? 0) > 0)
-      .map((t) => ({ name: rml(t.key, t.translations, "label"), count: data.by_type[t.key] || 0, color: t.color, key: t.key }))
-      .sort((a, b) => b.count - a.count);
-  }, [data, types]);
+  const togglePin = useCallback(
+    async (tab: DashboardTabKey) => {
+      const isAlreadyDefault = preferredTab === tab;
+      const nextValue: DashboardTabKey | null = isAlreadyDefault ? null : tab;
+      try {
+        await api.patch("/users/me/ui-preferences", {
+          dashboard_default_tab: nextValue,
+        });
+        await refreshUser();
+      } catch {
+        // Best effort — user can retry; we don't surface a toast here to
+        // keep the dashboard quiet.
+      }
+    },
+    [preferredTab, refreshUser],
+  );
 
-  const approvalChartData = useMemo(() => {
-    if (!data) return [];
-    return Object.entries(data.approval_statuses)
-      .filter(([, v]) => v > 0)
-      .map(([k, v]) => ({
-        name: t(`status.${k.toLowerCase()}`) || k,
-        value: v,
-        color:
-          APPROVAL_STATUS_COLORS[k as keyof typeof APPROVAL_STATUS_COLORS] ||
-          STATUS_COLORS.neutral,
-        key: k,
-      }));
-  }, [data, t]);
-
-  const dataQualityChartData = useMemo(() => {
-    if (!data) return [];
-    return Object.entries(data.data_quality_distribution).map(([k, v]) => ({
-      name: DATA_QUALITY_LABELS[k] || k,
-      count: v,
-      color: DATA_QUALITY_COLORS[k as keyof typeof DATA_QUALITY_COLORS] || STATUS_COLORS.neutral,
-    }));
-  }, [data]);
-
-  const lifecyclePhases = useMemo(() => [
-    { key: "plan", label: t("lifecycle.plan"), color: STATUS_COLORS.neutral },
-    { key: "phaseIn", label: t("lifecycle.phaseIn"), color: STATUS_COLORS.info },
-    { key: "active", label: t("lifecycle.active"), color: STATUS_COLORS.success },
-    { key: "phaseOut", label: t("lifecycle.phaseOut"), color: STATUS_COLORS.warning },
-    { key: "endOfLife", label: t("lifecycle.endOfLife"), color: STATUS_COLORS.error },
-    { key: "none", label: t("lifecycle.notSet"), color: STATUS_COLORS.neutral },
-  ], [t]);
-
-  const lifecycleChartData = useMemo(() => {
-    if (!data) return [];
-    return lifecyclePhases.map((p) => ({
-      name: p.label,
-      count: data.lifecycle_distribution[p.key] || 0,
-      color: p.color,
-    }));
-  }, [data, lifecyclePhases]);
-
-  if (!data) return <LinearProgress />;
-
-  const typeCards = types.filter(
-    (t) => !t.is_hidden && ((data.by_type[t.key] ?? 0) > 0 || ["Application", "BusinessCapability", "ITComponent", "Initiative"].includes(t.key)),
+  const tabConfigs = useMemo(
+    () =>
+      VALID_TABS.map((key) => ({
+        key,
+        label: t(`dashboard.tabs.${key}`),
+      })),
+    [t],
   );
 
   return (
     <Box>
-      <Typography variant="h5" fontWeight={600} sx={{ mb: 3 }}>
-        {t("dashboard.title")}
-      </Typography>
-
-      {/* -------- KPI summary cards -------- */}
-      <Grid container spacing={2} sx={{ mb: 1 }}>
-        <Grid item xs={12} sm={6} md={3}>
-          <Card>
-            <CardContent>
-              <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", mb: 1, gap: 1 }}>
-                <Box sx={{ display: "flex", alignItems: "center", gap: 1, minWidth: 0 }}>
-                  <MaterialSymbol icon="inventory_2" size={24} color="#1976d2" />
-                  <Typography variant="subtitle2" color="text.secondary" noWrap>{t("dashboard.totalCards")}</Typography>
-                </Box>
-                {data.trends && (
-                  <TrendIndicator
-                    deltaPct={data.trends.total_cards.delta_pct}
-                    deltaAbs={data.trends.total_cards.delta_abs}
-                    goodDirection="up"
-                  />
-                )}
-              </Box>
-              <Typography variant="h4" fontWeight={700}>{data.total_cards}</Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <Card>
-            <CardContent>
-              <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", mb: 1, gap: 1 }}>
-                <Box sx={{ display: "flex", alignItems: "center", gap: 1, minWidth: 0 }}>
-                  <MaterialSymbol icon="pie_chart" size={24} color="#4caf50" />
-                  <Typography variant="subtitle2" color="text.secondary" noWrap>{t("dashboard.avgCompletion")}</Typography>
-                </Box>
-                {data.trends && (
-                  <TrendIndicator
-                    deltaPct={data.trends.avg_data_quality.delta_pct}
-                    goodDirection="up"
-                  />
-                )}
-              </Box>
-              <Typography variant="h4" fontWeight={700}>{data.avg_data_quality}%</Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <Card>
-            <CardContent>
-              <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", mb: 1, gap: 1 }}>
-                <Box sx={{ display: "flex", alignItems: "center", gap: 1, minWidth: 0 }}>
-                  <MaterialSymbol icon="verified" size={24} color="#2e7d32" />
-                  <Typography variant="subtitle2" color="text.secondary" noWrap>{t("status.approved")}</Typography>
-                </Box>
-                {data.trends && (
-                  <TrendIndicator
-                    deltaPct={data.trends.approved_count.delta_pct}
-                    deltaAbs={data.trends.approved_count.delta_abs}
-                    goodDirection="up"
-                  />
-                )}
-              </Box>
-              <Typography variant="h4" fontWeight={700}>{data.approval_statuses["APPROVED"] || 0}</Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <Card>
-            <CardContent>
-              <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", mb: 1, gap: 1 }}>
-                <Box sx={{ display: "flex", alignItems: "center", gap: 1, minWidth: 0 }}>
-                  <MaterialSymbol icon="warning" size={24} color="#f57c00" />
-                  <Typography variant="subtitle2" color="text.secondary" noWrap>{t("status.broken")}</Typography>
-                </Box>
-                {data.trends && (
-                  <TrendIndicator
-                    deltaPct={data.trends.broken_count.delta_pct}
-                    deltaAbs={data.trends.broken_count.delta_abs}
-                    goodDirection="down"
-                  />
-                )}
-              </Box>
-              <Typography variant="h4" fontWeight={700}>{data.approval_statuses["BROKEN"] || 0}</Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-      </Grid>
-
-      {data.trends && (
-        <Typography
-          variant="caption"
-          color="text.secondary"
-          sx={{ display: "block", mb: 3, textAlign: "left" }}
-        >
-          {t("dashboard.trend.caption")}
+      <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 2 }}>
+        <Typography variant="h5" fontWeight={600}>
+          {t("dashboard.title")}
         </Typography>
-      )}
+      </Box>
 
-      {/* -------- Row 2: Type bar chart + Approval status donut -------- */}
-      <Grid container spacing={2} sx={{ mb: 3 }}>
-        <Grid item xs={12} md={7}>
-          <Card sx={{ height: "100%" }}>
-            <CardContent>
-              <Typography variant="subtitle1" fontWeight={600} gutterBottom>
-                {t("dashboard.cardsByType")}
-              </Typography>
-              {typeChartData.length > 0 ? (
-                <ResponsiveContainer width="100%" height={Math.max(typeChartData.length * 38, 200)}>
-                  <BarChart data={typeChartData} layout="vertical" margin={{ left: 10, right: 24, top: 4, bottom: 4 }}>
-                    <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke={theme.palette.divider} />
-                    <XAxis type="number" allowDecimals={false} tick={{ fill: theme.palette.text.secondary }} />
-                    <YAxis
-                      type="category"
-                      dataKey="name"
-                      width={130}
-                      tick={{ fontSize: 12, fill: theme.palette.text.secondary }}
-                      tickLine={false}
-                    />
-                    <RTooltip cursor={{ fill: theme.palette.action.hover }} contentStyle={{ backgroundColor: theme.palette.background.paper, borderColor: theme.palette.divider, color: theme.palette.text.primary }} />
-                    <Bar
-                      dataKey="count"
-                      name={t("labels.count")}
-                      radius={[0, 4, 4, 0]}
-                      cursor="pointer"
-                      onClick={(_data, _idx) => {
-                        const key = typeChartData[_idx]?.key;
-                        if (key) navigate(`/inventory?type=${key}`);
-                      }}
-                    >
-                      {typeChartData.map((d, i) => (
-                        <Cell key={i} fill={d.color} />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              ) : (
-                <Typography variant="body2" color="text.secondary">{t("dashboard.noCardsYet")}</Typography>
-              )}
-            </CardContent>
-          </Card>
-        </Grid>
+      <Tabs
+        value={activeTab}
+        onChange={(_, value) => setActiveTab(value as DashboardTabKey)}
+        sx={{ mb: 3, borderBottom: 1, borderColor: "divider" }}
+      >
+        {tabConfigs.map((tab) => (
+          <Tab
+            key={tab.key}
+            value={tab.key}
+            label={
+              <PinTabLabel
+                label={tab.label}
+                isDefault={preferredTab === tab.key}
+                onTogglePin={() => togglePin(tab.key)}
+                setAsDefaultTooltip={t("dashboard.pinAsDefault")}
+                unsetAsDefaultTooltip={t("dashboard.unpinDefault")}
+              />
+            }
+          />
+        ))}
+      </Tabs>
 
-        <Grid item xs={12} md={5}>
-          <Card sx={{ height: "100%" }}>
-            <CardContent>
-              <Typography variant="subtitle1" fontWeight={600} gutterBottom>
-                {t("dashboard.approvalStatusDistribution")}
-              </Typography>
-              {approvalChartData.length > 0 ? (
-                <ResponsiveContainer width="100%" height={260}>
-                  <PieChart>
-                    <Pie
-                      data={approvalChartData}
-                      dataKey="value"
-                      nameKey="name"
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={50}
-                      outerRadius={90}
-                      paddingAngle={2}
-                      cursor="pointer"
-                      label={({ name, value }: { name?: string; value?: number }) => `${name ?? ""}: ${value ?? 0}`}
-                      onClick={(_data, idx) => {
-                        const status = approvalChartData[idx]?.key;
-                        if (status) navigate(`/inventory?approval_status=${status}`);
-                      }}
-                    >
-                      {approvalChartData.map((d, i) => (
-                        <Cell key={i} fill={d.color} />
-                      ))}
-                    </Pie>
-                    <RTooltip cursor={{ fill: theme.palette.action.hover }} contentStyle={{ backgroundColor: theme.palette.background.paper, borderColor: theme.palette.divider, color: theme.palette.text.primary }} />
-                    <Legend formatter={(value: string) => <span style={{ color: theme.palette.text.primary }}>{value}</span>} />
-                  </PieChart>
-                </ResponsiveContainer>
-              ) : (
-                <Typography variant="body2" color="text.secondary">{t("emptyStates.noData")}</Typography>
-              )}
-            </CardContent>
-          </Card>
-        </Grid>
-      </Grid>
-
-      {/* -------- Row 3: Completion distribution + Lifecycle overview -------- */}
-      <Grid container spacing={2} sx={{ mb: 3 }}>
-        <Grid item xs={12} md={6}>
-          <Card sx={{ height: "100%" }}>
-            <CardContent>
-              <Typography variant="subtitle1" fontWeight={600} gutterBottom>
-                {t("dashboard.completionDistribution")}
-              </Typography>
-              <ResponsiveContainer width="100%" height={240}>
-                <BarChart data={dataQualityChartData} margin={{ left: 0, right: 16, top: 8, bottom: 4 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke={theme.palette.divider} />
-                  <XAxis dataKey="name" tick={{ fontSize: 12, fill: theme.palette.text.secondary }} />
-                  <YAxis allowDecimals={false} tick={{ fill: theme.palette.text.secondary }} />
-                  <RTooltip cursor={{ fill: theme.palette.action.hover }} contentStyle={{ backgroundColor: theme.palette.background.paper, borderColor: theme.palette.divider, color: theme.palette.text.primary }} />
-                  <Bar
-                    dataKey="count"
-                    name={t("labels.cards")}
-                    radius={[4, 4, 0, 0]}
-                    cursor="pointer"
-                    onClick={() => navigate("/reports/data-quality")}
-                  >
-                    {dataQualityChartData.map((d, i) => (
-                      <Cell key={i} fill={d.color} />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-        </Grid>
-
-        <Grid item xs={12} md={6}>
-          <Card sx={{ height: "100%" }}>
-            <CardContent>
-              <Typography variant="subtitle1" fontWeight={600} gutterBottom>
-                {t("dashboard.lifecycleOverview")}
-              </Typography>
-              <ResponsiveContainer width="100%" height={240}>
-                <BarChart data={lifecycleChartData} margin={{ left: 0, right: 16, top: 8, bottom: 4 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke={theme.palette.divider} />
-                  <XAxis dataKey="name" tick={{ fontSize: 12, fill: theme.palette.text.secondary }} />
-                  <YAxis allowDecimals={false} tick={{ fill: theme.palette.text.secondary }} />
-                  <RTooltip cursor={{ fill: theme.palette.action.hover }} contentStyle={{ backgroundColor: theme.palette.background.paper, borderColor: theme.palette.divider, color: theme.palette.text.primary }} />
-                  <Bar
-                    dataKey="count"
-                    name={t("labels.cards")}
-                    radius={[4, 4, 0, 0]}
-                    cursor="pointer"
-                    onClick={() => navigate("/reports/lifecycle")}
-                  >
-                    {lifecycleChartData.map((d, i) => (
-                      <Cell key={i} fill={d.color} />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-        </Grid>
-      </Grid>
-
-      {/* -------- Row 4: Card type list + Recent Activity -------- */}
-      <Grid container spacing={2}>
-        <Grid item xs={12} md={5}>
-          <Card>
-            <CardContent>
-              <Typography variant="subtitle1" fontWeight={600} gutterBottom>
-                {t("dashboard.browseByType")}
-              </Typography>
-              {typeCards.map((t) => (
-                <Box
-                  key={t.key}
-                  sx={{
-                    display: "flex", alignItems: "center", gap: 1.5, py: 1,
-                    cursor: "pointer", "&:hover": { bgcolor: "action.hover" }, borderRadius: 1, px: 1,
-                  }}
-                  onClick={() => navigate(`/inventory?type=${t.key}`)}
-                >
-                  <MaterialSymbol icon={t.icon} size={20} color={t.color} />
-                  <Typography variant="body2" sx={{ flex: 1 }}>{rml(t.key, t.translations, "label")}</Typography>
-                  <Chip size="small" label={data.by_type[t.key] || 0} />
-                </Box>
-              ))}
-            </CardContent>
-          </Card>
-        </Grid>
-
-        <Grid item xs={12} md={7}>
-          <Card>
-            <CardContent>
-              <RecentActivity events={data.recent_events} />
-            </CardContent>
-          </Card>
-        </Grid>
-      </Grid>
+      {activeTab === "overview" && <OverviewTab />}
+      {activeTab === "workspace" && <WorkspaceTab />}
     </Box>
   );
 }

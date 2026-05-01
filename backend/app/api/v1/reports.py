@@ -19,8 +19,12 @@ from app.models.card_type import CardType
 from app.models.event import Event
 from app.models.relation import Relation
 from app.models.relation_type import RelationType
+from app.models.stakeholder import Stakeholder
+from app.models.survey import SurveyResponse
 from app.models.tag import CardTag, Tag, TagGroup
+from app.models.todo import Todo
 from app.models.user import User
+from app.models.user_favorite import UserFavorite
 from app.services.kpi_snapshot_service import (
     compute_trend_block,
     get_comparison_snapshot,
@@ -176,6 +180,106 @@ async def dashboard(db: AsyncSession = Depends(get_db), user: User = Depends(get
         "lifecycle_distribution": lifecycle_dist,
         "recent_events": recent_events,
         "trends": trends,
+    }
+
+
+@router.get("/my-workspace")
+async def my_workspace_summary(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Per-user counters for the Dashboard → My Workspace tab.
+
+    All counters are inherently scoped to the calling user — no permission
+    key beyond authentication is required.
+    """
+    today = datetime.now(timezone.utc).date()
+
+    # Favorites (one row per favorited card).
+    favorite_count = (
+        await db.execute(select(func.count(UserFavorite.id)).where(UserFavorite.user_id == user.id))
+    ).scalar() or 0
+
+    # Distinct cards on which the user holds at least one stakeholder role.
+    stakeholder_card_count = (
+        await db.execute(
+            select(func.count(func.distinct(Stakeholder.card_id))).where(
+                Stakeholder.user_id == user.id
+            )
+        )
+    ).scalar() or 0
+
+    # Open todos assigned to the user.
+    open_todo_count = (
+        await db.execute(
+            select(func.count(Todo.id)).where(
+                Todo.assigned_to == user.id,
+                Todo.status == "open",
+            )
+        )
+    ).scalar() or 0
+
+    # Pending survey responses for the user.
+    pending_survey_count = (
+        await db.execute(
+            select(func.count(SurveyResponse.id)).where(
+                SurveyResponse.user_id == user.id,
+                SurveyResponse.status == "pending",
+            )
+        )
+    ).scalar() or 0
+
+    # "Needs my attention": overdue open todos + cards I'm a stakeholder on
+    # whose approval is BROKEN. We count *distinct* items so a card that's
+    # both broken and has an overdue todo on it isn't counted twice.
+    overdue_todo_count = (
+        await db.execute(
+            select(func.count(Todo.id)).where(
+                Todo.assigned_to == user.id,
+                Todo.status == "open",
+                Todo.due_date.is_not(None),
+                Todo.due_date < today,
+            )
+        )
+    ).scalar() or 0
+
+    broken_card_count = (
+        await db.execute(
+            select(func.count(func.distinct(Card.id)))
+            .join(Stakeholder, Stakeholder.card_id == Card.id)
+            .where(
+                Stakeholder.user_id == user.id,
+                Card.status == "ACTIVE",
+                Card.approval_status == "BROKEN",
+            )
+        )
+    ).scalar() or 0
+
+    attention_count = overdue_todo_count + broken_card_count
+
+    # Cards the user created (uses Card.created_by — much cheaper than the
+    # events table). Excludes archived cards and hidden card types so the
+    # count agrees with the /cards/my-created listing.
+    hidden_types_sq = select(CardType.key).where(CardType.is_hidden == True)  # noqa: E712
+    created_count = (
+        await db.execute(
+            select(func.count(Card.id)).where(
+                Card.created_by == user.id,
+                Card.status == "ACTIVE",
+                Card.type.not_in(hidden_types_sq),
+            )
+        )
+    ).scalar() or 0
+
+    return {
+        "favorite_count": favorite_count,
+        "stakeholder_card_count": stakeholder_card_count,
+        "open_todo_count": open_todo_count,
+        "pending_survey_count": pending_survey_count,
+        "attention_count": attention_count,
+        "overdue_todo_count": overdue_todo_count,
+        "broken_card_count": broken_card_count,
+        "created_count": created_count,
     }
 
 

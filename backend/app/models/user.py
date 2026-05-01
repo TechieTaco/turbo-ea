@@ -31,6 +31,10 @@ DEFAULT_NOTIFICATION_PREFERENCES = {
     },
 }
 
+DEFAULT_UI_PREFERENCES = {
+    "dashboard_default_tab": "overview",
+}
+
 
 class User(Base, UUIDMixin, TimestampMixin):
     __tablename__ = "users"
@@ -48,6 +52,7 @@ class User(Base, UUIDMixin, TimestampMixin):
     notification_preferences: Mapped[dict | None] = mapped_column(
         JSONB, default=lambda: DEFAULT_NOTIFICATION_PREFERENCES.copy()
     )
+    ui_preferences: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
 
     locale: Mapped[str] = mapped_column(String(10), default="en", server_default="en")
 

@@ -298,5 +298,7 @@
   "catalogue.subtreeHeader_one": "Teilbaum · {{count}} Unterelement",
   "catalogue.subtreeHeader_other": "Teilbaum · {{count}} Unterelemente",
   "catalogue.industryGroupUnknown": "Allgemein",
-  "catalogue.backToTop": "Nach oben"
+  "catalogue.backToTop": "Nach oben",
+  "actions.addToFavorites": "Zu Favoriten hinzufügen",
+  "actions.removeFromFavorites": "Aus Favoriten entfernen"
 }

@@ -84,5 +84,14 @@ export function useAuth() {
     setUser(null);
   };
 
-  return { user, loading, login, register, ssoCallback, setPassword, logout };
+  return {
+    user,
+    loading,
+    login,
+    register,
+    ssoCallback,
+    setPassword,
+    logout,
+    refreshUser: loadUser,
+  };
 }

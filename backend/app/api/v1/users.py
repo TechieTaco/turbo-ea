@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import uuid
+from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, EmailStr
@@ -13,7 +14,7 @@ from app.core.security import hash_password
 from app.database import get_db
 from app.models.role import Role
 from app.models.sso_invitation import SsoInvitation
-from app.models.user import DEFAULT_NOTIFICATION_PREFERENCES, User
+from app.models.user import DEFAULT_NOTIFICATION_PREFERENCES, DEFAULT_UI_PREFERENCES, User
 from app.services.permission_service import PermissionService
 
 router = APIRouter(prefix="/users", tags=["users"])
@@ -44,6 +45,10 @@ class NotificationPreferencesUpdate(BaseModel):
     email: dict[str, bool] | None = None
 
 
+class UiPreferencesUpdate(BaseModel):
+    dashboard_default_tab: Literal["overview", "workspace"] | None = None
+
+
 class InvitationCreate(BaseModel):
     email: EmailStr
     role: str = "viewer"
@@ -61,6 +66,7 @@ def _user_response(u: User) -> dict:
         "auth_provider": u.auth_provider or "local",
         "has_password": bool(u.password_hash),
         "pending_setup": bool(u.password_setup_token),
+        "ui_preferences": u.ui_preferences or DEFAULT_UI_PREFERENCES,
         "created_at": u.created_at.isoformat() if u.created_at else None,
         "last_login": u.last_login.isoformat() if u.last_login else None,
     }
@@ -153,6 +159,34 @@ async def update_notification_preferences(
         prefs["email"] = {**prefs.get("email", {}), **body.email}
 
     current_user.notification_preferences = prefs
+    await db.commit()
+    return prefs
+
+
+@router.get("/me/ui-preferences")
+async def get_ui_preferences(
+    current_user: User = Depends(get_current_user),
+):
+    return current_user.ui_preferences or DEFAULT_UI_PREFERENCES
+
+
+@router.patch("/me/ui-preferences")
+async def update_ui_preferences(
+    body: UiPreferencesUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    prefs = dict(current_user.ui_preferences or DEFAULT_UI_PREFERENCES)
+    data = body.model_dump(exclude_unset=True)
+
+    if "dashboard_default_tab" in data:
+        value = data["dashboard_default_tab"]
+        if value is None:
+            prefs.pop("dashboard_default_tab", None)
+        else:
+            prefs["dashboard_default_tab"] = value
+
+    current_user.ui_preferences = prefs
     await db.commit()
     return prefs
 

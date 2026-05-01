@@ -37,7 +37,6 @@
   "actions.change": "Change",
   "actions.link": "Link",
   "actions.retry": "Retry",
-
   "status.active": "Active",
   "status.inactive": "Inactive",
   "status.archived": "Archived",
@@ -48,14 +47,12 @@
   "status.pending": "Pending",
   "status.published": "Published",
   "status.completed": "Completed",
-
   "lifecycle.plan": "Plan",
   "lifecycle.phaseIn": "Phase In",
   "lifecycle.active": "Active",
   "lifecycle.phaseOut": "Phase Out",
   "lifecycle.endOfLife": "End of Life",
   "lifecycle.notSet": "Not Set",
-
   "labels.name": "Name",
   "labels.type": "Type",
   "labels.subtype": "Subtype",
@@ -80,23 +77,19 @@
   "labels.count": "Count",
   "labels.cards": "Cards",
   "labels.empty": "(empty)",
-
   "emptyStates.noCards": "No cards found.",
   "emptyStates.noData": "No data available.",
   "emptyStates.noResults": "No results match your search.",
-
   "errors.generic": "Something went wrong",
   "errors.notFound": "Not found",
   "errors.unauthorized": "Unauthorized",
   "errors.forbidden": "You don't have permission to perform this action",
   "errors.occurred": "An error occurred",
   "errors.failedToRender": "Failed to render",
-
   "time.justNow": "just now",
   "time.minutesAgo": "{{count}}m ago",
   "time.hoursAgo": "{{count}}h ago",
   "time.daysAgo": "{{count}}d ago",
-
   "fieldTypes.text": "Text",
   "fieldTypes.number": "Number",
   "fieldTypes.cost": "Cost",
@@ -105,10 +98,8 @@
   "fieldTypes.url": "URL",
   "fieldTypes.singleSelect": "Single Select",
   "fieldTypes.multipleSelect": "Multiple Select",
-
   "items_one": "{{count}} item",
   "items_other": "{{count}} items",
-
   "dashboard.title": "Dashboard",
   "dashboard.totalCards": "Total Cards",
   "dashboard.avgCompletion": "Avg Completion",
@@ -126,7 +117,33 @@
   "dashboard.trend.collecting": "Collecting trend data…",
   "dashboard.trend.points": "pts",
   "dashboard.trend.caption": "Trend indicators are based on the last 30 days",
-
+  "dashboard.tabs.overview": "Overview",
+  "dashboard.tabs.workspace": "My Workspace",
+  "dashboard.pinAsDefault": "Pin as default tab",
+  "dashboard.unpinDefault": "Unpin default tab",
+  "dashboard.workspace.myFavorites": "My Favorites",
+  "dashboard.workspace.myRoles": "Cards I Have a Role In",
+  "dashboard.workspace.myTodos": "My Open Todos",
+  "dashboard.workspace.myPendingSurveys": "My Pending Surveys",
+  "dashboard.workspace.needsAttention": "Needs my attention",
+  "dashboard.workspace.recentActivity": "Recent activity on my cards",
+  "dashboard.workspace.myCreated": "Cards I Created",
+  "dashboard.workspace.viewAll": "View all",
+  "dashboard.workspace.showingNofM": "Showing {{shown}} of {{total}}",
+  "dashboard.workspace.empty.favorites": "Browse the inventory and click the star to pin cards here.",
+  "dashboard.workspace.empty.roles": "You aren't assigned as a stakeholder on any cards yet.",
+  "dashboard.workspace.empty.todos": "No open todos. You're all caught up.",
+  "dashboard.workspace.empty.surveys": "No surveys waiting for your input.",
+  "dashboard.workspace.empty.activity": "No recent activity on cards you follow.",
+  "dashboard.workspace.empty.created": "You haven't created any cards yet.",
+  "dashboard.workspace.metric.favorites": "Favorites",
+  "dashboard.workspace.metric.stakeholderCards": "My role-cards",
+  "dashboard.workspace.metric.openTodos": "Open todos",
+  "dashboard.workspace.metric.pendingSurveys": "Pending surveys",
+  "dashboard.workspace.attention.overdueTodos_one": "{{count}} overdue todo",
+  "dashboard.workspace.attention.overdueTodos_other": "{{count}} overdue todos",
+  "dashboard.workspace.attention.brokenCards_one": "{{count}} broken card you're responsible for",
+  "dashboard.workspace.attention.brokenCards_other": "{{count}} broken cards you're responsible for",
   "dashboard.activity.filter.all": "All",
   "dashboard.activity.filter.cards": "Cards",
   "dashboard.activity.filter.approvals": "Approvals",
@@ -181,15 +198,12 @@
   "dashboard.activity.action.soaw.signed": "signed a SoAW",
   "dashboard.activity.action.soaw.rejected": "rejected a SoAW",
   "dashboard.activity.action.soaw.signatures_recalled": "recalled SoAW signatures",
-
   "colorPicker.pickColor": "Pick color",
   "colorPicker.recent": "Recent",
-
   "timelineSlider.timeTravel": "Time Travel",
   "timelineSlider.past": "Past",
   "timelineSlider.future": "Future",
   "timelineSlider.resetToToday": "Reset to today",
-
   "todos.title": "My Tasks",
   "todos.tabs.open": "Open",
   "todos.tabs.done": "Done",
@@ -203,7 +217,6 @@
   "todos.surveysEmpty": "No pending surveys. You're all caught up!",
   "todos.surveyPendingCount": "{{count}} pending",
   "todos.respond": "Respond",
-
   "portal.loading": "Loading...",
   "portal.notFound": "Portal not found",
   "portal.notFoundHint": "This portal may not exist or may not be published yet.",
@@ -233,7 +246,6 @@
   "portal.roles.observer": "Observer",
   "portal.roles.technical_application_owner": "Technical Owner",
   "portal.roles.business_application_owner": "Business Owner",
-
   "ai.suggestButton": "Suggest with AI",
   "ai.buttonTooltip": "Use AI to suggest a description for this card",
   "ai.searching": "Generating description...",
@@ -245,7 +257,6 @@
   "ai.dismiss": "Dismiss",
   "ai.applyDescription": "Apply description",
   "ai.applySuggestions": "Apply suggestions",
-
   "iconPicker.searchPlaceholder": "Search icons...",
   "iconPicker.resultCount_one": "{{count}} result",
   "iconPicker.resultCount_other": "{{count}} results",
@@ -270,5 +281,9 @@
   "moduleDisabled.title": "{{module}} is disabled",
   "moduleDisabled.body": "The {{module}} module is currently disabled by an administrator. Enable it from the admin settings to access this area.",
   "moduleDisabled.backToDashboard": "Back to dashboard",
-  "moduleDisabled.openSettings": "Open settings"
+  "moduleDisabled.openSettings": "Open settings",
+  "dashboard.workspace.andMore_one": "and {{count}} more",
+  "dashboard.workspace.andMore_other": "and {{count}} more",
+  "actions.undo": "Undo",
+  "dashboard.workspace.favoriteRemoved": "Removed «{{name}}» from favorites"
 }
