@@ -81,8 +81,8 @@ export default function MyFavoritesSection() {
 
   return (
     <SectionPaper
-      icon="star"
-      iconColor="#fbc02d"
+      icon="cards_star"
+      iconColor="#f5a623"
       title={t("common:dashboard.workspace.myFavorites")}
     >
       {loading ? (
@@ -119,7 +119,7 @@ export default function MyFavoritesSection() {
                     removeFavorite(card);
                   }}
                 >
-                  <MaterialSymbol icon="star" size={18} color="#fbc02d" />
+                  <MaterialSymbol icon="cards_star" size={18} color="#f5a623" />
                 </IconButton>
               </Tooltip>
             </Box>

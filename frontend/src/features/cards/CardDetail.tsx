@@ -444,34 +444,6 @@ export default function CardDetail() {
             canChange={perms.can_approval_status}
             onAction={handleApprovalAction}
           />
-          <Tooltip
-            title={
-              isFavorite
-                ? t("cards:actions.removeFromFavorites")
-                : t("cards:actions.addToFavorites")
-            }
-          >
-            <span>
-              <IconButton
-                size="small"
-                onClick={toggleFavorite}
-                disabled={favoriteSaving}
-                aria-label={
-                  isFavorite
-                    ? t("cards:actions.removeFromFavorites")
-                    : t("cards:actions.addToFavorites")
-                }
-                sx={{ color: isFavorite ? "#fbc02d" : "text.secondary" }}
-              >
-                <MaterialSymbol
-                  icon="star"
-                  size={20}
-                  color={isFavorite ? "#fbc02d" : undefined}
-                  style={isFavorite ? { fontVariationSettings: "'FILL' 1" } : undefined}
-                />
-              </IconButton>
-            </span>
-          </Tooltip>
           {aiEnabled && perms.can_edit && !isArchived && !aiLoading && !aiResponse && (
             <Tooltip title={t("common:ai.buttonTooltip")}>
               <IconButton
@@ -483,41 +455,57 @@ export default function CardDetail() {
               </IconButton>
             </Tooltip>
           )}
-          {!isArchived && (perms.can_archive || perms.can_delete) && (
-            <>
-              <Tooltip title={t("detail.actions.moreActions")}>
-                <IconButton
-                  size="small"
-                  onClick={(e) => setActionsMenuAnchor(e.currentTarget)}
-                  aria-label={t("detail.actions.moreActions")}
-                >
-                  <MaterialSymbol icon="more_vert" size={20} />
-                </IconButton>
-              </Tooltip>
-              <Menu
-                anchorEl={actionsMenuAnchor}
-                open={!!actionsMenuAnchor}
-                onClose={() => setActionsMenuAnchor(null)}
-              >
-                {perms.can_archive && (
-                  <MenuItem onClick={() => { setActionsMenuAnchor(null); setArchiveDialogOpen(true); }}>
-                    <ListItemIcon>
-                      <MaterialSymbol icon="archive" size={20} color="#ed6c02" />
-                    </ListItemIcon>
-                    <ListItemText>{t("common:actions.archive")}</ListItemText>
-                  </MenuItem>
-                )}
-                {perms.can_delete && (
-                  <MenuItem onClick={() => { setActionsMenuAnchor(null); setDeleteDialogOpen(true); }}>
-                    <ListItemIcon>
-                      <MaterialSymbol icon="delete_forever" size={20} color="#d32f2f" />
-                    </ListItemIcon>
-                    <ListItemText>{t("common:actions.delete")}</ListItemText>
-                  </MenuItem>
-                )}
-              </Menu>
-            </>
-          )}
+          <Tooltip title={t("detail.actions.moreActions")}>
+            <IconButton
+              size="small"
+              onClick={(e) => setActionsMenuAnchor(e.currentTarget)}
+              aria-label={t("detail.actions.moreActions")}
+            >
+              <MaterialSymbol icon="more_vert" size={20} />
+            </IconButton>
+          </Tooltip>
+          <Menu
+            anchorEl={actionsMenuAnchor}
+            open={!!actionsMenuAnchor}
+            onClose={() => setActionsMenuAnchor(null)}
+          >
+            <MenuItem
+              onClick={() => {
+                setActionsMenuAnchor(null);
+                toggleFavorite();
+              }}
+              disabled={favoriteSaving}
+            >
+              <ListItemIcon>
+                <MaterialSymbol
+                  icon="cards_star"
+                  size={20}
+                  color={isFavorite ? "#f5a623" : "#ccc"}
+                />
+              </ListItemIcon>
+              <ListItemText>
+                {isFavorite
+                  ? t("cards:actions.removeFromFavorites")
+                  : t("cards:actions.addToFavorites")}
+              </ListItemText>
+            </MenuItem>
+            {!isArchived && perms.can_archive && (
+              <MenuItem onClick={() => { setActionsMenuAnchor(null); setArchiveDialogOpen(true); }}>
+                <ListItemIcon>
+                  <MaterialSymbol icon="archive" size={20} color="#ed6c02" />
+                </ListItemIcon>
+                <ListItemText>{t("common:actions.archive")}</ListItemText>
+              </MenuItem>
+            )}
+            {!isArchived && perms.can_delete && (
+              <MenuItem onClick={() => { setActionsMenuAnchor(null); setDeleteDialogOpen(true); }}>
+                <ListItemIcon>
+                  <MaterialSymbol icon="delete_forever" size={20} color="#d32f2f" />
+                </ListItemIcon>
+                <ListItemText>{t("common:actions.delete")}</ListItemText>
+              </MenuItem>
+            )}
+          </Menu>
         </Box>
       </Box>
 

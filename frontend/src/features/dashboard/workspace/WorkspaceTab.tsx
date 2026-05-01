@@ -46,8 +46,8 @@ export default function WorkspaceTab() {
     <Box>
       <Box sx={{ display: "flex", flexWrap: "wrap", gap: 2, mb: 3 }}>
         <MetricCard
-          icon="star"
-          iconColor="#fbc02d"
+          icon="cards_star"
+          iconColor="#f5a623"
           label={t("dashboard.workspace.metric.favorites")}
           value={counters.favorite_count}
         />
