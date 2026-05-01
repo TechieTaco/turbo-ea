@@ -66,7 +66,8 @@ export default function Dashboard() {
   const { user, refreshUser } = useAuthContext();
   const [searchParams, setSearchParams] = useSearchParams();
 
-  const isAdmin = !!user?.permissions?.[ADMIN_TAB_PERMISSION];
+  const isAdmin =
+    !!user?.permissions?.["*"] || !!user?.permissions?.[ADMIN_TAB_PERMISSION];
   const validTabs = useMemo<DashboardTabKey[]>(
     () => (isAdmin ? ["overview", "workspace", "admin"] : ["overview", "workspace"]),
     [isAdmin],

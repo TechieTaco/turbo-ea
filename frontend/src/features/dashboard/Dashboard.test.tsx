@@ -87,6 +87,11 @@ describe("Dashboard tab routing", () => {
     expect(screen.queryByTestId("overview-tab")).not.toBeInTheDocument();
   });
 
+  it("renders the Admin tab for wildcard admins (permissions['*'] = true)", () => {
+    renderWith({ permissions: { "*": true } }, "/?tab=admin");
+    expect(screen.getByTestId("admin-tab")).toBeInTheDocument();
+  });
+
   it("clicking the pin icon sends the right ui-preferences payload", async () => {
     vi.mocked(api.patch).mockResolvedValue({});
     const { refreshUser } = renderWith({});
