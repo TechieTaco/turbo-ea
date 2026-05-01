@@ -13,7 +13,7 @@ import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import CircularProgress from "@mui/material/CircularProgress";
 import IconButton from "@mui/material/IconButton";
 import Tooltip from "@mui/material/Tooltip";
-import { useTheme } from "@mui/material/styles";
+import { alpha, useTheme } from "@mui/material/styles";
 import { useTranslation } from "react-i18next";
 import {
   Gantt,
@@ -191,14 +191,16 @@ function DependencyArrowOverlay({
       <defs>
         <marker
           id="ppm-gantt-arrowhead"
-          viewBox="0 0 10 10"
+          /* Squat arrowhead — wider than tall so it reads as a small chevron
+             rather than a tall triangle. viewBox 10x6, marker rendered at 7x4. */
+          viewBox="0 0 10 6"
           refX="8"
-          refY="5"
-          markerWidth="6"
-          markerHeight="6"
+          refY="3"
+          markerWidth="7"
+          markerHeight="4"
           orient="auto-start-reverse"
         >
-          <path d="M 0 0 L 10 5 L 0 10 z" fill={color} />
+          <path d="M 0 0 L 10 3 L 0 6 z" fill={color} />
         </marker>
       </defs>
       {arrows.map((a) => {
@@ -1280,14 +1282,24 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
     // Trigger one measurement after first paint (lib renders bars asynchronously)
     bump();
 
-    const scrollContainers = [
-      el.querySelector("[class*='ganttTaskContent_']"),
-      el.querySelector("[class*='ganttTaskRoot_']"),
-      el.querySelector("[class*='ganttTableWrapper_']"),
-    ].filter(Boolean) as HTMLElement[];
-    scrollContainers.forEach((c) =>
-      c.addEventListener("scroll", bump, { passive: true }),
-    );
+    // Idempotently attach scroll listeners. We can't do this once on mount —
+    // the library's DOM doesn't exist yet — so we retry whenever the gantt
+    // subtree mutates (which includes the lib's first render).
+    const attachedScroll = new Set<HTMLElement>();
+    const attachScrollListeners = () => {
+      const candidates = [
+        el.querySelector("[class*='ganttTaskContent_']"),
+        el.querySelector("[class*='ganttTaskRoot_']"),
+        el.querySelector("[class*='ganttTableWrapper_']"),
+      ].filter((c): c is HTMLElement => c instanceof HTMLElement);
+      for (const c of candidates) {
+        if (!attachedScroll.has(c)) {
+          c.addEventListener("scroll", bump, { passive: true });
+          attachedScroll.add(c);
+        }
+      }
+    };
+    attachScrollListeners();
 
     const resize = new ResizeObserver(bump);
     resize.observe(el);
@@ -1296,6 +1308,8 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
     // scroll. We MUST ignore mutations inside our own overlay or each arrow
     // re-paint would re-trigger measurement → infinite loop.
     const mut = new MutationObserver((mutations) => {
+      // Late-bind any scroll containers the lib has rendered since last tick.
+      attachScrollListeners();
       for (const m of mutations) {
         const t = m.target;
         if (t instanceof Element && t.closest(".ppm-arrow-overlay")) continue;
@@ -1307,7 +1321,7 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
 
     return () => {
       cancelAnimationFrame(raf);
-      scrollContainers.forEach((c) => c.removeEventListener("scroll", bump));
+      attachedScroll.forEach((c) => c.removeEventListener("scroll", bump));
       resize.disconnect();
       mut.disconnect();
     };
@@ -1744,7 +1758,7 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
           arrows={arrowGeometry}
           buildPath={buildArrowPath}
           onClick={handleArrowClick}
-          color={theme.palette.text.secondary}
+          color={alpha(theme.palette.text.primary, 0.42)}
           dangerColor={theme.palette.error.main}
         />
       </Box>
