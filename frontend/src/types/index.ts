@@ -1,4 +1,4 @@
-export type DashboardTabKey = "overview" | "workspace";
+export type DashboardTabKey = "overview" | "workspace" | "admin";
 
 export interface UiPreferences {
   dashboard_default_tab?: DashboardTabKey;

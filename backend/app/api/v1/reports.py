@@ -19,6 +19,7 @@ from app.models.card_type import CardType
 from app.models.event import Event
 from app.models.relation import Relation
 from app.models.relation_type import RelationType
+from app.models.sso_invitation import SsoInvitation
 from app.models.stakeholder import Stakeholder
 from app.models.survey import SurveyResponse
 from app.models.tag import CardTag, Tag, TagGroup
@@ -280,6 +281,317 @@ async def my_workspace_summary(
         "overdue_todo_count": overdue_todo_count,
         "broken_card_count": broken_card_count,
         "created_count": created_count,
+    }
+
+
+@router.get("/admin-dashboard")
+async def admin_dashboard_summary(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """System-wide governance and adoption metrics for the Dashboard → Admin tab.
+
+    Gated on `admin.users` so it lines up with the existing admin nav. Avoids
+    duplicating the Data Quality report — focuses on stakeholder coverage,
+    user adoption, todo backlog, and approval pipeline health.
+    """
+    await PermissionService.require_permission(db, user, "admin.users")
+
+    now = datetime.now(timezone.utc)
+    today = now.date()
+    thirty_days_ago = now - timedelta(days=30)
+    ninety_days_ago = now - timedelta(days=90)
+
+    hidden_types_sq = select(CardType.key).where(CardType.is_hidden == True)  # noqa: E712
+
+    # ---- KPI strip --------------------------------------------------------
+    total_users = (
+        await db.execute(select(func.count(User.id)).where(User.is_active == True))  # noqa: E712
+    ).scalar() or 0
+    active_users_30d = (
+        await db.execute(
+            select(func.count(User.id)).where(
+                User.is_active == True,  # noqa: E712
+                User.last_login.is_not(None),
+                User.last_login >= thirty_days_ago,
+            )
+        )
+    ).scalar() or 0
+
+    # Cards lacking *any* stakeholder assignment.
+    has_stakeholder_sq = select(Stakeholder.card_id).distinct()
+    cards_without_stakeholders = (
+        await db.execute(
+            select(func.count(Card.id)).where(
+                Card.status == "ACTIVE",
+                Card.type.not_in(hidden_types_sq),
+                Card.id.not_in(has_stakeholder_sq),
+            )
+        )
+    ).scalar() or 0
+
+    overdue_todos_total = (
+        await db.execute(
+            select(func.count(Todo.id)).where(
+                Todo.status == "open",
+                Todo.due_date.is_not(None),
+                Todo.due_date < today,
+            )
+        )
+    ).scalar() or 0
+
+    stuck_approvals = (
+        await db.execute(
+            select(func.count(Card.id)).where(
+                Card.status == "ACTIVE",
+                Card.type.not_in(hidden_types_sq),
+                Card.approval_status == "DRAFT",
+                Card.updated_at < thirty_days_ago,
+            )
+        )
+    ).scalar() or 0
+
+    broken_total = (
+        await db.execute(
+            select(func.count(Card.id)).where(
+                Card.status == "ACTIVE",
+                Card.type.not_in(hidden_types_sq),
+                Card.approval_status == "BROKEN",
+            )
+        )
+    ).scalar() or 0
+
+    # ---- Top contributors (last 30d) -------------------------------------
+    contrib_rows = (
+        await db.execute(
+            select(
+                User.id,
+                User.display_name,
+                User.email,
+                func.count(Event.id).label("event_count"),
+            )
+            .join(Event, Event.user_id == User.id)
+            .where(
+                Event.created_at >= thirty_days_ago,
+                Event.event_type.in_(
+                    (
+                        "card.created",
+                        "card.updated",
+                        "card.archived",
+                        "card.restored",
+                        "card.approval_status.approve",
+                        "card.approval_status.reject",
+                        "card.approval_status.reset",
+                    )
+                ),
+            )
+            .group_by(User.id, User.display_name, User.email)
+            .order_by(func.count(Event.id).desc())
+            .limit(10)
+        )
+    ).all()
+    top_contributors = [
+        {
+            "user_id": str(r.id),
+            "display_name": r.display_name,
+            "email": r.email,
+            "event_count": int(r.event_count),
+        }
+        for r in contrib_rows
+    ]
+
+    # ---- Stakeholder coverage by type ------------------------------------
+    type_total_rows = (
+        await db.execute(
+            select(Card.type, func.count(Card.id))
+            .where(
+                Card.status == "ACTIVE",
+                Card.type.not_in(hidden_types_sq),
+            )
+            .group_by(Card.type)
+        )
+    ).all()
+    type_with_sh_rows = (
+        await db.execute(
+            select(Card.type, func.count(func.distinct(Card.id)))
+            .join(Stakeholder, Stakeholder.card_id == Card.id)
+            .where(
+                Card.status == "ACTIVE",
+                Card.type.not_in(hidden_types_sq),
+            )
+            .group_by(Card.type)
+        )
+    ).all()
+    with_sh_by_type = {row[0]: int(row[1]) for row in type_with_sh_rows}
+    coverage_by_type = []
+    for type_key, total in type_total_rows:
+        total_int = int(total)
+        with_sh = with_sh_by_type.get(type_key, 0)
+        missing = total_int - with_sh
+        coverage_by_type.append(
+            {
+                "type": type_key,
+                "total": total_int,
+                "with_stakeholders": with_sh,
+                "missing": missing,
+            }
+        )
+    coverage_by_type.sort(key=lambda r: r["missing"], reverse=True)
+
+    # ---- Idle users + pending SSO invitations ----------------------------
+    idle_rows = (
+        await db.execute(
+            select(User.id, User.display_name, User.email, User.last_login, User.role)
+            .where(
+                User.is_active == True,  # noqa: E712
+                ((User.last_login.is_(None)) | (User.last_login < ninety_days_ago)),
+            )
+            .order_by(User.last_login.is_(None).desc(), User.last_login.asc())
+            .limit(10)
+        )
+    ).all()
+    idle_users = [
+        {
+            "user_id": str(r.id),
+            "display_name": r.display_name,
+            "email": r.email,
+            "last_login": r.last_login.isoformat() if r.last_login else None,
+            "role": r.role,
+        }
+        for r in idle_rows
+    ]
+
+    # SSO invitations are considered pending while no User row exists for the
+    # invited email yet (the invitation row is created on invite and remains
+    # for the historical role-mapping; the user record is what signals redemption).
+    existing_user_emails_sq = select(User.email)
+    pending_sso_count = (
+        await db.execute(
+            select(func.count(SsoInvitation.id)).where(
+                SsoInvitation.email.not_in(existing_user_emails_sq)
+            )
+        )
+    ).scalar() or 0
+
+    # ---- Approval pipeline by type ---------------------------------------
+    pipeline_rows = (
+        await db.execute(
+            select(Card.type, Card.approval_status, func.count(Card.id))
+            .where(
+                Card.status == "ACTIVE",
+                Card.type.not_in(hidden_types_sq),
+                Card.approval_status.in_(("DRAFT", "BROKEN", "REJECTED")),
+            )
+            .group_by(Card.type, Card.approval_status)
+        )
+    ).all()
+    pipeline_by_type: dict[str, dict[str, int]] = {}
+    for type_key, status, count in pipeline_rows:
+        bucket = pipeline_by_type.setdefault(type_key, {"DRAFT": 0, "BROKEN": 0, "REJECTED": 0})
+        bucket[status] = int(count)
+    approval_pipeline = [
+        {
+            "type": type_key,
+            "draft": buckets["DRAFT"],
+            "broken": buckets["BROKEN"],
+            "rejected": buckets["REJECTED"],
+            "total": buckets["DRAFT"] + buckets["BROKEN"] + buckets["REJECTED"],
+        }
+        for type_key, buckets in pipeline_by_type.items()
+    ]
+    approval_pipeline.sort(key=lambda r: r["total"], reverse=True)
+
+    # ---- Recent system activity (50 events) ------------------------------
+    sys_events_result = await db.execute(
+        select(Event).options(selectinload(Event.user)).order_by(Event.created_at.desc()).limit(50)
+    )
+    sys_events_list = list(sys_events_result.scalars().all())
+    sys_card_ids = {e.card_id for e in sys_events_list if e.card_id is not None}
+    sys_name_by_card_id: dict[uuid.UUID, str] = {}
+    if sys_card_ids:
+        rows = await db.execute(select(Card.id, Card.name).where(Card.id.in_(sys_card_ids)))
+        sys_name_by_card_id = {cid: name for cid, name in rows.all()}
+
+    def _resolve_sys_name(e: Event) -> str | None:
+        data_name = (e.data or {}).get("name") if isinstance(e.data, dict) else None
+        if isinstance(data_name, str) and data_name:
+            return data_name
+        if e.card_id is not None:
+            return sys_name_by_card_id.get(e.card_id)
+        return None
+
+    recent_activity = [
+        {
+            "id": str(e.id),
+            "card_id": str(e.card_id) if e.card_id else None,
+            "card_name": _resolve_sys_name(e),
+            "event_type": e.event_type,
+            "data": e.data,
+            "user_display_name": e.user.display_name if e.user else None,
+            "created_at": e.created_at.isoformat() if e.created_at else None,
+        }
+        for e in sys_events_list
+    ]
+
+    # ---- Unassigned + oldest overdue todos -------------------------------
+    unassigned_todo_count = (
+        await db.execute(
+            select(func.count(Todo.id)).where(
+                Todo.status == "open",
+                Todo.assigned_to.is_(None),
+            )
+        )
+    ).scalar() or 0
+
+    oldest_overdue_rows = (
+        await db.execute(
+            select(
+                Todo.id,
+                Todo.description,
+                Todo.due_date,
+                Todo.card_id,
+                User.id.label("assignee_id"),
+                User.display_name.label("assignee_name"),
+            )
+            .join(User, User.id == Todo.assigned_to, isouter=True)
+            .where(
+                Todo.status == "open",
+                Todo.due_date.is_not(None),
+                Todo.due_date < today,
+            )
+            .order_by(Todo.due_date.asc())
+            .limit(10)
+        )
+    ).all()
+    oldest_overdue_todos = [
+        {
+            "id": str(r.id),
+            "title": r.description,
+            "due_date": r.due_date.isoformat() if r.due_date else None,
+            "card_id": str(r.card_id) if r.card_id else None,
+            "assignee_id": str(r.assignee_id) if r.assignee_id else None,
+            "assignee_name": r.assignee_name,
+        }
+        for r in oldest_overdue_rows
+    ]
+
+    return {
+        "kpis": {
+            "total_users": int(total_users),
+            "active_users_30d": int(active_users_30d),
+            "cards_without_stakeholders": int(cards_without_stakeholders),
+            "overdue_todos_total": int(overdue_todos_total),
+            "stuck_approvals": int(stuck_approvals),
+            "broken_total": int(broken_total),
+            "pending_sso_invitations": int(pending_sso_count),
+            "unassigned_todo_count": int(unassigned_todo_count),
+        },
+        "top_contributors": top_contributors,
+        "stakeholder_coverage": coverage_by_type,
+        "idle_users": idle_users,
+        "approval_pipeline": approval_pipeline,
+        "recent_activity": recent_activity,
+        "oldest_overdue_todos": oldest_overdue_todos,
     }
 
 
