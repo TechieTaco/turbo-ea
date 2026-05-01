@@ -3,7 +3,6 @@ import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Button from "@mui/material/Button";
-import Chip from "@mui/material/Chip";
 import IconButton from "@mui/material/IconButton";
 import Menu from "@mui/material/Menu";
 import MenuItem from "@mui/material/MenuItem";
@@ -25,9 +24,9 @@ import ApprovalStatusBadge from "@/components/ApprovalStatusBadge";
 import LifecycleBadge from "@/components/LifecycleBadge";
 import AiSuggestPanel, { type AiApplyPayload } from "@/components/AiSuggestPanel";
 import { useMetamodel } from "@/hooks/useMetamodel";
-import { useResolveMetaLabel } from "@/hooks/useResolveLabel";
+import { useResolveLabel, useResolveMetaLabel } from "@/hooks/useResolveLabel";
 import { api, ApiError } from "@/api/client";
-import { DataQualityRing } from "@/features/cards/sections";
+import { DataQualityPill } from "@/features/cards/sections";
 import CardDetailContent from "@/features/cards/CardDetailContent";
 import type {
   Card,
@@ -65,6 +64,7 @@ export default function CardDetail() {
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const { getType } = useMetamodel();
   const rml = useResolveMetaLabel();
+  const rl = useResolveLabel();
   const [card, setCard] = useState<Card | null>(null);
   const [initialTab, setInitialTab] = useState(0);
   const [initialSubTab, setInitialSubTab] = useState<number | undefined>(undefined);
@@ -197,6 +197,14 @@ export default function CardDetail() {
     );
 
   const typeConfig = getType(card.type);
+
+  const subtypeLabel =
+    card.subtype && typeof card.subtype === "string"
+      ? (() => {
+          const st = typeConfig?.subtypes?.find((s) => s.key === card.subtype);
+          return st ? rl(st.label, st.translations) : card.subtype;
+        })()
+      : null;
 
   const handleApprovalAction = async (action: "approve" | "reject" | "reset") => {
     try {
@@ -426,18 +434,35 @@ export default function CardDetail() {
               )}
             </Box>
           )}
-          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-            <Typography variant="body2" color="text.secondary">
+          <Box sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>
+            <Typography
+              variant="body2"
+              sx={{ color: typeConfig?.color || "text.secondary" }}
+            >
               {rml(typeConfig?.key ?? "", typeConfig?.translations, "label") || card.type}
             </Typography>
-            {card.subtype && typeof card.subtype === "string" && (
-              <Chip size="small" label={card.subtype} variant="outlined" sx={{ height: 20 }} />
+            {subtypeLabel && (
+              <>
+                <Typography
+                  variant="body2"
+                  aria-hidden
+                  sx={{ color: typeConfig?.color || "text.secondary", opacity: 0.7 }}
+                >
+                  ·
+                </Typography>
+                <Typography
+                  variant="body2"
+                  sx={{ color: typeConfig?.color || "text.secondary" }}
+                >
+                  {subtypeLabel}
+                </Typography>
+              </>
             )}
           </Box>
         </Box>
         {/* Badges + overflow menu — wrap to second row on mobile */}
         <Box sx={{ display: "flex", alignItems: "center", gap: 1, width: { xs: "100%", sm: "auto" }, justifyContent: { xs: "flex-end", sm: "flex-start" } }}>
-          <DataQualityRing value={card.data_quality} />
+          <DataQualityPill value={card.data_quality} />
           <LifecycleBadge lifecycle={card.lifecycle} />
           <ApprovalStatusBadge
             status={card.approval_status}

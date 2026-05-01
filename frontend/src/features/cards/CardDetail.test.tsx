@@ -31,7 +31,7 @@ vi.mock("@/hooks/useCurrency", () => ({
 
 // Stub all card section components to keep tests focused on CardDetail logic
 vi.mock("@/features/cards/sections", () => ({
-  DataQualityRing: ({ value }: { value: number }) => (
+  DataQualityPill: ({ value }: { value: number }) => (
     <div data-testid="data-quality">{value}%</div>
   ),
   DescriptionSection: () => <div data-testid="description-section" />,
@@ -215,7 +215,7 @@ describe("CardDetail", () => {
     expect(screen.getByText("Application")).toBeInTheDocument();
   });
 
-  it("renders subtype chip", async () => {
+  it("renders subtype label", async () => {
     vi.mocked(api.get).mockImplementation((path: string) => {
       if (path.includes("/my-permissions")) return Promise.resolve(mockPerms);
       return Promise.resolve(mockCard);
@@ -228,7 +228,7 @@ describe("CardDetail", () => {
     });
   });
 
-  it("renders data quality ring", async () => {
+  it("renders data quality pill", async () => {
     vi.mocked(api.get).mockImplementation((path: string) => {
       if (path.includes("/my-permissions")) return Promise.resolve(mockPerms);
       return Promise.resolve(mockCard);
