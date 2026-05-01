@@ -1,6 +1,8 @@
 import { useTranslation } from "react-i18next";
+import { useNavigate } from "react-router-dom";
 import Box from "@mui/material/Box";
 import LinearProgress from "@mui/material/LinearProgress";
+import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import SectionPaper, { EmptyState } from "../workspace/SectionPaper";
@@ -27,9 +29,15 @@ const COLORS = {
 export default function ApprovalPipelineSection({ rows, loading }: Props) {
   const { t } = useTranslation("common");
   const { types } = useMetamodel();
+  const navigate = useNavigate();
   const labelByKey = new Map(types.map((tp) => [tp.key, tp.label]));
 
   const visible = rows.slice(0, 8);
+
+  const goTo = (type: string, status?: "DRAFT" | "PENDING" | "BROKEN") => {
+    const qs = status ? `?type=${type}&approval_status=${status}` : `?type=${type}`;
+    navigate(`/inventory${qs}`);
+  };
 
   return (
     <SectionPaper
@@ -60,9 +68,15 @@ export default function ApprovalPipelineSection({ rows, loading }: Props) {
                   py: 0.75,
                   px: 1,
                   borderRadius: 1,
+                  "&:hover": { bgcolor: "action.hover" },
                 }}
               >
-                <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }} noWrap>
+                <Typography
+                  variant="body2"
+                  sx={{ flex: 1, minWidth: 0, cursor: "pointer" }}
+                  noWrap
+                  onClick={() => goTo(r.type)}
+                >
                   {labelByKey.get(r.type) ?? r.type}
                 </Typography>
                 <Box
@@ -75,9 +89,42 @@ export default function ApprovalPipelineSection({ rows, loading }: Props) {
                     bgcolor: "action.hover",
                   }}
                 >
-                  <Box sx={{ width: `${(r.draft / total) * 100}%`, bgcolor: COLORS.draft }} />
-                  <Box sx={{ width: `${(r.pending / total) * 100}%`, bgcolor: COLORS.pending }} />
-                  <Box sx={{ width: `${(r.broken / total) * 100}%`, bgcolor: COLORS.broken }} />
+                  {r.draft > 0 && (
+                    <Tooltip title={t("dashboard.admin.legend.draft")}>
+                      <Box
+                        onClick={() => goTo(r.type, "DRAFT")}
+                        sx={{
+                          width: `${(r.draft / total) * 100}%`,
+                          bgcolor: COLORS.draft,
+                          cursor: "pointer",
+                        }}
+                      />
+                    </Tooltip>
+                  )}
+                  {r.pending > 0 && (
+                    <Tooltip title={t("dashboard.admin.legend.pending")}>
+                      <Box
+                        onClick={() => goTo(r.type, "PENDING")}
+                        sx={{
+                          width: `${(r.pending / total) * 100}%`,
+                          bgcolor: COLORS.pending,
+                          cursor: "pointer",
+                        }}
+                      />
+                    </Tooltip>
+                  )}
+                  {r.broken > 0 && (
+                    <Tooltip title={t("dashboard.admin.legend.broken")}>
+                      <Box
+                        onClick={() => goTo(r.type, "BROKEN")}
+                        sx={{
+                          width: `${(r.broken / total) * 100}%`,
+                          bgcolor: COLORS.broken,
+                          cursor: "pointer",
+                        }}
+                      />
+                    </Tooltip>
+                  )}
                 </Box>
                 <Typography
                   variant="caption"

@@ -1,4 +1,5 @@
 import { useTranslation } from "react-i18next";
+import { useNavigate } from "react-router-dom";
 import Box from "@mui/material/Box";
 import LinearProgress from "@mui/material/LinearProgress";
 import Typography from "@mui/material/Typography";
@@ -20,6 +21,7 @@ interface Props {
 export default function StakeholderCoverageSection({ rows, loading }: Props) {
   const { t } = useTranslation("common");
   const { types } = useMetamodel();
+  const navigate = useNavigate();
 
   const labelByKey = new Map(types.map((tp) => [tp.key, tp.label]));
 
@@ -43,6 +45,7 @@ export default function StakeholderCoverageSection({ rows, loading }: Props) {
             return (
               <Box
                 key={r.type}
+                onClick={() => navigate(`/inventory?type=${r.type}`)}
                 sx={{
                   display: "flex",
                   alignItems: "center",
@@ -50,6 +53,8 @@ export default function StakeholderCoverageSection({ rows, loading }: Props) {
                   py: 0.75,
                   px: 1,
                   borderRadius: 1,
+                  cursor: "pointer",
+                  "&:hover": { bgcolor: "action.hover" },
                 }}
               >
                 <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }} noWrap>

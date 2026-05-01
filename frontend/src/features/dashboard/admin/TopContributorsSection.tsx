@@ -1,4 +1,5 @@
 import { useTranslation } from "react-i18next";
+import { useNavigate } from "react-router-dom";
 import Box from "@mui/material/Box";
 import LinearProgress from "@mui/material/LinearProgress";
 import Typography from "@mui/material/Typography";
@@ -18,6 +19,7 @@ interface Props {
 
 export default function TopContributorsSection({ rows, loading }: Props) {
   const { t } = useTranslation("common");
+  const navigate = useNavigate();
   const max = Math.max(1, ...rows.map((r) => r.event_count));
 
   return (
@@ -35,6 +37,7 @@ export default function TopContributorsSection({ rows, loading }: Props) {
           {rows.map((r) => (
             <Box
               key={r.user_id}
+              onClick={() => navigate("/admin/users")}
               sx={{
                 display: "flex",
                 alignItems: "center",
@@ -42,6 +45,8 @@ export default function TopContributorsSection({ rows, loading }: Props) {
                 py: 0.75,
                 px: 1,
                 borderRadius: 1,
+                cursor: "pointer",
+                "&:hover": { bgcolor: "action.hover" },
               }}
             >
               <Box sx={{ flex: 1, minWidth: 0 }}>

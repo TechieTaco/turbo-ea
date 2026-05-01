@@ -1,4 +1,5 @@
 import { useTranslation } from "react-i18next";
+import { useNavigate } from "react-router-dom";
 import Box from "@mui/material/Box";
 import LinearProgress from "@mui/material/LinearProgress";
 import Typography from "@mui/material/Typography";
@@ -22,10 +23,11 @@ interface Props {
 export default function IdleUsersSection({ rows, pendingSsoInvitations, loading }: Props) {
   const { t } = useTranslation("common");
   const { formatDate } = useDateFormat();
+  const navigate = useNavigate();
 
   return (
     <SectionPaper
-      icon="person_clock"
+      icon="bedtime"
       iconColor="#9e9e9e"
       title={t("dashboard.admin.idleUsers")}
       action={<ViewAllLink to="/admin/users" label={t("dashboard.workspace.viewAll")} />}
@@ -47,6 +49,7 @@ export default function IdleUsersSection({ rows, pendingSsoInvitations, loading 
             rows.map((r) => (
               <Box
                 key={r.user_id}
+                onClick={() => navigate("/admin/users")}
                 sx={{
                   display: "flex",
                   alignItems: "center",
@@ -54,6 +57,8 @@ export default function IdleUsersSection({ rows, pendingSsoInvitations, loading 
                   py: 0.75,
                   px: 1,
                   borderRadius: 1,
+                  cursor: "pointer",
+                  "&:hover": { bgcolor: "action.hover" },
                 }}
               >
                 <Box sx={{ flex: 1, minWidth: 0 }}>
