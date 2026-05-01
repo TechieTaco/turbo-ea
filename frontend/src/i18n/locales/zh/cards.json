@@ -300,5 +300,7 @@
   "catalogue.industryGroupUnknown": "通用",
   "catalogue.backToTop": "返回顶部",
   "actions.addToFavorites": "添加到收藏",
-  "actions.removeFromFavorites": "从收藏中移除"
+  "actions.removeFromFavorites": "从收藏中移除",
+  "subtype.editTooltip": "更改子类型",
+  "subtype.empty": "设置子类型"
 }

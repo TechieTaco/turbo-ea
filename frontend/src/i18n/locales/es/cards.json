@@ -300,5 +300,7 @@
   "catalogue.industryGroupUnknown": "General",
   "catalogue.backToTop": "Volver arriba",
   "actions.addToFavorites": "Agregar a favoritos",
-  "actions.removeFromFavorites": "Quitar de favoritos"
+  "actions.removeFromFavorites": "Quitar de favoritos",
+  "subtype.editTooltip": "Cambiar subtipo",
+  "subtype.empty": "Definir subtipo"
 }

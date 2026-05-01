@@ -84,6 +84,10 @@ export default function CardDetail() {
   const [nameSaving, setNameSaving] = useState(false);
   const [nameError, setNameError] = useState<string | null>(null);
 
+  // Inline subtype editing
+  const [subtypeAnchor, setSubtypeAnchor] = useState<HTMLElement | null>(null);
+  const [subtypeSaving, setSubtypeSaving] = useState(false);
+
   // PPM auto-computed fields (for Initiative cards with PPM budget/cost lines)
   const [ppmHasBudget, setPpmHasBudget] = useState(false);
   const [ppmHasCosts, setPpmHasCosts] = useState(false);
@@ -205,6 +209,9 @@ export default function CardDetail() {
           return st ? rl(st.label, st.translations) : card.subtype;
         })()
       : null;
+  const hasSubtypes = !!(typeConfig?.subtypes && typeConfig.subtypes.length > 0);
+  const isArchived = card.status === "ARCHIVED";
+  const canEditSubtype = hasSubtypes && perms.can_edit && !isArchived;
 
   const handleApprovalAction = async (action: "approve" | "reject" | "reset") => {
     try {
@@ -274,6 +281,27 @@ export default function CardDetail() {
     }
   };
 
+  // ── Inline subtype editing ───────────────────────────────────
+  const saveSubtype = async (next: string | null) => {
+    const current = card.subtype || null;
+    if (next === current) {
+      setSubtypeAnchor(null);
+      return;
+    }
+    setSubtypeSaving(true);
+    try {
+      const updated = await api.patch<Card>(`/cards/${card.id}`, {
+        subtype: next,
+      });
+      setCard(updated);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : String(err));
+    } finally {
+      setSubtypeSaving(false);
+      setSubtypeAnchor(null);
+    }
+  };
+
   // ── Archive / Restore / Delete ───────────────────────────────
   const handleArchive = async () => {
     setArchiveDialogOpen(false);
@@ -327,7 +355,6 @@ export default function CardDetail() {
     setAiResponse(null);
   };
 
-  const isArchived = card.status === "ARCHIVED";
   const daysUntilPurge = card.archived_at
     ? Math.max(0, 30 - Math.floor((Date.now() - new Date(card.archived_at).getTime()) / 86400000))
     : null;
@@ -441,7 +468,7 @@ export default function CardDetail() {
             >
               {rml(typeConfig?.key ?? "", typeConfig?.translations, "label") || card.type}
             </Typography>
-            {subtypeLabel && (
+            {(hasSubtypes || subtypeLabel) && (
               <>
                 <Typography
                   variant="body2"
@@ -450,12 +477,65 @@ export default function CardDetail() {
                 >
                   ·
                 </Typography>
-                <Typography
-                  variant="body2"
-                  sx={{ color: typeConfig?.color || "text.secondary" }}
-                >
-                  {subtypeLabel}
-                </Typography>
+                {canEditSubtype ? (
+                  <>
+                    <Tooltip title={t("cards:subtype.editTooltip")}>
+                      <Box
+                        component="button"
+                        type="button"
+                        onClick={(e) => setSubtypeAnchor(e.currentTarget as HTMLElement)}
+                        disabled={subtypeSaving}
+                        sx={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 0.25,
+                          background: "transparent",
+                          border: "none",
+                          cursor: "pointer",
+                          p: 0,
+                          font: "inherit",
+                          color: typeConfig?.color || "text.secondary",
+                          "&:hover": { textDecoration: "underline" },
+                        }}
+                      >
+                        <Typography variant="body2" component="span" color="inherit">
+                          {subtypeLabel || t("cards:subtype.empty")}
+                        </Typography>
+                        <MaterialSymbol icon="arrow_drop_down" size={16} />
+                      </Box>
+                    </Tooltip>
+                    <Menu
+                      anchorEl={subtypeAnchor}
+                      open={Boolean(subtypeAnchor)}
+                      onClose={() => setSubtypeAnchor(null)}
+                    >
+                      <MenuItem
+                        selected={!card.subtype}
+                        onClick={() => saveSubtype(null)}
+                      >
+                        <em>{t("common:labels.none")}</em>
+                      </MenuItem>
+                      {(typeConfig?.subtypes ?? []).map((st) => (
+                        <MenuItem
+                          key={st.key}
+                          selected={card.subtype === st.key}
+                          onClick={() => saveSubtype(st.key)}
+                        >
+                          {rl(st.label, st.translations)}
+                        </MenuItem>
+                      ))}
+                    </Menu>
+                  </>
+                ) : (
+                  subtypeLabel && (
+                    <Typography
+                      variant="body2"
+                      sx={{ color: typeConfig?.color || "text.secondary" }}
+                    >
+                      {subtypeLabel}
+                    </Typography>
+                  )
+                )}
               </>
             )}
           </Box>

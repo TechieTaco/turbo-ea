@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.58.0] - 2026-05-01
+
+### Added
+- **Card Detail — subtype is now editable inline.** The subtype shown next to the card type in the header is now a clickable target on any card whose type defines subtypes. Clicking it opens a small dropdown listing every available subtype (with localised labels resolved from the metamodel `translations` map) plus a *None* option, and the change is persisted via `PATCH /cards/{id}` — the backend already accepted `subtype` updates and treats them as approval-breaking. The control respects the existing `card.edit` permission and is hidden on archived cards. Translated into all 8 supported UI locales.
+
 ## [0.57.1] - 2026-05-01
 
 ### Changed

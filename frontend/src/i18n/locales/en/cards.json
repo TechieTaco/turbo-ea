@@ -300,5 +300,7 @@
   "catalogue.subtreeHeader_one": "Subtree · {{count}} descendant",
   "catalogue.subtreeHeader_other": "Subtree · {{count}} descendants",
   "catalogue.industryGroupUnknown": "General",
-  "catalogue.backToTop": "Back to top"
+  "catalogue.backToTop": "Back to top",
+  "subtype.editTooltip": "Change subtype",
+  "subtype.empty": "Set subtype"
 }
