@@ -283,5 +283,7 @@
   "dashboard.workspace.attention.brokenCards_one": "{{count}} tarjeta rota de la que eres responsable",
   "dashboard.workspace.attention.brokenCards_other": "{{count}} tarjetas rotas de las que eres responsable",
   "dashboard.workspace.andMore_one": "y {{count}} más",
-  "dashboard.workspace.andMore_other": "y {{count}} más"
+  "dashboard.workspace.andMore_other": "y {{count}} más",
+  "actions.undo": "Deshacer",
+  "dashboard.workspace.favoriteRemoved": "«{{name}}» eliminado de favoritos"
 }

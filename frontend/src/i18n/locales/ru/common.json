@@ -283,5 +283,7 @@
   "dashboard.workspace.attention.brokenCards_one": "{{count}} некорректная карточка, за которую вы отвечаете",
   "dashboard.workspace.attention.brokenCards_other": "{{count}} некорректных карточек, за которые вы отвечаете",
   "dashboard.workspace.andMore_one": "и ещё {{count}}",
-  "dashboard.workspace.andMore_other": "и ещё {{count}}"
+  "dashboard.workspace.andMore_other": "и ещё {{count}}",
+  "actions.undo": "Отменить",
+  "dashboard.workspace.favoriteRemoved": "«{{name}}» удалено из избранного"
 }

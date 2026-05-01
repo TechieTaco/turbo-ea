@@ -283,5 +283,7 @@
   "dashboard.workspace.attention.brokenCards_one": "{{count}} fehlerhafte Karte, für die Sie verantwortlich sind",
   "dashboard.workspace.attention.brokenCards_other": "{{count}} fehlerhafte Karten, für die Sie verantwortlich sind",
   "dashboard.workspace.andMore_one": "und {{count}} weitere",
-  "dashboard.workspace.andMore_other": "und {{count}} weitere"
+  "dashboard.workspace.andMore_other": "und {{count}} weitere",
+  "actions.undo": "Rückgängig",
+  "dashboard.workspace.favoriteRemoved": "«{{name}}» aus Favoriten entfernt"
 }

@@ -283,5 +283,7 @@
   "dashboard.workspace.attention.brokenCards_one": "{{count}} cartão quebrado pelo qual você é responsável",
   "dashboard.workspace.attention.brokenCards_other": "{{count}} cartões quebrados pelos quais você é responsável",
   "dashboard.workspace.andMore_one": "e mais {{count}}",
-  "dashboard.workspace.andMore_other": "e mais {{count}}"
+  "dashboard.workspace.andMore_other": "e mais {{count}}",
+  "actions.undo": "Desfazer",
+  "dashboard.workspace.favoriteRemoved": "«{{name}}» removido dos favoritos"
 }

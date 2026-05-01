@@ -283,5 +283,7 @@
   "dashboard.workspace.attention.brokenCards_one": "{{count}} carta non valida di cui sei responsabile",
   "dashboard.workspace.attention.brokenCards_other": "{{count}} carte non valide di cui sei responsabile",
   "dashboard.workspace.andMore_one": "e {{count}} altro",
-  "dashboard.workspace.andMore_other": "e altri {{count}}"
+  "dashboard.workspace.andMore_other": "e altri {{count}}",
+  "actions.undo": "Annulla",
+  "dashboard.workspace.favoriteRemoved": "«{{name}}» rimosso dai preferiti"
 }

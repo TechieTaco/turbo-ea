@@ -283,5 +283,7 @@
   "dashboard.workspace.attention.brokenCards_one": "您负责的 {{count}} 张失效卡片",
   "dashboard.workspace.attention.brokenCards_other": "您负责的 {{count}} 张失效卡片",
   "dashboard.workspace.andMore_one": "另外 {{count}} 个",
-  "dashboard.workspace.andMore_other": "另外 {{count}} 个"
+  "dashboard.workspace.andMore_other": "另外 {{count}} 个",
+  "actions.undo": "撤销",
+  "dashboard.workspace.favoriteRemoved": "已将「{{name}}」从收藏中移除"
 }

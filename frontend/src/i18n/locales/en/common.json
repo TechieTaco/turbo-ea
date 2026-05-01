@@ -283,5 +283,7 @@
   "moduleDisabled.backToDashboard": "Back to dashboard",
   "moduleDisabled.openSettings": "Open settings",
   "dashboard.workspace.andMore_one": "and {{count}} more",
-  "dashboard.workspace.andMore_other": "and {{count}} more"
+  "dashboard.workspace.andMore_other": "and {{count}} more",
+  "actions.undo": "Undo",
+  "dashboard.workspace.favoriteRemoved": "Removed «{{name}}» from favorites"
 }
