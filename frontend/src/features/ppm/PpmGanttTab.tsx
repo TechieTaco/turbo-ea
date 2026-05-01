@@ -120,16 +120,15 @@ function depEndpointToGanttId(kind: "task" | "wbs", id: string): string {
 }
 
 /** Geometry passed from parent to the dependency overlay.
- *  Coordinates are in viewport pixels (i.e. `getBoundingClientRect`-relative). */
+ *  Coordinates are already in the overlay's local SVG coordinate system
+ *  — i.e. measured relative to the portal target — so the overlay can
+ *  render them without any further translation. */
 interface ArrowGeometry {
   id: string;
   fromX: number;
   fromY: number;
   toX: number;
   toY: number;
-  /** Visible-area top/bottom — arrows that escape this range are clipped. */
-  clipTop: number;
-  clipBottom: number;
 }
 
 interface DependencyArrowOverlayProps {
@@ -140,11 +139,10 @@ interface DependencyArrowOverlayProps {
   dangerColor: string;
 }
 
-/** Custom SVG overlay that draws dependency arrows on top of the gantt
- *  chart. Sits as a `position: absolute` child of the gantt's `Box` so
- *  it inherits the gantt's clipping (overflow: hidden via the gantt's
- *  scroll container). Coordinates are stored as viewport-pixels by the
- *  parent and converted to overlay-local in `useLayoutEffect`. */
+/** SVG overlay portaled into the library's gridStyle wrapper. Because it
+ *  sits in the same DOM parent as the bars, scroll moves them together
+ *  and our coordinates (which are already wrapper-local) stay valid
+ *  without any per-render re-measurement. */
 function DependencyArrowOverlay({
   arrows,
   buildPath,
@@ -152,31 +150,10 @@ function DependencyArrowOverlay({
   color,
   dangerColor: _dangerColor,
 }: DependencyArrowOverlayProps) {
-  const overlayRef = useRef<SVGSVGElement>(null);
   const [hoverId, setHoverId] = useState<string | null>(null);
-  const [origin, setOrigin] = useState<{ x: number; y: number }>({
-    x: 0,
-    y: 0,
-  });
-
-  // Re-measure the overlay's viewport origin on EVERY render so arrows
-  // stay aligned even if the gantt re-flows without `arrows` changing
-  // (e.g. parent layout shift). The functional-update bailout on equal
-  // values prevents an infinite loop.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useLayoutEffect(() => {
-    const el = overlayRef.current;
-    if (!el) return;
-    const rect = el.getBoundingClientRect();
-    const next = { x: rect.left, y: rect.top };
-    setOrigin((prev) =>
-      prev.x === next.x && prev.y === next.y ? prev : next,
-    );
-  });
 
   return (
     <svg
-      ref={overlayRef}
       className="ppm-arrow-overlay"
       style={{
         position: "absolute",
@@ -184,7 +161,7 @@ function DependencyArrowOverlay({
         width: "100%",
         height: "100%",
         pointerEvents: "none",
-        overflow: "hidden",
+        overflow: "visible",
         zIndex: 5,
       }}
     >
@@ -204,11 +181,7 @@ function DependencyArrowOverlay({
         </marker>
       </defs>
       {arrows.map((a) => {
-        const fromX = a.fromX - origin.x;
-        const fromY = a.fromY - origin.y;
-        const toX = a.toX - origin.x;
-        const toY = a.toY - origin.y;
-        const d = buildPath(fromX, fromY, toX, toY);
+        const d = buildPath(a.fromX, a.fromY, a.toX, a.toY);
         const isHover = hoverId === a.id;
         return (
           <g key={a.id} style={{ pointerEvents: "auto", cursor: "pointer" }}>
@@ -1344,25 +1317,25 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
     };
   }, [bumpArrowTick]);
 
-  /** Compute pixel coords for every dependency arrow.  Returns viewport-
-   *  relative coordinates we then translate to overlay-local in render. */
+  /** Compute path coords for every dependency arrow, expressed in the
+   *  portalTarget's local pixel space (i.e. ready for the overlay SVG
+   *  to use without further translation). Reads portalTarget AND every
+   *  bar in the same synchronous pass so the pair stays self-consistent
+   *  even mid-scroll — that's what eliminates the "stale origin" drift
+   *  after long scrolls. */
   const arrowGeometry = useMemo(() => {
     void arrowTick; // re-run when DOM-derived data may have shifted
     const el = ganttRef.current;
-    if (!el) return [] as Array<{
-      id: string;
-      fromX: number;
-      fromY: number;
-      toX: number;
-      toY: number;
-      clipTop: number;
-      clipBottom: number;
-    }>;
-
-    // Gantt scroll viewport — used to clip arrows to the visible area.
-    const viewportEl =
-      el.querySelector("[class*='ganttTaskContent_']") ?? el;
-    const viewport = viewportEl.getBoundingClientRect();
+    if (!el || !portalTarget) {
+      return [] as Array<{
+        id: string;
+        fromX: number;
+        fromY: number;
+        toX: number;
+        toY: number;
+      }>;
+    }
+    const portalRect = portalTarget.getBoundingClientRect();
 
     const out: Array<{
       id: string;
@@ -1370,8 +1343,6 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
       fromY: number;
       toX: number;
       toY: number;
-      clipTop: number;
-      clipBottom: number;
     }> = [];
 
     // Selector covering all three bar-shape classes the library uses:
@@ -1383,8 +1354,6 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
     for (const d of dependencies) {
       const predId = `${d.pred_kind === "task" ? "task" : "wbs"}-${d.pred_id}`;
       const succId = `${d.succ_kind === "task" ? "task" : "wbs"}-${d.succ_id}`;
-      // Scope the lookup inside ganttRef so duplicate IDs elsewhere on
-      // the page (extremely unlikely, but cheap to guard) can't collide.
       const predEl = el.querySelector(`[id="${predId}"]`);
       const succEl = el.querySelector(`[id="${succId}"]`);
       if (!predEl || !succEl) continue;
@@ -1396,16 +1365,14 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
       if (pr.width === 0 || sr.width === 0) continue;
       out.push({
         id: d.id,
-        fromX: pr.right,
-        fromY: pr.top + pr.height / 2,
-        toX: sr.left,
-        toY: sr.top + sr.height / 2,
-        clipTop: viewport.top,
-        clipBottom: viewport.bottom,
+        fromX: pr.right - portalRect.left,
+        fromY: pr.top + pr.height / 2 - portalRect.top,
+        toX: sr.left - portalRect.left,
+        toY: sr.top + sr.height / 2 - portalRect.top,
       });
     }
     return out;
-  }, [dependencies, arrowTick]);
+  }, [dependencies, arrowTick, portalTarget]);
 
   /** Build the SVG path for one arrow.  Coordinates are already overlay-local. */
   const buildArrowPath = useCallback(
