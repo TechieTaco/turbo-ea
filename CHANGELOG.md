@@ -10,6 +10,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ### Added
 - **Card Detail — subtype is now editable inline.** The subtype shown next to the card type in the header is now a clickable target on any card whose type defines subtypes. Clicking it opens a small dropdown listing every available subtype (with localised labels resolved from the metamodel `translations` map) plus a *None* option, and the change is persisted via `PATCH /cards/{id}` — the backend already accepted `subtype` updates and treats them as approval-breaking. The control respects the existing `card.edit` permission and is hidden on archived cards. Translated into all 8 supported UI locales.
 
+### Changed
+- **Card Detail — AI "suggest description" button moved into the Description section.** The sparkle icon previously lived in the page-level header next to the badges and overflow menu, which separated it from the field it was acting on. It is now rendered inline next to the Description section's edit pencil, so the affordance sits exactly where the generated content will land. Behaviour is unchanged — same `aiEnabled` gate, same `POST /ai/suggest` call, same suggestion panel below.
+
 ## [0.57.1] - 2026-05-01
 
 ### Changed

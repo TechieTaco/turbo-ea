@@ -549,17 +549,6 @@ export default function CardDetail() {
             canChange={perms.can_approval_status}
             onAction={handleApprovalAction}
           />
-          {aiEnabled && perms.can_edit && !isArchived && !aiLoading && !aiResponse && (
-            <Tooltip title={t("common:ai.buttonTooltip")}>
-              <IconButton
-                size="small"
-                onClick={handleAiSuggest}
-                sx={{ color: "#1976d2" }}
-              >
-                <MaterialSymbol icon="auto_awesome" size={20} />
-              </IconButton>
-            </Tooltip>
-          )}
           <Tooltip title={t("detail.actions.moreActions")}>
             <IconButton
               size="small"
@@ -655,6 +644,12 @@ export default function CardDetail() {
         initialTab={initialTab}
         initialSubTab={initialSubTab}
         autoFieldKeys={ppmAutoFieldKeys}
+        onAiSuggest={
+          aiEnabled && perms.can_edit && !isArchived && !aiResponse
+            ? handleAiSuggest
+            : undefined
+        }
+        aiBusy={aiLoading}
         beforeTabs={
           <>
             {/* Archived banner */}

@@ -51,6 +51,10 @@ interface Props {
   autoFieldKeys?: string[];
   /** Show Layered Dependency View section at bottom of Card tab (default true, disabled in side panel) */
   showLdvSection?: boolean;
+  /** Optional AI-suggest trigger rendered in the Description section header */
+  onAiSuggest?: () => void;
+  /** Whether an AI suggestion is currently in flight (disables the button) */
+  aiBusy?: boolean;
 }
 
 export default function CardDetailContent({
@@ -64,6 +68,8 @@ export default function CardDetailContent({
   beforeTabs,
   autoFieldKeys = [],
   showLdvSection = true,
+  onAiSuggest,
+  aiBusy = false,
 }: Props) {
   const { t } = useTranslation("cards");
   const navigate = useNavigate();
@@ -182,6 +188,8 @@ export default function CardDetailContent({
               descExtraFields.length > 0 ? descExtraFields : undefined
             }
             currencyFmt={currencyFmt}
+            onAiSuggest={onAiSuggest}
+            aiBusy={aiBusy}
           />
         </ErrorBoundary>
       );
