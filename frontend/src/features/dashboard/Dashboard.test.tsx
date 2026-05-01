@@ -16,6 +16,7 @@ vi.mock("./OverviewTab", () => ({ default: () => <div data-testid="overview-tab"
 vi.mock("./workspace/WorkspaceTab", () => ({
   default: () => <div data-testid="workspace-tab" />,
 }));
+vi.mock("./admin/AdminTab", () => ({ default: () => <div data-testid="admin-tab" /> }));
 
 import { api } from "@/api/client";
 import { AuthProvider } from "@/hooks/AuthContext";
@@ -66,6 +67,24 @@ describe("Dashboard tab routing", () => {
       "/?tab=overview",
     );
     expect(screen.getByTestId("overview-tab")).toBeInTheDocument();
+  });
+
+  it("hides the Admin tab from non-admins", () => {
+    renderWith({ permissions: {} });
+    expect(screen.queryByRole("tab", { name: /Admin/i })).not.toBeInTheDocument();
+    expect(screen.queryByTestId("admin-tab")).not.toBeInTheDocument();
+  });
+
+  it("falls back to overview when a non-admin requests ?tab=admin", () => {
+    renderWith({ permissions: {} }, "/?tab=admin");
+    expect(screen.getByTestId("overview-tab")).toBeInTheDocument();
+    expect(screen.queryByTestId("admin-tab")).not.toBeInTheDocument();
+  });
+
+  it("renders the Admin tab when the user has admin.users permission", () => {
+    renderWith({ permissions: { "admin.users": true } }, "/?tab=admin");
+    expect(screen.getByTestId("admin-tab")).toBeInTheDocument();
+    expect(screen.queryByTestId("overview-tab")).not.toBeInTheDocument();
   });
 
   it("clicking the pin icon sends the right ui-preferences payload", async () => {

@@ -11,13 +11,14 @@ import MaterialSymbol from "@/components/MaterialSymbol";
 import { useAuthContext } from "@/hooks/AuthContext";
 import { api } from "@/api/client";
 import type { DashboardTabKey } from "@/types";
+import AdminTab from "./admin/AdminTab";
 import OverviewTab from "./OverviewTab";
 import WorkspaceTab from "./workspace/WorkspaceTab";
 
-const VALID_TABS: DashboardTabKey[] = ["overview", "workspace"];
+const ADMIN_TAB_PERMISSION = "admin.users";
 
 function isValidTab(value: string | null): value is DashboardTabKey {
-  return value === "overview" || value === "workspace";
+  return value === "overview" || value === "workspace" || value === "admin";
 }
 
 interface PinTabLabelProps {
@@ -65,10 +66,24 @@ export default function Dashboard() {
   const { user, refreshUser } = useAuthContext();
   const [searchParams, setSearchParams] = useSearchParams();
 
+  const isAdmin = !!user?.permissions?.[ADMIN_TAB_PERMISSION];
+  const validTabs = useMemo<DashboardTabKey[]>(
+    () => (isAdmin ? ["overview", "workspace", "admin"] : ["overview", "workspace"]),
+    [isAdmin],
+  );
+
   const rawTab = searchParams.get("tab");
-  const preferredTab: DashboardTabKey =
+  const preferredTabRaw: DashboardTabKey =
     user?.ui_preferences?.dashboard_default_tab ?? "overview";
-  const activeTab: DashboardTabKey = isValidTab(rawTab) ? rawTab : preferredTab;
+  // Guard against a stale preference / URL pointing at the admin tab when the
+  // user no longer has permission to see it.
+  const preferredTab: DashboardTabKey = validTabs.includes(preferredTabRaw)
+    ? preferredTabRaw
+    : "overview";
+  const requestedTab: DashboardTabKey = isValidTab(rawTab) ? rawTab : preferredTab;
+  const activeTab: DashboardTabKey = validTabs.includes(requestedTab)
+    ? requestedTab
+    : preferredTab;
 
   // If the URL has no explicit ?tab=, write the resolved tab back so deep
   // links and refreshes are stable. Only run when there is no rawTab.
@@ -108,11 +123,11 @@ export default function Dashboard() {
 
   const tabConfigs = useMemo(
     () =>
-      VALID_TABS.map((key) => ({
+      validTabs.map((key) => ({
         key,
         label: t(`dashboard.tabs.${key}`),
       })),
-    [t],
+    [t, validTabs],
   );
 
   return (
@@ -147,6 +162,7 @@ export default function Dashboard() {
 
       {activeTab === "overview" && <OverviewTab />}
       {activeTab === "workspace" && <WorkspaceTab />}
+      {activeTab === "admin" && isAdmin && <AdminTab />}
     </Box>
   );
 }

@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.59.0] - 2026-05-01
+
+### Added
+- **Dashboard — new admin-only "Admin" tab.** Users holding the `admin.users` permission now see a third tab on the Dashboard (next to Overview and My Workspace) showing system-wide governance and adoption signals that don't overlap with the existing Data Quality report. Top of the tab is a KPI strip with four tiles: Active users in the last 30 days vs total active accounts, cards without any stakeholder assignment, system-wide overdue todos (with an unassigned-todo subtotal), and stuck approvals — cards in `DRAFT` / `PENDING` whose `updated_at` is older than 30 days, plus a separate count of `BROKEN` approvals. Below the strip are six section cards: Top contributors over the last 30 days (leaderboard ranked by mutating event count), Stakeholder coverage by card type (per-type missing / total ratio with a colour-coded bar), Idle users (active accounts with no login or > 90 days, plus a count of pending SSO invitations whose email hasn't yet redeemed into a User row), Approval pipeline by card type (stacked DRAFT / PENDING / BROKEN bar per type), Recent system activity (last 50 events, reuses the existing `RecentActivity` component), and Oldest overdue todos with the assignee's display name. A new backend endpoint `GET /reports/admin-dashboard` returns all of this in a single payload and is gated on the existing `admin.users` permission, so non-admins receive 403 and the tab is hidden from the UI (a stale `?tab=admin` URL falls back to the user's pinned default tab). Translated into all 8 supported UI locales (en, de, fr, es, it, pt, zh, ru) with `_one` / `_other` plural variants where counts are displayed.
+
 ## [0.58.0] - 2026-05-01
 
 ### Added
