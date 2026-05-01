@@ -6,6 +6,7 @@ import {
   useMemo,
   useRef,
 } from "react";
+import { createPortal } from "react-dom";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import ToggleButton from "@mui/material/ToggleButton";
@@ -162,6 +163,7 @@ function DependencyArrowOverlay({
   // stay aligned even if the gantt re-flows without `arrows` changing
   // (e.g. parent layout shift). The functional-update bailout on equal
   // values prevents an infinite loop.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useLayoutEffect(() => {
     const el = overlayRef.current;
     if (!el) return;
@@ -1268,10 +1270,10 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
    */
   const [arrowTick, setArrowTick] = useState(0);
 
-  // Safety-net: when the gantt rows or dependencies change (e.g. after the
-  // initial API response on a fresh page load), trigger an immediate
-  // measurement plus delayed re-checks to cover the library's render
-  // cadence in case the MutationObserver below hasn't attached yet.
+  // Safety-net: trigger an immediate measurement plus delayed re-checks
+  // whenever data changes or the user picks a different view scale (which
+  // re-positions every bar). Covers slow first paints on cold caches and
+  // the lib's transition cadence on scale changes.
   useEffect(() => {
     setArrowTick((x) => x + 1);
     const t1 = setTimeout(() => setArrowTick((x) => x + 1), 100);
@@ -1282,32 +1284,65 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
       clearTimeout(t2);
       clearTimeout(t3);
     };
-  }, [ganttTasks, dependencies]);
+  }, [ganttTasks, dependencies, viewMode]);
 
-  // Direct (non-debounced) bump. React 18 already auto-batches state updates
-  // within a microtask, so multiple bumps in the same task collapse to one
-  // render — and for cross-task bursts (e.g. mouse-wheel scroll fires one
-  // event per frame) we genuinely WANT a render per event, not less.
   const bumpArrowTick = useCallback(() => {
     setArrowTick((t) => t + 1);
   }, []);
 
+  /**
+   * The overlay is rendered via React Portal into the library's own
+   * scroll-content wrapper (`<div style={gridStyle}>`, the unique-class
+   * child of `[class*='ganttTaskContent_']`).  Because the overlay then
+   * shares a parent with the bars SVG, browser scroll moves them together
+   * automatically — no scroll listener, no shake.
+   */
+  const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
+
   useEffect(() => {
     const el = ganttRef.current;
     if (!el) return;
-    bumpArrowTick();
 
-    // Capture-phase scroll on document picks up scrolls on ANY descendant
-    // element of the gantt regardless of when that element was created.
-    const onAnyScroll = (e: Event) => {
-      const target = e.target;
-      if (target instanceof Node && el.contains(target)) bumpArrowTick();
+    /** Locate the gridStyle div (the wrapper around the bars SVG). */
+    const findTarget = (): HTMLElement | null => {
+      const content = el.querySelector(
+        "[class*='ganttTaskContent_']",
+      ) as HTMLElement | null;
+      // The lib renders exactly one child div inside ganttTaskContent
+      // (the gridStyle wrapper); fall back to ganttTaskContent itself if
+      // the structure changes.
+      return (content?.firstElementChild as HTMLElement | null) ?? content;
     };
-    document.addEventListener("scroll", onAnyScroll, true);
+
+    const tryAttach = () => {
+      const t = findTarget();
+      if (!t) return false;
+      // The lib's wrapper isn't positioned by default; we need it to be a
+      // positioned ancestor so our `position: absolute` overlay anchors
+      // correctly. Setting `relative` is harmless to the lib's layout.
+      if (t.style.position !== "relative") t.style.position = "relative";
+      setPortalTarget((prev) => (prev === t ? prev : t));
+      return true;
+    };
+
+    if (tryAttach()) {
+      // Already there — still subscribe for re-measure on data changes.
+    } else {
+      // Wait for the lib's first render to inject the wrapper.
+      const findObs = new MutationObserver(() => {
+        if (tryAttach()) findObs.disconnect();
+      });
+      findObs.observe(el, { childList: true, subtree: true });
+      // Cleanup will overwrite, but if lib never renders we still bail.
+    }
+
+    bumpArrowTick();
 
     const resize = new ResizeObserver(bumpArrowTick);
     resize.observe(el);
 
+    // Re-measure on lib-driven DOM changes (scale, drag, data updates).
+    // Skip mutations inside our own overlay so arrow repaints can't loop.
     const mut = new MutationObserver((mutations) => {
       for (const m of mutations) {
         const t = m.target;
@@ -1319,7 +1354,6 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
     mut.observe(el, { childList: true, subtree: true, attributes: true });
 
     return () => {
-      document.removeEventListener("scroll", onAnyScroll, true);
       resize.disconnect();
       mut.disconnect();
     };
@@ -1571,10 +1605,6 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
       {/* Gantt Chart — always shown, with empty row at bottom */}
       <Box
         ref={ganttRef}
-        // Belt-and-suspenders: React's onScrollCapture catches scroll events
-        // in the capture phase on any descendant. Pairs with the
-        // `document.addEventListener('scroll', …, true)` listener above.
-        onScrollCapture={bumpArrowTick}
         sx={{
           position: "relative",
           /* ── Base styles ── */
@@ -1756,19 +1786,21 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
             barCornerRadius: 4,
           }}
         />
-        <DependencyArrowOverlay
-          arrows={arrowGeometry}
-          buildPath={buildArrowPath}
-          onClick={handleArrowClick}
-          /* Hardcoded greys (light vs dark) instead of `alpha(text.primary)`
-             so the change can't be masked by any cached MUI theme output. */
-          color={
-            theme.palette.mode === "dark"
-              ? "rgba(255, 255, 255, 0.38)"
-              : "rgba(0, 0, 0, 0.32)"
-          }
-          dangerColor={theme.palette.error.main}
-        />
+        {portalTarget &&
+          createPortal(
+            <DependencyArrowOverlay
+              arrows={arrowGeometry}
+              buildPath={buildArrowPath}
+              onClick={handleArrowClick}
+              color={
+                theme.palette.mode === "dark"
+                  ? "rgba(255, 255, 255, 0.38)"
+                  : "rgba(0, 0, 0, 0.32)"
+              }
+              dangerColor={theme.palette.error.main}
+            />,
+            portalTarget,
+          )}
       </Box>
 
       {/* Inline completion slider popover */}
