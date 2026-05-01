@@ -158,21 +158,19 @@ function DependencyArrowOverlay({
     y: 0,
   });
 
-  // Convert the parent-supplied viewport coords to overlay-local on every
-  // render — synchronous via useLayoutEffect so we don't paint the wrong
-  // positions for one frame before correcting. Re-runs when `arrows`
-  // changes, which the parent ticks on scroll / resize / data updates.
+  // Re-measure the overlay's viewport origin on EVERY render so arrows
+  // stay aligned even if the gantt re-flows without `arrows` changing
+  // (e.g. parent layout shift). The functional-update bailout on equal
+  // values prevents an infinite loop.
   useLayoutEffect(() => {
     const el = overlayRef.current;
     if (!el) return;
     const rect = el.getBoundingClientRect();
-    if (rect.left !== origin.x || rect.top !== origin.y) {
-      setOrigin({ x: rect.left, y: rect.top });
-    }
-    // origin.x / .y intentionally omitted: comparing against stale state
-    // is correct here, and including them would cause an infinite loop.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [arrows]);
+    const next = { x: rect.left, y: rect.top };
+    setOrigin((prev) =>
+      prev.x === next.x && prev.y === next.y ? prev : next,
+    );
+  });
 
   return (
     <svg
@@ -1271,15 +1269,18 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
   const [arrowTick, setArrowTick] = useState(0);
 
   // Safety-net: when the gantt rows or dependencies change (e.g. after the
-  // initial API response on a fresh page load), schedule explicit
-  // measurements at 50ms and 250ms to cover the lib's render cadence in
-  // case the MutationObserver below hasn't attached yet.
+  // initial API response on a fresh page load), trigger an immediate
+  // measurement plus delayed re-checks to cover the library's render
+  // cadence in case the MutationObserver below hasn't attached yet.
   useEffect(() => {
-    const t1 = setTimeout(() => setArrowTick((x) => x + 1), 50);
-    const t2 = setTimeout(() => setArrowTick((x) => x + 1), 250);
+    setArrowTick((x) => x + 1);
+    const t1 = setTimeout(() => setArrowTick((x) => x + 1), 100);
+    const t2 = setTimeout(() => setArrowTick((x) => x + 1), 500);
+    const t3 = setTimeout(() => setArrowTick((x) => x + 1), 1500);
     return () => {
       clearTimeout(t1);
       clearTimeout(t2);
+      clearTimeout(t3);
     };
   }, [ganttTasks, dependencies]);
 
