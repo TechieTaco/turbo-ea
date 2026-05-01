@@ -12,6 +12,7 @@ import IdleUsersSection, { type IdleUserRow } from "./IdleUsersSection";
 import ApprovalPipelineSection, { type PipelineRow } from "./ApprovalPipelineSection";
 import SystemActivitySection from "./SystemActivitySection";
 import UnassignedTodosSection, { type OverdueTodoRow } from "./UnassignedTodosSection";
+import OverallQualitySection from "./OverallQualitySection";
 
 interface AdminKpis {
   total_users: number;
@@ -100,6 +101,10 @@ export default function AdminTab() {
               : undefined
           }
         />
+      </Box>
+
+      <Box sx={{ mb: 3 }}>
+        <OverallQualitySection />
       </Box>
 
       <Grid container spacing={3}>

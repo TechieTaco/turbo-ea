@@ -27,6 +27,9 @@ vi.mock("./UnassignedTodosSection", () => ({
     <div data-testid="overdue" data-unassigned={unassignedCount} />
   ),
 }));
+vi.mock("./OverallQualitySection", () => ({
+  default: () => <div data-testid="quality" />,
+}));
 
 import { api } from "@/api/client";
 import AdminTab from "./AdminTab";
@@ -80,5 +83,6 @@ describe("AdminTab", () => {
     expect(screen.getByTestId("pipeline")).toBeInTheDocument();
     expect(screen.getByTestId("sysactivity")).toBeInTheDocument();
     expect(screen.getByTestId("overdue")).toHaveAttribute("data-unassigned", "6");
+    expect(screen.getByTestId("quality")).toBeInTheDocument();
   });
 });
