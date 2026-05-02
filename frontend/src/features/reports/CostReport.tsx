@@ -14,6 +14,7 @@ import TableCell from "@mui/material/TableCell";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import TableSortLabel from "@mui/material/TableSortLabel";
+import Tooltip from "@mui/material/Tooltip";
 import { Treemap, ResponsiveContainer, Tooltip as RTooltip } from "recharts";
 import ReportShell from "./ReportShell";
 import SaveReportDialog from "./SaveReportDialog";
@@ -411,37 +412,39 @@ export default function CostReport() {
             {types.filter((tp) => !tp.is_hidden).map((tp) => <MenuItem key={tp.key} value={tp.key}>{rml(tp.key, tp.translations, "label")}</MenuItem>)}
           </TextField>
           {aggregateOptions.length > 0 && (
-            <TextField
-              select
-              size="small"
-              label={t("cost.costSource")}
-              helperText={t("cost.costSourceHelp")}
-              value={costSources}
-              onChange={(e) => {
-                const v = e.target.value;
-                setCostSources(typeof v === "string" ? v.split(",").filter(Boolean) : (v as string[]));
-              }}
-              SelectProps={{
-                multiple: true,
-                displayEmpty: true,
-                renderValue: (selected) => {
-                  const arr = selected as string[];
-                  if (arr.length === 0) return t("cost.costSourceDirect");
-                  if (arr.length === 1) {
-                    return aggregateOptions.find((o) => o.value === arr[0])?.label ?? arr[0];
-                  }
-                  return t("cost.costSourceMultiple", { count: arr.length });
-                },
-              }}
-              sx={{ minWidth: 260 }}
-            >
-              {aggregateOptions.map((s) => (
-                <MenuItem key={s.value} value={s.value}>
-                  <Checkbox checked={costSources.includes(s.value)} size="small" />
-                  <ListItemText primary={s.label} />
-                </MenuItem>
-              ))}
-            </TextField>
+            <Tooltip title={t("cost.costSourceHelp")} placement="bottom-start" arrow>
+              <TextField
+                select
+                size="small"
+                label={t("cost.costSource")}
+                value={costSources}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setCostSources(typeof v === "string" ? v.split(",").filter(Boolean) : (v as string[]));
+                }}
+                InputLabelProps={{ shrink: true }}
+                SelectProps={{
+                  multiple: true,
+                  displayEmpty: true,
+                  renderValue: (selected) => {
+                    const arr = selected as string[];
+                    if (arr.length === 0) return t("cost.costSourceDirect");
+                    if (arr.length === 1) {
+                      return aggregateOptions.find((o) => o.value === arr[0])?.label ?? arr[0];
+                    }
+                    return t("cost.costSourceMultiple", { count: arr.length });
+                  },
+                }}
+                sx={{ minWidth: 200 }}
+              >
+                {aggregateOptions.map((s) => (
+                  <MenuItem key={s.value} value={s.value}>
+                    <Checkbox checked={costSources.includes(s.value)} size="small" />
+                    <ListItemText primary={s.label} />
+                  </MenuItem>
+                ))}
+              </TextField>
+            </Tooltip>
           )}
           {activeAggregates.length === 0 && costFields.length > 1 && (
             <TextField select size="small" label={t("cost.costField")} value={costField} onChange={(e) => setCostField(e.target.value)} sx={{ minWidth: 160 }}>
