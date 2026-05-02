@@ -1210,6 +1210,31 @@ async def create_dependency(
             detail="This dependency would create a cycle",
         )
 
+    # Application-level duplicate check. We can't rely on the table's
+    # unique constraint here because Postgres treats NULL values as
+    # distinct in unique constraints by default — so two identical
+    # rows whose unused polymorphic FK is NULL on both sides slip
+    # through as "different".
+    pred_match = (
+        PpmDependency.pred_task_id == body.pred_id
+        if body.pred_kind == "task"
+        else PpmDependency.pred_wbs_id == body.pred_id
+    )
+    succ_match = (
+        PpmDependency.succ_task_id == body.succ_id
+        if body.succ_kind == "task"
+        else PpmDependency.succ_wbs_id == body.succ_id
+    )
+    dup_q = await db.execute(
+        select(PpmDependency).where(
+            PpmDependency.initiative_id == initiative_id,
+            pred_match,
+            succ_match,
+        )
+    )
+    if dup_q.scalar_one_or_none():
+        raise HTTPException(status_code=409, detail="This dependency already exists")
+
     dep = PpmDependency(
         id=uuid.uuid4(),
         initiative_id=initiative_id,
@@ -1223,6 +1248,8 @@ async def create_dependency(
     try:
         await db.commit()
     except IntegrityError:
+        # Defense-in-depth — still catches genuine concurrent inserts
+        # if a future migration adds proper partial unique indexes.
         await db.rollback()
         raise HTTPException(status_code=409, detail="This dependency already exists") from None
     await db.refresh(dep)
