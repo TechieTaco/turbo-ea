@@ -933,24 +933,7 @@ class TestCostTreemap:
         to reveal the components contributing to that parent's roll-up.
         """
         admin = env["admin"]
-        await create_card_type(
-            db,
-            key="ITComponent",
-            label="IT Component",
-            fields_schema=[
-                {
-                    "section": "Cost",
-                    "fields": [{"key": "costTotalAnnual", "type": "cost", "label": "Cost"}],
-                }
-            ],
-        )
-        await create_relation_type(
-            db,
-            key="app_uses_component",
-            label="Application uses Component",
-            source_type_key="Application",
-            target_type_key="ITComponent",
-        )
+        # ITComponent + app_to_itc relation already exist in the env fixture.
         parent = await create_card(db, card_type="Application", name="ERP", user_id=admin.id)
         other_parent = await create_card(db, card_type="Application", name="CRM", user_id=admin.id)
         comp1 = await create_card(
@@ -975,15 +958,11 @@ class TestCostTreemap:
             user_id=admin.id,
             attributes={"costTotalAnnual": 9999},
         )
-        await create_relation(
-            db, type_key="app_uses_component", source_id=parent.id, target_id=comp1.id
-        )
+        await create_relation(db, type_key="app_to_itc", source_id=parent.id, target_id=comp1.id)
         # Reverse direction must also be picked up.
+        await create_relation(db, type_key="app_to_itc", source_id=comp2.id, target_id=parent.id)
         await create_relation(
-            db, type_key="app_uses_component", source_id=comp2.id, target_id=parent.id
-        )
-        await create_relation(
-            db, type_key="app_uses_component", source_id=other_parent.id, target_id=comp3.id
+            db, type_key="app_to_itc", source_id=other_parent.id, target_id=comp3.id
         )
 
         resp = await client.get(
