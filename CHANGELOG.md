@@ -5,17 +5,10 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
-## [0.60.3] - 2026-05-02
-
-### Fixed
-- **PPM Gantt — relation dots no longer blocked by our own arrow's click zone.** Each rendered arrow has an invisible 12 px wide click stroke (so the user has a forgiving target for delete-by-click). It was being drawn for the full path length, including the first ~18 px past the source bar's right edge — which is exactly where the lib's relation circle handle sits (at `bar.right + 10`). Hovering "near but not on" a bar that already had an outgoing dependency landed on our click path instead of the bar wrapper, so the lib's `:hover` rule never fired and the relation dot stayed at opacity 0. The painted (visible) arrow still draws full-length so the chevron tips into the target bar; the click target now insets ~18 px at each end via new `leadInset` / `tailInset` parameters on `buildArrowPath`.
-
-## [0.60.2] - 2026-05-02
-
-### Fixed
-- **PPM Gantt — relation circles now stay grabbable on a bar that already has dependencies.** The Gantt library wraps each arrow in its own `<svg class="ArrowClassName">` whose bounding box is inflated by 300 px and one full row in every direction, which overlays the source bar's row. Even though the inner clickable group was already hidden, the wrapper SVG could still intercept pointer events, so once a bar had any outgoing arrow the source's `:hover` never fired and the relation handle dots stayed at `opacity: 0`. That made fan-out impossible — you could only ever draw one dependency out of a given predecessor. Set `pointer-events: none` on the wrapper so the source bar's hover always fires and a second drag works.
-
 ## [0.60.1] - 2026-05-02
+
+### Fixed
+- **PPM Gantt — fan-out dependencies now work; relation dots stay grabbable on bars that already have an arrow.** Each rendered arrow has an invisible 12 px wide transparent click stroke for delete-by-click. It was being painted for the full path length — including the first ~18 px past the source bar's right edge, which is exactly where the lib's relation circle handle sits (at `bar.right + 10`). Hovering "near but not on" a bar that already had an outgoing dependency landed on our click path instead of the bar wrapper, so the lib's `:hover` rule never fired and the relation dot stayed at `opacity: 0` and ungrabbable — making the Gantt feel one-to-one. The painted (visible) arrow still draws full-length so the chevron tips into the target bar; the click target now insets ~18 px at each end via new `leadInset` / `tailInset` parameters on `buildArrowPath`. Also added belt-and-suspenders `pointer-events: none` on the lib's hidden `<svg class="ArrowClassName">` wrappers so they can't intercept hover either.
 
 ### Changed
 - **PPM Gantt — "Align start" now snaps the successor to the day AFTER the predecessor's end date.** Previously the snackbar's *Align start* action set the successor's `start_date` equal to the predecessor's end date, which made the two bars share a calendar day. With finish-to-start the successor should pick up the next working day, so the action now adds one day before patching the successor (tasks: `start_date`; WBS: `start_date`, plus `end_date` rolled forward when the existing end would now precede the new start, milestones still keep `start == end`). The label and translation key are unchanged.
