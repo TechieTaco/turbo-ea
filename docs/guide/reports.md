@@ -79,7 +79,28 @@ The **Cost Report** provides financial analysis of your technology landscape:
 
 - **Treemap view** — Nested rectangles sized by cost, with optional grouping (e.g., by organization or capability)
 - **Bar chart view** — Cost comparison across components
-- **Aggregation** — Costs can be summed from related cards using calculated fields
+- **Card Type** — Pick which card type the report is built around (Application, IT Component, Provider, …).
+
+### Cost Source
+
+When the selected card type has at least one relation type pointing to a type that owns a cost field, a **Cost Source** picker appears next to **Card Type**. It lets you choose where the numbers come from:
+
+- **Direct (this card type)** — default; sums the cost field on the displayed cards themselves. Use this when looking at *Applications* or *IT Components* directly.
+- **Aggregate from related cards** — tick one or more `Type · Field` entries (for example `Application · Total Annual Cost`, `IT Component · Total Annual Cost`). Each primary card's number then becomes the sum of that field across its related cards.
+
+The picker is **multi-select**, so a single roll-up can combine several related types in one go. For example, when viewing **Provider** for *Microsoft*, ticking both `Application · Total Annual Cost` and `IT Component · Total Annual Cost` shows the vendor's full footprint — Teams, M365, Azure, and any other Microsoft-supplied components — as one number.
+
+#### Why nothing gets counted twice
+
+The picker is built so that double-counting is impossible by construction:
+
+- Each entry is a unique `(target type, cost field)` pair — the dropdown offers each pair exactly once, even when several relation types reach the same target type.
+- Within a single pair, two cards linked through multiple relation types still contribute their cost only once.
+- Across different entries, no card can contribute twice: a card has exactly one type, and different cost fields on the same card are independent values.
+
+A small **help icon (?)** next to the picker repeats this guarantee on hover.
+
+The option list is generated from your metamodel — relation types and cost fields are discovered at render time, so any custom card type or relation you add becomes a valid Cost Source automatically.
 
 ## Matrix Report
 

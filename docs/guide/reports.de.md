@@ -79,7 +79,28 @@ Der **Kostenbericht** bietet eine finanzielle Analyse Ihrer Technologielandschaf
 
 - **Treemap-Ansicht** — Verschachtelte Rechtecke, nach Kosten dimensioniert, mit optionaler Gruppierung (z.B. nach Organisation oder Fähigkeit)
 - **Balkendiagramm-Ansicht** — Kostenvergleich über Komponenten hinweg
-- **Aggregation** — Kosten können mithilfe berechneter Felder aus verwandten Karten summiert werden
+- **Kartentyp** — Wählen Sie, um welchen Kartentyp der Bericht aufgebaut wird (Anwendung, IT-Komponente, Anbieter, …).
+
+### Kostenquelle
+
+Sobald der gewählte Kartentyp mindestens eine Beziehung zu einem Typ besitzt, der ein Kostenfeld trägt, erscheint neben **Kartentyp** ein **Kostenquelle**-Auswahlfeld. Damit legen Sie fest, woher die Zahlen stammen:
+
+- **Direkt (dieser Kartentyp)** — Standard; summiert das Kostenfeld auf den angezeigten Karten selbst. Verwenden Sie dies, wenn Sie *Anwendungen* oder *IT-Komponenten* unmittelbar betrachten möchten.
+- **Aus verknüpften Karten aggregieren** — Wählen Sie einen oder mehrere Einträge der Form `Typ · Feld` (z. B. `Anwendung · Jährliche Gesamtkosten`, `IT-Komponente · Jährliche Gesamtkosten`). Der Wert pro Primärkarte ergibt sich dann als Summe dieses Feldes über alle verknüpften Karten.
+
+Das Auswahlfeld ist eine **Mehrfachauswahl**, sodass eine einzige Auswertung mehrere verknüpfte Typen kombinieren kann. Beispiel: Beim Anbieter **Microsoft** zeigen `Anwendung · Jährliche Gesamtkosten` und `IT-Komponente · Jährliche Gesamtkosten` zusammen das Gesamtbild des Anbieters — Teams, M365, Azure und weitere von Microsoft bereitgestellte Komponenten — als eine einzige Zahl.
+
+#### Warum nichts doppelt gezählt wird
+
+Die Auswahl ist so konstruiert, dass Doppelzählungen ausgeschlossen sind:
+
+- Jeder Eintrag ist ein eindeutiges Paar aus `(Zieltyp, Kostenfeld)` — die Liste bietet jedes Paar genau einmal an, auch wenn mehrere Beziehungstypen denselben Zieltyp erreichen.
+- Innerhalb eines Paares tragen zwei Karten, die über mehrere Beziehungstypen verknüpft sind, ihre Kosten dennoch nur einmal bei.
+- Über verschiedene Einträge hinweg kann keine Karte zweifach beitragen: Eine Karte besitzt genau einen Typ, und unterschiedliche Kostenfelder derselben Karte sind voneinander unabhängige Werte.
+
+Ein kleines **Hilfesymbol (?)** neben dem Auswahlfeld wiederholt diese Garantie beim Überfahren mit der Maus.
+
+Die Optionsliste wird aus Ihrem Metamodell erzeugt — Beziehungstypen und Kostenfelder werden zur Laufzeit ermittelt, sodass jeder neu angelegte benutzerdefinierte Kartentyp oder jede neue Beziehung automatisch zu einer gültigen Kostenquelle wird.
 
 ## Matrixbericht
 
