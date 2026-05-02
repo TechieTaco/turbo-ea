@@ -1156,6 +1156,19 @@ export interface PpmTask {
   updated_at: string;
 }
 
+export type PpmDependencyEndpointKind = "task" | "wbs";
+
+export interface PpmDependency {
+  id: string;
+  initiative_id: string;
+  pred_kind: PpmDependencyEndpointKind;
+  pred_id: string;
+  succ_kind: PpmDependencyEndpointKind;
+  succ_id: string;
+  kind: "FS";
+  created_at: string;
+}
+
 export interface PpmTaskComment {
   id: string;
   task_id: string;

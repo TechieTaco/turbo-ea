@@ -18,6 +18,11 @@
 
 export const brand = {
   primary: "#1976d2",
+  /** Lighter brand variant — Material Blue 200. Used as a high-contrast
+   *  accent on dark surfaces (snackbar action buttons, dark-mode link
+   *  hover, lifecycle "plan" chip), where `primary` is too dark to
+   *  legibly stand against the background. */
+  primaryLight: "#90caf9",
 } as const;
 
 export const surface = {

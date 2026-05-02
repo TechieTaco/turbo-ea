@@ -110,6 +110,12 @@ Das Gantt-Diagramm visualisiert den Projektzeitplan mit:
 - **Fortschrittsbalken** — Visueller Fertigstellungsgrad, direkt per Drag verstellbar
 - **Quartalstakte** — Zeitraster zur Orientierung
 
+Interaktion mit dem Gantt-Diagramm:
+
+- **Skalenauswahl** — Tag, Woche, Monat, Quartal oder Jahr; die Auswahl wird im Browser gespeichert
+- **Zoom-Schaltflächen (+/−)** — Schrittweises Vergrößern bzw. Verkleinern entlang derselben fünf Skalen
+- **Punkte an den Balkenenden** — Vom rechten Punkt eines Balkens auf den linken Punkt eines anderen ziehen, um eine Finish-to-Start-Abhängigkeit zu erstellen. Funktioniert zwischen Arbeitspaketen und Aufgaben in jeder Kombination. Zyklen werden automatisch zurückgewiesen. **Pfeil doppelklicken**, um ihn zu entfernen.
+
 ### Kartendetails-Tab
 
 Der letzte Tab zeigt die vollständige Kartendetailansicht mit allen Standardabschnitten.

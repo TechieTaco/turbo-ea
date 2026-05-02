@@ -110,6 +110,12 @@ O diagrama de Gantt visualiza o cronograma do projeto com:
 - **Barras de progresso** — Porcentagem de conclusão visual, arrastável para ajustar diretamente
 - **Marcas trimestrais** — Grade de cronograma para orientação
 
+Interaja com o diagrama de Gantt:
+
+- **Seletor de escala** — Escolha entre Dia, Semana, Mês, Trimestre e Ano; a escolha é lembrada no seu navegador
+- **Botões de zoom +/−** — Avance um nível por vez nas mesmas cinco escalas
+- **Pontos nas extremidades das barras** — Arraste do ponto direito de uma barra até o ponto esquerdo de outra para criar uma dependência «finish-to-start». Funciona entre pacotes de trabalho e tarefas em qualquer combinação. Os ciclos são rejeitados automaticamente. **Dê um clique duplo em uma seta** para removê-la.
+
 ### Aba Detalhes do Card
 
 A última aba mostra a visualização completa de detalhes do card, incluindo todas as seções padrão.

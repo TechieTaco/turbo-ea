@@ -20,6 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.card import Card
 from app.models.ppm_cost_line import PpmBudgetLine, PpmCostLine
+from app.models.ppm_dependency import PpmDependency
 from app.models.ppm_risk import PpmRisk
 from app.models.ppm_status_report import PpmStatusReport
 from app.models.ppm_task import PpmTask
@@ -1330,6 +1331,64 @@ async def seed_ppm_demo_data(db: AsyncSession) -> dict:
             risk_count += 1
     await db.flush()
 
+    # --- Dependencies (sample FS links between WBS items / tasks) ---
+    # Build a task lookup keyed by (initiative_name, task_title) so we can
+    # reference task IDs without a second DB round-trip.
+    task_lookup: dict[tuple[str, uuid.UUID, str], uuid.UUID] = {}
+    task_result = await db.execute(
+        select(PpmTask).where(PpmTask.initiative_id.in_(list(ids.values())))
+    )
+    for task_row in task_result.scalars().all():
+        for init_name, init_id in ids.items():
+            if task_row.initiative_id == init_id:
+                task_lookup[(init_name, init_id, task_row.title)] = task_row.id
+                break
+
+    sap_id = ids.get(INIT_SAP)
+    dep_count = 0
+
+    def _wbs(init_name: str, title: str) -> uuid.UUID | None:
+        return wbs_lookup.get((init_name, title))
+
+    def _task(init_name: str, init_id: uuid.UUID, title: str) -> uuid.UUID | None:
+        return task_lookup.get((init_name, init_id, title))
+
+    # Distinct local names (`pa` / `pb`) avoid mypy variable-shadowing errors
+    # — the names `a` / `b` are bound to dicts earlier in the function.
+    sample_deps: list[dict] = []
+    if sap_id:
+        # WBS → WBS: classic phase-gate sequencing
+        if (pa := _wbs(INIT_SAP, "Data Migration")) and (
+            pb := _wbs(INIT_SAP, "Integration & Testing")
+        ):
+            sample_deps.append({"initiative_id": sap_id, "pred_wbs_id": pa, "succ_wbs_id": pb})
+        if (pa := _wbs(INIT_SAP, "Integration & Testing")) and (
+            pb := _wbs(INIT_SAP, "User Training & Change Mgmt")
+        ):
+            sample_deps.append({"initiative_id": sap_id, "pred_wbs_id": pa, "succ_wbs_id": pb})
+        if (pa := _wbs(INIT_SAP, "Go-Live & Hypercare")) and (pb := _wbs(INIT_SAP, "Go-Live")):
+            sample_deps.append({"initiative_id": sap_id, "pred_wbs_id": pa, "succ_wbs_id": pb})
+        # Task → Task within the SAP UAT stream
+        if (pa := _task(INIT_SAP, sap_id, "Run data migration dry-run #3")) and (
+            pb := _task(INIT_SAP, sap_id, "Execute UAT phase 2 test cases")
+        ):
+            sample_deps.append({"initiative_id": sap_id, "pred_task_id": pa, "succ_task_id": pb})
+
+    for dep in sample_deps:
+        db.add(
+            PpmDependency(
+                id=uuid.uuid4(),
+                initiative_id=dep["initiative_id"],
+                kind="FS",
+                pred_task_id=dep.get("pred_task_id"),
+                pred_wbs_id=dep.get("pred_wbs_id"),
+                succ_task_id=dep.get("succ_task_id"),
+                succ_wbs_id=dep.get("succ_wbs_id"),
+            )
+        )
+        dep_count += 1
+    await db.flush()
+
     await db.commit()
     return {
         "status_reports": sr_count,
@@ -1338,6 +1397,7 @@ async def seed_ppm_demo_data(db: AsyncSession) -> dict:
         "budget_lines": budget_count,
         "cost_lines": cost_count,
         "risks": risk_count,
+        "dependencies": dep_count,
     }
 
 

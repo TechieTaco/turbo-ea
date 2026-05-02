@@ -89,6 +89,7 @@ export default function PpmTaskDialog({
   const [comments, setComments] = useState<PpmTaskComment[]>([]);
   const [newComment, setNewComment] = useState("");
   const [addingComment, setAddingComment] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   useEffect(() => {
     api
@@ -119,6 +120,7 @@ export default function PpmTaskDialog({
   const handleSave = async () => {
     if (!title.trim()) return;
     setSaving(true);
+    setSaveError(null);
     try {
       const payload = {
         title: title.trim(),
@@ -136,8 +138,11 @@ export default function PpmTaskDialog({
         await api.post(`/ppm/initiatives/${initiativeId}/tasks`, payload);
       }
       onSaved();
-    } catch {
-      // ignore
+    } catch (err) {
+      // Surface the failure so the user knows save didn't succeed —
+      // swallowing the error silently let the dialog look successful
+      // even when the backend rejected the request.
+      setSaveError(err instanceof Error ? err.message : t("saveFailed"));
     } finally {
       setSaving(false);
     }
@@ -412,6 +417,15 @@ export default function PpmTaskDialog({
           )}
         </Box>
       </DialogContent>
+      {saveError && (
+        <Alert
+          severity="error"
+          sx={{ mx: 3, mb: 1 }}
+          onClose={() => setSaveError(null)}
+        >
+          {saveError}
+        </Alert>
+      )}
       {isEdit && confirmDelete && (
         <Alert
           severity="error"

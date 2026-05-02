@@ -122,6 +122,9 @@ Interact with the Gantt chart using:
 - **Resize** bar edges to change duration (1-day granularity)
 - **Right-click** for context menu (edit, add task, mark done, delete)
 - **Today button** to scroll to the current date
+- **View scale picker** — choose between Day, Week, Month, Quarter, and Year scales; the choice is remembered in your browser
+- **Zoom in / Zoom out buttons** — step through the same five scales one notch at a time
+- **Drag the dot on the right edge of one bar onto the dot on the left edge of another** to create a finish-to-start dependency arrow. Dependencies work between any combination of work packages and tasks. Cycles are rejected automatically. **Double-click an arrow** to remove it.
 
 ### Card Details Tab
 

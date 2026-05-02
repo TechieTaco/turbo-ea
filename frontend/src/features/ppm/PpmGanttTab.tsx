@@ -1,4 +1,12 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import {
+  useState,
+  useEffect,
+  useLayoutEffect,
+  useCallback,
+  useMemo,
+  useRef,
+} from "react";
+import { createPortal } from "react-dom";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import ToggleButton from "@mui/material/ToggleButton";
@@ -19,6 +27,8 @@ import type {
   Task,
   OnDateChange,
   OnProgressChange,
+  OnRelationChange,
+  Dependency,
   TaskOrEmpty,
   Column,
   ColumnProps,
@@ -28,12 +38,14 @@ import "@wamra/gantt-task-react/dist/style.css";
 import Chip from "@mui/material/Chip";
 import Popover from "@mui/material/Popover";
 import Slider from "@mui/material/Slider";
+import Snackbar from "@mui/material/Snackbar";
 import Typography from "@mui/material/Typography";
 import MaterialSymbol from "@/components/MaterialSymbol";
-import { api } from "@/api/client";
+import { api, ApiError } from "@/api/client";
+import { brand } from "@/theme/tokens";
 import PpmWbsDialog from "./PpmWbsDialog";
 import PpmTaskDialog from "./PpmTaskDialog";
-import type { PpmWbs, PpmTask, PpmTaskStatus } from "@/types";
+import type { PpmDependency, PpmWbs, PpmTask, PpmTaskStatus } from "@/types";
 
 /** Bar colors per task status — reuses the standard palette from PpmTaskBoard. */
 const TASK_STATUS_BAR_COLORS: Record<
@@ -70,6 +82,158 @@ const TASK_STATUS_BAR_COLORS: Record<
     barProgressSelectedColor: "#c62828",
   },
 };
+
+/** Ordered view scale used by both the picker and the +/- zoom buttons.
+ *  Index 0 = most zoomed-in (Day), last = most zoomed-out (Year). */
+const VIEW_SCALE: ViewMode[] = [
+  ViewMode.Day,
+  ViewMode.Week,
+  ViewMode.Month,
+  ViewMode.QuarterYear,
+  ViewMode.Year,
+];
+
+const VIEW_MODE_KEY = "ppm.gantt.viewMode";
+
+function loadInitialViewMode(): ViewMode {
+  try {
+    const raw = localStorage.getItem(VIEW_MODE_KEY) as ViewMode | null;
+    if (raw && VIEW_SCALE.includes(raw)) return raw;
+  } catch {
+    /* localStorage unavailable */
+  }
+  return ViewMode.Week;
+}
+
+/** Convert a Gantt task id ("task-uuid" / "wbs-uuid") to the API's
+ *  (kind, id) pair. Returns null for the placeholder __empty__ row. */
+function parseGanttId(
+  ganttId: string,
+): { kind: "task" | "wbs"; id: string } | null {
+  if (ganttId.startsWith("task-")) return { kind: "task", id: ganttId.slice(5) };
+  if (ganttId.startsWith("wbs-")) return { kind: "wbs", id: ganttId.slice(4) };
+  return null;
+}
+
+/** Build the gantt task id for a (kind, id) pair from a PpmDependency. */
+function depEndpointToGanttId(kind: "task" | "wbs", id: string): string {
+  return `${kind}-${id}`;
+}
+
+/** Geometry passed from parent to the dependency overlay.
+ *  Coordinates are already in the overlay's local SVG coordinate system
+ *  — i.e. measured relative to the portal target — so the overlay can
+ *  render them without any further translation. */
+interface ArrowGeometry {
+  id: string;
+  fromX: number;
+  fromY: number;
+  toX: number;
+  toY: number;
+}
+
+interface DependencyArrowOverlayProps {
+  arrows: ArrowGeometry[];
+  buildPath: (fromX: number, fromY: number, toX: number, toY: number) => string;
+  onClick: (depId: string) => void;
+  color: string;
+  dangerColor: string;
+}
+
+/** SVG overlay portaled into the library's gridStyle wrapper. Because it
+ *  sits in the same DOM parent as the bars, scroll moves them together
+ *  and our coordinates (which are already wrapper-local) stay valid
+ *  without any per-render re-measurement. */
+function DependencyArrowOverlay({
+  arrows,
+  buildPath,
+  onClick,
+  color,
+  dangerColor: _dangerColor,
+}: DependencyArrowOverlayProps) {
+  const [hoverId, setHoverId] = useState<string | null>(null);
+
+  return (
+    <svg
+      className="ppm-arrow-overlay"
+      style={{
+        position: "absolute",
+        inset: 0,
+        width: "100%",
+        height: "100%",
+        pointerEvents: "none",
+        overflow: "visible",
+        zIndex: 5,
+      }}
+    >
+      <defs>
+        <marker
+          id="ppm-gantt-arrowhead"
+          /* Squat arrowhead — wider than tall so it reads as a small chevron
+             rather than a tall triangle. viewBox 10x6, marker rendered at 7x4. */
+          viewBox="0 0 10 6"
+          refX="8"
+          refY="3"
+          markerWidth="7"
+          markerHeight="4"
+          orient="auto-start-reverse"
+        >
+          <path d="M 0 0 L 10 3 L 0 6 z" fill={color} />
+        </marker>
+      </defs>
+      {arrows.map((a) => {
+        const d = buildPath(a.fromX, a.fromY, a.toX, a.toY);
+        const isHover = hoverId === a.id;
+        return (
+          <g key={a.id} style={{ pointerEvents: "auto", cursor: "pointer" }}>
+            {/* Wide invisible hit target */}
+            <path
+              d={d}
+              fill="none"
+              stroke="transparent"
+              strokeWidth={12}
+              onClick={() => onClick(a.id)}
+              onMouseEnter={() => setHoverId(a.id)}
+              onMouseLeave={() => setHoverId(null)}
+            />
+            {/* Visible arrow */}
+            <path
+              d={d}
+              fill="none"
+              stroke={color}
+              strokeWidth={isHover ? 2 : 1.5}
+              strokeLinejoin="round"
+              strokeLinecap="round"
+              markerEnd="url(#ppm-gantt-arrowhead)"
+              style={{ pointerEvents: "none", transition: "stroke-width 120ms" }}
+            />
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
+/** Per-viewMode geometry: column width in pixels and approximate
+ *  calendar units per column (in days). Used both for our
+ *  measurements and for the lib's pixel-per-date scaling — they
+ *  must match the columnWidth we pass via the `distances` prop. */
+function geometryFor(mode: ViewMode): { colWidth: number; daysPerCol: number } {
+  switch (mode) {
+    case ViewMode.Day:
+      return { colWidth: 32, daysPerCol: 1 };
+    case ViewMode.Week:
+      return { colWidth: 200, daysPerCol: 7 };
+    case ViewMode.Month:
+      return { colWidth: 300, daysPerCol: 30.44 };
+    case ViewMode.QuarterYear:
+      return { colWidth: 180, daysPerCol: 91.31 };
+    case ViewMode.Year:
+      return { colWidth: 240, daysPerCol: 365.25 };
+    default:
+      return { colWidth: 200, daysPerCol: 7 };
+  }
+}
 
 /** Extra metadata for Gantt rows, keyed by gantt task id (e.g. "wbs-xxx", "task-xxx"). */
 interface GanttRowMeta {
@@ -179,9 +343,124 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
 
   const [wbsList, setWbsList] = useState<PpmWbs[]>([]);
   const [tasks, setTasks] = useState<PpmTask[]>([]);
+  const [dependencies, setDependencies] = useState<PpmDependency[]>([]);
   const [loading, setLoading] = useState(true);
-  const [viewMode, setViewMode] = useState<ViewMode>(ViewMode.Week);
+  const [viewMode, _setViewMode] = useState<ViewMode>(() => loadInitialViewMode());
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const [snack, setSnack] = useState<string>("");
+  /** Optional action button shown next to the snackbar message (e.g.
+   *  "Align start" after creating a dependency with a date mismatch). */
+  const [snackAction, setSnackAction] = useState<{
+    label: string;
+    onClick: () => void | Promise<void>;
+  } | null>(null);
+  const clearSnack = useCallback(() => {
+    setSnack("");
+    setSnackAction(null);
+  }, []);
+  /** Show a snackbar message, optionally with an action button. Always
+   *  clears any prior action so a stale onClick can't carry over. */
+  const showSnack = useCallback(
+    (
+      message: string,
+      action?: { label: string; onClick: () => void | Promise<void> },
+    ) => {
+      setSnack(message);
+      setSnackAction(action ?? null);
+    },
+    [],
+  );
+
+  /** Find the calendar date currently positioned at the viewport's
+   *  horizontal centre. Picks any visible bar as a reference, then
+   *  linearly interpolates from that bar's known start_date and viewport
+   *  position to the centre using the lib's columnWidth × days-per-column
+   *  ratio for the current viewMode. This is more accurate than picking
+   *  the nearest bar's date — when the closest bar sits far from centre
+   *  (e.g. on an edge of the viewport), the new view would otherwise
+   *  jump that distance away from where the user was actually looking. */
+  const findCenterAnchorDate = useCallback((): Date | undefined => {
+    const root = ganttRef.current?.querySelector("[class*='ganttTaskRoot_']");
+    if (!(root instanceof Element)) return undefined;
+    const r = root.getBoundingClientRect();
+    if (r.width === 0) return undefined;
+    const centerX = r.left + r.width / 2;
+    const BAR_SEL =
+      "[class*='barBackground_'], [class*='projectBackground_'], [class*='milestoneBackground_']";
+
+    // Find any one visible bar with a usable start date as a reference
+    // for the linear pixel↔date mapping.
+    type Ref = { x: number; date: Date };
+    let ref: Ref | null = null;
+    const tryAsRef = (id: string, dateStr: string | null): boolean => {
+      if (!dateStr) return false;
+      const wrapper = ganttRef.current?.querySelector(`[id="${id}"]`);
+      const bar = wrapper?.querySelector(BAR_SEL);
+      if (!(bar instanceof Element)) return false;
+      const br = bar.getBoundingClientRect();
+      if (br.width === 0) return false;
+      ref = { x: br.left, date: parseDate(dateStr, new Date()) };
+      return true;
+    };
+    for (const tk of tasks) {
+      if (tryAsRef(`task-${tk.id}`, tk.start_date)) break;
+    }
+    if (!ref) {
+      for (const w of wbsList) {
+        if (tryAsRef(`wbs-${w.id}`, w.start_date)) break;
+      }
+    }
+    if (!ref) return undefined;
+
+    // Days per pixel for the current scale. Approximate for Month/
+    // Quarter/Year since calendar months and years vary slightly in
+    // length — close enough for an anchor (we just need the right
+    // ballpark date for the lib's setViewDate to scroll to).
+    const { colWidth, daysPerCol } = geometryFor(viewMode);
+    const daysPerPx = daysPerCol / colWidth;
+    const dayDelta = (centerX - (ref as Ref).x) * daysPerPx;
+    return new Date((ref as Ref).date.getTime() + dayDelta * 86400000);
+  }, [tasks, wbsList, viewMode]);
+
+  /** Persist scale changes so they survive a reload, and keep the user's
+   *  viewport centre stable across scale flips.
+   *
+   *  Two key facts that drove this:
+   *   1. The lib treats `viewDate` as the date placed at the viewport's
+   *      LEFT edge (it computes `scrollLeft = columnWidth × column_index`
+   *      from `viewDate`). Passing the captured centre date directly
+   *      would shift the new view right by half a viewport.
+   *   2. Each scale change introduces small approximation error (months
+   *      are ~30.44 days etc.); using the lib's aware offset for the new
+   *      scale minimises the drift on round-trips. */
+  const setViewMode = useCallback(
+    (mode: ViewMode) => {
+      // Capture the date currently at the viewport CENTRE in the OLD scale.
+      const centerDate = findCenterAnchorDate() ?? new Date();
+      // Half-viewport in calendar days, computed in the NEW scale's
+      // pixel-per-day ratio so the centre lands where the user expects.
+      const root = ganttRef.current?.querySelector("[class*='ganttTaskRoot_']");
+      const viewportPx =
+        root instanceof Element ? root.getBoundingClientRect().width : 0;
+      const { colWidth, daysPerCol } = geometryFor(mode);
+      const halfDays = (viewportPx / 2) * (daysPerCol / colWidth);
+      const leftEdge = new Date(centerDate.getTime() - halfDays * 86400000);
+      _setViewMode(mode);
+      // Force a NEW Date reference even if equal, so the lib re-scrolls
+      // (the prop is reference-compared, not value-compared).
+      setViewDate(new Date(leftEdge.getTime()));
+      try {
+        localStorage.setItem(VIEW_MODE_KEY, mode);
+      } catch {
+        /* ignore */
+      }
+    },
+    [findCenterAnchorDate],
+  );
+
+  const viewIndex = VIEW_SCALE.indexOf(viewMode);
+  const canZoomIn = viewIndex > 0;
+  const canZoomOut = viewIndex >= 0 && viewIndex < VIEW_SCALE.length - 1;
 
   // WBS dialog state
   const [wbsDialogOpen, setWbsDialogOpen] = useState(false);
@@ -211,12 +490,14 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
 
   const loadData = useCallback(async () => {
     try {
-      const [w, t] = await Promise.all([
+      const [w, t, d] = await Promise.all([
         api.get<PpmWbs[]>(`/ppm/initiatives/${initiativeId}/wbs`),
         api.get<PpmTask[]>(`/ppm/initiatives/${initiativeId}/tasks`),
+        api.get<PpmDependency[]>(`/ppm/initiatives/${initiativeId}/dependencies`),
       ]);
       setWbsList(w);
       setTasks(t);
+      setDependencies(d);
     } finally {
       setLoading(false);
     }
@@ -229,6 +510,25 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
   /** Set of WBS IDs that have children (completion auto-rolled up). */
   const parentIds = useMemo(() => getParentIds(wbsList, tasks), [wbsList, tasks]);
 
+  /** Per-successor list of arrows the library should draw.
+   *  Library shape: { sourceId, sourceTarget: "endOfTask", ownTarget: "startOfTask" }
+   *  for finish-to-start. */
+  const depsBySuccessor = useMemo(() => {
+    const map = new Map<string, Dependency[]>();
+    for (const d of dependencies) {
+      const succGanttId = depEndpointToGanttId(d.succ_kind, d.succ_id);
+      const predGanttId = depEndpointToGanttId(d.pred_kind, d.pred_id);
+      const arr = map.get(succGanttId) ?? [];
+      arr.push({
+        sourceId: predGanttId,
+        sourceTarget: "endOfTask",
+        ownTarget: "startOfTask",
+      });
+      map.set(succGanttId, arr);
+    }
+    return map;
+  }, [dependencies]);
+
   /** Map WBS + Tasks → gantt-task-react Task[] with trailing empty row. */
   const ganttTasks: TaskOrEmpty[] = useMemo(() => {
     const items: TaskOrEmpty[] = [];
@@ -237,16 +537,19 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
 
     // WBS items as "project" or "milestone" type
     for (const w of wbsList) {
+      const wbsId = `wbs-${w.id}`;
       const start = startOfDay(parseDate(w.start_date, defStart));
+      const deps = depsBySuccessor.get(wbsId);
       if (w.is_milestone) {
         items.push({
-          id: `wbs-${w.id}`,
+          id: wbsId,
           name: w.title,
           type: "milestone",
           start,
           end: start,
           progress: w.completion,
           parent: w.parent_id ? `wbs-${w.parent_id}` : undefined,
+          dependencies: deps,
           isDisabled: false,
         });
       } else {
@@ -256,7 +559,7 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
           end.setDate(end.getDate() + 7);
         }
         items.push({
-          id: `wbs-${w.id}`,
+          id: wbsId,
           name: w.title,
           type: "project",
           start,
@@ -264,6 +567,7 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
           progress: w.completion,
           parent: w.parent_id ? `wbs-${w.parent_id}` : undefined,
           hideChildren: collapsed.has(w.id),
+          dependencies: deps,
           isDisabled: false,
           styles: {
             projectBackgroundColor: theme.palette.primary.light,
@@ -277,6 +581,7 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
 
     // Tasks as "task" type
     for (const tk of tasks) {
+      const taskId = `task-${tk.id}`;
       const start = startOfDay(
         parseDate(tk.start_date, parseDate(tk.created_at, defStart)),
       );
@@ -291,13 +596,14 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
         tk.status === "done" ? 100 : tk.status === "in_progress" ? 50 : 0;
       const barColors = TASK_STATUS_BAR_COLORS[tk.status] ?? TASK_STATUS_BAR_COLORS.todo;
       items.push({
-        id: `task-${tk.id}`,
+        id: taskId,
         name: tk.title,
         type: "task",
         start,
         end,
         progress,
         parent: tk.wbs_id ? `wbs-${tk.wbs_id}` : undefined,
+        dependencies: depsBySuccessor.get(taskId),
         isDisabled: false,
         styles: barColors,
       });
@@ -311,7 +617,7 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
     });
 
     return items;
-  }, [wbsList, tasks, collapsed, theme, timelineRange]);
+  }, [wbsList, tasks, collapsed, theme, timelineRange, depsBySuccessor]);
 
   /** Metadata map for custom Gantt columns (completion, assignee). */
   const rowMeta = useMemo(() => {
@@ -379,6 +685,107 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
       }
     },
     [loadData, parentIds],
+  );
+
+  /** Lookup helpers — read end-/start-dates from our state, accounting
+   *  for milestones (where start == end). Returns ISO date string or null. */
+  const getEndDate = useCallback(
+    (kind: "task" | "wbs", id: string): string | null => {
+      if (kind === "task") {
+        return tasks.find((tk) => tk.id === id)?.due_date ?? null;
+      }
+      const w = wbsList.find((w) => w.id === id);
+      if (!w) return null;
+      return w.is_milestone ? w.start_date : w.end_date;
+    },
+    [tasks, wbsList],
+  );
+
+  /** Snap the successor's start_date to a target ISO date. Adjusts
+   *  end_date too when needed (milestones always equal start; tasks /
+   *  WBS push their end out only if it's now before the new start). */
+  const alignSuccessorStart = useCallback(
+    async (succKind: "task" | "wbs", succId: string, newStart: string) => {
+      try {
+        if (succKind === "task") {
+          const tk = tasks.find((t2) => t2.id === succId);
+          const patch: Record<string, string> = { start_date: newStart };
+          if (tk?.due_date && tk.due_date < newStart) patch.due_date = newStart;
+          await api.patch(`/ppm/tasks/${succId}`, patch);
+        } else {
+          const w = wbsList.find((w2) => w2.id === succId);
+          const patch: Record<string, string> = { start_date: newStart };
+          if (w?.is_milestone) patch.end_date = newStart;
+          else if (w?.end_date && w.end_date < newStart) patch.end_date = newStart;
+          await api.patch(`/ppm/wbs/${succId}`, patch);
+        }
+        await loadData();
+      } catch {
+        showSnack(t("alignStartFailed"));
+      }
+    },
+    [tasks, wbsList, loadData, showSnack, t],
+  );
+
+  /** Drag-create a finish-to-start dependency by connecting the relation handles.
+   *  The library passes `isOneDescendant=true` when one row is a descendant of
+   *  the other in the WBS hierarchy — a parent-child link doesn't model a
+   *  meaningful schedule dependency (and would create implicit cycles via the
+   *  WBS rollup), so skip those drags silently. */
+  const handleRelationChange: OnRelationChange = useCallback(
+    async (from, to, isOneDescendant) => {
+      if (isOneDescendant) {
+        showSnack(t("dependencyCycleError"));
+        return;
+      }
+      const [fromTask, fromTarget] = from;
+      const [toTask] = to;
+      // We only model FS today: predecessor's "endOfTask" → successor's "startOfTask".
+      // If the user dragged backwards (left dot first, right dot second), swap roles.
+      const [predTask, succTask] =
+        fromTarget === "endOfTask" ? [fromTask, toTask] : [toTask, fromTask];
+      const pred = parseGanttId(predTask.id);
+      const succ = parseGanttId(succTask.id);
+      if (!pred || !succ) return;
+      try {
+        await api.post(`/ppm/initiatives/${initiativeId}/dependencies`, {
+          pred_kind: pred.kind,
+          pred_id: pred.id,
+          succ_kind: succ.kind,
+          succ_id: succ.id,
+        });
+        await loadData();
+        // Always offer to snap the successor's start to the predecessor's
+        // end — whether the dates currently violate the FS rule or not.
+        // When they already align the action is a no-op PATCH, but having
+        // it always available means the user discovers the affordance.
+        const predEnd = getEndDate(pred.kind, pred.id);
+        if (predEnd) {
+          showSnack(t("dependencyCreated"), {
+            label: t("alignStart"),
+            onClick: () => alignSuccessorStart(succ.kind, succ.id, predEnd),
+          });
+        } else {
+          showSnack(t("dependencyCreated"));
+        }
+      } catch (err) {
+        if (err instanceof ApiError) {
+          if (err.status === 409) showSnack(t("dependencyDuplicateError"));
+          else if (err.status === 422) showSnack(t("dependencyCycleError"));
+          else showSnack(err.message || t("dependencyCreateFailed"));
+        } else {
+          showSnack(t("dependencyCreateFailed"));
+        }
+      }
+    },
+    [
+      initiativeId,
+      loadData,
+      t,
+      getEndDate,
+      alignSuccessorStart,
+      showSnack,
+    ],
   );
 
   const ganttRef = useRef<HTMLDivElement>(null);
@@ -707,6 +1114,10 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
         return 200;
       case ViewMode.Month:
         return 300;
+      case ViewMode.QuarterYear:
+        return 180;
+      case ViewMode.Year:
+        return 240;
       default:
         return 200;
     }
@@ -986,6 +1397,245 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
     };
   }, []);
 
+  /**
+   * Custom dependency arrow overlay.
+   *
+   * The underlying gantt library renders dependency arrows as a hard-coded
+   * 5-segment staircase with sharp 90° corners and exposes no override.
+   * We hide its arrows via CSS (see `arrow_clickable_*` rule below) and
+   * draw our own arrows in an absolute-positioned `<svg>` overlay sitting
+   * on top of the gantt. Routing follows the milestone-planner project's
+   * conventions:
+   *   • Forward case (predecessor ends before successor starts): three
+   *     segments H–V–H with two rounded corners (SVG arc, r = 6px).
+   *   • Loop-back case (overlapping bars): five segments routing around
+   *     to the LEFT of both bars, with four rounded corners.
+   *   • Same-row case: a single horizontal segment.
+   *
+   * Coordinates come from `getBoundingClientRect()` of each bar's
+   * `<rect class="barBackground_">`, looked up by the per-task SVG's DOM
+   * `id` (which the library sets to our gantt task id, e.g. `task-uuid`
+   * or `wbs-uuid`). A `tick` counter triggers re-measurement on:
+   *   - dependency / data / view-mode changes
+   *   - scroll inside either gantt scroll container
+   *   - any size change of the gantt or its parents (ResizeObserver)
+   *   - mutations to the gantt subtree (catches the lib's animation frames)
+   */
+  const [arrowTick, setArrowTick] = useState(0);
+
+  // Safety-net: trigger an immediate measurement plus delayed re-checks
+  // whenever data changes or the user picks a different view scale (which
+  // re-positions every bar). Covers slow first paints on cold caches and
+  // the lib's transition cadence on scale changes.
+  useEffect(() => {
+    setArrowTick((x) => x + 1);
+    const t1 = setTimeout(() => setArrowTick((x) => x + 1), 100);
+    const t2 = setTimeout(() => setArrowTick((x) => x + 1), 500);
+    const t3 = setTimeout(() => setArrowTick((x) => x + 1), 1500);
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+      clearTimeout(t3);
+    };
+  }, [ganttTasks, dependencies, viewMode]);
+
+  const bumpArrowTick = useCallback(() => {
+    setArrowTick((t) => t + 1);
+  }, []);
+
+  /**
+   * The overlay is rendered via React Portal into the library's own
+   * scroll-content wrapper (`<div style={gridStyle}>`, the unique-class
+   * child of `[class*='ganttTaskContent_']`). Because the overlay then
+   * shares a parent with the bars SVG, browser scroll moves them together
+   * automatically — no scroll listener, no shake.
+   */
+  const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
+
+  // Re-find the portal target on every render. The library can re-mount
+  // the wrapper div on view-mode changes; if we cached the old node, our
+  // portal would render into orphaned DOM. A render-time check + bail-out
+  // on identity keeps the cost negligible.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useLayoutEffect(() => {
+    const el = ganttRef.current;
+    if (!el) return;
+    const content = el.querySelector(
+      "[class*='ganttTaskContent_']",
+    ) as HTMLElement | null;
+    const target = (content?.firstElementChild as HTMLElement | null) ?? content;
+    if (!target) return;
+    // Make the wrapper a positioned ancestor so our `position: absolute`
+    // overlay anchors correctly. Setting `relative` is harmless.
+    if (target.style.position !== "relative") target.style.position = "relative";
+    if (target !== portalTarget) setPortalTarget(target);
+  });
+
+  useEffect(() => {
+    const el = ganttRef.current;
+    if (!el) return;
+    bumpArrowTick();
+
+    const resize = new ResizeObserver(bumpArrowTick);
+    resize.observe(el);
+
+    // Re-measure on lib-driven DOM changes (scale, drag, data updates).
+    // Skip mutations inside our own overlay so arrow repaints can't loop.
+    const mut = new MutationObserver((mutations) => {
+      for (const m of mutations) {
+        const t = m.target;
+        if (t instanceof Element && t.closest(".ppm-arrow-overlay")) continue;
+        bumpArrowTick();
+        return;
+      }
+    });
+    mut.observe(el, { childList: true, subtree: true, attributes: true });
+
+    return () => {
+      resize.disconnect();
+      mut.disconnect();
+    };
+  }, [bumpArrowTick]);
+
+  /** Compute path coords for every dependency arrow, expressed in the
+   *  portalTarget's local pixel space (i.e. ready for the overlay SVG
+   *  to use without further translation). Reads portalTarget AND every
+   *  bar in the same synchronous pass so the pair stays self-consistent
+   *  even mid-scroll — that's what eliminates the "stale origin" drift
+   *  after long scrolls. */
+  const arrowGeometry = useMemo(() => {
+    void arrowTick; // re-run when DOM-derived data may have shifted
+    const el = ganttRef.current;
+    if (!el || !portalTarget) {
+      return [] as Array<{
+        id: string;
+        fromX: number;
+        fromY: number;
+        toX: number;
+        toY: number;
+      }>;
+    }
+    const portalRect = portalTarget.getBoundingClientRect();
+
+    const out: Array<{
+      id: string;
+      fromX: number;
+      fromY: number;
+      toX: number;
+      toY: number;
+    }> = [];
+
+    // Selector covering all three bar-shape classes the library uses:
+    // tasks → barBackground_*, WBS items → projectBackground_*,
+    // milestones (rotated diamonds) → milestoneBackground_*.
+    const BAR_SEL =
+      "[class*='barBackground_'], [class*='projectBackground_'], [class*='milestoneBackground_']";
+
+    for (const d of dependencies) {
+      const predId = `${d.pred_kind === "task" ? "task" : "wbs"}-${d.pred_id}`;
+      const succId = `${d.succ_kind === "task" ? "task" : "wbs"}-${d.succ_id}`;
+      const predEl = el.querySelector(`[id="${predId}"]`);
+      const succEl = el.querySelector(`[id="${succId}"]`);
+      if (!predEl || !succEl) continue;
+      const predBar = predEl.querySelector(BAR_SEL);
+      const succBar = succEl.querySelector(BAR_SEL);
+      if (!(predBar instanceof Element) || !(succBar instanceof Element)) continue;
+      const pr = predBar.getBoundingClientRect();
+      const sr = succBar.getBoundingClientRect();
+      if (pr.width === 0 || sr.width === 0) continue;
+      out.push({
+        id: d.id,
+        fromX: pr.right - portalRect.left,
+        fromY: pr.top + pr.height / 2 - portalRect.top,
+        toX: sr.left - portalRect.left,
+        toY: sr.top + sr.height / 2 - portalRect.top,
+      });
+    }
+    return out;
+  }, [dependencies, arrowTick, portalTarget]);
+
+  /** Build the SVG path for one arrow.  Coordinates are already overlay-local. */
+  const buildArrowPath = useCallback(
+    (fromX: number, fromY: number, toX: number, toY: number): string => {
+      const RADIUS = 6;
+      const STUB = 14; // horizontal exit/entry length for loop-back routing
+      const DETOUR_PAD = 18; // gap between detour line and bars
+
+      // Same row → one straight segment
+      if (Math.abs(toY - fromY) < 1) {
+        return `M ${fromX} ${fromY} H ${toX}`;
+      }
+
+      const vDir = toY > fromY ? 1 : -1; // +1 down, -1 up
+
+      // Forward routing — clean 3-segment H/V/H with 2 rounded corners
+      if (toX > fromX + 2 * RADIUS) {
+        const midX = (fromX + toX) / 2;
+        const r = Math.min(
+          RADIUS,
+          (toX - fromX) / 4,
+          Math.abs(toY - fromY) / 2,
+        );
+        if (r < 1) {
+          return `M ${fromX} ${fromY} H ${midX} V ${toY} H ${toX}`;
+        }
+        // sweep flags: R→D=1, D→R=0; flip both for vDir=-1
+        const s1 = vDir > 0 ? 1 : 0;
+        const s2 = vDir > 0 ? 0 : 1;
+        return [
+          `M ${fromX} ${fromY}`,
+          `H ${midX - r}`,
+          `A ${r} ${r} 0 0 ${s1} ${midX} ${fromY + vDir * r}`,
+          `V ${toY - vDir * r}`,
+          `A ${r} ${r} 0 0 ${s2} ${midX + r} ${toY}`,
+          `H ${toX}`,
+        ].join(" ");
+      }
+
+      // Loop-back — exit right, drop past source row, run LEFT past both
+      // bars, drop to target row, re-enter target.
+      const r = RADIUS;
+      const exitX = fromX + STUB;
+      const turnY = fromY + vDir * STUB;
+      const detourX = Math.min(fromX, toX) - DETOUR_PAD;
+      // Sweep flags by direction:
+      //   vDir +1 (down):  R→D=1, D→L=1, L→D=0, D→R=0
+      //   vDir -1 (up):    R→U=0, U→L=0, L→U=1, U→R=1
+      const s1 = vDir > 0 ? 1 : 0;
+      const s2 = vDir > 0 ? 1 : 0;
+      const s3 = vDir > 0 ? 0 : 1;
+      const s4 = vDir > 0 ? 0 : 1;
+      return [
+        `M ${fromX} ${fromY}`,
+        `H ${exitX - r}`,
+        `A ${r} ${r} 0 0 ${s1} ${exitX} ${fromY + vDir * r}`,
+        `V ${turnY - vDir * r}`,
+        `A ${r} ${r} 0 0 ${s2} ${exitX - r} ${turnY}`,
+        `H ${detourX + r}`,
+        `A ${r} ${r} 0 0 ${s3} ${detourX} ${turnY + vDir * r}`,
+        `V ${toY - vDir * r}`,
+        `A ${r} ${r} 0 0 ${s4} ${detourX + r} ${toY}`,
+        `H ${toX}`,
+      ].join(" ");
+    },
+    [],
+  );
+
+  /** Click handler for arrows: confirm + delete. */
+  const handleArrowClick = useCallback(
+    async (depId: string) => {
+      if (!window.confirm(t("confirmDeleteDependency"))) return;
+      try {
+        await api.delete(`/ppm/dependencies/${depId}`);
+        await loadData();
+        showSnack(t("dependencyDeleted"));
+      } catch {
+        showSnack(t("dependencyDeleteFailed"));
+      }
+    },
+    [loadData, showSnack, t],
+  );
+
   if (loading) {
     return (
       <Box display="flex" justifyContent="center" mt={4}>
@@ -1047,15 +1697,52 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
             <MaterialSymbol icon="today" size={20} />
           </IconButton>
         </Tooltip>
+        <Tooltip title={t("zoomIn")}>
+          {/* span avoids MUI Tooltip warning when the IconButton is disabled */}
+          <span>
+            <IconButton
+              size="small"
+              disabled={!canZoomIn}
+              onClick={() => setViewMode(VIEW_SCALE[viewIndex - 1])}
+            >
+              <MaterialSymbol icon="zoom_in" size={20} />
+            </IconButton>
+          </span>
+        </Tooltip>
+        <Tooltip title={t("zoomOut")}>
+          <span>
+            <IconButton
+              size="small"
+              disabled={!canZoomOut}
+              onClick={() => setViewMode(VIEW_SCALE[viewIndex + 1])}
+            >
+              <MaterialSymbol icon="zoom_out" size={20} />
+            </IconButton>
+          </span>
+        </Tooltip>
         <ToggleButtonGroup
           value={viewMode}
           exclusive
           onChange={(_, v) => v && setViewMode(v)}
           size="small"
         >
-          <ToggleButton value={ViewMode.Day}>{t("viewDay")}</ToggleButton>
-          <ToggleButton value={ViewMode.Week}>{t("viewWeek")}</ToggleButton>
-          <ToggleButton value={ViewMode.Month}>{t("viewMonth")}</ToggleButton>
+          {/* Short labels (D/W/M/Q/Y in en) keep the toolbar compact;
+              full names live in the native `title` tooltip. */}
+          <ToggleButton value={ViewMode.Day} title={t("viewDay")}>
+            {t("viewDayShort")}
+          </ToggleButton>
+          <ToggleButton value={ViewMode.Week} title={t("viewWeek")}>
+            {t("viewWeekShort")}
+          </ToggleButton>
+          <ToggleButton value={ViewMode.Month} title={t("viewMonth")}>
+            {t("viewMonthShort")}
+          </ToggleButton>
+          <ToggleButton value={ViewMode.QuarterYear} title={t("viewQuarter")}>
+            {t("viewQuarterShort")}
+          </ToggleButton>
+          <ToggleButton value={ViewMode.Year} title={t("viewYear")}>
+            {t("viewYearShort")}
+          </ToggleButton>
         </ToggleButtonGroup>
       </Box>
 
@@ -1063,6 +1750,7 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
       <Box
         ref={ganttRef}
         sx={{
+          position: "relative",
           /* ── Base styles ── */
           "& .ganttTable": { fontFamily: theme.typography.fontFamily },
           "& .ganttTable_Header": {
@@ -1078,6 +1766,11 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
           /* Remove 45-degree angled ends on project (WBS) bars — make them rectangular */
           "& [class*='projectTop_']": { display: "none" },
           "& [class*='projectBackground_']": { opacity: "1 !important" },
+          /* Hide the library's built-in dependency arrows (hard-coded
+             staircase). We render our own rounded-elbow arrows on a
+             custom SVG overlay (see DependencyArrowOverlay below).
+             The drag-preview `relationLine` is left visible. */
+          "& [class*='arrow_clickable_']": { display: "none" },
           /* Context menu: ensure it renders above everything and captures hover */
           "& [class*='menuOption_']": {
             position: "relative",
@@ -1183,6 +1876,7 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
           onDateChange={handleDateChange}
           onProgressChange={handleProgressChange}
           onChangeExpandState={handleExpanderClick}
+          onRelationChange={handleRelationChange}
           contextMenuOptions={contextMenuOptions}
           enableTableListContextMenu={2}
           roundDate={roundToDay}
@@ -1223,6 +1917,11 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
             dateColumnFormat: "dd MMM ''yy",
             dayBottomHeaderFormat: "d",
             dayTopHeaderFormat: "LLLL yyyy",
+            // Bottom row of the Month scale ("Jan" / "Feb" / …). The library
+            // renders Year + QuarterYear headers natively (year + "Qn yyyy")
+            // and ignores this format for those scales.
+            monthBottomHeaderFormat: "LLL",
+            monthTopHeaderFormat: "LLLL",
           }}
           distances={{
             columnWidth,
@@ -1231,6 +1930,21 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
             barCornerRadius: 4,
           }}
         />
+        {portalTarget &&
+          createPortal(
+            <DependencyArrowOverlay
+              arrows={arrowGeometry}
+              buildPath={buildArrowPath}
+              onClick={handleArrowClick}
+              color={
+                theme.palette.mode === "dark"
+                  ? "rgba(255, 255, 255, 0.38)"
+                  : "rgba(0, 0, 0, 0.32)"
+              }
+              dangerColor={theme.palette.error.main}
+            />,
+            portalTarget,
+          )}
       </Box>
 
       {/* Inline completion slider popover */}
@@ -1283,6 +1997,35 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
           }}
         />
       )}
+
+      {/* Feedback for dependency CRUD + dependency errors. Auto-hide is
+          extended when an action button is shown so the user has time
+          to click it. */}
+      <Snackbar
+        open={!!snack}
+        autoHideDuration={snackAction ? 8000 : 3000}
+        onClose={clearSnack}
+        message={snack}
+        action={
+          snackAction ? (
+            <Button
+              /* Snackbar background is a dark grey/black; MUI's
+                 `color="secondary"` is purple in our theme and reads
+                 poorly against it. Use the design-token light brand
+                 variant instead — defined in theme/tokens.ts. */
+              size="small"
+              sx={{ color: brand.primaryLight, fontWeight: 600 }}
+              onClick={async () => {
+                await snackAction.onClick();
+                clearSnack();
+              }}
+            >
+              {snackAction.label}
+            </Button>
+          ) : undefined
+        }
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+      />
 
       {/* Task Dialog */}
       {taskDialogOpen && (
