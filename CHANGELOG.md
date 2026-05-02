@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.62.1] - 2026-05-02
+
+### Fixed
+- **Swagger UI (`/api/docs`) blocked by CSP.** The strict Content-Security-Policy applied by nginx to the SPA was blocking Swagger UI's CSS and JS bundles from `cdn.jsdelivr.net`, leaving the docs page unstyled and non-functional. Added a dedicated `location = /api/docs` block in `nginx.conf` that proxies to the backend with a relaxed CSP whitelisting `https://cdn.jsdelivr.net` for `script-src` and `style-src`. All other security headers (HSTS, X-Frame-Options, etc.) are preserved on the docs page; the strict CSP for the rest of the SPA is unchanged.
+
 ## [0.62.0] - 2026-05-02
 
 ### Added
