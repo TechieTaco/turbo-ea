@@ -134,7 +134,13 @@ interface ArrowGeometry {
 
 interface DependencyArrowOverlayProps {
   arrows: ArrowGeometry[];
-  buildPath: (fromX: number, fromY: number, toX: number, toY: number) => string;
+  buildPath: (
+    fromX: number,
+    fromY: number,
+    toX: number,
+    toY: number,
+    clickSafe?: boolean,
+  ) => string;
   onClick: (depId: string) => void;
   color: string;
   dangerColor: string;
@@ -182,13 +188,20 @@ function DependencyArrowOverlay({
         </marker>
       </defs>
       {arrows.map((a) => {
-        const d = buildPath(a.fromX, a.fromY, a.toX, a.toY);
+        // Visible arrow — full length, chevron tips into the target bar.
+        const visibleD = buildPath(a.fromX, a.fromY, a.toX, a.toY);
+        // Click target — same shape, but with `clickSafe=true` so it
+        // stays clear of both bars' relation circles. Routing-aware:
+        // forward / same-row arrows just get end insets; loop-back
+        // arrows skip the entire short exit segment (which would
+        // otherwise still hug the source bar's row).
+        const clickD = buildPath(a.fromX, a.fromY, a.toX, a.toY, true);
         const isHover = hoverId === a.id;
         return (
           <g key={a.id} style={{ pointerEvents: "auto", cursor: "pointer" }}>
-            {/* Wide invisible hit target */}
+            {/* Wide invisible hit target — inset to avoid the bar edges. */}
             <path
-              d={d}
+              d={clickD}
               fill="none"
               stroke="transparent"
               strokeWidth={12}
@@ -198,7 +211,7 @@ function DependencyArrowOverlay({
             />
             {/* Visible arrow */}
             <path
-              d={d}
+              d={visibleD}
               fill="none"
               stroke={color}
               strokeWidth={isHover ? 2 : 1.5}
@@ -306,6 +319,18 @@ function toIso(d: Date): string {
   const m = String(d.getMonth() + 1).padStart(2, "0");
   const day = String(d.getDate()).padStart(2, "0");
   return `${y}-${m}-${day}`;
+}
+
+/** Add a number of whole days to a "YYYY-MM-DD" string and return the same
+ *  ISO format. Used by the FS-dependency align action so the successor
+ *  starts on the calendar day AFTER the predecessor finishes (the natural
+ *  reading of finish-to-start: pred ends day X, succ starts day X+1). */
+function addDaysIso(iso: string, days: number): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
+  if (!m) return iso;
+  const d = new Date(+m[1], +m[2] - 1, +m[3]);
+  d.setDate(d.getDate() + days);
+  return toIso(d);
 }
 
 /** Round a date to day boundaries during drag/resize.
@@ -755,15 +780,17 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
           succ_id: succ.id,
         });
         await loadData();
-        // Always offer to snap the successor's start to the predecessor's
-        // end — whether the dates currently violate the FS rule or not.
-        // When they already align the action is a no-op PATCH, but having
-        // it always available means the user discovers the affordance.
+        // Always offer to snap the successor's start to the day AFTER the
+        // predecessor's end — that's the natural FS reading (pred finishes
+        // day X, succ starts day X+1). When the dates already align the
+        // action is a no-op PATCH, but having it always available means
+        // the user discovers the affordance.
         const predEnd = getEndDate(pred.kind, pred.id);
         if (predEnd) {
+          const newStart = addDaysIso(predEnd, 1);
           showSnack(t("dependencyCreated"), {
             label: t("alignStart"),
-            onClick: () => alignSuccessorStart(succ.kind, succ.id, predEnd),
+            onClick: () => alignSuccessorStart(succ.kind, succ.id, newStart),
           });
         } else {
           showSnack(t("dependencyCreated"));
@@ -1554,16 +1581,35 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
     return out;
   }, [dependencies, arrowTick, portalTarget]);
 
-  /** Build the SVG path for one arrow.  Coordinates are already overlay-local. */
+  /** Build the SVG path for one arrow.  Coordinates are already overlay-local.
+   *
+   *  When `clickSafe` is true we return a "click target" variant of the
+   *  same shape that stays clear of both bars' relation-circle handles
+   *  (which sit at `bar.right + 10` / `bar.left - 10`). Without that
+   *  clear zone, our 12 px wide transparent click stroke covers the
+   *  hover region for the lib's `:hover` rule that toggles the dots
+   *  from opacity 0 → 1, so once a bar has any outgoing dependency the
+   *  dot is hidden + ungrabbable and the user can't pull a second arrow
+   *  out of it. Routing decisions still use the original endpoints so
+   *  visible and clickable paths follow the exact same shape. */
   const buildArrowPath = useCallback(
-    (fromX: number, fromY: number, toX: number, toY: number): string => {
+    (
+      fromX: number,
+      fromY: number,
+      toX: number,
+      toY: number,
+      clickSafe = false,
+    ): string => {
       const RADIUS = 6;
       const STUB = 14; // horizontal exit/entry length for loop-back routing
       const DETOUR_PAD = 18; // gap between detour line and bars
+      const SAFE = 18; // clear zone in px around each bar's relation handle
 
-      // Same row → one straight segment
+      // Same row → one straight segment. Inset both ends linearly.
       if (Math.abs(toY - fromY) < 1) {
-        return `M ${fromX} ${fromY} H ${toX}`;
+        const sx = clickSafe ? fromX + SAFE : fromX;
+        const ex = clickSafe ? toX - SAFE : toX;
+        return `M ${sx} ${fromY} H ${ex}`;
       }
 
       const vDir = toY > fromY ? 1 : -1; // +1 down, -1 up
@@ -1576,19 +1622,24 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
           (toX - fromX) / 4,
           Math.abs(toY - fromY) / 2,
         );
+        // Cap inset so the click M never crosses past the first arc /
+        // the click H never crosses past the last arc — otherwise the
+        // segment would double back over the bar's edge.
+        const sx = clickSafe ? Math.min(fromX + SAFE, midX - r) : fromX;
+        const ex = clickSafe ? Math.max(toX - SAFE, midX + r) : toX;
         if (r < 1) {
-          return `M ${fromX} ${fromY} H ${midX} V ${toY} H ${toX}`;
+          return `M ${sx} ${fromY} H ${midX} V ${toY} H ${ex}`;
         }
         // sweep flags: R→D=1, D→R=0; flip both for vDir=-1
         const s1 = vDir > 0 ? 1 : 0;
         const s2 = vDir > 0 ? 0 : 1;
         return [
-          `M ${fromX} ${fromY}`,
+          `M ${sx} ${fromY}`,
           `H ${midX - r}`,
           `A ${r} ${r} 0 0 ${s1} ${midX} ${fromY + vDir * r}`,
           `V ${toY - vDir * r}`,
           `A ${r} ${r} 0 0 ${s2} ${midX + r} ${toY}`,
-          `H ${toX}`,
+          `H ${ex}`,
         ].join(" ");
       }
 
@@ -1605,6 +1656,24 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
       const s2 = vDir > 0 ? 1 : 0;
       const s3 = vDir > 0 ? 0 : 1;
       const s4 = vDir > 0 ? 0 : 1;
+      const ex = clickSafe ? toX - SAFE : toX;
+      // For the click path in loop-back routing we skip the first three
+      // segments (H exit → arc down → V) entirely. Those segments hug the
+      // source bar's row (only ~6 px below the bar centre) and any click
+      // stroke covering them would still overlap the source's right
+      // relation handle. Starting the click path at the END of the second
+      // arc — where the path begins running LEFT under both bars — keeps
+      // the bar's hover region completely clear.
+      if (clickSafe) {
+        return [
+          `M ${exitX - r} ${turnY}`,
+          `H ${detourX + r}`,
+          `A ${r} ${r} 0 0 ${s3} ${detourX} ${turnY + vDir * r}`,
+          `V ${toY - vDir * r}`,
+          `A ${r} ${r} 0 0 ${s4} ${detourX + r} ${toY}`,
+          `H ${ex}`,
+        ].join(" ");
+      }
       return [
         `M ${fromX} ${fromY}`,
         `H ${exitX - r}`,
@@ -1615,7 +1684,7 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
         `A ${r} ${r} 0 0 ${s3} ${detourX} ${turnY + vDir * r}`,
         `V ${toY - vDir * r}`,
         `A ${r} ${r} 0 0 ${s4} ${detourX + r} ${toY}`,
-        `H ${toX}`,
+        `H ${ex}`,
       ].join(" ");
     },
     [],
@@ -1769,8 +1838,18 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
           /* Hide the library's built-in dependency arrows (hard-coded
              staircase). We render our own rounded-elbow arrows on a
              custom SVG overlay (see DependencyArrowOverlay below).
-             The drag-preview `relationLine` is left visible. */
+             The drag-preview `relationLine` is left visible.
+             Each arrow is wrapped in its own `<svg class="ArrowClassName">`
+             whose bounding box is inflated by 300 px and one full row in
+             every direction (lib internals), so it overlays the SOURCE
+             bar's row. If that wrapper keeps capturing pointer events the
+             source bar's `:hover` never fires and its relation circle dots
+             stay opacity:0 / ungrabbable, which makes the bar effectively
+             one-to-one — you can't pull a second arrow out of a source
+             once it has any outgoing dependency. We render arrows
+             ourselves, so kill pointer-events on the entire wrapper. */
           "& [class*='arrow_clickable_']": { display: "none" },
+          "& svg.ArrowClassName, & g.arrows": { pointerEvents: "none" },
           /* Context menu: ensure it renders above everything and captures hover */
           "& [class*='menuOption_']": {
             position: "relative",
