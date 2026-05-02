@@ -45,6 +45,7 @@
   "actual": "Факт",
   "createTask": "Создать задачу",
   "editTask": "Редактировать задачу",
+  "saveFailed": "Не удалось сохранить",
   "taskTitle": "Название",
   "taskDescription": "Описание",
   "taskStatus": "Статус",

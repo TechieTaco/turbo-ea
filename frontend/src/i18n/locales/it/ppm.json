@@ -45,6 +45,7 @@
   "actual": "Consuntivo",
   "createTask": "Crea attività",
   "editTask": "Modifica attività",
+  "saveFailed": "Salvataggio non riuscito",
   "taskTitle": "Titolo",
   "taskDescription": "Descrizione",
   "taskStatus": "Stato",

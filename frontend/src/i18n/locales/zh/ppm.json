@@ -45,6 +45,7 @@
   "actual": "实际",
   "createTask": "创建任务",
   "editTask": "编辑任务",
+  "saveFailed": "保存失败",
   "taskTitle": "标题",
   "taskDescription": "描述",
   "taskStatus": "状态",

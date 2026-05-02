@@ -45,6 +45,7 @@
   "actual": "Réel",
   "createTask": "Créer une tâche",
   "editTask": "Modifier la tâche",
+  "saveFailed": "Échec de l'enregistrement",
   "taskTitle": "Titre",
   "taskDescription": "Description",
   "taskStatus": "Statut",

@@ -45,6 +45,7 @@
   "actual": "Actual",
   "createTask": "Create Task",
   "editTask": "Edit Task",
+  "saveFailed": "Failed to save",
   "taskTitle": "Title",
   "taskDescription": "Description",
   "taskStatus": "Status",

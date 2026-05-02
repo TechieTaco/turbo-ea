@@ -45,6 +45,7 @@
   "actual": "Ist",
   "createTask": "Aufgabe erstellen",
   "editTask": "Aufgabe bearbeiten",
+  "saveFailed": "Speichern fehlgeschlagen",
   "taskTitle": "Titel",
   "taskDescription": "Beschreibung",
   "taskStatus": "Status",

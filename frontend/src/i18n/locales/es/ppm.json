@@ -45,6 +45,7 @@
   "actual": "Real",
   "createTask": "Crear tarea",
   "editTask": "Editar tarea",
+  "saveFailed": "Error al guardar",
   "taskTitle": "Título",
   "taskDescription": "Descripción",
   "taskStatus": "Estado",
