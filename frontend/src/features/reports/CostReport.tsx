@@ -27,6 +27,7 @@ import { useCurrency } from "@/hooks/useCurrency";
 import { useTimeline } from "@/hooks/useTimeline";
 import { useResolveLabel, useResolveMetaLabel } from "@/hooks/useResolveLabel";
 import CardDetailSidePanel from "@/components/CardDetailSidePanel";
+import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import type { CardType, FieldDef, RelationType } from "@/types";
 
@@ -412,7 +413,7 @@ export default function CostReport() {
             {types.filter((tp) => !tp.is_hidden).map((tp) => <MenuItem key={tp.key} value={tp.key}>{rml(tp.key, tp.translations, "label")}</MenuItem>)}
           </TextField>
           {aggregateOptions.length > 0 && (
-            <Tooltip title={t("cost.costSourceHelp")} placement="bottom-start" arrow>
+            <Box sx={{ display: "inline-flex", alignItems: "center", gap: 0.5 }}>
               <TextField
                 select
                 size="small"
@@ -444,7 +445,22 @@ export default function CostReport() {
                   </MenuItem>
                 ))}
               </TextField>
-            </Tooltip>
+              <Tooltip title={t("cost.costSourceHelp")} arrow placement="bottom">
+                <Box
+                  component="span"
+                  tabIndex={0}
+                  aria-label={t("cost.costSourceHelp")}
+                  sx={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    color: "text.secondary",
+                    cursor: "help",
+                  }}
+                >
+                  <MaterialSymbol icon="help" size={18} />
+                </Box>
+              </Tooltip>
+            </Box>
           )}
           {activeAggregates.length === 0 && costFields.length > 1 && (
             <TextField select size="small" label={t("cost.costField")} value={costField} onChange={(e) => setCostField(e.target.value)} sx={{ minWidth: 160 }}>
