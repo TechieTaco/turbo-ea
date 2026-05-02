@@ -1783,8 +1783,18 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
           /* Hide the library's built-in dependency arrows (hard-coded
              staircase). We render our own rounded-elbow arrows on a
              custom SVG overlay (see DependencyArrowOverlay below).
-             The drag-preview `relationLine` is left visible. */
+             The drag-preview `relationLine` is left visible.
+             Each arrow is wrapped in its own `<svg class="ArrowClassName">`
+             whose bounding box is inflated by 300 px and one full row in
+             every direction (lib internals), so it overlays the SOURCE
+             bar's row. If that wrapper keeps capturing pointer events the
+             source bar's `:hover` never fires and its relation circle dots
+             stay opacity:0 / ungrabbable, which makes the bar effectively
+             one-to-one — you can't pull a second arrow out of a source
+             once it has any outgoing dependency. We render arrows
+             ourselves, so kill pointer-events on the entire wrapper. */
           "& [class*='arrow_clickable_']": { display: "none" },
+          "& svg.ArrowClassName": { pointerEvents: "none" },
           /* Context menu: ensure it renders above everything and captures hover */
           "& [class*='menuOption_']": {
             position: "relative",

@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.60.2] - 2026-05-02
+
+### Fixed
+- **PPM Gantt — relation circles now stay grabbable on a bar that already has dependencies.** The Gantt library wraps each arrow in its own `<svg class="ArrowClassName">` whose bounding box is inflated by 300 px and one full row in every direction, which overlays the source bar's row. Even though the inner clickable group was already hidden, the wrapper SVG could still intercept pointer events, so once a bar had any outgoing arrow the source's `:hover` never fired and the relation handle dots stayed at `opacity: 0`. That made fan-out impossible — you could only ever draw one dependency out of a given predecessor. Set `pointer-events: none` on the wrapper so the source bar's hover always fires and a second drag works.
+
 ## [0.60.1] - 2026-05-02
 
 ### Changed
