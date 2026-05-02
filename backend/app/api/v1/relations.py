@@ -256,18 +256,23 @@ async def update_relation(
     if not rel:
         raise HTTPException(404, "Relation not found")
     update_data = body.model_dump(exclude_unset=True)
-    # If the user lacks cost access on the source card, drop cost keys from any
-    # incoming relation attributes so they cannot blank values they don't see.
-    if "attributes" in update_data and update_data["attributes"]:
+    # If the user lacks cost access on the source card, preserve any existing
+    # cost-typed values on the relation. PATCH replaces `attributes` wholesale,
+    # so we merge old cost values back into the incoming payload to prevent a
+    # silent wipe of values the user was never allowed to see.
+    if "attributes" in update_data and update_data["attributes"] is not None:
         if not await PermissionService.can_view_costs(db, user, rel.source_id):
             rt_row = await db.execute(
                 select(RelationType.attributes_schema).where(RelationType.key == rel.type)
             )
             cost_keys = cost_field_keys_from_relation_schema(rt_row.scalar_one_or_none())
             if cost_keys:
-                update_data["attributes"] = {
-                    k: v for k, v in update_data["attributes"].items() if k not in cost_keys
-                }
+                old_attrs = dict(rel.attributes or {})
+                merged = {k: v for k, v in update_data["attributes"].items() if k not in cost_keys}
+                for key in cost_keys:
+                    if key in old_attrs:
+                        merged[key] = old_attrs[key]
+                update_data["attributes"] = merged
     changed_fields = sorted(update_data.keys())
     for field, value in update_data.items():
         setattr(rel, field, value)

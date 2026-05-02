@@ -686,8 +686,10 @@ async def bulk_update(
         for card in sheets:
             await _validate_url_attributes(db, card.type, updates["attributes"])
             break  # schema is per-type; validated once per distinct type
-    # Drop cost-typed keys from incoming attributes for any card the user may
-    # not see costs on — prevents blanking values that were never visible.
+    # Preserve cost-typed keys for any card the user may not see costs on —
+    # PATCH does a full replace on `attributes`, so we merge the existing
+    # cost values back into the incoming payload. Without this, a bulk edit
+    # would silently wipe cost values from cards the user couldn't see.
     incoming_attr_redact = (
         await _cost_redaction_map(db, user, sheets)
         if "attributes" in updates and updates["attributes"]
@@ -700,7 +702,11 @@ async def bulk_update(
             elif field == "attributes" and value:
                 strip = incoming_attr_redact.get(card.id)
                 if strip:
+                    old_attrs = dict(card.attributes or {})
                     value = {k: v for k, v in value.items() if k not in strip}
+                    for key in strip:
+                        if key in old_attrs:
+                            value[key] = old_attrs[key]
             setattr(card, field, value)
         card.updated_by = user.id
     await db.commit()
@@ -749,18 +755,24 @@ async def update_card(
     if "attributes" in updates and updates["attributes"]:
         await _validate_url_attributes(db, card.type, updates["attributes"])
 
-    # Drop cost-typed keys from incoming attributes if the user lacks cost access
-    # for this card. Without this, a user who cannot see costs could blank them via PATCH.
-    if "attributes" in updates and updates["attributes"]:
+    # Preserve cost-typed keys when the user lacks cost access on this card.
+    # PATCH does a full replace on `attributes`, so simply dropping the
+    # forbidden keys from the incoming payload would wipe whatever the card
+    # already had. Merge the existing values back so the user's update can
+    # only touch the non-cost keys they were allowed to see.
+    if "attributes" in updates and updates["attributes"] is not None:
         if not await PermissionService.can_view_costs(db, user, card.id):
             type_schema_row = await db.execute(
                 select(CardType.fields_schema).where(CardType.key == card.type)
             )
             cost_keys = cost_field_keys_from_card_schema(type_schema_row.scalar_one_or_none())
             if cost_keys:
-                updates["attributes"] = {
-                    k: v for k, v in updates["attributes"].items() if k not in cost_keys
-                }
+                old_attrs = dict(card.attributes or {})
+                new_attrs = {k: v for k, v in updates["attributes"].items() if k not in cost_keys}
+                for key in cost_keys:
+                    if key in old_attrs:
+                        new_attrs[key] = old_attrs[key]
+                updates["attributes"] = new_attrs
 
     # Preserve PPM-managed cost fields so the frontend payload doesn't wipe them
     if card.type == "Initiative" and "attributes" in updates:
