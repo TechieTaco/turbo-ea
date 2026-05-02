@@ -107,11 +107,42 @@ const formatCellValue = (value: unknown, type?: ExportColumnType): unknown => {
   return value;
 };
 
+/**
+ * Fallback sheet used when no data tables are detected (e.g. the report is
+ * in chart view). Carries the title and active filter summary so the
+ * workbook is never empty and the recipient still sees the context.
+ */
+function buildInfoSheet(data: ReportExportData): ExportSheet {
+  const generatedAt = new Date().toLocaleString(i18n.language);
+  const rows: Record<string, unknown>[] = [
+    {
+      label: i18n.t("reports:export.titleSlide", {
+        defaultValue: "Generated {{date}}",
+        date: generatedAt,
+      }),
+      value: data.title,
+    },
+  ];
+  for (const f of data.filterSummary ?? []) {
+    if (f.value) rows.push({ label: f.label, value: f.value });
+  }
+  return {
+    name: i18n.t("reports:export.summarySheet", { defaultValue: "Summary" }),
+    columns: [
+      { key: "label", label: i18n.t("common:labels.name", { defaultValue: "Name" }), type: "text" },
+      { key: "value", label: i18n.t("common:labels.value", { defaultValue: "Value" }), type: "text" },
+    ],
+    rows,
+  };
+}
+
 export async function exportReportToXlsx(data: ReportExportData): Promise<void> {
   const wb = XLSX.utils.book_new();
   const usedNames = new Set<string>();
 
-  for (const sheet of data.sheets) {
+  const sheets = data.sheets.length > 0 ? data.sheets : [buildInfoSheet(data)];
+
+  for (const sheet of sheets) {
     const headerRow = sheet.columns.map((c) => c.label);
     const aoa: unknown[][] = [headerRow];
 

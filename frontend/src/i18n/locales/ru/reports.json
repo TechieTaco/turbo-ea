@@ -13,6 +13,7 @@
   "shell.exportPptx": "Экспорт в PowerPoint (.pptx)",
   "export.titleSlide": "Сгенерировано {{date}}",
   "export.chartUnavailable": "Предпросмотр диаграммы недоступен.",
+  "export.summarySheet": "Сводка",
   "save.title": "Сохранить отчёт",
   "save.namePlaceholder": "напр. Портфолио приложений за 1 кв.",
   "save.descriptionPlaceholder": "Необязательное описание этого представления отчёта",

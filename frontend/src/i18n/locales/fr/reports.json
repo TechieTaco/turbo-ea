@@ -13,6 +13,7 @@
   "shell.exportPptx": "Exporter vers PowerPoint (.pptx)",
   "export.titleSlide": "Généré le {{date}}",
   "export.chartUnavailable": "Aperçu du graphique indisponible.",
+  "export.summarySheet": "Résumé",
   "save.title": "Enregistrer le rapport",
   "save.namePlaceholder": "ex. Portefeuille applicatif T1",
   "save.descriptionPlaceholder": "Description facultative de cette vue de rapport",

@@ -13,6 +13,7 @@
   "shell.exportPptx": "导出为 PowerPoint (.pptx)",
   "export.titleSlide": "生成于 {{date}}",
   "export.chartUnavailable": "图表预览不可用。",
+  "export.summarySheet": "摘要",
   "save.title": "保存报告",
   "save.namePlaceholder": "例如 Q1 应用组合",
   "save.descriptionPlaceholder": "可选的报告视图描述",

@@ -13,6 +13,7 @@
   "shell.exportPptx": "Esporta in PowerPoint (.pptx)",
   "export.titleSlide": "Generato il {{date}}",
   "export.chartUnavailable": "Anteprima del grafico non disponibile.",
+  "export.summarySheet": "Riepilogo",
   "save.title": "Salva report",
   "save.namePlaceholder": "es. Portfolio applicazioni Q1",
   "save.descriptionPlaceholder": "Descrizione facoltativa di questa vista report",
