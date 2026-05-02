@@ -197,8 +197,35 @@ const PPT_MUTED_COLOR = "607D8B";
 
 interface CapturedImage {
   dataUrl: string;
+  /** Source CSS-pixel width of the captured node. */
   width: number;
+  /** Source CSS-pixel height of the captured node. */
   height: number;
+  /**
+   * Y offsets (in source CSS pixels, relative to the captured node's top)
+   * where the chart can be safely cut without slicing through a row /
+   * card / item. Each entry is the *bottom* of one such element.
+   */
+  boundaries: number[];
+}
+
+const ROW_BOUNDARY_SELECTOR =
+  "[data-export-row], tbody tr, .report-export-row";
+
+function collectBoundaries(node: HTMLElement): number[] {
+  const baseTop = node.getBoundingClientRect().top;
+  const els = Array.from(
+    node.querySelectorAll<HTMLElement>(ROW_BOUNDARY_SELECTOR),
+  );
+  const ys: number[] = [];
+  for (const el of els) {
+    const r = el.getBoundingClientRect();
+    if (r.height === 0) continue;
+    ys.push(r.bottom - baseTop);
+  }
+  ys.sort((a, b) => a - b);
+  // De-duplicate adjacent boundaries (e.g. nested rows)
+  return ys.filter((y, i) => i === 0 || y - ys[i - 1] > 1);
 }
 
 async function captureChartImage(node: HTMLElement): Promise<CapturedImage | null> {
@@ -216,10 +243,139 @@ async function captureChartImage(node: HTMLElement): Promise<CapturedImage | nul
         return !n.classList.contains("material-symbols-outlined");
       },
     });
-    return { dataUrl, width: rect.width, height: rect.height };
+    return {
+      dataUrl,
+      width: rect.width,
+      height: rect.height,
+      boundaries: collectBoundaries(node),
+    };
   } catch {
     return null;
   }
+}
+
+function loadImage(src: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = reject;
+    img.src = src;
+  });
+}
+
+/**
+ * Slice a captured image into one or more pages such that each page,
+ * when scaled to fit the slide chart area's width, stays within the
+ * available height — and crucially never cuts mid-row by always
+ * splitting at one of the precomputed row boundaries.
+ */
+async function paginateChartImage(
+  captured: CapturedImage,
+  chartW: number,
+  chartH: number,
+): Promise<{ dataUrl: string; sourceWidth: number; sourceHeight: number }[]> {
+  const pageMaxSourceH = captured.width * (chartH / chartW);
+  if (captured.height <= pageMaxSourceH + 1) {
+    return [
+      {
+        dataUrl: captured.dataUrl,
+        sourceWidth: captured.width,
+        sourceHeight: captured.height,
+      },
+    ];
+  }
+
+  // Build the list of cut points (Y offsets in source CSS pixels) walking
+  // through the row boundaries greedily: take as many rows as fit into a
+  // page, cut at the last boundary that fits.
+  const cuts: number[] = [];
+  if (captured.boundaries.length > 0) {
+    let pageStart = 0;
+    let lastFitting = pageStart;
+    for (const b of captured.boundaries) {
+      if (b - pageStart > pageMaxSourceH) {
+        // Either flush at the previous boundary, or — if no boundary fits
+        // (a single row is taller than a page) — accept the oversized row
+        // on its own page.
+        const cutAt = lastFitting > pageStart ? lastFitting : b;
+        cuts.push(cutAt);
+        pageStart = cutAt;
+        lastFitting = cutAt;
+      } else {
+        lastFitting = b;
+      }
+    }
+  }
+  // Fallback for charts without recognizable row boundaries (e.g. a
+  // treemap or capability heatmap that's just very tall): split on
+  // fixed-height pages so we still avoid an unreadable squashed image.
+  if (cuts.length === 0) {
+    let y = pageMaxSourceH;
+    while (y < captured.height) {
+      cuts.push(y);
+      y += pageMaxSourceH;
+    }
+  }
+
+  const img = await loadImage(captured.dataUrl);
+  const scale = img.height / captured.height; // = pixelRatio used during capture
+  const allCuts = [...cuts, captured.height];
+  const pages: { dataUrl: string; sourceWidth: number; sourceHeight: number }[] = [];
+  let from = 0;
+  for (const to of allCuts) {
+    const sliceSrcH = to - from;
+    if (sliceSrcH <= 0) continue;
+    const canvas = document.createElement("canvas");
+    canvas.width = img.width;
+    canvas.height = Math.round(sliceSrcH * scale);
+    const ctx = canvas.getContext("2d");
+    if (!ctx) break;
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(
+      img,
+      0,
+      Math.round(from * scale),
+      img.width,
+      Math.round(sliceSrcH * scale),
+      0,
+      0,
+      img.width,
+      Math.round(sliceSrcH * scale),
+    );
+    pages.push({
+      dataUrl: canvas.toDataURL("image/png"),
+      sourceWidth: captured.width,
+      sourceHeight: sliceSrcH,
+    });
+    from = to;
+  }
+  return pages;
+}
+
+function fitImageInBox(
+  sourceW: number,
+  sourceH: number,
+  boxW: number,
+  boxH: number,
+  boxX: number,
+  boxY: number,
+): { x: number; y: number; w: number; h: number } {
+  const sourceRatio = sourceW / sourceH;
+  const targetRatio = boxW / boxH;
+  let drawW = boxW;
+  let drawH = boxH;
+  if (sourceRatio > targetRatio) {
+    drawH = boxW / sourceRatio;
+  } else {
+    drawW = boxH * sourceRatio;
+  }
+  return {
+    x: boxX + (boxW - drawW) / 2,
+    y: boxY + (boxH - drawH) / 2,
+    w: drawW,
+    h: drawH,
+  };
 }
 
 export async function exportReportToPptx(data: ReportExportData): Promise<void> {
@@ -280,27 +436,59 @@ export async function exportReportToPptx(data: ReportExportData): Promise<void> 
   if (data.chartNode) {
     const captured = await captureChartImage(data.chartNode);
     if (captured) {
-      // Preserve the captured aspect ratio inside the chart area instead of
-      // forcing it to the full rectangle (which produces visible stretching
-      // when the source DOM is wider/narrower than the slide region).
-      const sourceRatio = captured.width / captured.height;
-      const targetRatio = chartWidth / chartHeight;
-      let drawW = chartWidth;
-      let drawH = chartHeight;
-      if (sourceRatio > targetRatio) {
-        drawH = chartWidth / sourceRatio;
-      } else {
-        drawW = chartHeight * sourceRatio;
+      // For charts that overflow a single slide, paginate the image
+      // along the captured row boundaries so each slide always cuts
+      // between rows / cards rather than through them.
+      const pages = await paginateChartImage(captured, chartWidth, chartHeight);
+      const firstPage = pages[0];
+      const firstFit = fitImageInBox(
+        firstPage.sourceWidth,
+        firstPage.sourceHeight,
+        chartWidth,
+        chartHeight,
+        margin,
+        chartTop,
+      );
+      titleSlide.addImage({ data: firstPage.dataUrl, ...firstFit });
+
+      // Continuation slides for any remaining pages. They reuse a
+      // smaller header (just the title + "Page n/N") so we have more
+      // vertical room for the image itself.
+      const totalPages = pages.length;
+      if (totalPages > 1) {
+        const contChartTop = margin + 0.7;
+        const contChartHeight = slideHeight - contChartTop - margin;
+        for (let p = 1; p < totalPages; p++) {
+          const slide = pptx.addSlide();
+          slide.background = { color: "FFFFFF" };
+          slide.addText(
+            `${data.title} — ${t("export.pageIndicator", "{{current}} / {{total}}", {
+              current: p + 1,
+              total: totalPages,
+            })}`,
+            {
+              x: margin,
+              y: margin,
+              w: slideWidth - 2 * margin,
+              h: 0.5,
+              fontSize: 18,
+              bold: true,
+              color: PPT_BRAND_COLOR,
+              fontFace: "Calibri",
+            },
+          );
+          const page = pages[p];
+          const fit = fitImageInBox(
+            page.sourceWidth,
+            page.sourceHeight,
+            chartWidth,
+            contChartHeight,
+            margin,
+            contChartTop,
+          );
+          slide.addImage({ data: page.dataUrl, ...fit });
+        }
       }
-      const offsetX = margin + (chartWidth - drawW) / 2;
-      const offsetY = chartTop + (chartHeight - drawH) / 2;
-      titleSlide.addImage({
-        data: captured.dataUrl,
-        x: offsetX,
-        y: offsetY,
-        w: drawW,
-        h: drawH,
-      });
     } else {
       titleSlide.addText(t("export.chartUnavailable", "Chart preview unavailable."), {
         x: margin,

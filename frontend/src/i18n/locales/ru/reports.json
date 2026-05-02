@@ -14,6 +14,7 @@
   "export.titleSlide": "Сгенерировано {{date}}",
   "export.chartUnavailable": "Предпросмотр диаграммы недоступен.",
   "export.summarySheet": "Сводка",
+  "export.pageIndicator": "Стр. {{current}} / {{total}}",
   "save.title": "Сохранить отчёт",
   "save.namePlaceholder": "напр. Портфолио приложений за 1 кв.",
   "save.descriptionPlaceholder": "Необязательное описание этого представления отчёта",

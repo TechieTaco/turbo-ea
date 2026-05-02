@@ -14,6 +14,7 @@
   "export.titleSlide": "Generated {{date}}",
   "export.chartUnavailable": "Chart preview unavailable.",
   "export.summarySheet": "Summary",
+  "export.pageIndicator": "Page {{current}} / {{total}}",
   "save.title": "Save Report",
   "save.namePlaceholder": "e.g. Q1 Application Portfolio",
   "save.descriptionPlaceholder": "Optional description of this report view",

@@ -14,6 +14,7 @@
   "export.titleSlide": "Généré le {{date}}",
   "export.chartUnavailable": "Aperçu du graphique indisponible.",
   "export.summarySheet": "Résumé",
+  "export.pageIndicator": "Page {{current}} / {{total}}",
   "save.title": "Enregistrer le rapport",
   "save.namePlaceholder": "ex. Portefeuille applicatif T1",
   "save.descriptionPlaceholder": "Description facultative de cette vue de rapport",

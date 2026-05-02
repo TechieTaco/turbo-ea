@@ -14,6 +14,7 @@
   "export.titleSlide": "Gerado em {{date}}",
   "export.chartUnavailable": "Pré-visualização do gráfico indisponível.",
   "export.summarySheet": "Resumo",
+  "export.pageIndicator": "Página {{current}} / {{total}}",
   "save.title": "Salvar relatório",
   "save.namePlaceholder": "ex: Portfólio de aplicações Q1",
   "save.descriptionPlaceholder": "Descrição opcional desta visualização do relatório",

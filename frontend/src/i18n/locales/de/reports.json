@@ -14,6 +14,7 @@
   "export.titleSlide": "Erstellt am {{date}}",
   "export.chartUnavailable": "Diagrammvorschau nicht verfügbar.",
   "export.summarySheet": "Zusammenfassung",
+  "export.pageIndicator": "Seite {{current}} / {{total}}",
   "save.title": "Bericht speichern",
   "save.namePlaceholder": "z. B. Q1 Anwendungsportfolio",
   "save.descriptionPlaceholder": "Optionale Beschreibung dieser Berichtsansicht",

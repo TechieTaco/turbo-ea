@@ -14,6 +14,7 @@
   "export.titleSlide": "Generato il {{date}}",
   "export.chartUnavailable": "Anteprima del grafico non disponibile.",
   "export.summarySheet": "Riepilogo",
+  "export.pageIndicator": "Pagina {{current}} / {{total}}",
   "save.title": "Salva report",
   "save.namePlaceholder": "es. Portfolio applicazioni Q1",
   "save.descriptionPlaceholder": "Descrizione facoltativa di questa vista report",
