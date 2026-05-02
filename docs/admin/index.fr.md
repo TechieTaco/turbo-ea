@@ -14,6 +14,7 @@ La section **Admin** est disponible pour les utilisateurs ayant le rôle **Admin
 | [Authentification et SSO](sso.md) | Configuration de l'authentification unique (Microsoft Entra ID, Google, Okta, OIDC générique) et flux d'invitation |
 | [Capacités IA](ai.md) | Suggestions de description par IA avec des LLMs (Ollama, fournisseurs compatibles OpenAI) et contexte de recherche web |
 | [Intégration MCP](mcp.md) | Serveur Model Context Protocol pour l'accès des outils IA (Claude Desktop, Copilot, Cursor) |
+| [Référence API](api.md) | Vue d'ensemble de l'API REST, authentification et utilisation de la documentation Swagger interactive de FastAPI |
 | [Fin de vie (EOL)](eol.md) | Liaison massive de données EOL depuis endoflife.date vers les fiches technologiques |
 | [Enquêtes](surveys.md) | Enquêtes de maintenance des données ciblant des types de fiches et des parties prenantes spécifiques |
 | [Portails web](web-portals.md) | Portails publics en lecture seule accessibles sans authentification |

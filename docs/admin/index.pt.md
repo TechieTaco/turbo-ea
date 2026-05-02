@@ -14,6 +14,7 @@ A seção **Admin** está disponível para usuários com o papel **Admin**. Ela 
 | [Autenticação e SSO](sso.md) | Configuração de login único (Microsoft Entra ID, Google, Okta, OIDC genérico) e fluxos de convite |
 | [Capacidades de IA](ai.md) | Sugestões de descrição por IA com LLMs (Ollama, provedores compatíveis com OpenAI) e contexto de pesquisa web |
 | [Integração MCP](mcp.md) | Servidor Model Context Protocol para acesso de ferramentas de IA (Claude Desktop, Copilot, Cursor) |
+| [Referência da API](api.md) | Visão geral da API REST, autenticação e uso da documentação Swagger interativa do FastAPI |
 | [Fim de Vida (EOL)](eol.md) | Vinculação em massa de dados EOL do endoflife.date para cards de tecnologia |
 | [Pesquisas](surveys.md) | Pesquisas de manutenção de dados direcionadas a tipos de cards e partes interessadas específicas |
 | [Portais Web](web-portals.md) | Portais públicos somente leitura acessíveis sem autenticação |

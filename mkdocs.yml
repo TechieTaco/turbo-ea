@@ -88,6 +88,7 @@ plugins:
             Authentication & SSO: Autenticación y SSO
             AI Capabilities: Capacidades de IA
             MCP Integration: Integracion MCP
+            API Reference: Referencia de la API
             End-of-Life (EOL): Fin de vida (EOL)
             Surveys: Encuestas
             Web Portals: Portales web
@@ -125,6 +126,7 @@ plugins:
             Authentication & SSO: Authentifizierung und SSO
             AI Capabilities: KI-Funktionen
             MCP Integration: MCP-Integration
+            API Reference: API-Referenz
             End-of-Life (EOL): End-of-Life (EOL)
             Surveys: Umfragen
             Web Portals: Webportale
@@ -162,6 +164,7 @@ plugins:
             Authentication & SSO: Authentification et SSO
             AI Capabilities: Fonctionnalités IA
             MCP Integration: Integration MCP
+            API Reference: Référence API
             End-of-Life (EOL): Fin de vie (EOL)
             Surveys: Enquêtes
             Web Portals: Portails web
@@ -199,6 +202,7 @@ plugins:
             Authentication & SSO: Autenticazione e SSO
             AI Capabilities: Funzionalità IA
             MCP Integration: Integrazione MCP
+            API Reference: Riferimento API
             End-of-Life (EOL): Fine vita (EOL)
             Surveys: Sondaggi
             Web Portals: Portali web
@@ -236,6 +240,7 @@ plugins:
             Authentication & SSO: Autenticação e SSO
             AI Capabilities: Funcionalidades de IA
             MCP Integration: Integracao MCP
+            API Reference: Referência da API
             End-of-Life (EOL): Fim de vida (EOL)
             Surveys: Pesquisas
             Web Portals: Portais web
@@ -273,6 +278,7 @@ plugins:
             Authentication & SSO: 认证与 SSO
             AI Capabilities: AI 功能
             MCP Integration: MCP 集成
+            API Reference: API 参考
             End-of-Life (EOL): 生命周期结束 (EOL)
             Surveys: 调查
             Web Portals: Web 门户
@@ -310,6 +316,7 @@ plugins:
             Authentication & SSO: Аутентификация и SSO
             AI Capabilities: Возможности ИИ
             MCP Integration: Интеграция MCP
+            API Reference: Справочник API
             End-of-Life (EOL): Окончание жизненного цикла (EOL)
             Surveys: Опросы
             Web Portals: Веб-порталы
@@ -375,6 +382,7 @@ nav:
       - Authentication & SSO: admin/sso.md
       - AI Capabilities: admin/ai.md
       - MCP Integration: admin/mcp.md
+      - API Reference: admin/api.md
       - End-of-Life (EOL): admin/eol.md
       - Surveys: admin/surveys.md
       - Web Portals: admin/web-portals.md
