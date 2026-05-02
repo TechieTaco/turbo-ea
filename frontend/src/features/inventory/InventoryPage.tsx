@@ -161,6 +161,7 @@ export default function InventoryPage() {
   const canDelete = !!(user?.permissions?.["*"] || user?.permissions?.["inventory.delete"]);
   const canShareBookmarks = !!(user?.permissions?.["*"] || user?.permissions?.["bookmarks.share"]);
   const canOdataBookmarks = !!(user?.permissions?.["*"] || user?.permissions?.["bookmarks.odata"]);
+  const canViewCostsGlobally = !!(user?.permissions?.["*"] || user?.permissions?.["costs.view"]);
   const gridRef = useRef<AgGridReact>(null);
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
@@ -1291,6 +1292,11 @@ export default function InventoryPage() {
     if (typeConfig) {
       for (const section of typeConfig.fields_schema) {
         for (const field of section.fields) {
+          // Hide cost columns when the user lacks the global costs.view perm.
+          // Stakeholder-aware visibility per row would create a confusing
+          // grid (some cells empty, others populated) — the inventory grid is
+          // gated on the global permission.
+          if (field.type === "cost" && !canViewCostsGlobally) continue;
           const colKey = `attr_${field.key}`;
           cols.push({
             field: colKey,
@@ -1336,6 +1342,7 @@ export default function InventoryPage() {
     } else if (commonFields.length > 0) {
       // Multiple types selected: show common fields across all selected types
       for (const field of commonFields) {
+        if (field.type === "cost" && !canViewCostsGlobally) continue;
         const colKey = `attr_${field.key}`;
         cols.push({
           field: colKey,
@@ -1493,7 +1500,7 @@ export default function InventoryPage() {
     );
 
     return cols;
-  }, [types, typeConfig, commonFields, gridEditMode, relevantRelTypes, relTypeGroupMap, relationsMap, selectedType, hierarchyPaths, filters.showArchived, selectedColumns, userNameMap, t, formatDate, formatDateTime]);
+  }, [types, typeConfig, commonFields, gridEditMode, relevantRelTypes, relTypeGroupMap, relationsMap, selectedType, hierarchyPaths, filters.showArchived, selectedColumns, userNameMap, t, formatDate, formatDateTime, canViewCostsGlobally]);
 
   // Render mass edit value input based on field type
   const renderMassEditInput = () => {
@@ -1734,7 +1741,7 @@ export default function InventoryPage() {
               <Tooltip title={t("common:actions.export")}>
                 <span>
                   <IconButton
-                    onClick={() => exportToExcel(filteredData, typeConfig, types)}
+                    onClick={() => exportToExcel(filteredData, typeConfig, types, { canViewCosts: canViewCostsGlobally })}
                     disabled={filteredData.length === 0}
                     size="small"
                   >
@@ -1768,7 +1775,7 @@ export default function InventoryPage() {
                 variant="outlined"
                 color="inherit"
                 startIcon={<MaterialSymbol icon="download" size={18} />}
-                onClick={() => exportToExcel(filteredData, typeConfig, types)}
+                onClick={() => exportToExcel(filteredData, typeConfig, types, { canViewCosts: canViewCostsGlobally })}
                 disabled={filteredData.length === 0}
                 sx={{ textTransform: "none" }}
               >

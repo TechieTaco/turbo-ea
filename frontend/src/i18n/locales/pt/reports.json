@@ -318,5 +318,7 @@
   "common.dateRange": "Intervalo de datas",
   "common.center": "Centralizar",
   "common.group": "Grupo",
-  "dependency.expandMode": "Modo expansão: clique num cartão para revelar todas as suas relações"
+  "dependency.expandMode": "Modo expansão: clique num cartão para revelar todas as suas relações",
+  "cost.permissionDeniedTitle": "Dados de custo restritos",
+  "cost.permissionDeniedBody": "Você não tem permissão para ver relatórios de custos. Peça a um administrador para conceder a permissão «costs.view», ou torne-se parte interessada nas cartas em questão."
 }

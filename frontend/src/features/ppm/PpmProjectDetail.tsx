@@ -66,6 +66,7 @@ export default function PpmProjectDetail() {
     can_bpm_approve: true,
     can_manage_adr_links: true,
     can_manage_diagram_links: true,
+    can_view_costs: true,
   });
   const [loading, setLoading] = useState(true);
 

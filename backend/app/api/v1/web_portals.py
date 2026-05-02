@@ -20,6 +20,7 @@ from app.models.tag import CardTag, Tag, TagGroup
 from app.models.user import User
 from app.models.web_portal import WebPortal
 from app.schemas.common import WebPortalCreate, WebPortalUpdate
+from app.services.cost_field_filter import cost_field_keys_from_card_schema
 from app.services.permission_service import PermissionService
 
 router = APIRouter(prefix="/web-portals", tags=["web-portals"])
@@ -183,12 +184,28 @@ async def get_public_portal(
 
     type_info = None
     if fst:
+        # Public portals are unauthenticated — always strip cost fields from the
+        # exposed schema so the rendered form/columns never reference them.
+        cost_keys = cost_field_keys_from_card_schema(fst.fields_schema)
+        public_schema = fst.fields_schema
+        if cost_keys:
+            public_schema = []
+            for section in fst.fields_schema or []:
+                if not isinstance(section, dict):
+                    public_schema.append(section)
+                    continue
+                fields = [
+                    f
+                    for f in (section.get("fields") or [])
+                    if not (isinstance(f, dict) and f.get("key") in cost_keys)
+                ]
+                public_schema.append({**section, "fields": fields})
         type_info = {
             "key": fst.key,
             "label": fst.label,
             "icon": fst.icon,
             "color": fst.color,
-            "fields_schema": fst.fields_schema,
+            "fields_schema": public_schema,
             "subtypes": fst.subtypes,
             "translations": fst.translations or {},
         }
@@ -592,9 +609,19 @@ async def get_public_portal_cards(
                 }
             )
 
+    # Public portal: always strip cost fields — there is no authenticated user
+    # to evaluate, so default to "no costs.view".
+    portal_type_row = await db.execute(
+        select(CardType.fields_schema).where(CardType.key == portal.card_type)
+    )
+    portal_cost_keys = cost_field_keys_from_card_schema(portal_type_row.scalar_one_or_none())
+
     items = []
     for card in cards:
         fsid = str(card.id)
+        attrs = card.attributes
+        if attrs and portal_cost_keys:
+            attrs = {k: v for k, v in attrs.items() if k not in portal_cost_keys}
         items.append(
             {
                 "id": fsid,
@@ -603,7 +630,7 @@ async def get_public_portal_cards(
                 "subtype": card.subtype,
                 "description": card.description,
                 "lifecycle": card.lifecycle,
-                "attributes": card.attributes,
+                "attributes": attrs,
                 "approval_status": card.approval_status,
                 "data_quality": card.data_quality,
                 "tags": tags_map.get(fsid, []),

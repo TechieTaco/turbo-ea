@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import time
+from collections.abc import Iterable
 from uuid import UUID
 
 from fastapi import HTTPException
@@ -130,6 +131,52 @@ class PermissionService:
             raise HTTPException(403, "Insufficient permissions")
 
     @staticmethod
+    async def is_stakeholder_of(db: AsyncSession, user: User, card_id: UUID) -> bool:
+        """Return True if the user holds any stakeholder role on this card."""
+        result = await db.execute(
+            select(Stakeholder.id)
+            .where(
+                Stakeholder.card_id == card_id,
+                Stakeholder.user_id == user.id,
+            )
+            .limit(1)
+        )
+        return result.scalar_one_or_none() is not None
+
+    @staticmethod
+    async def can_view_costs(db: AsyncSession, user: User, card_id: UUID) -> bool:
+        """Return True if the user may see cost-typed fields on this card.
+
+        Rule: app-level `costs.view` grants access landscape-wide; otherwise
+        any stakeholder role on the card grants access to that card's costs.
+        """
+        if await PermissionService.has_app_permission(db, user, "costs.view"):
+            return True
+        return await PermissionService.is_stakeholder_of(db, user, card_id)
+
+    @staticmethod
+    async def card_ids_with_cost_access(
+        db: AsyncSession, user: User, candidate_card_ids: Iterable[UUID]
+    ) -> set[UUID]:
+        """Bulk variant of `can_view_costs` for list endpoints.
+
+        Returns the subset of candidate card IDs the user can see costs for.
+        If the user has the global `costs.view` permission, returns all candidates.
+        """
+        candidates = list({cid for cid in candidate_card_ids if cid is not None})
+        if not candidates:
+            return set()
+        if await PermissionService.has_app_permission(db, user, "costs.view"):
+            return set(candidates)
+        result = await db.execute(
+            select(Stakeholder.card_id).where(
+                Stakeholder.user_id == user.id,
+                Stakeholder.card_id.in_(candidates),
+            )
+        )
+        return {row[0] for row in result.all()}
+
+    @staticmethod
     async def get_effective_card_permissions(db: AsyncSession, user: User, card_id: UUID) -> dict:
         """Return the user's effective permissions on a specific card.
 
@@ -217,6 +264,9 @@ class PermissionService:
             "can_manage_diagram_links": is_admin
             or app_perms.get("diagrams.manage", False)
             or card_level.get("card.manage_diagram_links", False),
+            "can_view_costs": is_admin
+            or app_perms.get("costs.view", False)
+            or len(stakeholder_roles) > 0,
         }
 
         return {

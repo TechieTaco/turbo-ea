@@ -78,6 +78,7 @@ export interface CardEffectivePermissions {
     can_bpm_approve: boolean;
     can_manage_adr_links: boolean;
     can_manage_diagram_links: boolean;
+    can_view_costs: boolean;
   };
 }
 

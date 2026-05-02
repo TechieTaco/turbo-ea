@@ -181,6 +181,15 @@ APP_PERMISSIONS: dict[str, dict] = {
             "ai.portfolio_insights": "Generate AI-driven insights on the portfolio report",
         },
     },
+    "costs": {
+        "label": "Costs",
+        "permissions": {
+            "costs.view": (
+                "View cost fields on cards and cost reports "
+                "(stakeholders see costs on their own cards regardless)"
+            ),
+        },
+    },
     "admin": {
         "label": "Admin",
         "permissions": {
@@ -313,6 +322,7 @@ BPM_ADMIN_PERMISSIONS: dict[str, bool] = {
     "risks.manage": True,
     "ai.suggest": True,
     "ai.portfolio_insights": True,
+    "costs.view": True,
     "notifications.manage": True,
     "admin.users": False,
     "admin.roles": False,
@@ -381,6 +391,7 @@ MEMBER_PERMISSIONS: dict[str, bool] = {
     "risks.manage": True,
     "ai.suggest": True,
     "ai.portfolio_insights": True,
+    "costs.view": True,
     "notifications.manage": True,
     "admin.users": False,
     "admin.roles": False,
@@ -449,6 +460,7 @@ VIEWER_PERMISSIONS: dict[str, bool] = {
     "risks.manage": False,
     "ai.suggest": False,
     "ai.portfolio_insights": False,
+    "costs.view": False,
     "notifications.manage": True,
     "admin.users": False,
     "admin.roles": False,

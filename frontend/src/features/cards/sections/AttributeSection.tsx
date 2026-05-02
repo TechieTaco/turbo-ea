@@ -29,6 +29,7 @@ function AttributeSection({
   calculatedFieldKeys = [],
   initialExpanded,
   hiddenFieldKeys,
+  canViewCosts = true,
 }: {
   section: SectionDef & { defaultExpanded?: boolean; columns?: 1 | 2 };
   card: Card;
@@ -38,6 +39,7 @@ function AttributeSection({
   calculatedFieldKeys?: string[];
   initialExpanded?: boolean;
   hiddenFieldKeys?: Set<string>;
+  canViewCosts?: boolean;
 }) {
   const { t } = useTranslation(["cards", "common"]);
   const { fmt, symbol } = useCurrency();
@@ -135,7 +137,7 @@ function AttributeSection({
               <Chip component="span" size="small" label={t("attributes.auto")} sx={{ height: 16, fontSize: "0.55rem", ml: 0.5, verticalAlign: "middle" }} />
             ) : null}
           </Typography>
-          <FieldValue field={field} value={(card.attributes || {})[field.key]} currencyFmt={fmt} />
+          <FieldValue field={field} value={(card.attributes || {})[field.key]} currencyFmt={fmt} canViewCosts={canViewCosts} />
         </Box>
       ))}
     </Box>
@@ -148,7 +150,7 @@ function AttributeSection({
         field.readonly || calculatedFieldKeys.includes(field.key) ? (
           <Box key={field.key} sx={{ display: "flex", alignItems: "center", gap: 1 }}>
             <Typography variant="body2" color="text.secondary" sx={{ minWidth: 160 }}>{rl(field.key, field.translations)}</Typography>
-            <FieldValue field={field} value={attrs[field.key]} currencyFmt={fmt} />
+            <FieldValue field={field} value={attrs[field.key]} currencyFmt={fmt} canViewCosts={canViewCosts} />
             <Chip size="small" label={calculatedFieldKeys.includes(field.key) ? t("attributes.calculated") : t("attributes.auto")} sx={{ height: 18, fontSize: "0.6rem", ml: 0.5 }} />
           </Box>
         ) : isVendorField(field) ? (
@@ -168,6 +170,7 @@ function AttributeSection({
             onChange={(v) => setAttr(field.key, v)}
             currencySymbol={symbol}
             error={urlErrors[field.key]}
+            canViewCosts={canViewCosts}
           />
         )
       )}

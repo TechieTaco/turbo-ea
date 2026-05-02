@@ -34,6 +34,7 @@ from app.schemas.card import (
 from app.services import notification_service
 from app.services.calculation_engine import run_calculations_for_card
 from app.services.card_completeness import missing_mandatory
+from app.services.cost_field_filter import cost_field_keys_from_card_schema
 from app.services.event_bus import event_bus
 from app.services.permission_service import PermissionService
 
@@ -227,7 +228,7 @@ async def _sync_capability_level(db: AsyncSession, card: Card) -> None:
         await _sync_capability_level(db, child)
 
 
-def _card_to_response(card: Card) -> CardResponse:
+def _card_to_response(card: Card, *, strip_cost_keys: frozenset[str] = frozenset()) -> CardResponse:
     tags = []
     for t in card.tags or []:
         tags.append(
@@ -249,6 +250,9 @@ def _card_to_response(card: Card) -> CardResponse:
                 user_email=s.user.email if s.user else None,
             )
         )
+    attributes = card.attributes
+    if strip_cost_keys and attributes:
+        attributes = {k: v for k, v in attributes.items() if k not in strip_cost_keys}
     return CardResponse(
         id=str(card.id),
         type=card.type,
@@ -257,7 +261,7 @@ def _card_to_response(card: Card) -> CardResponse:
         description=card.description,
         parent_id=str(card.parent_id) if card.parent_id else None,
         lifecycle=card.lifecycle,
-        attributes=card.attributes,
+        attributes=attributes,
         status=card.status,
         approval_status=card.approval_status,
         data_quality=card.data_quality,
@@ -271,6 +275,46 @@ def _card_to_response(card: Card) -> CardResponse:
         tags=tags,
         stakeholders=stakeholder_refs,
     )
+
+
+async def _cost_redaction_map(
+    db: AsyncSession, user: User, cards: list[Card]
+) -> dict[uuid.UUID, frozenset[str]]:
+    """Return a map of card_id → cost field keys to strip for this user.
+
+    Cards whose costs the user is allowed to see are absent from the map.
+    """
+    if not cards:
+        return {}
+    type_keys = {c.type for c in cards if c.type}
+    if not type_keys:
+        return {}
+    rows = await db.execute(
+        select(CardType.key, CardType.fields_schema).where(CardType.key.in_(type_keys))
+    )
+    cost_keys_per_type: dict[str, frozenset[str]] = {}
+    for tk, schema in rows.all():
+        keys = cost_field_keys_from_card_schema(schema)
+        if keys:
+            cost_keys_per_type[tk] = keys
+    if not cost_keys_per_type:
+        return {}
+    candidate_ids = [c.id for c in cards if c.type in cost_keys_per_type]
+    if not candidate_ids:
+        return {}
+    allowed = await PermissionService.card_ids_with_cost_access(db, user, candidate_ids)
+    redact: dict[uuid.UUID, frozenset[str]] = {}
+    for card in cards:
+        cost_keys = cost_keys_per_type.get(card.type)
+        if cost_keys and card.id not in allowed:
+            redact[card.id] = cost_keys
+    return redact
+
+
+async def _card_response_with_cost_check(db: AsyncSession, user: User, card: Card) -> CardResponse:
+    """Build a CardResponse, redacting cost fields per the cost permission rule."""
+    redact = await _cost_redaction_map(db, user, [card])
+    return _card_to_response(card, strip_cost_keys=redact.get(card.id, frozenset()))
 
 
 _ALLOWED_SORT_COLUMNS = {
@@ -349,7 +393,11 @@ async def list_cards(
         selectinload(Card.stakeholders).selectinload(Stakeholder.user),
     )
     result = await db.execute(q)
-    items = [_card_to_response(card) for card in result.scalars().all()]
+    cards = list(result.scalars().all())
+    redact = await _cost_redaction_map(db, user, cards)
+    items = [
+        _card_to_response(card, strip_cost_keys=redact.get(card.id, frozenset())) for card in cards
+    ]
 
     return CardListResponse(items=items, total=total, page=page, page_size=page_size)
 
@@ -492,7 +540,11 @@ async def list_my_created_cards(
         )
     )
     result = await db.execute(q)
-    items = [_card_to_response(card) for card in result.scalars().all()]
+    cards = list(result.scalars().all())
+    redact = await _cost_redaction_map(db, user, cards)
+    items = [
+        _card_to_response(card, strip_cost_keys=redact.get(card.id, frozenset())) for card in cards
+    ]
     return {
         "items": items,
         "total": total,
@@ -558,12 +610,12 @@ async def create_card(
         )
     )
     card = result.scalar_one()
-    return _card_to_response(card)
+    return await _card_response_with_cost_check(db, user, card)
 
 
 @router.get("/{card_id}", response_model=CardResponse)
 async def get_card(
-    card_id: str, db: AsyncSession = Depends(get_db), _user: User = Depends(get_current_user)
+    card_id: str, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)
 ):
     result = await db.execute(
         select(Card)
@@ -576,7 +628,7 @@ async def get_card(
     card = result.scalar_one_or_none()
     if not card:
         raise HTTPException(404, "Card not found")
-    return _card_to_response(card)
+    return await _card_response_with_cost_check(db, user, card)
 
 
 @router.get("/{card_id}/hierarchy")
@@ -628,16 +680,33 @@ async def bulk_update(
     await PermissionService.require_permission(db, user, "inventory.bulk_edit")
     uuids = [uuid.UUID(i) for i in body.ids]
     result = await db.execute(select(Card).where(Card.id.in_(uuids)))
-    sheets = result.scalars().all()
+    sheets = list(result.scalars().all())
     updates = body.updates.model_dump(exclude_unset=True)
     if "attributes" in updates and updates["attributes"]:
         for card in sheets:
             await _validate_url_attributes(db, card.type, updates["attributes"])
             break  # schema is per-type; validated once per distinct type
+    # Preserve cost-typed keys for any card the user may not see costs on —
+    # PATCH does a full replace on `attributes`, so we merge the existing
+    # cost values back into the incoming payload. Without this, a bulk edit
+    # would silently wipe cost values from cards the user couldn't see.
+    incoming_attr_redact = (
+        await _cost_redaction_map(db, user, sheets)
+        if "attributes" in updates and updates["attributes"]
+        else {}
+    )
     for card in sheets:
         for field, value in updates.items():
             if field == "parent_id" and value is not None:
                 value = uuid.UUID(value)
+            elif field == "attributes" and value:
+                strip = incoming_attr_redact.get(card.id)
+                if strip:
+                    old_attrs = dict(card.attributes or {})
+                    value = {k: v for k, v in value.items() if k not in strip}
+                    for key in strip:
+                        if key in old_attrs:
+                            value[key] = old_attrs[key]
             setattr(card, field, value)
         card.updated_by = user.id
     await db.commit()
@@ -649,8 +718,11 @@ async def bulk_update(
             selectinload(Card.stakeholders).selectinload(Stakeholder.user),
         )
     )
-    sheets = result.scalars().all()
-    return [_card_to_response(card) for card in sheets]
+    sheets = list(result.scalars().all())
+    redact = await _cost_redaction_map(db, user, sheets)
+    return [
+        _card_to_response(card, strip_cost_keys=redact.get(card.id, frozenset())) for card in sheets
+    ]
 
 
 @router.patch("/{card_id}", response_model=CardResponse)
@@ -682,6 +754,25 @@ async def update_card(
     # Validate URL-typed attributes
     if "attributes" in updates and updates["attributes"]:
         await _validate_url_attributes(db, card.type, updates["attributes"])
+
+    # Preserve cost-typed keys when the user lacks cost access on this card.
+    # PATCH does a full replace on `attributes`, so simply dropping the
+    # forbidden keys from the incoming payload would wipe whatever the card
+    # already had. Merge the existing values back so the user's update can
+    # only touch the non-cost keys they were allowed to see.
+    if "attributes" in updates and updates["attributes"] is not None:
+        if not await PermissionService.can_view_costs(db, user, card.id):
+            type_schema_row = await db.execute(
+                select(CardType.fields_schema).where(CardType.key == card.type)
+            )
+            cost_keys = cost_field_keys_from_card_schema(type_schema_row.scalar_one_or_none())
+            if cost_keys:
+                old_attrs = dict(card.attributes or {})
+                new_attrs = {k: v for k, v in updates["attributes"].items() if k not in cost_keys}
+                for key in cost_keys:
+                    if key in old_attrs:
+                        new_attrs[key] = old_attrs[key]
+                updates["attributes"] = new_attrs
 
     # Preserve PPM-managed cost fields so the frontend payload doesn't wipe them
     if card.type == "Initiative" and "attributes" in updates:
@@ -785,7 +876,7 @@ async def update_card(
         )
         card = result.scalar_one()
 
-    return _card_to_response(card)
+    return await _card_response_with_cost_check(db, user, card)
 
 
 @router.post("/{card_id}/archive", response_model=CardResponse)
@@ -826,7 +917,7 @@ async def archive_card(
         )
     )
     card = result.scalar_one()
-    return _card_to_response(card)
+    return await _card_response_with_cost_check(db, user, card)
 
 
 @router.post("/{card_id}/restore", response_model=CardResponse)
@@ -867,7 +958,7 @@ async def restore_card(
         )
     )
     card = result.scalar_one()
-    return _card_to_response(card)
+    return await _card_response_with_cost_check(db, user, card)
 
 
 @router.delete("/{card_id}", status_code=204)
@@ -1116,6 +1207,7 @@ async def export_json(
                         continue
                     provider_names_by_card.setdefault(card_key, []).append(prov_name)
 
+    redact = await _cost_redaction_map(db, user, list(cards))
     items = []
     for card in cards:
         tags = [
@@ -1132,6 +1224,11 @@ async def export_json(
                         owner_email = s.user.email
                     break
 
+        attrs = card.attributes or {}
+        strip = redact.get(card.id)
+        if strip:
+            attrs = {k: v for k, v in attrs.items() if k not in strip}
+
         items.append(
             {
                 "id": str(card.id),
@@ -1140,7 +1237,7 @@ async def export_json(
                 "name": card.name,
                 "description": card.description,
                 "lifecycle": card.lifecycle,
-                "attributes": card.attributes or {},
+                "attributes": attrs,
                 "status": card.status,
                 "data_quality": card.data_quality,
                 "updated_at": card.updated_at.isoformat() if card.updated_at else None,
@@ -1165,12 +1262,17 @@ async def export_csv(
     if type:
         q = q.where(Card.type == type)
     result = await db.execute(q)
-    sheets = result.scalars().all()
+    sheets = list(result.scalars().all())
+    redact = await _cost_redaction_map(db, user, sheets)
 
     output = io.StringIO()
     writer = csv.writer(output)
     writer.writerow(["id", "type", "name", "description", "status", "lifecycle", "attributes"])
     for card in sheets:
+        attrs = card.attributes or {}
+        strip = redact.get(card.id)
+        if strip:
+            attrs = {k: v for k, v in attrs.items() if k not in strip}
         writer.writerow(
             [
                 str(card.id),
@@ -1179,7 +1281,7 @@ async def export_csv(
                 card.description or "",
                 card.status,
                 str(card.lifecycle),
-                str(card.attributes),
+                str(attrs),
             ]
         )
     output.seek(0)
