@@ -349,23 +349,61 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
     [],
   );
 
-  // Defined ahead of `setViewMode` so we can re-anchor on scale change.
-  // (Actual state declaration is below; this is a forward-reference no-op.)
+  /** Find the date that the user is currently centred on so we can
+   *  re-anchor the view there after a scale change. Walks the bars
+   *  visible in the gantt, picks the one closest to the viewport's
+   *  horizontal centre, and returns its start date. Returns undefined
+   *  if the gantt isn't rendered yet or no bar has a usable date. */
+  const findCenterAnchorDate = useCallback((): Date | undefined => {
+    const root = ganttRef.current?.querySelector("[class*='ganttTaskRoot_']");
+    if (!(root instanceof Element)) return undefined;
+    const r = root.getBoundingClientRect();
+    if (r.width === 0) return undefined;
+    const centerX = r.left + r.width / 2;
+    const BAR_SEL =
+      "[class*='barBackground_'], [class*='projectBackground_'], [class*='milestoneBackground_']";
+    let bestDate: string | null = null;
+    let bestDist = Infinity;
+    const visit = (id: string, dateStr: string | null) => {
+      if (!dateStr) return;
+      const wrapper = ganttRef.current?.querySelector(`[id="${id}"]`);
+      const bar = wrapper?.querySelector(BAR_SEL);
+      if (!(bar instanceof Element)) return;
+      const br = bar.getBoundingClientRect();
+      if (br.width === 0) return;
+      const dist = Math.abs((br.left + br.right) / 2 - centerX);
+      if (dist < bestDist) {
+        bestDist = dist;
+        bestDate = dateStr;
+      }
+    };
+    for (const tk of tasks) visit(`task-${tk.id}`, tk.start_date);
+    for (const w of wbsList) visit(`wbs-${w.id}`, w.start_date);
+    return bestDate ? parseDate(bestDate, new Date()) : undefined;
+  }, [tasks, wbsList]);
 
   /** Persist scale changes so they survive a reload. Also re-anchor the
-   *  view to today — the lib preserves scrollLeft in pixels across scale
-   *  changes, so going Day → Year keeps the same pixel offset which then
-   *  represents a date hundreds of years in the future, leaving the user
-   *  staring at empty space until they hit Today. */
-  const setViewMode = useCallback((mode: ViewMode) => {
-    _setViewMode(mode);
-    setViewDate(new Date());
-    try {
-      localStorage.setItem(VIEW_MODE_KEY, mode);
-    } catch {
-      /* ignore */
-    }
-  }, []);
+   *  view to whatever date the user was looking at — the lib preserves
+   *  scrollLeft in pixels across scale changes, so going Day → Year would
+   *  otherwise keep the same pixel offset (which then maps to a date
+   *  hundreds of years in the future, leaving the user staring at empty
+   *  space). We snapshot the bar nearest the viewport centre BEFORE the
+   *  switch so the new scale renders with that date in view. */
+  const setViewMode = useCallback(
+    (mode: ViewMode) => {
+      const anchor = findCenterAnchorDate();
+      _setViewMode(mode);
+      // Force a NEW Date reference even if equal, so the lib re-scrolls
+      // (the prop is reference-compared, not value-compared).
+      setViewDate(anchor ? new Date(anchor.getTime()) : new Date());
+      try {
+        localStorage.setItem(VIEW_MODE_KEY, mode);
+      } catch {
+        /* ignore */
+      }
+    },
+    [findCenterAnchorDate],
+  );
 
   const viewIndex = VIEW_SCALE.indexOf(viewMode);
   const canZoomIn = viewIndex > 0;
