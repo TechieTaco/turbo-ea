@@ -181,6 +181,56 @@ class TestDependenciesValidation:
         )
         assert second.status_code == 409
 
+    async def test_fan_in_multiple_predecessors_to_one_successor(self, client, dep_env):
+        """One successor can have many predecessors (A→C and B→C both allowed)."""
+        init_id = str(dep_env["initiative"].id)
+        headers = auth_headers(dep_env["admin"])
+        a = await _create_task(client, init_id, headers, "A")
+        b = await _create_task(client, init_id, headers, "B")
+        c = await _create_task(client, init_id, headers, "C")
+        r1 = await client.post(
+            f"{BASE}/initiatives/{init_id}/dependencies",
+            json={"pred_kind": "task", "pred_id": a, "succ_kind": "task", "succ_id": c},
+            headers=headers,
+        )
+        assert r1.status_code == 200
+        r2 = await client.post(
+            f"{BASE}/initiatives/{init_id}/dependencies",
+            json={"pred_kind": "task", "pred_id": b, "succ_kind": "task", "succ_id": c},
+            headers=headers,
+        )
+        assert r2.status_code == 200
+        listing = await client.get(f"{BASE}/initiatives/{init_id}/dependencies", headers=headers)
+        deps = listing.json()
+        assert len(deps) == 2
+        assert {d["pred_id"] for d in deps} == {a, b}
+        assert {d["succ_id"] for d in deps} == {c}
+
+    async def test_fan_out_one_predecessor_to_multiple_successors(self, client, dep_env):
+        """One predecessor can have many successors (A→B and A→C both allowed)."""
+        init_id = str(dep_env["initiative"].id)
+        headers = auth_headers(dep_env["admin"])
+        a = await _create_task(client, init_id, headers, "A")
+        b = await _create_task(client, init_id, headers, "B")
+        c = await _create_task(client, init_id, headers, "C")
+        r1 = await client.post(
+            f"{BASE}/initiatives/{init_id}/dependencies",
+            json={"pred_kind": "task", "pred_id": a, "succ_kind": "task", "succ_id": b},
+            headers=headers,
+        )
+        assert r1.status_code == 200
+        r2 = await client.post(
+            f"{BASE}/initiatives/{init_id}/dependencies",
+            json={"pred_kind": "task", "pred_id": a, "succ_kind": "task", "succ_id": c},
+            headers=headers,
+        )
+        assert r2.status_code == 200
+        listing = await client.get(f"{BASE}/initiatives/{init_id}/dependencies", headers=headers)
+        deps = listing.json()
+        assert len(deps) == 2
+        assert {d["pred_id"] for d in deps} == {a}
+        assert {d["succ_id"] for d in deps} == {b, c}
+
     async def test_three_node_cycle_rejected(self, client, dep_env):
         init_id = str(dep_env["initiative"].id)
         headers = auth_headers(dep_env["admin"])

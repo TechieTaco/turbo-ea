@@ -5,6 +5,14 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.60.1] - 2026-05-02
+
+### Changed
+- **PPM Gantt — "Align start" now snaps the successor to the day AFTER the predecessor's end date.** Previously the snackbar's *Align start* action set the successor's `start_date` equal to the predecessor's end date, which made the two bars share a calendar day. With finish-to-start the successor should pick up the next working day, so the action now adds one day before patching the successor (tasks: `start_date`; WBS: `start_date`, plus `end_date` rolled forward when the existing end would now precede the new start, milestones still keep `start == end`). The label and translation key are unchanged.
+
+### Added
+- **PPM Gantt — explicit one-to-many / many-to-one dependency tests.** Added integration coverage that verifies a single successor can have multiple predecessors (fan-in: A→C and B→C) and that a single predecessor can drive multiple successors (fan-out: A→B and A→C), so the existing Postgres edge-tuple uniqueness and cycle-detection logic stay correct as the dependency graph evolves.
+
 ## [0.60.0] - 2026-05-01
 
 ### Added

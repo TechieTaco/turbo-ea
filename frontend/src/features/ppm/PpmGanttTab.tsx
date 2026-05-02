@@ -308,6 +308,18 @@ function toIso(d: Date): string {
   return `${y}-${m}-${day}`;
 }
 
+/** Add a number of whole days to a "YYYY-MM-DD" string and return the same
+ *  ISO format. Used by the FS-dependency align action so the successor
+ *  starts on the calendar day AFTER the predecessor finishes (the natural
+ *  reading of finish-to-start: pred ends day X, succ starts day X+1). */
+function addDaysIso(iso: string, days: number): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
+  if (!m) return iso;
+  const d = new Date(+m[1], +m[2] - 1, +m[3]);
+  d.setDate(d.getDate() + days);
+  return toIso(d);
+}
+
 /** Round a date to day boundaries during drag/resize.
  *  The library passes (date, viewMode, dateExtremity, action). Snap start→00:00, end→23:59. */
 function roundToDay(
@@ -755,15 +767,17 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
           succ_id: succ.id,
         });
         await loadData();
-        // Always offer to snap the successor's start to the predecessor's
-        // end — whether the dates currently violate the FS rule or not.
-        // When they already align the action is a no-op PATCH, but having
-        // it always available means the user discovers the affordance.
+        // Always offer to snap the successor's start to the day AFTER the
+        // predecessor's end — that's the natural FS reading (pred finishes
+        // day X, succ starts day X+1). When the dates already align the
+        // action is a no-op PATCH, but having it always available means
+        // the user discovers the affordance.
         const predEnd = getEndDate(pred.kind, pred.id);
         if (predEnd) {
+          const newStart = addDaysIso(predEnd, 1);
           showSnack(t("dependencyCreated"), {
             label: t("alignStart"),
-            onClick: () => alignSuccessorStart(succ.kind, succ.id, predEnd),
+            onClick: () => alignSuccessorStart(succ.kind, succ.id, newStart),
           });
         } else {
           showSnack(t("dependencyCreated"));
