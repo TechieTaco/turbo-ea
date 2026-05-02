@@ -79,7 +79,28 @@ El **Informe de Costos** proporciona un análisis financiero de su panorama tecn
 
 - **Vista de mapa de árbol** — Rectángulos anidados dimensionados por costo, con agrupación opcional (por ejemplo, por organización o capacidad)
 - **Vista de gráfico de barras** — Comparación de costos entre componentes
-- **Agregación** — Los costos pueden sumarse desde fichas relacionadas usando campos calculados
+- **Tipo de tarjeta** — Elija el tipo de tarjeta sobre el que se construye el informe (Aplicación, Componente TI, Proveedor, …).
+
+### Origen de los costes
+
+Cuando el tipo de tarjeta seleccionado tiene al menos un tipo de relación que apunta a un tipo con un campo de coste, aparece un selector **Origen de los costes** junto a **Tipo de tarjeta**. Permite escoger de dónde proceden las cifras:
+
+- **Directo (este tipo de tarjeta)** — opción por defecto; suma el campo de coste de las propias tarjetas mostradas. Úselo cuando consulte directamente *Aplicaciones* o *Componentes TI*.
+- **Agregar desde tarjetas relacionadas** — marque una o varias entradas `Tipo · Campo` (por ejemplo `Aplicación · Coste anual total`, `Componente TI · Coste anual total`). El valor de cada tarjeta primaria pasa a ser la suma de ese campo en sus tarjetas relacionadas.
+
+El selector es **de selección múltiple**, de modo que una misma consolidación puede combinar varios tipos relacionados. Por ejemplo, al consultar el **Proveedor** *Microsoft*, marcar a la vez `Aplicación · Coste anual total` y `Componente TI · Coste anual total` muestra la huella completa del proveedor —Teams, M365, Azure y cualquier otro componente suministrado por Microsoft— como una única cifra.
+
+#### Por qué nada se cuenta dos veces
+
+El selector está diseñado para que la doble contabilización sea imposible por construcción:
+
+- Cada entrada es un par único `(tipo destino, campo de coste)`; la lista ofrece cada par exactamente una vez, incluso cuando varios tipos de relación alcanzan el mismo tipo destino.
+- Dentro de un mismo par, dos tarjetas conectadas por varios tipos de relación contribuyen con su coste una sola vez.
+- Entre entradas distintas, ninguna tarjeta puede contribuir dos veces: una tarjeta tiene un único tipo, y los distintos campos de coste de una misma tarjeta son valores independientes.
+
+Un pequeño **icono de ayuda (?)** junto al selector recuerda esta garantía al pasar el ratón.
+
+La lista de opciones se genera a partir de su metamodelo —los tipos de relación y los campos de coste se descubren en tiempo de renderizado, de modo que cualquier tipo de tarjeta o relación personalizada que añada se convierte automáticamente en un Origen de los costes válido.
 
 ## Informe de Matriz
 

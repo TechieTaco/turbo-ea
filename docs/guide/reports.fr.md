@@ -79,7 +79,28 @@ Le **Rapport Coûts** fournit une analyse financière de votre paysage technolog
 
 - **Vue treemap** -- Rectangles imbriqués dimensionnés par coût, avec regroupement optionnel (par ex. par organisation ou capacité)
 - **Vue graphique à barres** -- Comparaison des coûts entre composants
-- **Agrégation** -- Les coûts peuvent être additionnés à partir de fiches liées en utilisant des champs calculés
+- **Type de carte** -- Choisissez le type de carte autour duquel le rapport est construit (Application, Composant IT, Fournisseur, …).
+
+### Source des coûts
+
+Lorsque le type de carte sélectionné possède au moins un type de relation pointant vers un type qui détient un champ de coût, un sélecteur **Source des coûts** apparaît à côté du **Type de carte**. Il permet de choisir d'où viennent les chiffres :
+
+- **Direct (ce type de carte)** -- valeur par défaut ; additionne le champ de coût sur les cartes affichées elles-mêmes. À utiliser pour examiner directement les *Applications* ou les *Composants IT*.
+- **Agréger depuis des cartes liées** -- cochez une ou plusieurs entrées `Type · Champ` (par exemple `Application · Coût annuel total`, `Composant IT · Coût annuel total`). La valeur de chaque carte primaire devient alors la somme de ce champ sur ses cartes liées.
+
+Le sélecteur est **multi-sélection**, ce qui permet à une seule consolidation de combiner plusieurs types liés. Par exemple, en consultant le **Fournisseur** *Microsoft*, cocher à la fois `Application · Coût annuel total` et `Composant IT · Coût annuel total` montre l'empreinte complète de l'éditeur — Teams, M365, Azure et tout autre composant fourni par Microsoft — sous la forme d'un chiffre unique.
+
+#### Pourquoi rien n'est compté deux fois
+
+Le sélecteur est conçu pour rendre toute double-comptabilisation impossible par construction :
+
+- Chaque entrée est une paire `(type cible, champ de coût)` unique -- la liste propose chaque paire exactement une fois, même lorsque plusieurs types de relation atteignent le même type cible.
+- Au sein d'une même paire, deux cartes reliées par plusieurs types de relation ne contribuent leur coût qu'une seule fois.
+- Entre entrées différentes, aucune carte ne peut contribuer deux fois : une carte n'a qu'un seul type, et différents champs de coût sur une même carte sont des valeurs indépendantes.
+
+Une petite **icône d'aide (?)** placée à côté du sélecteur rappelle cette garantie au survol.
+
+La liste des options est générée à partir de votre métamodèle -- les types de relation et les champs de coût sont découverts au moment du rendu, donc tout nouveau type de carte ou toute nouvelle relation devient automatiquement une source de coûts valide.
 
 ## Rapport Matrice
 

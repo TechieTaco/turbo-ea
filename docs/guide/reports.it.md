@@ -79,7 +79,28 @@ Il **Report Costi** fornisce un'analisi finanziaria del vostro panorama tecnolog
 
 - **Vista treemap** — Rettangoli annidati dimensionati per costo, con raggruppamento opzionale (es. per organizzazione o capability)
 - **Vista grafico a barre** — Confronto dei costi tra componenti
-- **Aggregazione** — I costi possono essere sommati dalle card correlate utilizzando campi calcolati
+- **Tipo di scheda** — Scegliete il tipo di scheda su cui costruire il report (Applicazione, Componente IT, Fornitore, …).
+
+### Origine dei costi
+
+Quando il tipo di scheda selezionato ha almeno un tipo di relazione che punta a un tipo dotato di un campo di costo, accanto a **Tipo di scheda** compare un selettore **Origine dei costi**. Permette di scegliere da dove provengono i numeri:
+
+- **Diretto (questo tipo di scheda)** — opzione predefinita; somma il campo di costo sulle schede mostrate. Da usare quando si consultano direttamente *Applicazioni* o *Componenti IT*.
+- **Aggregare dalle schede collegate** — selezionate una o più voci `Tipo · Campo` (per esempio `Applicazione · Costo annuo totale`, `Componente IT · Costo annuo totale`). Il valore di ogni scheda primaria diventa allora la somma di quel campo sulle sue schede collegate.
+
+Il selettore è **a selezione multipla**, quindi un unico consolidamento può combinare più tipi correlati. Esempio: visualizzando il **Fornitore** *Microsoft*, selezionare insieme `Applicazione · Costo annuo totale` e `Componente IT · Costo annuo totale` mostra l'intera impronta del fornitore — Teams, M365, Azure e qualunque altro componente fornito da Microsoft — come un unico numero.
+
+#### Perché nulla viene contato due volte
+
+Il selettore è costruito in modo da rendere il doppio conteggio impossibile per costruzione:
+
+- Ogni voce è una coppia unica `(tipo destinazione, campo di costo)`: l'elenco propone ogni coppia esattamente una volta, anche quando più tipi di relazione raggiungono lo stesso tipo destinazione.
+- All'interno di una stessa coppia, due schede collegate tramite più tipi di relazione contribuiscono con il loro costo una sola volta.
+- Tra voci diverse, nessuna scheda può contribuire due volte: una scheda ha esattamente un tipo, e campi di costo diversi sulla stessa scheda sono valori indipendenti.
+
+Una piccola **icona di aiuto (?)** accanto al selettore ribadisce questa garanzia al passaggio del mouse.
+
+L'elenco delle opzioni è generato dal vostro metamodello — i tipi di relazione e i campi di costo vengono individuati a runtime, quindi qualunque tipo di scheda o relazione personalizzata aggiunta diventa automaticamente un'Origine dei costi valida.
 
 ## Report Matrice
 
