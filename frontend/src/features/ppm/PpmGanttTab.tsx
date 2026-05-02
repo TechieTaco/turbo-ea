@@ -326,10 +326,40 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
   const [viewMode, _setViewMode] = useState<ViewMode>(() => loadInitialViewMode());
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [snack, setSnack] = useState<string>("");
+  /** Optional action button shown next to the snackbar message (e.g.
+   *  "Align start" after creating a dependency with a date mismatch). */
+  const [snackAction, setSnackAction] = useState<{
+    label: string;
+    onClick: () => void | Promise<void>;
+  } | null>(null);
+  const clearSnack = useCallback(() => {
+    setSnack("");
+    setSnackAction(null);
+  }, []);
+  /** Show a snackbar message, optionally with an action button. Always
+   *  clears any prior action so a stale onClick can't carry over. */
+  const showSnack = useCallback(
+    (
+      message: string,
+      action?: { label: string; onClick: () => void | Promise<void> },
+    ) => {
+      setSnack(message);
+      setSnackAction(action ?? null);
+    },
+    [],
+  );
 
-  /** Persist scale changes so they survive a reload. */
+  // Defined ahead of `setViewMode` so we can re-anchor on scale change.
+  // (Actual state declaration is below; this is a forward-reference no-op.)
+
+  /** Persist scale changes so they survive a reload. Also re-anchor the
+   *  view to today — the lib preserves scrollLeft in pixels across scale
+   *  changes, so going Day → Year keeps the same pixel offset which then
+   *  represents a date hundreds of years in the future, leaving the user
+   *  staring at empty space until they hit Today. */
   const setViewMode = useCallback((mode: ViewMode) => {
     _setViewMode(mode);
+    setViewDate(new Date());
     try {
       localStorage.setItem(VIEW_MODE_KEY, mode);
     } catch {
@@ -566,6 +596,55 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
     [loadData, parentIds],
   );
 
+  /** Lookup helpers — read end-/start-dates from our state, accounting
+   *  for milestones (where start == end). Returns ISO date string or null. */
+  const getEndDate = useCallback(
+    (kind: "task" | "wbs", id: string): string | null => {
+      if (kind === "task") {
+        return tasks.find((tk) => tk.id === id)?.due_date ?? null;
+      }
+      const w = wbsList.find((w) => w.id === id);
+      if (!w) return null;
+      return w.is_milestone ? w.start_date : w.end_date;
+    },
+    [tasks, wbsList],
+  );
+  const getStartDate = useCallback(
+    (kind: "task" | "wbs", id: string): string | null => {
+      if (kind === "task") {
+        return tasks.find((tk) => tk.id === id)?.start_date ?? null;
+      }
+      return wbsList.find((w) => w.id === id)?.start_date ?? null;
+    },
+    [tasks, wbsList],
+  );
+
+  /** Snap the successor's start_date to a target ISO date. Adjusts
+   *  end_date too when needed (milestones always equal start; tasks /
+   *  WBS push their end out only if it's now before the new start). */
+  const alignSuccessorStart = useCallback(
+    async (succKind: "task" | "wbs", succId: string, newStart: string) => {
+      try {
+        if (succKind === "task") {
+          const tk = tasks.find((t2) => t2.id === succId);
+          const patch: Record<string, string> = { start_date: newStart };
+          if (tk?.due_date && tk.due_date < newStart) patch.due_date = newStart;
+          await api.patch(`/ppm/tasks/${succId}`, patch);
+        } else {
+          const w = wbsList.find((w2) => w2.id === succId);
+          const patch: Record<string, string> = { start_date: newStart };
+          if (w?.is_milestone) patch.end_date = newStart;
+          else if (w?.end_date && w.end_date < newStart) patch.end_date = newStart;
+          await api.patch(`/ppm/wbs/${succId}`, patch);
+        }
+        await loadData();
+      } catch {
+        showSnack(t("alignStartFailed"));
+      }
+    },
+    [tasks, wbsList, loadData, showSnack, t],
+  );
+
   /** Drag-create a finish-to-start dependency by connecting the relation handles.
    *  The library passes `isOneDescendant=true` when one row is a descendant of
    *  the other in the WBS hierarchy — a parent-child link doesn't model a
@@ -574,7 +653,7 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
   const handleRelationChange: OnRelationChange = useCallback(
     async (from, to, isOneDescendant) => {
       if (isOneDescendant) {
-        setSnack(t("dependencyCycleError"));
+        showSnack(t("dependencyCycleError"));
         return;
       }
       const [fromTask, fromTarget] = from;
@@ -594,18 +673,38 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
           succ_id: succ.id,
         });
         await loadData();
-        setSnack(t("dependencyCreated"));
+        // Offer to snap the successor's start to the predecessor's end
+        // when the dates currently violate the FS rule (or the successor
+        // has no start date yet).
+        const predEnd = getEndDate(pred.kind, pred.id);
+        const succStart = getStartDate(succ.kind, succ.id);
+        if (predEnd && (!succStart || succStart < predEnd)) {
+          showSnack(t("dependencyCreated"), {
+            label: t("alignStart"),
+            onClick: () => alignSuccessorStart(succ.kind, succ.id, predEnd),
+          });
+        } else {
+          showSnack(t("dependencyCreated"));
+        }
       } catch (err) {
         if (err instanceof ApiError) {
-          if (err.status === 409) setSnack(t("dependencyDuplicateError"));
-          else if (err.status === 422) setSnack(t("dependencyCycleError"));
-          else setSnack(err.message || t("dependencyCreateFailed"));
+          if (err.status === 409) showSnack(t("dependencyDuplicateError"));
+          else if (err.status === 422) showSnack(t("dependencyCycleError"));
+          else showSnack(err.message || t("dependencyCreateFailed"));
         } else {
-          setSnack(t("dependencyCreateFailed"));
+          showSnack(t("dependencyCreateFailed"));
         }
       }
     },
-    [initiativeId, loadData, t],
+    [
+      initiativeId,
+      loadData,
+      t,
+      getEndDate,
+      getStartDate,
+      alignSuccessorStart,
+      showSnack,
+    ],
   );
 
   const ganttRef = useRef<HTMLDivElement>(null);
@@ -1448,12 +1547,12 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
       try {
         await api.delete(`/ppm/dependencies/${depId}`);
         await loadData();
-        setSnack(t("dependencyDeleted"));
+        showSnack(t("dependencyDeleted"));
       } catch {
-        setSnack(t("dependencyDeleteFailed"));
+        showSnack(t("dependencyDeleteFailed"));
       }
     },
-    [loadData, t],
+    [loadData, showSnack, t],
   );
 
   if (loading) {
@@ -1546,11 +1645,23 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
           onChange={(_, v) => v && setViewMode(v)}
           size="small"
         >
-          <ToggleButton value={ViewMode.Day}>{t("viewDay")}</ToggleButton>
-          <ToggleButton value={ViewMode.Week}>{t("viewWeek")}</ToggleButton>
-          <ToggleButton value={ViewMode.Month}>{t("viewMonth")}</ToggleButton>
-          <ToggleButton value={ViewMode.QuarterYear}>{t("viewQuarter")}</ToggleButton>
-          <ToggleButton value={ViewMode.Year}>{t("viewYear")}</ToggleButton>
+          {/* Short labels (D/W/M/Q/Y in en) keep the toolbar compact;
+              full names live in the native `title` tooltip. */}
+          <ToggleButton value={ViewMode.Day} title={t("viewDay")}>
+            {t("viewDayShort")}
+          </ToggleButton>
+          <ToggleButton value={ViewMode.Week} title={t("viewWeek")}>
+            {t("viewWeekShort")}
+          </ToggleButton>
+          <ToggleButton value={ViewMode.Month} title={t("viewMonth")}>
+            {t("viewMonthShort")}
+          </ToggleButton>
+          <ToggleButton value={ViewMode.QuarterYear} title={t("viewQuarter")}>
+            {t("viewQuarterShort")}
+          </ToggleButton>
+          <ToggleButton value={ViewMode.Year} title={t("viewYear")}>
+            {t("viewYearShort")}
+          </ToggleButton>
         </ToggleButtonGroup>
       </Box>
 
@@ -1806,12 +1917,28 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
         />
       )}
 
-      {/* Feedback for dependency CRUD + dependency errors */}
+      {/* Feedback for dependency CRUD + dependency errors. Auto-hide is
+          extended when an action button is shown so the user has time
+          to click it. */}
       <Snackbar
         open={!!snack}
-        autoHideDuration={3000}
-        onClose={() => setSnack("")}
+        autoHideDuration={snackAction ? 8000 : 3000}
+        onClose={clearSnack}
         message={snack}
+        action={
+          snackAction ? (
+            <Button
+              color="secondary"
+              size="small"
+              onClick={async () => {
+                await snackAction.onClick();
+                clearSnack();
+              }}
+            >
+              {snackAction.label}
+            </Button>
+          ) : undefined
+        }
         anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
       />
 
