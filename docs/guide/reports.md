@@ -149,6 +149,15 @@ The **EOL Report** shows the support status of technology products linked via th
 
 Save any report configuration for quick access later. Saved reports include a thumbnail preview and can be shared across the organization.
 
+## Exporting Reports
+
+Every report supports **Export to Excel (.xlsx)** and **Export to PowerPoint (.pptx)** from the **⋮** menu in the title bar (alongside Print and Copy link).
+
+- **Excel** — Produces one sheet per data table currently rendered, with auto-sized columns and currency / number formatting preserved. Switch to the **Table view** before exporting to capture the underlying rows.
+- **PowerPoint** — Generates a deck whose first slide combines the report title, generation timestamp, active filter summary, and the live chart at presentation quality. Subsequent slides paginate the data tables for share-ready handouts.
+
+Active filters and grouping options applied at the moment of export are recorded on the title slide / header row, so exports stay self-explanatory.
+
 ## Process Map
 
 The **Process Map** visualizes the organization's business process landscape as a structured map, showing process categories (Management, Core, Support) and their hierarchical relationships.

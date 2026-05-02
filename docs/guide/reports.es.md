@@ -149,6 +149,15 @@ El **Informe de EOL** muestra el estado de soporte de los productos tecnológico
 
 Guarde cualquier configuración de informe para acceso rápido. Los informes guardados incluyen una vista previa en miniatura y pueden compartirse en toda la organización.
 
+## Exportar Informes
+
+Todos los informes admiten **Exportar a Excel (.xlsx)** y **Exportar a PowerPoint (.pptx)** desde el menú **⋮** de la barra de título (junto a Imprimir y Copiar enlace).
+
+- **Excel** — Genera una hoja por cada tabla de datos visible, con columnas dimensionadas automáticamente y formato de moneda / número preservado. Cambie a la **vista de tabla** antes de exportar para capturar las filas subyacentes.
+- **PowerPoint** — Crea una presentación cuya primera diapositiva combina el título del informe, la marca de tiempo de generación, el resumen de filtros activos y el gráfico en vivo con calidad de presentación. Las diapositivas siguientes paginan las tablas para entregables compartibles.
+
+Los filtros y agrupaciones activos en el momento de la exportación se registran en la diapositiva de título o en la cabecera, manteniendo las exportaciones autoexplicativas.
+
 ## Mapa de Procesos
 
 El **Mapa de Procesos** visualiza el panorama de procesos de negocio de la organización como un mapa estructurado, mostrando las categorías de procesos (Gestión, Principal, Soporte) y sus relaciones jerárquicas.

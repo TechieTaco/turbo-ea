@@ -149,6 +149,15 @@ Il **Report EOL** mostra lo stato di supporto dei prodotti tecnologici collegati
 
 Salvate qualsiasi configurazione di report per un accesso rapido successivo. I report salvati includono un'anteprima in miniatura e possono essere condivisi nell'organizzazione.
 
+## Esportare i report
+
+Ogni report supporta **Esporta in Excel (.xlsx)** e **Esporta in PowerPoint (.pptx)** dal menu **⋮** nella barra del titolo (accanto a Stampa e Copia link).
+
+- **Excel** — Produce un foglio per ogni tabella di dati visualizzata al momento, con colonne dimensionate automaticamente e formattazione di valute / numeri preservata. Passate alla **vista tabella** prima di esportare per catturare le righe sottostanti.
+- **PowerPoint** — Genera una presentazione la cui prima diapositiva combina titolo del report, timestamp di generazione, riepilogo dei filtri attivi e il grafico live in qualità presentazione. Le diapositive successive paginano le tabelle per dispense condivisibili.
+
+Filtri e raggruppamenti attivi al momento dell'esportazione sono registrati sulla diapositiva di titolo o nell'intestazione, mantenendo le esportazioni autoesplicative.
+
 ## Mappa dei processi
 
 La **Mappa dei processi** visualizza il panorama dei processi aziendali dell'organizzazione come una mappa strutturata, mostrando le categorie di processo (Gestione, Core, Supporto) e le loro relazioni gerarchiche.

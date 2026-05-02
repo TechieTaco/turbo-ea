@@ -149,6 +149,15 @@ Le **Rapport EOL** affiche le statut de support des produits technologiques lié
 
 Sauvegardez n'importe quelle configuration de rapport pour un accès rapide ultérieur. Les rapports sauvegardés incluent un aperçu en miniature et peuvent être partagés dans toute l'organisation.
 
+## Exporter les rapports
+
+Chaque rapport prend en charge **Exporter vers Excel (.xlsx)** et **Exporter vers PowerPoint (.pptx)** depuis le menu **⋮** de la barre de titre (à côté de Imprimer et Copier le lien).
+
+- **Excel** — Produit une feuille par tableau de données actuellement affiché, avec des colonnes dimensionnées automatiquement et le formatage des devises / nombres préservé. Basculez en **vue Tableau** avant l'export pour capturer les lignes sous-jacentes.
+- **PowerPoint** — Génère un diaporama dont la première diapositive combine le titre du rapport, l'horodatage de génération, le résumé des filtres actifs et le graphique en direct en qualité de présentation. Les diapositives suivantes paginent les tableaux pour des supports partageables.
+
+Les filtres et options de regroupement actifs au moment de l'export sont consignés sur la diapositive de titre ou dans l'en-tête, pour que les exports restent explicites.
+
 ## Carte de processus
 
 La **Carte de processus** visualise le paysage des processus métier de l'organisation sous forme de carte structurée, montrant les catégories de processus (Management, Cœur de métier, Support) et leurs relations hiérarchiques.
