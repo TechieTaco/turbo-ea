@@ -195,13 +195,28 @@ const PPT_BRAND_COLOR = "0F7EB5";
 const PPT_TEXT_COLOR = "263238";
 const PPT_MUTED_COLOR = "607D8B";
 
-async function captureChartImage(node: HTMLElement): Promise<string | null> {
+interface CapturedImage {
+  dataUrl: string;
+  width: number;
+  height: number;
+}
+
+async function captureChartImage(node: HTMLElement): Promise<CapturedImage | null> {
   try {
-    return await toPng(node, {
+    const rect = node.getBoundingClientRect();
+    const dataUrl = await toPng(node, {
       cacheBust: true,
       pixelRatio: 2,
       backgroundColor: "#ffffff",
+      // Skip Material Symbols icon spans — they rely on a font ligature
+      // that html-to-image can't reliably embed, so they otherwise leak
+      // through as raw glyph names ("payments", "trending_up", etc.).
+      filter: (n) => {
+        if (!(n instanceof HTMLElement)) return true;
+        return !n.classList.contains("material-symbols-outlined");
+      },
     });
+    return { dataUrl, width: rect.width, height: rect.height };
   } catch {
     return null;
   }
@@ -263,15 +278,28 @@ export async function exportReportToPptx(data: ReportExportData): Promise<void> 
   const chartWidth = slideWidth - 2 * margin;
 
   if (data.chartNode) {
-    const dataUrl = await captureChartImage(data.chartNode);
-    if (dataUrl) {
+    const captured = await captureChartImage(data.chartNode);
+    if (captured) {
+      // Preserve the captured aspect ratio inside the chart area instead of
+      // forcing it to the full rectangle (which produces visible stretching
+      // when the source DOM is wider/narrower than the slide region).
+      const sourceRatio = captured.width / captured.height;
+      const targetRatio = chartWidth / chartHeight;
+      let drawW = chartWidth;
+      let drawH = chartHeight;
+      if (sourceRatio > targetRatio) {
+        drawH = chartWidth / sourceRatio;
+      } else {
+        drawW = chartHeight * sourceRatio;
+      }
+      const offsetX = margin + (chartWidth - drawW) / 2;
+      const offsetY = chartTop + (chartHeight - drawH) / 2;
       titleSlide.addImage({
-        data: dataUrl,
-        x: margin,
-        y: chartTop,
-        w: chartWidth,
-        h: chartHeight,
-        sizing: { type: "contain", w: chartWidth, h: chartHeight },
+        data: captured.dataUrl,
+        x: offsetX,
+        y: offsetY,
+        w: drawW,
+        h: drawH,
       });
     } else {
       titleSlide.addText(t("export.chartUnavailable", "Chart preview unavailable."), {

@@ -125,6 +125,11 @@ export default function ReportShell({
   );
 
   const exportEnabled = !disableExport && !!chartRef;
+  // Match the export format to what the user is currently looking at:
+  // PPTX captures the chart, XLSX harvests the rendered tables. Reports
+  // without a table toggle are inherently chart-only.
+  const showXlsxItem = exportEnabled && hasTableToggle && view === "table";
+  const showPptxItem = exportEnabled && (!hasTableToggle || view === "chart");
 
   return (
     <Box className="report-container" sx={{ maxWidth, mx: "auto" }}>
@@ -215,16 +220,18 @@ export default function ReportShell({
             open={!!exportMenu}
             onClose={() => setExportMenu(null)}
           >
-            {exportEnabled && [
-              <MenuItem key="xlsx" onClick={() => handleExport("xlsx")}>
+            {showXlsxItem && (
+              <MenuItem onClick={() => handleExport("xlsx")}>
                 <ListItemIcon><MaterialSymbol icon="table_view" size={18} /></ListItemIcon>
                 <ListItemText>{t("shell.exportXlsx")}</ListItemText>
-              </MenuItem>,
-              <MenuItem key="pptx" onClick={() => handleExport("pptx")}>
+              </MenuItem>
+            )}
+            {showPptxItem && (
+              <MenuItem onClick={() => handleExport("pptx")}>
                 <ListItemIcon><MaterialSymbol icon="slideshow" size={18} /></ListItemIcon>
                 <ListItemText>{t("shell.exportPptx")}</ListItemText>
-              </MenuItem>,
-            ]}
+              </MenuItem>
+            )}
             <MenuItem onClick={handleCopyLink}>
               <ListItemIcon><MaterialSymbol icon="link" size={18} /></ListItemIcon>
               <ListItemText>{t("shell.copyLink")}</ListItemText>
