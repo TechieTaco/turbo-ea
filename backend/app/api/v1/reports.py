@@ -1063,6 +1063,7 @@ async def cost_treemap(
     cost_field: str = Query("costTotalAnnual"),
     group_by: str | None = Query(None),
     aggregate: list[str] | None = Query(None),
+    parent_card_id: uuid.UUID | None = Query(None),
 ):
     """Cost treemap: items with cost, optionally grouped by a related type.
 
@@ -1075,6 +1076,11 @@ async def cost_treemap(
     primary card's roll-up. This lets a type that has no cost field of its own
     (e.g. Provider) display costs sourced from related Applications, IT
     Components, etc., even all of them at once.
+
+    When ``parent_card_id`` is set, the primary card set is restricted to cards
+    that have at least one relation (in either direction) to that parent. This
+    powers the treemap drill-down — clicking a parent rectangle re-queries with
+    the related type as ``type`` and the parent's id as ``parent_card_id``.
     """
     await PermissionService.require_permission(db, user, "reports.ea_dashboard")
     # M-3: Validate cost_field format
@@ -1082,6 +1088,26 @@ async def cost_treemap(
         raise HTTPException(400, f"Invalid cost_field: {cost_field!r}")
     result = await db.execute(select(Card).where(Card.type == type, Card.status == "ACTIVE"))
     sheets = result.scalars().all()
+
+    if parent_card_id is not None:
+        # Restrict sheets to those linked (in either direction) to the parent card.
+        sheet_ids = [c.id for c in sheets]
+        if sheet_ids:
+            edges_result = await db.execute(
+                select(Relation).where(
+                    ((Relation.source_id == parent_card_id) & (Relation.target_id.in_(sheet_ids)))
+                    | ((Relation.target_id == parent_card_id) & (Relation.source_id.in_(sheet_ids)))
+                )
+            )
+            linked_ids: set[uuid.UUID] = set()
+            for r in edges_result.scalars().all():
+                if r.source_id == parent_card_id:
+                    linked_ids.add(r.target_id)
+                else:
+                    linked_ids.add(r.source_id)
+            sheets = [c for c in sheets if c.id in linked_ids]
+        else:
+            sheets = []
 
     items: list[dict] = []
     total = 0.0
