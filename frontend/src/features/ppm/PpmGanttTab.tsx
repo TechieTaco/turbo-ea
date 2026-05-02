@@ -139,8 +139,7 @@ interface DependencyArrowOverlayProps {
     fromY: number,
     toX: number,
     toY: number,
-    leadInset?: number,
-    tailInset?: number,
+    clickSafe?: boolean,
   ) => string;
   onClick: (depId: string) => void;
   color: string;
@@ -191,16 +190,12 @@ function DependencyArrowOverlay({
       {arrows.map((a) => {
         // Visible arrow — full length, chevron tips into the target bar.
         const visibleD = buildPath(a.fromX, a.fromY, a.toX, a.toY);
-        // Click target — same shape, but with ~18 px clear zones at each
-        // end so it never overlaps the source / target relation circles
-        // (which sit at `bar.right + 10` / `bar.left - 10`, well within a
-        // 12 px wide stroke starting on the bar edge). Without this clear
-        // zone, hovering near a bar that already has a dependency lands
-        // on our click path instead of the bar wrapper, the lib's
-        // `:hover` rule never fires, and the relation dot stays
-        // ungrabbable — which made the Gantt feel one-to-one.
-        const CLEAR = 18;
-        const clickD = buildPath(a.fromX, a.fromY, a.toX, a.toY, CLEAR, CLEAR);
+        // Click target — same shape, but with `clickSafe=true` so it
+        // stays clear of both bars' relation circles. Routing-aware:
+        // forward / same-row arrows just get end insets; loop-back
+        // arrows skip the entire short exit segment (which would
+        // otherwise still hug the source bar's row).
+        const clickD = buildPath(a.fromX, a.fromY, a.toX, a.toY, true);
         const isHover = hoverId === a.id;
         return (
           <g key={a.id} style={{ pointerEvents: "auto", cursor: "pointer" }}>
@@ -1588,33 +1583,33 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
 
   /** Build the SVG path for one arrow.  Coordinates are already overlay-local.
    *
-   *  `leadInset` / `tailInset` shorten the painted path at each end by N px
-   *  along the first / last horizontal segment. We use this for the
-   *  transparent click-zone path so it doesn't overlap the source bar's
-   *  right-side relation circle (which sits at `bar.right + 10`) — if it
-   *  did, hovering near the bar's right edge would land on our click path
-   *  instead of the bar wrapper, and the lib's `:hover` rule that toggles
-   *  the relation dots from opacity 0 → 1 would never fire. The visible
-   *  path is always drawn at full length so the chevron still tips into
-   *  the target bar. Routing decisions (forward vs loop-back) are made
-   *  on the original endpoints so visual and clickable paths follow the
-   *  exact same shape, only with different start/end points. */
+   *  When `clickSafe` is true we return a "click target" variant of the
+   *  same shape that stays clear of both bars' relation-circle handles
+   *  (which sit at `bar.right + 10` / `bar.left - 10`). Without that
+   *  clear zone, our 12 px wide transparent click stroke covers the
+   *  hover region for the lib's `:hover` rule that toggles the dots
+   *  from opacity 0 → 1, so once a bar has any outgoing dependency the
+   *  dot is hidden + ungrabbable and the user can't pull a second arrow
+   *  out of it. Routing decisions still use the original endpoints so
+   *  visible and clickable paths follow the exact same shape. */
   const buildArrowPath = useCallback(
     (
       fromX: number,
       fromY: number,
       toX: number,
       toY: number,
-      leadInset = 0,
-      tailInset = 0,
+      clickSafe = false,
     ): string => {
       const RADIUS = 6;
       const STUB = 14; // horizontal exit/entry length for loop-back routing
       const DETOUR_PAD = 18; // gap between detour line and bars
+      const SAFE = 18; // clear zone in px around each bar's relation handle
 
-      // Same row → one straight segment
+      // Same row → one straight segment. Inset both ends linearly.
       if (Math.abs(toY - fromY) < 1) {
-        return `M ${fromX + leadInset} ${fromY} H ${toX - tailInset}`;
+        const sx = clickSafe ? fromX + SAFE : fromX;
+        const ex = clickSafe ? toX - SAFE : toX;
+        return `M ${sx} ${fromY} H ${ex}`;
       }
 
       const vDir = toY > fromY ? 1 : -1; // +1 down, -1 up
@@ -1627,19 +1622,24 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
           (toX - fromX) / 4,
           Math.abs(toY - fromY) / 2,
         );
+        // Cap inset so the click M never crosses past the first arc /
+        // the click H never crosses past the last arc — otherwise the
+        // segment would double back over the bar's edge.
+        const sx = clickSafe ? Math.min(fromX + SAFE, midX - r) : fromX;
+        const ex = clickSafe ? Math.max(toX - SAFE, midX + r) : toX;
         if (r < 1) {
-          return `M ${fromX + leadInset} ${fromY} H ${midX} V ${toY} H ${toX - tailInset}`;
+          return `M ${sx} ${fromY} H ${midX} V ${toY} H ${ex}`;
         }
         // sweep flags: R→D=1, D→R=0; flip both for vDir=-1
         const s1 = vDir > 0 ? 1 : 0;
         const s2 = vDir > 0 ? 0 : 1;
         return [
-          `M ${fromX + leadInset} ${fromY}`,
+          `M ${sx} ${fromY}`,
           `H ${midX - r}`,
           `A ${r} ${r} 0 0 ${s1} ${midX} ${fromY + vDir * r}`,
           `V ${toY - vDir * r}`,
           `A ${r} ${r} 0 0 ${s2} ${midX + r} ${toY}`,
-          `H ${toX - tailInset}`,
+          `H ${ex}`,
         ].join(" ");
       }
 
@@ -1656,8 +1656,26 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
       const s2 = vDir > 0 ? 1 : 0;
       const s3 = vDir > 0 ? 0 : 1;
       const s4 = vDir > 0 ? 0 : 1;
+      const ex = clickSafe ? toX - SAFE : toX;
+      // For the click path in loop-back routing we skip the first three
+      // segments (H exit → arc down → V) entirely. Those segments hug the
+      // source bar's row (only ~6 px below the bar centre) and any click
+      // stroke covering them would still overlap the source's right
+      // relation handle. Starting the click path at the END of the second
+      // arc — where the path begins running LEFT under both bars — keeps
+      // the bar's hover region completely clear.
+      if (clickSafe) {
+        return [
+          `M ${exitX - r} ${turnY}`,
+          `H ${detourX + r}`,
+          `A ${r} ${r} 0 0 ${s3} ${detourX} ${turnY + vDir * r}`,
+          `V ${toY - vDir * r}`,
+          `A ${r} ${r} 0 0 ${s4} ${detourX + r} ${toY}`,
+          `H ${ex}`,
+        ].join(" ");
+      }
       return [
-        `M ${fromX + leadInset} ${fromY}`,
+        `M ${fromX} ${fromY}`,
         `H ${exitX - r}`,
         `A ${r} ${r} 0 0 ${s1} ${exitX} ${fromY + vDir * r}`,
         `V ${turnY - vDir * r}`,
@@ -1666,7 +1684,7 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
         `A ${r} ${r} 0 0 ${s3} ${detourX} ${turnY + vDir * r}`,
         `V ${toY - vDir * r}`,
         `A ${r} ${r} 0 0 ${s4} ${detourX + r} ${toY}`,
-        `H ${toX - tailInset}`,
+        `H ${ex}`,
       ].join(" ");
     },
     [],
@@ -1831,7 +1849,7 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
              once it has any outgoing dependency. We render arrows
              ourselves, so kill pointer-events on the entire wrapper. */
           "& [class*='arrow_clickable_']": { display: "none" },
-          "& svg.ArrowClassName": { pointerEvents: "none" },
+          "& svg.ArrowClassName, & g.arrows": { pointerEvents: "none" },
           /* Context menu: ensure it renders above everything and captures hover */
           "& [class*='menuOption_']": {
             position: "relative",
