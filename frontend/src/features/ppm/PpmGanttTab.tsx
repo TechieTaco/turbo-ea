@@ -42,6 +42,7 @@ import Snackbar from "@mui/material/Snackbar";
 import Typography from "@mui/material/Typography";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api, ApiError } from "@/api/client";
+import { brand } from "@/theme/tokens";
 import PpmWbsDialog from "./PpmWbsDialog";
 import PpmTaskDialog from "./PpmTaskDialog";
 import type { PpmDependency, PpmWbs, PpmTask, PpmTaskStatus } from "@/types";
@@ -2008,11 +2009,12 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
         action={
           snackAction ? (
             <Button
-              /* The default Snackbar background is a dark grey/black; MUI's
-                 `color="secondary"` is purple in our theme and reads poorly
-                 against it. Use a high-contrast light blue instead. */
+              /* Snackbar background is a dark grey/black; MUI's
+                 `color="secondary"` is purple in our theme and reads
+                 poorly against it. Use the design-token light brand
+                 variant instead — defined in theme/tokens.ts. */
               size="small"
-              sx={{ color: "#90caf9", fontWeight: 600 }}
+              sx={{ color: brand.primaryLight, fontWeight: 600 }}
               onClick={async () => {
                 await snackAction.onClick();
                 clearSnack();
