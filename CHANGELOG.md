@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.60.3] - 2026-05-02
+
+### Fixed
+- **PPM Gantt — relation dots no longer blocked by our own arrow's click zone.** Each rendered arrow has an invisible 12 px wide click stroke (so the user has a forgiving target for delete-by-click). It was being drawn for the full path length, including the first ~18 px past the source bar's right edge — which is exactly where the lib's relation circle handle sits (at `bar.right + 10`). Hovering "near but not on" a bar that already had an outgoing dependency landed on our click path instead of the bar wrapper, so the lib's `:hover` rule never fired and the relation dot stayed at opacity 0. The painted (visible) arrow still draws full-length so the chevron tips into the target bar; the click target now insets ~18 px at each end via new `leadInset` / `tailInset` parameters on `buildArrowPath`.
+
 ## [0.60.2] - 2026-05-02
 
 ### Fixed

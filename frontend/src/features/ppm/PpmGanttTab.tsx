@@ -134,7 +134,14 @@ interface ArrowGeometry {
 
 interface DependencyArrowOverlayProps {
   arrows: ArrowGeometry[];
-  buildPath: (fromX: number, fromY: number, toX: number, toY: number) => string;
+  buildPath: (
+    fromX: number,
+    fromY: number,
+    toX: number,
+    toY: number,
+    leadInset?: number,
+    tailInset?: number,
+  ) => string;
   onClick: (depId: string) => void;
   color: string;
   dangerColor: string;
@@ -182,13 +189,24 @@ function DependencyArrowOverlay({
         </marker>
       </defs>
       {arrows.map((a) => {
-        const d = buildPath(a.fromX, a.fromY, a.toX, a.toY);
+        // Visible arrow — full length, chevron tips into the target bar.
+        const visibleD = buildPath(a.fromX, a.fromY, a.toX, a.toY);
+        // Click target — same shape, but with ~18 px clear zones at each
+        // end so it never overlaps the source / target relation circles
+        // (which sit at `bar.right + 10` / `bar.left - 10`, well within a
+        // 12 px wide stroke starting on the bar edge). Without this clear
+        // zone, hovering near a bar that already has a dependency lands
+        // on our click path instead of the bar wrapper, the lib's
+        // `:hover` rule never fires, and the relation dot stays
+        // ungrabbable — which made the Gantt feel one-to-one.
+        const CLEAR = 18;
+        const clickD = buildPath(a.fromX, a.fromY, a.toX, a.toY, CLEAR, CLEAR);
         const isHover = hoverId === a.id;
         return (
           <g key={a.id} style={{ pointerEvents: "auto", cursor: "pointer" }}>
-            {/* Wide invisible hit target */}
+            {/* Wide invisible hit target — inset to avoid the bar edges. */}
             <path
-              d={d}
+              d={clickD}
               fill="none"
               stroke="transparent"
               strokeWidth={12}
@@ -198,7 +216,7 @@ function DependencyArrowOverlay({
             />
             {/* Visible arrow */}
             <path
-              d={d}
+              d={visibleD}
               fill="none"
               stroke={color}
               strokeWidth={isHover ? 2 : 1.5}
@@ -1568,16 +1586,35 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
     return out;
   }, [dependencies, arrowTick, portalTarget]);
 
-  /** Build the SVG path for one arrow.  Coordinates are already overlay-local. */
+  /** Build the SVG path for one arrow.  Coordinates are already overlay-local.
+   *
+   *  `leadInset` / `tailInset` shorten the painted path at each end by N px
+   *  along the first / last horizontal segment. We use this for the
+   *  transparent click-zone path so it doesn't overlap the source bar's
+   *  right-side relation circle (which sits at `bar.right + 10`) — if it
+   *  did, hovering near the bar's right edge would land on our click path
+   *  instead of the bar wrapper, and the lib's `:hover` rule that toggles
+   *  the relation dots from opacity 0 → 1 would never fire. The visible
+   *  path is always drawn at full length so the chevron still tips into
+   *  the target bar. Routing decisions (forward vs loop-back) are made
+   *  on the original endpoints so visual and clickable paths follow the
+   *  exact same shape, only with different start/end points. */
   const buildArrowPath = useCallback(
-    (fromX: number, fromY: number, toX: number, toY: number): string => {
+    (
+      fromX: number,
+      fromY: number,
+      toX: number,
+      toY: number,
+      leadInset = 0,
+      tailInset = 0,
+    ): string => {
       const RADIUS = 6;
       const STUB = 14; // horizontal exit/entry length for loop-back routing
       const DETOUR_PAD = 18; // gap between detour line and bars
 
       // Same row → one straight segment
       if (Math.abs(toY - fromY) < 1) {
-        return `M ${fromX} ${fromY} H ${toX}`;
+        return `M ${fromX + leadInset} ${fromY} H ${toX - tailInset}`;
       }
 
       const vDir = toY > fromY ? 1 : -1; // +1 down, -1 up
@@ -1591,18 +1628,18 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
           Math.abs(toY - fromY) / 2,
         );
         if (r < 1) {
-          return `M ${fromX} ${fromY} H ${midX} V ${toY} H ${toX}`;
+          return `M ${fromX + leadInset} ${fromY} H ${midX} V ${toY} H ${toX - tailInset}`;
         }
         // sweep flags: R→D=1, D→R=0; flip both for vDir=-1
         const s1 = vDir > 0 ? 1 : 0;
         const s2 = vDir > 0 ? 0 : 1;
         return [
-          `M ${fromX} ${fromY}`,
+          `M ${fromX + leadInset} ${fromY}`,
           `H ${midX - r}`,
           `A ${r} ${r} 0 0 ${s1} ${midX} ${fromY + vDir * r}`,
           `V ${toY - vDir * r}`,
           `A ${r} ${r} 0 0 ${s2} ${midX + r} ${toY}`,
-          `H ${toX}`,
+          `H ${toX - tailInset}`,
         ].join(" ");
       }
 
@@ -1620,7 +1657,7 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
       const s3 = vDir > 0 ? 0 : 1;
       const s4 = vDir > 0 ? 0 : 1;
       return [
-        `M ${fromX} ${fromY}`,
+        `M ${fromX + leadInset} ${fromY}`,
         `H ${exitX - r}`,
         `A ${r} ${r} 0 0 ${s1} ${exitX} ${fromY + vDir * r}`,
         `V ${turnY - vDir * r}`,
@@ -1629,7 +1666,7 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
         `A ${r} ${r} 0 0 ${s3} ${detourX} ${turnY + vDir * r}`,
         `V ${toY - vDir * r}`,
         `A ${r} ${r} 0 0 ${s4} ${detourX + r} ${toY}`,
-        `H ${toX}`,
+        `H ${toX - tailInset}`,
       ].join(" ");
     },
     [],
