@@ -213,6 +213,27 @@ function DependencyArrowOverlay({
   );
 }
 
+/** Per-viewMode geometry: column width in pixels and approximate
+ *  calendar units per column (in days). Used both for our
+ *  measurements and for the lib's pixel-per-date scaling — they
+ *  must match the columnWidth we pass via the `distances` prop. */
+function geometryFor(mode: ViewMode): { colWidth: number; daysPerCol: number } {
+  switch (mode) {
+    case ViewMode.Day:
+      return { colWidth: 32, daysPerCol: 1 };
+    case ViewMode.Week:
+      return { colWidth: 200, daysPerCol: 7 };
+    case ViewMode.Month:
+      return { colWidth: 300, daysPerCol: 30.44 };
+    case ViewMode.QuarterYear:
+      return { colWidth: 180, daysPerCol: 91.31 };
+    case ViewMode.Year:
+      return { colWidth: 240, daysPerCol: 365.25 };
+    default:
+      return { colWidth: 200, daysPerCol: 7 };
+  }
+}
+
 /** Extra metadata for Gantt rows, keyed by gantt task id (e.g. "wbs-xxx", "task-xxx"). */
 interface GanttRowMeta {
   completion: number;
@@ -394,45 +415,39 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
     // Quarter/Year since calendar months and years vary slightly in
     // length — close enough for an anchor (we just need the right
     // ballpark date for the lib's setViewDate to scroll to).
-    const colWidth =
-      viewMode === ViewMode.Day
-        ? 32
-        : viewMode === ViewMode.Week
-          ? 200
-          : viewMode === ViewMode.Month
-            ? 300
-            : viewMode === ViewMode.QuarterYear
-              ? 180
-              : 240;
-    const daysPerCol =
-      viewMode === ViewMode.Day
-        ? 1
-        : viewMode === ViewMode.Week
-          ? 7
-          : viewMode === ViewMode.Month
-            ? 30.44
-            : viewMode === ViewMode.QuarterYear
-              ? 91.31
-              : 365.25;
+    const { colWidth, daysPerCol } = geometryFor(viewMode);
     const daysPerPx = daysPerCol / colWidth;
     const dayDelta = (centerX - (ref as Ref).x) * daysPerPx;
     return new Date((ref as Ref).date.getTime() + dayDelta * 86400000);
   }, [tasks, wbsList, viewMode]);
 
-  /** Persist scale changes so they survive a reload. Also re-anchor the
-   *  view to whatever date the user was looking at — the lib preserves
-   *  scrollLeft in pixels across scale changes, so going Day → Year would
-   *  otherwise keep the same pixel offset (which then maps to a date
-   *  hundreds of years in the future, leaving the user staring at empty
-   *  space). We snapshot the bar nearest the viewport centre BEFORE the
-   *  switch so the new scale renders with that date in view. */
+  /** Persist scale changes so they survive a reload, and keep the user's
+   *  viewport centre stable across scale flips.
+   *
+   *  Two key facts that drove this:
+   *   1. The lib treats `viewDate` as the date placed at the viewport's
+   *      LEFT edge (it computes `scrollLeft = columnWidth × column_index`
+   *      from `viewDate`). Passing the captured centre date directly
+   *      would shift the new view right by half a viewport.
+   *   2. Each scale change introduces small approximation error (months
+   *      are ~30.44 days etc.); using the lib's aware offset for the new
+   *      scale minimises the drift on round-trips. */
   const setViewMode = useCallback(
     (mode: ViewMode) => {
-      const anchor = findCenterAnchorDate();
+      // Capture the date currently at the viewport CENTRE in the OLD scale.
+      const centerDate = findCenterAnchorDate() ?? new Date();
+      // Half-viewport in calendar days, computed in the NEW scale's
+      // pixel-per-day ratio so the centre lands where the user expects.
+      const root = ganttRef.current?.querySelector("[class*='ganttTaskRoot_']");
+      const viewportPx =
+        root instanceof Element ? root.getBoundingClientRect().width : 0;
+      const { colWidth, daysPerCol } = geometryFor(mode);
+      const halfDays = (viewportPx / 2) * (daysPerCol / colWidth);
+      const leftEdge = new Date(centerDate.getTime() - halfDays * 86400000);
       _setViewMode(mode);
       // Force a NEW Date reference even if equal, so the lib re-scrolls
       // (the prop is reference-compared, not value-compared).
-      setViewDate(anchor ? new Date(anchor.getTime()) : new Date());
+      setViewDate(new Date(leftEdge.getTime()));
       try {
         localStorage.setItem(VIEW_MODE_KEY, mode);
       } catch {
@@ -1993,8 +2008,11 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
         action={
           snackAction ? (
             <Button
-              color="secondary"
+              /* The default Snackbar background is a dark grey/black; MUI's
+                 `color="secondary"` is purple in our theme and reads poorly
+                 against it. Use a high-contrast light blue instead. */
               size="small"
+              sx={{ color: "#90caf9", fontWeight: 600 }}
               onClick={async () => {
                 await snackAction.onClick();
                 clearSnack();
