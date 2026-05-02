@@ -925,6 +925,61 @@ class TestCostTreemap:
         )
         assert resp.status_code == 400
 
+    async def test_cost_treemap_parent_card_id_filters_to_related(self, client, db, env):
+        """parent_card_id restricts the result to cards related to that parent.
+
+        Powers the treemap drill-down: clicking a parent rectangle (e.g. an
+        Application) re-queries with ``type=ITComponent`` and the parent's id
+        to reveal the components contributing to that parent's roll-up.
+        """
+        admin = env["admin"]
+        # ITComponent + app_to_itc relation already exist in the env fixture.
+        parent = await create_card(db, card_type="Application", name="ERP", user_id=admin.id)
+        other_parent = await create_card(db, card_type="Application", name="CRM", user_id=admin.id)
+        comp1 = await create_card(
+            db,
+            card_type="ITComponent",
+            name="DB",
+            user_id=admin.id,
+            attributes={"costTotalAnnual": 5000},
+        )
+        comp2 = await create_card(
+            db,
+            card_type="ITComponent",
+            name="Web",
+            user_id=admin.id,
+            attributes={"costTotalAnnual": 3000},
+        )
+        # comp3 belongs to the other parent — must be excluded.
+        comp3 = await create_card(
+            db,
+            card_type="ITComponent",
+            name="Cache",
+            user_id=admin.id,
+            attributes={"costTotalAnnual": 9999},
+        )
+        await create_relation(db, type_key="app_to_itc", source_id=parent.id, target_id=comp1.id)
+        # Reverse direction must also be picked up.
+        await create_relation(db, type_key="app_to_itc", source_id=comp2.id, target_id=parent.id)
+        await create_relation(
+            db, type_key="app_to_itc", source_id=other_parent.id, target_id=comp3.id
+        )
+
+        resp = await client.get(
+            "/api/v1/reports/cost-treemap",
+            params={
+                "type": "ITComponent",
+                "cost_field": "costTotalAnnual",
+                "parent_card_id": str(parent.id),
+            },
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        names = sorted(i["name"] for i in data["items"])
+        assert names == ["DB", "Web"]
+        assert data["total"] == 8000
+
 
 # ---------------------------------------------------------------------------
 # Capability Heatmap

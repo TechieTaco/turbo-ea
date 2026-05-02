@@ -102,6 +102,15 @@ Ein kleines **Hilfesymbol (?)** neben dem Auswahlfeld wiederholt diese Garantie 
 
 Die Optionsliste wird aus Ihrem Metamodell erzeugt — Beziehungstypen und Kostenfelder werden zur Laufzeit ermittelt, sodass jeder neu angelegte benutzerdefinierte Kartentyp oder jede neue Beziehung automatisch zu einer gültigen Kostenquelle wird.
 
+### In ein Rechteck hineinzoomen
+
+Sobald mindestens eine Kostenquelle aktiv ist, sind die Treemap-Rechtecke **anklickbar**. Ein Klick ersetzt das Diagramm durch die Aufschlüsselung der Kosten dieses Rechtecks — die zugeordneten Karten, die zu seiner Aufrollung beigetragen haben, dimensioniert nach ihren direkten Kosten. Über dem Diagramm erscheint ein Breadcrumb, z. B. **Alle Anwendungen › NexaCore ERP**; klicken Sie auf ein beliebiges Segment, um nach oben zurückzunavigieren.
+
+- **Eine Kostenquelle aktiv** — der Drilldown zeigt eine Treemap der verknüpften Karten (z. B. zeigt ein Klick auf *NexaCore ERP* mit angehakter `IT-Komponente · Jährliche Gesamtkosten` die mit NexaCore ERP verknüpften IT-Komponenten, dimensioniert nach ihren Jahreskosten).
+- **Mehrere Kostenquellen aktiv** — der Drilldown zeigt **eine Treemap pro Quelle nebeneinander** (eine Spalte auf schmalen Anzeigen, zwei auf breiten). Jedes Panel hat seine eigene Überschrift, seinen eigenen Gesamtbetrag und seinen eigenen `% des Gesamtwerts` im Tooltip — so behalten unterschiedliche Kartentypen ihre eigene Skala, anstatt in ein einziges Diagramm gequetscht zu werden.
+
+Der Zeitleisten-Schieberegler, die Kostenquellen-Auswahl und andere Filter bleiben beim Drilldown erhalten, und die Drilldown-Ebene ist Teil der gespeicherten Berichtskonfiguration — wer einen Bericht im hineingezoomten Zustand speichert, öffnet ihn direkt auf dieser Ebene wieder. Wenn **keine** Kostenquelle aktiv ist, öffnet ein Klick auf ein Rechteck stattdessen das Karten-Seitenpanel (es gibt nichts aufzuschlüsseln).
+
 ## Matrixbericht
 
 ![Matrixbericht](../assets/img/de/35_bericht_matrix.png)

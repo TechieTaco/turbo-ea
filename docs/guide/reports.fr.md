@@ -102,6 +102,15 @@ Une petite **icône d'aide (?)** placée à côté du sélecteur rappelle cette 
 
 La liste des options est générée à partir de votre métamodèle -- les types de relation et les champs de coût sont découverts au moment du rendu, donc tout nouveau type de carte ou toute nouvelle relation devient automatiquement une source de coûts valide.
 
+### Forer dans un rectangle
+
+Dès qu'au moins une Source de coût est active, les rectangles du treemap deviennent **cliquables**. Un clic remplace le graphique par la décomposition du coût de ce rectangle — les fiches liées qui ont contribué à son agrégation, dimensionnées par leur coût direct. Un fil d'Ariane apparaît au-dessus du graphique, par exemple **Toutes les applications › NexaCore ERP** ; cliquez sur n'importe quel segment pour remonter.
+
+- **Une seule Source de coût active** — le forage affiche un treemap des fiches liées (par exemple, cliquer sur *NexaCore ERP* avec `Composant SI · Coût annuel total` coché montre les composants SI liés à NexaCore ERP, dimensionnés par leur coût annuel).
+- **Plusieurs Sources de coût actives** — le forage affiche **un treemap par source côte à côte** (1 colonne sur écran étroit, 2 sur écran large). Chaque panneau possède son propre en-tête, son propre total et son propre `% du total` dans l'infobulle — ainsi les différents types de fiches conservent leur échelle au lieu d'être tassés dans un seul graphique.
+
+Le curseur de chronologie, la sélection de Source de coût et les autres filtres sont préservés pendant le forage, et le niveau de forage fait partie de la configuration du rapport sauvegardé — sauvegarder un rapport en cours de forage le rouvre directement à ce niveau. Sans Source de coût active, un clic sur un rectangle ouvre plutôt le panneau latéral de la fiche (il n'y a rien à décomposer).
+
 ## Rapport Matrice
 
 ![Rapport Matrice](../assets/img/fr/35_rapport_matrice.png)

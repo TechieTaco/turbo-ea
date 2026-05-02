@@ -5,6 +5,14 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.62.0] - 2026-05-02
+
+### Added
+- **Cost Analysis Report — drill down into a rectangle.** When at least one aggregate **Cost Source** is active (e.g. `IT Component · Total Annual Cost` rolled into Applications), the treemap rectangles are now clickable: clicking one replaces the chart with a treemap of the related cards contributing to that rectangle's roll-up, sized by their direct cost — so you can answer "what's driving this number?" without leaving the report. With **multiple cost sources** active, the drilled view shows **one treemap per source side-by-side** (e.g. clicking a Provider with both `Application · Annual cost` and `IT Component · Annual cost` selected gives two independent treemaps for that vendor, each on its own scale and with its own per-panel total) — keeping different card types from being squashed into a single chart. A breadcrumb (`All Applications › NexaCore ERP`) appears above the panels; click any segment to walk back up. Existing filters (timeline slider, cost source) are preserved across the drill, and the drilled-in level is included in saved reports so a saved view re-opens at the same depth. With no aggregate active, clicking a rectangle still opens the card side panel as before. Backend: `/reports/cost-treemap` accepts a new optional `parent_card_id=<uuid>` query parameter that restricts the primary card set to those linked (in either direction) to the parent. Translated into all 8 supported UI locales.
+
+### Changed
+- **Cost Analysis Report — snappier treemap animation.** The treemap rectangle re-layout animation runs at `animationDuration=300` ms (down from Recharts' default 1500 ms), so drilling in / popping out / changing filters feels responsive instead of sluggish.
+
 ## [0.61.0] - 2026-05-02
 
 ### Added

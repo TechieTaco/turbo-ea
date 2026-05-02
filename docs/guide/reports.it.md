@@ -102,6 +102,15 @@ Una piccola **icona di aiuto (?)** accanto al selettore ribadisce questa garanzi
 
 L'elenco delle opzioni è generato dal vostro metamodello — i tipi di relazione e i campi di costo vengono individuati a runtime, quindi qualunque tipo di scheda o relazione personalizzata aggiunta diventa automaticamente un'Origine dei costi valida.
 
+### Drill-down in un rettangolo
+
+Quando almeno un'Origine costi è attiva, i rettangoli del treemap diventano **cliccabili**. Cliccando su uno, il grafico viene sostituito dalla scomposizione del costo di quel rettangolo: le card collegate che hanno contribuito al suo totale, dimensionate per il loro costo diretto. Sopra il grafico appare una briciola di pane, ad esempio **Tutte le Applicazioni › NexaCore ERP**; clicca su un segmento qualsiasi per risalire.
+
+- **Singola Origine costi attiva** — il drill-down mostra un treemap delle card collegate (ad esempio, cliccando su *NexaCore ERP* con `Componente IT · Costo annuale totale` selezionato vengono mostrati i componenti IT collegati a NexaCore ERP, dimensionati per il loro costo annuale).
+- **Più Origini costi attive** — il drill-down mostra **un treemap per origine affiancati** (1 colonna su schermi stretti, 2 su quelli ampi). Ogni pannello ha la propria intestazione, il proprio totale e la propria `% del totale` nel tooltip — così i diversi tipi di card mantengono la propria scala invece di essere compressi in un unico grafico.
+
+Lo slider della linea temporale, la selezione dell'Origine costi e gli altri filtri vengono mantenuti durante il drill-down, e il livello di drill-down fa parte della configurazione del report salvato: salvando un report mentre si è in drill-down lo si riapre direttamente a quel livello. Senza un'Origine costi attiva, un clic su un rettangolo apre invece il pannello laterale della card (non c'è nulla da scomporre).
+
 ## Report Matrice
 
 ![Report Matrice](../assets/img/it/35_report_matrice.png)

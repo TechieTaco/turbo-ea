@@ -1,7 +1,9 @@
 import { useEffect, useState, useMemo, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
+import Breadcrumbs from "@mui/material/Breadcrumbs";
 import Checkbox from "@mui/material/Checkbox";
+import Link from "@mui/material/Link";
 import ListItemText from "@mui/material/ListItemText";
 import TextField from "@mui/material/TextField";
 import MenuItem from "@mui/material/MenuItem";
@@ -50,6 +52,60 @@ interface AggregateOption {
   fieldLabel: string;
 }
 
+/** A single (related-type, cost-field) pair contributing to a parent's roll-up. */
+interface SourceRef {
+  typeKey: string;
+  fieldKey: string;
+  /** "<TypeLabel> · <FieldLabel>" — used as the panel header label. */
+  label: string;
+}
+
+/**
+ * One step of the treemap drill-down. Pushed when the user clicks a rectangle
+ * while at least one aggregate cost source is active; ``cardId`` becomes the
+ * ``parent_card_id`` query param. ``sources`` holds every aggregate pair that
+ * contributed to the parent's roll-up — one panel is rendered per source so
+ * drilling preserves the per-source breakdown rather than mixing card types
+ * with different scales.
+ */
+interface DrillFrame {
+  cardId: string;
+  cardName: string;
+  sources: SourceRef[];
+}
+
+/**
+ * Migrate a legacy single-source drill frame ({type, costField}) into the
+ * current multi-source shape. Used when restoring saved-report configs.
+ */
+function normaliseDrillFrame(raw: unknown): DrillFrame | null {
+  if (!raw || typeof raw !== "object") return null;
+  const obj = raw as Record<string, unknown>;
+  const cardId = typeof obj.cardId === "string" ? obj.cardId : null;
+  const cardName = typeof obj.cardName === "string" ? obj.cardName : null;
+  if (!cardId || !cardName) return null;
+  if (Array.isArray(obj.sources)) {
+    const sources = (obj.sources as unknown[])
+      .map((s): SourceRef | null => {
+        if (!s || typeof s !== "object") return null;
+        const so = s as Record<string, unknown>;
+        if (typeof so.typeKey !== "string" || typeof so.fieldKey !== "string") return null;
+        const label = typeof so.label === "string" ? so.label : `${so.typeKey} · ${so.fieldKey}`;
+        return { typeKey: so.typeKey, fieldKey: so.fieldKey, label };
+      })
+      .filter((s): s is SourceRef => s !== null);
+    if (sources.length === 0) return null;
+    return { cardId, cardName, sources };
+  }
+  if (typeof obj.type === "string" && typeof obj.costField === "string") {
+    return {
+      cardId, cardName,
+      sources: [{ typeKey: obj.type, fieldKey: obj.costField, label: `${obj.type} · ${obj.costField}` }],
+    };
+  }
+  return null;
+}
+
 function pickCostFields(schema: { fields: FieldDef[] }[]): FieldDef[] {
   const out: FieldDef[] = [];
   for (const s of schema) for (const f of s.fields) if (f.type === "cost") out.push(f);
@@ -89,24 +145,31 @@ function treemapColor(index: number): string {
 }
 
 const TreemapContent = ({
-  x, y, width, height, name, cost, index, costFmt,
+  x, y, width, height, name, cost, index, id, costFmt, onCellClick, clickable,
 }: {
   x: number; y: number; width: number; height: number; name: string; cost: number; index: number;
+  id?: string;
   costFmt: Intl.NumberFormat;
+  onCellClick?: (id: string, name: string) => void;
+  clickable?: boolean;
 }) => {
   if (width < 4 || height < 4) return null;
   const showLabel = width > 50 && height > 30;
   const showCost = width > 70 && height > 45;
+  const handleClick = id && onCellClick ? () => onCellClick(id, name) : undefined;
   return (
-    <g>
+    <g
+      onClick={handleClick}
+      style={clickable && handleClick ? { cursor: "pointer" } : undefined}
+    >
       <rect x={x} y={y} width={width} height={height} fill={treemapColor(index)} stroke="#fff" strokeWidth={2} rx={3} />
       {showLabel && (
-        <text x={x + 6} y={y + 16} fontSize={11} fontWeight={600} fill="#fff">
+        <text x={x + 6} y={y + 16} fontSize={11} fontWeight={600} fill="#fff" style={{ pointerEvents: "none" }}>
           {name.length > Math.floor(width / 7) ? name.slice(0, Math.floor(width / 7) - 1) + "\u2026" : name}
         </text>
       )}
       {showCost && (
-        <text x={x + 6} y={y + 30} fontSize={10} fill="rgba(255,255,255,0.8)">
+        <text x={x + 6} y={y + 30} fontSize={10} fill="rgba(255,255,255,0.8)" style={{ pointerEvents: "none" }}>
           {costFmt.format(cost)}
         </text>
       )}
@@ -135,10 +198,18 @@ export default function CostReport() {
   // so summing across entries cannot double-count by construction.
   const [costSources, setCostSources] = useState<string[]>([]);
   const [groupBy, setGroupBy] = useState("");
+  // Root-level (depth 0) data set: a single dataset of primary cards.
   const [rawItems, setRawItems] = useState<CostItem[] | null>(null);
+  // Drilled-level (depth ≥ 1) data: one panel per source so multi-source drill
+  // shows separate treemaps side-by-side rather than mixing card types into a
+  // single chart.
+  const [drillPanels, setDrillPanels] = useState<{ source: SourceRef; items: CostItem[] }[] | null>(null);
   const [view, setView] = useState<"chart" | "table">("chart");
   const [sortK, setSortK] = useState("cost");
   const [sortD, setSortD] = useState<"asc" | "desc">("desc");
+  // Drill-down stack. Empty = root. Each frame swaps the treemap to the related
+  // cards contributing to that frame's parent. Re-queried via parent_card_id.
+  const [drillStack, setDrillStack] = useState<DrillFrame[]>([]);
 
   // Timeline slider
   const tl = useTimeline();
@@ -161,15 +232,24 @@ export default function CostReport() {
       if (cfg.view) setView(cfg.view as "chart" | "table");
       if (cfg.sortK) setSortK(cfg.sortK as string);
       if (cfg.sortD) setSortD(cfg.sortD as "asc" | "desc");
+      const restored = Array.isArray(cfg.drillStack)
+        ? (cfg.drillStack as unknown[])
+            .map(normaliseDrillFrame)
+            .filter((f): f is DrillFrame => f !== null)
+        : [];
+      setDrillStack(restored);
     }
   }, [saved.loadedConfig]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const getConfig = () => ({ cardTypeKey, costField, costSources, groupBy, view, sortK, sortD, timelineDate: tl.persistValue });
+  const getConfig = () => ({
+    cardTypeKey, costField, costSources, groupBy, view, sortK, sortD,
+    drillStack, timelineDate: tl.persistValue,
+  });
 
   // Auto-persist config to localStorage
   useEffect(() => {
     saved.persistConfig(getConfig());
-  }, [cardTypeKey, costField, costSources, groupBy, view, sortK, sortD, tl.timelineDate]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [cardTypeKey, costField, costSources, groupBy, view, sortK, sortD, drillStack, tl.timelineDate]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Reset all parameters to defaults
   const handleReset = useCallback(() => {
@@ -181,6 +261,7 @@ export default function CostReport() {
     setView("chart");
     setSortK("cost");
     setSortD("desc");
+    setDrillStack([]);
     tl.reset();
     setSliderTouched(false);
   }, [saved]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -266,28 +347,62 @@ export default function CostReport() {
     [aggregateOptions, costSources],
   );
 
-  useEffect(() => {
-    const p = new URLSearchParams({ type: cardTypeKey });
-    if (activeAggregates.length > 0) {
-      for (const a of activeAggregates) p.append("aggregate", a.value);
-    } else {
-      p.set("cost_field", costField);
-    }
-    api.get<{ items: CostItem[]; total: number }>(`/reports/cost-treemap?${p}`).then((r) => {
-      setRawItems(r.items);
-      setSliderTouched(false);
-    });
-  }, [cardTypeKey, costField, activeAggregates]);
+  // At depth ≥ 1 we render one treemap per source, each showing the related
+  // cards linked to the parent of the deepest frame.
+  const drillFrame = drillStack.length > 0 ? drillStack[drillStack.length - 1] : null;
 
-  // Compute date range from lifecycle data
+  useEffect(() => {
+    if (drillFrame) {
+      // One round-trip per source so the panels render independently.
+      const sources = drillFrame.sources;
+      const parentId = drillFrame.cardId;
+      Promise.all(sources.map((s) => {
+        const p = new URLSearchParams({
+          type: s.typeKey,
+          cost_field: s.fieldKey,
+          parent_card_id: parentId,
+        });
+        return api.get<{ items: CostItem[]; total: number }>(`/reports/cost-treemap?${p}`);
+      })).then((rs) => {
+        setDrillPanels(rs.map((r, i) => ({ source: sources[i], items: r.items })));
+        setRawItems(null);
+        setSliderTouched(false);
+      });
+    } else {
+      const p = new URLSearchParams({ type: cardTypeKey });
+      if (activeAggregates.length > 0) {
+        for (const a of activeAggregates) p.append("aggregate", a.value);
+      } else {
+        p.set("cost_field", costField);
+      }
+      api.get<{ items: CostItem[]; total: number }>(`/reports/cost-treemap?${p}`).then((r) => {
+        setRawItems(r.items);
+        setDrillPanels(null);
+        setSliderTouched(false);
+      });
+    }
+  }, [cardTypeKey, costField, activeAggregates, drillFrame]);
+
+  // Unify root and drilled data into a list of panels: depth-0 has one
+  // anonymous panel; drilled levels have one labelled panel per source.
+  const panels = useMemo<{ source?: SourceRef; items: CostItem[] }[]>(() => {
+    if (drillPanels) return drillPanels;
+    if (rawItems) return [{ items: rawItems }];
+    return [];
+  }, [drillPanels, rawItems]);
+
+  const allRawItems = useMemo(() => panels.flatMap((p) => p.items), [panels]);
+
+  // Compute date range from lifecycle data (across every panel so the slider
+  // covers all visible cards).
   const { dateRange, yearMarks } = useMemo(() => {
     const now = tl.todayMs;
     const pad3y = 3 * 365.25 * 86400000;
-    if (!rawItems || rawItems.length === 0)
+    if (allRawItems.length === 0)
       return { dateRange: { min: now - pad3y, max: now + pad3y }, yearMarks: [] as { value: number; label: string }[] };
 
     let minD = Infinity, maxD = -Infinity;
-    for (const item of rawItems) {
+    for (const item of allRawItems) {
       for (const p of LIFECYCLE_PHASES) {
         const d = parseDate(item.lifecycle?.[p]);
         if (d != null) { minD = Math.min(minD, d); maxD = Math.max(maxD, d); }
@@ -305,25 +420,33 @@ export default function CostReport() {
       if (t >= minD && t <= maxD) marks.push({ value: t, label: String(y) });
     }
     return { dateRange: { min: minD, max: maxD }, yearMarks: marks };
-  }, [rawItems, tl.todayMs]);
+  }, [allRawItems, tl.todayMs]);
 
   const hasLifecycleData = useMemo(() => {
-    if (!rawItems) return false;
-    return rawItems.some((item) => item.lifecycle && LIFECYCLE_PHASES.some((p) => item.lifecycle?.[p]));
-  }, [rawItems]);
+    return allRawItems.some((item) => item.lifecycle && LIFECYCLE_PHASES.some((p) => item.lifecycle?.[p]));
+  }, [allRawItems]);
 
-  // Filter items by timeline date and compute groups
+  // Filter every panel by the timeline date once; downstream code reads
+  // ``panelsFiltered`` for per-panel rendering and ``items`` (concat) for KPIs.
+  const panelsFiltered = useMemo(() => {
+    return panels.map((p) => {
+      const filtered = p.items.filter((item) => isItemAliveAtDate(item.lifecycle, tl.timelineDate));
+      const total = filtered.reduce((sum, item) => sum + item.cost, 0);
+      return { source: p.source, items: filtered, total };
+    });
+  }, [panels, tl.timelineDate]);
+
   const { items, total } = useMemo(() => {
-    if (!rawItems) return { items: [] as CostItem[], total: 0 };
-    const filtered = rawItems.filter((item) => isItemAliveAtDate(item.lifecycle, tl.timelineDate));
-    const t = filtered.reduce((sum, item) => sum + item.cost, 0);
-    return { items: filtered, total: t };
-  }, [rawItems, tl.timelineDate]);
+    const flat = panelsFiltered.flatMap((p) => p.items);
+    return { items: flat, total: panelsFiltered.reduce((s, p) => s + p.total, 0) };
+  }, [panelsFiltered]);
 
   const groupedField = useMemo(() => groupableFields.find((f) => f.key === groupBy), [groupableFields, groupBy]);
 
   const groups = useMemo(() => {
-    if (!groupBy || !groupedField) return null;
+    // Group-by uses root-type field keys, so it's meaningless once drilled
+    // into a different card type — fall through to the flat list instead.
+    if (!groupBy || !groupedField || drillFrame) return null;
     const optionMap = new Map<string, string>();
     for (const o of groupedField.options ?? []) optionMap.set(o.key, o.label);
     const map = new Map<string, { label: string; items: CostItem[]; cost: number }>();
@@ -336,7 +459,7 @@ export default function CostReport() {
       map.set(label, g);
     }
     return [...map.values()].sort((a, b) => b.cost - a.cost);
-  }, [items, groupBy, groupedField, t]);
+  }, [items, groupBy, groupedField, t, drillFrame]);
 
   const printParams = useMemo(() => {
     const params: { label: string; value: string }[] = [];
@@ -358,21 +481,58 @@ export default function CostReport() {
     }
     if (tl.printParam) params.push(tl.printParam);
     if (view === "table") params.push({ label: t("common.view"), value: t("common.table") });
+    if (drillStack.length > 0) {
+      params.push({
+        label: t("cost.drillDown.path"),
+        value: drillStack.map((f) => f.cardName).join(" › "),
+      });
+    }
     return params;
-  }, [cardTypeKey, types, costField, costFields, activeAggregates, groupBy, groupableFields, tl.printParam, view]);
+  }, [cardTypeKey, types, costField, costFields, activeAggregates, groupBy, groupableFields, tl.printParam, view, drillStack, t, rml]);
 
-  if (ml || rawItems === null)
+  // Drill is offered at depth 0 whenever at least one aggregate source is
+  // active. With multiple sources, depth 1 renders one chart per source so
+  // each card type stays on its own scale. With no aggregate, clicking falls
+  // back to opening the card side panel — there's nothing to break down.
+  const canDrill = !drillFrame && activeAggregates.length > 0;
+
+  const drillSources = useMemo<SourceRef[]>(() =>
+    activeAggregates.map((a) => ({
+      typeKey: a.typeKey,
+      fieldKey: a.fieldKey,
+      label: a.label,
+    })),
+    [activeAggregates],
+  );
+
+  const handleRectClick = useCallback((id: string, name: string) => {
+    if (drillFrame || drillSources.length === 0) {
+      setSidePanelCardId(id);
+      return;
+    }
+    setDrillStack((s) => [...s, { cardId: id, cardName: name, sources: drillSources }]);
+  }, [drillFrame, drillSources]);
+
+  const rootTypeLabel = useMemo(() => {
+    const tp = types.find((tp) => tp.key === cardTypeKey);
+    return rml(tp?.key ?? "", tp?.translations, "label") || cardTypeKey;
+  }, [types, cardTypeKey, rml]);
+
+  if (ml || (rawItems === null && drillPanels === null))
     return <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}><CircularProgress /></Box>;
 
-  const topDriver = items.length > 0 ? items[0] : null;
+  const sortedAllItems = [...items].sort((a, b) => b.cost - a.cost);
+  const topDriver = sortedAllItems.length > 0 ? sortedAllItems[0] : null;
   const avgCost = items.length > 0 ? total / items.length : 0;
 
-  const treemapData = items.map((d, i) => ({
-    name: d.name,
-    size: d.cost,
-    cost: d.cost,
-    id: d.id,
-    index: i,
+  // Build per-panel treemap data (rectangles sized by cost, sorted desc so
+  // the top driver is visually leading).
+  const panelChartData = panelsFiltered.map((p) => ({
+    source: p.source,
+    total: p.total,
+    data: [...p.items]
+      .sort((a, b) => b.cost - a.cost)
+      .map((d, i) => ({ name: d.name, size: d.cost, cost: d.cost, id: d.id, index: i })),
   }));
 
   const sort = (k: string) => { setSortD(sortK === k && sortD === "asc" ? "desc" : "asc"); setSortK(k); };
@@ -382,14 +542,22 @@ export default function CostReport() {
     return a.name.localeCompare(b.name) * d;
   });
 
-  const Tip = ({ active, payload }: { active?: boolean; payload?: { payload: { name: string; cost: number; size: number } }[] }) => {
+  // Tooltip is parameterised by the panel's own total so per-panel %-of-total
+  // is meaningful in multi-source drill (where panels may have different
+  // scales, e.g. Provider costs vs IT Component costs). Recharts clones the
+  // element it receives via ``content``, injecting ``active`` and ``payload``.
+  const Tip = ({ active, payload, panelTotal }: {
+    active?: boolean;
+    payload?: { payload: { name: string; cost: number; size: number } }[];
+    panelTotal: number;
+  }) => {
     if (!active || !payload?.[0]) return null;
     const d = payload[0].payload;
     return (
       <Paper sx={{ p: 1.5 }} elevation={3}>
         <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>{d.name}</Typography>
         <Typography variant="caption" display="block">{fmt.format(d.cost)}</Typography>
-        <Typography variant="caption" color="text.secondary">{total > 0 ? t("cost.percentOfTotal", { pct: ((d.cost / total) * 100).toFixed(1) }) : ""}</Typography>
+        <Typography variant="caption" color="text.secondary">{panelTotal > 0 ? t("cost.percentOfTotal", { pct: ((d.cost / panelTotal) * 100).toFixed(1) }) : ""}</Typography>
       </Paper>
     );
   };
@@ -409,7 +577,7 @@ export default function CostReport() {
       printParams={printParams}
       toolbar={
         <>
-          <TextField select size="small" label={t("cost.cardType")} value={cardTypeKey} onChange={(e) => setCardTypeKey(e.target.value)} sx={{ minWidth: 150 }}>
+          <TextField select size="small" label={t("cost.cardType")} value={cardTypeKey} onChange={(e) => { setCardTypeKey(e.target.value); setDrillStack([]); }} sx={{ minWidth: 150 }}>
             {types.filter((tp) => !tp.is_hidden).map((tp) => <MenuItem key={tp.key} value={tp.key}>{rml(tp.key, tp.translations, "label")}</MenuItem>)}
           </TextField>
           {aggregateOptions.length > 0 && (
@@ -422,6 +590,7 @@ export default function CostReport() {
                 onChange={(e) => {
                   const v = e.target.value;
                   setCostSources(typeof v === "string" ? v.split(",").filter(Boolean) : (v as string[]));
+                  setDrillStack([]);
                 }}
                 InputLabelProps={{ shrink: true }}
                 SelectProps={{
@@ -463,12 +632,12 @@ export default function CostReport() {
             </Box>
           )}
           {activeAggregates.length === 0 && costFields.length > 1 && (
-            <TextField select size="small" label={t("cost.costField")} value={costField} onChange={(e) => setCostField(e.target.value)} sx={{ minWidth: 160 }}>
+            <TextField select size="small" label={t("cost.costField")} value={costField} onChange={(e) => { setCostField(e.target.value); setDrillStack([]); }} sx={{ minWidth: 160 }}>
               {costFields.map((f) => <MenuItem key={f.key} value={f.key}>{f.label}</MenuItem>)}
             </TextField>
           )}
 
-          {view === "table" && groupableFields.length > 0 && (
+          {view === "table" && !drillFrame && groupableFields.length > 0 && (
             <TextField select size="small" label={t("cost.groupBy")} value={groupBy} onChange={(e) => setGroupBy(e.target.value)} sx={{ minWidth: 150 }}>
               <MenuItem value="">{t("cost.none")}</MenuItem>
               {groupableFields.map((f) => <MenuItem key={f.key} value={f.key}>{f.label}</MenuItem>)}
@@ -503,25 +672,117 @@ export default function CostReport() {
         )}
       </Box>
 
+      {/* Drill-down breadcrumb. Visible when at least one frame is on the
+          stack; clicking a segment pops to that level, clicking the root
+          clears the stack. Click affordance hint shown when drillable but
+          not yet drilled. */}
+      {drillStack.length > 0 && (
+        <Breadcrumbs sx={{ mb: 1.5 }} aria-label={t("cost.drillDown.path")}>
+          <Link
+            component="button"
+            type="button"
+            underline="hover"
+            color="inherit"
+            onClick={() => setDrillStack([])}
+            sx={{ display: "inline-flex", alignItems: "center", gap: 0.5, fontSize: "0.875rem" }}
+          >
+            <MaterialSymbol icon="home" size={16} />
+            {t("cost.drillDown.allItems", { type: rootTypeLabel })}
+          </Link>
+          {drillStack.map((f, i) => {
+            const isLast = i === drillStack.length - 1;
+            return isLast ? (
+              <Typography key={f.cardId} color="text.primary" sx={{ fontSize: "0.875rem", fontWeight: 600 }}>
+                {f.cardName}
+              </Typography>
+            ) : (
+              <Link
+                key={f.cardId}
+                component="button"
+                type="button"
+                underline="hover"
+                color="inherit"
+                onClick={() => setDrillStack((s) => s.slice(0, i + 1))}
+                sx={{ fontSize: "0.875rem" }}
+              >
+                {f.cardName}
+              </Link>
+            );
+          })}
+        </Breadcrumbs>
+      )}
+
       {view === "chart" ? (
         items.length === 0 ? (
           <Box sx={{ py: 8, textAlign: "center" }}>
             <Typography color="text.secondary">{t("cost.noData")}</Typography>
           </Box>
         ) : (
-          <Paper variant="outlined" sx={{ p: 1 }}>
-            <ResponsiveContainer width="100%" height={450}>
-              <Treemap
-                data={treemapData}
-                dataKey="size"
-                stroke="#fff"
-                isAnimationActive={!sliderTouched}
-                content={<TreemapContent x={0} y={0} width={0} height={0} name="" cost={0} index={0} costFmt={fmt} />}
-              >
-                <RTooltip content={<Tip />} />
-              </Treemap>
-            </ResponsiveContainer>
-          </Paper>
+          <Box
+            sx={{
+              display: "grid",
+              gap: 2,
+              // Drilled multi-source levels lay out as 2 columns on md+, 1 on
+              // narrow viewports. Single-panel always uses 1 column.
+              gridTemplateColumns: panelChartData.length > 1
+                ? { xs: "1fr", md: "repeat(2, minmax(0, 1fr))" }
+                : "1fr",
+            }}
+          >
+            {panelChartData.map((panel, idx) => {
+              const panelHeight = panelChartData.length > 1 ? 360 : 450;
+              const panelTotal = panel.total;
+              return (
+                <Paper key={panel.source ? panel.source.label : `root-${idx}`} variant="outlined" sx={{ p: 1 }}>
+                  {panel.source ? (
+                    <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", px: 1, pb: 0.5 }}>
+                      <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                        {panel.source.label}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {fmt.format(panelTotal)}
+                      </Typography>
+                    </Box>
+                  ) : (
+                    canDrill && drillStack.length === 0 && (
+                      <Typography
+                        variant="caption"
+                        color="text.secondary"
+                        sx={{ display: "block", px: 1, pt: 0.5 }}
+                      >
+                        {t("cost.drillDown.hint")}
+                      </Typography>
+                    )
+                  )}
+                  {panel.data.length === 0 ? (
+                    <Box sx={{ py: 6, textAlign: "center" }}>
+                      <Typography color="text.secondary" variant="body2">{t("cost.noData")}</Typography>
+                    </Box>
+                  ) : (
+                    <ResponsiveContainer width="100%" height={panelHeight}>
+                      <Treemap
+                        data={panel.data}
+                        dataKey="size"
+                        stroke="#fff"
+                        isAnimationActive={!sliderTouched}
+                        animationDuration={300}
+                        content={
+                          <TreemapContent
+                            x={0} y={0} width={0} height={0} name="" cost={0} index={0}
+                            costFmt={fmt}
+                            onCellClick={handleRectClick}
+                            clickable={canDrill}
+                          />
+                        }
+                      >
+                        <RTooltip content={<Tip panelTotal={panelTotal} />} />
+                      </Treemap>
+                    </ResponsiveContainer>
+                  )}
+                </Paper>
+              );
+            })}
+          </Box>
         )
       ) : (
         <Paper variant="outlined" sx={{ overflow: "auto" }}>
