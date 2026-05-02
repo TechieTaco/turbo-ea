@@ -14,6 +14,7 @@ from app.models.card import Card
 from app.models.card_type import CardType
 from app.models.user import User
 from app.schemas.common import BookmarkCreate, BookmarkUpdate
+from app.services.cost_field_filter import cost_field_keys_from_card_schema
 from app.services.permission_service import PermissionService
 
 router = APIRouter(prefix="/bookmarks", tags=["bookmarks"])
@@ -450,11 +451,34 @@ async def bookmark_odata_feed(
 
     q = q.offset((page - 1) * page_size).limit(page_size)
     result = await db.execute(q)
-    cards = result.scalars().all()
+    cards = list(result.scalars().all())
+
+    # Resolve cost field keys per type so we can redact when the user lacks
+    # cost access. OData feeds aggregate across many cards, so we apply the
+    # bulk stakeholder check to honour the same rule as the cards API.
+    type_keys_in_page = {c.type for c in cards if c.type}
+    cost_keys_per_type: dict[str, frozenset[str]] = {}
+    if type_keys_in_page:
+        ct_rows = await db.execute(
+            select(CardType.key, CardType.fields_schema).where(CardType.key.in_(type_keys_in_page))
+        )
+        for tk, schema in ct_rows.all():
+            ck = cost_field_keys_from_card_schema(schema)
+            if ck:
+                cost_keys_per_type[tk] = ck
+    if cost_keys_per_type:
+        candidate_ids = [c.id for c in cards if c.type in cost_keys_per_type]
+        allowed = await PermissionService.card_ids_with_cost_access(db, user, candidate_ids)
+    else:
+        allowed = set()
 
     # Build OData-style response
     values = []
     for card in cards:
+        attrs = card.attributes
+        cost_keys = cost_keys_per_type.get(card.type)
+        if attrs and cost_keys and card.id not in allowed:
+            attrs = {k: v for k, v in attrs.items() if k not in cost_keys}
         entry: dict = {
             "id": str(card.id),
             "type": card.type,
@@ -465,7 +489,7 @@ async def bookmark_odata_feed(
             "approval_status": card.approval_status,
             "data_quality": card.data_quality,
             "lifecycle": card.lifecycle,
-            "attributes": card.attributes,
+            "attributes": attrs,
             "external_id": card.external_id,
             "alias": card.alias,
             "created_at": card.created_at.isoformat() if card.created_at else None,

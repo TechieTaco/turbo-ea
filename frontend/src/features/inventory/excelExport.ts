@@ -15,12 +15,19 @@ export function exportToExcel(
   cards: Card[],
   typeConfig: CardType | undefined,
   _allTypes: CardType[],
+  options: { canViewCosts?: boolean } = {},
 ) {
+  const { canViewCosts = true } = options;
   const rows: Record<string, unknown>[] = [];
 
-  // Build the list of attribute field keys (only when a single type is active)
+  // Build the list of attribute field keys (only when a single type is active).
+  // Drop cost-typed fields when the user lacks the global costs.view perm so
+  // the exported sheet doesn't expose empty cost columns. The backend already
+  // strips cost values per-row, but the column header would otherwise leak.
   const attrFields = typeConfig
-    ? typeConfig.fields_schema.flatMap((s) => s.fields)
+    ? typeConfig.fields_schema.flatMap((s) => s.fields).filter(
+        (f) => canViewCosts || f.type !== "cost",
+      )
     : [];
 
   for (const card of cards) {

@@ -318,5 +318,7 @@
   "common.dateRange": "Datumsbereich",
   "common.center": "Zentrieren",
   "common.group": "Gruppe",
-  "dependency.expandMode": "Erweiterungsmodus: Klicken Sie auf eine Karte, um alle ihre Beziehungen anzuzeigen"
+  "dependency.expandMode": "Erweiterungsmodus: Klicken Sie auf eine Karte, um alle ihre Beziehungen anzuzeigen",
+  "cost.permissionDeniedTitle": "Kostendaten eingeschränkt",
+  "cost.permissionDeniedBody": "Sie sind nicht berechtigt, Kostenberichte einzusehen. Bitten Sie einen Administrator, Ihnen die Berechtigung «costs.view» zu erteilen, oder werden Sie Stakeholder der betreffenden Karten."
 }

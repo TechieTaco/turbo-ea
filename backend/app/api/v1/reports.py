@@ -26,6 +26,7 @@ from app.models.tag import CardTag, Tag, TagGroup
 from app.models.todo import Todo
 from app.models.user import User
 from app.models.user_favorite import UserFavorite
+from app.services.cost_field_filter import cost_field_keys_from_card_schema
 from app.services.kpi_snapshot_service import (
     compute_trend_block,
     get_comparison_snapshot,
@@ -604,9 +605,24 @@ async def landscape(
 ):
     """Landscape report: cards grouped by a related type."""
     await PermissionService.require_permission(db, user, "reports.ea_dashboard")
+    can_view_costs_global = await PermissionService.has_app_permission(db, user, "costs.view")
     # Get all cards of the target type
     result = await db.execute(select(Card).where(Card.type == type, Card.status == "ACTIVE"))
     sheets = result.scalars().all()
+    # Resolve cost field keys for the target type once
+    target_type_result = await db.execute(
+        select(CardType.fields_schema).where(CardType.key == type)
+    )
+    target_cost_keys = (
+        cost_field_keys_from_card_schema(target_type_result.scalar_one_or_none())
+        if not can_view_costs_global
+        else frozenset()
+    )
+
+    def _strip_attrs(attrs: dict | None) -> dict | None:
+        if not attrs or not target_cost_keys:
+            return attrs
+        return {k: v for k, v in attrs.items() if k not in target_cost_keys}
 
     # Get group cards (must come before relations query so IDs are available)
     group_result = await db.execute(
@@ -640,7 +656,7 @@ async def landscape(
                     "id": str(card.id),
                     "name": card.name,
                     "type": card.type,
-                    "attributes": card.attributes,
+                    "attributes": _strip_attrs(card.attributes),
                     "lifecycle": card.lifecycle,
                 }
             )
@@ -651,7 +667,7 @@ async def landscape(
                     "id": str(card.id),
                     "name": card.name,
                     "type": card.type,
-                    "attributes": card.attributes,
+                    "attributes": _strip_attrs(card.attributes),
                     "lifecycle": card.lifecycle,
                 }
             )
@@ -662,7 +678,12 @@ async def landscape(
         for item in g["items"]:
             grouped_ids.add(item["id"])
     ungrouped = [
-        {"id": str(card.id), "name": card.name, "type": card.type, "attributes": card.attributes}
+        {
+            "id": str(card.id),
+            "name": card.name,
+            "type": card.type,
+            "attributes": _strip_attrs(card.attributes),
+        }
         for card in sheets
         if str(card.id) not in grouped_ids
     ]
@@ -715,6 +736,13 @@ async def portfolio(
             raise HTTPException(400, f"Invalid {param_name}: {param_val!r}")
         if allowed_keys and param_val not in allowed_keys:
             raise HTTPException(400, f"Unknown field '{param_val}' for type '{type}'")
+
+    # If any of the chosen axes is a cost field, the caller must hold costs.view —
+    # the portfolio aggregates landscape-wide so per-card stakeholder access is
+    # not meaningful here.
+    cost_keys = cost_field_keys_from_card_schema(type_def.fields_schema if type_def else None)
+    if cost_keys & {x_axis, y_axis, size_field, color_field}:
+        await PermissionService.require_permission(db, user, "costs.view")
 
     result = await db.execute(select(Card).where(Card.type == type, Card.status == "ACTIVE"))
     sheets = result.scalars().all()
@@ -1029,6 +1057,7 @@ async def cost_report(
 ):
     """Cost aggregation report."""
     await PermissionService.require_permission(db, user, "reports.ea_dashboard")
+    await PermissionService.require_permission(db, user, "costs.view")
 
     # Detect cost fields from type schema
     type_result = await db.execute(select(CardType).where(CardType.key == type))
@@ -1083,6 +1112,7 @@ async def cost_treemap(
     the related type as ``type`` and the parent's id as ``parent_card_id``.
     """
     await PermissionService.require_permission(db, user, "reports.ea_dashboard")
+    await PermissionService.require_permission(db, user, "costs.view")
     # M-3: Validate cost_field format
     if not _SAFE_KEY_RE.match(cost_field):
         raise HTTPException(400, f"Invalid cost_field: {cost_field!r}")
@@ -1278,6 +1308,9 @@ async def capability_heatmap(
     # M-3: Whitelist valid metric values
     if metric not in {"app_count", "total_cost", "risk_count"}:
         raise HTTPException(400, f"Invalid metric: {metric!r}")
+    if metric == "total_cost":
+        await PermissionService.require_permission(db, user, "costs.view")
+    can_view_costs_global = await PermissionService.has_app_permission(db, user, "costs.view")
     # Get all business capabilities
     caps_result = await db.execute(
         select(Card)
@@ -1384,11 +1417,14 @@ async def capability_heatmap(
     def _app_to_dict(a):
         aid = str(a.id)
         by_type = app_related.get(aid, {})
+        attrs = a.attributes
+        if attrs and not can_view_costs_global and cost_field_keys:
+            attrs = {k: v for k, v in attrs.items() if k not in cost_field_keys}
         return {
             "id": aid,
             "name": a.name,
             "subtype": a.subtype,
-            "attributes": a.attributes,
+            "attributes": attrs,
             "lifecycle": a.lifecycle,
             "org_ids": sorted(by_type.get("Organization", [])),
             "related_by_type": {k: sorted(v) for k, v in by_type.items()},
@@ -1418,11 +1454,12 @@ async def capability_heatmap(
         app_count = len(linked_apps)
 
         total_cost = 0.0
-        for a in linked_apps:
-            attrs = a.attributes or {}
-            for ck in cost_field_keys:
-                v = attrs.get(ck, 0) or 0
-                total_cost += v
+        if can_view_costs_global:
+            for a in linked_apps:
+                attrs = a.attributes or {}
+                for ck in cost_field_keys:
+                    v = attrs.get(ck, 0) or 0
+                    total_cost += v
 
         risk_count = sum(1 for a in linked_apps if (a.lifecycle or {}).get("endOfLife"))
 

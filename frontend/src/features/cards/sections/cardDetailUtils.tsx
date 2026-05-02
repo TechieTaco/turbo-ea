@@ -123,9 +123,34 @@ export function chipWidthForField(options: FieldDef["options"]): number {
 }
 
 // ── Read-only field value renderer ──────────────────────────────
-export function FieldValue({ field, value, currencyFmt }: { field: FieldDef; value: unknown; currencyFmt?: Intl.NumberFormat }) {
+export function FieldValue({
+  field,
+  value,
+  currencyFmt,
+  canViewCosts = true,
+}: {
+  field: FieldDef;
+  value: unknown;
+  currencyFmt?: Intl.NumberFormat;
+  canViewCosts?: boolean;
+}) {
   const { t } = useTranslation(["cards", "common"]);
   const rl = useResolveLabel();
+
+  // Cost fields the user is not allowed to see render as a redacted placeholder
+  // regardless of whether the backend stripped the value (defence in depth + UX).
+  if (field.type === "cost" && !canViewCosts) {
+    return (
+      <Tooltip title={t("cards:utils.costRestricted")}>
+        <Box sx={{ display: "inline-flex", alignItems: "center", gap: 0.5 }}>
+          <MaterialSymbol icon="lock" size={14} color="#9e9e9e" />
+          <Typography variant="body2" color="text.secondary">
+            —
+          </Typography>
+        </Box>
+      </Tooltip>
+    );
+  }
 
   if (value == null || value === "") {
     return <Typography variant="body2" color="text.secondary">—</Typography>;
@@ -211,12 +236,14 @@ export function FieldEditor({
   onChange,
   currencySymbol,
   error,
+  canViewCosts = true,
 }: {
   field: FieldDef;
   value: unknown;
   onChange: (v: unknown) => void;
   currencySymbol?: string;
   error?: string;
+  canViewCosts?: boolean;
 }) {
   const { t } = useTranslation(["cards", "common"]);
   const rl = useResolveLabel();
@@ -295,6 +322,26 @@ export function FieldEditor({
       );
     }
     case "cost":
+      if (!canViewCosts) {
+        return (
+          <TextField
+            size="small"
+            label={rl(field.key, field.translations)}
+            value={t("cards:utils.costRestricted")}
+            disabled
+            slotProps={{
+              input: {
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <MaterialSymbol icon="lock" size={14} />
+                  </InputAdornment>
+                ),
+              },
+            }}
+            sx={{ minWidth: 200 }}
+          />
+        );
+      }
       return (
         <TextField
           size="small"

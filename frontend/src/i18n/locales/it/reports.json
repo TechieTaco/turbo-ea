@@ -318,5 +318,7 @@
   "common.dateRange": "Intervallo date",
   "common.center": "Centro",
   "common.group": "Gruppo",
-  "dependency.expandMode": "Modalità espansione: clicca su una scheda per mostrare tutte le sue relazioni"
+  "dependency.expandMode": "Modalità espansione: clicca su una scheda per mostrare tutte le sue relazioni",
+  "cost.permissionDeniedTitle": "Dati sui costi limitati",
+  "cost.permissionDeniedBody": "Non hai i permessi per visualizzare i report sui costi. Chiedi a un amministratore di concederti il permesso «costs.view», oppure diventa stakeholder delle schede in questione."
 }

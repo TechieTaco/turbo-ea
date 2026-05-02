@@ -62,7 +62,7 @@ const NAV_ITEM_DEFS: NavItemDef[] = [
       { labelKey: "reports.capabilityMap", icon: "grid_view", path: "/reports/capability-map" },
       { labelKey: "reports.lifecycle", icon: "timeline", path: "/reports/lifecycle" },
       { labelKey: "reports.dependencies", icon: "hub", path: "/reports/dependencies" },
-      { labelKey: "reports.cost", icon: "payments", path: "/reports/cost" },
+      { labelKey: "reports.cost", icon: "payments", path: "/reports/cost", permission: "costs.view" },
       { labelKey: "reports.matrix", icon: "table_chart", path: "/reports/matrix" },
       { labelKey: "reports.dataQuality", icon: "verified", path: "/reports/data-quality" },
       { labelKey: "reports.endOfLife", icon: "update", path: "/reports/eol" },
@@ -143,19 +143,21 @@ export default function AppLayout({ children, user, onLogout }: Props) {
       );
     }
 
+    const hasPerm = (perm?: string | string[]) => {
+      if (!perm) return true;
+      if (Array.isArray(perm)) return perm.some((p) => can(p));
+      return can(perm);
+    };
+
     const resolve = (def: NavItemDef): NavItem => ({
       ...def,
       label: t(def.labelKey),
-      children: def.children?.map((c) => ({ ...c, label: t(c.labelKey) })),
+      children: def.children
+        ?.filter((c) => hasPerm(c.permission))
+        .map((c) => ({ ...c, label: t(c.labelKey) })),
     });
 
-    return items
-      .filter((item) => {
-        if (!item.permission) return true;
-        if (Array.isArray(item.permission)) return item.permission.some((p) => can(p));
-        return can(item.permission);
-      })
-      .map(resolve);
+    return items.filter((item) => hasPerm(item.permission)).map(resolve);
   }, [bpmEnabled, ppmEnabled, turboLensReady, can, t]);
 
   // Resolve admin item labels via i18n and filter based on permissions

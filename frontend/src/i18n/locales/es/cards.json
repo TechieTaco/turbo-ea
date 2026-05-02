@@ -18,6 +18,7 @@
   "utils.dataQuality": "{{value}}% completo",
   "utils.unknownOption": "Clave de opción desconocida: {{key}}",
   "utils.urlError": "Debe usar el esquema http://, https:// o mailto:",
+  "utils.costRestricted": "Restringido — no tiene permiso para ver los costos de esta tarjeta",
   "description.title": "Descripción",
   "description.noDescription": "No se proporcionó descripción.",
   "lifecycle.title": "Ciclo de vida",

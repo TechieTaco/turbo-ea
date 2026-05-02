@@ -290,6 +290,7 @@ export default function CardDetailContent({
             calculatedFieldKeys={calcFieldKeys}
             initialExpanded={exp}
             hiddenFieldKeys={hiddenFieldKeys}
+            canViewCosts={perms.can_view_costs}
           />
         </ErrorBoundary>
       );

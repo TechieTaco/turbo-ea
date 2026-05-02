@@ -20,6 +20,7 @@
   "utils.dataQuality": "{{value}}% complete",
   "utils.unknownOption": "Unknown option key: {{key}}",
   "utils.urlError": "Must use http://, https://, or mailto: scheme",
+  "utils.costRestricted": "Restricted — you don't have permission to view costs on this card",
   "description.title": "Description",
   "description.noDescription": "No description provided.",
   "lifecycle.title": "Lifecycle",

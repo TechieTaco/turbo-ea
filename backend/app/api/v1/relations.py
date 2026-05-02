@@ -16,6 +16,7 @@ from app.models.relation_type import RelationType
 from app.models.user import User
 from app.schemas.relation import CardRef, RelationCreate, RelationResponse, RelationUpdate
 from app.services.calculation_engine import run_calculations_for_card
+from app.services.cost_field_filter import cost_field_keys_from_relation_schema
 from app.services.event_bus import event_bus
 from app.services.permission_service import PermissionService
 
@@ -109,13 +110,18 @@ async def _emit_relation_events(
     )
 
 
-def _rel_to_response(r: Relation) -> RelationResponse:
+def _rel_to_response(
+    r: Relation, *, strip_cost_keys: frozenset[str] = frozenset()
+) -> RelationResponse:
     source_ref = (
         CardRef(id=str(r.source.id), type=r.source.type, name=r.source.name) if r.source else None
     )
     target_ref = (
         CardRef(id=str(r.target.id), type=r.target.type, name=r.target.name) if r.target else None
     )
+    attrs = r.attributes
+    if strip_cost_keys and attrs:
+        attrs = {k: v for k, v in attrs.items() if k not in strip_cost_keys}
     return RelationResponse(
         id=str(r.id),
         type=r.type,
@@ -123,10 +129,46 @@ def _rel_to_response(r: Relation) -> RelationResponse:
         target_id=str(r.target_id),
         source=source_ref,
         target=target_ref,
-        attributes=r.attributes,
+        attributes=attrs,
         description=r.description,
         created_at=r.created_at,
     )
+
+
+async def _relation_cost_redaction(
+    db: AsyncSession, user: User, rels: list[Relation]
+) -> dict[uuid.UUID, frozenset[str]]:
+    """Map relation_id → cost field keys to strip, based on the user's access
+    to the source card (we treat the source card as the authoritative owner
+    for cost visibility — most cost-bearing relation attributes describe the
+    source card's costs, e.g. relAppToITC.costTotalAnnual)."""
+    if not rels:
+        return {}
+    type_keys = {r.type for r in rels if r.type}
+    if not type_keys:
+        return {}
+    rt_rows = await db.execute(
+        select(RelationType.key, RelationType.attributes_schema).where(
+            RelationType.key.in_(type_keys)
+        )
+    )
+    cost_keys_per_rt: dict[str, frozenset[str]] = {}
+    for k, schema in rt_rows.all():
+        keys = cost_field_keys_from_relation_schema(schema)
+        if keys:
+            cost_keys_per_rt[k] = keys
+    if not cost_keys_per_rt:
+        return {}
+    candidate_source_ids = [r.source_id for r in rels if r.type in cost_keys_per_rt]
+    if not candidate_source_ids:
+        return {}
+    allowed = await PermissionService.card_ids_with_cost_access(db, user, candidate_source_ids)
+    redact: dict[uuid.UUID, frozenset[str]] = {}
+    for r in rels:
+        cost_keys = cost_keys_per_rt.get(r.type)
+        if cost_keys and r.source_id not in allowed:
+            redact[r.id] = cost_keys
+    return redact
 
 
 @router.get("", response_model=list[RelationResponse])
@@ -151,7 +193,9 @@ async def list_relations(
 
     q = q.options(selectinload(Relation.source), selectinload(Relation.target))
     result = await db.execute(q)
-    return [_rel_to_response(r) for r in result.scalars().all()]
+    rels = list(result.scalars().all())
+    redact = await _relation_cost_redaction(db, user, rels)
+    return [_rel_to_response(r, strip_cost_keys=redact.get(r.id, frozenset())) for r in rels]
 
 
 @router.post("", response_model=RelationResponse, status_code=201)
@@ -195,7 +239,8 @@ async def create_relation(
         .options(selectinload(Relation.source), selectinload(Relation.target))
     )
     rel = result.scalar_one()
-    return _rel_to_response(rel)
+    redact = await _relation_cost_redaction(db, user, [rel])
+    return _rel_to_response(rel, strip_cost_keys=redact.get(rel.id, frozenset()))
 
 
 @router.patch("/{rel_id}", response_model=RelationResponse)
@@ -211,6 +256,18 @@ async def update_relation(
     if not rel:
         raise HTTPException(404, "Relation not found")
     update_data = body.model_dump(exclude_unset=True)
+    # If the user lacks cost access on the source card, drop cost keys from any
+    # incoming relation attributes so they cannot blank values they don't see.
+    if "attributes" in update_data and update_data["attributes"]:
+        if not await PermissionService.can_view_costs(db, user, rel.source_id):
+            rt_row = await db.execute(
+                select(RelationType.attributes_schema).where(RelationType.key == rel.type)
+            )
+            cost_keys = cost_field_keys_from_relation_schema(rt_row.scalar_one_or_none())
+            if cost_keys:
+                update_data["attributes"] = {
+                    k: v for k, v in update_data["attributes"].items() if k not in cost_keys
+                }
     changed_fields = sorted(update_data.keys())
     for field, value in update_data.items():
         setattr(rel, field, value)
@@ -241,7 +298,8 @@ async def update_relation(
         .options(selectinload(Relation.source), selectinload(Relation.target))
     )
     rel = result.scalar_one()
-    return _rel_to_response(rel)
+    redact = await _relation_cost_redaction(db, user, [rel])
+    return _rel_to_response(rel, strip_cost_keys=redact.get(rel.id, frozenset()))
 
 
 @router.delete("/{rel_id}", status_code=204)

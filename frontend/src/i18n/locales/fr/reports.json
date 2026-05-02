@@ -318,5 +318,7 @@
   "common.dateRange": "Plage de dates",
   "common.center": "Centrer",
   "common.group": "Groupe",
-  "dependency.expandMode": "Mode expansion : cliquez sur une carte pour afficher toutes ses relations"
+  "dependency.expandMode": "Mode expansion : cliquez sur une carte pour afficher toutes ses relations",
+  "cost.permissionDeniedTitle": "Données de coût restreintes",
+  "cost.permissionDeniedBody": "Vous n'avez pas l'autorisation de consulter les rapports de coûts. Demandez à un administrateur de vous accorder l'autorisation «costs.view», ou devenez partie prenante des cartes concernées."
 }

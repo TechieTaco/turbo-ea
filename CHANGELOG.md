@@ -5,6 +5,17 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.63.0] - 2026-05-02
+
+### Added
+- **`costs.view` permission to gate cost field visibility on cards and reports.** Cost-typed fields (e.g. `costTotalAnnual` on Applications, IT Components and the `relAppToITC` relation; `costBudget`/`costActual` on Initiatives) are now hidden from users who lack the new `costs.view` app-level permission. Stakeholders of a card always see costs on that card regardless — assignment to any stakeholder role is the per-card escape hatch. Granted by default to `admin`, `bpm_admin`, and `member` roles; explicitly **off** for `viewer` so read-only users no longer see landscape-wide cost data. Backend redaction is the source of truth: the `/cards` GET/list/CSV-export endpoints, `/cards` PATCH (cost keys are dropped silently if the user can't see them), `/relations` reads, the OData feed (`/bookmarks/{id}/odata`), and unauthenticated public portals (`/web-portals/public/{slug}` — always strips costs) all enforce the rule. Cost reports (`/reports/cost`, `/reports/cost-treemap`) and the `size_field` axis on `/reports/portfolio` require `costs.view` directly. PPM is **unchanged**: anyone with `ppm.view` keeps full access to `PpmCostLine` / `PpmBudgetLine` and the PPM dashboard. Card Detail renders a "Restricted" placeholder with a lock icon for cost fields a user cannot see. Inventory grid hides cost columns and Excel export omits them when the global permission is missing. Translated into all 8 supported UI locales (`en`, `de`, `fr`, `es`, `it`, `pt`, `zh`, `ru`).
+
+### Changed
+- **Cost Analysis Report — removed time-travel slider.** The lifecycle-based timeline slider has been removed from the Cost Report. Cost values reflect a card's current state and are updated on a different cadence than its lifecycle phases, so projecting them backwards via lifecycle dates was misleading. The report now always shows current costs; lifecycle-based "time travel" remains available on the Lifecycle and Roadmap reports where it is meaningful.
+
+### Migrations
+- `069_grant_costs_view_default_roles.py` — sets `costs.view: true` on the seeded `bpm_admin` and `member` roles and `costs.view: false` on `viewer`. Custom roles are not modified — administrators must grant the new permission explicitly. Admin (wildcard) is unaffected.
+
 ## [0.62.1] - 2026-05-02
 
 ### Fixed

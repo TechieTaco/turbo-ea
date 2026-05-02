@@ -18,6 +18,7 @@
   "utils.dataQuality": "{{value}}% vollständig",
   "utils.unknownOption": "Unbekannter Optionsschlüssel: {{key}}",
   "utils.urlError": "Muss http://, https:// oder mailto: verwenden",
+  "utils.costRestricted": "Eingeschränkt — Sie sind nicht berechtigt, Kosten dieser Karte einzusehen",
   "description.title": "Beschreibung",
   "description.noDescription": "Keine Beschreibung vorhanden.",
   "lifecycle.title": "Lebenszyklus",

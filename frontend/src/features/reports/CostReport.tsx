@@ -21,12 +21,11 @@ import { Treemap, ResponsiveContainer, Tooltip as RTooltip } from "recharts";
 import ReportShell from "./ReportShell";
 import SaveReportDialog from "./SaveReportDialog";
 import MetricCard from "./MetricCard";
-import TimelineSlider from "@/components/TimelineSlider";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useSavedReport } from "@/hooks/useSavedReport";
 import { useThumbnailCapture } from "@/hooks/useThumbnailCapture";
 import { useCurrency } from "@/hooks/useCurrency";
-import { useTimeline } from "@/hooks/useTimeline";
+import { useAuth } from "@/hooks/useAuth";
 import { useResolveLabel, useResolveMetaLabel } from "@/hooks/useResolveLabel";
 import CardDetailSidePanel from "@/components/CardDetailSidePanel";
 import MaterialSymbol from "@/components/MaterialSymbol";
@@ -37,7 +36,6 @@ interface CostItem {
   id: string;
   name: string;
   cost: number;
-  lifecycle?: Record<string, string>;
   attributes?: Record<string, unknown>;
 }
 
@@ -113,28 +111,6 @@ function pickCostFields(schema: { fields: FieldDef[] }[]): FieldDef[] {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Lifecycle helpers                                                   */
-/* ------------------------------------------------------------------ */
-
-const LIFECYCLE_PHASES = ["plan", "phaseIn", "active", "phaseOut", "endOfLife"];
-
-function parseDate(s: string | undefined): number | null {
-  if (!s) return null;
-  const d = new Date(s);
-  return isNaN(d.getTime()) ? null : d.getTime();
-}
-
-function isItemAliveAtDate(lc: Record<string, string> | undefined, dateMs: number): boolean {
-  if (!lc) return true;
-  const dates = LIFECYCLE_PHASES.map((p) => parseDate(lc[p])).filter((d): d is number => d != null);
-  if (dates.length === 0) return true;
-  if (Math.min(...dates) > dateMs) return false;
-  const eol = parseDate(lc.endOfLife);
-  if (eol != null && eol <= dateMs) return false;
-  return true;
-}
-
-/* ------------------------------------------------------------------ */
 /*  Treemap helpers                                                     */
 /* ------------------------------------------------------------------ */
 
@@ -187,6 +163,10 @@ export default function CostReport() {
   const rl = useResolveLabel();
   const rml = useResolveMetaLabel();
   const { fmt } = useCurrency();
+  const { user } = useAuth();
+  const canViewCostsGlobally = !!(
+    user?.permissions?.["*"] || user?.permissions?.["costs.view"]
+  );
   const saved = useSavedReport("cost");
   const { chartRef, thumbnail, captureAndSave } = useThumbnailCapture(() => saved.setSaveDialogOpen(true));
   const [cardTypeKey, setCardTypeKey] = useState("Application");
@@ -211,14 +191,9 @@ export default function CostReport() {
   // cards contributing to that frame's parent. Re-queried via parent_card_id.
   const [drillStack, setDrillStack] = useState<DrillFrame[]>([]);
 
-  // Timeline slider
-  const tl = useTimeline();
-  const [sliderTouched, setSliderTouched] = useState(false);
-
   // Load saved report config
   useEffect(() => {
     const cfg = saved.consumeConfig();
-    tl.restore(cfg?.timelineDate as number | undefined);
     if (cfg) {
       if (cfg.cardTypeKey) setCardTypeKey(cfg.cardTypeKey as string);
       if (cfg.costField) setCostField(cfg.costField as string);
@@ -243,13 +218,13 @@ export default function CostReport() {
 
   const getConfig = () => ({
     cardTypeKey, costField, costSources, groupBy, view, sortK, sortD,
-    drillStack, timelineDate: tl.persistValue,
+    drillStack,
   });
 
   // Auto-persist config to localStorage
   useEffect(() => {
     saved.persistConfig(getConfig());
-  }, [cardTypeKey, costField, costSources, groupBy, view, sortK, sortD, drillStack, tl.timelineDate]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [cardTypeKey, costField, costSources, groupBy, view, sortK, sortD, drillStack]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Reset all parameters to defaults
   const handleReset = useCallback(() => {
@@ -262,8 +237,6 @@ export default function CostReport() {
     setSortK("cost");
     setSortD("desc");
     setDrillStack([]);
-    tl.reset();
-    setSliderTouched(false);
   }, [saved]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const typeDef = useMemo(() => types.find((t) => t.key === cardTypeKey), [types, cardTypeKey]);
@@ -352,6 +325,11 @@ export default function CostReport() {
   const drillFrame = drillStack.length > 0 ? drillStack[drillStack.length - 1] : null;
 
   useEffect(() => {
+    if (!canViewCostsGlobally) {
+      setRawItems([]);
+      setDrillPanels(null);
+      return;
+    }
     if (drillFrame) {
       // One round-trip per source so the panels render independently.
       const sources = drillFrame.sources;
@@ -366,7 +344,6 @@ export default function CostReport() {
       })).then((rs) => {
         setDrillPanels(rs.map((r, i) => ({ source: sources[i], items: r.items })));
         setRawItems(null);
-        setSliderTouched(false);
       });
     } else {
       const p = new URLSearchParams({ type: cardTypeKey });
@@ -378,10 +355,9 @@ export default function CostReport() {
       api.get<{ items: CostItem[]; total: number }>(`/reports/cost-treemap?${p}`).then((r) => {
         setRawItems(r.items);
         setDrillPanels(null);
-        setSliderTouched(false);
       });
     }
-  }, [cardTypeKey, costField, activeAggregates, drillFrame]);
+  }, [cardTypeKey, costField, activeAggregates, drillFrame, canViewCostsGlobally]);
 
   // Unify root and drilled data into a list of panels: depth-0 has one
   // anonymous panel; drilled levels have one labelled panel per source.
@@ -391,55 +367,20 @@ export default function CostReport() {
     return [];
   }, [drillPanels, rawItems]);
 
-  const allRawItems = useMemo(() => panels.flatMap((p) => p.items), [panels]);
-
-  // Compute date range from lifecycle data (across every panel so the slider
-  // covers all visible cards).
-  const { dateRange, yearMarks } = useMemo(() => {
-    const now = tl.todayMs;
-    const pad3y = 3 * 365.25 * 86400000;
-    if (allRawItems.length === 0)
-      return { dateRange: { min: now - pad3y, max: now + pad3y }, yearMarks: [] as { value: number; label: string }[] };
-
-    let minD = Infinity, maxD = -Infinity;
-    for (const item of allRawItems) {
-      for (const p of LIFECYCLE_PHASES) {
-        const d = parseDate(item.lifecycle?.[p]);
-        if (d != null) { minD = Math.min(minD, d); maxD = Math.max(maxD, d); }
-      }
-    }
-    if (minD === Infinity)
-      return { dateRange: { min: now - pad3y, max: now + pad3y }, yearMarks: [] as { value: number; label: string }[] };
-
-    const pad = 365.25 * 86400000;
-    minD -= pad; maxD += pad;
-    const marks: { value: number; label: string }[] = [];
-    const sy = new Date(minD).getFullYear(), ey = new Date(maxD).getFullYear();
-    for (let y = sy; y <= ey + 1; y++) {
-      const t = new Date(y, 0, 1).getTime();
-      if (t >= minD && t <= maxD) marks.push({ value: t, label: String(y) });
-    }
-    return { dateRange: { min: minD, max: maxD }, yearMarks: marks };
-  }, [allRawItems, tl.todayMs]);
-
-  const hasLifecycleData = useMemo(() => {
-    return allRawItems.some((item) => item.lifecycle && LIFECYCLE_PHASES.some((p) => item.lifecycle?.[p]));
-  }, [allRawItems]);
-
-  // Filter every panel by the timeline date once; downstream code reads
-  // ``panelsFiltered`` for per-panel rendering and ``items`` (concat) for KPIs.
-  const panelsFiltered = useMemo(() => {
-    return panels.map((p) => {
-      const filtered = p.items.filter((item) => isItemAliveAtDate(item.lifecycle, tl.timelineDate));
-      const total = filtered.reduce((sum, item) => sum + item.cost, 0);
-      return { source: p.source, items: filtered, total };
-    });
-  }, [panels, tl.timelineDate]);
+  // Per-panel totals (no time-travel filtering — costs reflect the current
+  // state of the cards, not their state at an earlier point in time).
+  const panelsWithTotals = useMemo(() => {
+    return panels.map((p) => ({
+      source: p.source,
+      items: p.items,
+      total: p.items.reduce((sum, item) => sum + item.cost, 0),
+    }));
+  }, [panels]);
 
   const { items, total } = useMemo(() => {
-    const flat = panelsFiltered.flatMap((p) => p.items);
-    return { items: flat, total: panelsFiltered.reduce((s, p) => s + p.total, 0) };
-  }, [panelsFiltered]);
+    const flat = panelsWithTotals.flatMap((p) => p.items);
+    return { items: flat, total: panelsWithTotals.reduce((s, p) => s + p.total, 0) };
+  }, [panelsWithTotals]);
 
   const groupedField = useMemo(() => groupableFields.find((f) => f.key === groupBy), [groupableFields, groupBy]);
 
@@ -479,7 +420,6 @@ export default function CostReport() {
       const gLabel = groupableFields.find((f) => f.key === groupBy)?.label || groupBy;
       params.push({ label: t("cost.groupBy"), value: gLabel });
     }
-    if (tl.printParam) params.push(tl.printParam);
     if (view === "table") params.push({ label: t("common.view"), value: t("common.table") });
     if (drillStack.length > 0) {
       params.push({
@@ -488,7 +428,7 @@ export default function CostReport() {
       });
     }
     return params;
-  }, [cardTypeKey, types, costField, costFields, activeAggregates, groupBy, groupableFields, tl.printParam, view, drillStack, t, rml]);
+  }, [cardTypeKey, types, costField, costFields, activeAggregates, groupBy, groupableFields, view, drillStack, t, rml]);
 
   // Drill is offered at depth 0 whenever at least one aggregate source is
   // active. With multiple sources, depth 1 renders one chart per source so
@@ -518,6 +458,22 @@ export default function CostReport() {
     return rml(tp?.key ?? "", tp?.translations, "label") || cardTypeKey;
   }, [types, cardTypeKey, rml]);
 
+  if (!canViewCostsGlobally) {
+    return (
+      <ReportShell title={t("cost.title")} icon="payments" iconColor="#2e7d32" view={view} onViewChange={setView}>
+        <Box sx={{ py: 8, textAlign: "center", display: "flex", flexDirection: "column", alignItems: "center", gap: 1 }}>
+          <MaterialSymbol icon="lock" size={32} color="#9e9e9e" />
+          <Typography variant="h6" color="text.secondary">
+            {t("cost.permissionDeniedTitle")}
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 480 }}>
+            {t("cost.permissionDeniedBody")}
+          </Typography>
+        </Box>
+      </ReportShell>
+    );
+  }
+
   if (ml || (rawItems === null && drillPanels === null))
     return <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}><CircularProgress /></Box>;
 
@@ -527,7 +483,7 @@ export default function CostReport() {
 
   // Build per-panel treemap data (rectangles sized by cost, sorted desc so
   // the top driver is visually leading).
-  const panelChartData = panelsFiltered.map((p) => ({
+  const panelChartData = panelsWithTotals.map((p) => ({
     source: p.source,
     total: p.total,
     data: [...p.items]
@@ -643,16 +599,6 @@ export default function CostReport() {
               {groupableFields.map((f) => <MenuItem key={f.key} value={f.key}>{f.label}</MenuItem>)}
             </TextField>
           )}
-
-          {hasLifecycleData && (
-            <TimelineSlider
-              value={tl.timelineDate}
-              onChange={(v) => { setSliderTouched(true); tl.setTimelineDate(v); }}
-              dateRange={dateRange}
-              yearMarks={yearMarks}
-              todayMs={tl.todayMs}
-            />
-          )}
         </>
       }
     >
@@ -764,7 +710,6 @@ export default function CostReport() {
                         data={panel.data}
                         dataKey="size"
                         stroke="#fff"
-                        isAnimationActive={!sliderTouched}
                         animationDuration={300}
                         content={
                           <TreemapContent
