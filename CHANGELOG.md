@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.61.0] - 2026-05-02
+
+### Added
+- **Cost Analysis Report — aggregate from related cards.** A new **Cost Source** picker appears whenever the selected card type has at least one relation type pointing to a type that owns a cost field. Selecting *Direct* keeps today's behaviour; selecting `via «relation» → Type · Field` rolls up that field from related cards onto each primary card, so types with no cost field of their own (e.g. *Provider*) finally show meaningful totals sourced from related Applications / IT Components. The option list is generated entirely from the metamodel — relation types and cost fields are discovered at render time, with no hard-coded type mappings. Backend: `/reports/cost-treemap` accepts new optional `aggregate_from_type` and `aggregate_cost_field` parameters with input validation and bidirectional relation lookup. Translated into all 8 supported UI locales.
+
 ## [0.60.1] - 2026-05-02
 
 ### Fixed

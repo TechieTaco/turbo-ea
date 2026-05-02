@@ -25,7 +25,7 @@ import { useTimeline } from "@/hooks/useTimeline";
 import { useResolveLabel, useResolveMetaLabel } from "@/hooks/useResolveLabel";
 import CardDetailSidePanel from "@/components/CardDetailSidePanel";
 import { api } from "@/api/client";
-import type { FieldDef } from "@/types";
+import type { CardType, FieldDef, RelationType } from "@/types";
 
 interface CostItem {
   id: string;
@@ -33,6 +33,16 @@ interface CostItem {
   cost: number;
   lifecycle?: Record<string, string>;
   attributes?: Record<string, unknown>;
+}
+
+interface CostSourceOption {
+  /** Encoded value: "" for direct, otherwise "<typeKey>:<fieldKey>" */
+  value: string;
+  label: string;
+  /** Empty string for direct sources */
+  aggregateFromType: string;
+  /** For direct: the cost field on the primary type. For aggregated: the cost field on the related type. */
+  costField: string;
 }
 
 function pickCostFields(schema: { fields: FieldDef[] }[]): FieldDef[] {
@@ -105,7 +115,7 @@ const TreemapContent = ({
 
 export default function CostReport() {
   const { t } = useTranslation(["reports", "common"]);
-  const { types, loading: ml } = useMetamodel();
+  const { types, relationTypes, loading: ml } = useMetamodel();
   const rl = useResolveLabel();
   const rml = useResolveMetaLabel();
   const { fmt } = useCurrency();
@@ -114,6 +124,7 @@ export default function CostReport() {
   const [cardTypeKey, setCardTypeKey] = useState("Application");
   const [sidePanelCardId, setSidePanelCardId] = useState<string | null>(null);
   const [costField, setCostField] = useState("costTotalAnnual");
+  const [costSource, setCostSource] = useState(""); // "" = direct; otherwise "<typeKey>:<fieldKey>"
   const [groupBy, setGroupBy] = useState("");
   const [rawItems, setRawItems] = useState<CostItem[] | null>(null);
   const [view, setView] = useState<"chart" | "table">("chart");
@@ -131,6 +142,7 @@ export default function CostReport() {
     if (cfg) {
       if (cfg.cardTypeKey) setCardTypeKey(cfg.cardTypeKey as string);
       if (cfg.costField) setCostField(cfg.costField as string);
+      if (cfg.costSource !== undefined) setCostSource(cfg.costSource as string);
       if (cfg.groupBy !== undefined) setGroupBy(cfg.groupBy as string);
       if (cfg.view) setView(cfg.view as "chart" | "table");
       if (cfg.sortK) setSortK(cfg.sortK as string);
@@ -138,18 +150,19 @@ export default function CostReport() {
     }
   }, [saved.loadedConfig]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const getConfig = () => ({ cardTypeKey, costField, groupBy, view, sortK, sortD, timelineDate: tl.persistValue });
+  const getConfig = () => ({ cardTypeKey, costField, costSource, groupBy, view, sortK, sortD, timelineDate: tl.persistValue });
 
   // Auto-persist config to localStorage
   useEffect(() => {
     saved.persistConfig(getConfig());
-  }, [cardTypeKey, costField, groupBy, view, sortK, sortD, tl.timelineDate]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [cardTypeKey, costField, costSource, groupBy, view, sortK, sortD, tl.timelineDate]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Reset all parameters to defaults
   const handleReset = useCallback(() => {
     saved.resetAll();
     setCardTypeKey("Application");
     setCostField("costTotalAnnual");
+    setCostSource("");
     setGroupBy("");
     setView("chart");
     setSortK("cost");
@@ -186,13 +199,77 @@ export default function CostReport() {
     return out;
   }, [typeDef, rl]);
 
+  // Aggregate sources: cost fields on types reachable via any relation type involving
+  // the current card type. Lets a type with no cost field of its own (e.g. Provider)
+  // display costs rolled up from related Applications / IT Components.
+  const aggregateSources = useMemo<CostSourceOption[]>(() => {
+    if (!typeDef) return [];
+    const typeMap = new Map<string, CardType>(types.map((tp) => [tp.key, tp]));
+    const out: CostSourceOption[] = [];
+    const seen = new Set<string>();
+    for (const rt of relationTypes as RelationType[]) {
+      if (rt.is_hidden) continue;
+      const involvesPrimary =
+        rt.source_type_key === cardTypeKey || rt.target_type_key === cardTypeKey;
+      if (!involvesPrimary) continue;
+      const otherKey =
+        rt.source_type_key === cardTypeKey ? rt.target_type_key : rt.source_type_key;
+      if (otherKey === cardTypeKey) continue; // skip self-relations for aggregation
+      const otherType = typeMap.get(otherKey);
+      if (!otherType) continue;
+      const otherCostFields = pickCostFields(otherType.fields_schema);
+      if (otherCostFields.length === 0) continue;
+      const relationLabel =
+        rt.source_type_key === cardTypeKey
+          ? rml(rt.key, rt.translations, "label") || rt.label
+          : rml(rt.key, rt.translations, "reverse_label") ||
+            rt.reverse_label ||
+            rt.label;
+      const otherTypeLabel = rml(otherType.key, otherType.translations, "label") || otherType.label;
+      for (const f of otherCostFields) {
+        const key = `${otherKey}:${f.key}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        out.push({
+          value: key,
+          label: t("cost.costSourceVia", {
+            relation: relationLabel,
+            type: otherTypeLabel,
+            field: rl(f.key, f.translations),
+          }),
+          aggregateFromType: otherKey,
+          costField: f.key,
+        });
+      }
+    }
+    return out;
+  }, [typeDef, types, relationTypes, cardTypeKey, rl, rml, t]);
+
+  // Reset cost source when card type changes if it's no longer available.
   useEffect(() => {
-    const p = new URLSearchParams({ type: cardTypeKey, cost_field: costField });
+    if (costSource && !aggregateSources.some((s) => s.value === costSource)) {
+      setCostSource("");
+    }
+  }, [aggregateSources]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const activeCostSource = useMemo(
+    () => aggregateSources.find((s) => s.value === costSource) ?? null,
+    [aggregateSources, costSource],
+  );
+
+  useEffect(() => {
+    const p = new URLSearchParams({ type: cardTypeKey });
+    if (activeCostSource) {
+      p.set("aggregate_from_type", activeCostSource.aggregateFromType);
+      p.set("aggregate_cost_field", activeCostSource.costField);
+    } else {
+      p.set("cost_field", costField);
+    }
     api.get<{ items: CostItem[]; total: number }>(`/reports/cost-treemap?${p}`).then((r) => {
       setRawItems(r.items);
       setSliderTouched(false);
     });
-  }, [cardTypeKey, costField]);
+  }, [cardTypeKey, costField, activeCostSource]);
 
   // Compute date range from lifecycle data
   const { dateRange, yearMarks } = useMemo(() => {
@@ -258,7 +335,9 @@ export default function CostReport() {
     const tp = types.find((tp) => tp.key === cardTypeKey);
     const typeLabel = rml(tp?.key ?? "", tp?.translations, "label") || cardTypeKey;
     params.push({ label: t("common:labels.type"), value: typeLabel });
-    if (costFields.length > 1) {
+    if (activeCostSource) {
+      params.push({ label: t("cost.costSource"), value: activeCostSource.label });
+    } else if (costFields.length > 1) {
       const cfLabel = costFields.find((f) => f.key === costField)?.label || costField;
       params.push({ label: t("cost.costField"), value: cfLabel });
     }
@@ -269,7 +348,7 @@ export default function CostReport() {
     if (tl.printParam) params.push(tl.printParam);
     if (view === "table") params.push({ label: t("common.view"), value: t("common.table") });
     return params;
-  }, [cardTypeKey, types, costField, costFields, groupBy, groupableFields, tl.printParam, view]);
+  }, [cardTypeKey, types, costField, costFields, activeCostSource, groupBy, groupableFields, tl.printParam, view]);
 
   if (ml || rawItems === null)
     return <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}><CircularProgress /></Box>;
@@ -322,7 +401,24 @@ export default function CostReport() {
           <TextField select size="small" label={t("cost.cardType")} value={cardTypeKey} onChange={(e) => setCardTypeKey(e.target.value)} sx={{ minWidth: 150 }}>
             {types.filter((tp) => !tp.is_hidden).map((tp) => <MenuItem key={tp.key} value={tp.key}>{rml(tp.key, tp.translations, "label")}</MenuItem>)}
           </TextField>
-          {costFields.length > 1 && (
+          {aggregateSources.length > 0 && (
+            <TextField
+              select
+              size="small"
+              label={t("cost.costSource")}
+              value={costSource}
+              onChange={(e) => setCostSource(e.target.value)}
+              sx={{ minWidth: 240 }}
+            >
+              <MenuItem value="">{t("cost.costSourceDirect")}</MenuItem>
+              {aggregateSources.map((s) => (
+                <MenuItem key={s.value} value={s.value}>
+                  {s.label}
+                </MenuItem>
+              ))}
+            </TextField>
+          )}
+          {!activeCostSource && costFields.length > 1 && (
             <TextField select size="small" label={t("cost.costField")} value={costField} onChange={(e) => setCostField(e.target.value)} sx={{ minWidth: 160 }}>
               {costFields.map((f) => <MenuItem key={f.key} value={f.key}>{f.label}</MenuItem>)}
             </TextField>

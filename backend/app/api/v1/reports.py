@@ -1062,8 +1062,17 @@ async def cost_treemap(
     type: str = Query("Application"),
     cost_field: str = Query("costTotalAnnual"),
     group_by: str | None = Query(None),
+    aggregate_from_type: str | None = Query(None),
+    aggregate_cost_field: str | None = Query(None),
 ):
-    """Cost treemap: items with cost, optionally grouped by a related type."""
+    """Cost treemap: items with cost, optionally grouped by a related type.
+
+    When ``aggregate_from_type`` is set, each primary card's cost is rolled up
+    from ``aggregate_cost_field`` on related cards of that type (relations are
+    resolved bidirectionally). This lets a type that has no cost field of its
+    own (e.g. Provider) display costs sourced from related Applications or
+    IT Components.
+    """
     await PermissionService.require_permission(db, user, "reports.ea_dashboard")
     # M-3: Validate cost_field format
     if not _SAFE_KEY_RE.match(cost_field):
@@ -1071,22 +1080,99 @@ async def cost_treemap(
     result = await db.execute(select(Card).where(Card.type == type, Card.status == "ACTIVE"))
     sheets = result.scalars().all()
 
-    items = []
+    items: list[dict] = []
     total = 0.0
-    for card in sheets:
-        cost = (card.attributes or {}).get(cost_field, 0) or 0
-        if not cost:
-            continue
-        items.append(
-            {
-                "id": str(card.id),
-                "name": card.name,
-                "cost": cost,
-                "lifecycle": card.lifecycle,
-                "attributes": card.attributes,
-            }
+
+    if aggregate_from_type:
+        if not aggregate_cost_field:
+            raise HTTPException(
+                400, "aggregate_cost_field is required when aggregate_from_type is set"
+            )
+        if not _SAFE_KEY_RE.match(aggregate_cost_field):
+            raise HTTPException(400, f"Invalid aggregate_cost_field: {aggregate_cost_field!r}")
+        # Verify the related type exists and the field is declared as a cost field
+        rel_type_result = await db.execute(
+            select(CardType).where(CardType.key == aggregate_from_type)
         )
-        total += cost
+        rel_type_def = rel_type_result.scalars().first()
+        if rel_type_def is None:
+            raise HTTPException(400, f"Unknown aggregate_from_type: {aggregate_from_type!r}")
+        valid_cost_field = any(
+            f.get("key") == aggregate_cost_field and f.get("type") == "cost"
+            for section in (rel_type_def.fields_schema or [])
+            for f in section.get("fields", [])
+        )
+        if not valid_cost_field:
+            raise HTTPException(
+                400,
+                f"{aggregate_cost_field!r} is not a cost field on {aggregate_from_type!r}",
+            )
+
+        rel_result = await db.execute(
+            select(Card).where(Card.type == aggregate_from_type, Card.status == "ACTIVE")
+        )
+        related_cards = rel_result.scalars().all()
+        related_cost_by_id: dict[str, float] = {
+            str(c.id): float((c.attributes or {}).get(aggregate_cost_field, 0) or 0)
+            for c in related_cards
+        }
+        primary_ids = [card.id for card in sheets]
+        related_ids = [c.id for c in related_cards]
+        if primary_ids and related_ids:
+            edges_result = await db.execute(
+                select(Relation).where(
+                    ((Relation.source_id.in_(primary_ids)) & (Relation.target_id.in_(related_ids)))
+                    | (
+                        (Relation.source_id.in_(related_ids))
+                        & (Relation.target_id.in_(primary_ids))
+                    )
+                )
+            )
+            edges = edges_result.scalars().all()
+        else:
+            edges = []
+
+        # Map primary card id -> set of related card ids (dedupe parallel relations)
+        primary_to_related: dict[str, set[str]] = {str(card.id): set() for card in sheets}
+        related_id_set = {str(c.id) for c in related_cards}
+        primary_id_set = {str(card.id) for card in sheets}
+        for r in edges:
+            sid, tid = str(r.source_id), str(r.target_id)
+            if sid in primary_id_set and tid in related_id_set:
+                primary_to_related[sid].add(tid)
+            elif tid in primary_id_set and sid in related_id_set:
+                primary_to_related[tid].add(sid)
+
+        for card in sheets:
+            linked = primary_to_related.get(str(card.id), set())
+            cost = sum(related_cost_by_id.get(rid, 0) for rid in linked)
+            if not cost:
+                continue
+            items.append(
+                {
+                    "id": str(card.id),
+                    "name": card.name,
+                    "cost": cost,
+                    "lifecycle": card.lifecycle,
+                    "attributes": card.attributes,
+                }
+            )
+            total += cost
+    else:
+        for card in sheets:
+            cost = (card.attributes or {}).get(cost_field, 0) or 0
+            if not cost:
+                continue
+            items.append(
+                {
+                    "id": str(card.id),
+                    "name": card.name,
+                    "cost": cost,
+                    "lifecycle": card.lifecycle,
+                    "attributes": card.attributes,
+                }
+            )
+            total += cost
     items.sort(key=lambda x: x["cost"], reverse=True)
 
     groups = None
