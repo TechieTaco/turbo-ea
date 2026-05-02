@@ -102,6 +102,15 @@ A small **help icon (?)** next to the picker repeats this guarantee on hover.
 
 The option list is generated from your metamodel — relation types and cost fields are discovered at render time, so any custom card type or relation you add becomes a valid Cost Source automatically.
 
+### Drill into a rectangle
+
+Whenever at least one Cost Source is active, the treemap rectangles are **clickable**. Clicking one replaces the chart with the breakdown of that rectangle's cost — the related cards that contributed to its roll-up, sized by their direct cost. A breadcrumb appears above the chart, e.g. **All Applications › NexaCore ERP**; click any segment to walk back up.
+
+- **Single Cost Source active** — drill renders one treemap of the related cards (e.g. clicking *NexaCore ERP* with `IT Component · Total Annual Cost` ticked shows the IT Components linked to NexaCore ERP, sized by their annual cost).
+- **Multiple Cost Sources active** — drill renders **one treemap per source side-by-side** (1 column on narrow viewports, 2 on wide ones). Each panel has its own header, its own total, and its own per-panel `% of total` in the tooltip — so different card types stay on their own scale instead of being squashed into a single chart.
+
+The timeline slider, Cost Source selection, and other filters are preserved as you drill, and the drilled level is part of the saved-report config — saving a report while drilled in re-opens directly at that level. With **no** Cost Source active, clicking a rectangle opens the card side panel instead (there's nothing to break down).
+
 ## Matrix Report
 
 ![Matrix Report](../assets/img/en/35_report_matrix.png)

@@ -102,6 +102,15 @@ Un pequeño **icono de ayuda (?)** junto al selector recuerda esta garantía al 
 
 La lista de opciones se genera a partir de su metamodelo —los tipos de relación y los campos de coste se descubren en tiempo de renderizado, de modo que cualquier tipo de tarjeta o relación personalizada que añada se convierte automáticamente en un Origen de los costes válido.
 
+### Profundizar en un rectángulo
+
+Siempre que haya al menos un Origen de los costes activo, los rectángulos del mapa de árbol son **clicables**. Al hacer clic en uno, el gráfico se sustituye por el desglose del coste de ese rectángulo: las tarjetas relacionadas que contribuyeron a su consolidación, dimensionadas por su coste directo. Sobre el gráfico aparece una ruta de navegación, p. ej. **Todas las Aplicaciones › NexaCore ERP**; haga clic en cualquier segmento para retroceder.
+
+- **Un único Origen de costes activo** — el desglose muestra un mapa de árbol de las tarjetas relacionadas (por ejemplo, al hacer clic en *NexaCore ERP* con `Componente TI · Coste anual total` marcado se muestran los Componentes TI vinculados a NexaCore ERP, dimensionados por su coste anual).
+- **Varios Orígenes de costes activos** — el desglose muestra **un mapa de árbol por origen, en paralelo** (1 columna en pantallas estrechas, 2 en pantallas amplias). Cada panel tiene su propio encabezado, su propio total y su propio `% del total` en la información sobre herramientas, de modo que los distintos tipos de tarjeta conservan su escala en lugar de mezclarse en un único gráfico.
+
+El control deslizante de cronología, la selección de Origen de los costes y los demás filtros se conservan al profundizar, y el nivel de desglose forma parte de la configuración del informe guardado: guardar un informe mientras se está profundizando lo abre directamente en ese nivel. Sin un Origen de costes activo, hacer clic en un rectángulo abre en su lugar el panel lateral de la tarjeta (no hay nada que desglosar).
+
 ## Informe de Matriz
 
 ![Informe de Matriz](../assets/img/es/35_informe_matriz.png)
