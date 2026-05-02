@@ -349,11 +349,14 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
     [],
   );
 
-  /** Find the date that the user is currently centred on so we can
-   *  re-anchor the view there after a scale change. Walks the bars
-   *  visible in the gantt, picks the one closest to the viewport's
-   *  horizontal centre, and returns its start date. Returns undefined
-   *  if the gantt isn't rendered yet or no bar has a usable date. */
+  /** Find the calendar date currently positioned at the viewport's
+   *  horizontal centre. Picks any visible bar as a reference, then
+   *  linearly interpolates from that bar's known start_date and viewport
+   *  position to the centre using the lib's columnWidth × days-per-column
+   *  ratio for the current viewMode. This is more accurate than picking
+   *  the nearest bar's date — when the closest bar sits far from centre
+   *  (e.g. on an edge of the viewport), the new view would otherwise
+   *  jump that distance away from where the user was actually looking. */
   const findCenterAnchorDate = useCallback((): Date | undefined => {
     const root = ganttRef.current?.querySelector("[class*='ganttTaskRoot_']");
     if (!(root instanceof Element)) return undefined;
@@ -362,25 +365,59 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
     const centerX = r.left + r.width / 2;
     const BAR_SEL =
       "[class*='barBackground_'], [class*='projectBackground_'], [class*='milestoneBackground_']";
-    let bestDate: string | null = null;
-    let bestDist = Infinity;
-    const visit = (id: string, dateStr: string | null) => {
-      if (!dateStr) return;
+
+    // Find any one visible bar with a usable start date as a reference
+    // for the linear pixel↔date mapping.
+    type Ref = { x: number; date: Date };
+    let ref: Ref | null = null;
+    const tryAsRef = (id: string, dateStr: string | null): boolean => {
+      if (!dateStr) return false;
       const wrapper = ganttRef.current?.querySelector(`[id="${id}"]`);
       const bar = wrapper?.querySelector(BAR_SEL);
-      if (!(bar instanceof Element)) return;
+      if (!(bar instanceof Element)) return false;
       const br = bar.getBoundingClientRect();
-      if (br.width === 0) return;
-      const dist = Math.abs((br.left + br.right) / 2 - centerX);
-      if (dist < bestDist) {
-        bestDist = dist;
-        bestDate = dateStr;
-      }
+      if (br.width === 0) return false;
+      ref = { x: br.left, date: parseDate(dateStr, new Date()) };
+      return true;
     };
-    for (const tk of tasks) visit(`task-${tk.id}`, tk.start_date);
-    for (const w of wbsList) visit(`wbs-${w.id}`, w.start_date);
-    return bestDate ? parseDate(bestDate, new Date()) : undefined;
-  }, [tasks, wbsList]);
+    for (const tk of tasks) {
+      if (tryAsRef(`task-${tk.id}`, tk.start_date)) break;
+    }
+    if (!ref) {
+      for (const w of wbsList) {
+        if (tryAsRef(`wbs-${w.id}`, w.start_date)) break;
+      }
+    }
+    if (!ref) return undefined;
+
+    // Days per pixel for the current scale. Approximate for Month/
+    // Quarter/Year since calendar months and years vary slightly in
+    // length — close enough for an anchor (we just need the right
+    // ballpark date for the lib's setViewDate to scroll to).
+    const colWidth =
+      viewMode === ViewMode.Day
+        ? 32
+        : viewMode === ViewMode.Week
+          ? 200
+          : viewMode === ViewMode.Month
+            ? 300
+            : viewMode === ViewMode.QuarterYear
+              ? 180
+              : 240;
+    const daysPerCol =
+      viewMode === ViewMode.Day
+        ? 1
+        : viewMode === ViewMode.Week
+          ? 7
+          : viewMode === ViewMode.Month
+            ? 30.44
+            : viewMode === ViewMode.QuarterYear
+              ? 91.31
+              : 365.25;
+    const daysPerPx = daysPerCol / colWidth;
+    const dayDelta = (centerX - (ref as Ref).x) * daysPerPx;
+    return new Date((ref as Ref).date.getTime() + dayDelta * 86400000);
+  }, [tasks, wbsList, viewMode]);
 
   /** Persist scale changes so they survive a reload. Also re-anchor the
    *  view to whatever date the user was looking at — the lib preserves
@@ -647,15 +684,6 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
     },
     [tasks, wbsList],
   );
-  const getStartDate = useCallback(
-    (kind: "task" | "wbs", id: string): string | null => {
-      if (kind === "task") {
-        return tasks.find((tk) => tk.id === id)?.start_date ?? null;
-      }
-      return wbsList.find((w) => w.id === id)?.start_date ?? null;
-    },
-    [tasks, wbsList],
-  );
 
   /** Snap the successor's start_date to a target ISO date. Adjusts
    *  end_date too when needed (milestones always equal start; tasks /
@@ -711,12 +739,12 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
           succ_id: succ.id,
         });
         await loadData();
-        // Offer to snap the successor's start to the predecessor's end
-        // when the dates currently violate the FS rule (or the successor
-        // has no start date yet).
+        // Always offer to snap the successor's start to the predecessor's
+        // end — whether the dates currently violate the FS rule or not.
+        // When they already align the action is a no-op PATCH, but having
+        // it always available means the user discovers the affordance.
         const predEnd = getEndDate(pred.kind, pred.id);
-        const succStart = getStartDate(succ.kind, succ.id);
-        if (predEnd && (!succStart || succStart < predEnd)) {
+        if (predEnd) {
           showSnack(t("dependencyCreated"), {
             label: t("alignStart"),
             onClick: () => alignSuccessorStart(succ.kind, succ.id, predEnd),
@@ -739,7 +767,6 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
       loadData,
       t,
       getEndDate,
-      getStartDate,
       alignSuccessorStart,
       showSnack,
     ],
