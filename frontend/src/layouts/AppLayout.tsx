@@ -38,7 +38,7 @@ interface NavItemDef {
   labelKey: string;
   icon: string;
   path?: string;
-  children?: { labelKey: string; icon: string; path: string }[];
+  children?: { labelKey: string; icon: string; path: string; permission?: string | string[] }[];
   permission?: string | string[];
 }
 
@@ -46,7 +46,7 @@ interface NavItem {
   label: string;
   icon: string;
   path?: string;
-  children?: { label: string; icon: string; path: string }[];
+  children?: { label: string; icon: string; path: string; permission?: string | string[] }[];
   permission?: string | string[];
 }
 
