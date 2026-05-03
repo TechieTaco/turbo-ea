@@ -202,7 +202,6 @@ export async function exportReportToXlsx(data: ReportExportData): Promise<void> 
 }
 
 const PPT_BRAND_COLOR = "0F7EB5";
-const PPT_TEXT_COLOR = "263238";
 const PPT_MUTED_COLOR = "607D8B";
 
 interface CapturedImage {
@@ -621,85 +620,12 @@ export async function exportReportToPptx(data: ReportExportData): Promise<void> 
     }
   }
 
-  // Data slides: one (or more) per sheet
-  const ROWS_PER_SLIDE = 22;
-  for (const sheet of data.sheets) {
-    if (sheet.rows.length === 0) continue;
-
-    const totalPages = Math.max(1, Math.ceil(sheet.rows.length / ROWS_PER_SLIDE));
-    for (let page = 0; page < totalPages; page++) {
-      const slide = pptx.addSlide();
-      slide.background = { color: "FFFFFF" };
-
-      const headerSuffix =
-        totalPages > 1
-          ? ` — ${sheet.name} (${page + 1}/${totalPages})`
-          : ` — ${sheet.name}`;
-      slide.addText(`${data.title}${headerSuffix}`, {
-        x: margin,
-        y: margin,
-        w: slideWidth - 2 * margin,
-        h: 0.5,
-        fontSize: 18,
-        bold: true,
-        color: PPT_BRAND_COLOR,
-        fontFace: "Calibri",
-      });
-
-      const start = page * ROWS_PER_SLIDE;
-      const end = Math.min(start + ROWS_PER_SLIDE, sheet.rows.length);
-      const pageRows = sheet.rows.slice(start, end);
-
-      const tableHeader = sheet.columns.map((c) => ({
-        text: c.label,
-        options: {
-          bold: true,
-          color: "FFFFFF",
-          fill: { color: PPT_BRAND_COLOR },
-          align: "left" as const,
-        },
-      }));
-
-      const tableBody = pageRows.map((row) =>
-        sheet.columns.map((c) => {
-          const v = formatCellValue(row[c.key], c.type);
-          let display: string;
-          if (v === null || v === undefined || v === "") {
-            display = "";
-          } else if (typeof v === "number") {
-            display =
-              c.type === "currency"
-                ? v.toLocaleString(i18n.language, {
-                    minimumFractionDigits: 0,
-                    maximumFractionDigits: 2,
-                  })
-                : String(v);
-          } else {
-            display = String(v);
-          }
-          return {
-            text: display,
-            options: {
-              color: PPT_TEXT_COLOR,
-              align: (c.type === "number" || c.type === "currency"
-                ? "right"
-                : "left") as "left" | "right",
-            },
-          };
-        }),
-      );
-
-      slide.addTable([tableHeader, ...tableBody], {
-        x: margin,
-        y: margin + 0.7,
-        w: slideWidth - 2 * margin,
-        fontSize: 10,
-        fontFace: "Calibri",
-        border: { type: "solid", pt: 0.5, color: "E0E0E0" },
-        autoPage: false,
-      });
-    }
-  }
+  // PPTX is the visual export — the chart capture (and its pagination
+  // when requested) already conveys everything on screen, including
+  // any tables rendered as part of the chart view (e.g. the Matrix
+  // report's heatmap table). Adding extra slides per `<table>` would
+  // just duplicate that content; reach for XLSX when raw data is the
+  // goal.
 
   const date = new Date().toISOString().slice(0, 10);
   const filename = `${sanitizeFilename(data.title)}_${date}.pptx`;
