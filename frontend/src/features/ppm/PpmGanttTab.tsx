@@ -1289,25 +1289,25 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
 
     const findScrollContainer = (): HTMLElement | null => {
       if (scrollContainer && scrollContainer.isConnected) return scrollContainer;
-      const named = ["ganttTaskContent_", "ganttTaskRoot_", "horizontalContainer"];
-      for (const cls of named) {
-        const candidate = el.querySelector(
-          `[class*="${cls}"]`,
-        ) as HTMLElement | null;
-        if (candidate && candidate.scrollWidth > candidate.clientWidth) {
-          scrollContainer = candidate;
-          return candidate;
-        }
+      // gantt-task-react v0.6.x renders the horizontally-scrollable container
+      // with class `_ganttTaskRoot_xxx` (overflow-x: scroll). The library
+      // itself reads/writes `ganttTaskRootRef.current.scrollLeft` on this
+      // element, so we target it directly.
+      const root = el.querySelector(
+        '[class*="ganttTaskRoot_"]',
+      ) as HTMLElement | null;
+      if (root) {
+        scrollContainer = root;
+        return root;
       }
-      // Fallback: any descendant with horizontal overflow.
-      const all = el.querySelectorAll<HTMLElement>("*");
-      for (const node of all) {
-        if (node.scrollWidth > node.clientWidth + 1) {
-          const style = window.getComputedStyle(node);
-          if (style.overflowX === "auto" || style.overflowX === "scroll") {
-            scrollContainer = node;
-            return node;
-          }
+      // Fallback for any future class-name change: first descendant with
+      // horizontal overflow and scrollable overflow-x.
+      for (const node of el.querySelectorAll<HTMLElement>("*")) {
+        if (node.scrollWidth <= node.clientWidth + 1) continue;
+        const ox = window.getComputedStyle(node).overflowX;
+        if (ox === "auto" || ox === "scroll") {
+          scrollContainer = node;
+          return node;
         }
       }
       return null;
