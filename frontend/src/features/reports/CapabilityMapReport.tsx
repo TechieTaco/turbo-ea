@@ -885,6 +885,7 @@ export default function CapabilityMapReport() {
       icon="grid_view"
       iconColor="#003399"
       hasTableToggle={false}
+      paginateRowSelector="[data-export-row]"
       chartRef={chartRef}
       onSaveReport={captureAndSave}
       savedReportName={saved.savedReportName ?? undefined}
@@ -1240,19 +1241,20 @@ export default function CapabilityMapReport() {
           }}
         >
           {tree.map((cap) => (
-            <CapabilityCard
-              key={cap.id}
-              node={cap}
-              displayLevel={displayLevel}
-              showApps={showApps}
-              colorBy={colorBy}
-              selectFields={selectFields}
-              metric={metric}
-              maxVal={maxVal}
-              onCapClick={setDrawer}
-              onAppClick={handleAppClick}
-              fmtCost={fmtShort}
-            />
+            <Box key={cap.id} data-export-row>
+              <CapabilityCard
+                node={cap}
+                displayLevel={displayLevel}
+                showApps={showApps}
+                colorBy={colorBy}
+                selectFields={selectFields}
+                metric={metric}
+                maxVal={maxVal}
+                onCapClick={setDrawer}
+                onAppClick={handleAppClick}
+                fmtCost={fmtShort}
+              />
+            </Box>
           ))}
         </Box>
       )}

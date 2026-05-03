@@ -340,6 +340,7 @@ export default function LifecycleReport() {
       title={t("lifecycle.title")}
       icon="timeline"
       iconColor="#e65100"
+      paginateRowSelector="[data-export-row]"
       view={view}
       onViewChange={setView}
       chartRef={chartRef}
@@ -433,6 +434,7 @@ export default function LifecycleReport() {
                   return (
                     <Box
                       key={item.id}
+                      data-export-row
                       sx={{ display: "flex", alignItems: "center", gap: 0.5, height: 32, cursor: "pointer", "&:hover": { bgcolor: "action.hover" } }}
                       onClick={() => setSidePanelCardId(item.id)}
                     >

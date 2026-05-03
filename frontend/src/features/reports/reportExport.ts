@@ -23,6 +23,16 @@ export interface ReportExportData {
   filterSummary?: { label: string; value: string }[];
   sheets: ExportSheet[];
   chartNode?: HTMLElement | null;
+  /**
+   * CSS selector identifying a single "card" or "row" inside `chartNode`.
+   * When set, charts that exceed one slide are paginated across multiple
+   * slides, splitting only at the bottom of an element matched by this
+   * selector — never mid-card. When **omitted**, the chart is always
+   * rendered on a single slide and scaled to fit, preserving its
+   * integrity (the right behaviour for visualizations like treemaps,
+   * heatmaps and network graphs that can't be cut horizontally).
+   */
+  paginateRowSelector?: string;
 }
 
 /**
@@ -209,56 +219,50 @@ interface CapturedImage {
   boundaries: number[];
 }
 
-const ROW_BOUNDARY_SELECTOR =
-  "[data-export-row], tbody tr, .report-export-row";
-
-function collectBoundaries(node: HTMLElement): number[] {
+/**
+ * Returns Y offsets (relative to `node`) at which the chart can be cut
+ * without slicing through any element matched by `selector`. Critically
+ * column-aware: in multi-column layouts (e.g. the capability map, the
+ * dependency tree) a horizontal line is only safe if **no card** in any
+ * column spans across that Y. Y values where any card straddles the
+ * line are excluded.
+ */
+function collectBoundaries(node: HTMLElement, selector: string): number[] {
   const baseTop = node.getBoundingClientRect().top;
-  const ys = new Set<number>();
-
-  const push = (el: Element) => {
+  const ranges: { top: number; bottom: number }[] = [];
+  for (const el of node.querySelectorAll<HTMLElement>(selector)) {
     const r = el.getBoundingClientRect();
-    if (r.height < 1) return;
-    ys.add(r.bottom - baseTop);
-  };
+    if (r.height < 1) continue;
+    ranges.push({ top: r.top - baseTop, bottom: r.bottom - baseTop });
+  }
+  if (ranges.length === 0) return [];
 
-  // 1) Explicit opt-in / table-shaped markers.
-  for (const el of node.querySelectorAll<HTMLElement>(ROW_BOUNDARY_SELECTOR)) {
-    push(el);
+  // Candidate cut Ys: every card's top and bottom edge.
+  const candidates = new Set<number>();
+  for (const r of ranges) {
+    candidates.add(r.top);
+    candidates.add(r.bottom);
   }
 
-  // 2) Heuristic: detect "list-like" containers — any element whose direct
-  // children are roughly equal height and stack vertically. Catches the
-  // <Box>-based rows used by the Lifecycle gantt, capability heatmap and
-  // similar custom layouts that don't use <tr>.
-  const all = node.querySelectorAll<HTMLElement>("*");
-  for (const parent of all) {
-    const children = Array.from(parent.children).filter(
-      (c): c is HTMLElement => c instanceof HTMLElement,
-    );
-    if (children.length < 3) continue;
-    const rects = children.map((c) => c.getBoundingClientRect());
-    const heights = rects.map((r) => r.height).filter((h) => h > 0);
-    if (heights.length < 3) continue;
-    const max = Math.max(...heights);
-    const min = Math.min(...heights);
-    if (max < 12 || (max - min) / max > 0.3) continue;
-    let stacks = true;
-    for (let i = 1; i < rects.length; i++) {
-      if (rects[i].top <= rects[i - 1].top) {
-        stacks = false;
+  const safe: number[] = [];
+  for (const y of candidates) {
+    let crosses = false;
+    for (const r of ranges) {
+      if (r.top + 0.5 < y && y < r.bottom - 0.5) {
+        crosses = true;
         break;
       }
     }
-    if (!stacks) continue;
-    for (const c of children) push(c);
+    if (!crosses) safe.push(y);
   }
-
-  const sorted = Array.from(ys).sort((a, b) => a - b);
-  return sorted.filter((y, i) => i === 0 || y - sorted[i - 1] > 1);
+  safe.sort((a, b) => a - b);
+  return safe.filter((y, i) => i === 0 || y - safe[i - 1] > 1);
 }
 
-async function captureChartImage(node: HTMLElement): Promise<CapturedImage | null> {
+async function captureChartImage(
+  node: HTMLElement,
+  rowSelector?: string,
+): Promise<CapturedImage | null> {
   try {
     const rect = node.getBoundingClientRect();
     const dataUrl = await toPng(node, {
@@ -277,7 +281,7 @@ async function captureChartImage(node: HTMLElement): Promise<CapturedImage | nul
       dataUrl,
       width: rect.width,
       height: rect.height,
-      boundaries: collectBoundaries(node),
+      boundaries: rowSelector ? collectBoundaries(node, rowSelector) : [],
     };
   } catch {
     return null;
@@ -402,15 +406,16 @@ async function paginateChartImage(
       }
     }
   }
-  // Fallback for charts without recognizable row boundaries (e.g. a
-  // treemap or capability heatmap that's just very tall): split on
-  // fixed-height pages so we still avoid an unreadable squashed image.
+  // No safe boundaries → keep the chart on a single slide rather than
+  // make blind cuts that risk slicing through visual content.
   if (cuts.length === 0) {
-    let y = pageMaxSourceH;
-    while (y < captured.height) {
-      cuts.push(y);
-      y += pageMaxSourceH;
-    }
+    return [
+      {
+        dataUrl: captured.dataUrl,
+        sourceWidth: captured.width,
+        sourceHeight: captured.height,
+      },
+    ];
   }
 
   const img = await loadImage(captured.dataUrl);
@@ -567,12 +572,21 @@ export async function exportReportToPptx(data: ReportExportData): Promise<void> 
   const chartWidth = slideWidth - 2 * margin;
 
   if (data.chartNode) {
-    const captured = await captureChartImage(data.chartNode);
+    const captured = await captureChartImage(data.chartNode, data.paginateRowSelector);
     if (captured) {
-      // For charts that overflow a single slide, paginate the image
-      // along the captured row boundaries so each slide always cuts
-      // between rows / cards rather than through them.
-      const pages = await paginateChartImage(captured, chartWidth, chartHeight);
+      // Pagination is opt-in via `paginateRowSelector`. Without it we
+      // always render the chart on a single slide and scale it to fit —
+      // visualizations like treemaps, heatmaps and network graphs lose
+      // meaning when split horizontally, so don't risk it.
+      const pages = data.paginateRowSelector
+        ? await paginateChartImage(captured, chartWidth, chartHeight)
+        : [
+            {
+              dataUrl: captured.dataUrl,
+              sourceWidth: captured.width,
+              sourceHeight: captured.height,
+            },
+          ];
       const firstPage = pages[0];
       const firstFit = fitImageInBox(
         firstPage.sourceWidth,

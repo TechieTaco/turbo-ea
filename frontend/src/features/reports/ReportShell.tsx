@@ -62,6 +62,16 @@ interface Props {
   buildExportData?: () => ReportExportData;
   /** Set to true to hide the XLSX/PPTX export menu entries for this report. */
   disableExport?: boolean;
+  /**
+   * CSS selector identifying a single "card" / "row" inside the chart
+   * area. Setting this opts the report into PPTX pagination — when the
+   * captured chart exceeds one slide it will be split across multiple
+   * slides, cutting only between matching elements. Reports that render
+   * a single inseparable visualization (treemap, heatmap, network
+   * graph) should leave this unset so the chart is always rendered on
+   * one slide.
+   */
+  paginateRowSelector?: string;
   children: ReactNode;
 }
 
@@ -84,6 +94,7 @@ export default function ReportShell({
   printParams,
   buildExportData,
   disableExport,
+  paginateRowSelector,
   children,
 }: Props) {
   const { t } = useTranslation(["reports", "common"]);
@@ -108,8 +119,9 @@ export default function ReportShell({
       filterSummary: activeParams,
       sheets: extractSheetsFromDOM(node),
       chartNode: node,
+      paginateRowSelector,
     };
-  }, [buildExportData, chartRef, title, activeParams]);
+  }, [buildExportData, chartRef, title, activeParams, paginateRowSelector]);
 
   const handleExport = useCallback(
     async (format: "xlsx" | "pptx") => {
