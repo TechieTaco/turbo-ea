@@ -36,7 +36,10 @@ When working on this codebase, follow these conventions:
 - Sensitive values (SSO secrets, SMTP passwords) must use `encrypt_value()`/`decrypt_value()` from `backend/app/core/encryption.py`.
 - Ruff linting: line length 100, rules E/F/I/N/W. Run `ruff check .` and `ruff format .`.
 - **Before every commit**, run `cd backend && ruff format . && ruff check .` to ensure CI won't fail on formatting or lint errors. This is mandatory — do not skip it.
-- **Public API surface is auto-documented**: `docs/api/openapi.json` is generated from `app.main:app` by `scripts/dump_openapi.py` and rendered in the user manual at `/admin/api/` via Swagger UI (loaded from the `swagger-ui-dist` CDN, same UI as FastAPI's `/api/docs`). Do not hand-edit it. After any change to a route, request/response schema, or `/VERSION`, run `python scripts/dump_openapi.py` and commit the result — CI fails PRs whose spec has drifted, and pushes to `main` auto-regenerate it via the `openapi-spec` workflow job.
+- **Public API surface is auto-documented**: `docs/api/openapi.json` is generated from `app.main:app` by `scripts/dump_openapi.py` and rendered in the user manual at `/admin/api/` via Swagger UI (loaded from the `swagger-ui-dist` CDN, same UI as FastAPI's `/api/docs`). Do not hand-edit it. The committed spec embeds `info.version`, so any `/VERSION` bump produces drift on its own. Handling:
+  - **VERSION bumps** are handled automatically by the `openapi-regenerate-on-version` pre-commit hook in `.pre-commit-config.yaml` — it runs `scripts/dump_openapi.py` whenever `VERSION` is staged, leaves the regenerated `docs/api/openapi.json` modified, and pre-commit asks you to `git add` it before the commit completes. Install once with `pip install pre-commit && pre-commit install` from the repo root.
+  - **Route or request/response schema changes**: run `python scripts/dump_openapi.py` and commit the result. The pre-commit hook intentionally does not fire here because the script imports the whole backend app and we don't want every `backend/**` commit to pay that cost.
+  - CI fails PRs whose spec has drifted; pushes to `main` auto-regenerate it via the `openapi-spec` workflow job, so it's recoverable if you forget.
 
 ### MCP Server Conventions
 - The MCP server lives in `mcp-server/` — a separate Python package (`turbo-ea-mcp`) with its own `pyproject.toml` and Dockerfile.
