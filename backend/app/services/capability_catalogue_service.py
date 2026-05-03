@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import io
 import json
+import logging
 import os
 import uuid
 import zipfile
@@ -30,6 +31,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.app_settings import AppSettings
 from app.models.card import Card
 from app.models.user import User
+
+logger = logging.getLogger(__name__)
 
 # PyPI is the source of truth for the catalogue package. Querying its JSON API
 # means a freshly-published wheel is detectable within seconds, whereas the
@@ -624,8 +627,9 @@ async def check_remote_version(db: AsyncSession) -> dict[str, Any]:
                 "source": "pypi",
                 "project": PYPI_PROJECT_NAME,
             }
-    except (httpx.HTTPError, ValueError) as exc:
-        error = f"Could not reach PyPI: {exc}"
+    except (httpx.HTTPError, ValueError):
+        logger.exception("PyPI version check failed")
+        error = "Could not reach PyPI"
 
     update_available = False
     if remote_meta and "catalogue_version" in remote_meta:
