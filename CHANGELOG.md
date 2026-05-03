@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ## [0.64.3] - 2026-05-03
 
 ### Fixed
-- **PPM module on iPad/tablet.** Tasks can now be dragged between Kanban columns by long-pressing (~250 ms) and dragging — a quick tap still opens the task dialog and a vertical swipe still scrolls a long column. The Gantt timeline scrolls horizontally with a finger swipe, and vertical swipes over the timeline now scroll the page as expected (the previous bail-out path let the gantt library's `preventDefault` block both axes). Mouse and trackpad behaviour on desktop is unchanged.
+- **PPM module on iPad/tablet.** The Tasks Kanban and the Gantt timeline are now usable on touch devices. On the **Tasks** board, long-press (~250 ms) on a task to pick it up and drag it across columns; a quick tap still opens the task dialog and a vertical swipe still scrolls a long column. The previous build was unusable on touch because `PointerSensor` was claiming the gesture before the long-press delay could fire — `PointerSensor` has been replaced with `MouseSensor` so touch goes exclusively through `TouchSensor`. On the **Gantt**, use **two fingers** to pan the timeline horizontally; one-finger swipes scroll the page vertically as normal, and one-finger drags on a bar / handle / milestone still resize and move tasks via the gantt library. Mouse and trackpad behaviour on desktop is unchanged.
 
 ## [0.64.2] - 2026-05-03
 

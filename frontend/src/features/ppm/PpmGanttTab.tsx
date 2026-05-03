@@ -1260,29 +1260,57 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
   }, []);
 
   /**
-   * Touch-scroll workaround: the gantt-task-react library attaches a touchmove
-   * handler on the SVG that unconditionally calls preventDefault(), blocking
-   * native touch scroll. We intercept in the capture phase with a NON-PASSIVE
-   * handler and call stopImmediatePropagation() to prevent the library's
-   * handler from firing when the user is scrolling (not dragging a bar).
+   * Touch interaction model on iPad/tablet:
+   *
+   *  - One-finger on a bar / handle / milestone: the gantt-task-react library
+   *    keeps its native drag-to-resize / drag-to-move behavior. We do not
+   *    interfere.
+   *  - One-finger on empty timeline area: we stopImmediatePropagation() on
+   *    touchmove so the library's blanket preventDefault cannot fire, but we
+   *    do NOT preventDefault ourselves — that lets the browser perform its
+   *    natural vertical page scroll over the gantt area.
+   *  - Two-finger touch anywhere: horizontal pan of the gantt timeline. We
+   *    track the midpoint of the two touches, stopImmediatePropagation() to
+   *    block the library, preventDefault() to suppress pinch-zoom, and drive
+   *    the scrollable container's scrollLeft directly.
+   *
+   *  The scrollable container is found dynamically (the library's CSS-module
+   *  class names are hashed) by walking descendants for one with horizontal
+   *  overflow, preferring the SVG content container when present.
    */
   useEffect(() => {
     const el = ganttRef.current;
     if (!el) return;
 
     let scrollContainer: HTMLElement | null = null;
-    let touchStartX = 0;
-    let touchStartY = 0;
-    let scrollStartLeft = 0;
-    let scrollMode: "none" | "scroll" | "vertical" | "bar" = "none";
-    const DEADZONE = 8; // px before deciding scroll vs bar drag
+    let panStartMidX = 0;
+    let panStartScrollLeft = 0;
+    let mode: "none" | "bar" | "page-scroll" | "two-finger-pan" = "none";
 
     const findScrollContainer = (): HTMLElement | null => {
-      if (scrollContainer) return scrollContainer;
-      scrollContainer = el.querySelector(
-        '[class*="ganttTaskRoot"]',
-      ) as HTMLElement | null;
-      return scrollContainer;
+      if (scrollContainer && scrollContainer.isConnected) return scrollContainer;
+      const named = ["ganttTaskContent_", "ganttTaskRoot_", "horizontalContainer"];
+      for (const cls of named) {
+        const candidate = el.querySelector(
+          `[class*="${cls}"]`,
+        ) as HTMLElement | null;
+        if (candidate && candidate.scrollWidth > candidate.clientWidth) {
+          scrollContainer = candidate;
+          return candidate;
+        }
+      }
+      // Fallback: any descendant with horizontal overflow.
+      const all = el.querySelectorAll<HTMLElement>("*");
+      for (const node of all) {
+        if (node.scrollWidth > node.clientWidth + 1) {
+          const style = window.getComputedStyle(node);
+          if (style.overflowX === "auto" || style.overflowX === "scroll") {
+            scrollContainer = node;
+            return node;
+          }
+        }
+      }
+      return null;
     };
 
     const isBarElement = (target: EventTarget | null): boolean => {
@@ -1294,54 +1322,60 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
       );
     };
 
+    const midpointX = (e: TouchEvent): number =>
+      (e.touches[0].clientX + e.touches[1].clientX) / 2;
+
     const onTouchStart = (e: TouchEvent) => {
-      if (e.touches.length !== 1) return;
-      if (isBarElement(e.target)) {
-        scrollMode = "bar";
+      if (e.touches.length === 2) {
+        const sc = findScrollContainer();
+        if (!sc) {
+          mode = "none";
+          return;
+        }
+        panStartMidX = midpointX(e);
+        panStartScrollLeft = sc.scrollLeft;
+        mode = "two-finger-pan";
         return;
       }
-      const sc = findScrollContainer();
-      if (!sc) return;
-      touchStartX = e.touches[0].clientX;
-      touchStartY = e.touches[0].clientY;
-      scrollStartLeft = sc.scrollLeft;
-      scrollMode = "none"; // undecided until deadzone exceeded
+      if (e.touches.length === 1) {
+        mode = isBarElement(e.target) ? "bar" : "page-scroll";
+      }
     };
 
     const onTouchMove = (e: TouchEvent) => {
-      if (scrollMode === "bar" || e.touches.length !== 1) return;
-
-      const dx = touchStartX - e.touches[0].clientX;
-      const dy = touchStartY - e.touches[0].clientY;
-
-      if (scrollMode === "none") {
-        if (Math.abs(dx) < DEADZONE && Math.abs(dy) < DEADZONE) return;
-        scrollMode = Math.abs(dy) > Math.abs(dx) ? "vertical" : "scroll";
-      }
-
-      // Always block the library's handler so it cannot preventDefault on us.
-      e.stopImmediatePropagation();
-
-      if (scrollMode === "scroll") {
+      if (mode === "two-finger-pan" && e.touches.length === 2) {
+        // Block the library and the browser's pinch-zoom for this gesture.
+        e.stopImmediatePropagation();
         e.preventDefault();
         const sc = findScrollContainer();
-        if (sc) sc.scrollLeft = scrollStartLeft + dx;
+        if (!sc) return;
+        const dx = panStartMidX - midpointX(e);
+        sc.scrollLeft = panStartScrollLeft + dx;
+        return;
       }
-      // scrollMode === "vertical": let the browser scroll the page naturally.
+      if (mode === "page-scroll" && e.touches.length === 1) {
+        // Stop the library's touchmove handler from preventing default,
+        // letting the browser perform native vertical scroll.
+        e.stopImmediatePropagation();
+      }
+      // mode === "bar" or "none": let the library handle it.
     };
 
-    const onTouchEnd = () => {
-      scrollMode = "none";
+    const onTouchEnd = (e: TouchEvent) => {
+      if (e.touches.length === 0) mode = "none";
+      else if (mode === "two-finger-pan" && e.touches.length < 2) mode = "none";
     };
 
     el.addEventListener("touchstart", onTouchStart, { capture: true, passive: true });
-    // MUST be non-passive so stopImmediatePropagation + preventDefault work
+    // MUST be non-passive so stopImmediatePropagation + preventDefault work.
     el.addEventListener("touchmove", onTouchMove, { capture: true, passive: false });
     el.addEventListener("touchend", onTouchEnd, { capture: true, passive: true });
+    el.addEventListener("touchcancel", onTouchEnd, { capture: true, passive: true });
     return () => {
       el.removeEventListener("touchstart", onTouchStart, true);
       el.removeEventListener("touchmove", onTouchMove, true);
       el.removeEventListener("touchend", onTouchEnd, true);
+      el.removeEventListener("touchcancel", onTouchEnd, true);
     };
   }, []);
 
