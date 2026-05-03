@@ -777,9 +777,13 @@ async def delete_task(
     initiative_id = str(task.initiative_id)
     had_wbs = task.wbs_id is not None
     await db.delete(task)
-    # Recalculate WBS completion after removing a task
+    # Recalculate WBS completion + dates after removing a task. Date rollup
+    # is bidirectional, so the parent WBS may shrink when its outer task
+    # is deleted (or stay put if the deleted task was the only one with
+    # dates — see `_rollup_wbs_dates_from_tasks`).
     if had_wbs:
         await _rollup_wbs_from_tasks(db, initiative_id)
+        await _rollup_wbs_dates_from_tasks(db, initiative_id)
     await db.commit()
 
 
@@ -965,30 +969,34 @@ async def _rollup_completion(db: AsyncSession, initiative_id: str) -> None:
 
 
 async def _rollup_wbs_dates_from_tasks(db: AsyncSession, initiative_id: str) -> None:
-    """Widen each WBS's start_date / end_date to encompass its tasks (if any),
-    then walk up parents so each ancestor encompasses its children. Widen-only:
-    a manually-set wider range is preserved. WBS items with no tasks and no
-    children are left untouched."""
+    """Set each WBS's start_date / end_date to the exact bounds of its direct
+    tasks union its children's computed bounds. Bidirectional: the WBS widens
+    when a task moves outside the current range and shrinks when tasks move
+    inward (or are reassigned / deleted) so the work-package range tracks its
+    actual content.
+
+    A WBS is left untouched when it has no tasks **and** no children with
+    dates — there is nothing to compute against, so a manually-typed range
+    on an empty WBS persists. The rule equally ignores tasks with no dates
+    (a date-less task contributes neither start nor end)."""
     result = await db.execute(select(PpmWbs).where(PpmWbs.initiative_id == initiative_id))
     all_wbs = list(result.scalars().all())
 
-    # 1. Leaf-level: widen each WBS from its direct tasks.
-    for wbs in all_wbs:
-        agg = await db.execute(
-            select(
-                func.min(PpmTask.start_date),
-                func.max(PpmTask.due_date),
-            ).where(PpmTask.wbs_id == wbs.id)
+    # Pre-fetch min/max task date per WBS in a single grouped query (avoids
+    # N+1 over the WBS tree).
+    agg_result = await db.execute(
+        select(
+            PpmTask.wbs_id,
+            func.min(PpmTask.start_date),
+            func.max(PpmTask.due_date),
         )
-        min_start, max_end = agg.one()
-        if min_start is None and max_end is None:
-            continue
-        if min_start is not None and (wbs.start_date is None or min_start < wbs.start_date):
-            wbs.start_date = min_start
-        if max_end is not None and (wbs.end_date is None or max_end > wbs.end_date):
-            wbs.end_date = max_end
+        .where(PpmTask.initiative_id == initiative_id, PpmTask.wbs_id.is_not(None))
+        .group_by(PpmTask.wbs_id)
+    )
+    own_bounds: dict[str, tuple[date | None, date | None]] = {
+        str(row[0]): (row[1], row[2]) for row in agg_result.all()
+    }
 
-    # 2. Walk up parents — each parent widens to encompass its children.
     by_id: dict[str, PpmWbs] = {str(w.id): w for w in all_wbs}
     children_map: dict[str, list[str]] = {}
     for w in all_wbs:
@@ -997,26 +1005,26 @@ async def _rollup_wbs_dates_from_tasks(db: AsyncSession, initiative_id: str) -> 
             children_map.setdefault(pid, []).append(str(w.id))
 
     def compute(wid: str) -> tuple[date | None, date | None]:
-        kids = children_map.get(wid, [])
         node = by_id[wid]
-        if not kids:
-            return node.start_date, node.end_date
-        child_starts: list[date] = []
-        child_ends: list[date] = []
-        for c in kids:
+        own_start, own_end = own_bounds.get(wid, (None, None))
+        starts: list[date] = []
+        ends: list[date] = []
+        if own_start is not None:
+            starts.append(own_start)
+        if own_end is not None:
+            ends.append(own_end)
+        for c in children_map.get(wid, []):
             cs, ce = compute(c)
             if cs is not None:
-                child_starts.append(cs)
+                starts.append(cs)
             if ce is not None:
-                child_ends.append(ce)
-        if child_starts:
-            min_cs = min(child_starts)
-            if node.start_date is None or min_cs < node.start_date:
-                node.start_date = min_cs
-        if child_ends:
-            max_ce = max(child_ends)
-            if node.end_date is None or max_ce > node.end_date:
-                node.end_date = max_ce
+                ends.append(ce)
+        if starts:
+            node.start_date = min(starts)
+        if ends:
+            node.end_date = max(ends)
+        # If neither own tasks nor children contributed dates, leave the
+        # WBS's existing dates as-is (rule: "ignored if no tasks").
         return node.start_date, node.end_date
 
     for w in all_wbs:

@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.64.5] - 2026-05-03
+
+### Changed
+- **PPM WBS date rollup is now bidirectional.** A work package's `start_date` / `end_date` track the exact bounds of its tasks: it widens when a task moves outside the current range and shrinks when tasks move inward, are reassigned to a different WBS, or are deleted. The change cascades up the WBS hierarchy. A WBS with no tasks (and no children with dates) keeps whatever dates the user last set — matching the previous behaviour for empty work packages. Replaces the widen-only rule introduced in 0.64.4.
+
 ## [0.64.4] - 2026-05-03
 
 ### Fixed

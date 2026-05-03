@@ -1054,17 +1054,10 @@ class TestWbsDateRollup:
         assert updated["start_date"] == "2026-03-05"
         assert updated["end_date"] == "2026-03-25"
 
-    async def test_patch_task_due_past_wbs_end_widens_end(self, client, ppm_env):
+    async def test_patch_task_due_extends_wbs_end(self, client, ppm_env):
         init_id = str(ppm_env["initiative"].id)
         hdrs = auth_headers(ppm_env["admin"])
-        wbs = await self._create_wbs(
-            client,
-            hdrs,
-            init_id,
-            title="WP",
-            start_date="2026-03-10",
-            end_date="2026-03-20",
-        )
+        wbs = await self._create_wbs(client, hdrs, init_id, title="WP")
         task = await self._create_task(
             client,
             hdrs,
@@ -1073,6 +1066,7 @@ class TestWbsDateRollup:
             start_date="2026-03-12",
             due_date="2026-03-15",
         )
+        # WBS now matches the task (Mar 12 – Mar 15).
         resp = await client.patch(
             f"{BASE}/tasks/{task['id']}",
             json={"due_date": "2026-03-30"},
@@ -1080,20 +1074,13 @@ class TestWbsDateRollup:
         )
         assert resp.status_code == 200
         updated = await self._get_wbs(client, hdrs, init_id, wbs["id"])
-        assert updated["start_date"] == "2026-03-10"  # unchanged
+        assert updated["start_date"] == "2026-03-12"
         assert updated["end_date"] == "2026-03-30"
 
-    async def test_patch_task_start_before_wbs_start_widens_start(self, client, ppm_env):
+    async def test_patch_task_start_extends_wbs_start(self, client, ppm_env):
         init_id = str(ppm_env["initiative"].id)
         hdrs = auth_headers(ppm_env["admin"])
-        wbs = await self._create_wbs(
-            client,
-            hdrs,
-            init_id,
-            title="WP",
-            start_date="2026-03-10",
-            end_date="2026-03-20",
-        )
+        wbs = await self._create_wbs(client, hdrs, init_id, title="WP")
         task = await self._create_task(
             client,
             hdrs,
@@ -1110,27 +1097,26 @@ class TestWbsDateRollup:
         assert resp.status_code == 200
         updated = await self._get_wbs(client, hdrs, init_id, wbs["id"])
         assert updated["start_date"] == "2026-03-01"
-        assert updated["end_date"] == "2026-03-20"  # unchanged
+        assert updated["end_date"] == "2026-03-15"
 
-    async def test_task_move_inside_range_leaves_wbs_untouched(self, client, ppm_env):
+    async def test_task_move_inside_shrinks_wbs(self, client, ppm_env):
+        """Moving a task to a tighter range shrinks the WBS to the new bounds."""
         init_id = str(ppm_env["initiative"].id)
         hdrs = auth_headers(ppm_env["admin"])
-        wbs = await self._create_wbs(
-            client,
-            hdrs,
-            init_id,
-            title="WP",
-            start_date="2026-03-10",
-            end_date="2026-03-20",
-        )
+        wbs = await self._create_wbs(client, hdrs, init_id, title="WP")
         task = await self._create_task(
             client,
             hdrs,
             init_id,
             wbs_id=wbs["id"],
-            start_date="2026-03-12",
-            due_date="2026-03-15",
+            start_date="2026-03-05",
+            due_date="2026-03-25",
         )
+        # WBS is now exactly the task's range.
+        widened = await self._get_wbs(client, hdrs, init_id, wbs["id"])
+        assert widened["start_date"] == "2026-03-05"
+        assert widened["end_date"] == "2026-03-25"
+        # Move the task inward — WBS shrinks to match.
         resp = await client.patch(
             f"{BASE}/tasks/{task['id']}",
             json={"start_date": "2026-03-13", "due_date": "2026-03-17"},
@@ -1138,8 +1124,8 @@ class TestWbsDateRollup:
         )
         assert resp.status_code == 200
         updated = await self._get_wbs(client, hdrs, init_id, wbs["id"])
-        assert updated["start_date"] == "2026-03-10"
-        assert updated["end_date"] == "2026-03-20"
+        assert updated["start_date"] == "2026-03-13"
+        assert updated["end_date"] == "2026-03-17"
 
     async def test_patch_unrelated_field_is_noop(self, client, ppm_env):
         init_id = str(ppm_env["initiative"].id)
@@ -1188,7 +1174,9 @@ class TestWbsDateRollup:
         assert empty_after["start_date"] == "2026-03-10"
         assert empty_after["end_date"] == "2026-03-20"
 
-    async def test_delete_task_does_not_narrow_wbs(self, client, ppm_env):
+    async def test_delete_only_task_keeps_last_dates(self, client, ppm_env):
+        """Deleting the *only* task on a WBS leaves the WBS dates as they
+        last were — the rule is ignored when there are no tasks."""
         init_id = str(ppm_env["initiative"].id)
         hdrs = auth_headers(ppm_env["admin"])
         wbs = await self._create_wbs(client, hdrs, init_id, title="WP")
@@ -1200,11 +1188,11 @@ class TestWbsDateRollup:
             start_date="2026-03-05",
             due_date="2026-03-25",
         )
-        # WBS should now span the task's range.
+        # WBS now matches the task's range.
         widened = await self._get_wbs(client, hdrs, init_id, wbs["id"])
         assert widened["start_date"] == "2026-03-05"
         assert widened["end_date"] == "2026-03-25"
-        # Delete the task — WBS dates must NOT narrow.
+        # Delete the only task — WBS keeps its last computed dates.
         resp = await client.delete(
             f"{BASE}/tasks/{task['id']}",
             headers=hdrs,
@@ -1213,6 +1201,40 @@ class TestWbsDateRollup:
         after_delete = await self._get_wbs(client, hdrs, init_id, wbs["id"])
         assert after_delete["start_date"] == "2026-03-05"
         assert after_delete["end_date"] == "2026-03-25"
+
+    async def test_delete_outer_task_shrinks_wbs(self, client, ppm_env):
+        """When one of several tasks is deleted, the WBS shrinks to the
+        bounds of the remaining tasks."""
+        init_id = str(ppm_env["initiative"].id)
+        hdrs = auth_headers(ppm_env["admin"])
+        wbs = await self._create_wbs(client, hdrs, init_id, title="WP")
+        outer = await self._create_task(
+            client,
+            hdrs,
+            init_id,
+            wbs_id=wbs["id"],
+            start_date="2026-03-05",
+            due_date="2026-03-25",
+        )
+        await self._create_task(
+            client,
+            hdrs,
+            init_id,
+            wbs_id=wbs["id"],
+            start_date="2026-03-10",
+            due_date="2026-03-20",
+        )
+        before = await self._get_wbs(client, hdrs, init_id, wbs["id"])
+        assert before["start_date"] == "2026-03-05"
+        assert before["end_date"] == "2026-03-25"
+        resp = await client.delete(
+            f"{BASE}/tasks/{outer['id']}",
+            headers=hdrs,
+        )
+        assert resp.status_code == 204
+        after = await self._get_wbs(client, hdrs, init_id, wbs["id"])
+        assert after["start_date"] == "2026-03-10"
+        assert after["end_date"] == "2026-03-20"
 
     async def test_cascades_up_parent_chain(self, client, ppm_env):
         """Adding a task on a leaf WBS widens its parent and grandparent."""
@@ -1262,9 +1284,9 @@ class TestWbsDateRollup:
         assert gp_after["start_date"] == "2026-03-01"
         assert gp_after["end_date"] == "2026-03-31"
 
-    async def test_parent_wider_than_child_is_preserved(self, client, ppm_env):
-        """Parent has a wider manually-set range than its child's task —
-        parent stays put (widen-only)."""
+    async def test_parent_shrinks_to_children_bounds(self, client, ppm_env):
+        """Parent with a manually wider range than its child's task collapses
+        to the child's task bounds, since the rule is bidirectional."""
         init_id = str(ppm_env["initiative"].id)
         hdrs = auth_headers(ppm_env["admin"])
         parent = await self._create_wbs(
@@ -1284,7 +1306,6 @@ class TestWbsDateRollup:
             start_date="2026-06-01",
             end_date="2026-06-30",
         )
-        # Task inside the child's range — child unchanged, parent stays wide.
         await self._create_task(
             client,
             hdrs,
@@ -1293,9 +1314,13 @@ class TestWbsDateRollup:
             start_date="2026-06-10",
             due_date="2026-06-20",
         )
+        # Child shrinks to its task bounds; parent shrinks to its child's bounds.
+        child_after = await self._get_wbs(client, hdrs, init_id, child["id"])
         parent_after = await self._get_wbs(client, hdrs, init_id, parent["id"])
-        assert parent_after["start_date"] == "2026-01-01"
-        assert parent_after["end_date"] == "2026-12-31"
+        assert child_after["start_date"] == "2026-06-10"
+        assert child_after["end_date"] == "2026-06-20"
+        assert parent_after["start_date"] == "2026-06-10"
+        assert parent_after["end_date"] == "2026-06-20"
 
 
 # ── Completion ────────────────────────────────────────────────────
