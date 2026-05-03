@@ -1,4 +1,4 @@
-# Référence API
+# Référence API { #api-overview }
 
 Turbo EA expose une **API REST** complète qui alimente tout ce que vous pouvez faire dans l'interface web. Vous pouvez l'utiliser pour automatiser les mises à jour de l'inventaire, intégrer des pipelines CI/CD, construire des tableaux de bord personnalisés ou extraire des données EA vers d'autres outils (BI, GRC, ITSM, tableurs).
 
@@ -28,10 +28,7 @@ La seule exception est l'endpoint de santé, monté sur `/api/health` (sans pré
 
 La référence interactive ci-dessous est générée directement depuis le code source FastAPI à chaque version et livrée avec le manuel utilisateur — aucune instance backend n'est nécessaire pour la consulter. Utilisez le champ de recherche pour localiser un endpoint, dépliez n'importe quelle opération pour voir les schémas requête/réponse et copiez les exemples `curl`. Le schéma brut peut être téléchargé en JSON depuis [`/api/openapi.json`](/api/openapi.json) pour les générateurs de code tels que `openapi-generator-cli`.
 
-<script
-  id="api-reference"
-  data-url="/api/openapi.json"
-></script>
+<script id="api-reference" data-url="/api/openapi.json"></script>
 <script src="https://cdn.jsdelivr.net/npm/@scalar/api-reference"></script>
 
 !!! info "Essayer les endpoints contre votre propre instance"

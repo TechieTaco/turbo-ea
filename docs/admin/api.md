@@ -1,4 +1,4 @@
-# API Reference
+# API Reference { #api-overview }
 
 Turbo EA exposes a complete **REST API** that powers everything you can do in the web UI. You can use it to automate inventory updates, integrate with CI/CD pipelines, build custom dashboards, or pull EA data into other tools (BI, GRC, ITSM, spreadsheets).
 
@@ -28,10 +28,7 @@ The single exception is the health endpoint, which is mounted at `/api/health` (
 
 The interactive reference below is generated directly from the FastAPI source on every release and ships with the user manual — no backend instance required to browse it. Use the search box to find an endpoint, expand any operation to see request/response schemas, and copy `curl` examples. The raw spec is downloadable as JSON at [`/api/openapi.json`](/api/openapi.json) for code generators such as `openapi-generator-cli`.
 
-<script
-  id="api-reference"
-  data-url="/api/openapi.json"
-></script>
+<script id="api-reference" data-url="/api/openapi.json"></script>
 <script src="https://cdn.jsdelivr.net/npm/@scalar/api-reference"></script>
 
 !!! info "Trying endpoints against your own instance"

@@ -1,4 +1,4 @@
-# API 参考
+# API 参考 { #api-overview }
 
 Turbo EA 提供了一套完整的 **REST API**，为 Web 界面中的所有操作提供支持。你可以使用它来自动化清单更新、与 CI/CD 流水线集成、构建自定义仪表板，或将 EA 数据接入其他工具（BI、GRC、ITSM、电子表格）。
 
@@ -28,10 +28,7 @@ http://localhost:8920/api/v1
 
 下方的交互式参考由 FastAPI 源代码在每次发布时直接生成，并随用户手册一起发布 — 无需运行后端实例即可浏览。使用搜索框定位端点，展开任意操作即可查看请求/响应结构，并复制 `curl` 示例。原始规范也可作为 JSON 从 [`/api/openapi.json`](/api/openapi.json) 下载，可用于 `openapi-generator-cli` 等代码生成器。
 
-<script
-  id="api-reference"
-  data-url="/api/openapi.json"
-></script>
+<script id="api-reference" data-url="/api/openapi.json"></script>
 <script src="https://cdn.jsdelivr.net/npm/@scalar/api-reference"></script>
 
 !!! info "在自己的实例上尝试端点"
