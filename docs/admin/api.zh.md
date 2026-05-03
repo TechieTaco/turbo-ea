@@ -1,4 +1,4 @@
-# API 参考 { #api-overview }
+# API 参考
 
 Turbo EA 提供了一套完整的 **REST API**，为 Web 界面中的所有操作提供支持。你可以使用它来自动化清单更新、与 CI/CD 流水线集成、构建自定义仪表板，或将 EA 数据接入其他工具（BI、GRC、ITSM、电子表格）。
 
@@ -26,13 +26,27 @@ http://localhost:8920/api/v1
 
 ## 实时 OpenAPI 参考
 
-下方的交互式参考由 FastAPI 源代码在每次发布时直接生成，并随用户手册一起发布 — 无需运行后端实例即可浏览。使用搜索框定位端点，展开任意操作即可查看请求/响应结构，并复制 `curl` 示例。原始规范也可作为 JSON 从 [`/api/openapi.json`](/api/openapi.json) 下载，可用于 `openapi-generator-cli` 等代码生成器。
+下方的交互式 Swagger UI 由 FastAPI 源代码在每次发布时直接生成，并随用户手册一起发布 — 无需运行后端实例即可浏览。使用过滤框按标签缩小端点范围，展开任意操作即可查看参数、请求/响应结构和示例。原始规范也可作为 JSON 从 [`/api/openapi.json`](/api/openapi.json) 下载，可用于 `openapi-generator-cli` 等代码生成器。
 
-<script id="api-reference" data-url="/api/openapi.json"></script>
-<script src="https://cdn.jsdelivr.net/npm/@scalar/api-reference"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui.css">
+<div id="swagger-ui"></div>
+<script src="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui-bundle.js"></script>
+<script>
+window.addEventListener('DOMContentLoaded', function () {
+  window.SwaggerUIBundle({
+    url: '/api/openapi.json',
+    dom_id: '#swagger-ui',
+    deepLinking: true,
+    filter: true,
+    docExpansion: 'list',
+    defaultModelsExpandDepth: 1,
+    supportedSubmitMethods: []
+  });
+});
+</script>
 
 !!! info "在自己的实例上尝试端点"
-    以开发模式运行的 Turbo EA 后端（`ENVIRONMENT=development`）也会在 `/api/docs` 暴露 Swagger UI — 打开它，点击 **Authorize**，粘贴一个 JWT（不带 `Bearer ` 前缀），然后用 **Try it out** 发送真实请求。在生产环境中这些端点出于安全考虑被禁用；这种情况下请使用本页面（或一个开发实例）来浏览规范。
+    本页面有意禁用了「Try it out」：文档站点不会代理您的 API。要发送真实请求，请以开发模式（`ENVIRONMENT=development`）运行 Turbo EA，并在自己的实例上打开 `/api/docs`：点击 **Authorize**，粘贴一个 JWT（不带 `Bearer ` 前缀），然后使用 **Try it out**。在生产部署中这些端点出于安全考虑被禁用；本页面始终保持只读浏览模式。
 
 ---
 

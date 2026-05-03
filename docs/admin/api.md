@@ -1,4 +1,4 @@
-# API Reference { #api-overview }
+# API Reference
 
 Turbo EA exposes a complete **REST API** that powers everything you can do in the web UI. You can use it to automate inventory updates, integrate with CI/CD pipelines, build custom dashboards, or pull EA data into other tools (BI, GRC, ITSM, spreadsheets).
 
@@ -26,13 +26,27 @@ The single exception is the health endpoint, which is mounted at `/api/health` (
 
 ## Live OpenAPI Reference
 
-The interactive reference below is generated directly from the FastAPI source on every release and ships with the user manual — no backend instance required to browse it. Use the search box to find an endpoint, expand any operation to see request/response schemas, and copy `curl` examples. The raw spec is downloadable as JSON at [`/api/openapi.json`](/api/openapi.json) for code generators such as `openapi-generator-cli`.
+The interactive Swagger UI below is generated directly from the FastAPI source on every release and ships with the user manual — no backend instance required to browse it. Use the filter box to narrow endpoints by tag, expand any operation to see parameters, request/response schemas, and example payloads. The raw spec is downloadable as JSON at [`/api/openapi.json`](/api/openapi.json) for code generators such as `openapi-generator-cli`.
 
-<script id="api-reference" data-url="/api/openapi.json"></script>
-<script src="https://cdn.jsdelivr.net/npm/@scalar/api-reference"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui.css">
+<div id="swagger-ui"></div>
+<script src="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui-bundle.js"></script>
+<script>
+window.addEventListener('DOMContentLoaded', function () {
+  window.SwaggerUIBundle({
+    url: '/api/openapi.json',
+    dom_id: '#swagger-ui',
+    deepLinking: true,
+    filter: true,
+    docExpansion: 'list',
+    defaultModelsExpandDepth: 1,
+    supportedSubmitMethods: []
+  });
+});
+</script>
 
 !!! info "Trying endpoints against your own instance"
-    A Turbo EA backend running in development mode (`ENVIRONMENT=development`) also exposes Swagger UI at `/api/docs` — open it, click **Authorize**, paste a JWT (without the `Bearer ` prefix), and use **Try it out** to send live requests. In production, those endpoints are disabled for security; use this page (or a development instance) to browse the schema instead.
+    Try-it-out is intentionally disabled here — the docs site doesn't proxy your API. To send real requests, run Turbo EA in development mode (`ENVIRONMENT=development`) and open `/api/docs` on your own instance: click **Authorize**, paste a JWT (without the `Bearer ` prefix), and use **Try it out**. In production deployments those endpoints are disabled for security; this page remains the read-only browser.
 
 ---
 

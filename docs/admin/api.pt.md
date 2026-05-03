@@ -1,4 +1,4 @@
-# Referência da API { #api-overview }
+# Referência da API
 
 O Turbo EA expõe uma **API REST** completa que alimenta tudo o que se pode fazer na interface web. Você pode usá-la para automatizar atualizações de inventário, integrar pipelines de CI/CD, construir painéis personalizados ou levar dados de EA para outras ferramentas (BI, GRC, ITSM, planilhas).
 
@@ -26,13 +26,27 @@ A única exceção é o endpoint de saúde, montado em `/api/health` (sem prefix
 
 ## Referência OpenAPI ao vivo
 
-A referência interativa abaixo é gerada diretamente a partir do código-fonte do FastAPI a cada release e enviada com o manual do usuário — não é necessária uma instância de backend em execução para consultá-la. Use a caixa de busca para localizar um endpoint, expanda qualquer operação para ver os esquemas de requisição/resposta e copie exemplos com `curl`. O esquema bruto pode ser baixado em JSON a partir de [`/api/openapi.json`](/api/openapi.json) para geradores de código como `openapi-generator-cli`.
+A Swagger UI interativa abaixo é gerada diretamente a partir do código-fonte do FastAPI a cada release e enviada com o manual do usuário — não é necessária uma instância de backend em execução para consultá-la. Use o filtro para restringir endpoints por tag e expanda qualquer operação para ver parâmetros, esquemas de requisição/resposta e exemplos. O esquema bruto pode ser baixado em JSON a partir de [`/api/openapi.json`](/api/openapi.json) para geradores de código como `openapi-generator-cli`.
 
-<script id="api-reference" data-url="/api/openapi.json"></script>
-<script src="https://cdn.jsdelivr.net/npm/@scalar/api-reference"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui.css">
+<div id="swagger-ui"></div>
+<script src="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui-bundle.js"></script>
+<script>
+window.addEventListener('DOMContentLoaded', function () {
+  window.SwaggerUIBundle({
+    url: '/api/openapi.json',
+    dom_id: '#swagger-ui',
+    deepLinking: true,
+    filter: true,
+    docExpansion: 'list',
+    defaultModelsExpandDepth: 1,
+    supportedSubmitMethods: []
+  });
+});
+</script>
 
 !!! info "Experimentar endpoints na sua própria instância"
-    Um backend Turbo EA em modo de desenvolvimento (`ENVIRONMENT=development`) também expõe a Swagger UI em `/api/docs` — abra-a, clique em **Authorize**, cole um JWT (sem o prefixo `Bearer `) e use **Try it out** para enviar requisições reais. Em produção esses endpoints ficam desativados por segurança; use esta página (ou uma instância de desenvolvimento) para explorar o esquema.
+    «Try it out» está desativado aqui de propósito: o site de documentação não atua como proxy da sua API. Para enviar requisições reais, execute Turbo EA em modo de desenvolvimento (`ENVIRONMENT=development`) e abra `/api/docs` na sua própria instância: clique em **Authorize**, cole um JWT (sem o prefixo `Bearer `) e use **Try it out**. Em produção esses endpoints ficam desativados por segurança; esta página continua sendo o navegador somente leitura.
 
 ---
 

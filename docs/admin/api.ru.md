@@ -1,4 +1,4 @@
-# Справочник API { #api-overview }
+# Справочник API
 
 Turbo EA предоставляет полноценный **REST API**, на котором держится всё, что можно сделать в веб-интерфейсе. Его можно использовать для автоматизации обновлений инвентаря, интеграции с CI/CD-конвейерами, построения собственных дашбордов или выгрузки данных EA в другие инструменты (BI, GRC, ITSM, табличные процессоры).
 
@@ -26,13 +26,27 @@ http://localhost:8920/api/v1
 
 ## Интерактивный справочник OpenAPI
 
-Интерактивный справочник ниже генерируется напрямую из исходников FastAPI при каждом релизе и поставляется вместе с руководством пользователя — экземпляр бэкенда для просмотра не нужен. Используйте поле поиска, чтобы найти конечную точку, разверните любую операцию, чтобы увидеть схемы запроса/ответа, и копируйте примеры `curl`. Сырую спецификацию также можно скачать в JSON по адресу [`/api/openapi.json`](/api/openapi.json) — для генераторов кода вроде `openapi-generator-cli`.
+Интерактивный Swagger UI ниже генерируется напрямую из исходников FastAPI при каждом релизе и поставляется вместе с руководством пользователя — запущенный бэкенд для просмотра не нужен. Используйте поле фильтра, чтобы сузить список конечных точек по тегу, разверните любую операцию, чтобы увидеть параметры, схемы запроса/ответа и примеры. Сырую спецификацию также можно скачать в JSON по адресу [`/api/openapi.json`](/api/openapi.json) — для генераторов кода вроде `openapi-generator-cli`.
 
-<script id="api-reference" data-url="/api/openapi.json"></script>
-<script src="https://cdn.jsdelivr.net/npm/@scalar/api-reference"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui.css">
+<div id="swagger-ui"></div>
+<script src="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui-bundle.js"></script>
+<script>
+window.addEventListener('DOMContentLoaded', function () {
+  window.SwaggerUIBundle({
+    url: '/api/openapi.json',
+    dom_id: '#swagger-ui',
+    deepLinking: true,
+    filter: true,
+    docExpansion: 'list',
+    defaultModelsExpandDepth: 1,
+    supportedSubmitMethods: []
+  });
+});
+</script>
 
 !!! info "Опробовать конечные точки на собственном экземпляре"
-    Бэкенд Turbo EA в режиме разработки (`ENVIRONMENT=development`) дополнительно публикует Swagger UI по адресу `/api/docs` — откройте его, нажмите **Authorize**, вставьте JWT (без префикса `Bearer `) и используйте **Try it out** для отправки реальных запросов. В продакшене эти точки отключены ради безопасности; используйте эту страницу (или экземпляр разработки), чтобы изучать схему.
+    «Try it out» здесь намеренно отключён — сайт документации не проксирует ваш API. Чтобы отправлять реальные запросы, запустите Turbo EA в режиме разработки (`ENVIRONMENT=development`) и откройте `/api/docs` на своём экземпляре: нажмите **Authorize**, вставьте JWT (без префикса `Bearer `) и используйте **Try it out**. В продакшене эти точки отключены ради безопасности; эта страница остаётся справочником только для чтения.
 
 ---
 
