@@ -14,7 +14,7 @@ La sezione **Admin** è disponibile per gli utenti con il ruolo **Admin**. Forni
 | [Autenticazione e SSO](sso.md) | Configurazione Single Sign-On (Microsoft Entra ID, Google, Okta, OIDC generico) e flussi di invito |
 | [Funzionalità IA](ai.md) | Suggerimenti di descrizione IA con LLM (Ollama, provider compatibili OpenAI) e contesto di ricerca web |
 | [Integrazione MCP](mcp.md) | Server Model Context Protocol per l'accesso degli strumenti IA (Claude Desktop, Copilot, Cursor) |
-| [Riferimento API](api.md) | Panoramica delle API REST, autenticazione e utilizzo della documentazione Swagger interattiva di FastAPI |
+| [Riferimento API](api.md) | Specifica OpenAPI 3 live integrata nel manuale utente (non serve un'istanza backend in esecuzione), più autenticazione, permessi e suggerimenti per la generazione di codice |
 | [Fine vita (EOL)](eol.md) | Collegamento massivo dei dati EOL da endoflife.date alle card tecnologiche |
 | [Sondaggi](surveys.md) | Sondaggi di manutenzione dati destinati a tipi di card e stakeholder specifici |
 | [Portali web](web-portals.md) | Portali pubblici in sola lettura accessibili senza autenticazione |
