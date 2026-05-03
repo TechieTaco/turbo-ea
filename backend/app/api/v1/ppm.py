@@ -922,18 +922,24 @@ async def _wbs_to_out(db: AsyncSession, wbs: PpmWbs) -> PpmWbsOut:
 
 
 async def _rollup_wbs_from_tasks(db: AsyncSession, initiative_id: str) -> None:
-    """Recalculate every WBS's completion as the duration-weighted ratio of
-    done task days to total task days in its subtree (own tasks plus all
-    descendants' tasks). A task's duration is the inclusive-day count from
-    `start_date` to `due_date`, defaulting to 1 day when either bound is
+    """Recalculate every WBS's completion as the duration-weighted average of
+    its tasks' progress in the whole subtree (own tasks plus all descendants').
+    Each task contributes its `duration_days × progress_factor` to the
+    numerator and `duration_days` to the denominator, where `progress_factor`
+    is `1.0` for a `done` task, `0.5` for `in_progress` (matching the
+    frontend's task-bar fill), and `0.0` for `todo` / `blocked`.
+
+    Duration defaults to 1 day when either of `start_date` / `due_date` is
     missing so a date-less task still contributes equally to other date-less
     tasks. WBS items whose subtree contains no tasks at all are left
-    untouched, so any manually-typed completion value persists.
+    untouched, so any manually-typed completion value persists."""
+    # Status → progress fraction. Mirrors the gantt task-bar fill in
+    # frontend/src/features/ppm/PpmGanttTab.tsx — keep these aligned.
+    status_progress_factor: dict[str, float] = {
+        "done": 1.0,
+        "in_progress": 0.5,
+    }
 
-    Replaces the earlier count-based done/total ratio: a 5-day task that's
-    done now contributes 5x more to its WBS's completion than a 1-day task
-    that's done, and a parent WBS aggregates the durations across all its
-    descendants rather than averaging children's percentages."""
     result = await db.execute(select(PpmWbs).where(PpmWbs.initiative_id == initiative_id))
     all_wbs = list(result.scalars().all())
 
@@ -958,8 +964,9 @@ async def _rollup_wbs_from_tasks(db: AsyncSession, initiative_id: str) -> None:
         if start is not None and due is not None:
             duration = max(1.0, float((due - start).days + 1))
         own_total[wid] = own_total.get(wid, 0.0) + duration
-        if status == "done":
-            own_done[wid] = own_done.get(wid, 0.0) + duration
+        factor = status_progress_factor.get(status, 0.0)
+        if factor:
+            own_done[wid] = own_done.get(wid, 0.0) + duration * factor
 
     by_id: dict[str, PpmWbs] = {str(w.id): w for w in all_wbs}
     children_map: dict[str, list[str]] = {}

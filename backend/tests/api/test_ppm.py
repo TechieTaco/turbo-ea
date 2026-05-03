@@ -1541,6 +1541,94 @@ class TestCompletionDurationWeighting:
         # Subtree: 1 day done / 10 total days = 10% (NOT (100 + 0)/2 = 50%)
         assert parent_after["completion"] == 10.0
 
+    async def test_in_progress_task_contributes_50_percent(self, client, ppm_env):
+        """An `in_progress` task counts at 50% credit, mirroring the
+        frontend's task-bar fill. Previously these contributed 0%, which
+        produced a WBS at 0% even when work had visibly started."""
+        init_id = str(ppm_env["initiative"].id)
+        hdrs = auth_headers(ppm_env["admin"])
+        wbs = await self._create_wbs(client, hdrs, init_id, title="WP")
+        # 1 in-progress 4-day task + 1 todo 1-day task
+        # → (4 × 0.5 + 1 × 0) / 5 = 40%
+        await self._create_task(
+            client,
+            hdrs,
+            init_id,
+            wbs_id=wbs["id"],
+            status="in_progress",
+            start_date="2026-03-01",
+            due_date="2026-03-04",
+        )
+        await self._create_task(
+            client,
+            hdrs,
+            init_id,
+            wbs_id=wbs["id"],
+            status="todo",
+            start_date="2026-03-05",
+            due_date="2026-03-05",
+        )
+        updated = await self._get_wbs(client, hdrs, init_id, wbs["id"])
+        assert updated["completion"] == 40.0
+
+    async def test_all_in_progress_yields_50_percent(self, client, ppm_env):
+        """The previously-broken case: a WBS whose tasks are all
+        in_progress used to report 0%; with the fix it reports 50%."""
+        init_id = str(ppm_env["initiative"].id)
+        hdrs = auth_headers(ppm_env["admin"])
+        wbs = await self._create_wbs(client, hdrs, init_id, title="WP")
+        for _ in range(3):
+            await self._create_task(
+                client,
+                hdrs,
+                init_id,
+                wbs_id=wbs["id"],
+                status="in_progress",
+            )
+        updated = await self._get_wbs(client, hdrs, init_id, wbs["id"])
+        assert updated["completion"] == 50.0
+
+    async def test_mixed_status_durations_aggregate(self, client, ppm_env):
+        """Done + in_progress + todo with varying durations: the WBS reports
+        the duration-weighted average where done=1.0, in_progress=0.5,
+        todo=0.0."""
+        init_id = str(ppm_env["initiative"].id)
+        hdrs = auth_headers(ppm_env["admin"])
+        wbs = await self._create_wbs(client, hdrs, init_id, title="WP")
+        # done 2-day + in_progress 4-day + todo 4-day
+        # numerator   = 2 × 1.0 + 4 × 0.5 + 4 × 0.0 = 4.0
+        # denominator = 2 + 4 + 4 = 10
+        # → 40%
+        await self._create_task(
+            client,
+            hdrs,
+            init_id,
+            wbs_id=wbs["id"],
+            status="done",
+            start_date="2026-03-01",
+            due_date="2026-03-02",
+        )
+        await self._create_task(
+            client,
+            hdrs,
+            init_id,
+            wbs_id=wbs["id"],
+            status="in_progress",
+            start_date="2026-03-03",
+            due_date="2026-03-06",
+        )
+        await self._create_task(
+            client,
+            hdrs,
+            init_id,
+            wbs_id=wbs["id"],
+            status="todo",
+            start_date="2026-03-07",
+            due_date="2026-03-10",
+        )
+        updated = await self._get_wbs(client, hdrs, init_id, wbs["id"])
+        assert updated["completion"] == 40.0
+
     async def test_subtree_with_no_tasks_preserves_manual_completion(self, client, ppm_env):
         """A WBS whose entire subtree has no tasks keeps whatever
         completion the user manually set."""
