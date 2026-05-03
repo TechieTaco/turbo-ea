@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Changed
 - **PPM WBS dates auto-track their tasks (bidirectional).** A work package's `start_date` / `end_date` now equal the exact bounds of its tasks: widen when a task moves outside the range, shrink when tasks move inward or are reassigned / deleted. The change cascades up the WBS hierarchy so parents and grandparents also follow their descendants. A WBS with no tasks (and no children with dates) keeps whatever dates you last set.
+- **PPM WBS completion is now duration-weighted across the whole subtree.** A 5-day task that's done now contributes 5x more to its work package's completion than a 1-day task that's done, and parent work packages aggregate the durations across all descendants rather than averaging children's percentages — so a child with one short done task and a sibling with one long open task no longer reports 50% complete at the parent. Tasks without dates default to 1 day so they still count, and a WBS whose subtree contains no tasks at all keeps any manually-typed completion value.
 
 ### Internal
 - Pre-commit hook regenerates `docs/api/openapi.json` whenever `VERSION` is staged, since the spec embeds `info.version` and CI fails PRs whose committed spec drifts. Install once with `pip install pre-commit && pre-commit install` from the repo root.
