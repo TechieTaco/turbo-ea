@@ -362,22 +362,11 @@ function checkIsWeekend(date: Date): boolean {
 }
 
 /** Build a set of WBS IDs that have at least one child. */
-/** WBS items that have at least one child WBS — their completion is
- *  always rolled up from the subtree, so the chip is read-only. */
-function getHierarchyParentIds(wbsList: PpmWbs[]): Set<string> {
+function getParentIds(wbsList: PpmWbs[], tasks: PpmTask[]): Set<string> {
   const ids = new Set<string>();
   for (const w of wbsList) {
     if (w.parent_id) ids.add(w.parent_id);
   }
-  return ids;
-}
-
-/** WBS items that the gantt library renders as a "project" container —
- *  either a true hierarchy parent or a leaf with directly-attached tasks.
- *  Used by the drag-progress callback to gate the bar-fill drag affordance,
- *  which doesn't make sense on a project row. */
-function getProjectRowIds(wbsList: PpmWbs[], tasks: PpmTask[]): Set<string> {
-  const ids = getHierarchyParentIds(wbsList);
   for (const t of tasks) {
     if (t.wbs_id) ids.add(t.wbs_id);
   }
@@ -554,19 +543,8 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
     loadData();
   }, [loadData]);
 
-  /** Set of WBS IDs that have at least one child WBS — their completion
-   *  chip stays read-only because it's always rolled up from the subtree. */
-  const hierarchyParentIds = useMemo(
-    () => getHierarchyParentIds(wbsList),
-    [wbsList],
-  );
-  /** Set of WBS IDs the gantt library renders as a "project" row (hierarchy
-   *  parent OR leaf with attached tasks). The drag-progress callback uses
-   *  this — leaves with tasks are project rows in the library too. */
-  const projectRowIds = useMemo(
-    () => getProjectRowIds(wbsList, tasks),
-    [wbsList, tasks],
-  );
+  /** Set of WBS IDs that have children (completion auto-rolled up). */
+  const parentIds = useMemo(() => getParentIds(wbsList, tasks), [wbsList, tasks]);
 
   /** Per-successor list of arrows the library should draw.
    *  Library shape: { sourceId, sourceTarget: "endOfTask", ownTarget: "startOfTask" }
@@ -677,16 +655,14 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
     return items;
   }, [wbsList, tasks, collapsed, theme, timelineRange, depsBySuccessor]);
 
-  /** Metadata map for custom Gantt columns (completion, assignee). The
-   *  completion chip is read-only only on true hierarchy parents — leaves
-   *  with tasks stay clickable so the user can override transiently. */
+  /** Metadata map for custom Gantt columns (completion, assignee). */
   const rowMeta = useMemo(() => {
     const map = new Map<string, GanttRowMeta>();
     for (const w of wbsList) {
       map.set(`wbs-${w.id}`, {
         completion: w.completion,
         assigneeName: w.assignee_name,
-        hasChildren: hierarchyParentIds.has(w.id),
+        hasChildren: parentIds.has(w.id),
       });
     }
     for (const tk of tasks) {
@@ -699,7 +675,7 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
       });
     }
     return map;
-  }, [wbsList, tasks, hierarchyParentIds]);
+  }, [wbsList, tasks, parentIds]);
 
   const handleDateChange: OnDateChange = useCallback(
     async (task) => {
@@ -735,10 +711,8 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
     async (task) => {
       const id = task.id;
       if (id.startsWith("wbs-")) {
-        // The library renders both hierarchy parents and leaves-with-tasks
-        // as "project" rows; in either case dragging the bar fill isn't
-        // the right affordance — the slider popover on the chip is.
-        if (projectRowIds.has(id.slice(4))) return;
+        // Only allow progress change on leaf WBS (no children)
+        if (parentIds.has(id.slice(4))) return;
         const realId = id.slice(4);
         await api.patch(`/ppm/wbs/${realId}`, {
           completion: Math.round(task.progress),
@@ -746,7 +720,7 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
         await loadData();
       }
     },
-    [loadData, projectRowIds],
+    [loadData, parentIds],
   );
 
   /** Lookup helpers — read end-/start-dates from our state, accounting
