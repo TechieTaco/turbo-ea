@@ -107,7 +107,7 @@ Das Gantt-Diagramm visualisiert den Projektzeitplan mit:
 - **Arbeitspakete (WBS)** — Hierarchische Projektstrukturplanelemente mit Start-/Enddaten
 - **Aufgaben** — Einzelne Aufgabenbalken, die mit Arbeitspaketen verknüpft sind
 - **Meilensteine** — Wichtige Termine, markiert mit Rautenindikatoren
-- **Fortschrittsbalken** — Visueller Fertigstellungsgrad, direkt per Drag verstellbar
+- **Fortschrittsbalken** — Visueller Fertigstellungsgrad. Klicken Sie auf den Prozent-Chip einer Aufgabe oder eines Blatt-Arbeitspakets, um einen Schieberegler zu öffnen, der auf **0%, 50% oder 100%** einrastet — entsprechend den drei Aufgabenstatus (Zu erledigen, In Bearbeitung, Erledigt). Übergeordnete Arbeitspakete mit Unterelementen zeigen einen schreibgeschützten Chip, dessen Wert automatisch aus dem Teilbaum hochgerechnet wird.
 - **Quartalstakte** — Zeitraster zur Orientierung
 
 Interaktion mit dem Gantt-Diagramm:

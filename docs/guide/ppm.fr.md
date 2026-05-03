@@ -107,7 +107,7 @@ Le diagramme de Gantt visualise le calendrier du projet avec :
 - **Lots de travaux (WBS)** — Éléments hiérarchiques de structure de découpage du travail avec dates de début/fin
 - **Tâches** — Barres de tâches individuelles liées aux lots de travaux
 - **Jalons** — Dates clés marquées par des indicateurs en losange
-- **Barres de progression** — Pourcentage d'achèvement visuel, ajustable par glisser-déposer
+- **Barres de progression** — Pourcentage d'achèvement visuel. Cliquez sur la pastille de pourcentage d'une tâche ou d'un lot de travaux feuille pour ouvrir un curseur qui s'aligne sur **0%, 50% ou 100%** — correspondant aux trois états de tâche (À faire, En cours, Terminé). Les lots de travaux parents avec des enfants affichent une pastille en lecture seule dont la valeur est calculée automatiquement à partir du sous-arbre.
 - **Repères trimestriels** — Grille de chronologie pour l'orientation
 
 Interagir avec le diagramme de Gantt :
