@@ -1274,7 +1274,7 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
     let touchStartX = 0;
     let touchStartY = 0;
     let scrollStartLeft = 0;
-    let scrollMode: "none" | "scroll" | "bar" = "none";
+    let scrollMode: "none" | "scroll" | "vertical" | "bar" = "none";
     const DEADZONE = 8; // px before deciding scroll vs bar drag
 
     const findScrollContainer = (): HTMLElement | null => {
@@ -1315,22 +1315,19 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
       const dy = touchStartY - e.touches[0].clientY;
 
       if (scrollMode === "none") {
-        // Still in deadzone — wait until movement exceeds threshold
         if (Math.abs(dx) < DEADZONE && Math.abs(dy) < DEADZONE) return;
-        // If predominantly vertical, let page scroll naturally
-        if (Math.abs(dy) > Math.abs(dx)) {
-          scrollMode = "bar"; // give up — let default behavior handle it
-          return;
-        }
-        scrollMode = "scroll";
+        scrollMode = Math.abs(dy) > Math.abs(dx) ? "vertical" : "scroll";
       }
 
-      // Stop the library's touchmove handler from calling preventDefault()
+      // Always block the library's handler so it cannot preventDefault on us.
       e.stopImmediatePropagation();
-      e.preventDefault();
 
-      const sc = findScrollContainer();
-      if (sc) sc.scrollLeft = scrollStartLeft + dx;
+      if (scrollMode === "scroll") {
+        e.preventDefault();
+        const sc = findScrollContainer();
+        if (sc) sc.scrollLeft = scrollStartLeft + dx;
+      }
+      // scrollMode === "vertical": let the browser scroll the page naturally.
     };
 
     const onTouchEnd = () => {

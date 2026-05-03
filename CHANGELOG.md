@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.64.3] - 2026-05-03
+
+### Fixed
+- **PPM module on iPad/tablet.** Tasks can now be dragged between Kanban columns by long-pressing (~250 ms) and dragging — a quick tap still opens the task dialog and a vertical swipe still scrolls a long column. The Gantt timeline scrolls horizontally with a finger swipe, and vertical swipes over the timeline now scroll the page as expected (the previous bail-out path let the gantt library's `preventDefault` block both axes). Mouse and trackpad behaviour on desktop is unchanged.
+
 ## [0.64.2] - 2026-05-03
 
 ### Security
