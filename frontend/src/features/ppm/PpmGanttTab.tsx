@@ -333,6 +333,17 @@ function addDaysIso(iso: string, days: number): string {
   return toIso(d);
 }
 
+/** Whole-day difference `to - from` between two ISO dates. Returned as
+ *  signed integer days, suitable for feeding back into `addDaysIso`. */
+function daysBetweenIso(from: string, to: string): number {
+  const a = /^(\d{4})-(\d{2})-(\d{2})/.exec(from);
+  const b = /^(\d{4})-(\d{2})-(\d{2})/.exec(to);
+  if (!a || !b) return 0;
+  const da = new Date(+a[1], +a[2] - 1, +a[3]);
+  const db = new Date(+b[1], +b[2] - 1, +b[3]);
+  return Math.round((db.getTime() - da.getTime()) / 86_400_000);
+}
+
 /** Round a date to day boundaries during drag/resize.
  *  The library passes (date, viewMode, dateExtremity, action). Snap start→00:00, end→23:59. */
 function roundToDay(
@@ -726,22 +737,36 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
     [tasks, wbsList],
   );
 
-  /** Snap the successor's start_date to a target ISO date. Adjusts
-   *  end_date too when needed (milestones always equal start; tasks /
-   *  WBS push their end out only if it's now before the new start). */
+  /** Snap the successor's start_date to a target ISO date and shift its
+   *  end / due date by the same delta so the duration is preserved — the
+   *  whole bar moves rather than its left edge stretching. Milestones
+   *  (start == end) always set both to the new date. When the successor
+   *  has only one of the two dates set, fall back to the previous "patch
+   *  start, push end forward only if it would invert" behaviour. */
   const alignSuccessorStart = useCallback(
     async (succKind: "task" | "wbs", succId: string, newStart: string) => {
       try {
         if (succKind === "task") {
           const tk = tasks.find((t2) => t2.id === succId);
           const patch: Record<string, string> = { start_date: newStart };
-          if (tk?.due_date && tk.due_date < newStart) patch.due_date = newStart;
+          if (tk?.start_date && tk?.due_date) {
+            const delta = daysBetweenIso(tk.start_date, newStart);
+            patch.due_date = addDaysIso(tk.due_date, delta);
+          } else if (tk?.due_date && tk.due_date < newStart) {
+            patch.due_date = newStart;
+          }
           await api.patch(`/ppm/tasks/${succId}`, patch);
         } else {
           const w = wbsList.find((w2) => w2.id === succId);
           const patch: Record<string, string> = { start_date: newStart };
-          if (w?.is_milestone) patch.end_date = newStart;
-          else if (w?.end_date && w.end_date < newStart) patch.end_date = newStart;
+          if (w?.is_milestone) {
+            patch.end_date = newStart;
+          } else if (w?.start_date && w?.end_date) {
+            const delta = daysBetweenIso(w.start_date, newStart);
+            patch.end_date = addDaysIso(w.end_date, delta);
+          } else if (w?.end_date && w.end_date < newStart) {
+            patch.end_date = newStart;
+          }
           await api.patch(`/ppm/wbs/${succId}`, patch);
         }
         await loadData();

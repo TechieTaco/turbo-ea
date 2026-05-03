@@ -5,20 +5,17 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
-## [0.64.5] - 2026-05-03
-
-### Changed
-- **PPM WBS date rollup is now bidirectional.** A work package's `start_date` / `end_date` track the exact bounds of its tasks: it widens when a task moves outside the current range and shrinks when tasks move inward, are reassigned to a different WBS, or are deleted. The change cascades up the WBS hierarchy. A WBS with no tasks (and no children with dates) keeps whatever dates the user last set — matching the previous behaviour for empty work packages. Replaces the widen-only rule introduced in 0.64.4.
-
-## [0.64.4] - 2026-05-03
-
-### Fixed
-- **PPM WBS work packages now extend their dates to span their tasks.** When a task is created, has its start / due date edited, or is moved between work packages, the parent work package's `start_date` widens to the earliest task start and its `end_date` widens to the latest task due date. The change cascades up the WBS hierarchy so parents and grandparents also widen to encompass their children. The rule is widen-only — a work-package range you set wider than its tasks is preserved — and a work package with no tasks keeps the dates you typed.
-
 ## [0.64.3] - 2026-05-03
 
 ### Fixed
 - **PPM module on iPad/tablet.** The Tasks Kanban and the Gantt timeline are now usable on touch devices. On the **Tasks** board, long-press (~250 ms) on a task to pick it up and drag it across columns; a quick tap still opens the task dialog and a vertical swipe still scrolls a long column. The previous build was unusable on touch because `PointerSensor` was claiming the gesture before the long-press delay could fire — `PointerSensor` has been replaced with `MouseSensor` so touch goes exclusively through `TouchSensor`. On the **Gantt**, use **two fingers** to pan the timeline horizontally; one-finger swipes scroll the page vertically as normal, and one-finger drags on a bar / handle / milestone still resize and move tasks via the gantt library. Mouse and trackpad behaviour on desktop is unchanged.
+- **PPM Gantt — "Align start" preserves task duration.** When you create a finish-to-start dependency and click **Align start** in the snackbar, the successor's whole bar now shifts so it starts the day after its predecessor finishes — its end / due date moves by the same delta as its start. Previously only the start date was patched, which stretched the task instead of moving it.
+
+### Changed
+- **PPM WBS dates auto-track their tasks (bidirectional).** A work package's `start_date` / `end_date` now equal the exact bounds of its tasks: widen when a task moves outside the range, shrink when tasks move inward or are reassigned / deleted. The change cascades up the WBS hierarchy so parents and grandparents also follow their descendants. A WBS with no tasks (and no children with dates) keeps whatever dates you last set.
+
+### Internal
+- Pre-commit hook regenerates `docs/api/openapi.json` whenever `VERSION` is staged, since the spec embeds `info.version` and CI fails PRs whose committed spec drifts. Install once with `pip install pre-commit && pre-commit install` from the repo root.
 
 ## [0.64.2] - 2026-05-03
 
