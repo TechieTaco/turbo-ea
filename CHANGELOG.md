@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.64.2] - 2026-05-03
+
+### Security
+- **Capability catalogue update-status no longer echoes PyPI exception details into the response.** `GET /capability-catalogue/update-status` previously returned `f"Could not reach PyPI: {exc}"`, mixing the raw exception string from `httpx.HTTPError` / `ValueError` into the JSON payload (CodeQL alert `py/stack-trace-exposure`). The endpoint is admin-only and the captured exceptions are bounded, so practical risk is low — but the response now returns the constant `"Could not reach PyPI"` and logs the full cause server-side via `logger.exception(...)`, matching the pattern already used by the sibling `update-fetch` endpoint.
+
 ## [0.64.1] - 2026-05-03
 
 ### Fixed
