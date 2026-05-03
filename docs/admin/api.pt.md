@@ -2,7 +2,7 @@
 
 O Turbo EA expõe uma **API REST** completa que alimenta tudo o que se pode fazer na interface web. Você pode usá-la para automatizar atualizações de inventário, integrar pipelines de CI/CD, construir painéis personalizados ou levar dados de EA para outras ferramentas (BI, GRC, ITSM, planilhas).
 
-A mesma API está documentada de forma interativa pela **Swagger UI integrada do FastAPI**, permitindo que administradores e desenvolvedores explorem cada endpoint, inspecionem os esquemas de requisição/resposta e experimentem chamadas diretamente do navegador.
+A especificação OpenAPI 3 completa é renderizada ao vivo mais abaixo nesta página: cada endpoint, parâmetro e formato de resposta, regenerado a partir do código do backend a cada release.
 
 ---
 
@@ -24,29 +24,18 @@ A única exceção é o endpoint de saúde, montado em `/api/health` (sem prefix
 
 ---
 
-## Referência interativa da API (Swagger UI)
+## Referência OpenAPI ao vivo
 
-O FastAPI gera automaticamente uma especificação OpenAPI 3 a partir do código do backend e serve ao seu lado uma Swagger UI interativa. Ela é a **fonte única da verdade** para cada endpoint, parâmetro e formato de resposta.
+A referência interativa abaixo é gerada diretamente a partir do código-fonte do FastAPI a cada release e enviada com o manual do usuário — não é necessária uma instância de backend em execução para consultá-la. Use a caixa de busca para localizar um endpoint, expanda qualquer operação para ver os esquemas de requisição/resposta e copie exemplos com `curl`. O esquema bruto pode ser baixado em JSON a partir de [`/api/openapi.json`](/api/openapi.json) para geradores de código como `openapi-generator-cli`.
 
-| URL | Descrição |
-|-----|-----------|
-| `/api/docs` | Swagger UI — explorar, pesquisar e experimentar endpoints pelo navegador |
-| `/api/redoc` | ReDoc — visão alternativa de documentação somente leitura |
-| `/api/openapi.json` | Esquema OpenAPI 3 bruto (útil para geradores de código como `openapi-generator-cli`) |
+<script
+  id="api-reference"
+  data-url="/api/openapi.json"
+></script>
+<script src="https://cdn.jsdelivr.net/npm/@scalar/api-reference"></script>
 
-!!! warning "Disponível apenas em modo de desenvolvimento"
-    Por motivos de segurança, os endpoints de documentação da API são **desativados em produção**. Eles só são servidos quando `ENVIRONMENT=development` está definido no seu arquivo `.env`. Em implantações de produção, o esquema OpenAPI não é exposto publicamente — mas a API em si funciona exatamente da mesma forma.
-
-    Para explorar a referência da API de uma instância de produção, execute uma instância local do Turbo EA em modo de desenvolvimento (o esquema é idêntico entre implantações da mesma versão) ou alterne temporariamente `ENVIRONMENT=development`, reinicie o backend e reverta a alteração depois.
-
-### Experimentar endpoints pela Swagger UI
-
-1. Abra `/api/docs` no navegador.
-2. Clique em **Authorize** no canto superior direito.
-3. Cole um JWT válido (sem o prefixo `Bearer `) no campo `bearerAuth` e confirme.
-4. Expanda qualquer endpoint, clique em **Try it out**, preencha os parâmetros e pressione **Execute**.
-
-O Swagger envia a requisição do seu navegador usando seu token, então qualquer coisa possível via API é alcançável a partir desta página — útil para tarefas administrativas pontuais e para verificar o comportamento das permissões.
+!!! info "Experimentar endpoints na sua própria instância"
+    Um backend Turbo EA em modo de desenvolvimento (`ENVIRONMENT=development`) também expõe a Swagger UI em `/api/docs` — abra-a, clique em **Authorize**, cole um JWT (sem o prefixo `Bearer `) e use **Try it out** para enviar requisições reais. Em produção esses endpoints ficam desativados por segurança; use esta página (ou uma instância de desenvolvimento) para explorar o esquema.
 
 ---
 
@@ -101,7 +90,7 @@ Se uma requisição falhar com `403 Forbidden`, o token é válido mas o usuári
 
 ## Grupos de endpoints comuns
 
-A referência completa está no Swagger; a tabela abaixo é um mapa rápido dos grupos mais usados:
+A referência ao vivo acima é a fonte completa da verdade; a tabela abaixo é um mapa rápido dos grupos mais usados:
 
 | Prefixo | Propósito |
 |---------|-----------|
@@ -136,7 +125,7 @@ Endpoints de listagem aceitam um conjunto consistente de parâmetros de consulta
 | `sort_dir` | `asc` ou `desc` |
 | `search` | Filtro de texto livre (onde houver suporte) |
 
-Filtros específicos por recurso são documentados por endpoint no Swagger (ex.: `/cards` aceita `type`, `status`, `parent_id`, `approval_status`).
+Filtros específicos por recurso são documentados por endpoint na referência ao vivo acima (ex.: `/cards` aceita `type`, `status`, `parent_id`, `approval_status`).
 
 ---
 
@@ -151,8 +140,8 @@ Filtros específicos por recurso são documentados por endpoint no Swagger (ex.:
 Como a API é totalmente descrita por OpenAPI 3, você pode gerar clientes tipados em qualquer linguagem importante:
 
 ```bash
-# Baixar o esquema de uma instância de desenvolvimento
-curl http://localhost:8920/api/openapi.json -o turbo-ea-openapi.json
+# Baixar o esquema (não é preciso ter uma instância em execução)
+curl https://docs.turbo-ea.org/api/openapi.json -o turbo-ea-openapi.json
 
 # Gerar um cliente Python
 openapi-generator-cli generate \
@@ -185,7 +174,8 @@ Endpoints sensíveis à autenticação (login, registro, redefinição de senha)
 
 | Problema | Solução |
 |----------|---------|
-| `/api/docs` retorna 404 | A Swagger UI está desativada em produção. Defina `ENVIRONMENT=development` e reinicie o backend, ou use uma instância de desenvolvimento para explorar o esquema. |
+| `/api/docs` retorna 404 na sua própria instância | A Swagger UI está desativada em produção. Defina `ENVIRONMENT=development` e reinicie o backend, ou use a referência ao vivo acima. |
+| A referência ao vivo acima aparece vazia | Verifique o console do navegador — o embed carrega `/api/openapi.json`; proxies corporativos ou bloqueadores rigorosos às vezes bloqueiam scripts servidos por CDN. |
 | `401 Unauthorized` | Token ausente, malformado ou expirado. Reautentique-se via `/auth/login` ou `/auth/refresh`. |
 | `403 Forbidden` | O token é válido, mas o usuário não tem a permissão necessária. Verifique o papel em [Usuários e papéis](users.md). |
 | `422 Unprocessable Entity` | Falha de validação do Pydantic. O corpo da resposta lista quais campos estão inválidos e por quê. |

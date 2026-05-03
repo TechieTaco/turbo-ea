@@ -2,7 +2,7 @@
 
 Turbo EA stellt eine vollständige **REST-API** bereit, die alles antreibt, was Sie in der Web-Oberfläche tun können. Damit lassen sich Inventaraktualisierungen automatisieren, CI/CD-Pipelines integrieren, eigene Dashboards bauen oder EA-Daten in andere Werkzeuge (BI, GRC, ITSM, Tabellenkalkulationen) übertragen.
 
-Dieselbe API ist interaktiv über die in **FastAPI eingebaute Swagger-UI** dokumentiert, sodass Administratoren und Entwickler jeden Endpunkt durchsuchen, Request- und Response-Schemata einsehen und Aufrufe direkt aus dem Browser ausprobieren können.
+Die vollständige OpenAPI-3-Spezifikation wird weiter unten auf dieser Seite live gerendert – jeder Endpunkt, jeder Parameter und jede Response-Struktur, in jeder Veröffentlichung neu aus dem Backend-Quellcode generiert.
 
 ---
 
@@ -24,29 +24,18 @@ Einzige Ausnahme ist der Health-Endpunkt, der unter `/api/health` (ohne Versions
 
 ---
 
-## Interaktive API-Referenz (Swagger UI)
+## Live-OpenAPI-Referenz
 
-FastAPI generiert automatisch eine OpenAPI-3-Spezifikation aus dem Backend-Code und stellt daneben eine interaktive Swagger-UI bereit. Sie ist die **maßgebliche Quelle** für jeden Endpunkt, jeden Parameter und jede Response-Struktur.
+Die interaktive Referenz unten wird in jeder Veröffentlichung direkt aus dem FastAPI-Quellcode generiert und mit dem Benutzerhandbuch ausgeliefert – es muss keine Backend-Instanz laufen, um sie zu durchsuchen. Nutzen Sie das Suchfeld, um einen Endpunkt zu finden, klappen Sie eine Operation auf, um Request-/Response-Schemata zu sehen, und kopieren Sie `curl`-Beispiele. Das rohe Schema lässt sich als JSON unter [`/api/openapi.json`](/api/openapi.json) herunterladen, etwa für Codegeneratoren wie `openapi-generator-cli`.
 
-| URL | Beschreibung |
-|-----|--------------|
-| `/api/docs` | Swagger UI – Endpunkte im Browser durchsuchen, prüfen und ausprobieren |
-| `/api/redoc` | ReDoc – alternative reine Lese-Ansicht der Dokumentation |
-| `/api/openapi.json` | Reines OpenAPI-3-Schema (nützlich für Codegeneratoren wie `openapi-generator-cli`) |
+<script
+  id="api-reference"
+  data-url="/api/openapi.json"
+></script>
+<script src="https://cdn.jsdelivr.net/npm/@scalar/api-reference"></script>
 
-!!! warning "Nur im Entwicklungsmodus verfügbar"
-    Aus Sicherheitsgründen sind die API-Dokumentations-Endpunkte **in der Produktion deaktiviert**. Sie werden nur ausgeliefert, wenn `ENVIRONMENT=development` in Ihrer `.env`-Datei gesetzt ist. In Produktionsumgebungen wird das OpenAPI-Schema nicht öffentlich angeboten – die API selbst funktioniert jedoch unverändert.
-
-    Um die API-Referenz für eine Produktionsinstanz zu durchstöbern, starten Sie eine lokale Turbo-EA-Instanz im Entwicklungsmodus (das Schema ist über alle Bereitstellungen derselben Version identisch) oder setzen Sie vorübergehend `ENVIRONMENT=development`, starten den Backend-Dienst neu und nehmen die Änderung anschließend zurück.
-
-### Endpunkte aus der Swagger-UI ausprobieren
-
-1. Öffnen Sie `/api/docs` in Ihrem Browser.
-2. Klicken Sie oben rechts auf **Authorize**.
-3. Fügen Sie ein gültiges JWT (ohne den Präfix `Bearer `) in das Feld `bearerAuth` ein und bestätigen Sie.
-4. Klappen Sie einen beliebigen Endpunkt auf, klicken Sie auf **Try it out**, füllen Sie die Parameter aus und klicken Sie auf **Execute**.
-
-Swagger sendet die Anfrage aus Ihrem Browser mit Ihrem Token, sodass alles, was über die API möglich ist, auch von dieser Seite aus erreichbar ist – nützlich für Ad-hoc-Administrationsaufgaben und zum Überprüfen des Berechtigungsverhaltens.
+!!! info "Endpunkte gegen die eigene Instanz ausprobieren"
+    Ein Turbo-EA-Backend im Entwicklungsmodus (`ENVIRONMENT=development`) stellt zusätzlich Swagger UI unter `/api/docs` bereit – öffnen Sie sie, klicken Sie auf **Authorize**, fügen Sie ein JWT (ohne `Bearer `-Präfix) ein und nutzen Sie **Try it out**, um echte Anfragen abzuschicken. In Produktionsumgebungen sind diese Endpunkte aus Sicherheitsgründen deaktiviert; verwenden Sie dann diese Seite (oder eine Entwicklungsinstanz), um das Schema zu durchstöbern.
 
 ---
 
@@ -101,7 +90,7 @@ Schlägt eine Anfrage mit `403 Forbidden` fehl, ist das Token gültig, dem Benut
 
 ## Häufig genutzte Endpunktgruppen
 
-Die vollständige Referenz finden Sie in Swagger; die folgende Tabelle ist eine schnelle Übersicht der meistgenutzten Gruppen:
+Die Live-Referenz oben ist die vollständige Quelle der Wahrheit; die folgende Tabelle ist eine schnelle Übersicht der meistgenutzten Gruppen:
 
 | Präfix | Zweck |
 |--------|-------|
@@ -136,7 +125,7 @@ Listen-Endpunkte akzeptieren einheitliche Query-Parameter:
 | `sort_dir` | `asc` oder `desc` |
 | `search` | Freitextfilter (sofern unterstützt) |
 
-Ressourcenspezifische Filter sind je Endpunkt in Swagger dokumentiert (z. B. nimmt `/cards` `type`, `status`, `parent_id`, `approval_status` entgegen).
+Ressourcenspezifische Filter sind je Endpunkt in der Live-Referenz oben dokumentiert (z. B. nimmt `/cards` `type`, `status`, `parent_id`, `approval_status` entgegen).
 
 ---
 
@@ -151,8 +140,8 @@ Ressourcenspezifische Filter sind je Endpunkt in Swagger dokumentiert (z. B. nim
 Da die API vollständig durch OpenAPI 3 beschrieben wird, können Sie typsichere Clients in jeder gängigen Sprache erzeugen:
 
 ```bash
-# Schema von einer Entwicklungsinstanz herunterladen
-curl http://localhost:8920/api/openapi.json -o turbo-ea-openapi.json
+# Schema herunterladen (keine laufende Instanz nötig)
+curl https://docs.turbo-ea.org/api/openapi.json -o turbo-ea-openapi.json
 
 # Python-Client erzeugen
 openapi-generator-cli generate \
@@ -185,7 +174,8 @@ Auth-sensitive Endpunkte (Login, Registrierung, Passwort-Reset) sind via `slowap
 
 | Problem | Lösung |
 |---------|--------|
-| `/api/docs` liefert 404 | Swagger UI ist in der Produktion deaktiviert. Setzen Sie `ENVIRONMENT=development` und starten Sie das Backend neu, oder verwenden Sie eine Entwicklungsinstanz, um das Schema einzusehen. |
+| `/api/docs` liefert 404 auf Ihrer eigenen Instanz | Swagger UI ist in der Produktion deaktiviert. Setzen Sie `ENVIRONMENT=development` und starten Sie das Backend neu, oder nutzen Sie die Live-Referenz oben. |
+| Live-Referenz oben bleibt leer | Prüfen Sie die Browser-Konsole – das Embed lädt `/api/openapi.json`; Unternehmensproxys oder strenge Adblocker blockieren gelegentlich CDN-Skripte. |
 | `401 Unauthorized` | Token fehlt, ist ungültig oder abgelaufen. Authentifizieren Sie sich erneut über `/auth/login` oder `/auth/refresh`. |
 | `403 Forbidden` | Token ist gültig, dem Benutzer fehlt aber die erforderliche Berechtigung. Prüfen Sie die Rolle in [Benutzer und Rollen](users.md). |
 | `422 Unprocessable Entity` | Pydantic-Validierung fehlgeschlagen. Der Response-Body listet die ungültigen Felder mit Begründung. |

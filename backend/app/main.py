@@ -518,6 +518,7 @@ async def lifespan(app: FastAPI):
 # ── H6: Conditionally disable OpenAPI docs in production ──
 app = FastAPI(
     title=settings.PROJECT_NAME,
+    version=APP_VERSION,
     lifespan=lifespan,
     docs_url="/api/docs" if settings.ENVIRONMENT == "development" else None,
     redoc_url=None,
