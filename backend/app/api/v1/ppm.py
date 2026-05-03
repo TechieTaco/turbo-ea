@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import uuid
+from datetime import date
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -704,6 +705,8 @@ async def create_task(
     # Recalculate WBS completion when a new task is added
     if task.wbs_id:
         await _rollup_wbs_from_tasks(db, initiative_id)
+    if task.wbs_id and (task.start_date is not None or task.due_date is not None):
+        await _rollup_wbs_dates_from_tasks(db, initiative_id)
     await db.commit()
     await db.refresh(task)
     return await _task_to_out(db, task)
@@ -746,6 +749,9 @@ async def update_task(
     # Recalculate WBS completion when task status changes
     if "status" in data:
         await _rollup_wbs_from_tasks(db, str(task.initiative_id))
+    # Widen parent WBS dates when a task's dates or WBS assignment changes
+    if any(k in data for k in ("start_date", "due_date", "wbs_id")):
+        await _rollup_wbs_dates_from_tasks(db, str(task.initiative_id))
     await db.commit()
     await db.refresh(task)
     return await _task_to_out(db, task)
@@ -952,6 +958,66 @@ async def _rollup_completion(db: AsyncSession, initiative_id: str) -> None:
         parent = by_id[wid]
         parent.completion = round(avg, 1)
         return avg
+
+    for w in all_wbs:
+        if not w.parent_id:
+            compute(str(w.id))
+
+
+async def _rollup_wbs_dates_from_tasks(db: AsyncSession, initiative_id: str) -> None:
+    """Widen each WBS's start_date / end_date to encompass its tasks (if any),
+    then walk up parents so each ancestor encompasses its children. Widen-only:
+    a manually-set wider range is preserved. WBS items with no tasks and no
+    children are left untouched."""
+    result = await db.execute(select(PpmWbs).where(PpmWbs.initiative_id == initiative_id))
+    all_wbs = list(result.scalars().all())
+
+    # 1. Leaf-level: widen each WBS from its direct tasks.
+    for wbs in all_wbs:
+        agg = await db.execute(
+            select(
+                func.min(PpmTask.start_date),
+                func.max(PpmTask.due_date),
+            ).where(PpmTask.wbs_id == wbs.id)
+        )
+        min_start, max_end = agg.one()
+        if min_start is None and max_end is None:
+            continue
+        if min_start is not None and (wbs.start_date is None or min_start < wbs.start_date):
+            wbs.start_date = min_start
+        if max_end is not None and (wbs.end_date is None or max_end > wbs.end_date):
+            wbs.end_date = max_end
+
+    # 2. Walk up parents — each parent widens to encompass its children.
+    by_id: dict[str, PpmWbs] = {str(w.id): w for w in all_wbs}
+    children_map: dict[str, list[str]] = {}
+    for w in all_wbs:
+        pid = str(w.parent_id) if w.parent_id else None
+        if pid:
+            children_map.setdefault(pid, []).append(str(w.id))
+
+    def compute(wid: str) -> tuple[date | None, date | None]:
+        kids = children_map.get(wid, [])
+        node = by_id[wid]
+        if not kids:
+            return node.start_date, node.end_date
+        child_starts: list[date] = []
+        child_ends: list[date] = []
+        for c in kids:
+            cs, ce = compute(c)
+            if cs is not None:
+                child_starts.append(cs)
+            if ce is not None:
+                child_ends.append(ce)
+        if child_starts:
+            min_cs = min(child_starts)
+            if node.start_date is None or min_cs < node.start_date:
+                node.start_date = min_cs
+        if child_ends:
+            max_ce = max(child_ends)
+            if node.end_date is None or max_ce > node.end_date:
+                node.end_date = max_ce
+        return node.start_date, node.end_date
 
     for w in all_wbs:
         if not w.parent_id:

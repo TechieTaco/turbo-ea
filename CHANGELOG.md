@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.64.4] - 2026-05-03
+
+### Fixed
+- **PPM WBS work packages now extend their dates to span their tasks.** When a task is created, has its start / due date edited, or is moved between work packages, the parent work package's `start_date` widens to the earliest task start and its `end_date` widens to the latest task due date. The change cascades up the WBS hierarchy so parents and grandparents also widen to encompass their children. The rule is widen-only — a work-package range you set wider than its tasks is preserved — and a work package with no tasks keeps the dates you typed.
+
 ## [0.64.3] - 2026-05-03
 
 ### Fixed
