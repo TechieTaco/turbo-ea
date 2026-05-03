@@ -995,6 +995,334 @@ class TestWbs:
         assert resp.json()["is_milestone"] is True
 
 
+# ── WBS date rollup from tasks ────────────────────────────────────
+
+
+class TestWbsDateRollup:
+    """A WBS work package's start_date / end_date must widen to encompass
+    all tasks underneath. Widen-only — never narrow a manually-set range —
+    and the rule is a no-op for WBS items that have no tasks."""
+
+    async def _create_wbs(self, client, hdrs, init_id, **kwargs):
+        resp = await client.post(
+            f"{BASE}/initiatives/{init_id}/wbs",
+            json=kwargs,
+            headers=hdrs,
+        )
+        assert resp.status_code == 200, resp.text
+        return resp.json()
+
+    async def _create_task(self, client, hdrs, init_id, **kwargs):
+        body = {"title": "T"}
+        body.update(kwargs)
+        resp = await client.post(
+            f"{BASE}/initiatives/{init_id}/tasks",
+            json=body,
+            headers=hdrs,
+        )
+        assert resp.status_code == 200, resp.text
+        return resp.json()
+
+    async def _get_wbs(self, client, hdrs, init_id, wbs_id):
+        resp = await client.get(
+            f"{BASE}/initiatives/{init_id}/wbs",
+            headers=hdrs,
+        )
+        assert resp.status_code == 200
+        return next(w for w in resp.json() if w["id"] == wbs_id)
+
+    async def test_create_task_outside_wbs_range_widens_wbs(self, client, ppm_env):
+        init_id = str(ppm_env["initiative"].id)
+        hdrs = auth_headers(ppm_env["admin"])
+        wbs = await self._create_wbs(
+            client,
+            hdrs,
+            init_id,
+            title="WP",
+            start_date="2026-03-10",
+            end_date="2026-03-20",
+        )
+        await self._create_task(
+            client,
+            hdrs,
+            init_id,
+            wbs_id=wbs["id"],
+            start_date="2026-03-05",
+            due_date="2026-03-25",
+        )
+        updated = await self._get_wbs(client, hdrs, init_id, wbs["id"])
+        assert updated["start_date"] == "2026-03-05"
+        assert updated["end_date"] == "2026-03-25"
+
+    async def test_patch_task_due_extends_wbs_end(self, client, ppm_env):
+        init_id = str(ppm_env["initiative"].id)
+        hdrs = auth_headers(ppm_env["admin"])
+        wbs = await self._create_wbs(client, hdrs, init_id, title="WP")
+        task = await self._create_task(
+            client,
+            hdrs,
+            init_id,
+            wbs_id=wbs["id"],
+            start_date="2026-03-12",
+            due_date="2026-03-15",
+        )
+        # WBS now matches the task (Mar 12 – Mar 15).
+        resp = await client.patch(
+            f"{BASE}/tasks/{task['id']}",
+            json={"due_date": "2026-03-30"},
+            headers=hdrs,
+        )
+        assert resp.status_code == 200
+        updated = await self._get_wbs(client, hdrs, init_id, wbs["id"])
+        assert updated["start_date"] == "2026-03-12"
+        assert updated["end_date"] == "2026-03-30"
+
+    async def test_patch_task_start_extends_wbs_start(self, client, ppm_env):
+        init_id = str(ppm_env["initiative"].id)
+        hdrs = auth_headers(ppm_env["admin"])
+        wbs = await self._create_wbs(client, hdrs, init_id, title="WP")
+        task = await self._create_task(
+            client,
+            hdrs,
+            init_id,
+            wbs_id=wbs["id"],
+            start_date="2026-03-12",
+            due_date="2026-03-15",
+        )
+        resp = await client.patch(
+            f"{BASE}/tasks/{task['id']}",
+            json={"start_date": "2026-03-01"},
+            headers=hdrs,
+        )
+        assert resp.status_code == 200
+        updated = await self._get_wbs(client, hdrs, init_id, wbs["id"])
+        assert updated["start_date"] == "2026-03-01"
+        assert updated["end_date"] == "2026-03-15"
+
+    async def test_task_move_inside_shrinks_wbs(self, client, ppm_env):
+        """Moving a task to a tighter range shrinks the WBS to the new bounds."""
+        init_id = str(ppm_env["initiative"].id)
+        hdrs = auth_headers(ppm_env["admin"])
+        wbs = await self._create_wbs(client, hdrs, init_id, title="WP")
+        task = await self._create_task(
+            client,
+            hdrs,
+            init_id,
+            wbs_id=wbs["id"],
+            start_date="2026-03-05",
+            due_date="2026-03-25",
+        )
+        # WBS is now exactly the task's range.
+        widened = await self._get_wbs(client, hdrs, init_id, wbs["id"])
+        assert widened["start_date"] == "2026-03-05"
+        assert widened["end_date"] == "2026-03-25"
+        # Move the task inward — WBS shrinks to match.
+        resp = await client.patch(
+            f"{BASE}/tasks/{task['id']}",
+            json={"start_date": "2026-03-13", "due_date": "2026-03-17"},
+            headers=hdrs,
+        )
+        assert resp.status_code == 200
+        updated = await self._get_wbs(client, hdrs, init_id, wbs["id"])
+        assert updated["start_date"] == "2026-03-13"
+        assert updated["end_date"] == "2026-03-17"
+
+    async def test_patch_unrelated_field_is_noop(self, client, ppm_env):
+        init_id = str(ppm_env["initiative"].id)
+        hdrs = auth_headers(ppm_env["admin"])
+        wbs = await self._create_wbs(
+            client,
+            hdrs,
+            init_id,
+            title="WP",
+            start_date="2026-03-10",
+            end_date="2026-03-20",
+        )
+        task = await self._create_task(client, hdrs, init_id, wbs_id=wbs["id"], title="Original")
+        resp = await client.patch(
+            f"{BASE}/tasks/{task['id']}",
+            json={"title": "Renamed"},
+            headers=hdrs,
+        )
+        assert resp.status_code == 200
+        updated = await self._get_wbs(client, hdrs, init_id, wbs["id"])
+        assert updated["start_date"] == "2026-03-10"
+        assert updated["end_date"] == "2026-03-20"
+
+    async def test_empty_wbs_keeps_user_dates(self, client, ppm_env):
+        init_id = str(ppm_env["initiative"].id)
+        hdrs = auth_headers(ppm_env["admin"])
+        empty_wbs = await self._create_wbs(
+            client,
+            hdrs,
+            init_id,
+            title="Empty WP",
+            start_date="2026-03-10",
+            end_date="2026-03-20",
+        )
+        other_wbs = await self._create_wbs(client, hdrs, init_id, title="Other WP")
+        # Add a task on the OTHER wbs with extreme dates — must not affect the empty one.
+        await self._create_task(
+            client,
+            hdrs,
+            init_id,
+            wbs_id=other_wbs["id"],
+            start_date="2026-01-01",
+            due_date="2026-12-31",
+        )
+        empty_after = await self._get_wbs(client, hdrs, init_id, empty_wbs["id"])
+        assert empty_after["start_date"] == "2026-03-10"
+        assert empty_after["end_date"] == "2026-03-20"
+
+    async def test_delete_only_task_keeps_last_dates(self, client, ppm_env):
+        """Deleting the *only* task on a WBS leaves the WBS dates as they
+        last were — the rule is ignored when there are no tasks."""
+        init_id = str(ppm_env["initiative"].id)
+        hdrs = auth_headers(ppm_env["admin"])
+        wbs = await self._create_wbs(client, hdrs, init_id, title="WP")
+        task = await self._create_task(
+            client,
+            hdrs,
+            init_id,
+            wbs_id=wbs["id"],
+            start_date="2026-03-05",
+            due_date="2026-03-25",
+        )
+        # WBS now matches the task's range.
+        widened = await self._get_wbs(client, hdrs, init_id, wbs["id"])
+        assert widened["start_date"] == "2026-03-05"
+        assert widened["end_date"] == "2026-03-25"
+        # Delete the only task — WBS keeps its last computed dates.
+        resp = await client.delete(
+            f"{BASE}/tasks/{task['id']}",
+            headers=hdrs,
+        )
+        assert resp.status_code == 204
+        after_delete = await self._get_wbs(client, hdrs, init_id, wbs["id"])
+        assert after_delete["start_date"] == "2026-03-05"
+        assert after_delete["end_date"] == "2026-03-25"
+
+    async def test_delete_outer_task_shrinks_wbs(self, client, ppm_env):
+        """When one of several tasks is deleted, the WBS shrinks to the
+        bounds of the remaining tasks."""
+        init_id = str(ppm_env["initiative"].id)
+        hdrs = auth_headers(ppm_env["admin"])
+        wbs = await self._create_wbs(client, hdrs, init_id, title="WP")
+        outer = await self._create_task(
+            client,
+            hdrs,
+            init_id,
+            wbs_id=wbs["id"],
+            start_date="2026-03-05",
+            due_date="2026-03-25",
+        )
+        await self._create_task(
+            client,
+            hdrs,
+            init_id,
+            wbs_id=wbs["id"],
+            start_date="2026-03-10",
+            due_date="2026-03-20",
+        )
+        before = await self._get_wbs(client, hdrs, init_id, wbs["id"])
+        assert before["start_date"] == "2026-03-05"
+        assert before["end_date"] == "2026-03-25"
+        resp = await client.delete(
+            f"{BASE}/tasks/{outer['id']}",
+            headers=hdrs,
+        )
+        assert resp.status_code == 204
+        after = await self._get_wbs(client, hdrs, init_id, wbs["id"])
+        assert after["start_date"] == "2026-03-10"
+        assert after["end_date"] == "2026-03-20"
+
+    async def test_cascades_up_parent_chain(self, client, ppm_env):
+        """Adding a task on a leaf WBS widens its parent and grandparent."""
+        init_id = str(ppm_env["initiative"].id)
+        hdrs = auth_headers(ppm_env["admin"])
+        grandparent = await self._create_wbs(
+            client,
+            hdrs,
+            init_id,
+            title="GP",
+            start_date="2026-03-10",
+            end_date="2026-03-20",
+        )
+        parent = await self._create_wbs(
+            client,
+            hdrs,
+            init_id,
+            title="P",
+            parent_id=grandparent["id"],
+            start_date="2026-03-12",
+            end_date="2026-03-18",
+        )
+        leaf = await self._create_wbs(
+            client,
+            hdrs,
+            init_id,
+            title="L",
+            parent_id=parent["id"],
+            start_date="2026-03-13",
+            end_date="2026-03-15",
+        )
+        await self._create_task(
+            client,
+            hdrs,
+            init_id,
+            wbs_id=leaf["id"],
+            start_date="2026-03-01",
+            due_date="2026-03-31",
+        )
+        leaf_after = await self._get_wbs(client, hdrs, init_id, leaf["id"])
+        parent_after = await self._get_wbs(client, hdrs, init_id, parent["id"])
+        gp_after = await self._get_wbs(client, hdrs, init_id, grandparent["id"])
+        assert leaf_after["start_date"] == "2026-03-01"
+        assert leaf_after["end_date"] == "2026-03-31"
+        assert parent_after["start_date"] == "2026-03-01"
+        assert parent_after["end_date"] == "2026-03-31"
+        assert gp_after["start_date"] == "2026-03-01"
+        assert gp_after["end_date"] == "2026-03-31"
+
+    async def test_parent_shrinks_to_children_bounds(self, client, ppm_env):
+        """Parent with a manually wider range than its child's task collapses
+        to the child's task bounds, since the rule is bidirectional."""
+        init_id = str(ppm_env["initiative"].id)
+        hdrs = auth_headers(ppm_env["admin"])
+        parent = await self._create_wbs(
+            client,
+            hdrs,
+            init_id,
+            title="P",
+            start_date="2026-01-01",
+            end_date="2026-12-31",
+        )
+        child = await self._create_wbs(
+            client,
+            hdrs,
+            init_id,
+            title="C",
+            parent_id=parent["id"],
+            start_date="2026-06-01",
+            end_date="2026-06-30",
+        )
+        await self._create_task(
+            client,
+            hdrs,
+            init_id,
+            wbs_id=child["id"],
+            start_date="2026-06-10",
+            due_date="2026-06-20",
+        )
+        # Child shrinks to its task bounds; parent shrinks to its child's bounds.
+        child_after = await self._get_wbs(client, hdrs, init_id, child["id"])
+        parent_after = await self._get_wbs(client, hdrs, init_id, parent["id"])
+        assert child_after["start_date"] == "2026-06-10"
+        assert child_after["end_date"] == "2026-06-20"
+        assert parent_after["start_date"] == "2026-06-10"
+        assert parent_after["end_date"] == "2026-06-20"
+
+
 # ── Completion ────────────────────────────────────────────────────
 
 
@@ -1067,6 +1395,259 @@ class TestCompletion:
             headers=auth_headers(ppm_env["admin"]),
         )
         assert resp.status_code == 404
+
+
+# ── Duration-weighted completion rollup ───────────────────────────
+
+
+class TestCompletionDurationWeighting:
+    """Tasks contribute to their WBS's completion proportionally to their
+    duration in days, not as a flat 1/N fraction. A 5-day task counts
+    5x as much as a 1-day task; tasks with no dates default to 1 day."""
+
+    async def _create_wbs(self, client, hdrs, init_id, **kwargs):
+        resp = await client.post(
+            f"{BASE}/initiatives/{init_id}/wbs",
+            json=kwargs,
+            headers=hdrs,
+        )
+        assert resp.status_code == 200, resp.text
+        return resp.json()
+
+    async def _create_task(self, client, hdrs, init_id, **kwargs):
+        body = {"title": "T"}
+        body.update(kwargs)
+        resp = await client.post(
+            f"{BASE}/initiatives/{init_id}/tasks",
+            json=body,
+            headers=hdrs,
+        )
+        assert resp.status_code == 200, resp.text
+        return resp.json()
+
+    async def _get_wbs(self, client, hdrs, init_id, wbs_id):
+        resp = await client.get(
+            f"{BASE}/initiatives/{init_id}/wbs",
+            headers=hdrs,
+        )
+        return next(w for w in resp.json() if w["id"] == wbs_id)
+
+    async def test_short_done_long_open_yields_low_completion(self, client, ppm_env):
+        """1 day done out of 5 total days = 20%, not 50% (which a count-
+        based ratio of 1-of-2 tasks would have produced)."""
+        init_id = str(ppm_env["initiative"].id)
+        hdrs = auth_headers(ppm_env["admin"])
+        wbs = await self._create_wbs(client, hdrs, init_id, title="WP")
+        await self._create_task(
+            client,
+            hdrs,
+            init_id,
+            wbs_id=wbs["id"],
+            status="done",
+            start_date="2026-03-01",
+            due_date="2026-03-01",  # 1 day inclusive
+        )
+        await self._create_task(
+            client,
+            hdrs,
+            init_id,
+            wbs_id=wbs["id"],
+            status="todo",
+            start_date="2026-03-02",
+            due_date="2026-03-05",  # 4 days inclusive
+        )
+        # PATCH a task so the rollup runs (creation already triggers it,
+        # but we re-trigger to make the assertion explicit).
+        updated = await self._get_wbs(client, hdrs, init_id, wbs["id"])
+        # 1 done day / (1 + 4) total days = 20%
+        assert updated["completion"] == 20.0
+
+    async def test_long_done_short_open_yields_high_completion(self, client, ppm_env):
+        """4 days done out of 5 total = 80% even though only 1-of-2 tasks
+        is done, because the long task carries more weight."""
+        init_id = str(ppm_env["initiative"].id)
+        hdrs = auth_headers(ppm_env["admin"])
+        wbs = await self._create_wbs(client, hdrs, init_id, title="WP")
+        await self._create_task(
+            client,
+            hdrs,
+            init_id,
+            wbs_id=wbs["id"],
+            status="done",
+            start_date="2026-03-01",
+            due_date="2026-03-04",  # 4 days
+        )
+        await self._create_task(
+            client,
+            hdrs,
+            init_id,
+            wbs_id=wbs["id"],
+            status="todo",
+            start_date="2026-03-05",
+            due_date="2026-03-05",  # 1 day
+        )
+        updated = await self._get_wbs(client, hdrs, init_id, wbs["id"])
+        assert updated["completion"] == 80.0
+
+    async def test_dateless_tasks_each_weight_one_day(self, client, ppm_env):
+        """Tasks with no dates default to 1 day each, so a WBS with all
+        date-less tasks behaves like the old count-based ratio."""
+        init_id = str(ppm_env["initiative"].id)
+        hdrs = auth_headers(ppm_env["admin"])
+        wbs = await self._create_wbs(client, hdrs, init_id, title="WP")
+        # 1 done, 3 not done — no dates anywhere.
+        await self._create_task(client, hdrs, init_id, wbs_id=wbs["id"], status="done")
+        for _ in range(3):
+            await self._create_task(client, hdrs, init_id, wbs_id=wbs["id"], status="todo")
+        updated = await self._get_wbs(client, hdrs, init_id, wbs["id"])
+        # 1 day done / 4 total days = 25%
+        assert updated["completion"] == 25.0
+
+    async def test_parent_aggregates_subtree_durations(self, client, ppm_env):
+        """A parent WBS's completion is the duration-weighted aggregate of
+        its whole subtree, not a flat average of its children. A child
+        with a single short done task and a child with one long open task
+        produce a low parent completion, not 50%."""
+        init_id = str(ppm_env["initiative"].id)
+        hdrs = auth_headers(ppm_env["admin"])
+        parent = await self._create_wbs(client, hdrs, init_id, title="Parent")
+        a = await self._create_wbs(client, hdrs, init_id, title="A", parent_id=parent["id"])
+        b = await self._create_wbs(client, hdrs, init_id, title="B", parent_id=parent["id"])
+        # A: 1-day done task
+        await self._create_task(
+            client,
+            hdrs,
+            init_id,
+            wbs_id=a["id"],
+            status="done",
+            start_date="2026-03-01",
+            due_date="2026-03-01",
+        )
+        # B: 9-day open task
+        await self._create_task(
+            client,
+            hdrs,
+            init_id,
+            wbs_id=b["id"],
+            status="todo",
+            start_date="2026-03-02",
+            due_date="2026-03-10",
+        )
+        a_after = await self._get_wbs(client, hdrs, init_id, a["id"])
+        b_after = await self._get_wbs(client, hdrs, init_id, b["id"])
+        parent_after = await self._get_wbs(client, hdrs, init_id, parent["id"])
+        assert a_after["completion"] == 100.0
+        assert b_after["completion"] == 0.0
+        # Subtree: 1 day done / 10 total days = 10% (NOT (100 + 0)/2 = 50%)
+        assert parent_after["completion"] == 10.0
+
+    async def test_in_progress_task_contributes_50_percent(self, client, ppm_env):
+        """An `in_progress` task counts at 50% credit, mirroring the
+        frontend's task-bar fill. Previously these contributed 0%, which
+        produced a WBS at 0% even when work had visibly started."""
+        init_id = str(ppm_env["initiative"].id)
+        hdrs = auth_headers(ppm_env["admin"])
+        wbs = await self._create_wbs(client, hdrs, init_id, title="WP")
+        # 1 in-progress 4-day task + 1 todo 1-day task
+        # → (4 × 0.5 + 1 × 0) / 5 = 40%
+        await self._create_task(
+            client,
+            hdrs,
+            init_id,
+            wbs_id=wbs["id"],
+            status="in_progress",
+            start_date="2026-03-01",
+            due_date="2026-03-04",
+        )
+        await self._create_task(
+            client,
+            hdrs,
+            init_id,
+            wbs_id=wbs["id"],
+            status="todo",
+            start_date="2026-03-05",
+            due_date="2026-03-05",
+        )
+        updated = await self._get_wbs(client, hdrs, init_id, wbs["id"])
+        assert updated["completion"] == 40.0
+
+    async def test_all_in_progress_yields_50_percent(self, client, ppm_env):
+        """The previously-broken case: a WBS whose tasks are all
+        in_progress used to report 0%; with the fix it reports 50%."""
+        init_id = str(ppm_env["initiative"].id)
+        hdrs = auth_headers(ppm_env["admin"])
+        wbs = await self._create_wbs(client, hdrs, init_id, title="WP")
+        for _ in range(3):
+            await self._create_task(
+                client,
+                hdrs,
+                init_id,
+                wbs_id=wbs["id"],
+                status="in_progress",
+            )
+        updated = await self._get_wbs(client, hdrs, init_id, wbs["id"])
+        assert updated["completion"] == 50.0
+
+    async def test_mixed_status_durations_aggregate(self, client, ppm_env):
+        """Done + in_progress + todo with varying durations: the WBS reports
+        the duration-weighted average where done=1.0, in_progress=0.5,
+        todo=0.0."""
+        init_id = str(ppm_env["initiative"].id)
+        hdrs = auth_headers(ppm_env["admin"])
+        wbs = await self._create_wbs(client, hdrs, init_id, title="WP")
+        # done 2-day + in_progress 4-day + todo 4-day
+        # numerator   = 2 × 1.0 + 4 × 0.5 + 4 × 0.0 = 4.0
+        # denominator = 2 + 4 + 4 = 10
+        # → 40%
+        await self._create_task(
+            client,
+            hdrs,
+            init_id,
+            wbs_id=wbs["id"],
+            status="done",
+            start_date="2026-03-01",
+            due_date="2026-03-02",
+        )
+        await self._create_task(
+            client,
+            hdrs,
+            init_id,
+            wbs_id=wbs["id"],
+            status="in_progress",
+            start_date="2026-03-03",
+            due_date="2026-03-06",
+        )
+        await self._create_task(
+            client,
+            hdrs,
+            init_id,
+            wbs_id=wbs["id"],
+            status="todo",
+            start_date="2026-03-07",
+            due_date="2026-03-10",
+        )
+        updated = await self._get_wbs(client, hdrs, init_id, wbs["id"])
+        assert updated["completion"] == 40.0
+
+    async def test_subtree_with_no_tasks_preserves_manual_completion(self, client, ppm_env):
+        """A WBS whose entire subtree has no tasks keeps whatever
+        completion the user manually set."""
+        init_id = str(ppm_env["initiative"].id)
+        hdrs = auth_headers(ppm_env["admin"])
+        empty = await self._create_wbs(client, hdrs, init_id, title="Empty", completion=42)
+        # Trigger a rollup via a task on a *different* WBS.
+        other = await self._create_wbs(client, hdrs, init_id, title="Other")
+        await self._create_task(
+            client,
+            hdrs,
+            init_id,
+            wbs_id=other["id"],
+            status="done",
+            start_date="2026-03-01",
+            due_date="2026-03-01",
+        )
+        empty_after = await self._get_wbs(client, hdrs, init_id, empty["id"])
+        assert empty_after["completion"] == 42
 
 
 # ── Permissions ───────────────────────────────────────────────────

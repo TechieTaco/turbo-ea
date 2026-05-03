@@ -5,6 +5,20 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.65.0] - 2026-05-03
+
+### Fixed
+- **PPM module on iPad/tablet.** The Tasks Kanban and the Gantt timeline are now usable on touch devices. On the **Tasks** board, long-press (~250 ms) on a task to pick it up and drag it across columns; a quick tap still opens the task dialog and a vertical swipe still scrolls a long column. The previous build was unusable on touch because `PointerSensor` was claiming the gesture before the long-press delay could fire — `PointerSensor` has been replaced with `MouseSensor` so touch goes exclusively through `TouchSensor`. On the **Gantt**, use **two fingers** to pan the timeline horizontally; one-finger swipes scroll the page vertically as normal, and one-finger drags on a bar / handle / milestone still resize and move tasks via the gantt library. Mouse and trackpad behaviour on desktop is unchanged.
+- **PPM Gantt — "Align start" preserves task duration.** When you create a finish-to-start dependency and click **Align start** in the snackbar, the successor's whole bar now shifts so it starts the day after its predecessor finishes — its end / due date moves by the same delta as its start. Previously only the start date was patched, which stretched the task instead of moving it.
+- **PPM work-package completion now counts in-progress tasks at 50%.** A WBS's rolled-up completion is the duration-weighted average of its tasks where each task contributes `100% × duration` if `done`, `50% × duration` if `in_progress`, and `0%` otherwise — matching the per-task fill the Gantt has always shown. Previously `in_progress` tasks contributed 0 to the parent, so a work package with all in-progress tasks read 0% even though every task underneath visibly read 50%.
+
+### Changed
+- **PPM WBS dates auto-track their tasks (bidirectional).** A work package's `start_date` / `end_date` now equal the exact bounds of its tasks: widen when a task moves outside the range, shrink when tasks move inward or are reassigned / deleted. The change cascades up the WBS hierarchy so parents and grandparents also follow their descendants. A WBS with no tasks (and no children with dates) keeps whatever dates you last set.
+- **PPM WBS completion is now duration-weighted across the whole subtree.** A 5-day task that's done now contributes 5x more to its work package's completion than a 1-day task that's done, and parent work packages aggregate the durations across all descendants rather than averaging children's percentages — so a child with one short done task and a sibling with one long open task no longer reports 50% complete at the parent. Tasks without dates default to 1 day so they still count, and a WBS whose subtree contains no tasks at all keeps any manually-typed completion value.
+
+### Internal
+- Pre-commit hook regenerates `docs/api/openapi.json` whenever `VERSION` is staged, since the spec embeds `info.version` and CI fails PRs whose committed spec drifts. Install once with `pip install pre-commit && pre-commit install` from the repo root.
+
 ## [0.64.2] - 2026-05-03
 
 ### Security

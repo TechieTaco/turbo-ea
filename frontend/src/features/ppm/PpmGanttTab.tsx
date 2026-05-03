@@ -94,6 +94,10 @@ const VIEW_SCALE: ViewMode[] = [
 ];
 
 const VIEW_MODE_KEY = "ppm.gantt.viewMode";
+/** Per-initiative key — the centre date the user last had the viewport
+ *  scrolled to, persisted as an ISO string so we restore the same focus
+ *  on next visit. Different initiatives remember independent positions. */
+const VIEW_CENTER_KEY_PREFIX = "ppm.gantt.viewCenter.";
 
 function loadInitialViewMode(): ViewMode {
   try {
@@ -333,6 +337,17 @@ function addDaysIso(iso: string, days: number): string {
   return toIso(d);
 }
 
+/** Whole-day difference `to - from` between two ISO dates. Returned as
+ *  signed integer days, suitable for feeding back into `addDaysIso`. */
+function daysBetweenIso(from: string, to: string): number {
+  const a = /^(\d{4})-(\d{2})-(\d{2})/.exec(from);
+  const b = /^(\d{4})-(\d{2})-(\d{2})/.exec(to);
+  if (!a || !b) return 0;
+  const da = new Date(+a[1], +a[2] - 1, +a[3]);
+  const db = new Date(+b[1], +b[2] - 1, +b[3]);
+  return Math.round((db.getTime() - da.getTime()) / 86_400_000);
+}
+
 /** Round a date to day boundaries during drag/resize.
  *  The library passes (date, viewMode, dateExtremity, action). Snap start→00:00, end→23:59. */
 function roundToDay(
@@ -532,6 +547,76 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
     loadData();
   }, [loadData]);
 
+  /** Restore the saved viewport-centre date once on mount per initiative,
+   *  after data has loaded and bars are positioned. The lib's `viewDate`
+   *  prop is the LEFT edge, so we shift the saved centre by half the
+   *  viewport in calendar days at the current scale. Runs at most once;
+   *  subsequent navigation is the user's own scrolling. */
+  const restoredCenterRef = useRef(false);
+  useEffect(() => {
+    if (restoredCenterRef.current) return;
+    if (loading) return;
+    let saved: string | null = null;
+    try {
+      saved = localStorage.getItem(VIEW_CENTER_KEY_PREFIX + initiativeId);
+    } catch {
+      /* localStorage unavailable */
+    }
+    if (!saved) {
+      restoredCenterRef.current = true;
+      return;
+    }
+    const centerDate = new Date(saved);
+    if (Number.isNaN(centerDate.getTime())) {
+      restoredCenterRef.current = true;
+      return;
+    }
+    // Defer one tick so the gantt has finished rendering bars and the
+    // scroll container has its real width.
+    const tid = window.setTimeout(() => {
+      const root = ganttRef.current?.querySelector("[class*='ganttTaskRoot_']");
+      const viewportPx =
+        root instanceof Element ? root.getBoundingClientRect().width : 0;
+      if (viewportPx === 0) return;
+      const { colWidth, daysPerCol } = geometryFor(viewMode);
+      const halfDays = (viewportPx / 2) * (daysPerCol / colWidth);
+      const leftEdge = new Date(centerDate.getTime() - halfDays * 86400000);
+      setViewDate(new Date(leftEdge.getTime()));
+      restoredCenterRef.current = true;
+    }, 50);
+    return () => window.clearTimeout(tid);
+  }, [loading, initiativeId, viewMode]);
+
+  /** Persist the viewport-centre date whenever the user scrolls the
+   *  gantt horizontally. Debounced so we write at most once per pan
+   *  gesture instead of on every scroll-event tick. */
+  useEffect(() => {
+    if (loading) return;
+    const root = ganttRef.current?.querySelector("[class*='ganttTaskRoot_']");
+    if (!(root instanceof Element)) return;
+    let tid: ReturnType<typeof setTimeout> | null = null;
+    const onScroll = () => {
+      if (tid !== null) clearTimeout(tid);
+      tid = setTimeout(() => {
+        const center = findCenterAnchorDate();
+        if (!center) return;
+        try {
+          localStorage.setItem(
+            VIEW_CENTER_KEY_PREFIX + initiativeId,
+            center.toISOString(),
+          );
+        } catch {
+          /* localStorage unavailable */
+        }
+      }, 250);
+    };
+    root.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      root.removeEventListener("scroll", onScroll);
+      if (tid !== null) clearTimeout(tid);
+    };
+  }, [loading, initiativeId, findCenterAnchorDate]);
+
   /** Set of WBS IDs that have children (completion auto-rolled up). */
   const parentIds = useMemo(() => getParentIds(wbsList, tasks), [wbsList, tasks]);
 
@@ -726,22 +811,36 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
     [tasks, wbsList],
   );
 
-  /** Snap the successor's start_date to a target ISO date. Adjusts
-   *  end_date too when needed (milestones always equal start; tasks /
-   *  WBS push their end out only if it's now before the new start). */
+  /** Snap the successor's start_date to a target ISO date and shift its
+   *  end / due date by the same delta so the duration is preserved — the
+   *  whole bar moves rather than its left edge stretching. Milestones
+   *  (start == end) always set both to the new date. When the successor
+   *  has only one of the two dates set, fall back to the previous "patch
+   *  start, push end forward only if it would invert" behaviour. */
   const alignSuccessorStart = useCallback(
     async (succKind: "task" | "wbs", succId: string, newStart: string) => {
       try {
         if (succKind === "task") {
           const tk = tasks.find((t2) => t2.id === succId);
           const patch: Record<string, string> = { start_date: newStart };
-          if (tk?.due_date && tk.due_date < newStart) patch.due_date = newStart;
+          if (tk?.start_date && tk?.due_date) {
+            const delta = daysBetweenIso(tk.start_date, newStart);
+            patch.due_date = addDaysIso(tk.due_date, delta);
+          } else if (tk?.due_date && tk.due_date < newStart) {
+            patch.due_date = newStart;
+          }
           await api.patch(`/ppm/tasks/${succId}`, patch);
         } else {
           const w = wbsList.find((w2) => w2.id === succId);
           const patch: Record<string, string> = { start_date: newStart };
-          if (w?.is_milestone) patch.end_date = newStart;
-          else if (w?.end_date && w.end_date < newStart) patch.end_date = newStart;
+          if (w?.is_milestone) {
+            patch.end_date = newStart;
+          } else if (w?.start_date && w?.end_date) {
+            const delta = daysBetweenIso(w.start_date, newStart);
+            patch.end_date = addDaysIso(w.end_date, delta);
+          } else if (w?.end_date && w.end_date < newStart) {
+            patch.end_date = newStart;
+          }
           await api.patch(`/ppm/wbs/${succId}`, patch);
         }
         await loadData();
@@ -1260,29 +1359,57 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
   }, []);
 
   /**
-   * Touch-scroll workaround: the gantt-task-react library attaches a touchmove
-   * handler on the SVG that unconditionally calls preventDefault(), blocking
-   * native touch scroll. We intercept in the capture phase with a NON-PASSIVE
-   * handler and call stopImmediatePropagation() to prevent the library's
-   * handler from firing when the user is scrolling (not dragging a bar).
+   * Touch interaction model on iPad/tablet:
+   *
+   *  - One-finger on a bar / handle / milestone: the gantt-task-react library
+   *    keeps its native drag-to-resize / drag-to-move behavior. We do not
+   *    interfere.
+   *  - One-finger on empty timeline area: we stopImmediatePropagation() on
+   *    touchmove so the library's blanket preventDefault cannot fire, but we
+   *    do NOT preventDefault ourselves — that lets the browser perform its
+   *    natural vertical page scroll over the gantt area.
+   *  - Two-finger touch anywhere: horizontal pan of the gantt timeline. We
+   *    track the midpoint of the two touches, stopImmediatePropagation() to
+   *    block the library, preventDefault() to suppress pinch-zoom, and drive
+   *    the scrollable container's scrollLeft directly.
+   *
+   *  The scrollable container is found dynamically (the library's CSS-module
+   *  class names are hashed) by walking descendants for one with horizontal
+   *  overflow, preferring the SVG content container when present.
    */
   useEffect(() => {
     const el = ganttRef.current;
     if (!el) return;
 
     let scrollContainer: HTMLElement | null = null;
-    let touchStartX = 0;
-    let touchStartY = 0;
-    let scrollStartLeft = 0;
-    let scrollMode: "none" | "scroll" | "bar" = "none";
-    const DEADZONE = 8; // px before deciding scroll vs bar drag
+    let panStartMidX = 0;
+    let panStartScrollLeft = 0;
+    let mode: "none" | "bar" | "page-scroll" | "two-finger-pan" = "none";
 
     const findScrollContainer = (): HTMLElement | null => {
-      if (scrollContainer) return scrollContainer;
-      scrollContainer = el.querySelector(
-        '[class*="ganttTaskRoot"]',
+      if (scrollContainer && scrollContainer.isConnected) return scrollContainer;
+      // gantt-task-react v0.6.x renders the horizontally-scrollable container
+      // with class `_ganttTaskRoot_xxx` (overflow-x: scroll). The library
+      // itself reads/writes `ganttTaskRootRef.current.scrollLeft` on this
+      // element, so we target it directly.
+      const root = el.querySelector(
+        '[class*="ganttTaskRoot_"]',
       ) as HTMLElement | null;
-      return scrollContainer;
+      if (root) {
+        scrollContainer = root;
+        return root;
+      }
+      // Fallback for any future class-name change: first descendant with
+      // horizontal overflow and scrollable overflow-x.
+      for (const node of el.querySelectorAll<HTMLElement>("*")) {
+        if (node.scrollWidth <= node.clientWidth + 1) continue;
+        const ox = window.getComputedStyle(node).overflowX;
+        if (ox === "auto" || ox === "scroll") {
+          scrollContainer = node;
+          return node;
+        }
+      }
+      return null;
     };
 
     const isBarElement = (target: EventTarget | null): boolean => {
@@ -1294,57 +1421,60 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
       );
     };
 
+    const midpointX = (e: TouchEvent): number =>
+      (e.touches[0].clientX + e.touches[1].clientX) / 2;
+
     const onTouchStart = (e: TouchEvent) => {
-      if (e.touches.length !== 1) return;
-      if (isBarElement(e.target)) {
-        scrollMode = "bar";
+      if (e.touches.length === 2) {
+        const sc = findScrollContainer();
+        if (!sc) {
+          mode = "none";
+          return;
+        }
+        panStartMidX = midpointX(e);
+        panStartScrollLeft = sc.scrollLeft;
+        mode = "two-finger-pan";
         return;
       }
-      const sc = findScrollContainer();
-      if (!sc) return;
-      touchStartX = e.touches[0].clientX;
-      touchStartY = e.touches[0].clientY;
-      scrollStartLeft = sc.scrollLeft;
-      scrollMode = "none"; // undecided until deadzone exceeded
+      if (e.touches.length === 1) {
+        mode = isBarElement(e.target) ? "bar" : "page-scroll";
+      }
     };
 
     const onTouchMove = (e: TouchEvent) => {
-      if (scrollMode === "bar" || e.touches.length !== 1) return;
-
-      const dx = touchStartX - e.touches[0].clientX;
-      const dy = touchStartY - e.touches[0].clientY;
-
-      if (scrollMode === "none") {
-        // Still in deadzone — wait until movement exceeds threshold
-        if (Math.abs(dx) < DEADZONE && Math.abs(dy) < DEADZONE) return;
-        // If predominantly vertical, let page scroll naturally
-        if (Math.abs(dy) > Math.abs(dx)) {
-          scrollMode = "bar"; // give up — let default behavior handle it
-          return;
-        }
-        scrollMode = "scroll";
+      if (mode === "two-finger-pan" && e.touches.length === 2) {
+        // Block the library and the browser's pinch-zoom for this gesture.
+        e.stopImmediatePropagation();
+        e.preventDefault();
+        const sc = findScrollContainer();
+        if (!sc) return;
+        const dx = panStartMidX - midpointX(e);
+        sc.scrollLeft = panStartScrollLeft + dx;
+        return;
       }
-
-      // Stop the library's touchmove handler from calling preventDefault()
-      e.stopImmediatePropagation();
-      e.preventDefault();
-
-      const sc = findScrollContainer();
-      if (sc) sc.scrollLeft = scrollStartLeft + dx;
+      if (mode === "page-scroll" && e.touches.length === 1) {
+        // Stop the library's touchmove handler from preventing default,
+        // letting the browser perform native vertical scroll.
+        e.stopImmediatePropagation();
+      }
+      // mode === "bar" or "none": let the library handle it.
     };
 
-    const onTouchEnd = () => {
-      scrollMode = "none";
+    const onTouchEnd = (e: TouchEvent) => {
+      if (e.touches.length === 0) mode = "none";
+      else if (mode === "two-finger-pan" && e.touches.length < 2) mode = "none";
     };
 
     el.addEventListener("touchstart", onTouchStart, { capture: true, passive: true });
-    // MUST be non-passive so stopImmediatePropagation + preventDefault work
+    // MUST be non-passive so stopImmediatePropagation + preventDefault work.
     el.addEventListener("touchmove", onTouchMove, { capture: true, passive: false });
     el.addEventListener("touchend", onTouchEnd, { capture: true, passive: true });
+    el.addEventListener("touchcancel", onTouchEnd, { capture: true, passive: true });
     return () => {
       el.removeEventListener("touchstart", onTouchStart, true);
       el.removeEventListener("touchmove", onTouchMove, true);
       el.removeEventListener("touchend", onTouchEnd, true);
+      el.removeEventListener("touchcancel", onTouchEnd, true);
     };
   }, []);
 
@@ -2051,7 +2181,8 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
             }}
             min={0}
             max={100}
-            step={5}
+            step={50}
+            marks
             size="small"
           />
         </Box>

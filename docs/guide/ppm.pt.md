@@ -107,7 +107,7 @@ O diagrama de Gantt visualiza o cronograma do projeto com:
 - **Pacotes de trabalho (WBS)** — Itens hierárquicos da estrutura analítica do projeto com datas de início/fim
 - **Tarefas** — Barras de tarefas individuais vinculadas a pacotes de trabalho
 - **Marcos** — Datas-chave marcadas com indicadores de diamante
-- **Barras de progresso** — Porcentagem de conclusão visual, arrastável para ajustar diretamente
+- **Barras de progresso** — Porcentagem de conclusão visual. Clique no chip de porcentagem de uma tarefa ou pacote de trabalho folha para abrir um controle deslizante que se ajusta a **0%, 50% ou 100%** — correspondendo aos três estados de tarefa (A fazer, Em progresso, Concluído). Os pacotes de trabalho pai com filhos exibem um chip somente leitura cujo valor é calculado automaticamente a partir da subárvore.
 - **Marcas trimestrais** — Grade de cronograma para orientação
 
 Interaja com o diagrama de Gantt:

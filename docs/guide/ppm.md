@@ -113,7 +113,7 @@ The Gantt chart visualizes the project timeline with:
 - **Work Packages (WBS)** — Hierarchical work breakdown structure items with start/end dates
 - **Tasks** — Individual task bars linked to work packages
 - **Milestones** — Key dates marked with diamond indicators
-- **Progress Bars** — Visual completion percentage, draggable to adjust directly
+- **Progress Bars** — Visual completion percentage. Click the percentage chip on a task or leaf work package to open a slider that snaps to **0%, 50% or 100%** — matching the three task states (To Do, In Progress, Done). Parent work packages with children show a read-only chip whose value is rolled up automatically from the subtree.
 - **Quarterly Ticks** — Timeline grid for orientation
 
 Interact with the Gantt chart using:

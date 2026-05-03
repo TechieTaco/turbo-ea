@@ -107,7 +107,7 @@ Il diagramma di Gantt visualizza la tempistica del progetto con:
 - **Pacchetti di lavoro (WBS)** — Elementi gerarchici della struttura di scomposizione del lavoro con date di inizio/fine
 - **Attività** — Barre di attività individuali collegate ai pacchetti di lavoro
 - **Milestone** — Date chiave contrassegnate con indicatori a diamante
-- **Barre di avanzamento** — Percentuale di completamento visiva, trascinabile per regolare direttamente
+- **Barre di avanzamento** — Percentuale di completamento visiva. Fai clic sul chip percentuale di un'attività o di un pacchetto di lavoro foglia per aprire un cursore che si aggancia a **0%, 50% o 100%** — corrispondente ai tre stati delle attività (Da fare, In corso, Completato). I pacchetti di lavoro padre con figli mostrano un chip in sola lettura il cui valore viene calcolato automaticamente dal sottoalbero.
 - **Segni trimestrali** — Griglia temporale per orientamento
 
 Interagisci con il diagramma di Gantt:

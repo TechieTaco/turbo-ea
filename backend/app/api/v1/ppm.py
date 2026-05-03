@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import uuid
+from datetime import date
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -704,6 +705,8 @@ async def create_task(
     # Recalculate WBS completion when a new task is added
     if task.wbs_id:
         await _rollup_wbs_from_tasks(db, initiative_id)
+    if task.wbs_id and (task.start_date is not None or task.due_date is not None):
+        await _rollup_wbs_dates_from_tasks(db, initiative_id)
     await db.commit()
     await db.refresh(task)
     return await _task_to_out(db, task)
@@ -743,9 +746,16 @@ async def update_task(
             card_id=task.initiative_id,
             actor_id=user.id,
         )
-    # Recalculate WBS completion when task status changes
-    if "status" in data:
+    # Recalculate WBS completion whenever a change can affect the
+    # duration-weighted ratio: status (done/not), wbs_id (membership of
+    # the source/target work package), or start/due dates (the weight
+    # itself).
+    if any(k in data for k in ("status", "wbs_id", "start_date", "due_date")):
         await _rollup_wbs_from_tasks(db, str(task.initiative_id))
+    # Widen / shrink parent WBS dates to the bounds of their tasks when a
+    # task's dates or WBS assignment changes.
+    if any(k in data for k in ("start_date", "due_date", "wbs_id")):
+        await _rollup_wbs_dates_from_tasks(db, str(task.initiative_id))
     await db.commit()
     await db.refresh(task)
     return await _task_to_out(db, task)
@@ -771,9 +781,13 @@ async def delete_task(
     initiative_id = str(task.initiative_id)
     had_wbs = task.wbs_id is not None
     await db.delete(task)
-    # Recalculate WBS completion after removing a task
+    # Recalculate WBS completion + dates after removing a task. Date rollup
+    # is bidirectional, so the parent WBS may shrink when its outer task
+    # is deleted (or stay put if the deleted task was the only one with
+    # dates — see `_rollup_wbs_dates_from_tasks`).
     if had_wbs:
         await _rollup_wbs_from_tasks(db, initiative_id)
+        await _rollup_wbs_dates_from_tasks(db, initiative_id)
     await db.commit()
 
 
@@ -908,27 +922,85 @@ async def _wbs_to_out(db: AsyncSession, wbs: PpmWbs) -> PpmWbsOut:
 
 
 async def _rollup_wbs_from_tasks(db: AsyncSession, initiative_id: str) -> None:
-    """Recalculate leaf WBS completion from their tasks' done/total ratio, then rollup."""
+    """Recalculate every WBS's completion as the duration-weighted average of
+    its tasks' progress in the whole subtree (own tasks plus all descendants').
+    Each task contributes its `duration_days × progress_factor` to the
+    numerator and `duration_days` to the denominator, where `progress_factor`
+    is `1.0` for a `done` task, `0.5` for `in_progress` (matching the
+    frontend's task-bar fill), and `0.0` for `todo` / `blocked`.
+
+    Duration defaults to 1 day when either of `start_date` / `due_date` is
+    missing so a date-less task still contributes equally to other date-less
+    tasks. WBS items whose subtree contains no tasks at all are left
+    untouched, so any manually-typed completion value persists."""
+    # Status → progress fraction. Mirrors the gantt task-bar fill in
+    # frontend/src/features/ppm/PpmGanttTab.tsx — keep these aligned.
+    status_progress_factor: dict[str, float] = {
+        "done": 1.0,
+        "in_progress": 0.5,
+    }
+
     result = await db.execute(select(PpmWbs).where(PpmWbs.initiative_id == initiative_id))
-    all_wbs = result.scalars().all()
-    for wbs in all_wbs:
-        total = (
-            await db.scalar(select(func.count(PpmTask.id)).where(PpmTask.wbs_id == wbs.id))
-        ) or 0
-        if total > 0:
-            done = (
-                await db.scalar(
-                    select(func.count(PpmTask.id)).where(
-                        PpmTask.wbs_id == wbs.id, PpmTask.status == "done"
-                    )
-                )
-            ) or 0
-            wbs.completion = round((done / total) * 100, 1)
-    await _rollup_completion(db, initiative_id)
+    all_wbs = list(result.scalars().all())
+
+    # Pre-fetch all task (status, start, due) tuples grouped by wbs_id in a
+    # single query — avoids N+1 over the WBS tree.
+    task_result = await db.execute(
+        select(
+            PpmTask.wbs_id,
+            PpmTask.status,
+            PpmTask.start_date,
+            PpmTask.due_date,
+        ).where(
+            PpmTask.initiative_id == initiative_id,
+            PpmTask.wbs_id.is_not(None),
+        )
+    )
+    own_done: dict[str, float] = {}
+    own_total: dict[str, float] = {}
+    for wbs_id, status, start, due in task_result.all():
+        wid = str(wbs_id)
+        duration = 1.0
+        if start is not None and due is not None:
+            duration = max(1.0, float((due - start).days + 1))
+        own_total[wid] = own_total.get(wid, 0.0) + duration
+        factor = status_progress_factor.get(status, 0.0)
+        if factor:
+            own_done[wid] = own_done.get(wid, 0.0) + duration * factor
+
+    by_id: dict[str, PpmWbs] = {str(w.id): w for w in all_wbs}
+    children_map: dict[str, list[str]] = {}
+    for w in all_wbs:
+        pid = str(w.parent_id) if w.parent_id else None
+        if pid:
+            children_map.setdefault(pid, []).append(str(w.id))
+
+    def compute(wid: str) -> tuple[float, float]:
+        """Return (done_weight, total_weight) for the subtree rooted at wid."""
+        node = by_id[wid]
+        total_done = own_done.get(wid, 0.0)
+        total_weight = own_total.get(wid, 0.0)
+        for c in children_map.get(wid, []):
+            cd, cw = compute(c)
+            total_done += cd
+            total_weight += cw
+        if total_weight > 0:
+            node.completion = round((total_done / total_weight) * 100, 1)
+        # else: subtree has no tasks at all — leave node.completion alone.
+        return total_done, total_weight
+
+    for w in all_wbs:
+        if not w.parent_id:
+            compute(str(w.id))
 
 
 async def _rollup_completion(db: AsyncSession, initiative_id: str) -> None:
-    """Recalculate completion for parent WBS items by averaging their children."""
+    """Recalculate parent WBS completion as the simple average of their
+    children's completions. Used when a user manually PATCHes a WBS's
+    `completion` field — there is no task signal to weight by, so we keep
+    the historical simple-average behaviour for the parent walk-up. The
+    task-driven path uses `_rollup_wbs_from_tasks` above, which is
+    duration-weighted across the whole subtree."""
     result = await db.execute(
         select(PpmWbs)
         .where(PpmWbs.initiative_id == initiative_id)
@@ -952,6 +1024,70 @@ async def _rollup_completion(db: AsyncSession, initiative_id: str) -> None:
         parent = by_id[wid]
         parent.completion = round(avg, 1)
         return avg
+
+    for w in all_wbs:
+        if not w.parent_id:
+            compute(str(w.id))
+
+
+async def _rollup_wbs_dates_from_tasks(db: AsyncSession, initiative_id: str) -> None:
+    """Set each WBS's start_date / end_date to the exact bounds of its direct
+    tasks union its children's computed bounds. Bidirectional: the WBS widens
+    when a task moves outside the current range and shrinks when tasks move
+    inward (or are reassigned / deleted) so the work-package range tracks its
+    actual content.
+
+    A WBS is left untouched when it has no tasks **and** no children with
+    dates — there is nothing to compute against, so a manually-typed range
+    on an empty WBS persists. The rule equally ignores tasks with no dates
+    (a date-less task contributes neither start nor end)."""
+    result = await db.execute(select(PpmWbs).where(PpmWbs.initiative_id == initiative_id))
+    all_wbs = list(result.scalars().all())
+
+    # Pre-fetch min/max task date per WBS in a single grouped query (avoids
+    # N+1 over the WBS tree).
+    agg_result = await db.execute(
+        select(
+            PpmTask.wbs_id,
+            func.min(PpmTask.start_date),
+            func.max(PpmTask.due_date),
+        )
+        .where(PpmTask.initiative_id == initiative_id, PpmTask.wbs_id.is_not(None))
+        .group_by(PpmTask.wbs_id)
+    )
+    own_bounds: dict[str, tuple[date | None, date | None]] = {
+        str(row[0]): (row[1], row[2]) for row in agg_result.all()
+    }
+
+    by_id: dict[str, PpmWbs] = {str(w.id): w for w in all_wbs}
+    children_map: dict[str, list[str]] = {}
+    for w in all_wbs:
+        pid = str(w.parent_id) if w.parent_id else None
+        if pid:
+            children_map.setdefault(pid, []).append(str(w.id))
+
+    def compute(wid: str) -> tuple[date | None, date | None]:
+        node = by_id[wid]
+        own_start, own_end = own_bounds.get(wid, (None, None))
+        starts: list[date] = []
+        ends: list[date] = []
+        if own_start is not None:
+            starts.append(own_start)
+        if own_end is not None:
+            ends.append(own_end)
+        for c in children_map.get(wid, []):
+            cs, ce = compute(c)
+            if cs is not None:
+                starts.append(cs)
+            if ce is not None:
+                ends.append(ce)
+        if starts:
+            node.start_date = min(starts)
+        if ends:
+            node.end_date = max(ends)
+        # If neither own tasks nor children contributed dates, leave the
+        # WBS's existing dates as-is (rule: "ignored if no tasks").
+        return node.start_date, node.end_date
 
     for w in all_wbs:
         if not w.parent_id:
