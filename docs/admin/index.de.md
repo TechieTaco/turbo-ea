@@ -14,7 +14,7 @@ Der **Admin**-Bereich ist für Benutzer mit der **Admin**-Rolle verfügbar. Er b
 | [Authentifizierung und SSO](sso.md) | Single-Sign-On-Konfiguration (Microsoft Entra ID, Google, Okta, generisches OIDC) und Einladungsabläufe |
 | [KI-Funktionen](ai.md) | KI-Beschreibungsvorschläge mit LLMs (Ollama, OpenAI-kompatible Anbieter) und Web-Suchkontext |
 | [MCP-Integration](mcp.md) | Model Context Protocol-Server für KI-Werkzeugzugriff (Claude Desktop, Copilot, Cursor) |
-| [API-Referenz](api.md) | Überblick über die REST-API, Authentifizierung und Nutzung der interaktiven FastAPI-Swagger-Dokumentation |
+| [API-Referenz](api.md) | Live-OpenAPI-3-Spezifikation, eingebettet ins Benutzerhandbuch (keine laufende Backend-Instanz nötig), plus Authentifizierung, Berechtigungen und Hinweise zur Codegenerierung |
 | [End-of-Life (EOL)](eol.md) | Massen-EOL-Datenverknüpfung von endoflife.date zu Technologie-Karten |
 | [Umfragen](surveys.md) | Datenpflege-Umfragen für bestimmte Kartentypen und Stakeholder |
 | [Webportale](web-portals.md) | Öffentliche, schreibgeschützte Portale ohne Authentifizierung |

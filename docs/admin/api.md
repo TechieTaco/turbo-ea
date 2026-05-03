@@ -2,7 +2,7 @@
 
 Turbo EA exposes a complete **REST API** that powers everything you can do in the web UI. You can use it to automate inventory updates, integrate with CI/CD pipelines, build custom dashboards, or pull EA data into other tools (BI, GRC, ITSM, spreadsheets).
 
-The same API is documented interactively through **FastAPI's built-in Swagger UI**, so administrators and developers can browse every endpoint, inspect request/response schemas, and try calls directly from the browser.
+The complete OpenAPI 3 specification is rendered live further down this page — every endpoint, parameter, and response shape, regenerated from the backend source on every release.
 
 ---
 
@@ -24,29 +24,29 @@ The single exception is the health endpoint, which is mounted at `/api/health` (
 
 ---
 
-## Interactive API Reference (Swagger UI)
+## Live OpenAPI Reference
 
-FastAPI auto-generates an OpenAPI 3 specification from the backend code and serves an interactive Swagger UI alongside it. This is the **single source of truth** for every endpoint, parameter, and response shape.
+The interactive Swagger UI below is generated directly from the FastAPI source on every release and ships with the user manual — no backend instance required to browse it. Use the filter box to narrow endpoints by tag, expand any operation to see parameters, request/response schemas, and example payloads. The raw spec is downloadable as JSON at [`/api/openapi.json`](/api/openapi.json) for code generators such as `openapi-generator-cli`.
 
-| URL | Description |
-|-----|-------------|
-| `/api/docs` | Swagger UI — browse, search, and try endpoints from the browser |
-| `/api/redoc` | ReDoc — alternative read-only documentation view |
-| `/api/openapi.json` | Raw OpenAPI 3 schema (useful for code generators like `openapi-generator-cli`) |
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui.css">
+<div id="swagger-ui"></div>
+<script src="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui-bundle.js"></script>
+<script>
+window.addEventListener('DOMContentLoaded', function () {
+  window.SwaggerUIBundle({
+    url: '/api/openapi.json',
+    dom_id: '#swagger-ui',
+    deepLinking: true,
+    filter: true,
+    docExpansion: 'list',
+    defaultModelsExpandDepth: 1,
+    supportedSubmitMethods: []
+  });
+});
+</script>
 
-!!! warning "Available in development mode only"
-    For security reasons, the API documentation endpoints are **disabled in production**. They are only served when `ENVIRONMENT=development` is set in your `.env` file. In production deployments, the OpenAPI spec is not exposed publicly — but the API itself still works exactly the same.
-
-    To browse the API reference for a production instance, run a local Turbo EA in development mode (the schema is identical across deployments of the same version) or temporarily flip `ENVIRONMENT=development`, restart the backend, and revert the change once you are done.
-
-### Trying endpoints from Swagger UI
-
-1. Open `/api/docs` in your browser.
-2. Click **Authorize** at the top right.
-3. Paste a valid JWT (without the `Bearer ` prefix) into the `bearerAuth` field and confirm.
-4. Expand any endpoint, click **Try it out**, fill in parameters, and hit **Execute**.
-
-Swagger sends the request from your browser using your token, so anything you can do via the API is reachable from this page — useful for ad-hoc admin tasks and for verifying permission behaviour.
+!!! info "Trying endpoints against your own instance"
+    Try-it-out is intentionally disabled here — the docs site doesn't proxy your API. To send real requests, run Turbo EA in development mode (`ENVIRONMENT=development`) and open `/api/docs` on your own instance: click **Authorize**, paste a JWT (without the `Bearer ` prefix), and use **Try it out**. In production deployments those endpoints are disabled for security; this page remains the read-only browser.
 
 ---
 
@@ -101,7 +101,7 @@ If a request fails with `403 Forbidden`, the token is valid but the user lacks t
 
 ## Common Endpoint Groups
 
-The full reference is in Swagger; the table below is a quick map of the most-used groups:
+The live reference above is the full source of truth; the table below is a quick map of the most-used groups:
 
 | Prefix | Purpose |
 |--------|---------|
@@ -136,7 +136,7 @@ List endpoints accept a consistent set of query parameters:
 | `sort_dir` | `asc` or `desc` |
 | `search` | Free-text filter (where supported) |
 
-Resource-specific filters are documented per endpoint in Swagger (e.g. `/cards` accepts `type`, `status`, `parent_id`, `approval_status`).
+Resource-specific filters are documented per endpoint in the live reference above (e.g. `/cards` accepts `type`, `status`, `parent_id`, `approval_status`).
 
 ---
 
@@ -151,8 +151,8 @@ Resource-specific filters are documented per endpoint in Swagger (e.g. `/cards` 
 Because the API is fully described by OpenAPI 3, you can generate type-safe clients in any major language:
 
 ```bash
-# Download the schema from a development instance
-curl http://localhost:8920/api/openapi.json -o turbo-ea-openapi.json
+# Download the schema (no running instance needed)
+curl https://docs.turbo-ea.org/api/openapi.json -o turbo-ea-openapi.json
 
 # Generate a Python client
 openapi-generator-cli generate \
@@ -185,7 +185,8 @@ Auth-sensitive endpoints (login, register, password reset) are rate-limited via 
 
 | Issue | Solution |
 |-------|----------|
-| `/api/docs` returns 404 | Swagger UI is disabled in production. Set `ENVIRONMENT=development` and restart the backend, or use a development instance to browse the schema. |
+| `/api/docs` returns 404 on your own instance | Swagger UI is disabled in production. Set `ENVIRONMENT=development` and restart the backend, or use the live reference above. |
+| Live reference above is empty | Check the browser console — the embed loads `/api/openapi.json`; corporate proxies or strict ad-blockers occasionally block CDN-hosted scripts. |
 | `401 Unauthorized` | Token is missing, malformed, or expired. Re-authenticate via `/auth/login` or `/auth/refresh`. |
 | `403 Forbidden` | Token is valid but the user lacks the required permission. Check the user's role in [Users & Roles](users.md). |
 | `422 Unprocessable Entity` | Pydantic validation failed. The response body lists which fields are invalid and why. |

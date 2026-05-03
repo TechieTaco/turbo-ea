@@ -14,7 +14,7 @@
 | [认证和 SSO](sso.md) | 单点登录配置（Microsoft Entra ID、Google、Okta、通用 OIDC）和邀请流程 |
 | [AI 功能](ai.md) | 由 LLM（Ollama、OpenAI 兼容提供商）提供的 AI 描述建议和网络搜索上下文 |
 | [MCP 集成](mcp.md) | 用于 AI 工具访问的 Model Context Protocol 服务器（Claude Desktop、Copilot、Cursor） |
-| [API 参考](api.md) | REST API 概览、身份验证以及如何使用 FastAPI 交互式 Swagger 文档 |
+| [API 参考](api.md) | 嵌入用户手册中的实时 OpenAPI 3 规范（无需运行后端实例），并附身份验证、权限和代码生成提示 |
 | [生命周期终止（EOL）](eol.md) | 从 endoflife.date 批量链接 EOL 数据到技术卡片 |
 | [问卷调查](surveys.md) | 针对特定卡片类型和利益相关者的数据维护问卷 |
 | [Web 门户](web-portals.md) | 无需认证即可访问的公共只读门户 |

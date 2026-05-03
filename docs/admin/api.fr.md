@@ -2,7 +2,7 @@
 
 Turbo EA expose une **API REST** complète qui alimente tout ce que vous pouvez faire dans l'interface web. Vous pouvez l'utiliser pour automatiser les mises à jour de l'inventaire, intégrer des pipelines CI/CD, construire des tableaux de bord personnalisés ou extraire des données EA vers d'autres outils (BI, GRC, ITSM, tableurs).
 
-La même API est documentée de manière interactive grâce à la **Swagger UI intégrée à FastAPI**, ce qui permet aux administrateurs et aux développeurs d'explorer chaque endpoint, d'inspecter les schémas requête/réponse et d'essayer des appels directement depuis le navigateur.
+La spécification OpenAPI 3 complète est rendue en direct plus bas dans cette page : chaque endpoint, chaque paramètre et chaque forme de réponse, régénérée depuis le code source du backend à chaque version.
 
 ---
 
@@ -24,29 +24,29 @@ La seule exception est l'endpoint de santé, monté sur `/api/health` (sans pré
 
 ---
 
-## Référence interactive de l'API (Swagger UI)
+## Référence OpenAPI en direct
 
-FastAPI génère automatiquement une spécification OpenAPI 3 à partir du code backend et sert une Swagger UI interactive à côté. C'est la **source unique de vérité** pour chaque endpoint, paramètre et forme de réponse.
+La Swagger UI interactive ci-dessous est générée directement depuis le code source FastAPI à chaque version et livrée avec le manuel utilisateur — aucune instance backend n'est nécessaire pour la consulter. Utilisez le filtre pour restreindre les endpoints par étiquette, dépliez n'importe quelle opération pour voir les paramètres, les schémas requête/réponse et les exemples. Le schéma brut peut être téléchargé en JSON depuis [`/api/openapi.json`](/api/openapi.json) pour les générateurs de code tels que `openapi-generator-cli`.
 
-| URL | Description |
-|-----|-------------|
-| `/api/docs` | Swagger UI — parcourir, rechercher et essayer les endpoints depuis le navigateur |
-| `/api/redoc` | ReDoc — vue alternative en lecture seule de la documentation |
-| `/api/openapi.json` | Schéma OpenAPI 3 brut (utile pour les générateurs de code comme `openapi-generator-cli`) |
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui.css">
+<div id="swagger-ui"></div>
+<script src="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui-bundle.js"></script>
+<script>
+window.addEventListener('DOMContentLoaded', function () {
+  window.SwaggerUIBundle({
+    url: '/api/openapi.json',
+    dom_id: '#swagger-ui',
+    deepLinking: true,
+    filter: true,
+    docExpansion: 'list',
+    defaultModelsExpandDepth: 1,
+    supportedSubmitMethods: []
+  });
+});
+</script>
 
-!!! warning "Disponible uniquement en mode développement"
-    Pour des raisons de sécurité, les endpoints de documentation API sont **désactivés en production**. Ils ne sont servis que lorsque `ENVIRONMENT=development` est défini dans votre fichier `.env`. Dans les déploiements en production, le schéma OpenAPI n'est pas exposé publiquement — mais l'API elle-même fonctionne exactement de la même manière.
-
-    Pour parcourir la référence API d'une instance de production, lancez une instance Turbo EA locale en mode développement (le schéma est identique pour tous les déploiements de la même version) ou basculez temporairement `ENVIRONMENT=development`, redémarrez le backend et annulez le changement une fois terminé.
-
-### Essayer des endpoints depuis Swagger UI
-
-1. Ouvrez `/api/docs` dans votre navigateur.
-2. Cliquez sur **Authorize** en haut à droite.
-3. Collez un JWT valide (sans le préfixe `Bearer `) dans le champ `bearerAuth` et confirmez.
-4. Dépliez n'importe quel endpoint, cliquez sur **Try it out**, remplissez les paramètres et cliquez sur **Execute**.
-
-Swagger envoie la requête depuis votre navigateur en utilisant votre jeton, donc tout ce que vous pouvez faire via l'API est accessible depuis cette page — utile pour les tâches d'administration ponctuelles et pour vérifier le comportement des permissions.
+!!! info "Essayer les endpoints contre votre propre instance"
+    « Try it out » est volontairement désactivé ici : le site de documentation ne relaie pas votre API. Pour envoyer des requêtes réelles, lancez Turbo EA en mode développement (`ENVIRONMENT=development`) et ouvrez `/api/docs` sur votre propre instance : cliquez sur **Authorize**, collez un JWT (sans le préfixe `Bearer `) et utilisez **Try it out**. En production, ces endpoints sont désactivés pour des raisons de sécurité ; cette page reste le navigateur en lecture seule.
 
 ---
 
@@ -101,7 +101,7 @@ Si une requête échoue avec `403 Forbidden`, le jeton est valide mais l'utilisa
 
 ## Groupes d'endpoints courants
 
-La référence complète se trouve dans Swagger ; le tableau ci-dessous est une cartographie rapide des groupes les plus utilisés :
+La référence en direct ci-dessus est la source complète de vérité ; le tableau ci-dessous est une cartographie rapide des groupes les plus utilisés :
 
 | Préfixe | Objet |
 |---------|-------|
@@ -136,7 +136,7 @@ Les endpoints de liste acceptent un ensemble cohérent de paramètres de requêt
 | `sort_dir` | `asc` ou `desc` |
 | `search` | Filtre plein texte (lorsque pris en charge) |
 
-Les filtres spécifiques à une ressource sont documentés par endpoint dans Swagger (par exemple `/cards` accepte `type`, `status`, `parent_id`, `approval_status`).
+Les filtres spécifiques à une ressource sont documentés par endpoint dans la référence en direct ci-dessus (par exemple `/cards` accepte `type`, `status`, `parent_id`, `approval_status`).
 
 ---
 
@@ -151,8 +151,8 @@ Les filtres spécifiques à une ressource sont documentés par endpoint dans Swa
 Comme l'API est entièrement décrite par OpenAPI 3, vous pouvez générer des clients typés dans tous les langages majeurs :
 
 ```bash
-# Télécharger le schéma depuis une instance de développement
-curl http://localhost:8920/api/openapi.json -o turbo-ea-openapi.json
+# Télécharger le schéma (aucune instance en cours d'exécution requise)
+curl https://docs.turbo-ea.org/api/openapi.json -o turbo-ea-openapi.json
 
 # Générer un client Python
 openapi-generator-cli generate \
@@ -185,7 +185,8 @@ Les endpoints sensibles à l'authentification (login, enregistrement, réinitial
 
 | Problème | Solution |
 |----------|----------|
-| `/api/docs` renvoie 404 | Swagger UI est désactivée en production. Définissez `ENVIRONMENT=development` et redémarrez le backend, ou utilisez une instance de développement pour parcourir le schéma. |
+| `/api/docs` renvoie 404 sur votre propre instance | Swagger UI est désactivée en production. Définissez `ENVIRONMENT=development` et redémarrez le backend, ou utilisez la référence en direct ci-dessus. |
+| La référence en direct ci-dessus est vide | Vérifiez la console du navigateur — l'embed charge `/api/openapi.json` ; les proxys d'entreprise ou les bloqueurs stricts bloquent parfois les scripts servis par CDN. |
 | `401 Unauthorized` | Jeton manquant, malformé ou expiré. Réauthentifiez-vous via `/auth/login` ou `/auth/refresh`. |
 | `403 Forbidden` | Le jeton est valide mais l'utilisateur n'a pas la permission requise. Vérifiez son rôle dans [Utilisateurs et rôles](users.md). |
 | `422 Unprocessable Entity` | La validation Pydantic a échoué. Le corps de la réponse liste les champs invalides et la raison. |
