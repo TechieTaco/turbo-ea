@@ -5,6 +5,12 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.64.1] - 2026-05-03
+
+### Fixed
+- **Report PPTX export — pagination, capture and slide layout polish.** The PPTX export of large reports now splits charts across multiple slides only where it's safe to do so, and only for reports that opt in: Lifecycle gantt, Capability Map, Portfolio and Data Quality paginate by their card / row containers, while Matrix, Cost treemap, Dependencies and other single-canvas visualizations always stay on a single slide. The boundary detector is column-aware (a horizontal cut is only used at a Y where no card in any column straddles the line), pages smaller than 25% of the slide chart area are merged with their neighbours so the export no longer alternates with near-empty slides, and trailing tiny slices roll back into the previous page. The chart capture now expands all `overflow: auto/scroll/hidden` descendants to `visible` for the duration of the export, so horizontally scrolling timelines like the Lifecycle gantt are captured at their full content width instead of looking "zoomed in" on the slide. Material Symbols icon spans are filtered out of the capture (their font-ligature names no longer leak through as raw text), and PPTX no longer emits redundant data-table slides — the chart image already covers what's on screen, and XLSX remains the path for raw data export.
+- **Report XLSX export from chart view no longer crashes with "Workbook is empty".** Charts that don't currently render any `<table>` (most reports in chart mode) used to throw when invoked from the export menu. The menu now hides "Export to Excel" while a report is in chart view and "Export to PowerPoint" while it's in table view, matching each format to the view that produces meaningful output. As a defensive guard the workbook still falls back to a Summary sheet (title, generation timestamp, active filters) when no data tables are detected, so a future caller can never produce an empty file.
+
 ## [0.64.0] - 2026-05-02
 
 ### Added
