@@ -2107,7 +2107,8 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
             }}
             min={0}
             max={100}
-            step={5}
+            step={50}
+            marks
             size="small"
           />
         </Box>
