@@ -746,10 +746,14 @@ async def update_task(
             card_id=task.initiative_id,
             actor_id=user.id,
         )
-    # Recalculate WBS completion when task status changes
-    if "status" in data:
+    # Recalculate WBS completion whenever a change can affect the
+    # duration-weighted ratio: status (done/not), wbs_id (membership of
+    # the source/target work package), or start/due dates (the weight
+    # itself).
+    if any(k in data for k in ("status", "wbs_id", "start_date", "due_date")):
         await _rollup_wbs_from_tasks(db, str(task.initiative_id))
-    # Widen parent WBS dates when a task's dates or WBS assignment changes
+    # Widen / shrink parent WBS dates to the bounds of their tasks when a
+    # task's dates or WBS assignment changes.
     if any(k in data for k in ("start_date", "due_date", "wbs_id")):
         await _rollup_wbs_dates_from_tasks(db, str(task.initiative_id))
     await db.commit()
