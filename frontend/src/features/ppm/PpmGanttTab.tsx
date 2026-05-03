@@ -1263,29 +1263,39 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
    * Touch interaction model on iPad/tablet:
    *
    *  - One-finger on a bar / handle / milestone: the gantt-task-react library
-   *    keeps its native drag-to-resize / drag-to-move behavior. We do not
-   *    interfere.
-   *  - One-finger on empty timeline area: we stopImmediatePropagation() on
-   *    touchmove so the library's blanket preventDefault cannot fire, but we
-   *    do NOT preventDefault ourselves — that lets the browser perform its
-   *    natural vertical page scroll over the gantt area.
-   *  - Two-finger touch anywhere: horizontal pan of the gantt timeline. We
-   *    track the midpoint of the two touches, stopImmediatePropagation() to
-   *    block the library, preventDefault() to suppress pinch-zoom, and drive
-   *    the scrollable container's scrollLeft directly.
+   *    keeps its native drag-to-resize / drag-to-move behavior.
+   *  - One-finger on empty timeline: a deadzone-based decision splits the
+   *    gesture into either a horizontal pan of the gantt (we drive scrollLeft
+   *    on the scroll container) or a vertical page scroll (we let the browser
+   *    handle it). This is the only way to get horizontal scrolling on the
+   *    body area, because the SVG inside `_ganttTaskContent_` is wrapped in
+   *    `overflow-x: hidden` and iOS doesn't reliably forward 1-finger
+   *    horizontal swipes there to the outer `_ganttTaskRoot_` scroll
+   *    container.
+   *  - Two fingers anywhere: also pans the gantt horizontally, tracking the
+   *    midpoint of both touches. This is the primary tablet gesture.
    *
-   *  The scrollable container is found dynamically (the library's CSS-module
-   *  class names are hashed) by walking descendants for one with horizontal
-   *  overflow, preferring the SVG content container when present.
+   *  In every horizontal-pan path we stopImmediatePropagation() so the
+   *  library's conditional preventDefault() (active during bar drag) cannot
+   *  cancel native scroll on the page when we don't want to drive it
+   *  ourselves.
    */
   useEffect(() => {
     const el = ganttRef.current;
     if (!el) return;
 
     let scrollContainer: HTMLElement | null = null;
-    let panStartMidX = 0;
-    let panStartScrollLeft = 0;
-    let mode: "none" | "bar" | "page-scroll" | "two-finger-pan" = "none";
+    let startX = 0;
+    let startY = 0;
+    let startScrollLeft = 0;
+    let mode:
+      | "none"
+      | "bar"
+      | "undecided"
+      | "horizontal-pan"
+      | "page-scroll"
+      | "two-finger-pan" = "none";
+    const DEADZONE = 8;
 
     const findScrollContainer = (): HTMLElement | null => {
       if (scrollContainer && scrollContainer.isConnected) return scrollContainer;
@@ -1322,40 +1332,63 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
       );
     };
 
-    const midpointX = (e: TouchEvent): number =>
-      (e.touches[0].clientX + e.touches[1].clientX) / 2;
-
     const onTouchStart = (e: TouchEvent) => {
-      if (e.touches.length === 2) {
+      if (e.touches.length >= 2) {
         const sc = findScrollContainer();
         if (!sc) {
           mode = "none";
           return;
         }
-        panStartMidX = midpointX(e);
-        panStartScrollLeft = sc.scrollLeft;
+        startX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+        startScrollLeft = sc.scrollLeft;
         mode = "two-finger-pan";
         return;
       }
       if (e.touches.length === 1) {
-        mode = isBarElement(e.target) ? "bar" : "page-scroll";
+        if (isBarElement(e.target)) {
+          mode = "bar";
+          return;
+        }
+        const sc = findScrollContainer();
+        if (!sc) {
+          mode = "none";
+          return;
+        }
+        startX = e.touches[0].clientX;
+        startY = e.touches[0].clientY;
+        startScrollLeft = sc.scrollLeft;
+        mode = "undecided";
       }
     };
 
     const onTouchMove = (e: TouchEvent) => {
-      if (mode === "two-finger-pan" && e.touches.length === 2) {
-        // Block the library and the browser's pinch-zoom for this gesture.
+      if (mode === "two-finger-pan" && e.touches.length >= 2) {
         e.stopImmediatePropagation();
         e.preventDefault();
         const sc = findScrollContainer();
         if (!sc) return;
-        const dx = panStartMidX - midpointX(e);
-        sc.scrollLeft = panStartScrollLeft + dx;
+        const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+        sc.scrollLeft = startScrollLeft + (startX - midX);
         return;
       }
-      if (mode === "page-scroll" && e.touches.length === 1) {
-        // Stop the library's touchmove handler from preventing default,
-        // letting the browser perform native vertical scroll.
+      if (e.touches.length !== 1) return;
+      const dx = startX - e.touches[0].clientX;
+      const dy = startY - e.touches[0].clientY;
+      if (mode === "undecided") {
+        if (Math.abs(dx) < DEADZONE && Math.abs(dy) < DEADZONE) return;
+        mode = Math.abs(dx) > Math.abs(dy) ? "horizontal-pan" : "page-scroll";
+      }
+      if (mode === "horizontal-pan") {
+        e.stopImmediatePropagation();
+        e.preventDefault();
+        const sc = findScrollContainer();
+        if (!sc) return;
+        sc.scrollLeft = startScrollLeft + dx;
+        return;
+      }
+      if (mode === "page-scroll") {
+        // Block the library's conditional preventDefault, but don't preventDefault
+        // ourselves — the browser then performs native vertical page scroll.
         e.stopImmediatePropagation();
       }
       // mode === "bar" or "none": let the library handle it.
@@ -1910,12 +1943,18 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
               ${theme.palette.divider} 40px
             ) !important`,
           },
-          /* ── Touch scrolling: allow native pan gestures on all scroll containers ── */
-          "& [class*='ganttTaskRoot_']": { touchAction: "pan-x pan-y" },
-          "& [class*='ganttTaskContent_']": { touchAction: "pan-x pan-y" },
-          "& [class*='ganttTableWrapper_']": { touchAction: "pan-x pan-y" },
+          /* ── Touch scrolling ──
+             Allow only vertical native pan on the gantt area. Horizontal pans
+             (1-finger horizontal swipe + 2-finger pan) and pinch-zoom are all
+             routed to the JS touch handler above, which drives scrollLeft on
+             `_ganttTaskRoot_` directly. This avoids the race where iOS Safari
+             commits to its own native horizontal scroll before our
+             preventDefault on the first touchmove can cancel it. */
+          "& [class*='ganttTaskRoot_']": { touchAction: "pan-y" },
+          "& [class*='ganttTaskContent_']": { touchAction: "pan-y" },
+          "& [class*='ganttTableWrapper_']": { touchAction: "pan-y" },
           "& [class*='wrapper_'][data-testid='gantt-main']": {
-            touchAction: "pan-x pan-y",
+            touchAction: "pan-y",
           },
 
           /* ── Dark mode overrides (CSS-class-based elements only;
