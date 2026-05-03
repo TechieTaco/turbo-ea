@@ -322,7 +322,14 @@ async function paginateChartImage(
   // Build the list of cut points (Y offsets in source CSS pixels) walking
   // through the row boundaries greedily: take as many rows as fit into a
   // page, cut at the last boundary that fits.
+  //
+  // A row taller than `pageMaxSourceH` would otherwise force a cut at
+  // its top edge, producing a near-empty page made up of whatever sat
+  // above it. Reject any candidate cut that would produce a page
+  // smaller than `minPageSourceH` and fall through to `cutAt = b`,
+  // putting the oversized row on its own slide instead.
   const cuts: number[] = [];
+  const minPageSourceH = pageMaxSourceH * 0.25;
   if (captured.boundaries.length > 0) {
     let pageStart = 0;
     let lastFitting = pageStart;
@@ -330,10 +337,10 @@ async function paginateChartImage(
     while (i < captured.boundaries.length) {
       const b = captured.boundaries[i];
       if (b - pageStart > pageMaxSourceH) {
-        // Either flush at the previous boundary, or — if no boundary fits
-        // (a single row is taller than a page) — accept the oversized row
-        // on its own page.
-        const cutAt = lastFitting > pageStart ? lastFitting : b;
+        const candidate = lastFitting;
+        const usable =
+          candidate > pageStart && candidate - pageStart >= minPageSourceH;
+        const cutAt = usable ? candidate : b;
         cuts.push(cutAt);
         pageStart = cutAt;
         lastFitting = cutAt;
@@ -372,6 +379,15 @@ async function paginateChartImage(
   cuts.sort((a, b) => a - b);
   for (let i = cuts.length - 1; i > 0; i--) {
     if (cuts[i] - cuts[i - 1] < 1) cuts.splice(i, 1);
+  }
+  // If the final slice (last cut → end of chart) would be tiny, drop
+  // the last cut so the trailing rows merge into the previous page —
+  // safer than emitting a near-empty trailing slide.
+  while (
+    cuts.length > 0 &&
+    captured.height - cuts[cuts.length - 1] < minPageSourceH
+  ) {
+    cuts.pop();
   }
 
   const allCuts = [...cuts, captured.height];
