@@ -23,6 +23,16 @@ export interface ReportExportData {
   filterSummary?: { label: string; value: string }[];
   sheets: ExportSheet[];
   chartNode?: HTMLElement | null;
+  /**
+   * CSS selector identifying a single "card" or "row" inside `chartNode`.
+   * When set, charts that exceed one slide are paginated across multiple
+   * slides, splitting only at the bottom of an element matched by this
+   * selector — never mid-card. When **omitted**, the chart is always
+   * rendered on a single slide and scaled to fit, preserving its
+   * integrity (the right behaviour for visualizations like treemaps,
+   * heatmaps and network graphs that can't be cut horizontally).
+   */
+  paginateRowSelector?: string;
 }
 
 /**
@@ -192,7 +202,6 @@ export async function exportReportToXlsx(data: ReportExportData): Promise<void> 
 }
 
 const PPT_BRAND_COLOR = "0F7EB5";
-const PPT_TEXT_COLOR = "263238";
 const PPT_MUTED_COLOR = "607D8B";
 
 interface CapturedImage {
@@ -209,32 +218,91 @@ interface CapturedImage {
   boundaries: number[];
 }
 
-const ROW_BOUNDARY_SELECTOR =
-  "[data-export-row], tbody tr, .report-export-row";
-
-function collectBoundaries(node: HTMLElement): number[] {
+/**
+ * Returns Y offsets (relative to `node`) at which the chart can be cut
+ * without slicing through any element matched by `selector`. Critically
+ * column-aware: in multi-column layouts (e.g. the capability map, the
+ * dependency tree) a horizontal line is only safe if **no card** in any
+ * column spans across that Y. Y values where any card straddles the
+ * line are excluded.
+ */
+function collectBoundaries(node: HTMLElement, selector: string): number[] {
   const baseTop = node.getBoundingClientRect().top;
-  const els = Array.from(
-    node.querySelectorAll<HTMLElement>(ROW_BOUNDARY_SELECTOR),
-  );
-  const ys: number[] = [];
-  for (const el of els) {
+  const ranges: { top: number; bottom: number }[] = [];
+  for (const el of node.querySelectorAll<HTMLElement>(selector)) {
     const r = el.getBoundingClientRect();
-    if (r.height === 0) continue;
-    ys.push(r.bottom - baseTop);
+    if (r.height < 1) continue;
+    ranges.push({ top: r.top - baseTop, bottom: r.bottom - baseTop });
   }
-  ys.sort((a, b) => a - b);
-  // De-duplicate adjacent boundaries (e.g. nested rows)
-  return ys.filter((y, i) => i === 0 || y - ys[i - 1] > 1);
+  if (ranges.length === 0) return [];
+
+  // Candidate cut Ys: every card's top and bottom edge.
+  const candidates = new Set<number>();
+  for (const r of ranges) {
+    candidates.add(r.top);
+    candidates.add(r.bottom);
+  }
+
+  const safe: number[] = [];
+  for (const y of candidates) {
+    let crosses = false;
+    for (const r of ranges) {
+      if (r.top + 0.5 < y && y < r.bottom - 0.5) {
+        crosses = true;
+        break;
+      }
+    }
+    if (!crosses) safe.push(y);
+  }
+  safe.sort((a, b) => a - b);
+  return safe.filter((y, i) => i === 0 || y - safe[i - 1] > 1);
 }
 
-async function captureChartImage(node: HTMLElement): Promise<CapturedImage | null> {
+async function captureChartImage(
+  node: HTMLElement,
+  rowSelector?: string,
+): Promise<CapturedImage | null> {
+  // Temporarily disable overflow clipping on every descendant so charts
+  // that scroll horizontally (e.g. Lifecycle gantt timeline, wide
+  // capability heatmaps) capture their full content rather than only
+  // the visible viewport — otherwise the export looks "zoomed in".
+  const overflowRestores: (() => void)[] = [];
+  for (const el of node.querySelectorAll<HTMLElement>("*")) {
+    const cs = window.getComputedStyle(el);
+    const needsOverride =
+      cs.overflowX === "auto" ||
+      cs.overflowX === "scroll" ||
+      cs.overflowX === "hidden" ||
+      cs.overflowY === "auto" ||
+      cs.overflowY === "scroll" ||
+      cs.overflowY === "hidden";
+    if (!needsOverride) continue;
+    const saved = {
+      overflow: el.style.overflow,
+      overflowX: el.style.overflowX,
+      overflowY: el.style.overflowY,
+    };
+    el.style.overflowX = "visible";
+    el.style.overflowY = "visible";
+    overflowRestores.push(() => {
+      el.style.overflow = saved.overflow;
+      el.style.overflowX = saved.overflowX;
+      el.style.overflowY = saved.overflowY;
+    });
+  }
+  // Force the layout to settle with the new overflow values.
+  void node.offsetWidth;
+
   try {
     const rect = node.getBoundingClientRect();
+    const captureWidth = Math.max(rect.width, node.scrollWidth);
+    const captureHeight = Math.max(rect.height, node.scrollHeight);
     const dataUrl = await toPng(node, {
       cacheBust: true,
       pixelRatio: 2,
       backgroundColor: "#ffffff",
+      width: captureWidth,
+      height: captureHeight,
       // Skip Material Symbols icon spans — they rely on a font ligature
       // that html-to-image can't reliably embed, so they otherwise leak
       // through as raw glyph names ("payments", "trending_up", etc.).
@@ -245,12 +313,14 @@ async function captureChartImage(node: HTMLElement): Promise<CapturedImage | nul
     });
     return {
       dataUrl,
-      width: rect.width,
-      height: rect.height,
-      boundaries: collectBoundaries(node),
+      width: captureWidth,
+      height: captureHeight,
+      boundaries: rowSelector ? collectBoundaries(node, rowSelector) : [],
     };
   } catch {
     return null;
+  } finally {
+    for (const restore of overflowRestores) restore();
   }
 }
 
@@ -288,37 +358,74 @@ async function paginateChartImage(
   // Build the list of cut points (Y offsets in source CSS pixels) walking
   // through the row boundaries greedily: take as many rows as fit into a
   // page, cut at the last boundary that fits.
+  //
+  // A row taller than `pageMaxSourceH` would otherwise force a cut at
+  // its top edge, producing a near-empty page made up of whatever sat
+  // above it. Reject any candidate cut that would produce a page
+  // smaller than `minPageSourceH` and fall through to `cutAt = b`,
+  // putting the oversized row on its own slide instead.
   const cuts: number[] = [];
+  const minPageSourceH = pageMaxSourceH * 0.25;
   if (captured.boundaries.length > 0) {
     let pageStart = 0;
     let lastFitting = pageStart;
-    for (const b of captured.boundaries) {
+    let i = 0;
+    while (i < captured.boundaries.length) {
+      const b = captured.boundaries[i];
       if (b - pageStart > pageMaxSourceH) {
-        // Either flush at the previous boundary, or — if no boundary fits
-        // (a single row is taller than a page) — accept the oversized row
-        // on its own page.
-        const cutAt = lastFitting > pageStart ? lastFitting : b;
+        const candidate = lastFitting;
+        const usable =
+          candidate > pageStart && candidate - pageStart >= minPageSourceH;
+        const cutAt = usable ? candidate : b;
         cuts.push(cutAt);
         pageStart = cutAt;
         lastFitting = cutAt;
+        // Re-evaluate the current boundary against the new page when the
+        // cut landed before it; otherwise advance.
+        if (cutAt >= b) i++;
       } else {
         lastFitting = b;
+        i++;
       }
     }
   }
-  // Fallback for charts without recognizable row boundaries (e.g. a
-  // treemap or capability heatmap that's just very tall): split on
-  // fixed-height pages so we still avoid an unreadable squashed image.
+  // No safe boundaries → keep the chart on a single slide rather than
+  // make blind cuts that risk slicing through visual content.
   if (cuts.length === 0) {
-    let y = pageMaxSourceH;
-    while (y < captured.height) {
-      cuts.push(y);
-      y += pageMaxSourceH;
-    }
+    return [
+      {
+        dataUrl: captured.dataUrl,
+        sourceWidth: captured.width,
+        sourceHeight: captured.height,
+      },
+    ];
   }
 
   const img = await loadImage(captured.dataUrl);
   const scale = img.height / captured.height; // = pixelRatio used during capture
+
+  // Boundaries come from explicit `data-export-row` markers on the
+  // report, so they're already trustworthy cut points. We deliberately
+  // do NOT snap them to pixel whitespace: cards inside a CSS grid
+  // often live in a taller stretched cell with empty space below the
+  // visible content, and snapping would move the cut up into that
+  // empty space — leaving the next page starting mid-cell.
+  // De-duplicate any cuts that ended up within a pixel of each other
+  // (e.g. nearby tops/bottoms after the column-aware filter).
+  cuts.sort((a, b) => a - b);
+  for (let i = cuts.length - 1; i > 0; i--) {
+    if (cuts[i] - cuts[i - 1] < 1) cuts.splice(i, 1);
+  }
+  // If the final slice (last cut → end of chart) would be tiny, drop
+  // the last cut so the trailing rows merge into the previous page —
+  // safer than emitting a near-empty trailing slide.
+  while (
+    cuts.length > 0 &&
+    captured.height - cuts[cuts.length - 1] < minPageSourceH
+  ) {
+    cuts.pop();
+  }
+
   const allCuts = [...cuts, captured.height];
   const pages: { dataUrl: string; sourceWidth: number; sourceHeight: number }[] = [];
   let from = 0;
@@ -434,12 +541,21 @@ export async function exportReportToPptx(data: ReportExportData): Promise<void> 
   const chartWidth = slideWidth - 2 * margin;
 
   if (data.chartNode) {
-    const captured = await captureChartImage(data.chartNode);
+    const captured = await captureChartImage(data.chartNode, data.paginateRowSelector);
     if (captured) {
-      // For charts that overflow a single slide, paginate the image
-      // along the captured row boundaries so each slide always cuts
-      // between rows / cards rather than through them.
-      const pages = await paginateChartImage(captured, chartWidth, chartHeight);
+      // Pagination is opt-in via `paginateRowSelector`. Without it we
+      // always render the chart on a single slide and scale it to fit —
+      // visualizations like treemaps, heatmaps and network graphs lose
+      // meaning when split horizontally, so don't risk it.
+      const pages = data.paginateRowSelector
+        ? await paginateChartImage(captured, chartWidth, chartHeight)
+        : [
+            {
+              dataUrl: captured.dataUrl,
+              sourceWidth: captured.width,
+              sourceHeight: captured.height,
+            },
+          ];
       const firstPage = pages[0];
       const firstFit = fitImageInBox(
         firstPage.sourceWidth,
@@ -504,85 +620,12 @@ export async function exportReportToPptx(data: ReportExportData): Promise<void> 
     }
   }
 
-  // Data slides: one (or more) per sheet
-  const ROWS_PER_SLIDE = 22;
-  for (const sheet of data.sheets) {
-    if (sheet.rows.length === 0) continue;
-
-    const totalPages = Math.max(1, Math.ceil(sheet.rows.length / ROWS_PER_SLIDE));
-    for (let page = 0; page < totalPages; page++) {
-      const slide = pptx.addSlide();
-      slide.background = { color: "FFFFFF" };
-
-      const headerSuffix =
-        totalPages > 1
-          ? ` — ${sheet.name} (${page + 1}/${totalPages})`
-          : ` — ${sheet.name}`;
-      slide.addText(`${data.title}${headerSuffix}`, {
-        x: margin,
-        y: margin,
-        w: slideWidth - 2 * margin,
-        h: 0.5,
-        fontSize: 18,
-        bold: true,
-        color: PPT_BRAND_COLOR,
-        fontFace: "Calibri",
-      });
-
-      const start = page * ROWS_PER_SLIDE;
-      const end = Math.min(start + ROWS_PER_SLIDE, sheet.rows.length);
-      const pageRows = sheet.rows.slice(start, end);
-
-      const tableHeader = sheet.columns.map((c) => ({
-        text: c.label,
-        options: {
-          bold: true,
-          color: "FFFFFF",
-          fill: { color: PPT_BRAND_COLOR },
-          align: "left" as const,
-        },
-      }));
-
-      const tableBody = pageRows.map((row) =>
-        sheet.columns.map((c) => {
-          const v = formatCellValue(row[c.key], c.type);
-          let display: string;
-          if (v === null || v === undefined || v === "") {
-            display = "";
-          } else if (typeof v === "number") {
-            display =
-              c.type === "currency"
-                ? v.toLocaleString(i18n.language, {
-                    minimumFractionDigits: 0,
-                    maximumFractionDigits: 2,
-                  })
-                : String(v);
-          } else {
-            display = String(v);
-          }
-          return {
-            text: display,
-            options: {
-              color: PPT_TEXT_COLOR,
-              align: (c.type === "number" || c.type === "currency"
-                ? "right"
-                : "left") as "left" | "right",
-            },
-          };
-        }),
-      );
-
-      slide.addTable([tableHeader, ...tableBody], {
-        x: margin,
-        y: margin + 0.7,
-        w: slideWidth - 2 * margin,
-        fontSize: 10,
-        fontFace: "Calibri",
-        border: { type: "solid", pt: 0.5, color: "E0E0E0" },
-        autoPage: false,
-      });
-    }
-  }
+  // PPTX is the visual export — the chart capture (and its pagination
+  // when requested) already conveys everything on screen, including
+  // any tables rendered as part of the chart view (e.g. the Matrix
+  // report's heatmap table). Adding extra slides per `<table>` would
+  // just duplicate that content; reach for XLSX when raw data is the
+  // goal.
 
   const date = new Date().toISOString().slice(0, 10);
   const filename = `${sanitizeFilename(data.title)}_${date}.pptx`;

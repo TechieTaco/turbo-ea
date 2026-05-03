@@ -952,6 +952,7 @@ export default function PortfolioReport() {
       title={t("portfolio.title")}
       icon="dashboard"
       iconColor="#0f7eb5"
+      paginateRowSelector="[data-export-row]"
       view={view}
       onViewChange={setView}
       chartRef={chartRef}
@@ -1462,14 +1463,15 @@ export default function PortfolioReport() {
                 }}
               >
                 {groups.map((g) => (
-                  <GroupCard
-                    key={g.key}
-                    group={g}
-                    colorBy={colorBy}
-                    selectFields={selectFields}
-                    onGroupClick={handleGroupClick}
-                    onAppClick={handleAppClick}
-                  />
+                  <Box key={g.key} data-export-row>
+                    <GroupCard
+                      group={g}
+                      colorBy={colorBy}
+                      selectFields={selectFields}
+                      onGroupClick={handleGroupClick}
+                      onAppClick={handleAppClick}
+                    />
+                  </Box>
                 ))}
               </Box>
 
