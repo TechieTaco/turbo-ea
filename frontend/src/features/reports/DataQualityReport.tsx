@@ -156,6 +156,7 @@ export default function DataQualityReport() {
       title={t("dataQuality.title")}
       icon="verified"
       iconColor="#2e7d32"
+      paginateRowSelector="[data-export-row]"
       view={view}
       onViewChange={setView}
       chartRef={chartRef}
@@ -215,7 +216,7 @@ export default function DataQualityReport() {
       {view === "chart" ? (
         <Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
           {/* Stacked bar chart by type */}
-          <Paper variant="outlined" sx={{ p: 2 }}>
+          <Paper variant="outlined" sx={{ p: 2 }} data-export-row>
             <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 2 }}>
               {t("dataQuality.completenessByType")}
             </Typography>
@@ -243,7 +244,7 @@ export default function DataQualityReport() {
                 const found = types.find((tp) => tp.key === bt.type);
                 const label = rml(found?.key ?? "", found?.translations, "label") || bt.type;
                 return (
-                  <Box key={bt.type}>
+                  <Box key={bt.type} data-export-row>
                     <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 0.5 }}>
                       <Typography variant="body2" sx={{ fontWeight: 500, fontSize: 13 }}>{label}</Typography>
                       <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>

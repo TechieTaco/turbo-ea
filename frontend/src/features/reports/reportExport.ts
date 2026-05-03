@@ -263,12 +263,47 @@ async function captureChartImage(
   node: HTMLElement,
   rowSelector?: string,
 ): Promise<CapturedImage | null> {
+  // Temporarily disable overflow clipping on every descendant so charts
+  // that scroll horizontally (e.g. Lifecycle gantt timeline, wide
+  // capability heatmaps) capture their full content rather than only
+  // the visible viewport — otherwise the export looks "zoomed in".
+  const overflowRestores: (() => void)[] = [];
+  for (const el of node.querySelectorAll<HTMLElement>("*")) {
+    const cs = window.getComputedStyle(el);
+    const needsOverride =
+      cs.overflowX === "auto" ||
+      cs.overflowX === "scroll" ||
+      cs.overflowX === "hidden" ||
+      cs.overflowY === "auto" ||
+      cs.overflowY === "scroll" ||
+      cs.overflowY === "hidden";
+    if (!needsOverride) continue;
+    const saved = {
+      overflow: el.style.overflow,
+      overflowX: el.style.overflowX,
+      overflowY: el.style.overflowY,
+    };
+    el.style.overflowX = "visible";
+    el.style.overflowY = "visible";
+    overflowRestores.push(() => {
+      el.style.overflow = saved.overflow;
+      el.style.overflowX = saved.overflowX;
+      el.style.overflowY = saved.overflowY;
+    });
+  }
+  // Force the layout to settle with the new overflow values.
+  void node.offsetWidth;
+
   try {
     const rect = node.getBoundingClientRect();
+    const captureWidth = Math.max(rect.width, node.scrollWidth);
+    const captureHeight = Math.max(rect.height, node.scrollHeight);
     const dataUrl = await toPng(node, {
       cacheBust: true,
       pixelRatio: 2,
       backgroundColor: "#ffffff",
+      width: captureWidth,
+      height: captureHeight,
       // Skip Material Symbols icon spans — they rely on a font ligature
       // that html-to-image can't reliably embed, so they otherwise leak
       // through as raw glyph names ("payments", "trending_up", etc.).
@@ -279,12 +314,14 @@ async function captureChartImage(
     });
     return {
       dataUrl,
-      width: rect.width,
-      height: rect.height,
+      width: captureWidth,
+      height: captureHeight,
       boundaries: rowSelector ? collectBoundaries(node, rowSelector) : [],
     };
   } catch {
     return null;
+  } finally {
+    for (const restore of overflowRestores) restore();
   }
 }
 
