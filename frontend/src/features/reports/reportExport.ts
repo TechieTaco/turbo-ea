@@ -294,6 +294,66 @@ function loadImage(src: string): Promise<HTMLImageElement> {
 }
 
 /**
+ * Returns true when every pixel in the given image row sits within a
+ * small RGB tolerance — i.e. the row is uniform background and a safe
+ * place to cut. A row that crosses card content has text, icons or
+ * coloured shapes that produce a much wider colour spread.
+ */
+function isRowUniform(
+  ctx: CanvasRenderingContext2D,
+  y: number,
+  width: number,
+  tolerance: number,
+): boolean {
+  if (y < 0 || y >= ctx.canvas.height) return false;
+  const data = ctx.getImageData(0, y, width, 1).data;
+  let minR = 255,
+    maxR = 0,
+    minG = 255,
+    maxG = 0,
+    minB = 255,
+    maxB = 0;
+  for (let i = 0; i < data.length; i += 4) {
+    const r = data[i];
+    const g = data[i + 1];
+    const b = data[i + 2];
+    if (r < minR) minR = r;
+    if (r > maxR) maxR = r;
+    if (g < minG) minG = g;
+    if (g > maxG) maxG = g;
+    if (b < minB) minB = b;
+    if (b > maxB) maxB = b;
+  }
+  return (
+    maxR - minR <= tolerance &&
+    maxG - minG <= tolerance &&
+    maxB - minB <= tolerance
+  );
+}
+
+/**
+ * Refine a candidate cut so it lands on a uniform-colour pixel row —
+ * effectively the gap between two cards / rows in the rendered chart.
+ * Searches outwards from the candidate up to `windowPx` and falls back
+ * to the original Y if no uniform row is found.
+ */
+function snapCutToWhitespace(
+  ctx: CanvasRenderingContext2D,
+  candidateY: number,
+  width: number,
+  windowPx: number,
+): number {
+  const tolerance = 16;
+  const cy = Math.round(candidateY);
+  if (isRowUniform(ctx, cy, width, tolerance)) return cy;
+  for (let d = 1; d <= windowPx; d++) {
+    if (isRowUniform(ctx, cy - d, width, tolerance)) return cy - d;
+    if (isRowUniform(ctx, cy + d, width, tolerance)) return cy + d;
+  }
+  return cy;
+}
+
+/**
  * Slice a captured image into one or more pages such that each page,
  * when scaled to fit the slide chart area's width, stays within the
  * available height — and crucially never cuts mid-row by always
@@ -355,6 +415,43 @@ async function paginateChartImage(
 
   const img = await loadImage(captured.dataUrl);
   const scale = img.height / captured.height; // = pixelRatio used during capture
+
+  // Render the captured image into a source canvas once so we can read
+  // pixels (for whitespace snapping) and crop slices from it.
+  const sourceCanvas = document.createElement("canvas");
+  sourceCanvas.width = img.width;
+  sourceCanvas.height = img.height;
+  const sourceCtx = sourceCanvas.getContext("2d");
+  if (sourceCtx) {
+    sourceCtx.fillStyle = "#ffffff";
+    sourceCtx.fillRect(0, 0, sourceCanvas.width, sourceCanvas.height);
+    sourceCtx.drawImage(img, 0, 0);
+  }
+
+  // Snap every candidate cut to the nearest uniform-colour pixel row so
+  // the slice always lands in the gap between cards/rows even when the
+  // DOM-derived boundary was a few pixels off (margins, shadows,
+  // sub-pixel anti-aliasing, etc.). The window is ~8 source CSS px,
+  // which equates to roughly the height of a row gap on most layouts.
+  if (sourceCtx) {
+    const windowImgPx = Math.max(8, Math.round(8 * scale));
+    for (let i = 0; i < cuts.length; i++) {
+      const candidateImgY = cuts[i] * scale;
+      const snappedImgY = snapCutToWhitespace(
+        sourceCtx,
+        candidateImgY,
+        sourceCanvas.width,
+        windowImgPx,
+      );
+      cuts[i] = snappedImgY / scale;
+    }
+    // Cuts may have shifted — re-sort and de-duplicate.
+    cuts.sort((a, b) => a - b);
+    for (let i = cuts.length - 1; i > 0; i--) {
+      if (cuts[i] - cuts[i - 1] < 1) cuts.splice(i, 1);
+    }
+  }
+
   const allCuts = [...cuts, captured.height];
   const pages: { dataUrl: string; sourceWidth: number; sourceHeight: number }[] = [];
   let from = 0;
