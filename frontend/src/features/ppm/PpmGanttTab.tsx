@@ -94,6 +94,10 @@ const VIEW_SCALE: ViewMode[] = [
 ];
 
 const VIEW_MODE_KEY = "ppm.gantt.viewMode";
+/** Per-initiative key — the centre date the user last had the viewport
+ *  scrolled to, persisted as an ISO string so we restore the same focus
+ *  on next visit. Different initiatives remember independent positions. */
+const VIEW_CENTER_KEY_PREFIX = "ppm.gantt.viewCenter.";
 
 function loadInitialViewMode(): ViewMode {
   try {
@@ -542,6 +546,76 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  /** Restore the saved viewport-centre date once on mount per initiative,
+   *  after data has loaded and bars are positioned. The lib's `viewDate`
+   *  prop is the LEFT edge, so we shift the saved centre by half the
+   *  viewport in calendar days at the current scale. Runs at most once;
+   *  subsequent navigation is the user's own scrolling. */
+  const restoredCenterRef = useRef(false);
+  useEffect(() => {
+    if (restoredCenterRef.current) return;
+    if (loading) return;
+    let saved: string | null = null;
+    try {
+      saved = localStorage.getItem(VIEW_CENTER_KEY_PREFIX + initiativeId);
+    } catch {
+      /* localStorage unavailable */
+    }
+    if (!saved) {
+      restoredCenterRef.current = true;
+      return;
+    }
+    const centerDate = new Date(saved);
+    if (Number.isNaN(centerDate.getTime())) {
+      restoredCenterRef.current = true;
+      return;
+    }
+    // Defer one tick so the gantt has finished rendering bars and the
+    // scroll container has its real width.
+    const tid = window.setTimeout(() => {
+      const root = ganttRef.current?.querySelector("[class*='ganttTaskRoot_']");
+      const viewportPx =
+        root instanceof Element ? root.getBoundingClientRect().width : 0;
+      if (viewportPx === 0) return;
+      const { colWidth, daysPerCol } = geometryFor(viewMode);
+      const halfDays = (viewportPx / 2) * (daysPerCol / colWidth);
+      const leftEdge = new Date(centerDate.getTime() - halfDays * 86400000);
+      setViewDate(new Date(leftEdge.getTime()));
+      restoredCenterRef.current = true;
+    }, 50);
+    return () => window.clearTimeout(tid);
+  }, [loading, initiativeId, viewMode]);
+
+  /** Persist the viewport-centre date whenever the user scrolls the
+   *  gantt horizontally. Debounced so we write at most once per pan
+   *  gesture instead of on every scroll-event tick. */
+  useEffect(() => {
+    if (loading) return;
+    const root = ganttRef.current?.querySelector("[class*='ganttTaskRoot_']");
+    if (!(root instanceof Element)) return;
+    let tid: ReturnType<typeof setTimeout> | null = null;
+    const onScroll = () => {
+      if (tid !== null) clearTimeout(tid);
+      tid = setTimeout(() => {
+        const center = findCenterAnchorDate();
+        if (!center) return;
+        try {
+          localStorage.setItem(
+            VIEW_CENTER_KEY_PREFIX + initiativeId,
+            center.toISOString(),
+          );
+        } catch {
+          /* localStorage unavailable */
+        }
+      }, 250);
+    };
+    root.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      root.removeEventListener("scroll", onScroll);
+      if (tid !== null) clearTimeout(tid);
+    };
+  }, [loading, initiativeId, findCenterAnchorDate]);
 
   /** Set of WBS IDs that have children (completion auto-rolled up). */
   const parentIds = useMemo(() => getParentIds(wbsList, tasks), [wbsList, tasks]);
