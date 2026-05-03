@@ -214,18 +214,48 @@ const ROW_BOUNDARY_SELECTOR =
 
 function collectBoundaries(node: HTMLElement): number[] {
   const baseTop = node.getBoundingClientRect().top;
-  const els = Array.from(
-    node.querySelectorAll<HTMLElement>(ROW_BOUNDARY_SELECTOR),
-  );
-  const ys: number[] = [];
-  for (const el of els) {
+  const ys = new Set<number>();
+
+  const push = (el: Element) => {
     const r = el.getBoundingClientRect();
-    if (r.height === 0) continue;
-    ys.push(r.bottom - baseTop);
+    if (r.height < 1) return;
+    ys.add(r.bottom - baseTop);
+  };
+
+  // 1) Explicit opt-in / table-shaped markers.
+  for (const el of node.querySelectorAll<HTMLElement>(ROW_BOUNDARY_SELECTOR)) {
+    push(el);
   }
-  ys.sort((a, b) => a - b);
-  // De-duplicate adjacent boundaries (e.g. nested rows)
-  return ys.filter((y, i) => i === 0 || y - ys[i - 1] > 1);
+
+  // 2) Heuristic: detect "list-like" containers — any element whose direct
+  // children are roughly equal height and stack vertically. Catches the
+  // <Box>-based rows used by the Lifecycle gantt, capability heatmap and
+  // similar custom layouts that don't use <tr>.
+  const all = node.querySelectorAll<HTMLElement>("*");
+  for (const parent of all) {
+    const children = Array.from(parent.children).filter(
+      (c): c is HTMLElement => c instanceof HTMLElement,
+    );
+    if (children.length < 3) continue;
+    const rects = children.map((c) => c.getBoundingClientRect());
+    const heights = rects.map((r) => r.height).filter((h) => h > 0);
+    if (heights.length < 3) continue;
+    const max = Math.max(...heights);
+    const min = Math.min(...heights);
+    if (max < 12 || (max - min) / max > 0.3) continue;
+    let stacks = true;
+    for (let i = 1; i < rects.length; i++) {
+      if (rects[i].top <= rects[i - 1].top) {
+        stacks = false;
+        break;
+      }
+    }
+    if (!stacks) continue;
+    for (const c of children) push(c);
+  }
+
+  const sorted = Array.from(ys).sort((a, b) => a - b);
+  return sorted.filter((y, i) => i === 0 || y - sorted[i - 1] > 1);
 }
 
 async function captureChartImage(node: HTMLElement): Promise<CapturedImage | null> {
@@ -292,7 +322,9 @@ async function paginateChartImage(
   if (captured.boundaries.length > 0) {
     let pageStart = 0;
     let lastFitting = pageStart;
-    for (const b of captured.boundaries) {
+    let i = 0;
+    while (i < captured.boundaries.length) {
+      const b = captured.boundaries[i];
       if (b - pageStart > pageMaxSourceH) {
         // Either flush at the previous boundary, or — if no boundary fits
         // (a single row is taller than a page) — accept the oversized row
@@ -301,8 +333,12 @@ async function paginateChartImage(
         cuts.push(cutAt);
         pageStart = cutAt;
         lastFitting = cutAt;
+        // Re-evaluate the current boundary against the new page when the
+        // cut landed before it; otherwise advance.
+        if (cutAt >= b) i++;
       } else {
         lastFitting = b;
+        i++;
       }
     }
   }
