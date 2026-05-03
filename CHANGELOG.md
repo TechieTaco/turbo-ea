@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.64.0] - 2026-05-02
+
+### Added
+- **PowerPoint (.pptx) and Excel (.xlsx) export on every report.** The "⋮" menu on Portfolio, Capability Map, Lifecycle, Dependencies, Cost, Matrix, Data Quality, EOL, and Process Map now offers **Export to Excel** and **Export to PowerPoint** alongside Print and Copy link. The PPTX deck opens with a combined title-and-chart slide (report title, generation timestamp, active filter summary across the top, the live chart underneath at 2× DPI) followed by one or more data-table slides paginated automatically. The XLSX workbook contains one sheet per data table currently rendered, with auto-sized columns and currency / number formatting preserved. Implementation is handled inside `ReportShell` itself — it captures the chart container as a PNG via `html-to-image` and scrapes any `<table>` rendered inside the chart area, so reports get export for free without per-report glue. Translated into all 8 supported UI locales (`en`, `de`, `fr`, `es`, `it`, `pt`, `zh`, `ru`).
+
 ## [0.63.0] - 2026-05-02
 
 ### Added

@@ -1,0 +1,590 @@
+import * as XLSX from "xlsx";
+import { toPng } from "html-to-image";
+import PptxGenJS from "pptxgenjs";
+import i18n from "@/i18n";
+
+export type ExportColumnType = "text" | "number" | "currency" | "date";
+
+export interface ExportColumn {
+  key: string;
+  label: string;
+  type?: ExportColumnType;
+}
+
+export interface ExportSheet {
+  name: string;
+  columns: ExportColumn[];
+  rows: Record<string, unknown>[];
+}
+
+export interface ReportExportData {
+  title: string;
+  subtitle?: string;
+  filterSummary?: { label: string; value: string }[];
+  sheets: ExportSheet[];
+  chartNode?: HTMLElement | null;
+}
+
+/**
+ * Extract tabular data from any `<table>` elements inside a node so reports
+ * don't need bespoke serialization logic. The first preceding heading
+ * (h1–h6) is used as the sheet name when available.
+ */
+export function extractSheetsFromDOM(node: HTMLElement | null): ExportSheet[] {
+  if (!node) return [];
+  const sheets: ExportSheet[] = [];
+  const tables = Array.from(node.querySelectorAll<HTMLTableElement>("table"));
+
+  tables.forEach((tbl, idx) => {
+    const headerCells = Array.from(tbl.querySelectorAll<HTMLTableCellElement>("thead th"));
+    if (headerCells.length === 0) return;
+
+    const columns: ExportColumn[] = headerCells.map((th, i) => {
+      const label = (th.textContent || "").replace(/\s+/g, " ").trim() || `Column ${i + 1}`;
+      const align = th.getAttribute("align") || getComputedStyle(th).textAlign;
+      return {
+        key: `c${i}`,
+        label,
+        type: align === "right" ? "number" : "text",
+      };
+    });
+
+    const bodyRows = Array.from(tbl.querySelectorAll<HTMLTableRowElement>("tbody tr"));
+    const rows: Record<string, unknown>[] = [];
+    for (const tr of bodyRows) {
+      const cells = Array.from(tr.querySelectorAll<HTMLTableCellElement>("td"));
+      if (cells.length === 0) continue;
+      const row: Record<string, unknown> = {};
+      cells.forEach((td, i) => {
+        const text = (td.textContent || "").replace(/\s+/g, " ").trim();
+        if (columns[i]?.type === "number") {
+          const num = Number(text.replace(/[^0-9.-]/g, ""));
+          row[`c${i}`] = Number.isFinite(num) && text !== "" ? num : text;
+        } else {
+          row[`c${i}`] = text;
+        }
+      });
+      rows.push(row);
+    }
+    if (rows.length === 0) return;
+
+    let name = `Sheet ${idx + 1}`;
+    let cur: Element | null = tbl;
+    while (cur) {
+      const heading = cur.previousElementSibling?.querySelector("h1,h2,h3,h4,h5,h6,[data-export-section]")
+        ?? (cur.previousElementSibling?.matches("h1,h2,h3,h4,h5,h6,[data-export-section]") ? cur.previousElementSibling : null);
+      if (heading?.textContent) {
+        name = heading.textContent.replace(/\s+/g, " ").trim().slice(0, 31);
+        break;
+      }
+      cur = cur.parentElement;
+      if (cur === node) break;
+    }
+
+    sheets.push({ name, columns, rows });
+  });
+
+  return sheets;
+}
+
+const sanitizeFilename = (s: string): string =>
+  s.replace(/[\\/:*?"<>|]/g, "_").replace(/\s+/g, "_").slice(0, 60) || "report";
+
+const sanitizeSheetName = (s: string): string =>
+  s.replace(/[\\/?*[\]:]/g, " ").trim().slice(0, 31) || "Sheet";
+
+const formatCellValue = (value: unknown, type?: ExportColumnType): unknown => {
+  if (value === null || value === undefined || value === "") return "";
+  if (type === "number" || type === "currency") {
+    const n = typeof value === "number" ? value : Number(value);
+    return Number.isFinite(n) ? n : value;
+  }
+  if (type === "date") {
+    if (value instanceof Date) return value.toISOString().slice(0, 10);
+    return String(value);
+  }
+  if (Array.isArray(value)) return value.join(", ");
+  return value;
+};
+
+/**
+ * Fallback sheet used when no data tables are detected (e.g. the report is
+ * in chart view). Carries the title and active filter summary so the
+ * workbook is never empty and the recipient still sees the context.
+ */
+function buildInfoSheet(data: ReportExportData): ExportSheet {
+  const generatedAt = new Date().toLocaleString(i18n.language);
+  const rows: Record<string, unknown>[] = [
+    {
+      label: i18n.t("reports:export.titleSlide", {
+        defaultValue: "Generated {{date}}",
+        date: generatedAt,
+      }),
+      value: data.title,
+    },
+  ];
+  for (const f of data.filterSummary ?? []) {
+    if (f.value) rows.push({ label: f.label, value: f.value });
+  }
+  return {
+    name: i18n.t("reports:export.summarySheet", { defaultValue: "Summary" }),
+    columns: [
+      { key: "label", label: i18n.t("common:labels.name", { defaultValue: "Name" }), type: "text" },
+      { key: "value", label: i18n.t("common:labels.value", { defaultValue: "Value" }), type: "text" },
+    ],
+    rows,
+  };
+}
+
+export async function exportReportToXlsx(data: ReportExportData): Promise<void> {
+  const wb = XLSX.utils.book_new();
+  const usedNames = new Set<string>();
+
+  const sheets = data.sheets.length > 0 ? data.sheets : [buildInfoSheet(data)];
+
+  for (const sheet of sheets) {
+    const headerRow = sheet.columns.map((c) => c.label);
+    const aoa: unknown[][] = [headerRow];
+
+    for (const row of sheet.rows) {
+      aoa.push(sheet.columns.map((c) => formatCellValue(row[c.key], c.type)));
+    }
+
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+
+    // Apply currency / number formats per column
+    sheet.columns.forEach((col, colIdx) => {
+      if (col.type === "currency" || col.type === "number") {
+        for (let r = 1; r < aoa.length; r++) {
+          const cellRef = XLSX.utils.encode_cell({ r, c: colIdx });
+          const cell = ws[cellRef];
+          if (cell && typeof cell.v === "number") {
+            cell.t = "n";
+            cell.z = col.type === "currency" ? "#,##0.00" : "0.##";
+          }
+        }
+      }
+    });
+
+    // Auto-size columns
+    ws["!cols"] = sheet.columns.map((col, colIdx) => {
+      let maxLen = col.label.length;
+      for (let r = 1; r < aoa.length; r++) {
+        const v = aoa[r][colIdx];
+        const s = v === null || v === undefined ? "" : String(v);
+        if (s.length > maxLen) maxLen = s.length;
+      }
+      return { wch: Math.min(maxLen + 2, 60) };
+    });
+
+    let name = sanitizeSheetName(sheet.name);
+    let suffix = 1;
+    while (usedNames.has(name)) {
+      name = sanitizeSheetName(`${sheet.name} ${++suffix}`);
+    }
+    usedNames.add(name);
+    XLSX.utils.book_append_sheet(wb, ws, name);
+  }
+
+  const date = new Date().toISOString().slice(0, 10);
+  const filename = `${sanitizeFilename(data.title)}_${date}.xlsx`;
+  XLSX.writeFile(wb, filename);
+}
+
+const PPT_BRAND_COLOR = "0F7EB5";
+const PPT_TEXT_COLOR = "263238";
+const PPT_MUTED_COLOR = "607D8B";
+
+interface CapturedImage {
+  dataUrl: string;
+  /** Source CSS-pixel width of the captured node. */
+  width: number;
+  /** Source CSS-pixel height of the captured node. */
+  height: number;
+  /**
+   * Y offsets (in source CSS pixels, relative to the captured node's top)
+   * where the chart can be safely cut without slicing through a row /
+   * card / item. Each entry is the *bottom* of one such element.
+   */
+  boundaries: number[];
+}
+
+const ROW_BOUNDARY_SELECTOR =
+  "[data-export-row], tbody tr, .report-export-row";
+
+function collectBoundaries(node: HTMLElement): number[] {
+  const baseTop = node.getBoundingClientRect().top;
+  const els = Array.from(
+    node.querySelectorAll<HTMLElement>(ROW_BOUNDARY_SELECTOR),
+  );
+  const ys: number[] = [];
+  for (const el of els) {
+    const r = el.getBoundingClientRect();
+    if (r.height === 0) continue;
+    ys.push(r.bottom - baseTop);
+  }
+  ys.sort((a, b) => a - b);
+  // De-duplicate adjacent boundaries (e.g. nested rows)
+  return ys.filter((y, i) => i === 0 || y - ys[i - 1] > 1);
+}
+
+async function captureChartImage(node: HTMLElement): Promise<CapturedImage | null> {
+  try {
+    const rect = node.getBoundingClientRect();
+    const dataUrl = await toPng(node, {
+      cacheBust: true,
+      pixelRatio: 2,
+      backgroundColor: "#ffffff",
+      // Skip Material Symbols icon spans — they rely on a font ligature
+      // that html-to-image can't reliably embed, so they otherwise leak
+      // through as raw glyph names ("payments", "trending_up", etc.).
+      filter: (n) => {
+        if (!(n instanceof HTMLElement)) return true;
+        return !n.classList.contains("material-symbols-outlined");
+      },
+    });
+    return {
+      dataUrl,
+      width: rect.width,
+      height: rect.height,
+      boundaries: collectBoundaries(node),
+    };
+  } catch {
+    return null;
+  }
+}
+
+function loadImage(src: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = reject;
+    img.src = src;
+  });
+}
+
+/**
+ * Slice a captured image into one or more pages such that each page,
+ * when scaled to fit the slide chart area's width, stays within the
+ * available height — and crucially never cuts mid-row by always
+ * splitting at one of the precomputed row boundaries.
+ */
+async function paginateChartImage(
+  captured: CapturedImage,
+  chartW: number,
+  chartH: number,
+): Promise<{ dataUrl: string; sourceWidth: number; sourceHeight: number }[]> {
+  const pageMaxSourceH = captured.width * (chartH / chartW);
+  if (captured.height <= pageMaxSourceH + 1) {
+    return [
+      {
+        dataUrl: captured.dataUrl,
+        sourceWidth: captured.width,
+        sourceHeight: captured.height,
+      },
+    ];
+  }
+
+  // Build the list of cut points (Y offsets in source CSS pixels) walking
+  // through the row boundaries greedily: take as many rows as fit into a
+  // page, cut at the last boundary that fits.
+  const cuts: number[] = [];
+  if (captured.boundaries.length > 0) {
+    let pageStart = 0;
+    let lastFitting = pageStart;
+    for (const b of captured.boundaries) {
+      if (b - pageStart > pageMaxSourceH) {
+        // Either flush at the previous boundary, or — if no boundary fits
+        // (a single row is taller than a page) — accept the oversized row
+        // on its own page.
+        const cutAt = lastFitting > pageStart ? lastFitting : b;
+        cuts.push(cutAt);
+        pageStart = cutAt;
+        lastFitting = cutAt;
+      } else {
+        lastFitting = b;
+      }
+    }
+  }
+  // Fallback for charts without recognizable row boundaries (e.g. a
+  // treemap or capability heatmap that's just very tall): split on
+  // fixed-height pages so we still avoid an unreadable squashed image.
+  if (cuts.length === 0) {
+    let y = pageMaxSourceH;
+    while (y < captured.height) {
+      cuts.push(y);
+      y += pageMaxSourceH;
+    }
+  }
+
+  const img = await loadImage(captured.dataUrl);
+  const scale = img.height / captured.height; // = pixelRatio used during capture
+  const allCuts = [...cuts, captured.height];
+  const pages: { dataUrl: string; sourceWidth: number; sourceHeight: number }[] = [];
+  let from = 0;
+  for (const to of allCuts) {
+    const sliceSrcH = to - from;
+    if (sliceSrcH <= 0) continue;
+    const canvas = document.createElement("canvas");
+    canvas.width = img.width;
+    canvas.height = Math.round(sliceSrcH * scale);
+    const ctx = canvas.getContext("2d");
+    if (!ctx) break;
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(
+      img,
+      0,
+      Math.round(from * scale),
+      img.width,
+      Math.round(sliceSrcH * scale),
+      0,
+      0,
+      img.width,
+      Math.round(sliceSrcH * scale),
+    );
+    pages.push({
+      dataUrl: canvas.toDataURL("image/png"),
+      sourceWidth: captured.width,
+      sourceHeight: sliceSrcH,
+    });
+    from = to;
+  }
+  return pages;
+}
+
+function fitImageInBox(
+  sourceW: number,
+  sourceH: number,
+  boxW: number,
+  boxH: number,
+  boxX: number,
+  boxY: number,
+): { x: number; y: number; w: number; h: number } {
+  const sourceRatio = sourceW / sourceH;
+  const targetRatio = boxW / boxH;
+  let drawW = boxW;
+  let drawH = boxH;
+  if (sourceRatio > targetRatio) {
+    drawH = boxW / sourceRatio;
+  } else {
+    drawW = boxH * sourceRatio;
+  }
+  return {
+    x: boxX + (boxW - drawW) / 2,
+    y: boxY + (boxH - drawH) / 2,
+    w: drawW,
+    h: drawH,
+  };
+}
+
+export async function exportReportToPptx(data: ReportExportData): Promise<void> {
+  const t = (key: string, fallback: string, opts?: Record<string, unknown>): string =>
+    i18n.t(`reports:${key}`, { defaultValue: fallback, ...opts });
+
+  const pptx = new PptxGenJS();
+  pptx.layout = "LAYOUT_WIDE"; // 13.333 x 7.5 inches
+  pptx.title = data.title;
+
+  const slideWidth = 13.333;
+  const slideHeight = 7.5;
+  const margin = 0.5;
+
+  // Slide 1: combined title + chart
+  const titleSlide = pptx.addSlide();
+  titleSlide.background = { color: "FFFFFF" };
+
+  titleSlide.addText(data.title, {
+    x: margin,
+    y: margin,
+    w: slideWidth - 2 * margin,
+    h: 0.7,
+    fontSize: 28,
+    bold: true,
+    color: PPT_BRAND_COLOR,
+    fontFace: "Calibri",
+  });
+
+  const generatedAt = new Date().toLocaleString(i18n.language);
+  const subtitleParts: string[] = [
+    t("export.titleSlide", "Generated {{date}}", { date: generatedAt }),
+  ];
+  if (data.filterSummary && data.filterSummary.length > 0) {
+    const filtersText = data.filterSummary
+      .map((f) => `${f.label}: ${f.value}`)
+      .join("  •  ");
+    subtitleParts.push(filtersText);
+  } else if (data.subtitle) {
+    subtitleParts.push(data.subtitle);
+  }
+
+  titleSlide.addText(subtitleParts.join("    "), {
+    x: margin,
+    y: margin + 0.7,
+    w: slideWidth - 2 * margin,
+    h: 0.45,
+    fontSize: 12,
+    color: PPT_MUTED_COLOR,
+    fontFace: "Calibri",
+  });
+
+  // Chart area: lower ~70% of the slide
+  const chartTop = margin + 1.3;
+  const chartHeight = slideHeight - chartTop - margin;
+  const chartWidth = slideWidth - 2 * margin;
+
+  if (data.chartNode) {
+    const captured = await captureChartImage(data.chartNode);
+    if (captured) {
+      // For charts that overflow a single slide, paginate the image
+      // along the captured row boundaries so each slide always cuts
+      // between rows / cards rather than through them.
+      const pages = await paginateChartImage(captured, chartWidth, chartHeight);
+      const firstPage = pages[0];
+      const firstFit = fitImageInBox(
+        firstPage.sourceWidth,
+        firstPage.sourceHeight,
+        chartWidth,
+        chartHeight,
+        margin,
+        chartTop,
+      );
+      titleSlide.addImage({ data: firstPage.dataUrl, ...firstFit });
+
+      // Continuation slides for any remaining pages. They reuse a
+      // smaller header (just the title + "Page n/N") so we have more
+      // vertical room for the image itself.
+      const totalPages = pages.length;
+      if (totalPages > 1) {
+        const contChartTop = margin + 0.7;
+        const contChartHeight = slideHeight - contChartTop - margin;
+        for (let p = 1; p < totalPages; p++) {
+          const slide = pptx.addSlide();
+          slide.background = { color: "FFFFFF" };
+          slide.addText(
+            `${data.title} — ${t("export.pageIndicator", "{{current}} / {{total}}", {
+              current: p + 1,
+              total: totalPages,
+            })}`,
+            {
+              x: margin,
+              y: margin,
+              w: slideWidth - 2 * margin,
+              h: 0.5,
+              fontSize: 18,
+              bold: true,
+              color: PPT_BRAND_COLOR,
+              fontFace: "Calibri",
+            },
+          );
+          const page = pages[p];
+          const fit = fitImageInBox(
+            page.sourceWidth,
+            page.sourceHeight,
+            chartWidth,
+            contChartHeight,
+            margin,
+            contChartTop,
+          );
+          slide.addImage({ data: page.dataUrl, ...fit });
+        }
+      }
+    } else {
+      titleSlide.addText(t("export.chartUnavailable", "Chart preview unavailable."), {
+        x: margin,
+        y: chartTop,
+        w: chartWidth,
+        h: chartHeight,
+        fontSize: 14,
+        color: PPT_MUTED_COLOR,
+        align: "center",
+        valign: "middle",
+        italic: true,
+      });
+    }
+  }
+
+  // Data slides: one (or more) per sheet
+  const ROWS_PER_SLIDE = 22;
+  for (const sheet of data.sheets) {
+    if (sheet.rows.length === 0) continue;
+
+    const totalPages = Math.max(1, Math.ceil(sheet.rows.length / ROWS_PER_SLIDE));
+    for (let page = 0; page < totalPages; page++) {
+      const slide = pptx.addSlide();
+      slide.background = { color: "FFFFFF" };
+
+      const headerSuffix =
+        totalPages > 1
+          ? ` — ${sheet.name} (${page + 1}/${totalPages})`
+          : ` — ${sheet.name}`;
+      slide.addText(`${data.title}${headerSuffix}`, {
+        x: margin,
+        y: margin,
+        w: slideWidth - 2 * margin,
+        h: 0.5,
+        fontSize: 18,
+        bold: true,
+        color: PPT_BRAND_COLOR,
+        fontFace: "Calibri",
+      });
+
+      const start = page * ROWS_PER_SLIDE;
+      const end = Math.min(start + ROWS_PER_SLIDE, sheet.rows.length);
+      const pageRows = sheet.rows.slice(start, end);
+
+      const tableHeader = sheet.columns.map((c) => ({
+        text: c.label,
+        options: {
+          bold: true,
+          color: "FFFFFF",
+          fill: { color: PPT_BRAND_COLOR },
+          align: "left" as const,
+        },
+      }));
+
+      const tableBody = pageRows.map((row) =>
+        sheet.columns.map((c) => {
+          const v = formatCellValue(row[c.key], c.type);
+          let display: string;
+          if (v === null || v === undefined || v === "") {
+            display = "";
+          } else if (typeof v === "number") {
+            display =
+              c.type === "currency"
+                ? v.toLocaleString(i18n.language, {
+                    minimumFractionDigits: 0,
+                    maximumFractionDigits: 2,
+                  })
+                : String(v);
+          } else {
+            display = String(v);
+          }
+          return {
+            text: display,
+            options: {
+              color: PPT_TEXT_COLOR,
+              align: (c.type === "number" || c.type === "currency"
+                ? "right"
+                : "left") as "left" | "right",
+            },
+          };
+        }),
+      );
+
+      slide.addTable([tableHeader, ...tableBody], {
+        x: margin,
+        y: margin + 0.7,
+        w: slideWidth - 2 * margin,
+        fontSize: 10,
+        fontFace: "Calibri",
+        border: { type: "solid", pt: 0.5, color: "E0E0E0" },
+        autoPage: false,
+      });
+    }
+  }
+
+  const date = new Date().toISOString().slice(0, 10);
+  const filename = `${sanitizeFilename(data.title)}_${date}.pptx`;
+  await pptx.writeFile({ fileName: filename });
+}

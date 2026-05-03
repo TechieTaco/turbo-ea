@@ -149,6 +149,15 @@ Der **EOL-Bericht** zeigt den Supportstatus von Technologieprodukten, die über 
 
 Speichern Sie jede Berichtskonfiguration für schnellen späteren Zugriff. Gespeicherte Berichte enthalten eine Miniaturvorschau und können in der gesamten Organisation geteilt werden.
 
+## Berichte exportieren
+
+Jeder Bericht unterstützt **Als Excel exportieren (.xlsx)** und **Als PowerPoint exportieren (.pptx)** über das **⋮**-Menü in der Titelleiste (neben Drucken und Link kopieren).
+
+- **Excel** — Erzeugt ein Arbeitsblatt pro aktuell angezeigter Datentabelle, mit automatisch dimensionierten Spalten sowie erhaltener Währungs- und Zahlenformatierung. Wechseln Sie vor dem Export zur **Tabellenansicht**, um die zugrunde liegenden Zeilen zu erfassen.
+- **PowerPoint** — Erstellt eine Präsentation, deren erste Folie Berichtstitel, Erstellungszeitpunkt, aktiven Filterüberblick und das Live-Diagramm in Präsentationsqualität kombiniert. Folgefolien paginieren die Datentabellen für teilbare Handouts.
+
+Beim Export aktive Filter- und Gruppierungseinstellungen werden auf der Titelfolie bzw. in der Kopfzeile festgehalten, sodass Exporte selbsterklärend bleiben.
+
 ## Prozesskarte
 
 Die **Prozesskarte** visualisiert die Geschäftsprozesslandschaft der Organisation als strukturierte Karte und zeigt Prozesskategorien (Management, Kern, Unterstützung) und ihre hierarchischen Beziehungen.

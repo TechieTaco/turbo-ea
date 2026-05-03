@@ -1,4 +1,4 @@
-import { type ReactNode, useState } from "react";
+import { type ReactNode, useCallback, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Trans, useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
@@ -14,6 +14,12 @@ import ListItemText from "@mui/material/ListItemText";
 import Alert from "@mui/material/Alert";
 import Button from "@mui/material/Button";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import {
+  exportReportToPptx,
+  exportReportToXlsx,
+  extractSheetsFromDOM,
+  type ReportExportData,
+} from "./reportExport";
 
 export interface PrintParam {
   label: string;
@@ -47,6 +53,15 @@ interface Props {
   actions?: ReactNode;
   /** Parameters to display in the print header (only non-empty ones) */
   printParams?: PrintParam[];
+  /**
+   * Optional override that returns custom export data. When omitted, the
+   * shell auto-builds it by capturing the chart container and scraping any
+   * `<table>` elements rendered inside it — so reports get XLSX/PPTX export
+   * for free as long as they expose a chart ref and (optionally) a table view.
+   */
+  buildExportData?: () => ReportExportData;
+  /** Set to true to hide the XLSX/PPTX export menu entries for this report. */
+  disableExport?: boolean;
   children: ReactNode;
 }
 
@@ -67,6 +82,8 @@ export default function ReportShell({
   actions,
   maxWidth = 1200,
   printParams,
+  buildExportData,
+  disableExport,
   children,
 }: Props) {
   const { t } = useTranslation(["reports", "common"]);
@@ -78,7 +95,41 @@ export default function ReportShell({
     setExportMenu(null);
   };
 
-  const activeParams = printParams?.filter((p) => p.value) ?? [];
+  const activeParams = useMemo(
+    () => printParams?.filter((p) => p.value) ?? [],
+    [printParams],
+  );
+
+  const collectExportData = useCallback((): ReportExportData => {
+    if (buildExportData) return buildExportData();
+    const node = chartRef?.current ?? null;
+    return {
+      title,
+      filterSummary: activeParams,
+      sheets: extractSheetsFromDOM(node),
+      chartNode: node,
+    };
+  }, [buildExportData, chartRef, title, activeParams]);
+
+  const handleExport = useCallback(
+    async (format: "xlsx" | "pptx") => {
+      setExportMenu(null);
+      const data = collectExportData();
+      if (format === "xlsx") {
+        await exportReportToXlsx(data);
+      } else {
+        await exportReportToPptx(data);
+      }
+    },
+    [collectExportData],
+  );
+
+  const exportEnabled = !disableExport && !!chartRef;
+  // Match the export format to what the user is currently looking at:
+  // PPTX captures the chart, XLSX harvests the rendered tables. Reports
+  // without a table toggle are inherently chart-only.
+  const showXlsxItem = exportEnabled && hasTableToggle && view === "table";
+  const showPptxItem = exportEnabled && (!hasTableToggle || view === "chart");
 
   return (
     <Box className="report-container" sx={{ maxWidth, mx: "auto" }}>
@@ -169,6 +220,18 @@ export default function ReportShell({
             open={!!exportMenu}
             onClose={() => setExportMenu(null)}
           >
+            {showXlsxItem && (
+              <MenuItem onClick={() => handleExport("xlsx")}>
+                <ListItemIcon><MaterialSymbol icon="table_view" size={18} /></ListItemIcon>
+                <ListItemText>{t("shell.exportXlsx")}</ListItemText>
+              </MenuItem>
+            )}
+            {showPptxItem && (
+              <MenuItem onClick={() => handleExport("pptx")}>
+                <ListItemIcon><MaterialSymbol icon="slideshow" size={18} /></ListItemIcon>
+                <ListItemText>{t("shell.exportPptx")}</ListItemText>
+              </MenuItem>
+            )}
             <MenuItem onClick={handleCopyLink}>
               <ListItemIcon><MaterialSymbol icon="link" size={18} /></ListItemIcon>
               <ListItemText>{t("shell.copyLink")}</ListItemText>
