@@ -17,6 +17,11 @@
   "gallery.menu.renameEdit": "Переименовать / Редактировать",
   "gallery.delete.title": "Удалить диаграмму",
   "gallery.delete.confirm": "Вы уверены, что хотите удалить <strong>{{name}}</strong>? Это действие нельзя отменить.",
+  "viewer.title": "Просмотр диаграммы",
+  "viewer.notFound": "Диаграмма не найдена",
+  "viewer.toolbar.edit": "Редактировать",
+  "viewer.toolbar.editTooltip": "Открыть диаграмму в редакторе",
+
   "editor.title": "Редактор диаграмм",
   "editor.notFound": "Диаграмма не найдена",
   "editor.saved": "Диаграмма сохранена",

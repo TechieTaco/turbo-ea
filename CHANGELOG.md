@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.65.3] - 2026-05-04
+
+### Changed
+- **Diagrams open in a read-only viewer by default.** Opening a diagram (`/diagrams/:id`) now lands you on a read-only canvas with the DrawIO chrome stripped away, so you can read and explore without risk of accidental edits. Click any card on the canvas to pop open a right-side panel showing that card's full details (data quality, lifecycle, attributes, relations, comments, stakeholders, history). Users with the `diagrams.manage` permission see an **Edit** button in the toolbar that switches into the existing DrawIO editor at `/diagrams/:id/edit`; viewers without it never see the button, and direct URL access to the editor route redirects back to the viewer. Closing the editor returns to the viewer rather than the gallery.
+
 ## [0.65.2] - 2026-05-04
 
 ### Added

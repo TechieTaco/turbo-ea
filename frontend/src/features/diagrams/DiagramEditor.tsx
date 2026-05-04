@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef, useCallback } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { useParams, useNavigate, Navigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
@@ -41,6 +41,7 @@ import {
 import type { ExpandChildData } from "./drawio-shapes";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useResolveMetaLabel } from "@/hooks/useResolveLabel";
+import { useAuthContext } from "@/hooks/AuthContext";
 import type { Card, CardType, Relation, RelationType } from "@/types";
 
 /* ------------------------------------------------------------------ */
@@ -231,6 +232,12 @@ export default function DiagramEditor() {
   const { t } = useTranslation(["diagrams", "common"]);
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { user } = useAuthContext();
+  const canManage = useMemo(() => {
+    const perms = user?.permissions;
+    if (!perms) return false;
+    return !!perms["*"] || !!perms["diagrams.manage"];
+  }, [user?.permissions]);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [diagram, setDiagram] = useState<DiagramData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -867,9 +874,9 @@ export default function DiagramEditor() {
 
         case "exit":
           if (msg.modified && msg.xml) {
-            saveDiagram(msg.xml).then(() => navigate("/diagrams"));
+            saveDiagram(msg.xml).then(() => navigate(`/diagrams/${id}`));
           } else {
-            navigate("/diagrams");
+            navigate(`/diagrams/${id}`);
           }
           break;
 
@@ -916,6 +923,9 @@ export default function DiagramEditor() {
   const totalPending = pendingCards.length + pendingRels.length;
 
   /* ---------- Render ---------- */
+  if (!canManage) {
+    return <Navigate to={`/diagrams/${id ?? ""}`} replace />;
+  }
   if (loading) {
     return (
       <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>
@@ -942,7 +952,7 @@ export default function DiagramEditor() {
           minHeight: 48,
         }}
       >
-        <IconButton size="small" onClick={() => navigate("/diagrams")}>
+        <IconButton size="small" onClick={() => navigate(`/diagrams/${id}`)}>
           <MaterialSymbol icon="arrow_back" size={20} />
         </IconButton>
         <Typography variant="subtitle1" fontWeight={600} noWrap sx={{ flex: 1 }}>

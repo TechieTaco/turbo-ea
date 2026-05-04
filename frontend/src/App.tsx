@@ -29,6 +29,7 @@ const DataQualityReport = lazy(() => import("@/features/reports/DataQualityRepor
 const EolReport = lazy(() => import("@/features/reports/EolReport"));
 const SavedReportsPage = lazy(() => import("@/features/reports/SavedReportsPage"));
 const DiagramsPage = lazy(() => import("@/features/diagrams/DiagramsPage"));
+const DiagramViewer = lazy(() => import("@/features/diagrams/DiagramViewer"));
 const DiagramEditor = lazy(() => import("@/features/diagrams/DiagramEditor"));
 const TodosPage = lazy(() => import("@/features/todos/TodosPage"));
 const EADeliveryPage = lazy(() => import("@/features/ea-delivery/EADeliveryPage"));
@@ -126,7 +127,8 @@ function AppRoutes() {
                 <Route path="/ppm" element={<ModuleGate module="ppm"><PpmPortfolio /></ModuleGate>} />
                 <Route path="/ppm/:id" element={<ModuleGate module="ppm"><PpmProjectDetail /></ModuleGate>} />
                 <Route path="/diagrams" element={<DiagramsPage />} />
-                <Route path="/diagrams/:id" element={<DiagramEditor />} />
+                <Route path="/diagrams/:id" element={<DiagramViewer />} />
+                <Route path="/diagrams/:id/edit" element={<DiagramEditor />} />
                 <Route path="/ea-delivery" element={<EADeliveryPage />} />
                 <Route path="/ea-delivery/soaw/new" element={<SoAWEditor />} />
                 <Route path="/ea-delivery/soaw/:id/preview" element={<SoAWPreview />} />

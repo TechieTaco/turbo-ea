@@ -19,6 +19,11 @@
   "gallery.delete.title": "Eliminar diagrama",
   "gallery.delete.confirm": "\u00bfEst\u00e1 seguro de que desea eliminar <strong>{{name}}</strong>? Esta acci\u00f3n no se puede deshacer.",
 
+  "viewer.title": "Visor de diagramas",
+  "viewer.notFound": "Diagrama no encontrado",
+  "viewer.toolbar.edit": "Editar",
+  "viewer.toolbar.editTooltip": "Abrir el diagrama en el editor",
+
   "editor.title": "Editor de diagramas",
   "editor.notFound": "Diagrama no encontrado",
   "editor.saved": "Diagrama guardado",

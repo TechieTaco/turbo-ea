@@ -17,6 +17,11 @@
   "gallery.menu.renameEdit": "Rinomina / Modifica",
   "gallery.delete.title": "Elimina diagramma",
   "gallery.delete.confirm": "Eliminare <strong>{{name}}</strong>? Questa azione non pu\u00f2 essere annullata.",
+  "viewer.title": "Visualizzatore di diagrammi",
+  "viewer.notFound": "Diagramma non trovato",
+  "viewer.toolbar.edit": "Modifica",
+  "viewer.toolbar.editTooltip": "Apri il diagramma nell'editor",
+
   "editor.title": "Editor diagramma",
   "editor.notFound": "Diagramma non trovato",
   "editor.saved": "Diagramma salvato",
