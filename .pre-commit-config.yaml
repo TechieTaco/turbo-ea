@@ -39,19 +39,8 @@ repos:
         files: ^frontend/src/.*\.(ts|tsx)$
         pass_filenames: false
 
-  # ── OpenAPI spec: regenerate when VERSION changes ─────────────────────
-  # The committed spec at docs/api/openapi.json embeds info.version, so a
-  # VERSION bump alone causes spec drift and fails the PR's openapi-spec
-  # CI check. This hook runs scripts/dump_openapi.py whenever VERSION is
-  # staged; pre-commit then notices the regenerated openapi.json and asks
-  # you to re-stage it. Backend route or schema changes that produce drift
+  # NOTE: There is no pre-commit hook for docs/api/openapi.json. The dump
+  # script normalises info.version to "latest", so VERSION bumps no longer
+  # cause spec drift. Backend route or schema changes that produce drift
   # still need `python scripts/dump_openapi.py` run manually, or land via
-  # main where the openapi-spec job auto-commits the refresh.
-  - repo: local
-    hooks:
-      - id: openapi-regenerate-on-version
-        name: Regenerate docs/api/openapi.json on VERSION bump
-        entry: python scripts/dump_openapi.py docs/api/openapi.json
-        language: system
-        files: ^VERSION$
-        pass_filenames: false
+  # main where the openapi-spec CI job auto-commits the refresh.
