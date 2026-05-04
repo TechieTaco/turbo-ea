@@ -6,6 +6,12 @@ the user manual (``docs/admin/api.md``). Calling ``app.openapi()`` only walks
 the registered routers — the lifespan (DB migrations, seeding, Ollama pulls)
 does **not** run here.
 
+The committed spec is **version-agnostic**: ``info.version`` is normalised to
+the constant ``"latest"`` before writing, so VERSION bumps never produce
+drift. CI's drift check therefore only fires when the actual route or schema
+surface changes. The live ``/api/openapi.json`` served by a running backend
+keeps the real version (it's produced by ``app.openapi()`` at runtime).
+
 Usage (from the repo root):
 
     python scripts/dump_openapi.py [output_path]
@@ -40,16 +46,21 @@ if BACKEND_DIR.is_dir():
 from app.main import app  # noqa: E402
 
 
+STATIC_VERSION = "latest"
+
+
 def main() -> int:
     output = Path(sys.argv[1]) if len(sys.argv) > 1 else DEFAULT_OUTPUT
     output.parent.mkdir(parents=True, exist_ok=True)
     schema = app.openapi()
+    # Normalise info.version to a constant so VERSION bumps don't cause spec
+    # drift. Live runtime spec served by the backend keeps the real version.
+    schema.setdefault("info", {})["version"] = STATIC_VERSION
     with output.open("w", encoding="utf-8") as fh:
         json.dump(schema, fh, indent=2, sort_keys=True)
         fh.write("\n")
     paths = len(schema.get("paths", {}))
-    version = schema.get("info", {}).get("version", "unknown")
-    print(f"Wrote {output} ({paths} paths, version {version})")
+    print(f"Wrote {output} ({paths} paths, version {STATIC_VERSION})")
     return 0
 
 

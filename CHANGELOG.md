@@ -5,6 +5,14 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.65.1] - 2026-05-04
+
+### Fixed
+- **Capability reference catalogue — branch selection now respects active filters.** When you applied a filter (industry, level, search, or the deprecated toggle) and then ticked a branch (e.g. an L1 capability) to import its subtree, the import payload silently included every descendant from the unfiltered catalogue — including the capabilities you had just filtered out — so users were creating cards they never saw. Subtree selection now scopes to the currently-visible part of the tree, matching the existing "Select visible" behaviour. Deselecting a branch under an active filter likewise affects only the visible subtree, leaving any previously-selected hidden descendants intact (clear the filter to see and manage them).
+
+### Internal
+- **Committed OpenAPI spec is now version-agnostic, so VERSION bumps no longer cause CI drift.** `scripts/dump_openapi.py` normalises `info.version` to the constant `"latest"` before writing `docs/api/openapi.json`. The previous behaviour embedded the real `VERSION` value, so every PR's version bump produced drift unless the contributor had run `pre-commit install` locally — in practice CI failed on most PRs. The `openapi-regenerate-on-version` pre-commit hook is removed (no longer needed). Backend route and request/response schema changes still require a manual `python scripts/dump_openapi.py` run, which the existing PR-time CI check enforces. The live spec served by a running backend at `/api/openapi.json` keeps the real version (it's produced by `app.openapi()` at runtime).
+
 ## [0.65.0] - 2026-05-03
 
 ### Fixed
