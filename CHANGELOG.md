@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.65.1] - 2026-05-04
+
+### Fixed
+- **Capability reference catalogue — branch selection now respects active filters.** When you applied a filter (industry, level, search, or the deprecated toggle) and then ticked a branch (e.g. an L1 capability) to import its subtree, the import payload silently included every descendant from the unfiltered catalogue — including the capabilities you had just filtered out — so users were creating cards they never saw. Subtree selection now scopes to the currently-visible part of the tree, matching the existing "Select visible" behaviour. Deselecting a branch under an active filter likewise affects only the visible subtree, leaving any previously-selected hidden descendants intact (clear the filter to see and manage them).
+
 ## [0.65.0] - 2026-05-03
 
 ### Fixed

@@ -166,7 +166,7 @@ export default function CapabilityCatalogueBrowser({
     const next = new Set(selected);
     const subtree = [id, ...(descendantsOf.get(id) ?? [])].filter((sid) => {
       const c = byId.get(sid);
-      return c && isSelectable(c);
+      return c && isSelectable(c) && visibleSet.has(sid);
     });
     if (next.has(id)) {
       for (const s of subtree) next.delete(s);
