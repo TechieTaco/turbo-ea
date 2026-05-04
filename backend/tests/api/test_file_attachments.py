@@ -160,6 +160,34 @@ class TestDownloadFile:
         )
         assert resp.status_code == 200
 
+    async def test_download_with_non_latin1_filename(self, client, db, file_env):
+        # Regression: filenames containing characters outside Latin-1 (Cyrillic,
+        # CJK, emoji) must not crash the response serializer with HTTP 500.
+        admin = file_env["admin"]
+        card = file_env["card"]
+        unicode_name = "отчёт 报告 🚀.pdf"
+
+        upload_resp = await client.post(
+            f"/api/v1/cards/{card.id}/file-attachments",
+            files={"file": (unicode_name, b"unicode-bytes", "application/pdf")},
+            headers=auth_headers(admin),
+        )
+        assert upload_resp.status_code == 201
+        attachment_id = upload_resp.json()["id"]
+
+        resp = await client.get(
+            f"/api/v1/file-attachments/{attachment_id}/download",
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 200
+        assert resp.content == b"unicode-bytes"
+
+        from urllib.parse import quote
+
+        disposition = resp.headers.get("content-disposition", "")
+        assert 'filename="' in disposition
+        assert f"filename*=UTF-8''{quote(unicode_name, safe='')}" in disposition
+
 
 # -------------------------------------------------------------------
 # DELETE /file-attachments/{id}

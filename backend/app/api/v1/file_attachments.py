@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import uuid
+from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, Form, HTTPException, UploadFile
 from fastapi.responses import Response
@@ -152,10 +153,18 @@ async def download_file_attachment(
     if not attachment:
         raise HTTPException(404, "File attachment not found")
 
+    # RFC 6266 / RFC 5987: HTTP header values must be Latin-1 encodable, so a
+    # raw filename with non-Latin-1 characters (Cyrillic, CJK, emoji, ...) would
+    # crash the response serializer with UnicodeEncodeError. Emit an ASCII
+    # fallback plus a percent-encoded UTF-8 form that modern browsers prefer.
+    ascii_fallback = attachment.name.encode("ascii", "replace").decode("ascii")
+    ascii_fallback = ascii_fallback.replace("\\", "_").replace('"', "_")
+    encoded_name = quote(attachment.name, safe="")
+    disposition = f"attachment; filename=\"{ascii_fallback}\"; filename*=UTF-8''{encoded_name}"
     return Response(
         content=attachment.data,
         media_type=attachment.mime_type,
-        headers={"Content-Disposition": f'attachment; filename="{attachment.name}"'},
+        headers={"Content-Disposition": disposition},
     )
 
 
