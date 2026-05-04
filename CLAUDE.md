@@ -1604,6 +1604,11 @@ Both services use **root build context** (`context: .`) on the `guac-net` extern
 
 PostgreSQL is external (not managed by this compose file). A separate `docker-compose.db.yml` is provided for local development.
 
+### GHCR Image Publishing (opt-in)
+- **Workflow**: `.github/workflows/docker-publish.yml` builds and pushes multi-arch (`amd64` + `arm64`) images to `ghcr.io/vincentmakes/turbo-ea/{backend,frontend,mcp-server}` on every push to `main`, every `v*.*.*` tag, and on `workflow_dispatch`.
+- **Override file**: `docker-compose.ghcr.yml` swaps the `build:` directive for `image:` so operators can run `docker compose -f docker-compose.yml -f docker-compose.ghcr.yml up -d` without a local build. Pin a version with `TURBO_EA_TAG=0.65.x` (defaults to `latest`).
+- **Auth**: workflow uses the auto-provisioned `GITHUB_TOKEN` (`packages: write`); no extra secrets needed. Packages must be flipped to **Public** in GitHub package settings on first publish.
+
 ### Ollama Service (opt-in)
 - **Profile**: `ai` — started with `docker compose --profile ai up -d`
 - **Image**: `ollama/ollama:latest`, exposes port 11434 internally only

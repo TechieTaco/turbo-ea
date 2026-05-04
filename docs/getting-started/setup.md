@@ -69,6 +69,40 @@ docker compose up --build -d
 !!! note
     The base `docker-compose.yml` expects a Docker network called `guac-net`. Create it with `docker network create guac-net` if it does not exist.
 
+## Optional: Run from Pre-built Images (GHCR)
+
+If you'd rather skip the local build (which can take 5–10 minutes on first run because the frontend image bundles a Node build, the DrawIO source, and Nginx), the project publishes multi-architecture (`amd64` + `arm64`) images to the [GitHub Container Registry](https://ghcr.io) on every push to `main` and on every `v*.*.*` release tag:
+
+- `ghcr.io/vincentmakes/turbo-ea/backend`
+- `ghcr.io/vincentmakes/turbo-ea/frontend`
+- `ghcr.io/vincentmakes/turbo-ea/mcp-server`
+
+The `docker-compose.ghcr.yml` override file replaces the `build:` directive of each service with an `image:` reference, so you can layer it on top of either compose file without changing anything else:
+
+```bash
+# With the embedded database
+docker compose -f docker-compose.db.yml -f docker-compose.ghcr.yml pull
+docker compose -f docker-compose.db.yml -f docker-compose.ghcr.yml up -d
+
+# With your own external PostgreSQL
+docker compose -f docker-compose.yml -f docker-compose.ghcr.yml pull
+docker compose -f docker-compose.yml -f docker-compose.ghcr.yml up -d
+```
+
+By default the override pulls the `latest` tag. To pin a specific release, set `TURBO_EA_TAG` before running compose:
+
+```bash
+TURBO_EA_TAG=0.65.2 docker compose -f docker-compose.db.yml -f docker-compose.ghcr.yml up -d
+```
+
+Released versions are tagged `:<full-version>`, `:<major.minor>`, `:<major>`, and `:latest`. Pushes to `main` between releases are also tagged `:main` and `:sha-<short>` for users who want to track the development branch.
+
+!!! note
+    Requires Docker Compose v2.24+ (released December 2023) for the `!reset` directive used to disable the inherited `build:` step. Older Compose versions can still pull and run the images, but you may need to add `--no-build` flags manually.
+
+!!! tip
+    The pre-built images are the same artefacts produced by the local `docker compose --build` flow — same Dockerfiles, same `VERSION` file, same multi-stage layers. Switching back and forth between `--build` and the GHCR override at any time is supported.
+
 ## Step 3: Load Demo Data (Optional)
 
 Turbo EA can start with an empty metamodel (just the 14 built-in card types and relation types) or with a fully populated demo dataset. The demo data is ideal for evaluating the platform, running training sessions, or exploring features.
@@ -202,6 +236,7 @@ docker compose -f docker-compose.db.yml --profile ai --profile mcp up --build -d
 | **Full demo** (embedded DB, all demo data) | Set `SEED_DEMO=true` in `.env`, then `docker compose -f docker-compose.db.yml up --build -d` |
 | **Full demo + AI** | Set `SEED_DEMO=true` + AI vars in `.env`, then `docker compose -f docker-compose.db.yml --profile ai up --build -d` |
 | **External DB** | Configure DB vars in `.env`, then `docker compose up --build -d` |
+| **Pre-built images (no local build)** | `docker compose -f docker-compose.db.yml -f docker-compose.ghcr.yml up -d` |
 | **Reset and re-seed** | Set `RESET_DB=true` + `SEED_DEMO=true` in `.env`, restart, then remove `RESET_DB` |
 
 ## Next Steps

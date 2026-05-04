@@ -1,0 +1,27 @@
+# Opt-in override that swaps the local build for pre-built images published
+# to GitHub Container Registry by .github/workflows/docker-publish.yml.
+#
+# Usage (with the base compose file or alongside docker-compose.db.yml):
+#
+#   docker compose -f docker-compose.yml -f docker-compose.ghcr.yml pull
+#   docker compose -f docker-compose.yml -f docker-compose.ghcr.yml up -d
+#
+# Pin a specific version with TURBO_EA_TAG (default: latest):
+#
+#   TURBO_EA_TAG=0.65.2 docker compose -f docker-compose.yml -f docker-compose.ghcr.yml up -d
+#
+# Requires Docker Compose v2.24+ for the `!reset` tag that disables the
+# `build:` directive inherited from the base file.
+
+services:
+  backend:
+    image: ghcr.io/vincentmakes/turbo-ea/backend:${TURBO_EA_TAG:-latest}
+    build: !reset null
+
+  frontend:
+    image: ghcr.io/vincentmakes/turbo-ea/frontend:${TURBO_EA_TAG:-latest}
+    build: !reset null
+
+  mcp-server:
+    image: ghcr.io/vincentmakes/turbo-ea/mcp-server:${TURBO_EA_TAG:-latest}
+    build: !reset null

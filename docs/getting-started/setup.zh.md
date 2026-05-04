@@ -69,6 +69,40 @@ docker compose up --build -d
 !!! note
     基础 `docker-compose.yml` 文件需要一个名为 `guac-net` 的 Docker 网络。如果不存在，请使用 `docker network create guac-net` 创建。
 
+## 可选：使用 GHCR 上的预构建镜像
+
+如果您希望跳过本地构建（首次启动时通常需要 5–10 分钟，因为前端镜像包含 Node 构建、DrawIO 源代码以及 Nginx），项目会在每次推送到 `main` 以及每个 `v*.*.*` 发布标签时，向 [GitHub Container Registry](https://ghcr.io) 发布多架构（`amd64` + `arm64`）镜像：
+
+- `ghcr.io/vincentmakes/turbo-ea/backend`
+- `ghcr.io/vincentmakes/turbo-ea/frontend`
+- `ghcr.io/vincentmakes/turbo-ea/mcp-server`
+
+`docker-compose.ghcr.yml` 覆盖文件会将每个服务的 `build:` 指令替换为 `image:` 引用，因此您可以将其叠加到任一 compose 文件之上，而无需更改其他内容：
+
+```bash
+# 使用嵌入式数据库
+docker compose -f docker-compose.db.yml -f docker-compose.ghcr.yml pull
+docker compose -f docker-compose.db.yml -f docker-compose.ghcr.yml up -d
+
+# 使用您自己的外部 PostgreSQL
+docker compose -f docker-compose.yml -f docker-compose.ghcr.yml pull
+docker compose -f docker-compose.yml -f docker-compose.ghcr.yml up -d
+```
+
+默认情况下，覆盖文件会拉取 `latest` 标签。要锁定到特定版本，请在运行 compose 之前设置 `TURBO_EA_TAG`：
+
+```bash
+TURBO_EA_TAG=0.65.2 docker compose -f docker-compose.db.yml -f docker-compose.ghcr.yml up -d
+```
+
+已发布的版本会被打上 `:<完整版本号>`、`:<major.minor>`、`:<major>` 以及 `:latest` 标签。两次发布之间推送到 `main` 的提交还会附带 `:main` 与 `:sha-<short>` 标签，方便希望跟踪开发分支的用户。
+
+!!! note
+    需要 Docker Compose v2.24+（2023 年 12 月发布），因为这里使用了 `!reset` 指令来禁用从基础文件继承的 `build:`。较旧版本的 Compose 仍然可以拉取并运行这些镜像，但可能需要手动添加 `--no-build`。
+
+!!! tip
+    预构建镜像与本地 `docker compose --build` 流程产出的产物完全一致——相同的 Dockerfile、相同的 `VERSION` 文件、相同的多阶段层。您可以随时在 `--build` 与 GHCR 覆盖之间切换。
+
 ## 第 3 步：加载演示数据（可选）
 
 Turbo EA 可以使用空元模型（仅包含 14 个内置卡片类型和关系类型）或完整的演示数据集启动。演示数据非常适合评估平台、开展培训或探索功能。
@@ -202,6 +236,7 @@ docker compose -f docker-compose.db.yml --profile ai --profile mcp up --build -d
 | **完整演示**（内置数据库，全部数据） | 在 `.env` 中设置 `SEED_DEMO=true`，然后 `docker compose -f docker-compose.db.yml up --build -d` |
 | **完整演示 + AI** | 在 `.env` 中设置 `SEED_DEMO=true` + AI 变量，然后 `docker compose -f docker-compose.db.yml --profile ai up --build -d` |
 | **外部数据库** | 在 `.env` 中配置数据库变量，然后 `docker compose up --build -d` |
+| **预构建镜像（无需本地构建）** | `docker compose -f docker-compose.db.yml -f docker-compose.ghcr.yml up -d` |
 | **重置并重新加载** | 在 `.env` 中设置 `RESET_DB=true` + `SEED_DEMO=true`，重启，然后移除 `RESET_DB` |
 
 ## 后续步骤
