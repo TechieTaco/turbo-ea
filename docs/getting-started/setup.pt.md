@@ -69,6 +69,40 @@ docker compose up --build -d
 !!! note
     O arquivo base `docker-compose.yml` espera uma rede Docker chamada `guac-net`. Crie-a com `docker network create guac-net` se não existir.
 
+## Opcional: Usar imagens pré-compiladas do GHCR
+
+Se preferir pular a compilação local (que pode levar 5–10 minutos no primeiro arranque, pois a imagem do frontend inclui uma compilação Node, o código-fonte do DrawIO e o Nginx), o projeto publica imagens multi-arquitetura (`amd64` + `arm64`) no [GitHub Container Registry](https://ghcr.io) a cada push para `main` e a cada tag de versão `v*.*.*`:
+
+- `ghcr.io/vincentmakes/turbo-ea/backend`
+- `ghcr.io/vincentmakes/turbo-ea/frontend`
+- `ghcr.io/vincentmakes/turbo-ea/mcp-server`
+
+O arquivo de sobreposição `docker-compose.ghcr.yml` substitui a diretiva `build:` de cada serviço por uma referência `image:`, permitindo que você o combine com qualquer um dos arquivos compose sem alterar mais nada:
+
+```bash
+# Com o banco de dados integrado
+docker compose -f docker-compose.db.yml -f docker-compose.ghcr.yml pull
+docker compose -f docker-compose.db.yml -f docker-compose.ghcr.yml up -d
+
+# Com o seu próprio PostgreSQL externo
+docker compose -f docker-compose.yml -f docker-compose.ghcr.yml pull
+docker compose -f docker-compose.yml -f docker-compose.ghcr.yml up -d
+```
+
+Por padrão, a sobreposição baixa a tag `latest`. Para fixar uma versão específica, defina `TURBO_EA_TAG` antes de executar o compose:
+
+```bash
+TURBO_EA_TAG=0.65.2 docker compose -f docker-compose.db.yml -f docker-compose.ghcr.yml up -d
+```
+
+As versões publicadas recebem as tags `:<versão-completa>`, `:<major.minor>`, `:<major>` e `:latest`. Os pushes para `main` entre as versões também recebem as tags `:main` e `:sha-<short>` para usuários que querem acompanhar o ramo de desenvolvimento.
+
+!!! note
+    Requer Docker Compose v2.24+ (lançado em dezembro de 2023) por causa da diretiva `!reset` usada para desativar o `build:` herdado. Versões anteriores do Compose ainda podem baixar e executar as imagens, mas pode ser necessário adicionar manualmente `--no-build`.
+
+!!! tip
+    As imagens pré-compiladas são os mesmos artefatos produzidos pelo fluxo local `docker compose --build` — mesmos Dockerfiles, mesmo arquivo `VERSION` e mesmas camadas multi-estágio. Alternar entre `--build` e a sobreposição GHCR a qualquer momento é totalmente suportado.
+
 ## Passo 3: Carregar dados de demonstração (opcional)
 
 O Turbo EA pode iniciar com um metamodelo vazio (apenas os 14 tipos de card integrados e os tipos de relação) ou com um conjunto de dados de demonstração completo. Os dados de demonstração são ideais para avaliar a plataforma, realizar sessões de treinamento ou explorar funcionalidades.
@@ -202,6 +236,7 @@ docker compose -f docker-compose.db.yml --profile ai --profile mcp up --build -d
 | **Demo completa** (BD integrado, todos os dados) | Defina `SEED_DEMO=true` no `.env`, depois `docker compose -f docker-compose.db.yml up --build -d` |
 | **Demo completa + IA** | Defina `SEED_DEMO=true` + variáveis IA no `.env`, depois `docker compose -f docker-compose.db.yml --profile ai up --build -d` |
 | **BD externo** | Configure as variáveis de BD no `.env`, depois `docker compose up --build -d` |
+| **Imagens pré-compiladas (sem build local)** | `docker compose -f docker-compose.db.yml -f docker-compose.ghcr.yml up -d` |
 | **Redefinir e recarregar** | Defina `RESET_DB=true` + `SEED_DEMO=true` no `.env`, reinicie, depois remova `RESET_DB` |
 
 ## Próximos passos

@@ -243,6 +243,29 @@ Example combining everything:
 docker compose -f docker-compose.db.yml --profile ai --profile mcp up --build -d
 ```
 
+### Run from pre-built images (GHCR)
+
+If you'd rather skip the local build, every push to `main` and every `v*.*.*` tag publishes multi-arch (`amd64` + `arm64`) images to the [GitHub Container Registry](https://ghcr.io):
+
+- `ghcr.io/vincentmakes/turbo-ea/backend`
+- `ghcr.io/vincentmakes/turbo-ea/frontend`
+- `ghcr.io/vincentmakes/turbo-ea/mcp-server`
+
+Apply the `docker-compose.ghcr.yml` override on top of either base file to swap the `build:` step for an image pull:
+
+```bash
+docker compose -f docker-compose.db.yml -f docker-compose.ghcr.yml pull
+docker compose -f docker-compose.db.yml -f docker-compose.ghcr.yml up -d
+```
+
+Pin a specific version with `TURBO_EA_TAG` (defaults to `latest`):
+
+```bash
+TURBO_EA_TAG=0.65.2 docker compose -f docker-compose.db.yml -f docker-compose.ghcr.yml up -d
+```
+
+Requires Docker Compose v2.24+ (for the `!reset` directive that disables the inherited `build:`).
+
 ### Load demo data (optional)
 
 To start with a fully populated demo dataset (NexaTech Industries), add seed variables to your `.env` before the first startup:
