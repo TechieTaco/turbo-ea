@@ -5,6 +5,13 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.70.4] - 2026-05-05
+
+### Changed
+- **The card side panel opened from a diagram now shows the Layered Dependency View at the bottom**, matching the full Card Detail page. Previously the LDV section was hidden in the side panel; it is now enabled by default since it renders fine even at narrow widths.
+- **CI now skips backend, frontend, and MCP jobs that aren't relevant to the changed paths.** `VERSION` was removed from the backend filter (the OpenAPI spec is version-agnostic, so a bump can't drift it) and `.github/workflows/ci.yml` now triggers a dedicated `ci` filter that fans out only when the workflow itself changes. A frontend-only PR (with VERSION + CHANGELOG bump) no longer runs backend tests.
+- **Backend integration tests now run in parallel via `pytest-xdist`.** `pytest -n auto` is enabled in the integration job; the existing `conftest.py` already allocates a per-worker Postgres schema (`test_gw0`, `test_gw1`, ...) so workers don't collide on the savepoint-rollback fixture. Expected to roughly halve the integration job wall-clock on the 4-vCPU GitHub-hosted runner.
+
 ## [0.70.3] - 2026-05-05
 
 ### Added
