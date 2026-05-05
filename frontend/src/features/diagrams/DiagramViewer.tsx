@@ -58,18 +58,36 @@ function attachClickHandler(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const win = iframe.contentWindow as any;
   if (!win) return;
+
+  // DrawIO's lightbox can expose the graph via several globals depending on
+  // the rendering path it picks (lightbox+chrome=0 uses an EditorUi with
+  // chromeless=true; static embeds use GraphViewer instances). Probe all of
+  // them — same-origin iframe so direct property access is allowed.
+  const findGraph = (): unknown => {
+    try {
+      return (
+        win.editorUi?.editor?.graph ||
+        win.ui?.editor?.graph ||
+        win.editor?.graph ||
+        win.graph ||
+        win.app?.editor?.graph ||
+        win.GraphViewer?.instances?.[0]?.graph ||
+        null
+      );
+    } catch {
+      return null;
+    }
+  };
+
   let attempt = 0;
   const tryAttach = () => {
-    // GraphViewer instances are auto-created by lightbox mode. The first
-    // .mxgraph div in the page exposes its viewer via the `graphConfig`
-    // / `graph` properties on the editor / GraphViewer global.
-    const editor = win.EditorUi?.windowed
-      ? win.EditorUi?.instance
-      : win.editor;
-    const graph = editor?.graph || win.graph;
-    if (graph && win.mxEvent) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const graph = findGraph() as any;
+    const mxEvent = win.mxEvent;
+
+    if (graph && mxEvent && typeof graph.addListener === "function") {
       graph.addListener(
-        win.mxEvent.CLICK,
+        mxEvent.CLICK,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (_s: unknown, evt: any) => {
           let cell = evt.getProperty("cell");
@@ -88,7 +106,47 @@ function attachClickHandler(
         cell?.value?.getAttribute?.("cardId") ? "pointer" : "default";
       return;
     }
-    if (attempt++ < 100) setTimeout(tryAttach, 100);
+
+    if (attempt++ < 150) {
+      setTimeout(tryAttach, 100);
+      return;
+    }
+
+    // Fallback: native DOM click on the iframe document, hit-test via the
+    // graph using converted coordinates. Also runs if `graph` was found but
+    // CLICK isn't dispatched in this DrawIO mode.
+    console.warn(
+      "[DiagramViewer] graph not found via known globals; falling back to DOM click. window keys:",
+      Object.keys(win).filter((k) =>
+        /editor|graph|ui|app/i.test(k),
+      ),
+    );
+    const doc = iframe.contentDocument;
+    if (!doc) return;
+    doc.addEventListener(
+      "click",
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (e: any) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const g = findGraph() as any;
+        if (!g || typeof g.getCellAt !== "function") return;
+        const container = g.container as HTMLElement | undefined;
+        if (!container) return;
+        const rect = container.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        const view = g.getView?.();
+        const scale = view?.scale ?? 1;
+        const tr = view?.translate ?? { x: 0, y: 0 };
+        let cell = g.getCellAt(x / scale - tr.x, y / scale - tr.y);
+        while (cell && !cell.value?.getAttribute?.("cardId")) {
+          cell = cell.parent;
+        }
+        const cardId = cell?.value?.getAttribute?.("cardId");
+        if (cardId) onCardClick(cardId);
+      },
+      true,
+    );
   };
   tryAttach();
 }
