@@ -186,17 +186,17 @@ The recommended way to deploy Turbo EA. The bundled `docker-compose.yml` stack s
 - [Docker](https://docs.docker.com/get-docker/) (v20.10+)
 - [Docker Compose](https://docs.docker.com/compose/install/) (v2.0+)
 
-### 1. Clone the repository
+### 1. Create a deployment directory and fetch the compose file
 
 ```bash
-git clone https://github.com/vincentmakes/turbo-ea.git
-cd turbo-ea
+mkdir turbo-ea && cd turbo-ea
+curl -O https://raw.githubusercontent.com/vincentmakes/turbo-ea/main/docker-compose.yml
 ```
 
 ### 2. Create your environment file
 
 ```bash
-cp .env.example .env
+touch .env
 ```
 
 Edit `.env` and configure:
