@@ -20,16 +20,41 @@
  * forwarded to the parent via postMessage — same-origin so simple JSON
  * payloads work.
  *
- * Gated on lightbox=1 so the editor route (embed=1) is unaffected; that
- * route has its own click handling via Draw.loadPlugin in DiagramEditor.
+ * Gated on lightbox=1 / chromeless=1 so the editor route (embed=1) is
+ * unaffected; that route has its own click handling via Draw.loadPlugin
+ * in DiagramEditor.tsx.
  */
 (function () {
-  if (
-    typeof urlParams === "undefined" ||
-    urlParams["lightbox"] !== "1" ||
-    typeof Graph === "undefined" ||
-    !Graph.prototype
-  ) {
+  // Read URL params defensively — urlParams is a DrawIO global set during
+  // mxClient init, but if it isn't yet defined for some reason, parse
+  // window.location.search ourselves.
+  function param(name) {
+    try {
+      if (typeof urlParams !== "undefined" && urlParams[name] != null) {
+        return urlParams[name];
+      }
+    } catch (e) {
+      /* ignore */
+    }
+    var match = new RegExp("[?&]" + name + "=([^&]*)").exec(
+      window.location.search,
+    );
+    return match ? decodeURIComponent(match[1]) : null;
+  }
+
+  var isViewer = param("lightbox") === "1" || param("chromeless") === "1";
+  // eslint-disable-next-line no-console
+  console.log(
+    "[turbo-ea PostConfig] loaded; lightbox=" +
+      param("lightbox") +
+      " chromeless=" +
+      param("chromeless") +
+      " isViewer=" +
+      isViewer +
+      " Graph=" +
+      typeof Graph,
+  );
+  if (!isViewer || typeof Graph === "undefined" || !Graph.prototype) {
     return;
   }
 
@@ -48,6 +73,8 @@
     var result = origInit.apply(this, arguments);
     try {
       var graph = this;
+      // eslint-disable-next-line no-console
+      console.log("[turbo-ea PostConfig] Graph instance initialised; wrapping click + cursor");
 
       var origClick = graph.click;
       graph.click = function (me) {
