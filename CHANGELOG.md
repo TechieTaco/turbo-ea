@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.65.4] - 2026-05-05
+
+### Changed
+- **GHCR images now work with the standard compose files — no override needed.** `docker-compose.yml` and `docker-compose.db.yml` reference `ghcr.io/vincentmakes/turbo-ea/{backend,frontend,mcp-server}:${TURBO_EA_TAG:-latest}` directly on each service, with the local `build:` directive kept as a fallback. Running `docker compose pull && docker compose up -d` now uses the pre-built images out of the box, and `docker compose up --build` still rebuilds locally when you want to. Set `TURBO_EA_PULL_POLICY=always` to force a pull on every `up` (e.g. in CI). The previous `docker-compose.ghcr.yml` override file is removed.
+
 ## [0.65.3] - 2026-05-04
 
 ### Changed
@@ -17,7 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ## [0.65.2] - 2026-05-04
 
 ### Added
-- **Pre-built Docker images on GitHub Container Registry.** The `backend`, `frontend`, and `mcp-server` images are now published to `ghcr.io/vincentmakes/turbo-ea/*` on every push to `main` and on every `v*.*.*` tag, in both `linux/amd64` and `linux/arm64`. Operators can skip the local build (5–10 minutes on first run) by layering the new `docker-compose.ghcr.yml` override on top of either compose file: `docker compose -f docker-compose.db.yml -f docker-compose.ghcr.yml up -d`. Pin a specific version with `TURBO_EA_TAG=0.65.2`. The original `docker compose up --build` flow is unchanged for everyone else.
+- **Pre-built Docker images on GitHub Container Registry.** The `backend`, `frontend`, and `mcp-server` images are now published to `ghcr.io/vincentmakes/turbo-ea/*` on every push to `main` and on every `v*.*.*` tag, in both `linux/amd64` and `linux/arm64`. Operators can skip the local build (5–10 minutes on first run) by running `docker compose pull && docker compose up -d` against the standard compose files. Pin a specific version with `TURBO_EA_TAG=0.65.2`. The original `docker compose up --build` flow is unchanged for everyone else.
 
 ## [0.65.1] - 2026-05-04
 
