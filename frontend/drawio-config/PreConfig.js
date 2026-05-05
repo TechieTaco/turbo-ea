@@ -65,50 +65,86 @@
     }
     GraphClass.prototype.__turboEaPatched = true;
 
-    var origInit = GraphClass.prototype.init;
-    GraphClass.prototype.init = function () {
-      var result = origInit
-        ? origInit.apply(this, arguments)
-        : undefined;
-      try {
-        var graph = this;
-        // eslint-disable-next-line no-console
-        console.log(
-          "[turbo-ea PreConfig] Graph instance initialised; wrapping click + cursor",
-        );
+    function makeWrapper(orig) {
+      return function () {
+        var result;
+        try {
+          result = orig ? orig.apply(this, arguments) : undefined;
+        } catch (e) {
+          /* original init failure — surface it but keep going */
+          // eslint-disable-next-line no-console
+          console.warn("[turbo-ea PreConfig] orig init threw:", e);
+        }
+        try {
+          var graph = this;
+          // eslint-disable-next-line no-console
+          console.log(
+            "[turbo-ea PreConfig] Graph instance initialised; wrapping click + cursor",
+          );
 
-        var origClick = graph.click;
-        graph.click = function (me) {
-          try {
-            var cell = me && me.getCell && me.getCell();
-            while (cell && !readCardId(cell)) cell = cell.parent;
-            var cardId = readCardId(cell);
-            if (cardId) {
-              window.parent.postMessage(
-                JSON.stringify({ event: "cardClicked", cardId: cardId }),
-                "*",
-              );
-              // Don't follow chromeless's default click — it would try to
-              // open a hyperlink on the cell.
-              return;
+          var origClick = graph.click;
+          graph.click = function (me) {
+            try {
+              var cell = me && me.getCell && me.getCell();
+              while (cell && !readCardId(cell)) cell = cell.parent;
+              var cardId = readCardId(cell);
+              if (cardId) {
+                window.parent.postMessage(
+                  JSON.stringify({ event: "cardClicked", cardId: cardId }),
+                  "*",
+                );
+                // Don't follow chromeless's default click — it would try to
+                // open a hyperlink on the cell.
+                return;
+              }
+            } catch (e) {
+              /* fall through */
             }
-          } catch (e) {
-            /* fall through */
-          }
-          if (origClick) return origClick.apply(this, arguments);
-        };
+            if (origClick) return origClick.apply(this, arguments);
+          };
 
-        var origCursor = graph.getCursorForCell;
-        graph.getCursorForCell = function (cell) {
-          if (readCardId(cell)) return "pointer";
-          if (origCursor) return origCursor.apply(this, arguments);
-          return "default";
-        };
-      } catch (e) {
-        /* swallow — best effort */
-      }
-      return result;
-    };
+          var origCursor = graph.getCursorForCell;
+          graph.getCursorForCell = function (cell) {
+            if (readCardId(cell)) return "pointer";
+            if (origCursor) return origCursor.apply(this, arguments);
+            return "default";
+          };
+        } catch (e) {
+          /* swallow — best effort */
+        }
+        return result;
+      };
+    }
+
+    // Wrap any init that's already there (in case app.min.js assigned it
+    // before our setter fired).
+    var _initFn;
+    if (typeof GraphClass.prototype.init === "function") {
+      _initFn = makeWrapper(GraphClass.prototype.init);
+    }
+
+    // Trap *every* future assignment to Graph.prototype.init. app.min.js
+    // assigns init AFTER it assigns the class itself, so a one-shot wrap
+    // would be clobbered. With this accessor, the wrapping rides every
+    // assignment, and instance lookups (`this.init(container)` inside the
+    // mxGraph constructor) read the wrapped version.
+    try {
+      Object.defineProperty(GraphClass.prototype, "init", {
+        configurable: true,
+        set: function (value) {
+          _initFn = makeWrapper(value);
+        },
+        get: function () {
+          return _initFn;
+        },
+      });
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.warn(
+        "[turbo-ea PreConfig] could not defineProperty(Graph.prototype.init):",
+        e,
+      );
+    }
   }
 
   // Trap the Graph class assignment. app.min.js assigns to window.Graph,
