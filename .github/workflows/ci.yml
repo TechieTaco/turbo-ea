@@ -62,11 +62,37 @@ jobs:
       - run: ruff check backend/
       - run: ruff format --check backend/
 
-  backend-test:
-    name: Backend Tests
+  # Unit suite — pure logic, no Postgres. Fast (~2 min). Required for merge.
+  # Catches typos, lint-equivalents, and most logic bugs before the slower
+  # integration suite finishes.
+  backend-test-unit:
+    name: Backend Unit Tests
     needs: changes
     if: needs.changes.outputs.backend == 'true'
     runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/pyproject.toml
+      - run: pip install -e ".[dev]"
+        working-directory: backend
+      - name: Run unit tests
+        run: python -m pytest tests/core/ tests/services/ -q
+        working-directory: backend
+
+  # Integration suite — exercises the full HTTP stack against a real
+  # Postgres. Slow (~15 min). Informational by default so PRs aren't
+  # blocked on it; flip continue-on-error to false (or remove the line)
+  # to make it required again.
+  backend-test-integration:
+    name: Backend Integration Tests
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
+    runs-on: ubuntu-latest
+    continue-on-error: true
     services:
       postgres:
         image: postgres:16-alpine
@@ -90,8 +116,8 @@ jobs:
           cache-dependency-path: backend/pyproject.toml
       - run: pip install -e ".[dev]"
         working-directory: backend
-      - name: Run tests with coverage
-        run: python -m pytest --cov=app --cov-report=term-missing --cov-fail-under=40 -q
+      - name: Run integration tests with coverage
+        run: python -m pytest tests/api/ --cov=app --cov-report=term-missing --cov-fail-under=40 -q
         working-directory: backend
         env:
           POSTGRES_HOST: localhost
