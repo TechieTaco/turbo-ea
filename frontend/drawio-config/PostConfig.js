@@ -1,8 +1,10 @@
 /**
- * DrawIO PostConfig.js — loaded AFTER app.min.js.
+ * DrawIO PostConfig.js — loaded AFTER app.min.js, but in this build
+ * AFTER App.main() has already constructed the graph (DrawIO calls
+ * checkAllLoaded → App.main, then mxscript('js/PostConfig.js')).
  *
- * All custom logic (graph access, context menu, cell insertion) is now
- * handled from the parent window via same-origin iframe access — see
- * DiagramEditor.tsx bootstrapDrawIO().  This file is kept as a placeholder
- * to suppress the 404 that DrawIO logs when it tries to load it.
+ * Because PostConfig.js runs too late to intercept Graph's prototype
+ * before instances exist, all viewer-side instrumentation lives in
+ * PreConfig.js, which loads BEFORE app.min.js. This file is kept as a
+ * placeholder so DrawIO's mxscript() loader doesn't 404.
  */

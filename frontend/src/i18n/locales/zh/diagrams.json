@@ -19,6 +19,11 @@
   "gallery.delete.title": "删除图表",
   "gallery.delete.confirm": "您确定要删除 <strong>{{name}}</strong> 吗？此操作无法撤销。",
 
+  "viewer.title": "图表查看器",
+  "viewer.notFound": "未找到图表",
+  "viewer.toolbar.edit": "编辑",
+  "viewer.toolbar.editTooltip": "在编辑器中打开图表",
+
   "editor.title": "图表编辑器",
   "editor.notFound": "未找到图表",
   "editor.saved": "图表已保存",

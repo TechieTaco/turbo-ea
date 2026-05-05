@@ -19,6 +19,11 @@
   "gallery.delete.title": "Delete Diagram",
   "gallery.delete.confirm": "Are you sure you want to delete <strong>{{name}}</strong>? This action cannot be undone.",
 
+  "viewer.title": "Diagram Viewer",
+  "viewer.notFound": "Diagram not found",
+  "viewer.toolbar.edit": "Edit",
+  "viewer.toolbar.editTooltip": "Open the diagram in the editor",
+
   "editor.title": "Diagram Editor",
   "editor.notFound": "Diagram not found",
   "editor.saved": "Diagram saved",

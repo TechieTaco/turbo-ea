@@ -5,6 +5,15 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.65.3] - 2026-05-04
+
+### Changed
+- **Diagrams open in a read-only viewer by default.** Opening a diagram (`/diagrams/:id`) now lands you on a read-only canvas with the DrawIO chrome stripped away, so you can read and explore without risk of accidental edits. Click any card on the canvas to pop open a right-side panel showing that card's full details (data quality, lifecycle, attributes, relations, comments, stakeholders, history). Users with the `diagrams.manage` permission see an **Edit** button in the toolbar that switches into the existing DrawIO editor at `/diagrams/:id/edit`; viewers without it never see the button, and direct URL access to the editor route redirects back to the viewer. Closing the editor returns to the viewer rather than the gallery.
+- **Card details panel reachable from the editor too.** Right-click any card on the canvas in edit mode and choose **View Card Details…** to open the same side panel that the read-only viewer uses, without leaving the editor. The shortcut only appears when the click landed on a card cell.
+
+### Internal
+- **Backend CI tests split into unit + integration jobs.** The previous monolithic `backend-test` job ran ~15 min and was the long pole on most PRs. It's now two jobs: **Backend Unit Tests** runs `tests/core/` + `tests/services/` with no Postgres (~2 min, required for merge), and **Backend Integration Tests** runs `tests/api/` against Postgres with coverage (~15 min, informational — `continue-on-error: true`). PRs are mergeable as soon as the unit suite passes. The integration suite still runs and reports failures so regressions are caught quickly post-merge; flip `continue-on-error: false` in `.github/workflows/ci.yml` to make it required again. **Branch protection note**: if `Backend Tests` was a required check, replace it with `Backend Unit Tests` (the integration job intentionally doesn't gate merge anymore).
+
 ## [0.65.2] - 2026-05-04
 
 ### Added

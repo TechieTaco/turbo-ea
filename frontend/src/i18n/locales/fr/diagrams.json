@@ -19,6 +19,11 @@
   "gallery.delete.title": "Supprimer le diagramme",
   "gallery.delete.confirm": "\u00cates-vous s\u00fbr de vouloir supprimer <strong>{{name}}</strong> ? Cette action est irr\u00e9versible.",
 
+  "viewer.title": "Visionneuse de diagramme",
+  "viewer.notFound": "Diagramme introuvable",
+  "viewer.toolbar.edit": "Modifier",
+  "viewer.toolbar.editTooltip": "Ouvrir le diagramme dans l'\u00e9diteur",
+
   "editor.title": "\u00c9diteur de diagramme",
   "editor.notFound": "Diagramme introuvable",
   "editor.saved": "Diagramme enregistr\u00e9",

@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef, useCallback } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { useParams, useNavigate, Navigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
@@ -39,8 +39,10 @@ import {
   scanDiagramItems,
 } from "./drawio-shapes";
 import type { ExpandChildData } from "./drawio-shapes";
+import CardDetailSidePanel from "@/components/CardDetailSidePanel";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useResolveMetaLabel } from "@/hooks/useResolveLabel";
+import { useAuthContext } from "@/hooks/AuthContext";
 import type { Card, CardType, Relation, RelationType } from "@/types";
 
 /* ------------------------------------------------------------------ */
@@ -86,12 +88,14 @@ interface DrawIOMessage {
     | "configure"
     | "insertCard"
     | "createCard"
-    | "edgeConnected";
+    | "edgeConnected"
+    | "cardClicked";
   xml?: string;
   data?: string;
   modified?: boolean;
   x?: number;
   y?: number;
+  cardId?: string;
   edgeCellId?: string;
   sourceCardId?: string;
   targetCardId?: string;
@@ -135,7 +139,7 @@ function bootstrapDrawIO(iframe: HTMLIFrameElement) {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           menu: any,
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          _cell: any,
+          cell: any,
           evt: MouseEvent,
         ) {
           origFactory.apply(this, arguments);
@@ -152,6 +156,24 @@ function bootstrapDrawIO(iframe: HTMLIFrameElement) {
           const gy = Math.round(
             (mxEvent.getClientY(evt) - offset.top + container.scrollTop) / s - tr.y,
           );
+
+          // If the right-click landed on (or inside) a card cell, surface
+          // the card-details shortcut. Walk up so clicks on inner labels
+          // still resolve to the card.
+          let cardCell = cell;
+          while (cardCell && !cardCell.value?.getAttribute?.("cardId")) {
+            cardCell = cardCell.parent;
+          }
+          const cardId = cardCell?.value?.getAttribute?.("cardId");
+          if (cardId) {
+            menu.addItem("View Card Details\u2026", null, () => {
+              win.parent.postMessage(
+                JSON.stringify({ event: "cardClicked", cardId }),
+                "*",
+              );
+            });
+            menu.addSeparator();
+          }
 
           menu.addItem("Insert Existing Card\u2026", null, () => {
             win.parent.postMessage(
@@ -231,11 +253,18 @@ export default function DiagramEditor() {
   const { t } = useTranslation(["diagrams", "common"]);
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { user } = useAuthContext();
+  const canManage = useMemo(() => {
+    const perms = user?.permissions;
+    if (!perms) return false;
+    return !!perms["*"] || !!perms["diagrams.manage"];
+  }, [user?.permissions]);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [diagram, setDiagram] = useState<DiagramData | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [snackMsg, setSnackMsg] = useState("");
+  const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
 
   // Metamodel
   const { types: fsTypes, relationTypes } = useMetamodel();
@@ -867,9 +896,9 @@ export default function DiagramEditor() {
 
         case "exit":
           if (msg.modified && msg.xml) {
-            saveDiagram(msg.xml).then(() => navigate("/diagrams"));
+            saveDiagram(msg.xml).then(() => navigate(`/diagrams/${id}`));
           } else {
-            navigate("/diagrams");
+            navigate(`/diagrams/${id}`);
           }
           break;
 
@@ -881,6 +910,10 @@ export default function DiagramEditor() {
         case "createCard":
           contextInsertPosRef.current = { x: msg.x ?? 100, y: msg.y ?? 100 };
           setCreateOpen(true);
+          break;
+
+        case "cardClicked":
+          if (msg.cardId) setSelectedCardId(msg.cardId);
           break;
 
         case "edgeConnected":
@@ -916,6 +949,9 @@ export default function DiagramEditor() {
   const totalPending = pendingCards.length + pendingRels.length;
 
   /* ---------- Render ---------- */
+  if (!canManage) {
+    return <Navigate to={`/diagrams/${id ?? ""}`} replace />;
+  }
   if (loading) {
     return (
       <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>
@@ -942,7 +978,7 @@ export default function DiagramEditor() {
           minHeight: 48,
         }}
       >
-        <IconButton size="small" onClick={() => navigate("/diagrams")}>
+        <IconButton size="small" onClick={() => navigate(`/diagrams/${id}`)}>
           <MaterialSymbol icon="arrow_back" size={20} />
         </IconButton>
         <Typography variant="subtitle1" fontWeight={600} noWrap sx={{ flex: 1 }}>
@@ -1014,6 +1050,12 @@ export default function DiagramEditor() {
         onAcceptStale={handleAcceptStale}
         onCheckUpdates={handleCheckUpdates}
         checkingUpdates={checkingUpdates}
+      />
+
+      <CardDetailSidePanel
+        cardId={selectedCardId}
+        open={!!selectedCardId}
+        onClose={() => setSelectedCardId(null)}
       />
 
       <Snackbar

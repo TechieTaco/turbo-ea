@@ -19,6 +19,11 @@
   "gallery.delete.title": "Diagramm löschen",
   "gallery.delete.confirm": "Möchten Sie <strong>{{name}}</strong> wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.",
 
+  "viewer.title": "Diagramm-Ansicht",
+  "viewer.notFound": "Diagramm nicht gefunden",
+  "viewer.toolbar.edit": "Bearbeiten",
+  "viewer.toolbar.editTooltip": "Diagramm im Editor öffnen",
+
   "editor.title": "Diagramm-Editor",
   "editor.notFound": "Diagramm nicht gefunden",
   "editor.saved": "Diagramm gespeichert",

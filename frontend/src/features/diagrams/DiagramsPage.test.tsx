@@ -154,7 +154,7 @@ describe("DiagramsPage", () => {
         name: "New Test Diagram",
         type: "free_draw",
       }));
-      expect(mockNavigate).toHaveBeenCalledWith("/diagrams/new-id");
+      expect(mockNavigate).toHaveBeenCalledWith("/diagrams/new-id/edit");
     });
   });
 
