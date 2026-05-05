@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useParams, useNavigate, Navigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
@@ -14,31 +14,13 @@ import { api } from "@/api/client";
 import { useAuthContext } from "@/hooks/AuthContext";
 
 /* ------------------------------------------------------------------ */
-/*  DrawIO chromeless viewer configuration                             */
+/*  DrawIO native lightbox viewer                                      */
 /* ------------------------------------------------------------------ */
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const _meta = import.meta as any;
 const DRAWIO_BASE_URL: string =
   _meta.env?.VITE_DRAWIO_URL || "/drawio/index.html";
-
-// chromeless=1 renders DrawIO with the native floating bottom toolbar
-// (zoom in/out/reset/fit, page nav, layers, fullscreen) and disables the
-// editor surface. embed=1 + proto=json keeps the postMessage protocol so
-// we can still load XML and listen for cell clicks via Draw.loadPlugin.
-const DRAWIO_VIEWER_PARAMS = new URLSearchParams({
-  embed: "1",
-  proto: "json",
-  chromeless: "1",
-  spin: "1",
-}).toString();
-
-const EMPTY_DIAGRAM =
-  '<mxGraphModel><root><mxCell id="0"/><mxCell id="1" parent="0"/></root></mxGraphModel>';
-
-/* ------------------------------------------------------------------ */
-/*  Types                                                              */
-/* ------------------------------------------------------------------ */
 
 interface DiagramData {
   id: string;
@@ -47,62 +29,68 @@ interface DiagramData {
   data: { xml?: string; thumbnail?: string };
 }
 
-interface DrawIOMessage {
-  event: "init" | "cardClicked";
-  cardId?: string;
+const EMPTY_DIAGRAM =
+  '<mxGraphModel><root><mxCell id="0"/><mxCell id="1" parent="0"/></root></mxGraphModel>';
+
+/** Build the iframe src for DrawIO's stock lightbox viewer. */
+function buildViewerSrc(xml: string): string {
+  // lightbox=1 = DrawIO's native viewer (the same code path as the
+  //              "fullscreen" popup from a static embed).
+  // chrome=0   = no editor chrome — just canvas + the floating bottom
+  //              toolbar (zoom in / out / reset / fit / page nav / layers).
+  // nav=1      = enable page navigation in multi-page diagrams.
+  // edit=_blank suppresses the "Edit" link inside the viewer (we have
+  //              our own Edit button in the app toolbar).
+  const params = new URLSearchParams({
+    lightbox: "1",
+    chrome: "0",
+    nav: "1",
+    edit: "_blank",
+  });
+  return `${DRAWIO_BASE_URL}?${params.toString()}#R${encodeURIComponent(xml)}`;
 }
 
-/* ------------------------------------------------------------------ */
-/*  Bootstrap: install a click listener that forwards card clicks      */
-/* ------------------------------------------------------------------ */
-
-function bootstrapDrawIOViewer(iframe: HTMLIFrameElement) {
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const win = iframe.contentWindow as any;
-    if (!win?.Draw?.loadPlugin) return;
-
-    // Remove PWA manifest link so it doesn't trigger auth-proxy redirects
-    const manifestLink = win.document.querySelector('link[rel="manifest"]');
-    if (manifestLink) manifestLink.remove();
-
-    win.Draw.loadPlugin((ui: Record<string, unknown>) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const editor = (ui as any).editor;
-      const graph = editor?.graph;
-      if (!graph || !win.mxEvent) return;
-
-      // mxEvent.CLICK fires in chromeless mode and lets us identify the
-      // clicked cell. Walk up to the nearest cell carrying a cardId so
-      // clicks on inner labels still resolve to the card.
+/** Attach a click listener to the lightbox graph once it's ready. */
+function attachClickHandler(
+  iframe: HTMLIFrameElement,
+  onCardClick: (cardId: string) => void,
+) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const win = iframe.contentWindow as any;
+  if (!win) return;
+  let attempt = 0;
+  const tryAttach = () => {
+    // GraphViewer instances are auto-created by lightbox mode. The first
+    // .mxgraph div in the page exposes its viewer via the `graphConfig`
+    // / `graph` properties on the editor / GraphViewer global.
+    const editor = win.EditorUi?.windowed
+      ? win.EditorUi?.instance
+      : win.editor;
+    const graph = editor?.graph || win.graph;
+    if (graph && win.mxEvent) {
       graph.addListener(
         win.mxEvent.CLICK,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (_sender: unknown, evt: any) => {
+        (_s: unknown, evt: any) => {
           let cell = evt.getProperty("cell");
           while (cell && !cell.value?.getAttribute?.("cardId")) {
             cell = cell.parent;
           }
           const cardId = cell?.value?.getAttribute?.("cardId");
           if (cardId) {
-            win.parent.postMessage(
-              JSON.stringify({ event: "cardClicked", cardId }),
-              "*",
-            );
+            onCardClick(cardId);
             evt.consume();
           }
         },
       );
-
-      // Pointer cursor on cards so users see they're clickable.
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      graph.getCursorForCell = function (cell: any) {
-        return cell?.value?.getAttribute?.("cardId") ? "pointer" : "default";
-      };
-    });
-  } catch {
-    // Cross-origin or editor not ready
-  }
+      graph.getCursorForCell = (cell: any) =>
+        cell?.value?.getAttribute?.("cardId") ? "pointer" : "default";
+      return;
+    }
+    if (attempt++ < 100) setTimeout(tryAttach, 100);
+  };
+  tryAttach();
 }
 
 /* ------------------------------------------------------------------ */
@@ -137,57 +125,6 @@ export default function DiagramViewer() {
       .finally(() => setLoading(false));
   }, [id, t]);
 
-  const postToDrawIO = useCallback((msg: Record<string, unknown>) => {
-    const frame = iframeRef.current;
-    if (frame?.contentWindow) {
-      frame.contentWindow.postMessage(JSON.stringify(msg), "*");
-    }
-  }, []);
-
-  /* ---------- PostMessage handler ---------- */
-  useEffect(() => {
-    const handler = (e: MessageEvent) => {
-      if (typeof e.data !== "string") return;
-      let msg: DrawIOMessage;
-      try {
-        msg = JSON.parse(e.data);
-      } catch {
-        return;
-      }
-
-      switch (msg.event) {
-        case "init":
-          postToDrawIO({
-            action: "load",
-            xml: diagram?.data?.xml || EMPTY_DIAGRAM,
-            autosave: 0,
-          });
-          (function tryBootstrap(attempt: number) {
-            const frame = iframeRef.current;
-            if (!frame) return;
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const win = frame.contentWindow as any;
-            if (win?.Draw?.loadPlugin) {
-              bootstrapDrawIOViewer(frame);
-            } else if (attempt < 50) {
-              setTimeout(() => tryBootstrap(attempt + 1), 200);
-            }
-          })(0);
-          break;
-
-        case "cardClicked":
-          if (msg.cardId) setSelectedCardId(msg.cardId);
-          break;
-
-        default:
-          break;
-      }
-    };
-
-    window.addEventListener("message", handler);
-    return () => window.removeEventListener("message", handler);
-  }, [diagram, postToDrawIO]);
-
   /* ---------- Render ---------- */
   if (!id) return <Navigate to="/diagrams" replace />;
 
@@ -202,11 +139,12 @@ export default function DiagramViewer() {
     return <Typography color="error">{t("viewer.notFound")}</Typography>;
   }
 
-  const iframeSrc = `${DRAWIO_BASE_URL}?${DRAWIO_VIEWER_PARAMS}`;
+  const xml = diagram.data?.xml || EMPTY_DIAGRAM;
+  const iframeSrc = buildViewerSrc(xml);
 
   return (
     <Box sx={{ height: "calc(100vh - 64px)", m: -3, display: "flex", flexDirection: "column" }}>
-      {/* Toolbar */}
+      {/* App toolbar */}
       <Box
         sx={{
           display: "flex",
@@ -241,12 +179,19 @@ export default function DiagramViewer() {
         )}
       </Box>
 
-      {/* DrawIO chromeless viewer */}
+      {/* DrawIO native lightbox iframe */}
       <Box sx={{ flex: 1, display: "flex", overflow: "hidden" }}>
         <Box sx={{ flex: 1, position: "relative" }}>
           <iframe
             ref={iframeRef}
             src={iframeSrc}
+            onLoad={() => {
+              if (iframeRef.current) {
+                attachClickHandler(iframeRef.current, (cardId) =>
+                  setSelectedCardId(cardId),
+                );
+              }
+            }}
             style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", border: "none" }}
             title={t("viewer.title")}
           />
