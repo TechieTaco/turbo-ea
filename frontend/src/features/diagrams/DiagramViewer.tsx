@@ -50,7 +50,15 @@ function buildViewerSrc(xml: string): string {
   return `${DRAWIO_BASE_URL}?${params.toString()}#R${encodeURIComponent(xml)}`;
 }
 
-/** Attach a click listener to the lightbox graph once it's ready. */
+/**
+ * Hook click handling into DrawIO's lightbox without needing an instance.
+ *
+ * In lightbox/chromeless mode, App.main creates the EditorUi inside a closure
+ * and never publishes it to a global, so iframe.contentWindow.editor / .graph
+ * / .editorUi don't exist. The classes (Graph, EditorUi, App) are exposed
+ * though — so we patch Graph.prototype.click. That method runs for every
+ * click on every graph instance, regardless of when it was created.
+ */
 function attachClickHandler(
   iframe: HTMLIFrameElement,
   onCardClick: (cardId: string) => void,
@@ -59,96 +67,47 @@ function attachClickHandler(
   const win = iframe.contentWindow as any;
   if (!win) return;
 
-  // DrawIO's lightbox can expose the graph via several globals depending on
-  // the rendering path it picks (lightbox+chrome=0 uses an EditorUi with
-  // chromeless=true; static embeds use GraphViewer instances). Probe all of
-  // them — same-origin iframe so direct property access is allowed.
-  const findGraph = (): unknown => {
-    try {
-      return (
-        win.editorUi?.editor?.graph ||
-        win.ui?.editor?.graph ||
-        win.editor?.graph ||
-        win.graph ||
-        win.app?.editor?.graph ||
-        win.GraphViewer?.instances?.[0]?.graph ||
-        null
-      );
-    } catch {
-      return null;
-    }
-  };
-
   let attempt = 0;
-  const tryAttach = () => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const graph = findGraph() as any;
-    const mxEvent = win.mxEvent;
-
-    if (graph && mxEvent && typeof graph.addListener === "function") {
-      graph.addListener(
-        mxEvent.CLICK,
+  const tryPatch = () => {
+    const proto = win.Graph?.prototype;
+    if (proto && typeof proto.click === "function") {
+      const origClick = proto.click;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      proto.click = function (this: any, ...args: unknown[]) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (_s: unknown, evt: any) => {
-          let cell = evt.getProperty("cell");
+        const me = args[0] as any;
+        try {
+          let cell = me?.getCell?.();
           while (cell && !cell.value?.getAttribute?.("cardId")) {
             cell = cell.parent;
           }
           const cardId = cell?.value?.getAttribute?.("cardId");
           if (cardId) {
             onCardClick(cardId);
-            evt.consume();
+            // Don't invoke the original click — in chromeless mode it would
+            // try to follow a hyperlink on the cell.
+            return;
           }
-        },
-      );
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      graph.getCursorForCell = (cell: any) =>
-        cell?.value?.getAttribute?.("cardId") ? "pointer" : "default";
-      return;
-    }
-
-    if (attempt++ < 150) {
-      setTimeout(tryAttach, 100);
-      return;
-    }
-
-    // Fallback: native DOM click on the iframe document, hit-test via the
-    // graph using converted coordinates. Also runs if `graph` was found but
-    // CLICK isn't dispatched in this DrawIO mode.
-    console.warn(
-      "[DiagramViewer] graph not found via known globals; falling back to DOM click. window keys:",
-      Object.keys(win).filter((k) =>
-        /editor|graph|ui|app/i.test(k),
-      ),
-    );
-    const doc = iframe.contentDocument;
-    if (!doc) return;
-    doc.addEventListener(
-      "click",
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (e: any) => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const g = findGraph() as any;
-        if (!g || typeof g.getCellAt !== "function") return;
-        const container = g.container as HTMLElement | undefined;
-        if (!container) return;
-        const rect = container.getBoundingClientRect();
-        const x = e.clientX - rect.left;
-        const y = e.clientY - rect.top;
-        const view = g.getView?.();
-        const scale = view?.scale ?? 1;
-        const tr = view?.translate ?? { x: 0, y: 0 };
-        let cell = g.getCellAt(x / scale - tr.x, y / scale - tr.y);
-        while (cell && !cell.value?.getAttribute?.("cardId")) {
-          cell = cell.parent;
+        } catch {
+          // ignore and fall through to default
         }
-        const cardId = cell?.value?.getAttribute?.("cardId");
-        if (cardId) onCardClick(cardId);
-      },
-      true,
-    );
+        return origClick.apply(this, args);
+      };
+
+      // Pointer cursor on cards for affordance.
+      const origCursor = proto.getCursorForCell;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      proto.getCursorForCell = function (this: any, ...args: unknown[]) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const cell = args[0] as any;
+        if (cell?.value?.getAttribute?.("cardId")) return "pointer";
+        return origCursor ? origCursor.apply(this, args) : "default";
+      };
+      return;
+    }
+    if (attempt++ < 150) setTimeout(tryPatch, 100);
   };
-  tryAttach();
+  tryPatch();
 }
 
 /* ------------------------------------------------------------------ */
