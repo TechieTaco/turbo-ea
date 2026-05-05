@@ -1620,7 +1620,7 @@ docker compose -f docker-compose.yml -f dev/docker-compose.dev.yml up -d --build
 ```
 
 ### GHCR Image Publishing (opt-in)
-- **Workflow**: `.github/workflows/docker-publish.yml` builds and pushes multi-arch (`amd64` + `arm64`) images to `ghcr.io/vincentmakes/turbo-ea/{db,backend,frontend,nginx,ollama,mcp-server}` on every push to `main`, every `v*.*.*` tag, and on `workflow_dispatch`.
+- **Workflow**: `.github/workflows/docker-publish.yml` builds and pushes multi-arch (`amd64` + `arm64`) images to `ghcr.io/vincentmakes/turbo-ea/{db,backend,frontend,nginx,mcp-server}` on every push to `main`, every `v*.*.*` tag, and on `workflow_dispatch`. The **ollama** image is intentionally excluded from the matrix because it is just a thin non-root patch over `ollama/ollama:latest`; republish it manually with `docker buildx build --platform linux/amd64,linux/arm64 --target ollama -t ghcr.io/vincentmakes/turbo-ea/ollama:latest --push .` whenever upstream Ollama changes.
 - **Compose usage**: production uses `docker compose pull && docker compose up -d`. Development uses the `dev/docker-compose.dev.yml` file to build from source. Pin a version with `TURBO_EA_TAG=0.70.x` (defaults to `latest`).
 - **Auth**: workflow uses the auto-provisioned `GITHUB_TOKEN` (`packages: write`); no extra secrets needed. Packages must be flipped to **Public** in GitHub package settings on first publish.
 

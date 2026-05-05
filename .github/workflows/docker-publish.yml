@@ -21,7 +21,16 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        image: [db, backend, frontend, nginx, ollama, mcp-server]
+        # The `ollama` target is intentionally excluded — it adds only a thin
+        # non-root patch on top of `ollama/ollama:latest` (mkdir + chown +
+        # USER), so rebuilding multi-arch on every main push is wasteful.
+        # Republish manually when upstream changes meaningfully:
+        #   docker buildx build --platform linux/amd64,linux/arm64 \
+        #     --target ollama \
+        #     -t ghcr.io/vincentmakes/turbo-ea/ollama:latest \
+        #     -t ghcr.io/vincentmakes/turbo-ea/ollama:0.70.0 \
+        #     --push .
+        image: [db, backend, frontend, nginx, mcp-server]
     steps:
       - uses: actions/checkout@v6
 

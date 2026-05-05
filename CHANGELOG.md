@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.70.1] - 2026-05-05
+
+### Changed
+- **CI no longer rebuilds the `ollama` image on every `main` push.** The image is just a thin non-root patch over `ollama/ollama:latest` (mkdir + chown + USER), so rebuilding multi-arch on every commit was wasteful. The Dockerfile target stays so operators can still build it locally; republish to GHCR manually when upstream Ollama changes meaningfully.
+
 ## [0.70.0] - 2026-05-05
 
 ### Changed
