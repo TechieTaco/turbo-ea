@@ -283,6 +283,19 @@ TURBO_EA_TAG=0.70.0 docker compose up -d
 
 > **Breaking change:** The non-root Docker release uses new persistent volume names for PostgreSQL and Ollama so the stack does not try to reuse older root-owned volumes automatically. If you are upgrading from a pre-`0.70.0` release and need to keep your existing database, dump it before upgrading and restore it into the new stack after startup.
 
+### Verifying images
+
+From `1.0.0` onwards, every published image is signed with [cosign](https://github.com/sigstore/cosign) using GitHub's keyless OIDC flow — no shared signing key, the certificate is bound to the publish workflow identity. Verification before pulling into production is one command:
+
+```bash
+cosign verify \
+  --certificate-identity-regexp 'https://github.com/vincentmakes/turbo-ea/.+' \
+  --certificate-oidc-issuer 'https://token.actions.githubusercontent.com' \
+  ghcr.io/vincentmakes/turbo-ea/backend:1.0.0
+```
+
+The same command works for `db`, `frontend`, `nginx`, and `mcp-server`. A buildkit-generated SPDX SBOM is attached to each image as an OCI referrer; pull it with `docker buildx imagetools inspect --format '{{ json .SBOM }}' <image>:<tag>`. See [`docs/admin/supply-chain.md`](docs/admin/supply-chain.md) for details.
+
 ### Development from source
 
 Local source builds are intentionally separate from production. Use the dev file to add `build:` for the stack services you want to run from source:

@@ -93,6 +93,7 @@ plugins:
             Surveys: Encuestas
             Web Portals: Portales web
             ServiceNow Integration: Integración con ServiceNow
+            Supply Chain: Cadena de suministro
             Reference: Referencia
             Glossary: Glosario
         - locale: de
@@ -131,6 +132,7 @@ plugins:
             Surveys: Umfragen
             Web Portals: Webportale
             ServiceNow Integration: ServiceNow-Integration
+            Supply Chain: Lieferkette
             Reference: Referenz
             Glossary: Glossar
         - locale: fr
@@ -169,6 +171,7 @@ plugins:
             Surveys: Enquêtes
             Web Portals: Portails web
             ServiceNow Integration: Intégration ServiceNow
+            Supply Chain: Chaîne d'approvisionnement
             Reference: Référence
             Glossary: Glossaire
         - locale: it
@@ -207,6 +210,7 @@ plugins:
             Surveys: Sondaggi
             Web Portals: Portali web
             ServiceNow Integration: Integrazione ServiceNow
+            Supply Chain: Catena di approvvigionamento
             Reference: Riferimenti
             Glossary: Glossario
         - locale: pt
@@ -245,6 +249,7 @@ plugins:
             Surveys: Pesquisas
             Web Portals: Portais web
             ServiceNow Integration: Integração com ServiceNow
+            Supply Chain: Cadeia de suprimentos
             Reference: Referência
             Glossary: Glossário
         - locale: zh
@@ -283,6 +288,7 @@ plugins:
             Surveys: 调查
             Web Portals: Web 门户
             ServiceNow Integration: ServiceNow 集成
+            Supply Chain: 供应链
             Reference: 参考
             Glossary: 术语表
         - locale: ru
@@ -321,6 +327,7 @@ plugins:
             Surveys: Опросы
             Web Portals: Веб-порталы
             ServiceNow Integration: Интеграция с ServiceNow
+            Supply Chain: Цепочка поставок
             Reference: Справочник
             Glossary: Глоссарий
 
@@ -387,6 +394,7 @@ nav:
       - Surveys: admin/surveys.md
       - Web Portals: admin/web-portals.md
       - ServiceNow Integration: admin/servicenow.md
+      - Supply Chain: admin/supply-chain.md
   - Reference:
       - Glossary: reference/glossary.md
 

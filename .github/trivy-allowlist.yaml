@@ -1,0 +1,26 @@
+# Trivy CVE allowlist for the GHCR publish workflow.
+#
+# Format: one CVE id per non-comment line. Trivy reads this file via its
+# `--ignorefile` flag (wired up as `trivyignores:` in
+# `.github/workflows/docker-publish.yml`) and excludes listed CVEs from the
+# scan output before deciding the exit code.
+#
+# Conventions for additions:
+#   - Add a comment block above each CVE (or related group of CVEs)
+#     explaining the decision: which package, why it isn't exploitable in
+#     Turbo EA's usage path, and the date / reviewer.
+#   - Re-evaluate quarterly. Remove entries when the upstream fixes ship.
+#   - Prefer fixing over allowlisting where a base-image bump or apk update
+#     resolves the finding.
+#
+# The publish workflow currently runs Trivy with `exit-code: 0`
+# (non-blocking) — findings are uploaded as SARIF to the Security tab.
+# Once the baseline is triaged and captured here, flip `exit-code` to `1`
+# in `docker-publish.yml` so the gate becomes enforcing.
+#
+# Example (kept commented — uncomment with rationale once we adopt one):
+#
+# # Reviewed 2026-05-XX — affects musl-libc <1.2.5 in alpine 3.20 base.
+# # Turbo EA does not invoke the affected codepath (regex parsing of
+# # untrusted locale data); upstream fix expected in alpine 3.21.
+# CVE-XXXX-YYYYY
