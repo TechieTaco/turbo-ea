@@ -1,0 +1,44 @@
+name: Feature request
+description: Propose new functionality. Per CONTRIBUTING.md, larger ideas should go through Discussions first.
+title: "[feature] "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before filing, please consider whether [Discussions → Ideas](https://github.com/vincentmakes/turbo-ea/discussions/new?category=ideas) is a better fit. The maintainer is not actively reviewing PRs, so feature work is more likely to land via your own fork.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What user-facing problem are you trying to solve? Describe the pain, not the solution.
+      placeholder: e.g. "Architects can't see which applications a given Initiative will retire, so impact assessment requires checking each card individually."
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed approach
+      description: Sketch what the feature would look like. Bullet points are fine. Don't worry about perfect implementation detail.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Why not solve it in your fork?
+      description: |
+        Turbo EA's metamodel is fully admin-configurable (card types, fields, subtypes, relations, calculated fields). Many "feature requests" are actually metamodel customizations the operator can do without code changes.
+        If this needs to be a code change in the upstream project rather than your own fork, explain why.
+    validations:
+      required: true
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: Additional context
+      description: Mockups, screenshots from similar tools, links to related issues/discussions.
+    validations:
+      required: false

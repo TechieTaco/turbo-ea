@@ -24,8 +24,10 @@ If you want to help, the best ways are:
   in the Ideas category. This is the right place to float suggestions, get early
   feedback, and see whether something fits the project direction before anyone writes
   code.
-- **Security vulnerability?** Please do not open a public issue. Contact me directly
-  via the details in my GitHub profile.
+- **Security vulnerability?** Please do not open a public issue. Use a [private
+  security advisory](https://github.com/vincentmakes/turbo-ea/security/advisories/new)
+  instead — see [SECURITY.md](SECURITY.md) for the full policy, supported versions,
+  and what's in scope.
 - **Want to support the project financially?** Donations are genuinely appreciated and
   help offset the cost of the AI tooling that makes this project possible. You can find
   sponsorship options on my GitHub profile.

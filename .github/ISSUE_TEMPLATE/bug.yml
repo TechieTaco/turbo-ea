@@ -1,0 +1,89 @@
+name: Bug report
+description: Something is broken or behaves differently than documented.
+title: "[bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a bug. Clear, minimal reproductions get looked at first.
+
+        **Security issue?** Please don't file a public bug — open a [private security advisory](https://github.com/vincentmakes/turbo-ea/security/advisories/new) instead. See [SECURITY.md](https://github.com/vincentmakes/turbo-ea/blob/main/SECURITY.md).
+
+  - type: input
+    id: version
+    attributes:
+      label: Turbo EA version
+      description: The value in `/VERSION` or what `GET /api/health` returns. The user-menu in the app footer also shows it.
+      placeholder: e.g. 1.0.0
+    validations:
+      required: true
+
+  - type: dropdown
+    id: deployment
+    attributes:
+      label: Deployment mode
+      options:
+        - Bundled docker-compose (default — db + backend + frontend + nginx)
+        - docker-compose with external Postgres
+        - docker-compose with `--profile ai` (Ollama bundled)
+        - docker-compose with `--profile mcp` (MCP server bundled)
+        - Local development (uvicorn + vite, no Docker)
+        - Other / custom
+    validations:
+      required: true
+
+  - type: input
+    id: browser
+    attributes:
+      label: Browser and version (if frontend bug)
+      description: e.g. Chrome 130, Firefox 128, Safari 17. Leave blank for backend-only issues.
+    validations:
+      required: false
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: A minimal, deterministic sequence. "Click X, then Y" beats "I was using the inventory and something broke".
+      placeholder: |
+        1. Log in as an admin user
+        2. Navigate to /inventory
+        3. Click the "Add column" button
+        4. ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: Include the exact error message, HTTP status code, or visual symptom. Screenshots help.
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      description: |
+        Backend: `docker compose logs backend --tail=200`. Frontend: browser devtools console.
+        **Redact secrets** (JWT tokens, SMTP passwords, SSO client secrets, ServiceNow credentials, `SECRET_KEY`) before pasting.
+      render: shell
+    validations:
+      required: false
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else
+      description: Custom metamodel changes, unusual data volumes, recent upgrades, etc.
+    validations:
+      required: false

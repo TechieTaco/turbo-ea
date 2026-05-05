@@ -2,6 +2,17 @@
 
 <!-- What does this PR do and why? Keep it brief (1-3 sentences). -->
 
+## Type
+
+<!-- Check all that apply. -->
+
+- [ ] feature
+- [ ] fix
+- [ ] refactor
+- [ ] docs
+- [ ] chore (CI / build / dependency / housekeeping)
+- [ ] security
+
 ## Changes
 
 <!-- Bulleted list of the key changes. -->
@@ -10,7 +21,9 @@
 
 ## Test Plan
 
-<!-- How did you verify this works? CI runs automatically on every PR. -->
+<!-- How did you verify this works? Be specific — "ran the tests" is not enough. List the concrete steps you took, the data you used, and the result. CI runs automatically on every PR. -->
+
+-
 
 - [ ] All CI checks pass (backend lint, backend tests, frontend lint, frontend build, frontend tests)
 - [ ] Manually tested the affected feature
