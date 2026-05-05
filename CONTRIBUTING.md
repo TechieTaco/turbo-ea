@@ -328,6 +328,22 @@ When reviewing against this codebase, Claude Code validates:
 
 ---
 
+## Releases
+
+From `1.0.0` onwards, the project commits to documented backwards compatibility within a major version line. The full reference lives in the docs:
+
+- **[Compatibility policy](https://docs.turbo-ea.org/reference/compatibility/)** — what's covered (schema, REST API, permission keys, built-in metamodel), what isn't (internal Python module layout, JSONB blob shapes, frontend internals), and how the deprecation cycle works.
+- **[Releases and pre-release channel](https://docs.turbo-ea.org/reference/releases/)** — versioning rules, GHCR tag conventions, when to cut an `-rc.N`, and the maintainer release checklist.
+
+Practical implications for contributors:
+
+- **Bump `VERSION`** once per PR (not per commit). Every commit on a feature branch shares one version. Patch for bug fixes, minor for new features, major for breaking changes — see [Semantic Versioning](https://semver.org/).
+- **Add a matching `## [<version>] - YYYY-MM-DD` heading** to `CHANGELOG.md`. CI's `version-check.yml` fails any PR that bumps `VERSION` without this. There is intentionally no `[Unreleased]` section — every change belongs to a concrete version.
+- **For deprecations**, mark the change with a `### Deprecated` section in CHANGELOG, keep the existing surface working in the next minor, and only remove in `N+2` or `2.0` (whichever comes first). For deprecated REST endpoints, also emit `Deprecation: true` and `Sunset: <date>` response headers.
+- **For breaking-layout minors** (volume names, default UIDs, base image, schema requiring operator action), cut a `vX.Y.0-rc.1` first and bake for at least 48–72 hours before promoting to `vX.Y.0`.
+
+---
+
 ## Recommended Branch Protection Rules
 
 For maintainers setting up the repository, apply these branch protection rules

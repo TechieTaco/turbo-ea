@@ -590,6 +590,19 @@ docker compose up --build -d
 
 Migrations run automatically on startup, so the database schema is updated as needed.
 
+### Stability
+
+From `1.0.0` onwards, Turbo EA commits to documented backwards compatibility within the `1.x` line — the database schema, REST API surface under `/api/v1/`, permission keys, and built-in metamodel are stable, with a deprecation cycle for any covered change.
+
+- **[Compatibility policy →](https://docs.turbo-ea.org/reference/compatibility/)** — what's covered, what isn't, how deprecations work.
+- **[Releases and pre-release channel →](https://docs.turbo-ea.org/reference/releases/)** — how versions are tagged, how RCs work, the maintainer's release checklist.
+
+Pin a specific version in production rather than `:latest`:
+
+```bash
+TURBO_EA_TAG=1.0.0 docker compose up -d
+```
+
 ---
 
 ## Project Structure
