@@ -116,8 +116,13 @@ jobs:
           cache-dependency-path: backend/pyproject.toml
       - run: pip install -e ".[dev]"
         working-directory: backend
-      - name: Run integration tests with coverage
-        run: python -m pytest tests/api/ --cov=app --cov-report=term-missing --cov-fail-under=40 -q
+      - name: Run all tests with coverage
+        # Runs the full suite (unit + integration) so the 40% coverage gate
+        # reflects total covered code, not just what tests/api/ exercises.
+        # The unit subset is also run by the fast Backend Unit Tests job
+        # for quick PR feedback — the duplication here costs ~30s out of
+        # a 15-minute job and keeps coverage meaningful.
+        run: python -m pytest --cov=app --cov-report=term-missing --cov-fail-under=40 -q
         working-directory: backend
         env:
           POSTGRES_HOST: localhost
