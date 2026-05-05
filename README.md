@@ -19,6 +19,8 @@
 
 Self-hosted Enterprise Architecture Management platform that creates a **digital twin of your IT landscape**. Inspired by LeanIX, with a fully admin-configurable metamodel — card types, fields, subtypes, and relations are all data, not code.
 
+> **Docker runtime note:** The bundled Docker stack uses custom non-root images for all services and defaults to running as uid:gid `1000:1000`, including PostgreSQL, edge nginx, Ollama, and the MCP server.
+
 
 
 
@@ -177,7 +179,7 @@ AI-powered EA analysis module — originally ported from [ArchLens](https://gith
 
 ## Quick Start
 
-The quickest way to get Turbo EA running. This starts PostgreSQL, the backend, and the frontend all in Docker containers with a single command.
+The quickest way to get Turbo EA running. This starts PostgreSQL, the backend, the frontend, and the public edge nginx in Docker with a single command.
 
 ### Prerequisites
 
@@ -214,23 +216,17 @@ HOST_PORT=8920
 ### 3. Start the app
 
 ```bash
-docker compose -f docker-compose.db.yml up --build -d
+docker compose pull
+docker compose up -d
 ```
 
-This uses `docker-compose.db.yml`, which includes an embedded PostgreSQL container — no external database needed. Data is persisted in the `turboea-pgdata` Docker volume.
+This uses the single `docker-compose.yml` stack, which includes PostgreSQL and the public nginx edge. Data is persisted in the `postgres_data` Docker volume.
 
 That's it. Open **http://localhost:8920** in your browser.
 
 The **first user to register** automatically gets the **admin** role.
 
-#### Docker Compose files
-
-| File | Database | Use case |
-|------|----------|----------|
-| `docker-compose.db.yml` | **Embedded** PostgreSQL container | Quickest start — everything in Docker, no external DB needed |
-| `docker-compose.yml` | **External** (you provide) | Production setups with a managed or existing PostgreSQL server |
-
-Both files support optional profiles:
+The production stack supports optional profiles:
 
 | Profile | Command flag | What it adds |
 |---------|-------------|-------------|
@@ -240,31 +236,49 @@ Both files support optional profiles:
 Example combining everything:
 
 ```bash
-docker compose -f docker-compose.db.yml --profile ai --profile mcp up --build -d
+docker compose --profile ai --profile mcp pull
+docker compose --profile ai --profile mcp up -d
 ```
 
 ### Run from pre-built images (GHCR)
 
 Every push to `main` and every `v*.*.*` tag automatically publishes multi-arch (`amd64` + `arm64`) images to the [GitHub Container Registry](https://ghcr.io):
 
+- `ghcr.io/vincentmakes/turbo-ea/db`
 - `ghcr.io/vincentmakes/turbo-ea/backend`
 - `ghcr.io/vincentmakes/turbo-ea/frontend`
+- `ghcr.io/vincentmakes/turbo-ea/nginx`
+- `ghcr.io/vincentmakes/turbo-ea/ollama`
 - `ghcr.io/vincentmakes/turbo-ea/mcp-server`
 
-Both compose files reference these images directly, so you can skip the local build (5–10 minutes) and just pull:
+The root compose file is production-only and pulls published images from GHCR:
 
 ```bash
-docker compose -f docker-compose.db.yml pull
-docker compose -f docker-compose.db.yml up -d
+docker compose pull
+docker compose up -d
 ```
 
 Pin a specific version with `TURBO_EA_TAG` (defaults to `latest`):
 
 ```bash
-TURBO_EA_TAG=0.65.3 docker compose -f docker-compose.db.yml up -d
+TURBO_EA_TAG=0.70.0 docker compose up -d
 ```
 
-To always pull the latest image on `up` (e.g. on a CI deploy), set `TURBO_EA_PULL_POLICY=always`. The default `missing` builds locally only if the image isn't already on the host, so `docker compose up --build` still works when you want to iterate on the Dockerfile.
+> **Breaking change:** The non-root Docker release uses new persistent volume names for PostgreSQL and Ollama so the stack does not try to reuse older root-owned volumes automatically. If you are upgrading from a pre-`0.70.0` release and need to keep your existing database, dump it before upgrading and restore it into the new stack after startup.
+
+### Development from source
+
+Local source builds are intentionally separate from production. Use the dev file to add `build:` for the stack services you want to run from source:
+
+```bash
+docker compose -f docker-compose.yml -f dev/docker-compose.dev.yml up -d --build
+```
+
+The repository Makefile wraps that as:
+
+```bash
+make up-dev
+```
 
 ### Load demo data (optional)
 
@@ -301,7 +315,7 @@ A demo admin account is created automatically:
 > AI_AUTO_CONFIGURE=true
 >
 > # Start with AI profile:
-> docker compose -f docker-compose.db.yml --profile ai up --build -d
+> docker compose -f docker-compose.yml -f dev/docker-compose.dev.yml --profile ai up -d --build
 > ```
 
 #### What the demo data includes
@@ -331,44 +345,7 @@ RESET_DB=true
 SEED_DEMO=true
 ```
 
-Then restart: `docker compose -f docker-compose.db.yml up --build -d`. Remove `RESET_DB` from `.env` afterward to avoid resetting on every restart.
-
----
-
-## Using an Existing PostgreSQL Database
-
-If you already have a PostgreSQL server (managed database, separate container, local install), you can run just the backend and frontend.
-
-### 1. Prepare the database
-
-Create a database and user for Turbo EA:
-
-```sql
-CREATE USER turboea WITH PASSWORD 'your-password';
-CREATE DATABASE turboea OWNER turboea;
-```
-
-### 2. Configure `.env`
-
-```dotenv
-POSTGRES_HOST=your-postgres-host   # hostname or IP of your PostgreSQL server
-POSTGRES_PORT=5432
-POSTGRES_DB=turboea
-POSTGRES_USER=turboea
-POSTGRES_PASSWORD=your-password
-SECRET_KEY=<your-generated-secret>
-HOST_PORT=8920
-```
-
-### 3. Start the app
-
-The base `docker-compose.yml` runs only the backend and frontend (no database container). You need to make sure the backend can reach your PostgreSQL host. If PostgreSQL is on the same Docker host, the easiest approach is to use `host.docker.internal` or attach both to the same Docker network.
-
-```bash
-docker compose up --build -d
-```
-
-> **Note:** The base `docker-compose.yml` expects a Docker network called `guac-net`. If you don't have one, either create it (`docker network create guac-net`) or use `docker-compose.db.yml` and override `POSTGRES_HOST` to point to your external database.
+Then restart: `docker compose pull && docker compose up -d`. Remove `RESET_DB` from `.env` afterward to avoid resetting on every restart.
 
 ---
 
@@ -507,15 +484,15 @@ Alembic migrations run automatically on startup:
 
 ### Backups
 
-If using the bundled PostgreSQL container (`docker-compose.db.yml`), data is persisted in the `turboea-pgdata` Docker volume.
+The bundled PostgreSQL container stores data in the `postgres_data` Docker volume.
 
 ```bash
 # Backup
-docker compose -f docker-compose.db.yml exec db \
+docker compose exec db \
   pg_dump -U turboea turboea > backup.sql
 
 # Restore
-docker compose -f docker-compose.db.yml exec -T db \
+docker compose exec -T db \
   psql -U turboea turboea < backup.sql
 ```
 
@@ -542,7 +519,7 @@ ALLOWED_ORIGINS=https://ea.yourdomain.com
 
 ```bash
 git pull
-docker compose -f docker-compose.db.yml up --build -d
+docker compose up --build -d
 ```
 
 Migrations run automatically on startup, so the database schema is updated as needed.
@@ -607,8 +584,14 @@ turbo-ea/
 │   ├── pyproject.toml
 │   └── Dockerfile
 │
-├── docker-compose.yml       # Backend + frontend only (external DB)
-├── docker-compose.db.yml    # Full stack including PostgreSQL
+├── Dockerfile               # Multi-target root build (backend, frontend, mcp-server)
+├── docker-compose.yml       # Production stack; pulls images from GHCR
+├── dev/
+│   ├── docker-compose.dev.yml        # Dev-only build file for local source builds
+│   └── README.md                     # Explains how dev compose is meant to be used
+├── test/
+│   ├── docker-compose.test.yml       # Test-only Postgres harness used by scripts/test.sh
+│   └── README.md                     # Explains the test compose workflow
 ├── .env.example             # Template for environment variables
 └── CLAUDE.md                # AI assistant context file
 ```

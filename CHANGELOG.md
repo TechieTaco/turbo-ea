@@ -5,10 +5,17 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.70.0] - 2026-05-05
+
+### Changed
+- **Breaking change: the Docker stack now runs as uid:gid `1000:1000` across all compose services, including PostgreSQL, edge nginx, and the optional Ollama + MCP profiles.** The stack now uses custom non-root images published from the root multi-target `Dockerfile` for `db`, `backend`, `frontend`, `nginx`, `ollama`, and `mcp-server`. PostgreSQL was converted from a shell-level probe to a real compose boot test and now starts cleanly as `1000:1000`; Ollama model storage moved from `/root/.ollama` to the configurable `OLLAMA_MODELS` path (default `/models`); and the Ollama healthcheck now uses the built-in `ollama list` CLI instead of `curl`, which the image does not ship.
+- **Breaking change: persistent Docker volume names changed to avoid reusing old root-owned data automatically.** The PostgreSQL volume is now `postgres_data` and the Ollama models volume is now `ollama_models`. Upgrades from pre-`0.70.0` releases require a manual data migration if you want to retain existing data.
+
 ## [0.65.4] - 2026-05-05
 
 ### Changed
-- **GHCR images now work with the standard compose files — no override needed.** `docker-compose.yml` and `docker-compose.db.yml` reference `ghcr.io/vincentmakes/turbo-ea/{backend,frontend,mcp-server}:${TURBO_EA_TAG:-latest}` directly on each service, with the local `build:` directive kept as a fallback. Running `docker compose pull && docker compose up -d` now uses the pre-built images out of the box, and `docker compose up --build` still rebuilds locally when you want to. Set `TURBO_EA_PULL_POLICY=always` to force a pull on every `up` (e.g. in CI). The previous `docker-compose.ghcr.yml` override file is removed.
+- **Production and development Docker Compose are now explicitly separated.** The root `docker-compose.yml` is now production-only and pulls published GHCR images without any `build:` sections, while the new `dev/docker-compose.dev.yml` adds local source builds for `backend`, `frontend`, and `mcp-server` only when developers opt in. The Docker publish workflow now builds all three images from the root multi-target `Dockerfile`, and `latest` tagging is delegated to `docker/metadata-action`'s safe automatic semver handling so older hotfix tags can no longer overwrite the current `latest` image.
+- **Docker helper files are now grouped by role.** The test-only PostgreSQL harness moved to `test/docker-compose.test.yml`, with a short README beside it, and the Makefile now exposes symmetric production shortcuts (`pull-prod`, `up-prod`, `down-prod`) alongside the existing development helpers.
 
 ## [0.65.3] - 2026-05-04
 

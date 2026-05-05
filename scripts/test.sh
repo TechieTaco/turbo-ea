@@ -16,7 +16,7 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 BACKEND_DIR="$PROJECT_ROOT/backend"
 VENV_DIR="$BACKEND_DIR/venv"
-COMPOSE_FILE="$PROJECT_ROOT/docker-compose.test.yml"
+COMPOSE_FILE="$PROJECT_ROOT/test/docker-compose.test.yml"
 COMPOSE_PROJECT="turboea-test"
 
 # Parse our custom flags; pass everything else to pytest
