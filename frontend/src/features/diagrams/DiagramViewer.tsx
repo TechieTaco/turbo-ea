@@ -107,9 +107,18 @@ export default function DiagramViewer() {
           setSnackMsg(t("editor.errors.loadFailed"));
           return;
         }
+        // Disable MathJax: DrawIO defaults to fetching it from
+        // viewer.diagrams.net, which violates the app's script-src 'self'
+        // CSP. EA cards never contain LaTeX, so math support is dead weight.
+        if (win.Editor) win.Editor.mathDefault = false;
+        if (win.Graph) win.Graph.prototype.mathEnabled = false;
         container.innerHTML = "";
         const xml = diagram.data?.xml || EMPTY_DIAGRAM;
         const xmlDoc = win.mxUtils.parseXml(xml);
+        // Strip math="1" off the root if the diagram was saved with it on,
+        // so the per-diagram override doesn't re-enable MathJax loading.
+        const rootEl = xmlDoc.documentElement;
+        if (rootEl?.hasAttribute?.("math")) rootEl.setAttribute("math", "0");
 
         // GraphViewer reads its config from data-mxgraph on the container,
         // or from a config object passed to the constructor. We construct
@@ -119,30 +128,36 @@ export default function DiagramViewer() {
           nav: true,
           resize: true,
           lightbox: false,
-          toolbar: "",
+          // GraphViewer's floating toolbar — space-separated item list.
+          // Includes zoom in/out/reset, page navigation, layers, fullscreen.
+          toolbar: "pages zoom layers lightbox",
+          "toolbar-position": "top",
           "auto-fit": true,
         });
 
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const graph = (viewer as any)?.graph;
-        if (!graph) return;
+        if (!graph || !win.mxEvent) return;
 
-        // Click handler — walk up to the cell carrying a cardId and notify
-        // the side panel. Works even though GraphViewer disables the graph,
-        // because addMouseListener is below the enabled-state gate.
-        graph.addMouseListener({
-          mouseDown: () => {},
-          mouseMove: () => {},
+        // GraphViewer attaches its own click handler (for hyperlink
+        // navigation) that fires before mxGraph's mouseListener pipeline.
+        // mxEvent.CLICK is dispatched by that handler, so listening here
+        // intercepts every cell click reliably.
+        graph.addListener(
+          win.mxEvent.CLICK,
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          mouseUp: (_sender: unknown, me: any) => {
-            let cell = me.getCell?.();
+          (_sender: unknown, evt: any) => {
+            let cell = evt.getProperty("cell");
             while (cell && !cell.value?.getAttribute?.("cardId")) {
               cell = cell.parent;
             }
             const cardId = cell?.value?.getAttribute?.("cardId");
-            if (cardId) setSelectedCardId(cardId);
+            if (cardId) {
+              setSelectedCardId(cardId);
+              evt.consume();
+            }
           },
-        });
+        );
 
         // Pointer cursor on cards so users see they're clickable.
         graph.getCursorForCell = (cell: unknown) => {
