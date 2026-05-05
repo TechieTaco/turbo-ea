@@ -39,6 +39,7 @@ import {
   scanDiagramItems,
 } from "./drawio-shapes";
 import type { ExpandChildData } from "./drawio-shapes";
+import CardDetailSidePanel from "@/components/CardDetailSidePanel";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useResolveMetaLabel } from "@/hooks/useResolveLabel";
 import { useAuthContext } from "@/hooks/AuthContext";
@@ -87,12 +88,14 @@ interface DrawIOMessage {
     | "configure"
     | "insertCard"
     | "createCard"
-    | "edgeConnected";
+    | "edgeConnected"
+    | "cardClicked";
   xml?: string;
   data?: string;
   modified?: boolean;
   x?: number;
   y?: number;
+  cardId?: string;
   edgeCellId?: string;
   sourceCardId?: string;
   targetCardId?: string;
@@ -136,7 +139,7 @@ function bootstrapDrawIO(iframe: HTMLIFrameElement) {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           menu: any,
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          _cell: any,
+          cell: any,
           evt: MouseEvent,
         ) {
           origFactory.apply(this, arguments);
@@ -153,6 +156,24 @@ function bootstrapDrawIO(iframe: HTMLIFrameElement) {
           const gy = Math.round(
             (mxEvent.getClientY(evt) - offset.top + container.scrollTop) / s - tr.y,
           );
+
+          // If the right-click landed on (or inside) a card cell, surface
+          // the card-details shortcut. Walk up so clicks on inner labels
+          // still resolve to the card.
+          let cardCell = cell;
+          while (cardCell && !cardCell.value?.getAttribute?.("cardId")) {
+            cardCell = cardCell.parent;
+          }
+          const cardId = cardCell?.value?.getAttribute?.("cardId");
+          if (cardId) {
+            menu.addItem("View Card Details\u2026", null, () => {
+              win.parent.postMessage(
+                JSON.stringify({ event: "cardClicked", cardId }),
+                "*",
+              );
+            });
+            menu.addSeparator();
+          }
 
           menu.addItem("Insert Existing Card\u2026", null, () => {
             win.parent.postMessage(
@@ -243,6 +264,7 @@ export default function DiagramEditor() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [snackMsg, setSnackMsg] = useState("");
+  const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
 
   // Metamodel
   const { types: fsTypes, relationTypes } = useMetamodel();
@@ -890,6 +912,10 @@ export default function DiagramEditor() {
           setCreateOpen(true);
           break;
 
+        case "cardClicked":
+          if (msg.cardId) setSelectedCardId(msg.cardId);
+          break;
+
         case "edgeConnected":
           if (msg.edgeCellId && msg.sourceType && msg.targetType) {
             pendingEdgeRef.current = {
@@ -1024,6 +1050,12 @@ export default function DiagramEditor() {
         onAcceptStale={handleAcceptStale}
         onCheckUpdates={handleCheckUpdates}
         checkingUpdates={checkingUpdates}
+      />
+
+      <CardDetailSidePanel
+        cardId={selectedCardId}
+        open={!!selectedCardId}
+        onClose={() => setSelectedCardId(null)}
       />
 
       <Snackbar

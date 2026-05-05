@@ -1,29 +1,27 @@
 /**
  * DrawIO PreConfig.js — loaded BEFORE app.min.js (per DrawIO index.html).
  *
- * Why we hook here instead of PostConfig.js:
+ * Hooks the read-only diagram viewer (lightbox / chromeless mode) so that
+ * clicking a cell with a `cardId` attribute posts a `cardClicked` message
+ * to the parent window, which opens the Turbo EA card details side panel.
  *
- * DrawIO loads scripts in this order:
+ * Why we hook here instead of from the parent or PostConfig.js:
  *
- *   1. PreConfig.js          ← we are here
- *   2. mxClient.js           (defines mxGraph)
- *   3. app.min.js            (defines Graph, EditorUi, App, ...)
- *   4. checkAllLoaded()      (calls App.main(), which constructs the graph)
- *   5. PostConfig.js         (loads AFTER the graph is already built)
+ *   1. App.main creates the EditorUi inside a closure and never publishes
+ *      the instance globally — so the parent can't reach editor.graph by
+ *      property lookup on iframe.contentWindow.
+ *   2. In chromeless mode DrawIO replaces graph.click on the *instance*,
+ *      shadowing any prototype patch applied later from outside.
+ *   3. PostConfig.js loads AFTER App.main has constructed the graph, so
+ *      patching there is too late.
+ *   4. app.min.js may replace `Graph.prototype` entirely after declaring
+ *      the class, discarding any one-shot patches.
  *
- * The Turbo EA viewer needs to wrap each Graph instance's click method to
- * forward cardId clicks to the parent window. In chromeless / lightbox
- * mode, DrawIO replaces graph.click on the *instance* itself (shadowing
- * any prototype patch applied later), and App.main keeps the EditorUi
- * inside a closure (so we can't find the instance from outside).
- *
- * Strategy: trap the assignment of `window.Graph` / `window.mxGraph` via
- * Object.defineProperty. When either class is assigned by app.min.js, we
- * convert `Class.prototype.click` and `Class.prototype.getCursorForCell`
+ * Strategy: trap the assignment of `window.Graph` via Object.defineProperty,
+ * then convert `Graph.prototype.click` and `Graph.prototype.getCursorForCell`
  * into accessor properties whose setters re-wrap each subsequent value.
- * This survives both the late prototype assignment app.min.js does after
- * declaring the class AND any chromeless-mode override that re-assigns
- * the prototype method.
+ * Plus a poller that re-installs the accessors if Graph.prototype itself
+ * is reassigned (which app.min.js does as part of subclass setup).
  *
  * Gated on lightbox=1 / chromeless=1 so the editor route (embed=1) is
  * unaffected — that route uses Draw.loadPlugin from DiagramEditor.tsx.
@@ -35,17 +33,7 @@
     );
     return match ? decodeURIComponent(match[1]) : null;
   }
-  var isViewer = param("lightbox") === "1" || param("chromeless") === "1";
-  // eslint-disable-next-line no-console
-  console.log(
-    "[turbo-ea PreConfig] loaded; lightbox=" +
-      param("lightbox") +
-      " chromeless=" +
-      param("chromeless") +
-      " isViewer=" +
-      isViewer,
-  );
-  if (!isViewer) return;
+  if (param("lightbox") !== "1" && param("chromeless") !== "1") return;
 
   function readCardId(cell) {
     try {
@@ -57,30 +45,13 @@
     }
   }
 
-  // First-call diagnostics — fire once per wrapper so we can see whether
-  // the wrapped prototype method is actually being invoked at runtime.
-  var loggedClick = false;
-  var loggedCursor = false;
-
-  // Build the click wrapper. `orig` may be undefined if the prototype
-  // method hasn't been assigned yet — the wrapper falls through cleanly.
   function makeClickWrapper(orig) {
     return function (me) {
-      if (!loggedClick) {
-        loggedClick = true;
-        // eslint-disable-next-line no-console
-        console.log(
-          "[turbo-ea PreConfig] FIRST click invocation; orig=" +
-            (orig ? "function" : "undefined"),
-        );
-      }
       try {
         var cell = me && me.getCell && me.getCell();
         while (cell && !readCardId(cell)) cell = cell.parent;
         var cardId = readCardId(cell);
         if (cardId) {
-          // eslint-disable-next-line no-console
-          console.log("[turbo-ea PreConfig] cardClicked", cardId);
           window.parent.postMessage(
             JSON.stringify({ event: "cardClicked", cardId: cardId }),
             "*",
@@ -98,78 +69,40 @@
 
   function makeCursorWrapper(orig) {
     return function (cell) {
-      if (!loggedCursor) {
-        loggedCursor = true;
-        // eslint-disable-next-line no-console
-        console.log(
-          "[turbo-ea PreConfig] FIRST cursor invocation; orig=" +
-            (orig ? "function" : "undefined") +
-            " cellHasCardId=" +
-            !!readCardId(cell),
-        );
-      }
       if (readCardId(cell)) return "pointer";
       if (orig) return orig.apply(this, arguments);
       return "default";
     };
   }
 
-  // Convert a prototype method into an accessor that re-wraps every
-  // future assignment. Returns true if installed.
-  function installAccessor(proto, name, makeWrapper, label) {
-    if (!proto || proto["__turboEaTrapped_" + name]) return false;
+  function installAccessor(proto, name, makeWrapper) {
+    if (!proto || proto["__turboEaTrapped_" + name]) return;
     proto["__turboEaTrapped_" + name] = true;
-
     var current;
     if (typeof proto[name] === "function") {
       current = makeWrapper(proto[name]);
     }
-
     try {
       Object.defineProperty(proto, name, {
         configurable: true,
         set: function (value) {
-          // eslint-disable-next-line no-console
-          console.log(
-            "[turbo-ea PreConfig] " + label + " (re)assigned; wrapping",
-          );
           current = makeWrapper(value);
         },
         get: function () {
           return current;
         },
       });
-      // eslint-disable-next-line no-console
-      console.log("[turbo-ea PreConfig] accessor installed for " + label);
-      return true;
     } catch (e) {
-      // eslint-disable-next-line no-console
-      console.warn(
-        "[turbo-ea PreConfig] could not defineProperty(" + label + "):",
-        e,
-      );
-      return false;
+      /* defineProperty refused — best effort */
     }
   }
 
-  function patchClass(ClassRef, classLabel) {
+  function patchClass(ClassRef) {
     if (!ClassRef || !ClassRef.prototype) return;
-    installAccessor(
-      ClassRef.prototype,
-      "click",
-      makeClickWrapper,
-      classLabel + ".prototype.click",
-    );
-    installAccessor(
-      ClassRef.prototype,
-      "getCursorForCell",
-      makeCursorWrapper,
-      classLabel + ".prototype.getCursorForCell",
-    );
+    installAccessor(ClassRef.prototype, "click", makeClickWrapper);
+    installAccessor(ClassRef.prototype, "getCursorForCell", makeCursorWrapper);
   }
 
-  // Trap class assignments so we can install accessors the moment each
-  // class is defined by app.min.js / mxClient.js.
   function trapClass(globalName) {
     var _Class;
     try {
@@ -177,34 +110,24 @@
         configurable: true,
         set: function (value) {
           _Class = value;
-          // eslint-disable-next-line no-console
-          console.log(
-            "[turbo-ea PreConfig] " + globalName + " class defined; patching",
-          );
-          patchClass(value, globalName);
+          patchClass(value);
         },
         get: function () {
           return _Class;
         },
       });
     } catch (e) {
-      // eslint-disable-next-line no-console
-      console.warn(
-        "[turbo-ea PreConfig] could not defineProperty(" + globalName + "):",
-        e,
-      );
+      /* refused — best effort */
     }
   }
 
-  // Patch both classes — the lightbox might construct via either, and
-  // mxGraph defines the methods that Graph (DrawIO's subclass) overrides
-  // and re-overrides during chromeless setup.
   trapClass("mxGraph");
   trapClass("Graph");
 
-  // Defensive re-patcher: if app.min.js does `Graph.prototype = ...` it
-  // replaces the prototype object, taking our accessor traps with it.
-  // Poll for that case and re-install. Stops after 30 seconds.
+  // app.min.js can replace Graph.prototype entirely (Graph.prototype =
+  // Object.create(mxGraph.prototype)), discarding our accessor traps with
+  // the old prototype object. Detect identity changes and re-install.
+  // Polling stops once Graph is rendered and stable (30 s).
   var lastProto = null;
   var poll = setInterval(function () {
     try {
@@ -213,11 +136,7 @@
       if (GraphRef.prototype !== lastProto) {
         lastProto = GraphRef.prototype;
         if (!GraphRef.prototype.__turboEaTrapped_click) {
-          // eslint-disable-next-line no-console
-          console.log(
-            "[turbo-ea PreConfig] Graph.prototype changed; re-installing accessors",
-          );
-          patchClass(GraphRef, "Graph");
+          patchClass(GraphRef);
         }
       }
     } catch (e) {

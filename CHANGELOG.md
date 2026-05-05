@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Changed
 - **Diagrams open in a read-only viewer by default.** Opening a diagram (`/diagrams/:id`) now lands you on a read-only canvas with the DrawIO chrome stripped away, so you can read and explore without risk of accidental edits. Click any card on the canvas to pop open a right-side panel showing that card's full details (data quality, lifecycle, attributes, relations, comments, stakeholders, history). Users with the `diagrams.manage` permission see an **Edit** button in the toolbar that switches into the existing DrawIO editor at `/diagrams/:id/edit`; viewers without it never see the button, and direct URL access to the editor route redirects back to the viewer. Closing the editor returns to the viewer rather than the gallery.
+- **Card details panel reachable from the editor too.** Right-click any card on the canvas in edit mode and choose **View Card Details…** to open the same side panel that the read-only viewer uses, without leaving the editor. The shortcut only appears when the click landed on a card cell.
 
 ## [0.65.2] - 2026-05-04
 
