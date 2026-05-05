@@ -5,10 +5,10 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
-## [0.70.3] - 2026-05-05
+## [0.71.0] - 2026-05-05
 
 ### Added
-- **CI safety check that catches `VERSION` ↔ `CHANGELOG.md` drift at PR time.** A new `version-check.yml` workflow runs on PRs that touch the `VERSION` file and fails if `CHANGELOG.md` is missing a matching `## [<version>]` heading. Without the check, bumping the version without a changelog entry causes the Publish-GitHub-Release workflow to fail at tag time with no easy diagnosis.
+- **Direct HTTPS support in the official docker-compose deployment.** The bundled edge nginx can now terminate TLS itself with no compose override files: set `TURBO_EA_TLS_ENABLED=true`, point `TLS_CERTS_DIR` at your cert directory (for example `../certbot/certs`), and publish both `HOST_PORT=80` and `TLS_HOST_PORT=443`. The image derives `server_name`, forwarded proto, and certificate paths from `.env`, serves both HTTP and HTTPS, and redirects HTTP traffic to HTTPS automatically.
 
 ## [0.70.2] - 2026-05-05
 

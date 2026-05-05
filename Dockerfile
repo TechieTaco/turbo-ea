@@ -110,7 +110,7 @@ ARG APP_GID
 
 RUN addgroup -g ${APP_GID} -S appgroup && adduser -S -D -H -u ${APP_UID} -G appgroup appuser
 
-COPY nginx/default.conf /etc/nginx/templates/default.conf.template
+COPY nginx/default.conf /etc/nginx/turboea-templates/default.conf.template
 
 RUN cat <<'EOF' > /usr/local/bin/turboea-nginx-entrypoint
 #!/bin/sh
@@ -130,16 +130,232 @@ if [ -z "$public_host" ]; then
     public_host="_"
 fi
 
+tls_enabled=$(printf '%s' "${TURBO_EA_TLS_ENABLED:-false}" | tr '[:upper:]' '[:lower:]')
+
 export NGINX_SERVER_NAME="${NGINX_SERVER_NAME:-$public_host}"
 export NGINX_FORWARDED_PROTO="${NGINX_FORWARDED_PROTO:-$public_scheme}"
+
+case "$tls_enabled" in
+    true|1|yes|on)
+        export NGINX_TLS_CERT_PATH="/certs/${TURBO_EA_TLS_CERT_FILE:-cert.pem}"
+        export NGINX_TLS_KEY_PATH="/certs/${TURBO_EA_TLS_KEY_FILE:-key.pem}"
+        if [ ! -r "$NGINX_TLS_CERT_PATH" ]; then
+            echo "Turbo EA nginx: TLS enabled but certificate not found at $NGINX_TLS_CERT_PATH" >&2
+            exit 1
+        fi
+        if [ ! -r "$NGINX_TLS_KEY_PATH" ]; then
+            echo "Turbo EA nginx: TLS enabled but private key not found at $NGINX_TLS_KEY_PATH" >&2
+            exit 1
+        fi
+        export NGINX_HTTP_SERVER_BLOCK="server {
+    listen 8080;
+    listen [::]:8080;
+    server_name ${NGINX_SERVER_NAME};
+    return 301 https://\$host:${NGINX_TLS_HOST_PORT}\$request_uri;
+}"
+        export NGINX_HTTPS_SERVER_BLOCK="server {
+    listen 8443 ssl;
+    listen [::]:8443 ssl;
+    http2 on;
+    server_name ${NGINX_SERVER_NAME};
+    client_max_body_size 5m;
+
+    ssl_certificate ${NGINX_TLS_CERT_PATH};
+    ssl_certificate_key ${NGINX_TLS_KEY_PATH};
+
+    resolver 127.0.0.11 valid=30s;
+
+    add_header X-Frame-Options \"SAMEORIGIN\" always;
+    add_header X-Content-Type-Options \"nosniff\" always;
+    add_header Referrer-Policy \"strict-origin-when-cross-origin\" always;
+    add_header Permissions-Policy \"camera=(), microphone=(), geolocation=()\" always;
+    add_header X-XSS-Protection \"1; mode=block\" always;
+    add_header Strict-Transport-Security \"max-age=31536000; includeSubDomains\" always;
+
+    location /api/ {
+        proxy_pass http://backend:8000/api/;
+        proxy_http_version 1.1;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto ${NGINX_FORWARDED_PROTO};
+        proxy_set_header Connection '';
+        proxy_buffering off;
+        proxy_cache off;
+        chunked_transfer_encoding off;
+        proxy_read_timeout 86400s;
+    }
+
+    location = /api/docs {
+        proxy_pass http://backend:8000/api/docs;
+        proxy_http_version 1.1;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto ${NGINX_FORWARDED_PROTO};
+        add_header X-Frame-Options \"SAMEORIGIN\" always;
+        add_header X-Content-Type-Options \"nosniff\" always;
+        add_header Referrer-Policy \"strict-origin-when-cross-origin\" always;
+        add_header Permissions-Policy \"camera=(), microphone=(), geolocation=()\" always;
+        add_header X-XSS-Protection \"1; mode=block\" always;
+        add_header Strict-Transport-Security \"max-age=31536000; includeSubDomains\" always;
+        add_header Content-Security-Policy \"default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self'; frame-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'\" always;
+    }
+
+    location /mcp/ {
+        set \$mcp_upstream http://mcp-server:8001;
+        rewrite ^/mcp/(.*) /\$1 break;
+        proxy_pass \$mcp_upstream;
+        proxy_http_version 1.1;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto ${NGINX_FORWARDED_PROTO};
+        proxy_set_header Connection '';
+        proxy_buffering off;
+        proxy_cache off;
+        proxy_read_timeout 300s;
+    }
+
+    location = /drawio/index.html {
+        proxy_pass http://frontend:8080;
+        proxy_set_header Host \$host;
+        add_header X-Robots-Tag \"noindex, nofollow\" always;
+        add_header Cache-Control \"no-store, no-transform\" always;
+        add_header X-Frame-Options \"SAMEORIGIN\" always;
+        add_header X-Content-Type-Options \"nosniff\" always;
+        add_header Strict-Transport-Security \"max-age=31536000; includeSubDomains\" always;
+        add_header Content-Security-Policy \"default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self'; frame-ancestors 'self'; object-src 'none'; base-uri 'self'\" always;
+    }
+
+    location ^~ /drawio/ {
+        proxy_pass http://frontend:8080;
+        proxy_set_header Host \$host;
+        add_header X-Robots-Tag \"noindex, nofollow\" always;
+        add_header Cache-Control \"public, no-transform, max-age=2592000\" always;
+    }
+
+    location / {
+        proxy_pass http://frontend:8080;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto ${NGINX_FORWARDED_PROTO};
+        add_header X-Frame-Options \"SAMEORIGIN\" always;
+        add_header X-Content-Type-Options \"nosniff\" always;
+        add_header Referrer-Policy \"strict-origin-when-cross-origin\" always;
+        add_header Permissions-Policy \"camera=(), microphone=(), geolocation=()\" always;
+        add_header X-XSS-Protection \"1; mode=block\" always;
+        add_header Strict-Transport-Security \"max-age=31536000; includeSubDomains\" always;
+        add_header Content-Security-Policy \"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob: https:; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self'; frame-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'\" always;
+    }
+}"
+        ;;
+    false|0|no|off|'')
+        export NGINX_HTTP_SERVER_BLOCK="server {
+    listen 8080;
+    listen [::]:8080;
+    server_name ${NGINX_SERVER_NAME};
+    client_max_body_size 5m;
+
+    resolver 127.0.0.11 valid=30s;
+
+    add_header X-Frame-Options \"SAMEORIGIN\" always;
+    add_header X-Content-Type-Options \"nosniff\" always;
+    add_header Referrer-Policy \"strict-origin-when-cross-origin\" always;
+    add_header Permissions-Policy \"camera=(), microphone=(), geolocation=()\" always;
+    add_header X-XSS-Protection \"1; mode=block\" always;
+
+    location /api/ {
+        proxy_pass http://backend:8000/api/;
+        proxy_http_version 1.1;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto ${NGINX_FORWARDED_PROTO};
+        proxy_set_header Connection '';
+        proxy_buffering off;
+        proxy_cache off;
+        chunked_transfer_encoding off;
+        proxy_read_timeout 86400s;
+    }
+
+    location = /api/docs {
+        proxy_pass http://backend:8000/api/docs;
+        proxy_http_version 1.1;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto ${NGINX_FORWARDED_PROTO};
+        add_header X-Frame-Options \"SAMEORIGIN\" always;
+        add_header X-Content-Type-Options \"nosniff\" always;
+        add_header Referrer-Policy \"strict-origin-when-cross-origin\" always;
+        add_header Permissions-Policy \"camera=(), microphone=(), geolocation=()\" always;
+        add_header X-XSS-Protection \"1; mode=block\" always;
+        add_header Content-Security-Policy \"default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self'; frame-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'\" always;
+    }
+
+    location /mcp/ {
+        set \$mcp_upstream http://mcp-server:8001;
+        rewrite ^/mcp/(.*) /\$1 break;
+        proxy_pass \$mcp_upstream;
+        proxy_http_version 1.1;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto ${NGINX_FORWARDED_PROTO};
+        proxy_set_header Connection '';
+        proxy_buffering off;
+        proxy_cache off;
+        proxy_read_timeout 300s;
+    }
+
+    location = /drawio/index.html {
+        proxy_pass http://frontend:8080;
+        proxy_set_header Host \$host;
+        add_header X-Robots-Tag \"noindex, nofollow\" always;
+        add_header Cache-Control \"no-store, no-transform\" always;
+        add_header X-Frame-Options \"SAMEORIGIN\" always;
+        add_header X-Content-Type-Options \"nosniff\" always;
+        add_header Content-Security-Policy \"default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self'; frame-ancestors 'self'; object-src 'none'; base-uri 'self'\" always;
+    }
+
+    location ^~ /drawio/ {
+        proxy_pass http://frontend:8080;
+        proxy_set_header Host \$host;
+        add_header X-Robots-Tag \"noindex, nofollow\" always;
+        add_header Cache-Control \"public, no-transform, max-age=2592000\" always;
+    }
+
+    location / {
+        proxy_pass http://frontend:8080;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto ${NGINX_FORWARDED_PROTO};
+        add_header X-Frame-Options \"SAMEORIGIN\" always;
+        add_header X-Content-Type-Options \"nosniff\" always;
+        add_header Referrer-Policy \"strict-origin-when-cross-origin\" always;
+        add_header Permissions-Policy \"camera=(), microphone=(), geolocation=()\" always;
+        add_header X-XSS-Protection \"1; mode=block\" always;
+        add_header Content-Security-Policy \"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob: https:; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self'; frame-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'\" always;
+    }
+}"
+        export NGINX_HTTPS_SERVER_BLOCK=''
+        ;;
+    *)
+        echo "Turbo EA nginx: unsupported TURBO_EA_TLS_ENABLED value: $tls_enabled" >&2
+        exit 1
+        ;;
+esac
+
+cp /etc/nginx/turboea-templates/default.conf.template /etc/nginx/templates/default.conf.template
 
 exec /docker-entrypoint.sh nginx -g 'daemon off;'
 EOF
 
-RUN mkdir -p /var/cache/nginx /var/run && \
+RUN mkdir -p /etc/nginx/templates /etc/nginx/turboea-templates /var/cache/nginx /var/run && \
     touch /var/run/nginx.pid && \
     chmod 755 /usr/local/bin/turboea-nginx-entrypoint && \
-    chown -R ${APP_UID}:${APP_GID} /etc/nginx/conf.d /var/cache/nginx /var/log/nginx /run
+    chown -R ${APP_UID}:${APP_GID} /etc/nginx/conf.d /etc/nginx/turboea-templates /etc/nginx/templates /var/cache/nginx /var/log/nginx /run
 
 USER ${APP_UID}:${APP_GID}
 

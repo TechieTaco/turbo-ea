@@ -209,8 +209,25 @@ POSTGRES_PASSWORD=<choose-a-strong-password>
 #   python3 -c "import secrets; print(secrets.token_urlsafe(64))"
 SECRET_KEY=<your-generated-secret>
 
-# Port the app will be available on (default: 8920)
+# Port the app will be available on over HTTP (default: 8920)
 HOST_PORT=8920
+```
+
+For direct HTTPS from the bundled docker stack, also set:
+
+> The Turbo EA compose file does **not** include a certbot container. You must provide the certificate and private key yourself, either by placing them in a local `./certs` directory or by pointing `TLS_CERTS_DIR` at a sibling certbot / letsencrypt folder that another process manages.
+
+```dotenv
+HOST_PORT=80
+TLS_HOST_PORT=443
+TURBO_EA_PUBLIC_URL=https://ea.yourdomain.com
+ALLOWED_ORIGINS=https://ea.yourdomain.com
+TURBO_EA_TLS_ENABLED=true
+
+# If you use a companion certbot repo or sibling letsencrypt folder:
+TLS_CERTS_DIR=../certbot/certs
+TURBO_EA_TLS_CERT_FILE=cert.pem
+TURBO_EA_TLS_KEY_FILE=key.pem
 ```
 
 ### 3. Start the app
@@ -222,7 +239,7 @@ docker compose up -d
 
 This uses the single `docker-compose.yml` stack, which includes PostgreSQL and the public nginx edge. Data is persisted in the `postgres_data` Docker volume.
 
-That's it. Open **http://localhost:8920** in your browser.
+That's it. Open **http://localhost:8920** in your browser, or `https://your-domain` if you enabled direct TLS. When TLS is enabled, the bundled nginx serves both HTTP and HTTPS and redirects HTTP traffic to HTTPS automatically.
 
 The **first user to register** automatically gets the **admin** role.
 
@@ -477,8 +494,13 @@ npm run build         # TypeScript check + production build
 | `POSTGRES_PASSWORD` | *(required)* | Database password |
 | `SECRET_KEY` | *(required)* | HMAC key for JWT signing |
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | `1440` | JWT token lifetime (24h default) |
-| `HOST_PORT` | `8920` | Port exposed on the host |
+| `HOST_PORT` | `8920` | Public HTTP port exposed on the host by the bundled edge nginx. Set `80` for direct HTTPS deployments with redirect support. |
+| `TLS_HOST_PORT` | `9443` | Public HTTPS port exposed on the host when direct TLS is enabled. Set `443` for standard HTTPS deployments. |
 | `ALLOWED_ORIGINS` | `http://localhost:8920` | CORS allowed origins (comma-separated) |
+| `TURBO_EA_TLS_ENABLED` | `false` | Enable direct TLS termination in the bundled edge nginx. Turbo EA does not bundle certbot; you must provide certificate files yourself. |
+| `TLS_CERTS_DIR` | `./certs` | Host path mounted read-only at `/certs` inside the nginx container. Point this at your own certbot / letsencrypt output directory if another process manages renewal. |
+| `TURBO_EA_TLS_CERT_FILE` | `cert.pem` | Certificate filename inside `TLS_CERTS_DIR` |
+| `TURBO_EA_TLS_KEY_FILE` | `key.pem` | Private-key filename inside `TLS_CERTS_DIR` |
 | `RESET_DB` | `false` | Drop all tables and re-seed on startup |
 | `SEED_DEMO` | `false` | Populate demo dataset on first startup |
 | `SEED_BPM` | `false` | Populate demo BPM processes |
@@ -497,7 +519,7 @@ npm run build         # TypeScript check + production build
 | `AI_AUTO_CONFIGURE` | `false` | Auto-enable AI on startup if provider is reachable |
 | `OLLAMA_MEMORY_LIMIT` | `4G` | Memory limit for bundled Ollama container |
 | `MCP_PUBLIC_URL` | `http://localhost:8920/mcp` | (MCP server) Public URL for OAuth metadata |
-| `TURBO_EA_PUBLIC_URL` | `http://localhost:8920` | (MCP server) Public-facing Turbo EA URL |
+| `TURBO_EA_PUBLIC_URL` | `http://localhost:8920` | Public-facing Turbo EA URL (also drives bundled nginx hostname/proto) |
 
 > **API Documentation**: Swagger UI is available at `/api/docs` when running in development mode (`ENVIRONMENT=development`).
 

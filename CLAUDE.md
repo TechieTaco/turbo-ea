@@ -589,11 +589,16 @@ turbo-ea/
 | `POSTGRES_PASSWORD` | `turboea` | Database password |
 | `SECRET_KEY` | `change-me-in-production` | HMAC key for JWT signing. **Must** be changed in production (app refuses to start with default in non-development environments) |
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | `1440` (24h) | JWT token lifetime |
-| `HOST_PORT` | `8920` | Port exposed on the host for the frontend |
+| `HOST_PORT` | `8920` | Public HTTP port exposed on the host for the bundled edge nginx. Set `80` for direct HTTPS deployments with redirect support. |
+| `TLS_HOST_PORT` | `9443` | Public HTTPS port exposed on the host when direct TLS is enabled. Set `443` for standard HTTPS deployments. |
 | `RESET_DB` | `false` | Drop all tables and re-create + re-seed on startup |
 | `SEED_DEMO` | `false` | Populate NexaTech Industries demo data on startup |
 | `SEED_BPM` | `false` | Populate demo BPM processes |
 | `SEED_PPM` | `false` | Populate demo PPM data (status reports, WBS, tasks, budgets, costs, risks) |
+| `TURBO_EA_TLS_ENABLED` | `false` | Enable direct TLS termination in the bundled edge nginx |
+| `TLS_CERTS_DIR` | `./certs` | Host path mounted read-only at `/certs` inside the nginx container |
+| `TURBO_EA_TLS_CERT_FILE` | `cert.pem` | Certificate filename inside `TLS_CERTS_DIR` |
+| `TURBO_EA_TLS_KEY_FILE` | `key.pem` | Private-key filename inside `TLS_CERTS_DIR` |
 | `ENVIRONMENT` | `development` | Runtime environment. Controls: API docs visibility, secret key validation |
 | `ALLOWED_ORIGINS` | `http://localhost:8920` | CORS allowed origins (comma-separated) |
 | `SMTP_HOST` | *(empty)* | SMTP server hostname (optional) |
@@ -610,7 +615,7 @@ turbo-ea/
 | `OLLAMA_MEMORY_LIMIT` | `4G` | Memory limit for bundled Ollama container (Docker `--profile ai`) |
 | `NVD_API_KEY` | *(empty)* | Optional NIST NVD API key. When set, the TurboLens Security & Compliance scan uses the higher 50 req / 30 s rate limit; otherwise it uses the unauthenticated 5 req / 30 s limit |
 | `TURBO_EA_URL` | `http://localhost:8000` | (MCP server) Internal backend URL |
-| `TURBO_EA_PUBLIC_URL` | `http://localhost:8920` | (MCP server) Public-facing Turbo EA URL for OAuth redirects |
+| `TURBO_EA_PUBLIC_URL` | `http://localhost:8920` | Public-facing Turbo EA URL for OAuth redirects and bundled nginx hostname/proto derivation |
 | `MCP_PUBLIC_URL` | `http://localhost:8001` | (MCP server) Public URL for OAuth metadata |
 | `MCP_PORT` | `8001` | (MCP server) Bind port |
 
