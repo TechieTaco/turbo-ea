@@ -5,6 +5,12 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.70.2] - 2026-05-05
+
+### Fixed
+- **Non-root nginx containers now restart cleanly.** The custom `frontend` and edge `nginx` images now grant uid:gid `1000:1000` ownership of the full runtime pid directory instead of only the pid file, fixing `unlink() "/run/nginx.pid" failed (13: Permission denied)` during `docker compose restart`.
+- **Bundled edge nginx now derives its public hostname and forwarded scheme from `.env` without an extra mounted hook/config file.** The image renders its built-in config from `TURBO_EA_PUBLIC_URL` at container start, so normal deployments no longer need to mount a separate `nginx/default.conf` just to set `server_name` and public-proto handling.
+
 ## [0.70.1] - 2026-05-05
 
 ### Changed

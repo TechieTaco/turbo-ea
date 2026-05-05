@@ -95,7 +95,7 @@ RUN sed -i \
 
 RUN mkdir -p /var/cache/nginx /var/run && \
     touch /var/run/nginx.pid && \
-    chown -R ${APP_UID}:${APP_GID} /usr/share/nginx/html /usr/share/nginx/drawio /var/cache/nginx /var/log/nginx /var/run/nginx.pid
+    chown -R ${APP_UID}:${APP_GID} /usr/share/nginx/html /usr/share/nginx/drawio /var/cache/nginx /var/log/nginx /run
 
 USER ${APP_UID}:${APP_GID}
 
@@ -110,16 +110,41 @@ ARG APP_GID
 
 RUN addgroup -g ${APP_GID} -S appgroup && adduser -S -D -H -u ${APP_UID} -G appgroup appuser
 
-COPY nginx/default.conf /etc/nginx/conf.d/default.conf
+COPY nginx/default.conf /etc/nginx/templates/default.conf.template
+
+RUN cat <<'EOF' > /usr/local/bin/turboea-nginx-entrypoint
+#!/bin/sh
+set -eu
+
+public_url="${TURBO_EA_PUBLIC_URL:-http://localhost:8920}"
+public_scheme="${public_url%%://*}"
+if [ "$public_scheme" = "$public_url" ]; then
+    public_scheme="http"
+fi
+
+public_authority="${public_url#*://}"
+public_authority="${public_authority%%/*}"
+public_host="${public_authority%%:*}"
+
+if [ -z "$public_host" ]; then
+    public_host="_"
+fi
+
+export NGINX_SERVER_NAME="${NGINX_SERVER_NAME:-$public_host}"
+export NGINX_FORWARDED_PROTO="${NGINX_FORWARDED_PROTO:-$public_scheme}"
+
+exec /docker-entrypoint.sh nginx -g 'daemon off;'
+EOF
 
 RUN mkdir -p /var/cache/nginx /var/run && \
     touch /var/run/nginx.pid && \
-    chown -R ${APP_UID}:${APP_GID} /var/cache/nginx /var/log/nginx /var/run/nginx.pid
+    chmod 755 /usr/local/bin/turboea-nginx-entrypoint && \
+    chown -R ${APP_UID}:${APP_GID} /etc/nginx/conf.d /var/cache/nginx /var/log/nginx /run
 
 USER ${APP_UID}:${APP_GID}
 
 EXPOSE 8080
-CMD ["nginx", "-g", "daemon off;"]
+CMD ["/usr/local/bin/turboea-nginx-entrypoint"]
 
 
 FROM ollama/ollama:latest AS ollama
