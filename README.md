@@ -248,8 +248,8 @@ Every push to `main` and every `v*.*.*` tag automatically publishes multi-arch (
 - `ghcr.io/vincentmakes/turbo-ea/backend`
 - `ghcr.io/vincentmakes/turbo-ea/frontend`
 - `ghcr.io/vincentmakes/turbo-ea/nginx`
-- `ghcr.io/vincentmakes/turbo-ea/ollama`
 - `ghcr.io/vincentmakes/turbo-ea/mcp-server`
+- `ghcr.io/vincentmakes/turbo-ea/ollama` *(rebuilt manually when upstream Ollama changes; not part of the regular CI matrix)*
 
 The root compose file is production-only and pulls published images from GHCR:
 
