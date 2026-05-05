@@ -57,10 +57,23 @@
     }
   }
 
+  // First-call diagnostics — fire once per wrapper so we can see whether
+  // the wrapped prototype method is actually being invoked at runtime.
+  var loggedClick = false;
+  var loggedCursor = false;
+
   // Build the click wrapper. `orig` may be undefined if the prototype
   // method hasn't been assigned yet — the wrapper falls through cleanly.
   function makeClickWrapper(orig) {
     return function (me) {
+      if (!loggedClick) {
+        loggedClick = true;
+        // eslint-disable-next-line no-console
+        console.log(
+          "[turbo-ea PreConfig] FIRST click invocation; orig=" +
+            (orig ? "function" : "undefined"),
+        );
+      }
       try {
         var cell = me && me.getCell && me.getCell();
         while (cell && !readCardId(cell)) cell = cell.parent;
@@ -85,6 +98,16 @@
 
   function makeCursorWrapper(orig) {
     return function (cell) {
+      if (!loggedCursor) {
+        loggedCursor = true;
+        // eslint-disable-next-line no-console
+        console.log(
+          "[turbo-ea PreConfig] FIRST cursor invocation; orig=" +
+            (orig ? "function" : "undefined") +
+            " cellHasCardId=" +
+            !!readCardId(cell),
+        );
+      }
       if (readCardId(cell)) return "pointer";
       if (orig) return orig.apply(this, arguments);
       return "default";
@@ -178,4 +201,30 @@
   // and re-overrides during chromeless setup.
   trapClass("mxGraph");
   trapClass("Graph");
+
+  // Defensive re-patcher: if app.min.js does `Graph.prototype = ...` it
+  // replaces the prototype object, taking our accessor traps with it.
+  // Poll for that case and re-install. Stops after 30 seconds.
+  var lastProto = null;
+  var poll = setInterval(function () {
+    try {
+      var GraphRef = window.Graph;
+      if (!GraphRef || !GraphRef.prototype) return;
+      if (GraphRef.prototype !== lastProto) {
+        lastProto = GraphRef.prototype;
+        if (!GraphRef.prototype.__turboEaTrapped_click) {
+          // eslint-disable-next-line no-console
+          console.log(
+            "[turbo-ea PreConfig] Graph.prototype changed; re-installing accessors",
+          );
+          patchClass(GraphRef, "Graph");
+        }
+      }
+    } catch (e) {
+      /* ignore */
+    }
+  }, 50);
+  setTimeout(function () {
+    clearInterval(poll);
+  }, 30000);
 })();
