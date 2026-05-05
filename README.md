@@ -311,14 +311,6 @@ If you already run a managed or shared PostgreSQL instance, you can skip the bun
 
 The backend can reach external hosts via the host's network. If your PostgreSQL is in another container on the same Docker host, attach it to the same network or use `host.docker.internal`.
 
-If you want to verify whether your target host can drop the custom bundled `db` image and run stock `postgres:18-alpine` directly as the configured non-root user, run:
-
-```bash
-./scripts/validate-postgres-nonroot.sh
-```
-
-The script provisions a fresh named volume, starts `postgres:18-alpine` as `${APP_UID:-1000}:${APP_GID:-1000}`, waits for `pg_isready`, and prints a pass/fail result. Use that host-local result before simplifying the `db` target.
-
 ### Load demo data (optional)
 
 To start with a fully populated demo dataset (NexaTech Industries), add seed variables to your `.env` before the first startup:
