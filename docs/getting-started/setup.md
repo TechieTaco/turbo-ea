@@ -71,37 +71,34 @@ docker compose up --build -d
 
 ## Optional: Run from Pre-built Images (GHCR)
 
-If you'd rather skip the local build (which can take 5–10 minutes on first run because the frontend image bundles a Node build, the DrawIO source, and Nginx), the project publishes multi-architecture (`amd64` + `arm64`) images to the [GitHub Container Registry](https://ghcr.io) on every push to `main` and on every `v*.*.*` release tag:
+Every push to `main` and every `v*.*.*` release tag automatically publishes multi-architecture (`amd64` + `arm64`) images to the [GitHub Container Registry](https://ghcr.io):
 
 - `ghcr.io/vincentmakes/turbo-ea/backend`
 - `ghcr.io/vincentmakes/turbo-ea/frontend`
 - `ghcr.io/vincentmakes/turbo-ea/mcp-server`
 
-The `docker-compose.ghcr.yml` override file replaces the `build:` directive of each service with an `image:` reference, so you can layer it on top of either compose file without changing anything else:
+Both compose files reference these images directly — no override file needed. To skip the local build (which can take 5–10 minutes on first run because the frontend image bundles a Node build, the DrawIO source, and Nginx), just pull and start:
 
 ```bash
 # With the embedded database
-docker compose -f docker-compose.db.yml -f docker-compose.ghcr.yml pull
-docker compose -f docker-compose.db.yml -f docker-compose.ghcr.yml up -d
+docker compose -f docker-compose.db.yml pull
+docker compose -f docker-compose.db.yml up -d
 
 # With your own external PostgreSQL
-docker compose -f docker-compose.yml -f docker-compose.ghcr.yml pull
-docker compose -f docker-compose.yml -f docker-compose.ghcr.yml up -d
+docker compose pull
+docker compose up -d
 ```
 
-By default the override pulls the `latest` tag. To pin a specific release, set `TURBO_EA_TAG` before running compose:
+By default this pulls the `latest` tag. To pin a specific release, set `TURBO_EA_TAG`:
 
 ```bash
-TURBO_EA_TAG=0.65.2 docker compose -f docker-compose.db.yml -f docker-compose.ghcr.yml up -d
+TURBO_EA_TAG=0.65.3 docker compose -f docker-compose.db.yml up -d
 ```
 
 Released versions are tagged `:<full-version>`, `:<major.minor>`, `:<major>`, and `:latest`. Pushes to `main` between releases are also tagged `:main` and `:sha-<short>` for users who want to track the development branch.
 
-!!! note
-    Requires Docker Compose v2.24+ (released December 2023) for the `!reset` directive used to disable the inherited `build:` step. Older Compose versions can still pull and run the images, but you may need to add `--no-build` flags manually.
-
 !!! tip
-    The pre-built images are the same artefacts produced by the local `docker compose --build` flow — same Dockerfiles, same `VERSION` file, same multi-stage layers. Switching back and forth between `--build` and the GHCR override at any time is supported.
+    The pre-built images are the same artefacts produced by the local `docker compose up --build` flow — same Dockerfiles, same `VERSION` file, same multi-stage layers. Set `TURBO_EA_PULL_POLICY=always` to force a pull on every `up` (useful in CI), or run `docker compose up --build` to rebuild locally instead of pulling.
 
 ## Step 3: Load Demo Data (Optional)
 
@@ -236,7 +233,7 @@ docker compose -f docker-compose.db.yml --profile ai --profile mcp up --build -d
 | **Full demo** (embedded DB, all demo data) | Set `SEED_DEMO=true` in `.env`, then `docker compose -f docker-compose.db.yml up --build -d` |
 | **Full demo + AI** | Set `SEED_DEMO=true` + AI vars in `.env`, then `docker compose -f docker-compose.db.yml --profile ai up --build -d` |
 | **External DB** | Configure DB vars in `.env`, then `docker compose up --build -d` |
-| **Pre-built images (no local build)** | `docker compose -f docker-compose.db.yml -f docker-compose.ghcr.yml up -d` |
+| **Pre-built images (no local build)** | `docker compose -f docker-compose.db.yml pull && docker compose -f docker-compose.db.yml up -d` |
 | **Reset and re-seed** | Set `RESET_DB=true` + `SEED_DEMO=true` in `.env`, restart, then remove `RESET_DB` |
 
 ## Next Steps

@@ -245,26 +245,26 @@ docker compose -f docker-compose.db.yml --profile ai --profile mcp up --build -d
 
 ### Run from pre-built images (GHCR)
 
-If you'd rather skip the local build, every push to `main` and every `v*.*.*` tag publishes multi-arch (`amd64` + `arm64`) images to the [GitHub Container Registry](https://ghcr.io):
+Every push to `main` and every `v*.*.*` tag automatically publishes multi-arch (`amd64` + `arm64`) images to the [GitHub Container Registry](https://ghcr.io):
 
 - `ghcr.io/vincentmakes/turbo-ea/backend`
 - `ghcr.io/vincentmakes/turbo-ea/frontend`
 - `ghcr.io/vincentmakes/turbo-ea/mcp-server`
 
-Apply the `docker-compose.ghcr.yml` override on top of either base file to swap the `build:` step for an image pull:
+Both compose files reference these images directly, so you can skip the local build (5–10 minutes) and just pull:
 
 ```bash
-docker compose -f docker-compose.db.yml -f docker-compose.ghcr.yml pull
-docker compose -f docker-compose.db.yml -f docker-compose.ghcr.yml up -d
+docker compose -f docker-compose.db.yml pull
+docker compose -f docker-compose.db.yml up -d
 ```
 
 Pin a specific version with `TURBO_EA_TAG` (defaults to `latest`):
 
 ```bash
-TURBO_EA_TAG=0.65.2 docker compose -f docker-compose.db.yml -f docker-compose.ghcr.yml up -d
+TURBO_EA_TAG=0.65.3 docker compose -f docker-compose.db.yml up -d
 ```
 
-Requires Docker Compose v2.24+ (for the `!reset` directive that disables the inherited `build:`).
+To always pull the latest image on `up` (e.g. on a CI deploy), set `TURBO_EA_PULL_POLICY=always`. The default `missing` builds locally only if the image isn't already on the host, so `docker compose up --build` still works when you want to iterate on the Dockerfile.
 
 ### Load demo data (optional)
 

@@ -1,8 +1,10 @@
 services:
   backend:
+    image: ghcr.io/vincentmakes/turbo-ea/backend:${TURBO_EA_TAG:-latest}
     build:
       context: .
       dockerfile: backend/Dockerfile
+    pull_policy: ${TURBO_EA_PULL_POLICY:-missing}
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
@@ -42,9 +44,11 @@ services:
       - "8000"
 
   frontend:
+    image: ghcr.io/vincentmakes/turbo-ea/frontend:${TURBO_EA_TAG:-latest}
     build:
       context: .
       dockerfile: frontend/Dockerfile
+    pull_policy: ${TURBO_EA_PULL_POLICY:-missing}
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
@@ -66,9 +70,11 @@ services:
   # Activate with:  docker compose --profile mcp up -d
   # Requires SSO to be enabled + MCP toggled on in admin settings.
   mcp-server:
+    image: ghcr.io/vincentmakes/turbo-ea/mcp-server:${TURBO_EA_TAG:-latest}
     build:
       context: .
       dockerfile: mcp-server/Dockerfile
+    pull_policy: ${TURBO_EA_PULL_POLICY:-missing}
     profiles: ["mcp"]
     restart: unless-stopped
     security_opt:

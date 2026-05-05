@@ -71,37 +71,34 @@ docker compose up --build -d
 
 ## Opzionale: Usare immagini precompilate da GHCR
 
-Se preferite saltare la build locale (che può richiedere 5–10 minuti al primo avvio perché l'immagine frontend include una build Node, i sorgenti DrawIO e Nginx), il progetto pubblica immagini multi-architettura (`amd64` + `arm64`) sul [GitHub Container Registry](https://ghcr.io) a ogni push su `main` e a ogni tag di versione `v*.*.*`:
+Ogni push su `main` e ogni tag di versione `v*.*.*` pubblica automaticamente immagini multi-architettura (`amd64` + `arm64`) sul [GitHub Container Registry](https://ghcr.io):
 
 - `ghcr.io/vincentmakes/turbo-ea/backend`
 - `ghcr.io/vincentmakes/turbo-ea/frontend`
 - `ghcr.io/vincentmakes/turbo-ea/mcp-server`
 
-Il file di override `docker-compose.ghcr.yml` sostituisce la direttiva `build:` di ogni servizio con un riferimento `image:`, in modo da poterlo sovrapporre a uno qualsiasi dei due file compose senza cambiare nient'altro:
+Entrambi i file compose fanno riferimento a queste immagini direttamente, senza bisogno di alcun file di override. Per saltare la build locale (che può richiedere 5–10 minuti al primo avvio perché l'immagine frontend include una build Node, i sorgenti DrawIO e Nginx), basta eseguire pull e avviare:
 
 ```bash
 # Con il database integrato
-docker compose -f docker-compose.db.yml -f docker-compose.ghcr.yml pull
-docker compose -f docker-compose.db.yml -f docker-compose.ghcr.yml up -d
+docker compose -f docker-compose.db.yml pull
+docker compose -f docker-compose.db.yml up -d
 
 # Con il vostro PostgreSQL esterno
-docker compose -f docker-compose.yml -f docker-compose.ghcr.yml pull
-docker compose -f docker-compose.yml -f docker-compose.ghcr.yml up -d
+docker compose pull
+docker compose up -d
 ```
 
-Per impostazione predefinita l'override scarica il tag `latest`. Per fissare una versione specifica, impostate `TURBO_EA_TAG` prima di eseguire compose:
+Per impostazione predefinita viene scaricato il tag `latest`. Per fissare una versione specifica, impostate `TURBO_EA_TAG`:
 
 ```bash
-TURBO_EA_TAG=0.65.2 docker compose -f docker-compose.db.yml -f docker-compose.ghcr.yml up -d
+TURBO_EA_TAG=0.65.3 docker compose -f docker-compose.db.yml up -d
 ```
 
 Le versioni rilasciate sono taggate come `:<versione-completa>`, `:<major.minor>`, `:<major>` e `:latest`. I push su `main` tra una release e l'altra sono inoltre taggati `:main` e `:sha-<short>` per chi vuole seguire il ramo di sviluppo.
 
-!!! note
-    Richiede Docker Compose v2.24+ (rilasciato a dicembre 2023) per la direttiva `!reset` usata per disabilitare il `build:` ereditato. Le versioni precedenti di Compose possono comunque scaricare ed eseguire le immagini, ma potreste dover aggiungere manualmente `--no-build`.
-
 !!! tip
-    Le immagini precompilate sono gli stessi artefatti prodotti dal flusso locale `docker compose --build` — stessi Dockerfile, stesso file `VERSION`, stessi layer multi-stage. Passare in qualsiasi momento da `--build` all'override GHCR è pienamente supportato.
+    Le immagini precompilate sono gli stessi artefatti prodotti dal flusso locale `docker compose up --build` — stessi Dockerfile, stesso file `VERSION`, stessi layer multi-stage. Impostate `TURBO_EA_PULL_POLICY=always` per forzare un pull a ogni `up` (utile in CI), oppure usate `docker compose up --build` per ricostruire localmente invece di scaricare.
 
 ## Passaggio 3: Caricare i dati dimostrativi (opzionale)
 
@@ -236,7 +233,7 @@ docker compose -f docker-compose.db.yml --profile ai --profile mcp up --build -d
 | **Demo completa** (DB integrato, tutti i dati) | Impostate `SEED_DEMO=true` in `.env`, poi `docker compose -f docker-compose.db.yml up --build -d` |
 | **Demo completa + IA** | Impostate `SEED_DEMO=true` + variabili IA in `.env`, poi `docker compose -f docker-compose.db.yml --profile ai up --build -d` |
 | **DB esterno** | Configurate le variabili DB in `.env`, poi `docker compose up --build -d` |
-| **Immagini precompilate (senza build locale)** | `docker compose -f docker-compose.db.yml -f docker-compose.ghcr.yml up -d` |
+| **Immagini precompilate (senza build locale)** | `docker compose -f docker-compose.db.yml pull && docker compose -f docker-compose.db.yml up -d` |
 | **Reset e ricaricamento** | Impostate `RESET_DB=true` + `SEED_DEMO=true` in `.env`, riavviate, poi rimuovete `RESET_DB` |
 
 ## Passi successivi
