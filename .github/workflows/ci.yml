@@ -21,9 +21,9 @@ jobs:
       contents: read
       pull-requests: read
     outputs:
-      backend: ${{ steps.filter.outputs.backend }}
-      frontend: ${{ steps.filter.outputs.frontend }}
-      mcp: ${{ steps.filter.outputs.mcp }}
+      backend: ${{ steps.filter.outputs.backend || steps.filter.outputs.ci }}
+      frontend: ${{ steps.filter.outputs.frontend || steps.filter.outputs.ci }}
+      mcp: ${{ steps.filter.outputs.mcp || steps.filter.outputs.ci }}
       docs: ${{ steps.filter.outputs.docs }}
     steps:
       - uses: actions/checkout@v6
@@ -33,19 +33,17 @@ jobs:
           filters: |
             backend:
               - 'backend/**'
-              - 'VERSION'
               - 'scripts/dump_openapi.py'
-              - '.github/workflows/ci.yml'
             frontend:
               - 'frontend/**'
-              - '.github/workflows/ci.yml'
             mcp:
               - 'mcp-server/**'
-              - '.github/workflows/ci.yml'
             docs:
               - 'docs/**'
               - 'mkdocs.yml'
               - 'requirements-docs.txt'
+            ci:
+              - '.github/workflows/ci.yml'
 
   # ── Backend ───────────────────────────────────────────────────────────
   backend-lint:
@@ -121,8 +119,11 @@ jobs:
         # reflects total covered code, not just what tests/api/ exercises.
         # The unit subset is also run by the fast Backend Unit Tests job
         # for quick PR feedback — the duplication here costs ~30s out of
-        # a 15-minute job and keeps coverage meaningful.
-        run: python -m pytest --cov=app --cov-report=term-missing --cov-fail-under=40 -q
+        # the integration job and keeps coverage meaningful.
+        # `-n auto` enables pytest-xdist parallelism — conftest.py allocates
+        # a per-worker Postgres schema (test_gw0, test_gw1, ...) so workers
+        # don't collide on the savepoint-rollback fixture.
+        run: python -m pytest -n auto --cov=app --cov-report=term-missing --cov-fail-under=40 -q
         working-directory: backend
         env:
           POSTGRES_HOST: localhost

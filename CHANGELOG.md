@@ -10,6 +10,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ### Added
 - **Direct HTTPS support in the official docker-compose deployment.** The bundled edge nginx can now terminate TLS itself with no compose override files: set `TURBO_EA_TLS_ENABLED=true`, point `TLS_CERTS_DIR` at your cert directory (for example `../certbot/certs`), and publish both `HOST_PORT=80` and `TLS_HOST_PORT=443`. The image derives `server_name`, forwarded proto, and certificate paths from `.env`, serves both HTTP and HTTPS, and redirects HTTP traffic to HTTPS automatically.
 
+## [0.70.4] - 2026-05-05
+
+### Changed
+- **The card side panel opened from a diagram now shows the Layered Dependency View at the bottom**, matching the full Card Detail page. Previously the LDV section was hidden in the side panel; it is now enabled by default since it renders fine even at narrow widths.
+- **CI now skips backend, frontend, and MCP jobs that aren't relevant to the changed paths.** `VERSION` was removed from the backend filter (the OpenAPI spec is version-agnostic, so a bump can't drift it) and `.github/workflows/ci.yml` now triggers a dedicated `ci` filter that fans out only when the workflow itself changes. A frontend-only PR (with VERSION + CHANGELOG bump) no longer runs backend tests.
+- **Backend integration tests now run in parallel via `pytest-xdist`.** `pytest -n auto` is enabled in the integration job; the existing `conftest.py` already allocates a per-worker Postgres schema (`test_gw0`, `test_gw1`, ...) so workers don't collide on the savepoint-rollback fixture. Expected to roughly halve the integration job wall-clock on the 4-vCPU GitHub-hosted runner.
+
+## [0.70.3] - 2026-05-05
+
 ## [0.70.2] - 2026-05-05
 
 ### Fixed
