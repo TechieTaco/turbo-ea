@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.71.0] - 2026-05-05
+
+### Added
+- **Direct HTTPS support in the official docker-compose deployment.** The bundled edge nginx can now terminate TLS itself with no compose override files: set `TURBO_EA_TLS_ENABLED=true`, point `TLS_CERTS_DIR` at your cert directory (for example `../certbot/certs`), and publish both `HOST_PORT=80` and `TLS_HOST_PORT=443`. The image derives `server_name`, forwarded proto, and certificate paths from `.env`, serves both HTTP and HTTPS, and redirects HTTP traffic to HTTPS automatically.
+
 ## [0.70.4] - 2026-05-05
 
 ### Changed

@@ -124,13 +124,20 @@ services:
       - ALL
     environment:
       TURBO_EA_PUBLIC_URL: ${TURBO_EA_PUBLIC_URL:-http://localhost:8920}
+      TURBO_EA_TLS_ENABLED: ${TURBO_EA_TLS_ENABLED:-false}
+      NGINX_TLS_HOST_PORT: ${TLS_HOST_PORT:-9443}
+      TURBO_EA_TLS_CERT_FILE: ${TURBO_EA_TLS_CERT_FILE:-cert.pem}
+      TURBO_EA_TLS_KEY_FILE: ${TURBO_EA_TLS_KEY_FILE:-key.pem}
     depends_on:
       backend:
         condition: service_healthy
       frontend:
         condition: service_started
+    volumes:
+      - ${TLS_CERTS_DIR:-./certs}:/certs:ro
     ports:
       - "${HOST_PORT:-8920}:8080"
+      - "${TLS_HOST_PORT:-9443}:8443"
 
   ollama:
     image: ghcr.io/vincentmakes/turbo-ea/ollama:${TURBO_EA_TAG:-latest}
