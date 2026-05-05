@@ -5,6 +5,33 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.0.0] - 2026-05-05
+
+`1.0.0` is a stability declaration, not a feature release. The code shipping here is the same code that shipped in `0.71.0`, plus the supply-chain hardening and contributor-flow changes below. What's actually new is the **commitment** that `1.x` will not break operators within a major version line — see [`docs/reference/compatibility.md`](docs/reference/compatibility.md) for the full contract (Alembic migrations stay additive, the seeded metamodel and `/api/v1/` surface stay stable, permission keys stay stable, and removals go through a deprecation cycle).
+
+### Added — Stability commitment
+- **Documented backwards-compatibility policy for the `1.x` line.** New `docs/reference/compatibility.md` spells out what's covered (database schema, REST API under `/api/v1/`, permission keys, the seeded built-in metamodel, encrypted-at-rest secret format) and what's not (internal Python module layout, JSONB blob shapes, frontend internals, operator-introduced metamodel customisations). Every covered change goes through a deprecation cycle: marked in minor `N`, kept working in `N+1`, earliest removal in `N+2` or `2.0`. For deprecated REST endpoints, the response now carries `Deprecation: true` and `Sunset` headers per RFC 8594.
+- **Pre-release channel documented.** New `docs/reference/releases.md` covers GHCR tag conventions, when an `-rc.N` is required (breaking-layout minors), the 48–72h bake window, and the maintainer release checklist. The publish workflow's existing `flavor: latest=auto` already excludes prereleases from `:latest` / `:X.Y` / `:X`; the GitHub Release workflow now also auto-detects prerelease versions (anything containing a `-` in the semver) and marks the release as prerelease — previously it was hard-coded to `false`, which would have published an RC as a non-prerelease GitHub Release.
+
+### Added — Supply chain
+- **Container images on GHCR are signed with cosign keyless OIDC.** Every image in the multi-arch matrix (`db`, `backend`, `frontend`, `nginx`, `mcp-server`) is now signed by digest after build-push. There is no shared signing key — the certificate is issued by Sigstore's Fulcio for the workflow identity and recorded in the public Rekor transparency log. Operators can verify before pulling: `cosign verify --certificate-identity-regexp 'https://github.com/vincentmakes/turbo-ea/.+' --certificate-oidc-issuer 'https://token.actions.githubusercontent.com' ghcr.io/vincentmakes/turbo-ea/backend:1.0.0`. The signature applies to the manifest list digest, so one verification covers both `linux/amd64` and `linux/arm64`. Full reference in `docs/admin/supply-chain.md` and the new "Verifying images" subsection of the README Quick Start.
+- **Trivy scans every published image for HIGH and CRITICAL CVEs and uploads the result as SARIF to the GitHub Security tab.** The gate is intentionally **non-blocking** at `1.0.0` (`exit-code: 0`) — the alpine bases used by every image carry baseline musl-libc and apk transitive findings that would block all publishes from day one. The scan is informational so findings are visible and triageable; a follow-up release will populate `.github/trivy-allowlist.yaml` with rationale per CVE and flip the gate to enforcing.
+- **SBOM generation was already on (`sbom: true` on `docker/build-push-action`)**; this release just makes it discoverable. Buildkit emits an SPDX SBOM as an OCI referrer for every image — pull it with `docker buildx imagetools inspect --format '{{ json .SBOM }}' <image>:<tag>`. Useful as input to operator-side vulnerability scanning or component inventory.
+
+### Changed — CI hardening
+- **All GitHub Actions are pinned to 40-character commit SHAs.** Floating major tags like `@v6` silently re-resolve when the upstream maintainer pushes a new release; pinning freezes the action source until Dependabot proposes a deliberate update through the existing monthly `github-actions` ecosystem refresh. The blast radius was largest in `ci.yml`'s `openapi-spec` job, which holds `contents: write` and auto-commits regenerated OpenAPI specs to `main` with `[skip ci]` — pinning closes the path where a compromised upstream account could push to `main` without any diff in this repository. The pin set covers `actions/{checkout,setup-python,setup-node}`, `dorny/paths-filter`, the full `docker/*` stack, and `softprops/action-gh-release` (which previously had a `# TODO: pin to a SHA before merging` comment that is now resolved).
+
+### Added — Contributor flow
+- **`SECURITY.md` at the repo root** documents private vulnerability reporting via [GitHub Advisories](https://github.com/vincentmakes/turbo-ea/security/advisories/new) instead of "contact me via my GitHub profile". Includes supported-versions policy (latest minor only), 7-day acknowledgement / 30-day fix-plan SLA, and an explicit out-of-scope list (operator misconfigurations, demo-data deployments, transitive deps without an exploitable path).
+- **Issue templates** for bug reports, feature requests, and the SSO / ServiceNow integration-tester volunteer ask. Blank issues are disabled; the chooser routes ideas and questions to Discussions, security reports to the private advisory flow.
+- **PR template adds a `Type` checkbox row and a free-text `Test plan` section** above the existing 10-item conventions checklist. The checklist is unchanged — it already covered CLAUDE.md's permission-check, migration, async, i18n, and screenshot requirements.
+
+### Changed
+- **README ServiceNow callout updated and linked to the new integration-tester issue template** (the SSO half of the prior callout had already been resolved earlier in the `0.x` line). SSO and ServiceNow are both shipping; the maintainer just has limited access to real-world identity providers and ServiceNow instances, so volunteer testers in those environments are the bottleneck on integration-bug feedback.
+
+### Removed
+- Two stale internal planning notes (`plan.md`, `docs-internal-tagging-plan.md`) that pre-date the docs/reference/ home for compatibility and release-channel material.
+
 ## [0.71.0] - 2026-05-05
 
 ### Added
