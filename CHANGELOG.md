@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.70.4] - 2026-05-05
+
+### Changed
+- **The card side panel opened from a diagram now shows the Layered Dependency View at the bottom**, matching the full Card Detail page. Previously the LDV section was hidden in the side panel; it is now enabled by default since it renders fine even at narrow widths.
+
 ## [0.70.3] - 2026-05-05
 
 ### Added
