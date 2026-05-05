@@ -22,15 +22,15 @@ const _meta = import.meta as any;
 const DRAWIO_BASE_URL: string =
   _meta.env?.VITE_DRAWIO_URL || "/drawio/index.html";
 
-// Read-only embed: keep `proto=json` so we still receive `init` and can post
-// `load`. `chrome=0` strips the surrounding UI; `nav=1` keeps zoom/pan.
+// Read-only embed: keep `embed=1&proto=json` (same code path as the editor,
+// CSP-safe) and add `readOnly=1` to block edits. We deliberately do NOT use
+// `chrome=0`/`lightbox=1` — those paths inject inline scripts that violate
+// the app CSP. `embed=1` already hides menubar / sidebar / footer.
 const DRAWIO_VIEWER_PARAMS = new URLSearchParams({
   embed: "1",
   proto: "json",
   spin: "1",
   readOnly: "1",
-  chrome: "0",
-  nav: "1",
 }).toString();
 
 const EMPTY_DIAGRAM =
