@@ -1,0 +1,18 @@
+#!/bin/sh
+
+public_url="${TURBO_EA_PUBLIC_URL:-http://localhost:8920}"
+public_scheme="${public_url%%://*}"
+if [ "$public_scheme" = "$public_url" ]; then
+    public_scheme="http"
+fi
+
+public_authority="${public_url#*://}"
+public_authority="${public_authority%%/*}"
+public_host="${public_authority%%:*}"
+
+if [ -z "$public_host" ]; then
+    public_host="_"
+fi
+
+export NGINX_SERVER_NAME="${NGINX_SERVER_NAME:-$public_host}"
+export NGINX_FORWARDED_PROTO="${NGINX_FORWARDED_PROTO:-$public_scheme}"

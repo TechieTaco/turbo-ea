@@ -12,6 +12,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [0.70.0] - 2026-05-05
 
+### Fixed
+- **Non-root nginx containers now restart cleanly.** The custom `frontend` and edge `nginx` images now grant uid:gid `1000:1000` ownership of the full runtime pid directory instead of only the pid file, fixing `unlink() "/run/nginx.pid" failed (13: Permission denied)` during `docker compose restart`.
+- **Bundled edge nginx now derives its public hostname and forwarded scheme from `.env`.** The image renders its built-in config from `TURBO_EA_PUBLIC_URL` at container start, so normal deployments no longer need to mount a separate `nginx/default.conf` just to set `server_name` and public-proto handling.
+
 ### Changed
 - **Breaking change: the Docker stack now runs as uid:gid `1000:1000` across all compose services, including PostgreSQL, edge nginx, and the optional Ollama + MCP profiles.** The stack now uses custom non-root images published from the root multi-target `Dockerfile` for `db`, `backend`, `frontend`, `nginx`, `ollama`, and `mcp-server`. PostgreSQL was converted from a shell-level probe to a real compose boot test and now starts cleanly as `1000:1000`; Ollama model storage moved from `/root/.ollama` to the configurable `OLLAMA_MODELS` path (default `/models`); and the Ollama healthcheck now uses the built-in `ollama list` CLI instead of `curl`, which the image does not ship.
 - **Breaking change: persistent Docker volume names changed to avoid reusing old root-owned data automatically.** The PostgreSQL volume is now `postgres_data` and the Ollama models volume is now `ollama_models`. Upgrades from pre-`0.70.0` releases require a manual data migration if you want to retain existing data.

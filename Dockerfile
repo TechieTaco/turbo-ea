@@ -95,7 +95,7 @@ RUN sed -i \
 
 RUN mkdir -p /var/cache/nginx /var/run && \
     touch /var/run/nginx.pid && \
-    chown -R ${APP_UID}:${APP_GID} /usr/share/nginx/html /usr/share/nginx/drawio /var/cache/nginx /var/log/nginx /var/run/nginx.pid
+    chown -R ${APP_UID}:${APP_GID} /usr/share/nginx/html /usr/share/nginx/drawio /var/cache/nginx /var/log/nginx /var/run
 
 USER ${APP_UID}:${APP_GID}
 
@@ -110,11 +110,12 @@ ARG APP_GID
 
 RUN addgroup -g ${APP_GID} -S appgroup && adduser -S -D -H -u ${APP_UID} -G appgroup appuser
 
-COPY nginx/default.conf /etc/nginx/conf.d/default.conf
+COPY nginx/default.conf /etc/nginx/templates/default.conf.template
+COPY nginx/19-turboea-public-url.envsh /docker-entrypoint.d/19-turboea-public-url.envsh
 
 RUN mkdir -p /var/cache/nginx /var/run && \
     touch /var/run/nginx.pid && \
-    chown -R ${APP_UID}:${APP_GID} /var/cache/nginx /var/log/nginx /var/run/nginx.pid
+    chown -R ${APP_UID}:${APP_GID} /var/cache/nginx /var/log/nginx /var/run
 
 USER ${APP_UID}:${APP_GID}
 
