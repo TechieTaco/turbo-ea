@@ -82,6 +82,9 @@ function bootstrapDrawIOViewer(iframe: HTMLIFrameElement) {
       hide(uiAny.formatContainer);
       hide(uiAny.footerContainer);
       hide(uiAny.hsplit);
+      hide(uiAny.tabContainer);
+      hide(uiAny.outlineContainer);
+      hide(uiAny.statusContainer);
       hide(uiAny.diagramContainer?.previousSibling as HTMLElement);
       const diag = uiAny.diagramContainer as HTMLElement | undefined;
       if (diag) {
@@ -91,6 +94,34 @@ function bootstrapDrawIOViewer(iframe: HTMLIFrameElement) {
         diag.style.bottom = "0";
       }
       uiAny.refresh?.();
+
+      // readOnly=1 in the URL is unreliable in embed mode — cells stay
+      // selectable and draggable, which looks like edit mode. Lock the
+      // graph down explicitly. Panning stays enabled so users can still
+      // navigate large diagrams.
+      graph.setEnabled(false);
+      graph.setCellsLocked(true);
+      graph.setCellsSelectable(false);
+      graph.setCellsMovable(false);
+      graph.setCellsResizable(false);
+      graph.setCellsBendable(false);
+      graph.setCellsEditable(false);
+      graph.setCellsDeletable(false);
+      graph.setCellsDisconnectable(false);
+      graph.setConnectable(false);
+      graph.setDropEnabled(false);
+      graph.setSplitEnabled(false);
+      graph.setAutoScroll(false);
+      graph.setPanning(true);
+      if (graph.panningHandler) {
+        graph.panningHandler.useLeftButtonForPanning = true;
+      }
+      // Force pointer cursor on cells with cardId so users see they're clickable
+      graph.getCursorForCell = function (cell: unknown) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const c = cell as any;
+        return c?.value?.getAttribute?.("cardId") ? "pointer" : "default";
+      };
 
       // readOnly=1 disables the graph, which suppresses mxEvent.CLICK.
       // addMouseListener fires regardless of enabled state and lets us
