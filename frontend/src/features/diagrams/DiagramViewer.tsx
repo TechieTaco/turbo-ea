@@ -51,63 +51,27 @@ function buildViewerSrc(xml: string): string {
 }
 
 /**
- * Hook click handling into DrawIO's lightbox without needing an instance.
- *
- * In lightbox/chromeless mode, App.main creates the EditorUi inside a closure
- * and never publishes it to a global, so iframe.contentWindow.editor / .graph
- * / .editorUi don't exist. The classes (Graph, EditorUi, App) are exposed
- * though — so we patch Graph.prototype.click. That method runs for every
- * click on every graph instance, regardless of when it was created.
+ * Click handling lives in /drawio/js/PostConfig.js, which runs INSIDE the
+ * iframe BEFORE App.main constructs the graph. That's the only timing where
+ * we can wrap each Graph instance's click method (chromeless mode replaces
+ * it on the instance, shadowing any prototype patch applied later from the
+ * parent). PostConfig.js posts {event: "cardClicked", cardId} back; this
+ * function just installs the listener.
  */
-function attachClickHandler(
-  iframe: HTMLIFrameElement,
-  onCardClick: (cardId: string) => void,
-) {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const win = iframe.contentWindow as any;
-  if (!win) return;
-
-  let attempt = 0;
-  const tryPatch = () => {
-    const proto = win.Graph?.prototype;
-    if (proto && typeof proto.click === "function") {
-      const origClick = proto.click;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      proto.click = function (this: any, ...args: unknown[]) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const me = args[0] as any;
-        try {
-          let cell = me?.getCell?.();
-          while (cell && !cell.value?.getAttribute?.("cardId")) {
-            cell = cell.parent;
-          }
-          const cardId = cell?.value?.getAttribute?.("cardId");
-          if (cardId) {
-            onCardClick(cardId);
-            // Don't invoke the original click — in chromeless mode it would
-            // try to follow a hyperlink on the cell.
-            return;
-          }
-        } catch {
-          // ignore and fall through to default
-        }
-        return origClick.apply(this, args);
-      };
-
-      // Pointer cursor on cards for affordance.
-      const origCursor = proto.getCursorForCell;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      proto.getCursorForCell = function (this: any, ...args: unknown[]) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const cell = args[0] as any;
-        if (cell?.value?.getAttribute?.("cardId")) return "pointer";
-        return origCursor ? origCursor.apply(this, args) : "default";
-      };
-      return;
+function listenForCardClicks(onCardClick: (cardId: string) => void) {
+  const handler = (e: MessageEvent) => {
+    if (typeof e.data !== "string") return;
+    try {
+      const msg = JSON.parse(e.data);
+      if (msg?.event === "cardClicked" && typeof msg.cardId === "string") {
+        onCardClick(msg.cardId);
+      }
+    } catch {
+      /* not our message */
     }
-    if (attempt++ < 150) setTimeout(tryPatch, 100);
   };
-  tryPatch();
+  window.addEventListener("message", handler);
+  return () => window.removeEventListener("message", handler);
 }
 
 /* ------------------------------------------------------------------ */
@@ -131,6 +95,9 @@ export default function DiagramViewer() {
     if (!perms) return false;
     return !!perms["*"] || !!perms["diagrams.manage"];
   }, [user?.permissions]);
+
+  /* ---------- Listen for card clicks from the lightbox ---------- */
+  useEffect(() => listenForCardClicks(setSelectedCardId), []);
 
   /* ---------- Load diagram ---------- */
   useEffect(() => {
@@ -202,13 +169,6 @@ export default function DiagramViewer() {
           <iframe
             ref={iframeRef}
             src={iframeSrc}
-            onLoad={() => {
-              if (iframeRef.current) {
-                attachClickHandler(iframeRef.current, (cardId) =>
-                  setSelectedCardId(cardId),
-                );
-              }
-            }}
             style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", border: "none" }}
             title={t("viewer.title")}
           />

@@ -113,7 +113,9 @@ export default function DiagramsPage() {
     setCreateDesc("");
     setCreateType("free_draw");
     setCreateCardIds([]);
-    navigate(`/diagrams/${d.id}`);
+    // A freshly-created diagram is empty — go straight to the editor so the
+    // user can start drawing. Existing diagrams open in the read-only viewer.
+    navigate(`/diagrams/${d.id}/edit`);
   };
 
   const openEdit = (d: DiagramSummary) => {
