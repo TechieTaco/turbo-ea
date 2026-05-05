@@ -179,7 +179,7 @@ AI-powered EA analysis module — originally ported from [ArchLens](https://gith
 
 ## Quick Start
 
-The quickest way to get Turbo EA running. This starts PostgreSQL, the backend, the frontend, and the public edge nginx in Docker with a single command.
+The recommended way to deploy Turbo EA. The bundled `docker-compose.yml` stack starts PostgreSQL, the backend, the frontend, and the public edge nginx, and it can terminate HTTPS directly when you provide certificate files.
 
 ### Prerequisites
 
