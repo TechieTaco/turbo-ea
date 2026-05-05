@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.70.3] - 2026-05-05
+
+### Added
+- **CI safety check that catches `VERSION` ↔ `CHANGELOG.md` drift at PR time.** A new `version-check.yml` workflow runs on PRs that touch the `VERSION` file and fails if `CHANGELOG.md` is missing a matching `## [<version>]` heading. Without the check, bumping the version without a changelog entry causes the Publish-GitHub-Release workflow to fail at tag time with no easy diagnosis.
+
 ## [0.70.2] - 2026-05-05
 
 ### Fixed
