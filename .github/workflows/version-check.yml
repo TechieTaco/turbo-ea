@@ -1,0 +1,34 @@
+name: Version sync check
+
+# Fails a PR if VERSION is bumped without a matching '## [<version>]' section
+# in CHANGELOG.md. The Publish-GitHub-Release workflow can't cut release notes
+# without that section, so catching the drift at PR time prevents a broken
+# release tag later.
+
+on:
+  pull_request:
+    paths:
+      - VERSION
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Verify CHANGELOG has matching section
+        run: |
+          set -euo pipefail
+          version=$(cat VERSION)
+          if [[ -z "$version" ]]; then
+            echo "::error file=VERSION::VERSION file is empty"
+            exit 1
+          fi
+          escaped="${version//./\\.}"
+          if ! grep -qE "^## \[${escaped}\]" CHANGELOG.md; then
+            echo "::error file=CHANGELOG.md::CHANGELOG.md has no '## [${version}]' section."
+            echo "Bumping VERSION to ${version} requires a matching '## [${version}] - YYYY-MM-DD' entry in CHANGELOG.md."
+            echo "Without it, the Publish-GitHub-Release workflow will fail when this version is tagged."
+            exit 1
+          fi
+          echo "OK: CHANGELOG.md contains '## [${version}]'"

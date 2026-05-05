@@ -126,6 +126,7 @@ Every change that introduces user-visible content must include translations. Bef
 - **Bump the version once per PR** (not per commit). All commits in a feature branch share one version. Follow [Semantic Versioning](https://semver.org/): bump **patch** (e.g., `0.6.0` → `0.6.1`) for bug fixes, **minor** (e.g., `0.6.0` → `0.7.0`) for new features, **major** for breaking changes.
 - The single source of truth for the version is `/VERSION`. When bumping, only update `VERSION` (the backend reads it at runtime via `config.py`, the frontend injects it at build time via `vite.config.ts`). Do **not** edit `backend/pyproject.toml` or `frontend/package.json` — they use a static `"0.0.0"` placeholder to avoid triggering unnecessary CI jobs on version bumps.
 - When bumping, add a new heading in `CHANGELOG.md` with the new version and today's date (e.g., `## [0.6.1] - 2026-02-22`), and place new entries under it.
+- CI enforces this via `.github/workflows/version-check.yml`: any PR that touches `VERSION` is failed unless `CHANGELOG.md` has a matching `## [<version>]` heading. This prevents the Publish-GitHub-Release workflow from breaking later at tag time.
 
 ### Testing Conventions
 - **Every new feature or bug fix should include tests.** CI will block PRs that fail lint or tests.
