@@ -39,13 +39,13 @@ function buildViewerSrc(xml: string): string {
   // chrome=0   = no editor chrome — just canvas + the floating bottom
   //              toolbar (zoom in / out / reset / fit / page nav / layers).
   // nav=1      = enable page navigation in multi-page diagrams.
-  // edit=_blank suppresses the "Edit" link inside the viewer (we have
-  //              our own Edit button in the app toolbar).
+  // We deliberately do NOT pass `edit=` — DrawIO only renders its own
+  // edit link when that param is set, and our app toolbar already has
+  // a context-aware Edit button that goes to /diagrams/:id/edit.
   const params = new URLSearchParams({
     lightbox: "1",
     chrome: "0",
     nav: "1",
-    edit: "_blank",
   });
   return `${DRAWIO_BASE_URL}?${params.toString()}#R${encodeURIComponent(xml)}`;
 }
