@@ -1,6 +1,6 @@
 .PHONY: help dev dev-backend dev-frontend lint lint-backend lint-frontend \
-       test test-backend test-frontend test-unit build format typecheck \
-       lock-deps audit docker-up docker-down docker-build backup
+	test test-backend test-frontend test-unit build format typecheck \
+	lock-deps audit docker-up docker-down docker-build pull-prod up-prod down-prod up-dev down-dev build-dev backup
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | \
@@ -75,6 +75,24 @@ docker-down: ## Stop all services
 
 docker-build: ## Build Docker images
 	docker compose build
+
+pull-prod: ## Pull production images from GHCR
+	docker compose pull
+
+up-prod: ## Start the production stack from pulled images
+	docker compose up -d
+
+down-prod: ## Stop the production stack
+	docker compose down
+
+up-dev: ## Start the stack from local sources via the dev override
+	docker compose -f docker-compose.yml -f dev/docker-compose.dev.yml up -d --build
+
+down-dev: ## Stop the dev override stack
+	docker compose -f docker-compose.yml -f dev/docker-compose.dev.yml down
+
+build-dev: ## Build local app images via the dev override
+	docker compose -f docker-compose.yml -f dev/docker-compose.dev.yml build
 
 # ── Database ────────────────────────────────────────────────────────────
 

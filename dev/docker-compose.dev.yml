@@ -1,0 +1,36 @@
+services:
+  db:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: db
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: backend
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: frontend
+
+  nginx:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: nginx
+
+  ollama:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: ollama
+
+  mcp-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: mcp-server

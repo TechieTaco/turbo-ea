@@ -8,7 +8,8 @@ Self-hosted Enterprise Architecture Management platform that creates a **digital
 
 ```bash
 cp .env.example .env          # Edit secrets and DB credentials
-docker compose up --build -d  # Starts backend (port 8000) + frontend (port 8920)
+docker compose pull
+docker compose up -d          # Starts db + backend + frontend + edge nginx
 ```
 
 The first user to register automatically gets the `admin` role. Set `SEED_DEMO=true` to pre-populate with the NexaTech Industries demo dataset. Add `--profile ai` to include the bundled Ollama container for AI description suggestions.
@@ -286,8 +287,8 @@ npx tsx capture.ts --dry-run # Preview without saving files
                │                       │  /api/chat, /api/tags
 ┌──────────────▼──────────────┐  ┌─────▼──────────────────────┐
 │  PostgreSQL (asyncpg driver)│  │  Ollama (optional, ai       │
-│  External container on      │  │  profile) or external LLM   │
-│  `guac-net` Docker network  │  │  provider on port 11434     │
+│  Bundled `db` service in    │  │  profile) or external LLM   │
+│  the compose network        │  │  provider on port 11434     │
 └─────────────────────────────┘  └─────────────────────────────┘
 ```
 
@@ -307,8 +308,13 @@ The codebase uses **"cards"** throughout (models, routes, UI). Earlier documenta
 turbo-ea/
 ├── VERSION                            # SemVer "0.5.0" (single source of truth)
 ├── .dockerignore                      # Root-level (both services use root context)
-├── docker-compose.yml                 # Backend + frontend services
-├── docker-compose.db.yml              # PostgreSQL for local development
+├── docker-compose.yml                 # Full stack including PostgreSQL + edge nginx
+├── dev/
+│   ├── docker-compose.dev.yml         # Dev-only build file for local source builds
+│   └── README.md                      # Explains the dev compose workflow
+├── test/
+│   ├── docker-compose.test.yml        # Test-only Postgres harness for scripts/test.sh
+│   └── README.md                      # Explains the test compose workflow
 ├── .env.example
 │
 ├── backend/
@@ -1457,7 +1463,7 @@ Ollama is available as an opt-in Docker Compose profile:
 ```bash
 docker compose --profile ai up -d   # Starts Ollama alongside backend + frontend
 ```
-The `ollama` service uses a persistent volume (`turboea-ollama`) and is only accessible internally. Set `AI_AUTO_CONFIGURE=true` to auto-detect and configure on first startup.
+The `ollama` service uses a persistent volume (`ollama_models`) and is only accessible internally. Set `AI_AUTO_CONFIGURE=true` to auto-detect and configure on first startup.
 
 ### Startup Automation (`main.py`)
 - **Auto-configuration**: If `AI_AUTO_CONFIGURE=true` and AI is not yet configured in DB, writes env var values to `app_settings`
@@ -1598,23 +1604,32 @@ Set `RESET_DB=true` to drop all tables and re-seed on next startup.
 ## Docker Architecture
 
 ### docker-compose.yml
-Both services use **root build context** (`context: .`) on the `guac-net` external network:
-- **backend**: `dockerfile: backend/Dockerfile`, Python 3.12-alpine, uvicorn on port 8000 (internal only)
-- **frontend**: `dockerfile: frontend/Dockerfile`, multi-stage build, port 80 mapped to `HOST_PORT`
+Production-only stack with PostgreSQL, backend, frontend, edge nginx, and optional `mcp` / `ai` profiles:
+- **db**: pulled from `ghcr.io/vincentmakes/turbo-ea/db:${TURBO_EA_TAG}`, persisted in the `postgres_data` volume
+- **backend**: pulled from `ghcr.io/vincentmakes/turbo-ea/backend:${TURBO_EA_TAG}`, exposed only inside the compose network
+- **frontend**: pulled from `ghcr.io/vincentmakes/turbo-ea/frontend:${TURBO_EA_TAG}`, exposed only inside the compose network
+- **nginx**: pulled from `ghcr.io/vincentmakes/turbo-ea/nginx:${TURBO_EA_TAG}`, public entrypoint on `HOST_PORT`, proxies `/api`, `/mcp`, `/drawio`, and `/` to internal services
+- **mcp-server**: optional profile `mcp`, pulled from `ghcr.io/vincentmakes/turbo-ea/mcp-server:${TURBO_EA_TAG}`
+- **ollama**: optional profile `ai`, pulled from `ghcr.io/vincentmakes/turbo-ea/ollama:${TURBO_EA_TAG}`, persisted in the `ollama_models` volume
 
-PostgreSQL is external (not managed by this compose file). A separate `docker-compose.db.yml` is provided for local development.
+### dev/docker-compose.dev.yml
+Development-only override that adds `build:` back to `db`, `backend`, `frontend`, `nginx`, `ollama`, and `mcp-server` using the root `Dockerfile` targets. Use it with:
 
-### GHCR Image Publishing
-- **Workflow**: `.github/workflows/docker-publish.yml` builds and pushes multi-arch (`amd64` + `arm64`) images to `ghcr.io/vincentmakes/turbo-ea/{backend,frontend,mcp-server}` on every push to `main`, every `v*.*.*` tag, and on `workflow_dispatch`.
-- **Compose integration**: `docker-compose.yml` declares both `image: ghcr.io/vincentmakes/turbo-ea/{name}:${TURBO_EA_TAG:-latest}` and `build:` for each service. Default `pull_policy: missing` means `docker compose up -d` reuses an already-pulled image and builds locally only if neither is present; `docker compose pull` always grabs from GHCR. Pin a version with `TURBO_EA_TAG=0.65.x` (defaults to `latest`); set `TURBO_EA_PULL_POLICY=always` to force a pull on every `up` (e.g. CI deploy). No separate compose override file is needed — operators run the standard `docker compose pull && docker compose up -d` to use GHCR images, or `docker compose up --build` to rebuild locally.
+```bash
+docker compose -f docker-compose.yml -f dev/docker-compose.dev.yml up -d --build
+```
+
+### GHCR Image Publishing (opt-in)
+- **Workflow**: `.github/workflows/docker-publish.yml` builds and pushes multi-arch (`amd64` + `arm64`) images to `ghcr.io/vincentmakes/turbo-ea/{db,backend,frontend,nginx,ollama,mcp-server}` on every push to `main`, every `v*.*.*` tag, and on `workflow_dispatch`.
+- **Compose usage**: production uses `docker compose pull && docker compose up -d`. Development uses the `dev/docker-compose.dev.yml` file to build from source. Pin a version with `TURBO_EA_TAG=0.70.x` (defaults to `latest`).
 - **Auth**: workflow uses the auto-provisioned `GITHUB_TOKEN` (`packages: write`); no extra secrets needed. Packages must be flipped to **Public** in GitHub package settings on first publish.
 
 ### Ollama Service (opt-in)
 - **Profile**: `ai` — started with `docker compose --profile ai up -d`
-- **Image**: `ollama/ollama:latest`, exposes port 11434 internally only
-- **Volume**: `turboea-ollama` for persistent model storage
+- **Image**: `ghcr.io/vincentmakes/turbo-ea/ollama:${TURBO_EA_TAG}`, exposes port 11434 internally only
+- **Volume**: `ollama_models` for persistent model storage
 - **Memory**: Configurable via `OLLAMA_MEMORY_LIMIT` (default 4G)
-- **Health check**: Polls `/api/tags` endpoint
+- **Health check**: Uses `ollama list`
 
 ### Frontend Dockerfile (multi-stage, root context)
 1. **build stage**: `node:20-alpine` — copies `frontend/package.json` + `VERSION`, npm ci, vite build

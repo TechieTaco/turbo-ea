@@ -339,9 +339,11 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
-          # Need full history + push permission for the auto-commit step on main.
+          # On fork PRs, the head branch lives in the contributor's fork rather
+          # than the base repository, so checkout must follow the PR head repo.
           token: ${{ secrets.GITHUB_TOKEN }}
-          ref: ${{ github.head_ref || github.ref_name }}
+          repository: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name || github.repository }}
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.ref }}
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
