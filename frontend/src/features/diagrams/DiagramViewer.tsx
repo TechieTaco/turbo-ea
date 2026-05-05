@@ -64,9 +64,33 @@ function bootstrapDrawIOViewer(iframe: HTMLIFrameElement) {
 
     win.Draw.loadPlugin((ui: Record<string, unknown>) => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const editor = ui.editor as any;
+      const uiAny = ui as any;
+      const editor = uiAny.editor;
       const graph = editor?.graph;
       if (!graph) return;
+
+      // Hide DrawIO's editor chrome (menubar / toolbar / sidebar / format /
+      // footer) so the viewer shows just the canvas. We do this in DOM
+      // rather than via `chrome=0` URL param because that path injects
+      // inline scripts blocked by the app CSP.
+      const hide = (el: HTMLElement | null | undefined) => {
+        if (el) el.style.display = "none";
+      };
+      hide(uiAny.menubarContainer);
+      hide(uiAny.toolbarContainer);
+      hide(uiAny.sidebarContainer);
+      hide(uiAny.formatContainer);
+      hide(uiAny.footerContainer);
+      hide(uiAny.hsplit);
+      hide(uiAny.diagramContainer?.previousSibling as HTMLElement);
+      const diag = uiAny.diagramContainer as HTMLElement | undefined;
+      if (diag) {
+        diag.style.left = "0";
+        diag.style.right = "0";
+        diag.style.top = "0";
+        diag.style.bottom = "0";
+      }
+      uiAny.refresh?.();
 
       // readOnly=1 disables the graph, which suppresses mxEvent.CLICK.
       // addMouseListener fires regardless of enabled state and lets us
