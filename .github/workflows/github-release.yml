@@ -35,20 +35,9 @@ jobs:
             exit 1
           fi
 
-          # Detect prereleases (e.g. v1.0.0-rc.1, v1.0.0-beta.2). The
-          # publish workflow already excludes these from `:latest` via
-          # `flavor: latest=auto`; mark the GitHub Release prerelease too
-          # so the Releases page distinguishes them.
-          if [[ "$version" == *-* ]]; then
-            prerelease=true
-          else
-            prerelease=false
-          fi
-
           delimiter="CHANGELOG_$(openssl rand -hex 8)"
           {
             echo "name=Turbo EA $version"
-            echo "prerelease=${prerelease}"
             echo "body<<${delimiter}"
             printf '%s\n' "$section"
             echo "${delimiter}"
@@ -60,5 +49,5 @@ jobs:
           name: ${{ steps.notes.outputs.name }}
           body: ${{ steps.notes.outputs.body }}
           draft: false
-          prerelease: ${{ steps.notes.outputs.prerelease }}
+          prerelease: false
           generate_release_notes: false

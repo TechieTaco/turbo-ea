@@ -44,7 +44,7 @@ Conventions:
 
 - RC tags are `vX.Y.0-rc.N` — never on a patch release, only on minors with operator-visible changes.
 - The publish workflow's `docker/metadata-action` is configured with `flavor: latest=auto`. This automatically excludes prerelease semver tags from `:latest`, `:X.Y`, and `:X` — RCs are only published as `:X.Y.0-rc.N`. Operators who pin to `:latest` won't accidentally pull an RC.
-- The GitHub Release for an RC tag is marked **prerelease** so it's clearly distinguished in the Releases page.
+- The GitHub Release for an RC tag should be flagged as a prerelease in the Releases page. The current `github-release.yml` workflow always creates a non-prerelease release; the maintainer flips the prerelease toggle manually after the workflow runs (or edits the release via `gh release edit vX.Y.0-rc.N --prerelease`).
 
 Bake time:
 
@@ -80,7 +80,7 @@ For a normal patch or minor — no RC channel needed:
 For a minor that warrants an RC:
 
 1. Same PR-and-merge flow as above, but bump to `1.Y.0-rc.1`.
-2. After merge, tag `v1.Y.0-rc.1` and push. The `prerelease` flag on the GitHub Release should be set (currently this requires manual edit on the release after the workflow creates it; see the open issue tracking auto-detection of RC tags).
+2. After merge, tag `v1.Y.0-rc.1` and push. The publish workflow builds and pushes the RC images (only `:1.Y.0-rc.1`, never `:latest` or short tags — `flavor: latest=auto` handles that). The release workflow creates a GitHub Release; manually flip it to prerelease afterwards via `gh release edit v1.Y.0-rc.1 --prerelease` or in the GitHub UI.
 3. Wait for the bake window. Address any reported issues with `-rc.2`, `-rc.3` as needed.
 4. To promote: bump `VERSION` to `1.Y.0` in a final PR (CHANGELOG entry consolidates all RC fixes), merge, tag `v1.Y.0`, push. The `:latest` and short tags now point at the promoted release.
 
