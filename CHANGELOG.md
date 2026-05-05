@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ### Changed
 - **Breaking change: the Docker stack now runs as uid:gid `1000:1000` across all compose services, including PostgreSQL, edge nginx, and the optional Ollama + MCP profiles.** The stack now uses custom non-root images published from the root multi-target `Dockerfile` for `db`, `backend`, `frontend`, `nginx`, `ollama`, and `mcp-server`. PostgreSQL was converted from a shell-level probe to a real compose boot test and now starts cleanly as `1000:1000`; Ollama model storage moved from `/root/.ollama` to the configurable `OLLAMA_MODELS` path (default `/models`); and the Ollama healthcheck now uses the built-in `ollama list` CLI instead of `curl`, which the image does not ship.
 - **Breaking change: persistent Docker volume names changed to avoid reusing old root-owned data automatically.** The PostgreSQL volume is now `postgres_data` and the Ollama models volume is now `ollama_models`. Upgrades from pre-`0.70.0` releases require a manual data migration if you want to retain existing data.
+- **Non-root nginx now binds a high internal port instead of relying on privileged port capabilities.** Both nginx containers listen on `8080` internally, the edge service publishes `${HOST_PORT}:8080`, and the Ollama models path is now fixed to `/models` so the named volume cannot be remapped to an unwritable location by accident.
 
 ## [0.65.4] - 2026-05-05
 

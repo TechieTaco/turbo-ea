@@ -33,9 +33,6 @@ COPY --from=backend-build /app/app ./app
 COPY --from=backend-build /app/alembic ./alembic
 COPY --from=backend-build /app/alembic.ini ./alembic.ini
 
-HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
-    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')" || exit 1
-
 RUN chown -R ${APP_UID}:${APP_GID} /app
 
 USER ${APP_UID}:${APP_GID}
@@ -102,7 +99,7 @@ RUN mkdir -p /var/cache/nginx /var/run && \
 
 USER ${APP_UID}:${APP_GID}
 
-EXPOSE 80
+EXPOSE 8080
 CMD ["nginx", "-g", "daemon off;"]
 
 
@@ -121,7 +118,7 @@ RUN mkdir -p /var/cache/nginx /var/run && \
 
 USER ${APP_UID}:${APP_GID}
 
-EXPOSE 80
+EXPOSE 8080
 CMD ["nginx", "-g", "daemon off;"]
 
 

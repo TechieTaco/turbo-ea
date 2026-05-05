@@ -22,6 +22,8 @@ jobs:
         run: |
           set -euo pipefail
           version="${GITHUB_REF_NAME#v}"
+          # Contract: CHANGELOG headings must stay in Keep a Changelog form,
+          # e.g. `## [0.70.0] - 2026-05-05`, so the matching section can be cut.
           section=$(awk -v version="$version" '
             $0 ~ "^## \\[" version "\\]" { capture=1; next }
             capture && $0 ~ "^## \\[" { exit }
