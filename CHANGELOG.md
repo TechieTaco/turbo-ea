@@ -5,16 +5,18 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.70.2] - 2026-05-05
+
+### Fixed
+- **Non-root nginx containers now restart cleanly.** The custom `frontend` and edge `nginx` images now grant uid:gid `1000:1000` ownership of the full runtime pid directory instead of only the pid file, fixing `unlink() "/run/nginx.pid" failed (13: Permission denied)` during `docker compose restart`.
+- **Bundled edge nginx now derives its public hostname and forwarded scheme from `.env` without an extra mounted hook/config file.** The image renders its built-in config from `TURBO_EA_PUBLIC_URL` at container start, so normal deployments no longer need to mount a separate `nginx/default.conf` just to set `server_name` and public-proto handling.
+
 ## [0.70.1] - 2026-05-05
 
 ### Changed
 - **CI no longer rebuilds the `ollama` image on every `main` push.** The image is just a thin non-root patch over `ollama/ollama:latest` (mkdir + chown + USER), so rebuilding multi-arch on every commit was wasteful. The Dockerfile target stays so operators can still build it locally; republish to GHCR manually when upstream Ollama changes meaningfully.
 
 ## [0.70.0] - 2026-05-05
-
-### Fixed
-- **Non-root nginx containers now restart cleanly.** The custom `frontend` and edge `nginx` images now grant uid:gid `1000:1000` ownership of the full runtime pid directory instead of only the pid file, fixing `unlink() "/run/nginx.pid" failed (13: Permission denied)` during `docker compose restart`.
-- **Bundled edge nginx now derives its public hostname and forwarded scheme from `.env`.** The image renders its built-in config from `TURBO_EA_PUBLIC_URL` at container start, so normal deployments no longer need to mount a separate `nginx/default.conf` just to set `server_name` and public-proto handling.
 
 ### Changed
 - **Breaking change: the Docker stack now runs as uid:gid `1000:1000` across all compose services, including PostgreSQL, edge nginx, and the optional Ollama + MCP profiles.** The stack now uses custom non-root images published from the root multi-target `Dockerfile` for `db`, `backend`, `frontend`, `nginx`, `ollama`, and `mcp-server`. PostgreSQL was converted from a shell-level probe to a real compose boot test and now starts cleanly as `1000:1000`; Ollama model storage moved from `/root/.ollama` to the configurable `OLLAMA_MODELS` path (default `/models`); and the Ollama healthcheck now uses the built-in `ollama list` CLI instead of `curl`, which the image does not ship.
