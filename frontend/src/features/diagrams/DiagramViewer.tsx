@@ -66,23 +66,53 @@ function bootstrapDrawIOViewer(iframe: HTMLIFrameElement) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const editor = ui.editor as any;
       const graph = editor?.graph;
-      if (!graph || !win.mxEvent) return;
+      if (!graph) return;
 
-      graph.addListener(
-        win.mxEvent.CLICK,
+      // readOnly=1 disables the graph, which suppresses mxEvent.CLICK.
+      // addMouseListener fires regardless of enabled state and lets us
+      // resolve the cell directly from the mouse event.
+      graph.addMouseListener({
+        mouseDown: () => {},
+        mouseMove: () => {},
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (_sender: unknown, evt: any) => {
-          const cell = evt.getProperty("cell");
+        mouseUp: (_sender: unknown, me: any) => {
+          let cell = me.getCell?.();
+          // Walk up to the nearest cell that carries a cardId — clicks
+          // on inner labels/decorations resolve to child cells.
+          while (cell && !cell.value?.getAttribute?.("cardId")) {
+            cell = cell.parent;
+          }
           const cardId = cell?.value?.getAttribute?.("cardId");
           if (cardId) {
             win.parent.postMessage(
               JSON.stringify({ event: "cardClicked", cardId }),
               "*",
             );
-            evt.consume();
           }
         },
-      );
+      });
+
+      // Auto fit-to-content + center once the model has loaded. Poll
+      // because the bootstrap plugin runs before the XML is applied.
+      const fitAndCenter = () => {
+        try {
+          graph.maxFitScale = 1;
+          graph.fit(20);
+          graph.center(true, true, 0.5, 0.5);
+        } catch {
+          // graph not ready
+        }
+      };
+      const tryFit = (attempt: number) => {
+        const root = graph.getDefaultParent?.();
+        const childCount = root ? graph.getModel().getChildCount(root) : 0;
+        if (childCount > 0) {
+          fitAndCenter();
+        } else if (attempt < 30) {
+          setTimeout(() => tryFit(attempt + 1), 100);
+        }
+      };
+      setTimeout(() => tryFit(0), 100);
     });
   } catch {
     // Cross-origin or editor not ready
