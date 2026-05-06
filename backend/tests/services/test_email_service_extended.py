@@ -190,8 +190,17 @@ class TestSendEmailEdgeCases:
         # The fallback means the HTML body appears as plain text part too
         assert "<p>HTML body</p>" in captured["msg"]
 
-    async def test_smtp_exception_does_not_raise(self):
-        """SMTP connection failure should be logged, not raised."""
+    async def test_smtp_exception_propagates(self):
+        """SMTP connection failure must propagate so user-facing callers can
+        surface the error (e.g. the user-invite endpoint puts it in the
+        response, the SMTP test endpoint puts it in the 502 body).
+
+        Best-effort callers (notification_service.create) wrap their own
+        try/except around send_notification_email — they do not rely on the
+        helper to swallow exceptions.
+        """
+        import pytest
+
         with (
             patch("app.services.email_service.settings") as s,
             patch(
@@ -206,16 +215,13 @@ class TestSendEmailEdgeCases:
             s.SMTP_PASSWORD = ""
             s.SMTP_FROM = "test@test.com"
 
-            # Should not raise
-            result = await send_email(
-                "user@test.com",
-                "Test",
-                "<p>Test</p>",
-                "Test",
-            )
-
-        # send_email returns True because it dispatches to thread; _send_sync catches
-        assert result is True
+            with pytest.raises(ConnectionRefusedError, match="SMTP down"):
+                await send_email(
+                    "user@test.com",
+                    "Test",
+                    "<p>Test</p>",
+                    "Test",
+                )
 
     async def test_no_login_when_smtp_user_empty(self):
         """When SMTP_USER is empty, login should not be called."""

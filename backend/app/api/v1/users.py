@@ -5,7 +5,7 @@ from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, EmailStr
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
@@ -407,6 +407,23 @@ async def delete_user(
     if not u:
         raise HTTPException(404, "User not found")
 
-    # Soft-delete: deactivate rather than hard-delete to preserve audit trail
-    u.is_active = False
+    # Prevent removing the last active admin so the instance stays manageable.
+    if u.role == "admin":
+        admin_count = await db.execute(
+            select(func.count(User.id)).where(
+                User.role == "admin",
+                User.is_active == True,  # noqa: E712
+            )
+        )
+        if (admin_count.scalar() or 0) <= 1:
+            raise HTTPException(400, "Cannot delete the last active admin")
+
+    # Hard delete. Migration 070 added ON DELETE SET NULL on author / owner /
+    # assignee FKs and ON DELETE CASCADE was already in place for the
+    # user-scoped tables (stakeholders, comments, bookmarks, favorites, saved
+    # reports, notifications, survey responses), so PostgreSQL handles the
+    # fan-out. Also remove any pending SSO invitation for the same email so
+    # the row doesn't survive and re-grant the role on next SSO login.
+    await db.execute(delete(SsoInvitation).where(SsoInvitation.email == u.email))
+    await db.delete(u)
     await db.commit()

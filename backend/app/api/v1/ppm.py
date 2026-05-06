@@ -138,7 +138,7 @@ def _report_to_out(report: PpmStatusReport, reporter: ReporterOut | None) -> Ppm
     return PpmStatusReportOut(
         id=str(report.id),
         initiative_id=str(report.initiative_id),
-        reporter_id=str(report.reporter_id),
+        reporter_id=str(report.reporter_id) if report.reporter_id else None,
         reporter=reporter,
         report_date=report.report_date,
         schedule_health=report.schedule_health,

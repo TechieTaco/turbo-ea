@@ -206,19 +206,29 @@ class TestUpdateUser:
 
 
 # -------------------------------------------------------------------
-# DELETE /users/{id}  (soft-delete / deactivate)
+# DELETE /users/{id}  (hard delete — row is removed)
 # -------------------------------------------------------------------
 
 
 class TestDeleteUser:
-    async def test_admin_can_deactivate_user(self, client, db, users_env):
+    async def test_admin_can_delete_user(self, client, db, users_env):
+        from sqlalchemy import select
+
+        from app.models.user import User
+
         admin = users_env["admin"]
         viewer = users_env["viewer"]
+        viewer_id = viewer.id
         resp = await client.delete(
-            f"/api/v1/users/{viewer.id}",
+            f"/api/v1/users/{viewer_id}",
             headers=auth_headers(admin),
         )
         assert resp.status_code == 204
+
+        # Row must actually be gone — soft-delete used to leave it behind
+        # which surfaced as the user reappearing on refresh.
+        row = (await db.execute(select(User).where(User.id == viewer_id))).scalar_one_or_none()
+        assert row is None
 
     async def test_cannot_delete_self(self, client, db, users_env):
         admin = users_env["admin"]

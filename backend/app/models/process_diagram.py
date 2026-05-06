@@ -27,7 +27,7 @@ class ProcessDiagram(Base, UUIDMixin, TimestampMixin):
     version: Mapped[int] = mapped_column(Integer, default=1)
     created_by: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey("users.id"),
+        ForeignKey("users.id", ondelete="SET NULL"),
     )
 
     process = relationship("Card", lazy="noload")

@@ -19,8 +19,8 @@ class PpmStatusReport(Base, UUIDMixin, TimestampMixin):
         nullable=False,
         index=True,
     )
-    reporter_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id"), nullable=False
+    reporter_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
     report_date: Mapped[date] = mapped_column(Date, nullable=False)
     schedule_health: Mapped[str] = mapped_column(Text, nullable=False, default="onTrack")

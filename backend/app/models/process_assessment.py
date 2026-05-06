@@ -21,10 +21,10 @@ class ProcessAssessment(Base, UUIDMixin, TimestampMixin):
         nullable=False,
         index=True,
     )
-    assessor_id: Mapped[uuid.UUID] = mapped_column(
+    assessor_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey("users.id"),
-        nullable=False,
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
     )
     assessment_date: Mapped[date] = mapped_column(Date, nullable=False)
     overall_score: Mapped[int] = mapped_column(Integer, default=0)
