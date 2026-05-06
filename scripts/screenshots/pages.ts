@@ -72,7 +72,9 @@ function tabSelector(...labels: string[]): string {
   // (e.g. "Vue d'ensemble", "Décisions d'architecture") parse correctly.
   return labels
     .flatMap((l) => {
-      const escaped = l.replace(/"/g, '\\"');
+      // Escape \ before " — the order matters so a trailing backslash can't
+      // turn into \\" and close the string literal early.
+      const escaped = l.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
       return [
         `[role='tablist'] [role='tab']:has-text("${escaped}")`,
         `[role='tablist'] button:has-text("${escaped}")`,
