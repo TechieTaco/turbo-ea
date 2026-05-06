@@ -169,7 +169,8 @@
   "import.errors.typeMismatch": "Riga {{row}}: tipo non corrispondente \u2014 il file contiene \"{{fileType}}\", quello esistente \u00e8 \"{{existingType}}\"",
   "import.errors.invalidParentId": "Riga {{row}}: formato parent_id non valido \"{{parentId}}\"",
   "import.errors.parentNotFound": "Riga {{row}}: parent_id \"{{parentId}}\" non trovato \u2014 deve fare riferimento a una scheda esistente o a un'altra riga in questo file",
-  "import.errors.parentSelfReference": "Riga {{row}}: parent_id non pu\u00f2 fare riferimento a se stesso",
+  "import.errors.parentSelfReference": "Riga {{row}}: il riferimento al genitore non pu\u00f2 puntare a se stesso",
+  "import.errors.invalidParentPath": "Riga {{row}}: il percorso del genitore \u00ab{{path}}\u00bb non \u00e8 stato risolto \u2014 nessuna scheda con questa gerarchia esiste in questa istanza o nel file",
   "import.errors.invalidApprovalStatus": "Riga {{row}}: approval_status non valido \"{{status}}\" (validi: DRAFT, APPROVED, BROKEN, REJECTED)",
   "import.errors.invalidDate": "Riga {{row}}: {{field}} richiede una data (AAAA-MM-GG), ricevuto \"{{value}}\"",
   "import.errors.requiredFieldEmpty": "Riga {{row}}: il campo obbligatorio \"{{field}}\" \u00e8 vuoto",
@@ -178,5 +179,7 @@
   "import.errors.invalidSelectValue": "Riga {{row}}: valore non valido \"{{value}}\" per il campo \"{{field}}\" (validi: {{valid}})",
   "import.errors.unknown": "Errore sconosciuto",
   "import.warnings.unrecognisedColumn": "La colonna \"{{column}}\" non \u00e8 riconosciuta e verr\u00e0 ignorata",
-  "import.warnings.unknownTag": "Riga {{row}}: tag sconosciuto «{{value}}» — ignorato"
+  "import.warnings.unknownTag": "Riga {{row}}: tag sconosciuto «{{value}}» — ignorato",
+  "import.warnings.idNotFoundCreating": "Riga {{row}}: l’id «{{id}}» non esiste in questa istanza — verrà creata come nuova scheda",
+  "import.warnings.ambiguousParentPath": "Riga {{row}}: il percorso del genitore «{{path}}» corrisponde a più schede — viene usato il primo risultato"
 }

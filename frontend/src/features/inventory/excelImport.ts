@@ -26,8 +26,17 @@ export interface ParsedRow {
   id?: string;
   type: string;
   data: Record<string, unknown>;
-  /** Raw parent_id from the file (UUID of existing or of another row in the file) */
+  /** Raw parent_id from the file (UUID of existing or of another row in the file). Legacy. */
   parentId?: string;
+  /** Decoded parent path segments from the `parent_path` column, root first. */
+  parentPath?: string[];
+  /**
+   * Lookup key for this row's own full path, used so other rows can reference
+   * it as a parent: `type|<lowercase_seg1>/<lowercase_seg2>/...`.
+   */
+  ownPathKey?: string;
+  /** Lookup key for this row's parent path (`type|<lowercase parent_path>`). */
+  parentPathKey?: string;
   /** Original card when updating an existing record */
   existing?: Card;
   /** For updates: the fields that actually changed (field → { old, new }) */
@@ -60,6 +69,52 @@ const VALID_APPROVAL_STATUSES = new Set(["DRAFT", "APPROVED", "BROKEN", "REJECTE
 const LIFECYCLE_PHASES = ["plan", "phaseIn", "active", "phaseOut", "endOfLife"] as const;
 const TRUTHY = new Set(["true", "yes", "1"]);
 const FALSY = new Set(["false", "no", "0"]);
+const MAX_PATH_DEPTH = 8;
+
+/**
+ * Decode a `" / "`-separated parent path into an array of segments. The
+ * encoder escapes both `\` and `/` (`\\` and `\/`), so we walk char by char
+ * to apply each escape correctly. Empty input → empty array.
+ */
+function decodePath(path: string): string[] {
+  if (!path) return [];
+  const segments: string[] = [];
+  let cur = "";
+  for (let i = 0; i < path.length; i++) {
+    const ch = path[i];
+    if (ch === "\\" && i + 1 < path.length) {
+      // Escaped character — append the next char literally so both `\\`
+      // (literal backslash) and `\/` (literal slash) round-trip cleanly.
+      cur += path[i + 1];
+      i++;
+    } else if (ch === "/") {
+      segments.push(cur.trim());
+      cur = "";
+    } else {
+      cur += ch;
+    }
+  }
+  segments.push(cur.trim());
+  return segments.filter(Boolean);
+}
+
+/** Build a case-insensitive index key for `(type, segments)`. */
+function pathKey(type: string, segments: string[]): string {
+  return `${type}|${segments.map((s) => s.toLowerCase()).join("/")}`;
+}
+
+/** Walk parent_id chain to produce the full ancestor segments (root first, including the card itself). */
+function fullPathFor(card: Card, byId: Map<string, Card>): string[] {
+  const segs: string[] = [];
+  const seen = new Set<string>();
+  let cur: Card | undefined = card;
+  while (cur && !seen.has(cur.id) && segs.length < MAX_PATH_DEPTH) {
+    seen.add(cur.id);
+    segs.unshift(cur.name);
+    cur = cur.parent_id ? byId.get(cur.parent_id) : undefined;
+  }
+  return segs;
+}
 
 function sameTagSet(a: string[], b: string[]): boolean {
   if (a.length !== b.length) return false;
@@ -92,32 +147,33 @@ function fieldDefsForType(
 
 /**
  * Topologically sort rows so that parents come before children.
- * Rows whose parentId references another row's id are placed after that row.
- * Rows with no parent dependency come first.
+ * Rows whose parent (by id or by path) references another row in the creates
+ * list are placed after that row. Rows with no parent dependency come first.
  */
 function topoSortCreates(rows: ParsedRow[]): ParsedRow[] {
-  // Build a set of ids available in the creates list
-  const createIds = new Set<string>();
-  for (const r of rows) {
-    if (r.id) createIds.add(r.id);
-  }
-
-  // Index by id for quick lookup
   const byId = new Map<string, ParsedRow>();
+  const byOwnPath = new Map<string, ParsedRow>();
   for (const r of rows) {
     if (r.id) byId.set(r.id, r);
+    if (r.ownPathKey) byOwnPath.set(r.ownPathKey, r);
   }
 
   const sorted: ParsedRow[] = [];
   const visited = new Set<string | number>();
 
   function visit(row: ParsedRow) {
-    const key = row.id ?? row.rowIndex;
+    const key = row.id ?? `row:${row.rowIndex}`;
     if (visited.has(key)) return;
     visited.add(key);
 
-    // If this row's parent is also being created, visit parent first
-    if (row.parentId && createIds.has(row.parentId)) {
+    // Path-based parent reference (preferred for cross-instance imports)
+    if (row.parentPathKey) {
+      const parent = byOwnPath.get(row.parentPathKey);
+      if (parent) visit(parent);
+    }
+
+    // Legacy id-based parent reference (same-instance round-trips)
+    if (row.parentId) {
       const parent = byId.get(row.parentId);
       if (parent) visit(parent);
     }
@@ -262,7 +318,7 @@ export function validateImport(
 
   // Warn about unrecognised columns
   const knownCoreCols = new Set([
-    "id", "type", "name", "description", "subtype", "parent_id",
+    "id", "type", "name", "description", "subtype", "parent_id", "parent_path",
     "external_id", "alias", "approval_status", "tags",
     ...LIFECYCLE_PHASES.map((p) => `lifecycle_${p}`),
   ]);
@@ -287,14 +343,40 @@ export function validateImport(
     existingById.set(card.id, card);
   }
 
+  // Index existing cards by (type, full ancestor path) for parent_path resolution.
+  // When two existing cards share the same path key (same name, same parent
+  // chain, same type) we mark it as ambiguous so the import emits a warning
+  // and the user can disambiguate by including an `id` column.
+  const existingByPath = new Map<string, string>();
+  const existingPathConflicts = new Set<string>();
+  for (const card of existingCards) {
+    const segs = fullPathFor(card, existingById);
+    const k = pathKey(card.type, segs);
+    if (existingByPath.has(k)) existingPathConflicts.add(k);
+    else existingByPath.set(k, card.id);
+  }
+
   // Track seen IDs to detect duplicates within the file
   const seenIds = new Map<string, number>(); // id → first row number
 
   // Collect all ids present in the file (for parent_id cross-referencing)
+  // and pre-compute each row's own path key so child rows can reference
+  // parent rows by path even when forward-declared.
   const fileIds = new Set<string>();
-  for (const raw of rows) {
+  const fileByOwnPathKey = new Map<string, number>(); // path key → 0-based row index
+  for (let i = 0; i < rows.length; i++) {
+    const raw = rows[i];
     const id = str(raw["id"] ?? raw["Id"] ?? raw["ID"]);
     if (id && UUID_RE.test(id)) fileIds.add(id);
+    const ppRaw = str(raw["parent_path"]);
+    const name = str(raw["name"] ?? raw["Name"]);
+    const rowType = str(raw["type"] ?? raw["Type"]) || preSelectedType || "";
+    if (name && rowType) {
+      const segs = ppRaw ? [...decodePath(ppRaw), name] : [name];
+      const k = pathKey(rowType, segs);
+      // First-write-wins; collisions are flagged later as duplicates.
+      if (!fileByOwnPathKey.has(k)) fileByOwnPathKey.set(k, i);
+    }
   }
 
   const typeKeys = new Set(allTypes.filter((t) => !t.is_hidden).map((t) => t.key));
@@ -330,7 +412,8 @@ export function validateImport(
     const type = str(raw["type"] ?? raw["Type"]) || preSelectedType || "";
     const description = str(raw["description"] ?? raw["Description"]);
     const subtype = str(raw["subtype"] ?? raw["Subtype"]);
-    const parentId = str(raw["parent_id"]);
+    let parentId = str(raw["parent_id"]);
+    const parentPathRaw = str(raw["parent_path"]);
     const externalId = str(raw["external_id"]);
     const alias = str(raw["alias"] ?? raw["Alias"]);
     const approvalStatus = str(raw["approval_status"]).toUpperCase();
@@ -375,19 +458,21 @@ export function validateImport(
       }
       seenIds.set(id, rowNum);
 
-      // Rule 6: id must match existing
+      // Rule 6: id must match existing — but for cross-instance imports the
+      // source UUID won't exist locally, so demote to a "create" with a
+      // warning instead of failing the row outright.
       matchedExisting = existingById.get(id);
       if (!matchedExisting) {
-        errors.push({
+        warnings.push({
           row: rowNum,
           column: "id",
-          message: t("import.errors.noExistingCard", { row: rowNum, id }),
+          message: t("import.warnings.idNotFoundCreating", { row: rowNum, id }),
         });
-        continue;
-      }
-
-      // Rule 7: type must match
-      if (matchedExisting.type !== type) {
+        // Fall through: the row will be classified as a create below; we
+        // intentionally drop the file id so the server generates a fresh one.
+        seenIds.delete(id);
+      } else if (matchedExisting.type !== type) {
+        // Rule 7: type must match for an update
         errors.push({
           row: rowNum,
           column: "type",
@@ -397,8 +482,62 @@ export function validateImport(
       }
     }
 
-    // Validate parent_id if provided
-    if (parentId) {
+    // Resolve parent_path (preferred for cross-instance imports). Path-based
+    // resolution wins over `parent_id` when both are provided, so an exported
+    // file from another tenant still wires up hierarchy correctly.
+    let parentSegments: string[] | undefined;
+    let parentPathKey: string | undefined;
+    let pathRowError = false;
+    if (parentPathRaw) {
+      parentSegments = decodePath(parentPathRaw);
+      if (parentSegments.length === 0) {
+        // Treat malformed path (only escapes / whitespace) as missing.
+        parentSegments = undefined;
+      } else {
+        parentPathKey = pathKey(type, parentSegments);
+
+        // Self-reference: a row whose parent_path is its own path.
+        const ownKey = pathKey(type, [...parentSegments, name]);
+        if (parentPathKey === ownKey) {
+          errors.push({
+            row: rowNum,
+            column: "parent_path",
+            message: t("import.errors.parentSelfReference", { row: rowNum }),
+          });
+          continue;
+        }
+
+        const existingMatch = existingByPath.get(parentPathKey);
+        if (existingMatch) {
+          // Use the existing card's id directly — overrides any stale parent_id.
+          parentId = existingMatch;
+          if (existingPathConflicts.has(parentPathKey)) {
+            warnings.push({
+              row: rowNum,
+              column: "parent_path",
+              message: t("import.warnings.ambiguousParentPath", { row: rowNum, path: parentPathRaw }),
+            });
+          }
+        } else if (fileByOwnPathKey.has(parentPathKey)) {
+          // Parent will be created earlier in the file via topo sort; clear
+          // any legacy parent_id since it would point at the source-instance
+          // UUID and confuse executeImport.
+          parentId = "";
+        } else {
+          errors.push({
+            row: rowNum,
+            column: "parent_path",
+            message: t("import.errors.invalidParentPath", { row: rowNum, path: parentPathRaw }),
+          });
+          pathRowError = true;
+        }
+      }
+    }
+    if (pathRowError) continue;
+
+    // Validate parent_id (legacy / same-instance round-trips). Skipped when
+    // parent_path already resolved to an existing card or a file row.
+    if (parentId && !parentPathKey) {
       if (!UUID_RE.test(parentId)) {
         errors.push({
           row: rowNum,
@@ -466,14 +605,17 @@ export function validateImport(
       const val = str(rawVal);
 
       if (!val) {
-        // Rule 14: required fields on creates
-        if (field.required && !id) {
-          errors.push({
+        // A missing required attribute is a data-quality concern, not a data
+        // integrity one — the backend creates the card regardless and the
+        // quality score will reflect the gap. Surface a warning so users
+        // notice, but don't block cross-instance migrations on incomplete
+        // source data.
+        if (field.required && !matchedExisting) {
+          warnings.push({
             row: rowNum,
             column: colKey,
             message: t("import.errors.requiredFieldEmpty", { row: rowNum, field: resolveLabel(field.key, field.translations, i18n.language) }),
           });
-          rowHasAttrError = true;
         }
         continue;
       }
@@ -625,6 +767,9 @@ export function validateImport(
       type,
       data,
       parentId: parentId || undefined,
+      parentPath: parentSegments,
+      parentPathKey,
+      ownPathKey: pathKey(type, parentSegments ? [...parentSegments, name] : [name]),
       tagIds: parsedTagIds,
     };
 
@@ -686,6 +831,9 @@ export async function executeImport(
 
   // Map old id (from file) → new id (from server) for parent_id resolution
   const idMapping = new Map<string, string>();
+  // Map row's own path key → server id, so subsequent rows can resolve their
+  // parent path against newly-created file rows.
+  const pathToId = new Map<string, string>();
 
   // Topologically sort creates so parents are created before children
   const sortedCreates = topoSortCreates(report.creates);
@@ -695,8 +843,14 @@ export async function executeImport(
     try {
       const payload = { ...row.data };
 
-      // Resolve parent_id: if the parent was just created, use its new id
-      if (row.parentId && idMapping.has(row.parentId)) {
+      // Resolve parent reference, in priority order:
+      //   1. parent_path that points at another file row → use freshly-created id
+      //   2. legacy parent_id mapped via idMapping
+      // Existing-card parent paths were already resolved into payload.parent_id
+      // during validation, so they pass through unchanged.
+      if (row.parentPathKey && pathToId.has(row.parentPathKey)) {
+        payload.parent_id = pathToId.get(row.parentPathKey);
+      } else if (row.parentId && idMapping.has(row.parentId)) {
         payload.parent_id = idMapping.get(row.parentId);
       }
 
@@ -705,6 +859,10 @@ export async function executeImport(
       // Track the mapping from file id → server id
       if (row.id && result.id) {
         idMapping.set(row.id, result.id);
+      }
+      // Track the mapping from own path key → server id for child rows
+      if (row.ownPathKey && result.id) {
+        pathToId.set(row.ownPathKey, result.id);
       }
       // Assign tags if any were resolved for this row
       if (row.tagIds && row.tagIds.length > 0 && result.id) {
