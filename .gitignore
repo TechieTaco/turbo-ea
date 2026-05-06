@@ -84,3 +84,6 @@ archive/
 
 # TurboLens fork (built from GitHub URL in docker-compose)
 /turbolens/
+
+#Local Claude
+.claude/
