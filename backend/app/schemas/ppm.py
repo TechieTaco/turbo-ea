@@ -35,7 +35,7 @@ class ReporterOut(BaseModel):
 class PpmStatusReportOut(BaseModel):
     id: str
     initiative_id: str
-    reporter_id: str
+    reporter_id: str | None = None
     reporter: ReporterOut | None = None
     report_date: date_type
     schedule_health: str

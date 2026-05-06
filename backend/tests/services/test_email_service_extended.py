@@ -5,9 +5,20 @@ No database required. All tests mock smtplib and settings.
 
 from __future__ import annotations
 
+from email import message_from_string
 from unittest.mock import MagicMock, patch
 
 from app.services.email_service import send_email, send_notification_email
+
+
+def _html_part(raw_msg: str) -> str:
+    """Pull the text/html alternative out of a MIME-encoded message string."""
+    msg = message_from_string(raw_msg)
+    for part in msg.walk():
+        if part.get_content_type() == "text/html":
+            return part.get_payload(decode=True).decode()
+    raise AssertionError("no text/html part found")
+
 
 # ---------------------------------------------------------------------------
 # HTML escaping (security)
@@ -38,8 +49,13 @@ class TestHtmlEscaping:
                 message="Safe message",
             )
 
-        assert "<script>" not in captured["msg"]
-        assert "&lt;script&gt;" in captured["msg"]
+        # XSS protection only matters for the HTML alternative — plain text
+        # is rendered as text, so leaving the literal characters intact is
+        # actually correct (and keeps the subject / plain-text body
+        # readable).
+        html_body = _html_part(captured["msg"])
+        assert "<script>" not in html_body
+        assert "&lt;script&gt;" in html_body
 
     async def test_message_with_html_injection_escaped(self):
         """HTML tags in message body should be escaped."""
@@ -64,8 +80,12 @@ class TestHtmlEscaping:
                 message='<img src=x onerror="steal()">',
             )
 
-        assert "onerror" not in captured["msg"].split("&")[0] if "&" in captured["msg"] else True
-        assert "&lt;img" in captured["msg"]
+        html_body = _html_part(captured["msg"])
+        # The dangerous bit is an unescaped <img with a live onerror; the
+        # text "onerror" surviving as a literal inside &lt;img …&gt; is
+        # harmless because the surrounding tag has been neutralised.
+        assert "<img" not in html_body
+        assert "&lt;img" in html_body
 
 
 # ---------------------------------------------------------------------------
@@ -190,8 +210,17 @@ class TestSendEmailEdgeCases:
         # The fallback means the HTML body appears as plain text part too
         assert "<p>HTML body</p>" in captured["msg"]
 
-    async def test_smtp_exception_does_not_raise(self):
-        """SMTP connection failure should be logged, not raised."""
+    async def test_smtp_exception_propagates(self):
+        """SMTP connection failure must propagate so user-facing callers can
+        surface the error (e.g. the user-invite endpoint puts it in the
+        response, the SMTP test endpoint puts it in the 502 body).
+
+        Best-effort callers (notification_service.create) wrap their own
+        try/except around send_notification_email — they do not rely on the
+        helper to swallow exceptions.
+        """
+        import pytest
+
         with (
             patch("app.services.email_service.settings") as s,
             patch(
@@ -206,16 +235,13 @@ class TestSendEmailEdgeCases:
             s.SMTP_PASSWORD = ""
             s.SMTP_FROM = "test@test.com"
 
-            # Should not raise
-            result = await send_email(
-                "user@test.com",
-                "Test",
-                "<p>Test</p>",
-                "Test",
-            )
-
-        # send_email returns True because it dispatches to thread; _send_sync catches
-        assert result is True
+            with pytest.raises(ConnectionRefusedError, match="SMTP down"):
+                await send_email(
+                    "user@test.com",
+                    "Test",
+                    "<p>Test</p>",
+                    "Test",
+                )
 
     async def test_no_login_when_smtp_user_empty(self):
         """When SMTP_USER is empty, login should not be called."""

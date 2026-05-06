@@ -57,7 +57,7 @@ async def list_assessments(
         {
             "id": str(a.id),
             "process_id": str(a.process_id),
-            "assessor_id": str(a.assessor_id),
+            "assessor_id": str(a.assessor_id) if a.assessor_id else None,
             "assessor_name": a.assessor.display_name if a.assessor else None,
             "assessment_date": a.assessment_date.isoformat(),
             "overall_score": a.overall_score,

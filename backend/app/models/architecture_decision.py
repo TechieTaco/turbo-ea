@@ -25,7 +25,9 @@ class ArchitectureDecision(Base, UUIDMixin, TimestampMixin):
     alternatives_considered: Mapped[str | None] = mapped_column(Text)
     related_decisions: Mapped[list | None] = mapped_column(JSONB, default=list)
 
-    created_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"))
+    created_by: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL")
+    )
 
     # Revision chain
     revision_number: Mapped[int] = mapped_column(Integer, default=1)

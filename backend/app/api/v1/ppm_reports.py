@@ -281,15 +281,16 @@ async def ppm_gantt(
         report = latest.get(card.id)
         report_out = None
         if report:
-            u_result = await db.execute(select(User).where(User.id == report.reporter_id))
-            u = u_result.scalar_one_or_none()
-            reporter = (
-                ReporterOut(id=str(u.id), display_name=u.display_name or u.email) if u else None
-            )
+            reporter = None
+            if report.reporter_id:
+                u_result = await db.execute(select(User).where(User.id == report.reporter_id))
+                u = u_result.scalar_one_or_none()
+                if u:
+                    reporter = ReporterOut(id=str(u.id), display_name=u.display_name or u.email)
             report_out = PpmStatusReportOut(
                 id=str(report.id),
                 initiative_id=str(report.initiative_id),
-                reporter_id=str(report.reporter_id),
+                reporter_id=str(report.reporter_id) if report.reporter_id else None,
                 reporter=reporter,
                 report_date=report.report_date,
                 schedule_health=report.schedule_health,

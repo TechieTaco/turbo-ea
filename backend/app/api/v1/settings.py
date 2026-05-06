@@ -175,20 +175,26 @@ async def test_email_settings(
     """Send a test email to the admin's own address using current SMTP settings."""
     await PermissionService.require_permission(db, user, "admin.settings")
 
-    from app.services.email_service import send_notification_email
+    from app.services.email_service import _get_app_title, send_notification_email
 
     try:
-        await send_notification_email(
+        sent = await send_notification_email(
             to=user.email,
-            title="Test Email from Turbo EA",
+            title=f"Test Email from {_get_app_title()}",
             message="If you received this, your email settings are configured correctly.",
             link="/admin/settings",
         )
-    except Exception:
+    except Exception as exc:
         import logging
 
         logging.getLogger(__name__).exception("Failed to send test email")
-        raise HTTPException(502, "Failed to send test email. Check SMTP settings and server logs.")
+        raise HTTPException(502, f"Failed to send test email: {exc}") from exc
+
+    if not sent:
+        raise HTTPException(
+            400,
+            "SMTP is not configured. Set SMTP_HOST and related settings before testing.",
+        )
 
     return {"ok": True, "sent_to": user.email}
 

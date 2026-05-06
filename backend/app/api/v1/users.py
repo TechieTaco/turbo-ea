@@ -5,11 +5,11 @@ from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, EmailStr
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
-from app.api.v1.auth import PROVIDER_LABELS, _get_sso_config, generate_setup_token
+from app.api.v1.auth import _get_sso_config, generate_setup_token
 from app.core.security import hash_password
 from app.database import get_db
 from app.models.role import Role
@@ -116,6 +116,58 @@ async def list_invitations(
     await PermissionService.require_permission(db, current_user, "admin.users")
     result = await db.execute(select(SsoInvitation).order_by(SsoInvitation.email))
     return [_invitation_response(inv) for inv in result.scalars().all()]
+
+
+@router.post("/invitations/{invitation_id}/resend")
+async def resend_invitation_by_invitation(
+    invitation_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Re-send the invitation email for a row in the Pending Invitations list.
+
+    Looks up the matching user by email and reuses the same email shape
+    as ``POST /users/{id}/resend-invitation``. Falls back to a generic
+    invite when no user row exists yet (shouldn't normally happen, but
+    keeps the action safe for SSO-only deployments).
+    """
+    await PermissionService.require_permission(db, current_user, "admin.users")
+
+    inv_result = await db.execute(
+        select(SsoInvitation).where(SsoInvitation.id == uuid.UUID(invitation_id))
+    )
+    inv = inv_result.scalar_one_or_none()
+    if not inv:
+        raise HTTPException(404, "Invitation not found")
+
+    from app.services.email_service import _get_app_title, send_notification_email
+
+    user_result = await db.execute(select(User).where(User.email == inv.email))
+    matching_user = user_result.scalar_one_or_none()
+
+    sso_cfg = await _get_sso_config(db)
+    sso_enabled = sso_cfg.get("enabled", False)
+    title, message, link = _build_invite_email(
+        app_title=_get_app_title(),
+        setup_token=matching_user.password_setup_token if matching_user else None,
+        sso_enabled=sso_enabled,
+    )
+
+    try:
+        sent = await send_notification_email(to=inv.email, title=title, message=message, link=link)
+    except Exception as exc:
+        import logging
+
+        logging.getLogger(__name__).exception("Failed to resend invitation email to %s", inv.email)
+        raise HTTPException(502, f"Failed to send invitation email: {exc}") from exc
+
+    if not sent:
+        raise HTTPException(
+            400,
+            "SMTP is not configured. Configure SMTP in admin settings before resending.",
+        )
+
+    return {"email_sent": True, "sent_to": inv.email}
 
 
 @router.delete("/invitations/{invitation_id}", status_code=204)
@@ -260,56 +312,88 @@ async def create_user(
     await db.commit()
     await db.refresh(u)
 
-    # Send invitation email if requested
+    # Send invitation email if requested. The user has already been
+    # committed above, so we don't roll back on email failure — instead
+    # we surface the SMTP error in the response so the admin can see it
+    # and re-send (e.g. via the test-email endpoint after fixing creds).
+    response = _user_response(u)
     if body.send_email:
+        from app.services.email_service import _get_app_title, send_notification_email
+
+        sso_cfg = await _get_sso_config(db)
+        sso_enabled = sso_cfg.get("enabled", False)
+        app_title = _get_app_title()
+        invite_title = f"You've been invited to {app_title}"
+
+        if setup_token and not sso_enabled:
+            invite_message = (
+                f"You have been invited to join {app_title}. "
+                "Click the button below to set your password and get started."
+            )
+            invite_link = f"/auth/set-password?token={setup_token}"
+        elif sso_enabled:
+            invite_message = (
+                f"You have been invited to join {app_title}. Click the button below to sign in."
+            )
+            invite_link = "/"
+        else:
+            invite_message = (
+                f"You have been invited to join {app_title}. "
+                "A password has been set for your account. "
+                "Click the button below to sign in."
+            )
+            invite_link = "/"
+
         try:
-            from app.services.email_service import send_notification_email
-
-            sso_cfg = await _get_sso_config(db)
-            sso_enabled = sso_cfg.get("enabled", False)
-
-            if setup_token and not sso_enabled:
-                # SSO disabled + no password: send password setup link
-                await send_notification_email(
-                    to=email,
-                    title="You've been invited to Turbo EA",
-                    message=(
-                        "You have been invited to join Turbo EA. "
-                        "Click the button below to set your password "
-                        "and get started."
-                    ),
-                    link=f"/auth/set-password?token={setup_token}",
+            sent = await send_notification_email(
+                to=email,
+                title=invite_title,
+                message=invite_message,
+                link=invite_link,
+            )
+            response["email_sent"] = bool(sent)
+            if not sent:
+                response["email_error"] = (
+                    "SMTP is not configured, so the invitation email could not "
+                    "be sent. The account was created — configure SMTP in admin "
+                    "settings and re-send manually if needed."
                 )
-            elif sso_enabled:
-                # SSO enabled: tell them to sign in via their provider
-                provider = sso_cfg.get("provider", "microsoft")
-                provider_name = PROVIDER_LABELS.get(provider, "SSO")
-                await send_notification_email(
-                    to=email,
-                    title="You've been invited to Turbo EA",
-                    message=(
-                        "You have been invited to join Turbo EA. "
-                        "Click the button below to sign in with "
-                        f"{provider_name}."
-                    ),
-                    link="/",
-                )
-            else:
-                # Password was set: tell them to sign in
-                await send_notification_email(
-                    to=email,
-                    title="You've been invited to Turbo EA",
-                    message=(
-                        "You have been invited to join Turbo EA. "
-                        "A password has been set for your account. "
-                        "Click the button below to sign in."
-                    ),
-                    link="/",
-                )
-        except Exception:
-            pass  # Email sending is best-effort
+        except Exception as exc:
+            import logging
 
-    return _user_response(u)
+            logging.getLogger(__name__).exception("Failed to send invitation email to %s", email)
+            response["email_sent"] = False
+            response["email_error"] = (
+                f"The account was created, but the invitation email could not be sent: {exc}"
+            )
+
+    return response
+
+
+def _build_invite_email(
+    *, app_title: str, setup_token: str | None, sso_enabled: bool
+) -> tuple[str, str, str]:
+    """Return (title, message, link) for an invitation email."""
+    invite_title = f"You've been invited to {app_title}"
+    if setup_token and not sso_enabled:
+        invite_message = (
+            f"You have been invited to join {app_title}. "
+            "Click the button below to set your password and get started."
+        )
+        invite_link = f"/auth/set-password?token={setup_token}"
+    elif sso_enabled:
+        invite_message = (
+            f"You have been invited to join {app_title}. Click the button below to sign in."
+        )
+        invite_link = "/"
+    else:
+        invite_message = (
+            f"You have been invited to join {app_title}. "
+            "A password has been set for your account. "
+            "Click the button below to sign in."
+        )
+        invite_link = "/"
+    return invite_title, invite_message, invite_link
 
 
 @router.patch("/{user_id}")
@@ -401,6 +485,23 @@ async def delete_user(
     if not u:
         raise HTTPException(404, "User not found")
 
-    # Soft-delete: deactivate rather than hard-delete to preserve audit trail
-    u.is_active = False
+    # Prevent removing the last active admin so the instance stays manageable.
+    if u.role == "admin":
+        admin_count = await db.execute(
+            select(func.count(User.id)).where(
+                User.role == "admin",
+                User.is_active == True,  # noqa: E712
+            )
+        )
+        if (admin_count.scalar() or 0) <= 1:
+            raise HTTPException(400, "Cannot delete the last active admin")
+
+    # Hard delete. Migration 070 added ON DELETE SET NULL on author / owner /
+    # assignee FKs and ON DELETE CASCADE was already in place for the
+    # user-scoped tables (stakeholders, comments, bookmarks, favorites, saved
+    # reports, notifications, survey responses), so PostgreSQL handles the
+    # fan-out. Also remove any pending SSO invitation for the same email so
+    # the row doesn't survive and re-grant the role on next SSO login.
+    await db.execute(delete(SsoInvitation).where(SsoInvitation.email == u.email))
+    await db.delete(u)
     await db.commit()

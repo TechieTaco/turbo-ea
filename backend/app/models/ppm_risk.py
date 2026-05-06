@@ -25,6 +25,6 @@ class PpmRisk(Base, UUIDMixin, TimestampMixin):
     risk_score: Mapped[int] = mapped_column(Integer, nullable=False, default=9)
     mitigation: Mapped[str | None] = mapped_column(Text)
     owner_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id"), nullable=True
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
     status: Mapped[str] = mapped_column(Text, nullable=False, default="open")

@@ -28,8 +28,12 @@ class Card(Base, UUIDMixin, TimestampMixin):
     external_id: Mapped[str | None] = mapped_column(String(500))
     alias: Mapped[str | None] = mapped_column(String(500))
     archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), default=None)
-    created_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"))
-    updated_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"))
+    created_by: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL")
+    )
+    updated_by: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL")
+    )
 
     parent = relationship("Card", remote_side="Card.id", lazy="noload")
     children = relationship(

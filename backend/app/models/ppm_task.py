@@ -24,7 +24,7 @@ class PpmTask(Base, UUIDMixin, TimestampMixin):
     status: Mapped[str] = mapped_column(Text, nullable=False, default="todo")
     priority: Mapped[str] = mapped_column(Text, nullable=False, default="medium")
     assignee_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id"), nullable=True
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
     start_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     due_date: Mapped[date | None] = mapped_column(Date, nullable=True)

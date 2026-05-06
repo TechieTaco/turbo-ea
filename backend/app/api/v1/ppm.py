@@ -138,7 +138,7 @@ def _report_to_out(report: PpmStatusReport, reporter: ReporterOut | None) -> Ppm
     return PpmStatusReportOut(
         id=str(report.id),
         initiative_id=str(report.initiative_id),
-        reporter_id=str(report.reporter_id),
+        reporter_id=str(report.reporter_id) if report.reporter_id else None,
         reporter=reporter,
         report_date=report.report_date,
         schedule_health=report.schedule_health,
@@ -152,7 +152,9 @@ def _report_to_out(report: PpmStatusReport, reporter: ReporterOut | None) -> Ppm
     )
 
 
-async def _get_reporter(db: AsyncSession, reporter_id: uuid.UUID) -> ReporterOut | None:
+async def _get_reporter(db: AsyncSession, reporter_id: uuid.UUID | None) -> ReporterOut | None:
+    if reporter_id is None:
+        return None
     u_result = await db.execute(select(User).where(User.id == reporter_id))
     u = u_result.scalar_one_or_none()
     if u:

@@ -30,7 +30,12 @@ def _is_configured() -> bool:
 
 
 def _send_sync(to: str, subject: str, body_html: str, body_text: str) -> None:
-    """Send an email synchronously (called from a thread)."""
+    """Send an email synchronously (called from a thread).
+
+    Raises on SMTP / network failure so async callers can surface the
+    error to the user. Best-effort callers (background notifications)
+    should wrap this in their own try/except.
+    """
     msg = MIMEMultipart("alternative")
     msg["From"] = settings.SMTP_FROM
     msg["To"] = to
@@ -54,6 +59,7 @@ def _send_sync(to: str, subject: str, body_html: str, body_text: str) -> None:
         logger.info("Email sent to %s: %s", to, subject)
     except Exception:
         logger.exception("Failed to send email to %s", to)
+        raise
 
 
 async def send_email(to: str, subject: str, body_html: str, body_text: str = "") -> bool:
@@ -86,14 +92,16 @@ async def send_notification_email(
     if not _is_configured():
         return False
 
-    # H7: Escape user-supplied content to prevent HTML injection
-    title = html.escape(title)
-    message = html.escape(message)
-
     base_url = getattr(settings, "_app_base_url", "") or "http://localhost:8920"
     full_link = f"{base_url}{link}" if link else ""
+    app_title = _get_app_title()
 
-    app_title = html.escape(_get_app_title())
+    # H7: Escape user-supplied content for the HTML body only — the subject
+    # and plain-text body are not HTML, so escaping them produces visible
+    # entities like "&#x27;" in mail clients.
+    title_html = html.escape(title)
+    message_html = html.escape(message)
+    app_title_html = html.escape(app_title)
 
     link_html = ""
     if full_link:
@@ -102,7 +110,7 @@ async def send_notification_email(
             "display: inline-block; margin-top: 12px; "
             "padding: 8px 16px; background: #1976d2; "
             "color: white; text-decoration: none; "
-            f"border-radius: 4px;'>View in {app_title}</a>"
+            f"border-radius: 4px;'>View in {app_title_html}</a>"
         )
 
     wrapper = "font-family: sans-serif; max-width: 600px; margin: 0 auto"
@@ -111,13 +119,13 @@ async def send_notification_email(
     body_html = (
         f'<div style="{wrapper}">'
         f'<div style="{header_s}">'
-        f'<h2 style="color:#64b5f6;margin:0">{app_title}</h2></div>'
+        f'<h2 style="color:#64b5f6;margin:0">{app_title_html}</h2></div>'
         f'<div style="{body_s}">'
-        f'<h3 style="margin:0 0 8px;color:#333">{title}</h3>'
-        f'<p style="color:#555">{message}</p>'
+        f'<h3 style="margin:0 0 8px;color:#333">{title_html}</h3>'
+        f'<p style="color:#555">{message_html}</p>'
         f"{link_html}</div>"
         '<p style="color:#999;font-size:12px;text-align:center">'
-        f"You received this from {app_title}.</p></div>"
+        f"You received this from {app_title_html}.</p></div>"
     )
 
     body_text = f"{title}\n\n{message}"

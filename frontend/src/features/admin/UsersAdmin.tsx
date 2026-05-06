@@ -65,6 +65,8 @@ export default function UsersAdmin() {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [warning, setWarning] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
 
   // Invite dialog state
   const [inviteOpen, setInviteOpen] = useState(false);
@@ -196,15 +198,23 @@ export default function UsersAdmin() {
     try {
       setInviteSubmitting(true);
       setInviteError(null);
-      const created = await api.post<User>("/users", {
-        email: inviteForm.email.trim(),
-        display_name: inviteForm.display_name.trim(),
-        password: inviteForm.password || null,
-        role: inviteForm.role,
-        send_email: inviteForm.send_email,
-      });
+      const created = await api.post<User & { email_error?: string; email_sent?: boolean }>(
+        "/users",
+        {
+          email: inviteForm.email.trim(),
+          display_name: inviteForm.display_name.trim(),
+          password: inviteForm.password || null,
+          role: inviteForm.role,
+          send_email: inviteForm.send_email,
+        }
+      );
       setUsers((prev) => [...prev, created]);
       setInviteOpen(false);
+      if (inviteForm.send_email && created.email_error) {
+        setWarning(created.email_error);
+      } else {
+        setWarning(null);
+      }
       // Refresh invitations since one was created alongside the user
       fetchInvitations();
     } catch (err) {
@@ -263,6 +273,23 @@ export default function UsersAdmin() {
       );
     } finally {
       setEditSubmitting(false);
+    }
+  };
+
+  // --- Resend invitation (from the Pending Invitations table) ---
+  const handleResendInvitationRow = async (inv: SsoInvitation) => {
+    setSuccess(null);
+    setError(null);
+    setWarning(null);
+    try {
+      await api.post(`/users/invitations/${inv.id}/resend`, {});
+      setSuccess(t("users.resendInviteSuccess", { email: inv.email }));
+    } catch (err) {
+      setError(
+        t("users.resendInviteFailed", {
+          error: err instanceof Error ? err.message : t("common:errors.generic"),
+        })
+      );
     }
   };
 
@@ -369,6 +396,20 @@ export default function UsersAdmin() {
       {error && (
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
           {error}
+        </Alert>
+      )}
+
+      {/* Warning banner — surfaces non-fatal issues such as failed invitation emails */}
+      {warning && (
+        <Alert severity="warning" sx={{ mb: 2 }} onClose={() => setWarning(null)}>
+          {warning}
+        </Alert>
+      )}
+
+      {/* Success banner — confirms admin actions like resending an invite */}
+      {success && (
+        <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccess(null)}>
+          {success}
         </Alert>
       )}
 
@@ -556,6 +597,14 @@ export default function UsersAdmin() {
                       {inv.created_at ? formatDate(inv.created_at) : "—"}
                     </TableCell>
                     <TableCell align="right">
+                      <Tooltip title={t("users.resendInviteTooltip")}>
+                        <IconButton
+                          size="small"
+                          onClick={() => handleResendInvitationRow(inv)}
+                        >
+                          <MaterialSymbol icon="forward_to_inbox" size={20} />
+                        </IconButton>
+                      </Tooltip>
                       <Tooltip title={t("users.invitations.revokeTooltip")}>
                         <IconButton
                           size="small"
