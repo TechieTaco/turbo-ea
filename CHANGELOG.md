@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ## [1.0.1] - 2026-05-06
 
 ### Fixed
-- **Bundled edge nginx now starts on IPv4-only hosts and defaults to standard public ports in the sample env file.** The generated nginx config no longer forces IPv6 `listen [::]` sockets when the container runtime does not support them, the stock root-only `user` directive is stripped from the nginx main config to avoid non-root startup noise, and `.env.example` now defaults to `HOST_PORT=80` / `TLS_HOST_PORT=443` so direct TLS deployments land on the normal public ports without extra edits.
+- **Bundled edge nginx now starts on IPv4-only hosts and defaults to standard public ports in the sample env file.** The generated nginx config no longer forces IPv6 `listen [::]` sockets when the container runtime does not support them, but operators can re-enable them with `NGINX_ENABLE_IPV6=true` on dual-stack hosts. The stock root-only `user` directive is stripped from the nginx main config to avoid non-root startup noise, and `.env.example` now defaults to `HOST_PORT=80` / `TLS_HOST_PORT=443` so direct TLS deployments land on the normal public ports without extra edits.
 
 ## [1.0.0] - 2026-05-05
 
