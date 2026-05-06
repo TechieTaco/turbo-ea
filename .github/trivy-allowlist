@@ -129,6 +129,33 @@ CVE-2026-33810
 # rebuilds. Trivy treats them as the same CVE IDs already listed
 # above, so a single allowlist entry covers both image targets.
 
+# Reviewed 2026-05-06 (round 2) — additional Go stdlib CVEs surfaced in
+# the same `gosu` binary by upstream advisories after the initial
+# triage. Same rationale as the block above: `gosu` only invokes
+# `setgid()/setuid()/exec()` on the postgres entrypoint and never
+# touches the vulnerable code paths (net/http parsing, net/url,
+# net/mail, net/textproto, html/template, encoding/asn1, encoding/pem,
+# crypto/x509, crypto/tls handshake, archive/tar, os.Root.Chmod /
+# os.FileInfo). Cannot rebuild from this repo; lands when
+# `postgres:18-alpine` rebuilds against Go 1.25.9+ / 1.26.2+.
+# Re-eval 2026-Q3.
+CVE-2025-47912
+CVE-2025-58185
+CVE-2025-58186
+CVE-2025-58187
+CVE-2025-58188
+CVE-2025-58189
+CVE-2025-61723
+CVE-2025-61724
+CVE-2025-61725
+CVE-2025-61727
+CVE-2025-61730
+CVE-2026-27139
+CVE-2026-27142
+CVE-2026-32282
+CVE-2026-32288
+CVE-2026-32289
+
 # -----------------------------------------------------------------------------
 # Transient — apk upgrade chain (remove when upstream alpine repo ships fix)
 # -----------------------------------------------------------------------------
