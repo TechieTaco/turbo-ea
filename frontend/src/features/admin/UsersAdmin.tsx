@@ -183,25 +183,6 @@ export default function UsersAdmin() {
     }
   };
 
-  // --- Resend invitation ---
-  const handleResendInvite = async (user: User) => {
-    setSuccess(null);
-    setError(null);
-    setWarning(null);
-    try {
-      await api.post(`/users/${user.id}/resend-invitation`, {});
-      setSuccess(
-        t("users.resendInviteSuccess", { email: user.email })
-      );
-    } catch (err) {
-      setError(
-        t("users.resendInviteFailed", {
-          error: err instanceof Error ? err.message : t("common:errors.generic"),
-        })
-      );
-    }
-  };
-
   // --- Invite dialog ---
   const openInvite = () => {
     setInviteForm(EMPTY_INVITE);
@@ -555,11 +536,6 @@ export default function UsersAdmin() {
                     <Tooltip title={t("users.editTooltip")}>
                       <IconButton size="small" onClick={() => openEdit(u)}>
                         <MaterialSymbol icon="edit" size={20} />
-                      </IconButton>
-                    </Tooltip>
-                    <Tooltip title={t("users.resendInviteTooltip")}>
-                      <IconButton size="small" onClick={() => handleResendInvite(u)}>
-                        <MaterialSymbol icon="forward_to_inbox" size={20} />
                       </IconButton>
                     </Tooltip>
                     <Tooltip
