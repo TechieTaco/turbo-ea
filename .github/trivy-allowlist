@@ -1,9 +1,16 @@
 # Trivy CVE allowlist for the GHCR publish workflow.
 #
-# Format: one CVE id per non-comment line. Trivy reads this file via its
-# `--ignorefile` flag (wired up as `trivyignores:` in
-# `.github/workflows/docker-publish.yml`) and excludes listed CVEs from the
-# scan output before deciding the exit code.
+# Format: plain-text, one CVE id per non-comment line. Trivy reads this
+# file via its `--ignorefile` flag (wired up as `trivyignores:` in
+# `.github/workflows/docker-publish.yml`) and excludes listed CVEs from
+# the scan output before deciding the exit code.
+#
+# IMPORTANT: this file deliberately has NO `.yaml`/`.yml` extension.
+# Trivy 0.65+ infers the ignorefile format from the filename: `.yaml` or
+# `.yml` triggers the YAML schema parser, anything else (including no
+# extension) is parsed as plain text. Bare `CVE-XXXX-YYYYY` lines are
+# only valid in the plain-text format. If you rename this file, drop
+# the extension or use `.trivyignore`.
 #
 # Conventions for additions:
 #   - Add a comment block above each CVE (or related group of CVEs)
