@@ -251,8 +251,9 @@ export default function TodosPage() {
         {t("todos.title")}
       </Typography>
 
-      <Tabs value={section} onChange={handleSectionChange} sx={{ mb: 2 }}>
+      <Tabs value={section} onChange={handleSectionChange} sx={{ mb: 2, overflow: "visible", "& .MuiTabs-scroller": { overflow: "visible !important" } }}>
         <Tab
+          sx={{ pr: 3, overflow: "visible" }}
           label={
             <Badge
               badgeContent={badgeCounts.open_todos}
@@ -265,6 +266,7 @@ export default function TodosPage() {
           }
         />
         <Tab
+          sx={{ pr: 3, overflow: "visible" }}
           label={
             <Badge
               badgeContent={badgeCounts.pending_surveys}
