@@ -169,7 +169,8 @@
   "import.errors.typeMismatch": "Zeile {{row}}: Typkonflikt \u2014 Datei hat \"{{fileType}}\", vorhandene hat \"{{existingType}}\"",
   "import.errors.invalidParentId": "Zeile {{row}}: ungültiges parent_id-Format \"{{parentId}}\"",
   "import.errors.parentNotFound": "Zeile {{row}}: parent_id \"{{parentId}}\" nicht gefunden \u2014 muss auf eine vorhandene Karte oder eine andere Zeile in dieser Datei verweisen",
-  "import.errors.parentSelfReference": "Zeile {{row}}: parent_id kann nicht auf sich selbst verweisen",
+  "import.errors.parentSelfReference": "Zeile {{row}}: Elternverweis kann nicht auf sich selbst zeigen",
+  "import.errors.invalidParentPath": "Zeile {{row}}: Elternpfad „{{path}}“ konnte nicht aufgelöst werden — keine Karte mit dieser Hierarchie in dieser Instanz oder in der Datei vorhanden",
   "import.errors.invalidApprovalStatus": "Zeile {{row}}: ungültiger approval_status \"{{status}}\" (gültig: DRAFT, APPROVED, BROKEN, REJECTED)",
   "import.errors.invalidDate": "Zeile {{row}}: {{field}} erwartet ein Datum (JJJJ-MM-TT), erhalten \"{{value}}\"",
   "import.errors.requiredFieldEmpty": "Zeile {{row}}: Pflichtfeld \"{{field}}\" ist leer",
@@ -178,5 +179,7 @@
   "import.errors.invalidSelectValue": "Zeile {{row}}: ungültiger Wert \"{{value}}\" für Feld \"{{field}}\" (gültig: {{valid}})",
   "import.errors.unknown": "Unbekannter Fehler",
   "import.warnings.unrecognisedColumn": "Spalte \"{{column}}\" wird nicht erkannt und ignoriert",
-  "import.warnings.unknownTag": "Zeile {{row}}: unbekannter Tag „{{value}}“ — ignoriert"
+  "import.warnings.unknownTag": "Zeile {{row}}: unbekannter Tag „{{value}}“ — ignoriert",
+  "import.warnings.idNotFoundCreating": "Zeile {{row}}: ID „{{id}}“ existiert in dieser Instanz nicht — wird als neue Karte angelegt",
+  "import.warnings.ambiguousParentPath": "Zeile {{row}}: Elternpfad „{{path}}“ trifft auf mehrere Karten zu — der erste Treffer wird verwendet"
 }

@@ -4,6 +4,24 @@ import { resolveMetaLabel } from "@/hooks/useResolveLabel";
 import type { Card, CardType } from "@/types";
 
 const LIFECYCLE_PHASES = ["plan", "phaseIn", "active", "phaseOut", "endOfLife"] as const;
+const MAX_PATH_DEPTH = 8;
+
+/**
+ * Build a `" / "`-separated path of ancestor names for a card, root first,
+ * immediate parent last. Returns an empty string for root cards. Literal
+ * `/` characters in names are escaped as `\/` so the path is unambiguous.
+ */
+function buildParentPath(card: Card, byId: Map<string, Card>): string {
+  const segments: string[] = [];
+  const seen = new Set<string>();
+  let current = card.parent_id ? byId.get(card.parent_id) : undefined;
+  while (current && !seen.has(current.id) && segments.length < MAX_PATH_DEPTH) {
+    seen.add(current.id);
+    segments.unshift(current.name.replace(/\//g, "\\/"));
+    current = current.parent_id ? byId.get(current.parent_id) : undefined;
+  }
+  return segments.join(" / ");
+}
 
 /**
  * Export the given cards to an XLSX file and trigger a download.
@@ -30,6 +48,10 @@ export function exportToExcel(
       )
     : [];
 
+  // Index by id so we can resolve ancestor names without re-fetching.
+  const byId = new Map<string, Card>();
+  for (const card of cards) byId.set(card.id, card);
+
   for (const card of cards) {
     const row: Record<string, unknown> = {
       id: card.id,
@@ -37,7 +59,7 @@ export function exportToExcel(
       name: card.name,
       description: card.description ?? "",
       subtype: card.subtype ?? "",
-      parent_id: card.parent_id ?? "",
+      parent_path: buildParentPath(card, byId),
       external_id: card.external_id ?? "",
       alias: card.alias ?? "",
       approval_status: card.approval_status ?? "",
