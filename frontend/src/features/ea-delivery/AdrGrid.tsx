@@ -2,8 +2,13 @@ import { useState, useCallback, useMemo, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { AgGridReact } from "ag-grid-react";
-import type { ColDef, RowClickedEvent } from "ag-grid-community";
+import type {
+  ColDef,
+  RowClickedEvent,
+  SelectionChangedEvent,
+} from "ag-grid-community";
 import Box from "@mui/material/Box";
+import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
 import TextField from "@mui/material/TextField";
 import InputAdornment from "@mui/material/InputAdornment";
@@ -34,6 +39,7 @@ interface Props {
   onPreview: (adr: ArchitectureDecision) => void;
   onDuplicate: (adr: ArchitectureDecision) => void;
   onDelete: (adr: ArchitectureDecision) => void;
+  onExport: (adrs: ArchitectureDecision[]) => void;
   quickFilterText: string;
   onQuickFilterChange: (text: string) => void;
 }
@@ -58,6 +64,7 @@ export default function AdrGrid({
   onPreview,
   onDuplicate,
   onDelete,
+  onExport,
   quickFilterText,
   onQuickFilterChange,
 }: Props) {
@@ -73,6 +80,8 @@ export default function AdrGrid({
     adr: ArchitectureDecision;
   } | null>(null);
 
+  const [selectedAdrs, setSelectedAdrs] = useState<ArchitectureDecision[]>([]);
+
   const typeColorMap = useMemo(() => {
     const map: Record<string, string> = {};
     for (const ct of metamodelTypes) map[ct.key] = ct.color;
@@ -86,6 +95,20 @@ export default function AdrGrid({
 
   const columnDefs = useMemo<ColDef<ArchitectureDecision>[]>(
     () => [
+      {
+        headerName: "",
+        field: "__select" as never,
+        checkboxSelection: true,
+        headerCheckboxSelection: true,
+        headerCheckboxSelectionFilteredOnly: true,
+        width: 44,
+        minWidth: 44,
+        maxWidth: 44,
+        sortable: false,
+        resizable: false,
+        suppressMovable: true,
+        pinned: "left",
+      },
       {
         headerName: t("adr.grid.reference"),
         field: "reference_number",
@@ -275,12 +298,30 @@ export default function AdrGrid({
 
   const onRowClicked = useCallback(
     (event: RowClickedEvent<ArchitectureDecision>) => {
+      // Ignore clicks on the selection checkbox column
+      if (event.event && (event.event as MouseEvent).target) {
+        const target = (event.event as MouseEvent).target as HTMLElement;
+        if (target.closest(".ag-selection-checkbox")) return;
+      }
       if (event.data) {
         navigate(`/ea-delivery/adr/${event.data.id}`);
       }
     },
     [navigate],
   );
+
+  const onSelectionChanged = useCallback(
+    (event: SelectionChangedEvent<ArchitectureDecision>) => {
+      const rows = event.api.getSelectedRows() ?? [];
+      setSelectedAdrs(rows);
+    },
+    [],
+  );
+
+  const handleExportClick = useCallback(() => {
+    if (selectedAdrs.length === 0) return;
+    onExport(selectedAdrs);
+  }, [onExport, selectedAdrs]);
 
   const handleContextMenu = useCallback(
     (event: React.MouseEvent) => {
@@ -317,8 +358,18 @@ export default function AdrGrid({
   return (
     <>
       <Box sx={{ display: "flex", flexDirection: "column", height: "100%", width: "100%" }}>
-        {/* Search bar inside the grid panel */}
-        <Box sx={{ px: 1.5, py: 1, borderBottom: 1, borderColor: "divider" }}>
+        {/* Search bar + selection actions inside the grid panel */}
+        <Box
+          sx={{
+            px: 1.5,
+            py: 1,
+            borderBottom: 1,
+            borderColor: "divider",
+            display: "flex",
+            alignItems: "center",
+            gap: 1,
+          }}
+        >
           <TextField
             size="small"
             fullWidth
@@ -335,6 +386,17 @@ export default function AdrGrid({
               },
             }}
           />
+          {selectedAdrs.length > 0 && (
+            <Button
+              variant="contained"
+              size="small"
+              onClick={handleExportClick}
+              startIcon={<MaterialSymbol icon="download" size={18} />}
+              sx={{ textTransform: "none", flexShrink: 0 }}
+            >
+              {t("adr.export.button", { count: selectedAdrs.length })}
+            </Button>
+          )}
         </Box>
 
         <Box
@@ -350,6 +412,9 @@ export default function AdrGrid({
             quickFilterText={quickFilterText}
             loading={loading}
             onRowClicked={onRowClicked}
+            rowSelection="multiple"
+            suppressRowClickSelection
+            onSelectionChanged={onSelectionChanged}
             rowHeight={44}
             headerHeight={44}
             suppressCellFocus
