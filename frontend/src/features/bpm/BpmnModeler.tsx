@@ -88,7 +88,23 @@ export default function BpmnModeler({ processId, versionId, initialXml, onSaved,
       }
 
       if (!xml) {
-        // Load blank template
+        // No draft requested — fall back to the currently-published flow so the
+        // editor opens with real content instead of a blank canvas.
+        try {
+          const pub = await api.get<ProcessFlowVersion>(
+            `/bpm/processes/${processId}/flow/published`
+          );
+          if (pub && pub.bpmn_xml) {
+            xml = pub.bpmn_xml;
+            setVersion(pub.revision);
+          }
+        } catch {
+          // No published version yet
+        }
+      }
+
+      if (!xml) {
+        // Load blank template as last resort
         try {
           const tmpl = await api.get<BpmnTemplate>("/bpm/templates/blank");
           xml = tmpl.bpmn_xml;
@@ -293,7 +309,7 @@ export default function BpmnModeler({ processId, versionId, initialXml, onSaved,
           <IconButton onClick={handleZoomOut} size="small"><MaterialSymbol icon="zoom_out" /></IconButton>
         </Tooltip>
         <Tooltip title={t("modeler.fitToScreen")}>
-          <IconButton onClick={handleFit} size="small"><MaterialSymbol icon="fit_screen" /></IconButton>
+          <IconButton onClick={handleFit} size="small" data-testid="bpmn-fit-to-screen"><MaterialSymbol icon="fit_screen" /></IconButton>
         </Tooltip>
 
         <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />

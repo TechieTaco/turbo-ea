@@ -22,6 +22,7 @@ from app.models.card import Card
 from app.models.process_assessment import ProcessAssessment
 from app.models.process_diagram import ProcessDiagram
 from app.models.process_element import ProcessElement
+from app.models.process_flow_version import ProcessFlowVersion
 from app.models.relation import Relation
 from app.services.seed import RELATIONS as _META_RELATIONS
 from app.services.seed import TYPES as _META_TYPES
@@ -1703,13 +1704,25 @@ async def seed_bpm_demo_data(db: AsyncSession) -> dict:
     diagram_count = 0
     element_count = 0
     if otc_id:
+        otc_xml = _make_otc_bpmn()
         diagram = ProcessDiagram(
             process_id=otc_id,
-            bpmn_xml=_make_otc_bpmn(),
+            bpmn_xml=otc_xml,
             version=1,
         )
         db.add(diagram)
         diagram_count += 1
+
+        # Also seed a published ProcessFlowVersion so the modern flow editor
+        # (which reads from process_flow_versions, not process_diagrams) opens
+        # with real content instead of a blank canvas.
+        published_version = ProcessFlowVersion(
+            process_id=otc_id,
+            status="published",
+            revision=1,
+            bpmn_xml=otc_xml,
+        )
+        db.add(published_version)
         await db.flush()
 
         # Insert extracted process elements with EA links

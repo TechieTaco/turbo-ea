@@ -91,6 +91,7 @@ function DescriptionSection({
               <IconButton
                 size="small"
                 disabled={aiBusy}
+                data-testid="ai-suggest-button"
                 onClick={(e) => {
                   e.stopPropagation();
                   onAiSuggest();
