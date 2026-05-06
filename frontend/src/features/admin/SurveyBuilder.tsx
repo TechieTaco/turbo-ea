@@ -29,6 +29,7 @@ import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useResolveMetaLabel, useResolveLabel } from "@/hooks/useResolveLabel";
+import { FIELD_TYPE_OPTIONS } from "@/features/admin/metamodel/constants";
 import type {
   Survey,
   SurveyField,
@@ -53,6 +54,11 @@ export default function SurveyBuilder() {
     t("surveyBuilder.steps.fields"),
     t("surveyBuilder.steps.previewSend"),
   ];
+
+  const fieldTypeLabel = (type: string): string => {
+    const opt = FIELD_TYPE_OPTIONS.find((o) => o.value === type);
+    return opt ? t(opt.tKey) : type;
+  };
 
   const [activeStep, setActiveStep] = useState(0);
   const [loading, setLoading] = useState(!!id);
@@ -760,7 +766,7 @@ export default function SurveyBuilder() {
                         </TableCell>
                         <TableCell>{f.label}</TableCell>
                         <TableCell>
-                          <Chip label={f.type} size="small" variant="outlined" />
+                          <Chip label={fieldTypeLabel(f.type)} size="small" variant="outlined" />
                         </TableCell>
                         <TableCell onClick={(e) => e.stopPropagation()}>
                           {selected && (
