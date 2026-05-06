@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.0.6] - 2026-05-06
+
+### Fixed
+- **Invitation and test emails now use the configured installation name and stop naming the SSO provider.** The "You've been invited to …" subject and body, plus the SMTP test email, were hardcoded to "Turbo EA" instead of the admin-configured app title. The SSO variant additionally said "sign in with Microsoft" (or whichever provider was configured), which is misleading when the deployment is rebranded. All three variants now read from the configured app title and the SSO copy is provider-agnostic ("Click the button below to sign in").
+
 ## [1.0.5] - 2026-05-06
 
 ### Changed

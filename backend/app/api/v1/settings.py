@@ -175,12 +175,12 @@ async def test_email_settings(
     """Send a test email to the admin's own address using current SMTP settings."""
     await PermissionService.require_permission(db, user, "admin.settings")
 
-    from app.services.email_service import send_notification_email
+    from app.services.email_service import _get_app_title, send_notification_email
 
     try:
         await send_notification_email(
             to=user.email,
-            title="Test Email from Turbo EA",
+            title=f"Test Email from {_get_app_title()}",
             message="If you received this, your email settings are configured correctly.",
             link="/admin/settings",
         )

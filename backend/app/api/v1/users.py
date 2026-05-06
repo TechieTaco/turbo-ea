@@ -9,7 +9,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
-from app.api.v1.auth import PROVIDER_LABELS, _get_sso_config, generate_setup_token
+from app.api.v1.auth import _get_sso_config, generate_setup_token
 from app.core.security import hash_password
 from app.database import get_db
 from app.models.role import Role
@@ -263,34 +263,33 @@ async def create_user(
     # Send invitation email if requested
     if body.send_email:
         try:
-            from app.services.email_service import send_notification_email
+            from app.services.email_service import _get_app_title, send_notification_email
 
             sso_cfg = await _get_sso_config(db)
             sso_enabled = sso_cfg.get("enabled", False)
+            app_title = _get_app_title()
+            invite_title = f"You've been invited to {app_title}"
 
             if setup_token and not sso_enabled:
                 # SSO disabled + no password: send password setup link
                 await send_notification_email(
                     to=email,
-                    title="You've been invited to Turbo EA",
+                    title=invite_title,
                     message=(
-                        "You have been invited to join Turbo EA. "
+                        f"You have been invited to join {app_title}. "
                         "Click the button below to set your password "
                         "and get started."
                     ),
                     link=f"/auth/set-password?token={setup_token}",
                 )
             elif sso_enabled:
-                # SSO enabled: tell them to sign in via their provider
-                provider = sso_cfg.get("provider", "microsoft")
-                provider_name = PROVIDER_LABELS.get(provider, "SSO")
+                # SSO enabled: tell them to sign in (provider-agnostic)
                 await send_notification_email(
                     to=email,
-                    title="You've been invited to Turbo EA",
+                    title=invite_title,
                     message=(
-                        "You have been invited to join Turbo EA. "
-                        "Click the button below to sign in with "
-                        f"{provider_name}."
+                        f"You have been invited to join {app_title}. "
+                        "Click the button below to sign in."
                     ),
                     link="/",
                 )
@@ -298,9 +297,9 @@ async def create_user(
                 # Password was set: tell them to sign in
                 await send_notification_email(
                     to=email,
-                    title="You've been invited to Turbo EA",
+                    title=invite_title,
                     message=(
-                        "You have been invited to join Turbo EA. "
+                        f"You have been invited to join {app_title}. "
                         "A password has been set for your account. "
                         "Click the button below to sign in."
                     ),
