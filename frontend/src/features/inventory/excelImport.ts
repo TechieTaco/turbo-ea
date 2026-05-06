@@ -605,14 +605,17 @@ export function validateImport(
       const val = str(rawVal);
 
       if (!val) {
-        // Rule 14: required fields on creates
-        if (field.required && !id) {
-          errors.push({
+        // A missing required attribute is a data-quality concern, not a data
+        // integrity one — the backend creates the card regardless and the
+        // quality score will reflect the gap. Surface a warning so users
+        // notice, but don't block cross-instance migrations on incomplete
+        // source data.
+        if (field.required && !matchedExisting) {
+          warnings.push({
             row: rowNum,
             column: colKey,
             message: t("import.errors.requiredFieldEmpty", { row: rowNum, field: resolveLabel(field.key, field.translations, i18n.language) }),
           });
-          rowHasAttrError = true;
         }
         continue;
       }
