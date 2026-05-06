@@ -36,30 +36,37 @@ ENVIRONMENT=development
 ALLOWED_ORIGINS=*
 HOST_PORT=8920
 SEED_DEMO=true
+SEED_PPM=true
 EOF
   log "Generated .env with demo configuration."
 else
   log "Existing .env detected — keeping current secrets."
 fi
 
-COMPOSE="docker compose -f docker-compose.db.yml"
+COMPOSE="docker compose -f docker-compose.yml"
 
-# Build images with one retry. The frontend build clones jgraph/drawio
-# (~50 MB) from GitHub and runs npm ci, both of which can fail on a
-# flaky Codespaces network. A single retry is usually enough.
-log "Building images (first run takes 5–10 minutes)..."
-if ! $COMPOSE build; then
-  warn "Initial build failed, retrying after 10s..."
+# Nginx mounts ${TLS_CERTS_DIR:-./certs} read-only; the directory must exist
+# even when TLS is disabled, otherwise the bind mount fails on container start.
+mkdir -p ./certs
+
+# Pull published images with one retry. We deliberately do NOT layer the
+# dev/docker-compose.dev.yml override here — a demo codespace should mirror
+# what a real user gets from `docker compose pull`, not rebuild every image
+# from source (which takes 5–10 minutes and exercises the dev path instead
+# of the published one).
+log "Pulling Turbo EA images from GHCR..."
+if ! $COMPOSE pull; then
+  warn "Initial pull failed, retrying after 10s..."
   sleep 10
-  if ! $COMPOSE build; then
-    fail "Build failed twice. Diagnostics:"
+  if ! $COMPOSE pull; then
+    fail "Pull failed twice. Diagnostics:"
     $COMPOSE ps || true
     docker images || true
-    fail "Re-run manually:  docker compose -f docker-compose.db.yml build"
+    fail "Re-run manually:  $COMPOSE pull"
     exit 0
   fi
 fi
-log "Build complete."
+log "Images ready."
 
 # Bring up the stack.
 log "Starting containers..."
@@ -102,6 +109,27 @@ if [ "$ready" -ne 1 ]; then
   warn "  $COMPOSE ps"
   warn "  $COMPOSE logs --tail=200"
   exit 0
+fi
+
+# Enable the PPM module. The seed populates demo PPM data when SEED_PPM=true,
+# but the UI tabs are gated by the `ppmEnabled` flag in app_settings, which
+# only flips through the admin API.
+log "Enabling the PPM module..."
+TOKEN=$(curl -sf -m 10 -X POST "http://localhost:8920/api/v1/auth/login" \
+  -H "Content-Type: application/json" \
+  -d '{"email":"admin@turboea.demo","password":"TurboEA!2025"}' \
+  | sed -n 's/.*"access_token":"\([^"]*\)".*/\1/p')
+if [ -n "${TOKEN:-}" ]; then
+  if curl -sf -m 10 -X PATCH "http://localhost:8920/api/v1/settings/ppm-enabled" \
+       -H "Authorization: Bearer ${TOKEN}" \
+       -H "Content-Type: application/json" \
+       -d '{"enabled":true}' > /dev/null; then
+    log "PPM module enabled."
+  else
+    warn "Could not enable PPM via API — toggle it from Admin → Settings."
+  fi
+else
+  warn "Could not obtain admin token — enable PPM manually from Admin → Settings."
 fi
 
 log ""
