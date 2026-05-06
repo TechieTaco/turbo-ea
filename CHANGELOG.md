@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.1.0] - 2026-05-06
+
+### Added
+- **Multi-select export of Architecture Decision Records to Word.** The Decisions tab on EA Delivery now has a checkbox column on the ADR grid; selecting one or more rows reveals an "Export to Word" button that generates a single styled `.docx` with a cover page, a table of contents (when more than one decision is selected), and one section per ADR containing reference, title, status, metadata, Context / Decision / Consequences / Alternatives, linked cards, and signatures. Useful for circulating the decisions taken during an architecture review meeting as a single deliverable.
+
 ## [1.0.8] - 2026-05-06
 
 ### Security

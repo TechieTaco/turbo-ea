@@ -27,6 +27,7 @@ import LinkDiagramsDialog from "./LinkDiagramsDialog";
 import CreateAdrDialog from "./CreateAdrDialog";
 import AdrGrid from "./AdrGrid";
 import AdrFilterSidebar, { type AdrFilters, EMPTY_ADR_FILTERS } from "./AdrFilterSidebar";
+import { exportAdrsToDocx } from "./adrExport";
 import { InitiativesTab } from "./initiatives";
 import RiskRegisterPage from "./risks/RiskRegisterPage";
 import type { SoAW, DiagramSummary, EAPrinciple, ArchitectureDecision } from "@/types";
@@ -310,6 +311,22 @@ export default function EADeliveryPage() {
     }
   };
 
+  const handleExportAdrs = useCallback(
+    async (selected: ArchitectureDecision[]) => {
+      if (selected.length === 0) return;
+      try {
+        // List endpoint returns a summary — fetch full ADRs to get rich-text fields
+        const full = await Promise.all(
+          selected.map((a) => api.get<ArchitectureDecision>(`/adr/${a.id}`)),
+        );
+        await exportAdrsToDocx(full);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : t("adr.export.error"));
+      }
+    },
+    [t],
+  );
+
   // ── ADR filter helpers ─────────────────────────────────────────────────
 
   const filteredAdrs = useMemo(() => {
@@ -456,6 +473,7 @@ export default function EADeliveryPage() {
             onPreview={(adr) => navigate(`/ea-delivery/adr/${adr.id}/preview`)}
             onDuplicate={(adr) => handleDuplicateAdr(adr.id)}
             onDelete={(adr) => handleDeleteAdr(adr.id)}
+            onExport={handleExportAdrs}
           />
         </Box>
       </Box>
