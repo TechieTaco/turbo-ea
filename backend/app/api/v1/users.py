@@ -118,6 +118,58 @@ async def list_invitations(
     return [_invitation_response(inv) for inv in result.scalars().all()]
 
 
+@router.post("/invitations/{invitation_id}/resend")
+async def resend_invitation_by_invitation(
+    invitation_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Re-send the invitation email for a row in the Pending Invitations list.
+
+    Looks up the matching user by email and reuses the same email shape
+    as ``POST /users/{id}/resend-invitation``. Falls back to a generic
+    invite when no user row exists yet (shouldn't normally happen, but
+    keeps the action safe for SSO-only deployments).
+    """
+    await PermissionService.require_permission(db, current_user, "admin.users")
+
+    inv_result = await db.execute(
+        select(SsoInvitation).where(SsoInvitation.id == uuid.UUID(invitation_id))
+    )
+    inv = inv_result.scalar_one_or_none()
+    if not inv:
+        raise HTTPException(404, "Invitation not found")
+
+    from app.services.email_service import _get_app_title, send_notification_email
+
+    user_result = await db.execute(select(User).where(User.email == inv.email))
+    matching_user = user_result.scalar_one_or_none()
+
+    sso_cfg = await _get_sso_config(db)
+    sso_enabled = sso_cfg.get("enabled", False)
+    title, message, link = _build_invite_email(
+        app_title=_get_app_title(),
+        setup_token=matching_user.password_setup_token if matching_user else None,
+        sso_enabled=sso_enabled,
+    )
+
+    try:
+        sent = await send_notification_email(to=inv.email, title=title, message=message, link=link)
+    except Exception as exc:
+        import logging
+
+        logging.getLogger(__name__).exception("Failed to resend invitation email to %s", inv.email)
+        raise HTTPException(502, f"Failed to send invitation email: {exc}") from exc
+
+    if not sent:
+        raise HTTPException(
+            400,
+            "SMTP is not configured. Configure SMTP in admin settings before resending.",
+        )
+
+    return {"email_sent": True, "sent_to": inv.email}
+
+
 @router.delete("/invitations/{invitation_id}", status_code=204)
 async def delete_invitation(
     invitation_id: str,

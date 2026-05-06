@@ -295,6 +295,23 @@ export default function UsersAdmin() {
     }
   };
 
+  // --- Resend invitation (from the Pending Invitations table) ---
+  const handleResendInvitationRow = async (inv: SsoInvitation) => {
+    setSuccess(null);
+    setError(null);
+    setWarning(null);
+    try {
+      await api.post(`/users/invitations/${inv.id}/resend`, {});
+      setSuccess(t("users.resendInviteSuccess", { email: inv.email }));
+    } catch (err) {
+      setError(
+        t("users.resendInviteFailed", {
+          error: err instanceof Error ? err.message : t("common:errors.generic"),
+        })
+      );
+    }
+  };
+
   // --- Delete invitation ---
   const handleDeleteInvitation = async (inv: SsoInvitation) => {
     try {
@@ -604,6 +621,14 @@ export default function UsersAdmin() {
                       {inv.created_at ? formatDate(inv.created_at) : "—"}
                     </TableCell>
                     <TableCell align="right">
+                      <Tooltip title={t("users.resendInviteTooltip")}>
+                        <IconButton
+                          size="small"
+                          onClick={() => handleResendInvitationRow(inv)}
+                        >
+                          <MaterialSymbol icon="forward_to_inbox" size={20} />
+                        </IconButton>
+                      </Tooltip>
                       <Tooltip title={t("users.invitations.revokeTooltip")}>
                         <IconButton
                           size="small"
