@@ -16,3 +16,19 @@ fi
 
 echo "Ensuring Turbo EA containers are running..."
 docker compose -f docker-compose.yml -f dev/docker-compose.dev.yml up -d
+
+cat <<'BANNER'
+
+======================================
+  Turbo EA Demo
+======================================
+
+  Open the forwarded port 8920 in your browser.
+
+  Login credentials:
+    Email:    admin@turboea.demo
+    Password: TurboEA!2025
+
+  See .devcontainer/WELCOME.md for more.
+
+BANNER

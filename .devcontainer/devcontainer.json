@@ -18,7 +18,7 @@
   "postStartCommand": "bash .devcontainer/start-demo.sh",
   "customizations": {
     "codespaces": {
-      "openFiles": []
+      "openFiles": [".devcontainer/WELCOME.md"]
     },
     "vscode": {
       "settings": {
