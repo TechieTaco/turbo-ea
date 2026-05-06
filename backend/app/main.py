@@ -450,6 +450,9 @@ async def lifespan(app: FastAPI):
 
     # Seed PPM demo data
     if settings.SEED_DEMO or settings.SEED_PPM:
+        from sqlalchemy import select as _sel
+
+        from app.models.app_settings import AppSettings
         from app.services.seed_demo_ppm import seed_ppm_demo_data
 
         async with async_session() as db:
@@ -461,6 +464,18 @@ async def lifespan(app: FastAPI):
                     f"{result['budget_lines']} budget lines, {result['cost_lines']} cost lines, "
                     f"{result['risks']} risks"
                 )
+                # Auto-enable the PPM module so the seeded data is reachable in the UI.
+                row_result = await db.execute(_sel(AppSettings).where(AppSettings.id == "default"))
+                row = row_result.scalar_one_or_none()
+                if row is None:
+                    row = AppSettings(id="default")
+                    db.add(row)
+                general = dict(row.general_settings or {})
+                if not general.get("ppmEnabled"):
+                    general["ppmEnabled"] = True
+                    row.general_settings = general
+                    await db.commit()
+                    print("[seed_ppm] Enabled PPM module (ppmEnabled=true)")
             else:
                 print(f"[seed_ppm] Skipped: {result.get('reason', 'unknown')}")
 

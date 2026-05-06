@@ -56,7 +56,7 @@ El **Informe de Dependencias** visualiza las **conexiones entre componentes** co
 
 ### Layered Dependency View (vista de dependencias por capas)
 
-![Layered Dependency View](../assets/img/es/13b_dependencies_c4.png)
+![Layered Dependency View](../assets/img/es/13b_dependencias_c4.png)
 
 Cambie a la **Layered Dependency View** utilizando los botones de modo de vista en la barra de herramientas. Es la notación propia de Turbo EA para mostrar dependencias entre fichas a través de las cuatro capas EA — inspirada en el principio de estratificación de ArchiMate y en la filosofía de «buenos valores por defecto» del modelo C4, pero distinta de ambos:
 

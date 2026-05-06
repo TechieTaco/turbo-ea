@@ -67,12 +67,17 @@ export const CARD_LOOKUPS = {
 
 /** Build a comma-separated has-text selector chain for a tab across locales. */
 function tabSelector(...labels: string[]): string {
-  // Scope to [role='tablist'] to avoid matching navbar buttons with the same text
+  // Scope to [role='tablist'] to avoid matching navbar buttons with the same text.
+  // Use double-quoted :has-text(...) so labels containing apostrophes
+  // (e.g. "Vue d'ensemble", "Décisions d'architecture") parse correctly.
   return labels
-    .flatMap((l) => [
-      `[role='tablist'] [role='tab']:has-text('${l}')`,
-      `[role='tablist'] button:has-text('${l}')`,
-    ])
+    .flatMap((l) => {
+      const escaped = l.replace(/"/g, '\\"');
+      return [
+        `[role='tablist'] [role='tab']:has-text("${escaped}")`,
+        `[role='tablist'] button:has-text("${escaped}")`,
+      ];
+    })
     .join(", ");
 }
 
@@ -85,7 +90,7 @@ const TAB_TODOS = tabSelector(
 );
 const TAB_STAKEHOLDERS = tabSelector(
   "Stakeholders", "Stakeholder", "Parties prenantes", "Partes interesadas",
-  "Partes interessadas", "利益相关者", "Заинтересованные стороны",
+  "Partes interessadas", "利益相关者", "Заинтересованные лица",
 );
 const TAB_HISTORY = tabSelector(
   "History", "Historie", "Historique", "Historial",
@@ -101,11 +106,6 @@ const TAB_METAMODEL_GRAPH = tabSelector(
 );
 const TAB_ROLES = tabSelector(
   "Roles", "Rollen", "Rôles", "Ruoli", "Papéis", "角色", "Роли",
-);
-const TAB_DECISIONS = tabSelector(
-  "Architecture Decisions", "Architekturentscheidungen", "Décisions d'architecture",
-  "Decisiones de arquitectura", "Decisioni architetturali", "Decisões de arquitetura",
-  "架构决策", "Архитектурные решения",
 );
 const TAB_RESOURCES = tabSelector(
   "Resources", "Ressourcen", "Ressources", "Recursos",
@@ -306,7 +306,7 @@ export const DOC_PAGES: PageDef[] = [
     actions: [
       { type: "wait", ms: 600 },
       // Click the Reports dropdown button in the nav bar to show the menu
-      { type: "click", selector: ".MuiToolbar-root button:has-text('Reports'), .MuiToolbar-root button:has-text('Berichte'), .MuiToolbar-root button:has-text('Rapports'), .MuiToolbar-root button:has-text('Informes'), .MuiToolbar-root button:has-text('Report'), .MuiToolbar-root button:has-text('Relatórios'), .MuiToolbar-root button:has-text('报表'), .MuiToolbar-root button:has-text('Отчёты')" },
+      { type: "click", selector: ".MuiToolbar-root button:has-text('Reports'), .MuiToolbar-root button:has-text('Berichte'), .MuiToolbar-root button:has-text('Rapports'), .MuiToolbar-root button:has-text('Informes'), .MuiToolbar-root button:has-text('Report'), .MuiToolbar-root button:has-text('Relatórios'), .MuiToolbar-root button:has-text('报告'), .MuiToolbar-root button:has-text('Отчёты')" },
       { type: "wait", ms: 400 },
     ],
     filenames: {
@@ -324,7 +324,8 @@ export const DOC_PAGES: PageDef[] = [
     id: "10_report_portfolio",
     route: "/reports/portfolio",
     waitFor: ".recharts-responsive-container",
-    actions: [{ type: "wait", ms: 800 }],
+    // Recharts default grow-in animation is 1500 ms; wait past it.
+    actions: [{ type: "wait", ms: 1800 }],
     filenames: {
       en: "10_report_portfolio",
       de: "10_bericht_portfolio",
@@ -356,7 +357,7 @@ export const DOC_PAGES: PageDef[] = [
     id: "12_lifecycle",
     route: "/reports/lifecycle",
     waitFor: ".recharts-responsive-container, [class*='Lifecycle']",
-    actions: [{ type: "wait", ms: 800 }],
+    actions: [{ type: "wait", ms: 1800 }],
     filenames: {
       en: "12_lifecycle",
       de: "12_lebenszyklus",
@@ -390,7 +391,8 @@ export const DOC_PAGES: PageDef[] = [
     waitFor: ".react-flow",
     actions: [
       { type: "click", selector: "[value='c4']" },
-      { type: "wait", ms: 1500 },
+      // React Flow runs an auto-layout + fit-view animation; allow it to settle.
+      { type: "wait", ms: 2500 },
     ],
     filenames: {
       en: "13b_dependencies_c4",
@@ -481,13 +483,10 @@ export const DOC_PAGES: PageDef[] = [
   // ── EA Delivery — ADR Decisions Tab ──────────────────────────────────
   {
     id: "17b_ea_delivery_decisions",
-    route: "/ea-delivery",
+    // EADeliveryPage reads ?tab= so we navigate directly instead of clicking.
+    route: "/ea-delivery?tab=decisions",
     waitFor: ".MuiPaper-root",
-    actions: [
-      { type: "wait", ms: 400 },
-      { type: "click", selector: TAB_DECISIONS },
-      { type: "wait", ms: 600 },
-    ],
+    actions: [{ type: "wait", ms: 800 }],
     filenames: {
       en: "17b_ea_delivery_decisions",
       de: "17b_ea_lieferung_entscheidungen",
@@ -626,8 +625,9 @@ export const DOC_PAGES: PageDef[] = [
     waitFor: ".ag-root",
     actions: [
       { type: "wait", ms: 600 },
-      // Click a type filter to demonstrate filtering (Application is a common type)
-      { type: "click", selector: "text=Application >> xpath=ancestor::div[contains(@class, 'MuiTreeItem')]//input[@type='checkbox'], label:has-text('Application') >> input[type='checkbox'], .MuiTreeItem-label:has-text('Application')" },
+      // Click the "Application" type-filter row in the sidebar — it's a
+      // ListItemButton, not a TreeItem (see InventoryFilterSidebar.tsx).
+      { type: "click", selector: ".MuiListItemButton-root:has-text('Application')" },
       { type: "wait", ms: 600 },
     ],
     filenames: {
@@ -703,8 +703,8 @@ export const DOC_PAGES: PageDef[] = [
     waitFor: "[data-testid='card-detail'], [class*='CardDetail'], h5, h4",
     actions: [
       { type: "wait", ms: 400 },
-      // Click the AI suggest sparkle button (MaterialSymbol icon "auto_awesome")
-      { type: "click", selector: "button:has-text('auto_awesome')" },
+      // Click the AI suggest sparkle button — see DescriptionSection.tsx
+      { type: "click", selector: "[data-testid='ai-suggest-button']" },
       { type: "wait", ms: 800 },
     ],
     filenames: {
@@ -1087,7 +1087,13 @@ export const DOC_PAGES: PageDef[] = [
     route: "/bpm/processes/{{cardId:sampleProcess}}/flow",
     // Wait for actual BPMN lane/task elements to render (not just the container)
     waitFor: ".bjs-container .djs-group, .bjs-container .djs-layer, .bjs-container",
-    actions: [{ type: "wait", ms: 3000 }],
+    actions: [
+      { type: "wait", ms: 2000 },
+      // Trigger Fit-to-Screen so the auto-fit zoom settles before capture —
+      // see BpmnModeler.tsx (data-testid added for stable targeting).
+      { type: "click", selector: "[data-testid='bpmn-fit-to-screen']" },
+      { type: "wait", ms: 800 },
+    ],
     filenames: {
       en: "47_bpm_process_flow",
       de: "47_bpm_prozessfluss",
