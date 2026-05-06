@@ -30,7 +30,12 @@ def _is_configured() -> bool:
 
 
 def _send_sync(to: str, subject: str, body_html: str, body_text: str) -> None:
-    """Send an email synchronously (called from a thread)."""
+    """Send an email synchronously (called from a thread).
+
+    Raises on SMTP / network failure so async callers can surface the
+    error to the user. Best-effort callers (background notifications)
+    should wrap this in their own try/except.
+    """
     msg = MIMEMultipart("alternative")
     msg["From"] = settings.SMTP_FROM
     msg["To"] = to
@@ -54,6 +59,7 @@ def _send_sync(to: str, subject: str, body_html: str, body_text: str) -> None:
         logger.info("Email sent to %s: %s", to, subject)
     except Exception:
         logger.exception("Failed to send email to %s", to)
+        raise
 
 
 async def send_email(to: str, subject: str, body_html: str, body_text: str = "") -> bool:

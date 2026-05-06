@@ -260,55 +260,62 @@ async def create_user(
     await db.commit()
     await db.refresh(u)
 
-    # Send invitation email if requested
+    # Send invitation email if requested. The user has already been
+    # committed above, so we don't roll back on email failure — instead
+    # we surface the SMTP error in the response so the admin can see it
+    # and re-send (e.g. via the test-email endpoint after fixing creds).
+    response = _user_response(u)
     if body.send_email:
+        from app.services.email_service import _get_app_title, send_notification_email
+
+        sso_cfg = await _get_sso_config(db)
+        sso_enabled = sso_cfg.get("enabled", False)
+        app_title = _get_app_title()
+        invite_title = f"You've been invited to {app_title}"
+
+        if setup_token and not sso_enabled:
+            invite_message = (
+                f"You have been invited to join {app_title}. "
+                "Click the button below to set your password and get started."
+            )
+            invite_link = f"/auth/set-password?token={setup_token}"
+        elif sso_enabled:
+            invite_message = (
+                f"You have been invited to join {app_title}. Click the button below to sign in."
+            )
+            invite_link = "/"
+        else:
+            invite_message = (
+                f"You have been invited to join {app_title}. "
+                "A password has been set for your account. "
+                "Click the button below to sign in."
+            )
+            invite_link = "/"
+
         try:
-            from app.services.email_service import _get_app_title, send_notification_email
-
-            sso_cfg = await _get_sso_config(db)
-            sso_enabled = sso_cfg.get("enabled", False)
-            app_title = _get_app_title()
-            invite_title = f"You've been invited to {app_title}"
-
-            if setup_token and not sso_enabled:
-                # SSO disabled + no password: send password setup link
-                await send_notification_email(
-                    to=email,
-                    title=invite_title,
-                    message=(
-                        f"You have been invited to join {app_title}. "
-                        "Click the button below to set your password "
-                        "and get started."
-                    ),
-                    link=f"/auth/set-password?token={setup_token}",
+            sent = await send_notification_email(
+                to=email,
+                title=invite_title,
+                message=invite_message,
+                link=invite_link,
+            )
+            response["email_sent"] = bool(sent)
+            if not sent:
+                response["email_error"] = (
+                    "SMTP is not configured, so the invitation email could not "
+                    "be sent. The account was created — configure SMTP in admin "
+                    "settings and re-send manually if needed."
                 )
-            elif sso_enabled:
-                # SSO enabled: tell them to sign in (provider-agnostic)
-                await send_notification_email(
-                    to=email,
-                    title=invite_title,
-                    message=(
-                        f"You have been invited to join {app_title}. "
-                        "Click the button below to sign in."
-                    ),
-                    link="/",
-                )
-            else:
-                # Password was set: tell them to sign in
-                await send_notification_email(
-                    to=email,
-                    title=invite_title,
-                    message=(
-                        f"You have been invited to join {app_title}. "
-                        "A password has been set for your account. "
-                        "Click the button below to sign in."
-                    ),
-                    link="/",
-                )
-        except Exception:
-            pass  # Email sending is best-effort
+        except Exception as exc:
+            import logging
 
-    return _user_response(u)
+            logging.getLogger(__name__).exception("Failed to send invitation email to %s", email)
+            response["email_sent"] = False
+            response["email_error"] = (
+                f"The account was created, but the invitation email could not be sent: {exc}"
+            )
+
+    return response
 
 
 @router.patch("/{user_id}")

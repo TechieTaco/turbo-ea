@@ -65,6 +65,7 @@ export default function UsersAdmin() {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [warning, setWarning] = useState<string | null>(null);
 
   // Invite dialog state
   const [inviteOpen, setInviteOpen] = useState(false);
@@ -196,15 +197,23 @@ export default function UsersAdmin() {
     try {
       setInviteSubmitting(true);
       setInviteError(null);
-      const created = await api.post<User>("/users", {
-        email: inviteForm.email.trim(),
-        display_name: inviteForm.display_name.trim(),
-        password: inviteForm.password || null,
-        role: inviteForm.role,
-        send_email: inviteForm.send_email,
-      });
+      const created = await api.post<User & { email_error?: string; email_sent?: boolean }>(
+        "/users",
+        {
+          email: inviteForm.email.trim(),
+          display_name: inviteForm.display_name.trim(),
+          password: inviteForm.password || null,
+          role: inviteForm.role,
+          send_email: inviteForm.send_email,
+        }
+      );
       setUsers((prev) => [...prev, created]);
       setInviteOpen(false);
+      if (inviteForm.send_email && created.email_error) {
+        setWarning(created.email_error);
+      } else {
+        setWarning(null);
+      }
       // Refresh invitations since one was created alongside the user
       fetchInvitations();
     } catch (err) {
@@ -369,6 +378,13 @@ export default function UsersAdmin() {
       {error && (
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
           {error}
+        </Alert>
+      )}
+
+      {/* Warning banner — surfaces non-fatal issues such as failed invitation emails */}
+      {warning && (
+        <Alert severity="warning" sx={{ mb: 2 }} onClose={() => setWarning(null)}>
+          {warning}
         </Alert>
       )}
 
