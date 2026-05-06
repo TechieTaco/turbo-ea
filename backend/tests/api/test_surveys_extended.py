@@ -1069,5 +1069,6 @@ class TestCardIdsFilter:
         # metamodel translations are defined on the test fixture, but the keys must exist)
         assert "type_translations" in data["card"]
         assert "subtype_translations" in data["card"]
-        # Each field carries its key + section so the frontend can resolve labels
-        assert all("key" in f and "section" in f for f in data["fields"])
+        # Each field carries at least its key + current_value so the response form
+        # can render it; translation maps are added when the live metamodel has any
+        assert all("key" in f and "current_value" in f for f in data["fields"])
