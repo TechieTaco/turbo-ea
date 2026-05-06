@@ -425,15 +425,15 @@ SURVEY_DEFS: list[dict] = [
         "target_roles": ["responsible", "technical_application_owner"],
         "fields": [
             {
-                "key": "vendor",
-                "section": "__description",
-                "label": "Vendor",
+                "key": "productName",
+                "section": "Cost & Ownership",
+                "label": "Product Name",
                 "type": "text",
                 "action": "confirm",
             },
             {
                 "key": "businessCriticality",
-                "section": "Classification",
+                "section": "Application Information",
                 "label": "Business Criticality",
                 "type": "single_select",
                 "options": [
@@ -446,7 +446,7 @@ SURVEY_DEFS: list[dict] = [
             },
             {
                 "key": "numberOfUsers",
-                "section": "Classification",
+                "section": "Cost & Ownership",
                 "label": "Number of Users",
                 "type": "number",
                 "action": "maintain",
@@ -469,22 +469,16 @@ SURVEY_DEFS: list[dict] = [
         "fields": [
             {
                 "key": "version",
-                "section": "Technical Details",
+                "section": "Component Information",
                 "label": "Current Version",
                 "type": "text",
                 "action": "maintain",
             },
             {
-                "key": "supportLevel",
-                "section": "Technical Details",
-                "label": "Support Level",
-                "type": "single_select",
-                "options": [
-                    {"key": "fullSupport", "label": "Full Support"},
-                    {"key": "limitedSupport", "label": "Limited Support"},
-                    {"key": "extendedSupport", "label": "Extended Support"},
-                    {"key": "endOfLife", "label": "End of Life"},
-                ],
+                "key": "licenseType",
+                "section": "Cost",
+                "label": "License Type",
+                "type": "text",
                 "action": "maintain",
             },
         ],
@@ -498,9 +492,9 @@ SURVEY_RESPONSE_CARDS: list[tuple[str, str, dict | None]] = [
         CARD_SAP_S4,
         "completed",
         {
-            "vendor": {
-                "current_value": "SAP",
-                "new_value": "SAP",
+            "productName": {
+                "current_value": "SAP S/4HANA Cloud",
+                "new_value": "SAP S/4HANA Cloud",
                 "confirmed": True,
             },
             "businessCriticality": {
@@ -519,9 +513,9 @@ SURVEY_RESPONSE_CARDS: list[tuple[str, str, dict | None]] = [
         CARD_SF_SALES,
         "completed",
         {
-            "vendor": {
-                "current_value": "Salesforce",
-                "new_value": "Salesforce",
+            "productName": {
+                "current_value": "Salesforce Sales Cloud",
+                "new_value": "Salesforce Sales Cloud",
                 "confirmed": True,
             },
             "businessCriticality": {
@@ -605,7 +599,7 @@ BOOKMARK_DEFS: list[dict] = [
             "businessCriticality",
             "technicalSuitability",
             "costTotalAnnual",
-            "vendor",
+            "productName",
             "lifecycle",
         ],
         "sort": {"field": "name", "direction": "asc"},

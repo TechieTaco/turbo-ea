@@ -112,6 +112,12 @@ async def _resolve_targets(db: AsyncSession, survey: Survey) -> list[dict]:
         Card.status == "ACTIVE",
     )
 
+    # Specific cards filter — direct selection of target cards (intersected with type)
+    card_ids = filters.get("card_ids") or []
+    if card_ids:
+        card_uuids = [uuid.UUID(c) for c in card_ids]
+        q = q.where(Card.id.in_(card_uuids))
+
     # Tag filter
     tag_ids = filters.get("tag_ids") or []
     if tag_ids:
@@ -119,7 +125,7 @@ async def _resolve_targets(db: AsyncSession, survey: Survey) -> list[dict]:
         tagged_fs = select(CardTag.card_id).where(CardTag.tag_id.in_(tag_uuids))
         q = q.where(Card.id.in_(tagged_fs))
 
-    # Related card filter
+    # Related card filter — cards that have a Relation to/from one of these IDs
     related_ids = filters.get("related_ids") or []
     if related_ids:
         related_uuids = [uuid.UUID(r) for r in related_ids]
@@ -697,17 +703,62 @@ async def get_response_form(
     if not card:
         raise HTTPException(404, "Card not found")
 
-    # Build current values for each survey field
+    # Load the live card type so we can enrich the snapshot with current translations
+    card_type_result = await db.execute(select(CardType).where(CardType.key == card.type))
+    card_type = card_type_result.scalar_one_or_none()
+
+    # Build lookups: {field_key → metamodel field def}, {section_name → translations}
+    meta_field_by_key: dict[str, dict] = {}
+    section_translations_by_name: dict[str, dict] = {}
+    if card_type and card_type.fields_schema:
+        for section in card_type.fields_schema or []:
+            section_name = section.get("section")
+            if section_name and section.get("translations"):
+                section_translations_by_name[section_name] = section["translations"]
+            for f in section.get("fields", []) or []:
+                if f.get("key"):
+                    meta_field_by_key[f["key"]] = f
+
+    # Build current values for each survey field, enriched with metamodel translations
     attrs = card.attributes or {}
     fields_with_values = []
     for field_def in survey.fields or []:
         current_value = attrs.get(field_def["key"])
-        fields_with_values.append(
-            {
-                **field_def,
-                "current_value": current_value,
-            }
-        )
+        meta_field = meta_field_by_key.get(field_def["key"]) or {}
+        enriched: dict = {**field_def, "current_value": current_value}
+
+        # Field label translations (prefer snapshot if set, else live metamodel)
+        if not enriched.get("translations") and meta_field.get("translations"):
+            enriched["translations"] = meta_field["translations"]
+
+        # Section name translations
+        section_tr = section_translations_by_name.get(field_def.get("section") or "")
+        if section_tr and not enriched.get("section_translations"):
+            enriched["section_translations"] = section_tr
+
+        # Option translations — merge per-option from live metamodel by option key
+        meta_options_by_key = {
+            o.get("key"): o for o in (meta_field.get("options") or []) if o.get("key")
+        }
+        if enriched.get("options") and meta_options_by_key:
+            merged_opts = []
+            for opt in enriched["options"] or []:
+                meta_opt = meta_options_by_key.get(opt.get("key")) or {}
+                merged_opt = dict(opt)
+                if not merged_opt.get("translations") and meta_opt.get("translations"):
+                    merged_opt["translations"] = meta_opt["translations"]
+                merged_opts.append(merged_opt)
+            enriched["options"] = merged_opts
+
+        fields_with_values.append(enriched)
+
+    # Resolve subtype label translations from the card type's subtypes list
+    subtype_translations: dict | None = None
+    if card.subtype and card_type and card_type.subtypes:
+        for st in card_type.subtypes or []:
+            if st.get("key") == card.subtype:
+                subtype_translations = st.get("translations") or None
+                break
 
     return {
         "response_id": str(resp.id),
@@ -722,6 +773,8 @@ async def get_response_form(
             "name": card.name,
             "type": card.type,
             "subtype": card.subtype,
+            "type_translations": (card_type.translations if card_type else None) or None,
+            "subtype_translations": subtype_translations,
         },
         "fields": fields_with_values,
         "existing_responses": resp.responses or {},

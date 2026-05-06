@@ -579,11 +579,13 @@ export interface SurveyField {
   options?: { key: string; label: string; color?: string; translations?: TranslationMap }[];
   action: "maintain" | "confirm";
   translations?: TranslationMap;
+  section_translations?: TranslationMap;
 }
 
 export interface SurveyTargetFilters {
   related_type?: string;
   related_ids?: string[];
+  card_ids?: string[];
   tag_ids?: string[];
   attribute_filters?: { key: string; op: string; value: string }[];
 }
@@ -653,7 +655,14 @@ export interface SurveyRespondForm {
   response_id: string;
   response_status: string;
   survey: { id: string; name: string; message: string };
-  card: { id: string; name: string; type: string; subtype?: string };
+  card: {
+    id: string;
+    name: string;
+    type: string;
+    subtype?: string;
+    type_translations?: MetamodelTranslations;
+    subtype_translations?: TranslationMap;
+  };
   fields: (SurveyField & { current_value: unknown })[];
   existing_responses: Record<string, { current_value: unknown; new_value: unknown; confirmed: boolean }>;
 }

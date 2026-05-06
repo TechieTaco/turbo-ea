@@ -34,7 +34,11 @@ Selezionate a quale tipo di card si applica il sondaggio (es. Application, IT Co
 
 ### Filtri
 
-Opzionalmente restringete l'ambito filtrando le card (es. solo applicazioni Active, solo card di proprietà di un'organizzazione specifica).
+Restringete opzionalmente l'ambito con i filtri. Sono disponibili tre tipi di filtro, combinabili tra loro:
+
+- **Schede specifiche** — Selezionate direttamente una o più schede (limitate al tipo di destinazione). Utile per destinare una singola scheda o un sottoinsieme scelto manualmente.
+- **Schede correlate a** — Include solo le schede che hanno una relazione con uno degli elementi elencati (es. tutte le applicazioni correlate all'organizzazione Vendite).
+- **Tag** e **filtri di attributi** — Filtrate le schede per tag o per condizione di attributo (es. costo maggiore di 10 000, valutazione TIME mancante).
 
 ### Domande
 

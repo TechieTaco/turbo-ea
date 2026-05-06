@@ -13,27 +13,36 @@ import MenuItem from "@mui/material/MenuItem";
 import Switch from "@mui/material/Switch";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import IconButton from "@mui/material/IconButton";
-import { useResolveLabel } from "@/hooks/useResolveLabel";
+import { useResolveLabel, useResolveMetaLabel } from "@/hooks/useResolveLabel";
 import Tooltip from "@mui/material/Tooltip";
 import Divider from "@mui/material/Divider";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import type { SurveyRespondForm, SurveyField } from "@/types";
 
+type OptionLabelResolver = (key: string, translations?: Record<string, string>) => string;
+
 /** Resolve a value to its display label using field options when available. */
-function formatValue(val: unknown, field?: SurveyField & { current_value?: unknown }, t?: (key: string) => string): string {
+function formatValue(
+  val: unknown,
+  field?: SurveyField & { current_value?: unknown },
+  t?: (key: string) => string,
+  rl?: OptionLabelResolver,
+): string {
   if (val === null || val === undefined || val === "") return "—";
   if (typeof val === "boolean") return val ? (t ? t("common:labels.yes") : "Yes") : (t ? t("common:labels.no") : "No");
 
   const opts = field?.options;
   if (opts && opts.length > 0) {
+    const optLabel = (key: unknown) => {
+      const opt = opts.find((o) => o.key === key);
+      if (!opt) return String(key);
+      return rl ? rl(opt.key, opt.translations) : (opt.label ?? opt.key);
+    };
     if (Array.isArray(val)) {
-      return val
-        .map((v) => opts.find((o) => o.key === v)?.label ?? String(v))
-        .join(", ");
+      return val.map(optLabel).join(", ");
     }
-    const match = opts.find((o) => o.key === val);
-    if (match) return match.label;
+    return optLabel(val);
   }
 
   if (Array.isArray(val)) return val.join(", ");
@@ -48,6 +57,7 @@ interface FieldResponse {
 export default function SurveyRespond() {
   const { t } = useTranslation(["admin", "common"]);
   const rl = useResolveLabel();
+  const rml = useResolveMetaLabel();
   const { surveyId, cardId } = useParams<{ surveyId: string; cardId: string }>();
   const navigate = useNavigate();
 
@@ -283,9 +293,16 @@ export default function SurveyRespond() {
       <Card variant="outlined" sx={{ p: 2, mb: 2, display: "flex", alignItems: "center", gap: 1 }}>
         <MaterialSymbol icon="apps" size={22} color="#0f7eb5" />
         <Typography sx={{ fontWeight: 600, flex: 1 }}>{form.card.name}</Typography>
-        <Chip label={form.card.type} size="small" variant="outlined" />
+        <Chip
+          label={rml(form.card.type, form.card.type_translations, "label")}
+          size="small"
+          variant="outlined"
+        />
         {form.card.subtype && (
-          <Chip label={form.card.subtype} size="small" />
+          <Chip
+            label={rl(form.card.subtype, form.card.subtype_translations)}
+            size="small"
+          />
         )}
       </Card>
 
@@ -320,7 +337,7 @@ export default function SurveyRespond() {
                 variant="outlined"
               />
               <Typography variant="caption" color="text.secondary">
-                {field.section}
+                {rl(field.section, field.section_translations)}
               </Typography>
             </Box>
 
@@ -329,7 +346,7 @@ export default function SurveyRespond() {
                 {t("surveys.respond.currentValue")}
               </Typography>
               <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                {formatValue(field.current_value, field, t)}
+                {formatValue(field.current_value, field, t, rl)}
               </Typography>
             </Box>
 
