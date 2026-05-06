@@ -421,7 +421,11 @@ WORKDIR /app
 
 COPY VERSION ./VERSION
 COPY mcp-server/ ./
-RUN pip install --no-cache-dir .
+# Upgrade the bundled pip past CVE-2025-8869 / CVE-2026-1703 / CVE-2026-6357
+# before installing the app. pip is never executed at runtime — this only
+# silences Trivy noise on the published image.
+RUN pip install --no-cache-dir --upgrade 'pip>=26.1' && \
+    pip install --no-cache-dir .
 
 RUN addgroup -g ${APP_GID} -S appgroup && adduser -S -D -u ${APP_UID} -G appgroup appuser && \
     chown -R ${APP_UID}:${APP_GID} /app
