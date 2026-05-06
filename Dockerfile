@@ -131,6 +131,23 @@ if [ -z "$public_host" ]; then
 fi
 
 tls_enabled=$(printf '%s' "${TURBO_EA_TLS_ENABLED:-false}" | tr '[:upper:]' '[:lower:]')
+ipv6_enabled=$(printf '%s' "${NGINX_ENABLE_IPV6:-false}" | tr '[:upper:]' '[:lower:]')
+
+nginx_http_ipv6_line=''
+nginx_https_ipv6_line=''
+
+case "$ipv6_enabled" in
+    true|1|yes|on)
+        nginx_http_ipv6_line='    listen [::]:8080;'
+        nginx_https_ipv6_line='    listen [::]:8443 ssl;'
+        ;;
+    false|0|no|off|'')
+        ;;
+    *)
+        echo "Turbo EA nginx: unsupported NGINX_ENABLE_IPV6 value: $ipv6_enabled" >&2
+        exit 1
+        ;;
+esac
 
 export NGINX_SERVER_NAME="${NGINX_SERVER_NAME:-$public_host}"
 export NGINX_FORWARDED_PROTO="${NGINX_FORWARDED_PROTO:-$public_scheme}"
@@ -149,13 +166,13 @@ case "$tls_enabled" in
         fi
         export NGINX_HTTP_SERVER_BLOCK="server {
     listen 8080;
-    listen [::]:8080;
+${nginx_http_ipv6_line}
     server_name ${NGINX_SERVER_NAME};
     return 301 https://\$host:${NGINX_TLS_HOST_PORT}\$request_uri;
 }"
         export NGINX_HTTPS_SERVER_BLOCK="server {
     listen 8443 ssl;
-    listen [::]:8443 ssl;
+${nginx_https_ipv6_line}
     http2 on;
     server_name ${NGINX_SERVER_NAME};
     client_max_body_size 5m;
@@ -253,7 +270,7 @@ case "$tls_enabled" in
     false|0|no|off|'')
         export NGINX_HTTP_SERVER_BLOCK="server {
     listen 8080;
-    listen [::]:8080;
+${nginx_http_ipv6_line}
     server_name ${NGINX_SERVER_NAME};
     client_max_body_size 5m;
 
@@ -354,6 +371,8 @@ EOF
 
 RUN mkdir -p /etc/nginx/templates /etc/nginx/turboea-templates /var/cache/nginx /var/run && \
     touch /var/run/nginx.pid && \
+    rm -f /docker-entrypoint.d/10-listen-on-ipv6-by-default.sh && \
+    sed -i '/^user\s\+/d' /etc/nginx/nginx.conf && \
     chmod 755 /usr/local/bin/turboea-nginx-entrypoint && \
     chown -R ${APP_UID}:${APP_GID} /etc/nginx/conf.d /etc/nginx/turboea-templates /etc/nginx/templates /var/cache/nginx /var/log/nginx /run
 
