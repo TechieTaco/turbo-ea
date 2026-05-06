@@ -135,8 +135,7 @@ AI-powered EA analysis module — originally ported from [ArchLens](https://gith
 ### Integrations
 
 > [!IMPORTANT]
-> The ServiceNow integration is implemented but looking for volunteer testers with access to a ServiceNow instance.
-> If you are interested, please check the discussions or raise an issue.
+> SSO (Entra / Google / Okta / Generic OIDC) and the ServiceNow CMDB integration are implemented and shipping, but the maintainer has limited access to real-world identity providers and ServiceNow instances. Volunteer testers welcome — file an [integration-tester issue](https://github.com/vincentmakes/turbo-ea/issues/new?template=integration-tester.yml) or start a discussion.
 
 - **SSO / Single Sign-On** — Support for multiple identity providers: **Microsoft Entra ID**, **Google Workspace**, **Okta**, and any **Generic OIDC** provider with automatic discovery document support. Provider-specific branded login buttons, Google hosted domain restriction, Okta domain configuration, manual OIDC endpoint configuration as fallback, and admin ability to link existing local accounts to SSO. Dedicated Authentication tab in admin settings.
 - **MCP Server (AI Tool Access)** — Built-in [Model Context Protocol](https://modelcontextprotocol.io/) server that lets AI tools (Claude Desktop, GitHub Copilot, Cursor, VS Code) query your EA data with per-user RBAC. Users authenticate via SSO — no shared service accounts. The MCP server is read-only (8 tools for searching cards, exploring relations, browsing the metamodel, and viewing dashboards). Activate with `docker compose --profile mcp up -d` and toggle on in admin settings. Also supports a local stdio mode for testing without SSO.
@@ -283,6 +282,19 @@ TURBO_EA_TAG=0.70.0 docker compose up -d
 ```
 
 > **Breaking change:** The non-root Docker release uses new persistent volume names for PostgreSQL and Ollama so the stack does not try to reuse older root-owned volumes automatically. If you are upgrading from a pre-`0.70.0` release and need to keep your existing database, dump it before upgrading and restore it into the new stack after startup.
+
+### Verifying images
+
+From `1.0.0` onwards, every published image is signed with [cosign](https://github.com/sigstore/cosign) using GitHub's keyless OIDC flow — no shared signing key, the certificate is bound to the publish workflow identity. Verification before pulling into production is one command:
+
+```bash
+cosign verify \
+  --certificate-identity-regexp 'https://github.com/vincentmakes/turbo-ea/.+' \
+  --certificate-oidc-issuer 'https://token.actions.githubusercontent.com' \
+  ghcr.io/vincentmakes/turbo-ea/backend:1.0.0
+```
+
+The same command works for `db`, `frontend`, `nginx`, and `mcp-server`. A buildkit-generated SPDX SBOM is attached to each image as an OCI referrer; pull it with `docker buildx imagetools inspect --format '{{ json .SBOM }}' <image>:<tag>`. See [`docs/admin/supply-chain.md`](docs/admin/supply-chain.md) for details.
 
 ### Development from source
 
@@ -577,6 +589,19 @@ docker compose up --build -d
 ```
 
 Migrations run automatically on startup, so the database schema is updated as needed.
+
+### Stability
+
+From `1.0.0` onwards, Turbo EA commits to documented backwards compatibility within the `1.x` line — the database schema, REST API surface under `/api/v1/`, permission keys, and built-in metamodel are stable, with a deprecation cycle for any covered change.
+
+- **[Compatibility policy →](https://docs.turbo-ea.org/reference/compatibility/)** — what's covered, what isn't, how deprecations work.
+- **[Releases and pre-release channel →](https://docs.turbo-ea.org/reference/releases/)** — how versions are tagged, how RCs work, the maintainer's release checklist.
+
+Pin a specific version in production rather than `:latest`:
+
+```bash
+TURBO_EA_TAG=1.0.0 docker compose up -d
+```
 
 ---
 

@@ -1,0 +1,62 @@
+name: Integration tester volunteer
+description: Volunteer to test SSO or ServiceNow integrations in your environment.
+title: "[integration-tester] "
+labels: ["integration-tester"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        SSO (Microsoft Entra ID, Google Workspace, Okta, Generic OIDC) and the ServiceNow CMDB integration are implemented but the maintainer has limited access to real-world identity providers and ServiceNow instances. Volunteer testers help shake out integration bugs that don't surface in synthetic test environments.
+
+        This is a low-commitment role: try it in your environment, report what works and what doesn't, optionally share anonymized logs.
+
+  - type: dropdown
+    id: integration
+    attributes:
+      label: Which integration?
+      multiple: true
+      options:
+        - SSO — Microsoft Entra ID
+        - SSO — Google Workspace
+        - SSO — Okta
+        - SSO — Generic OIDC (other provider)
+        - ServiceNow CMDB
+    validations:
+      required: true
+
+  - type: input
+    id: provider_details
+    attributes:
+      label: Provider / instance details
+      description: |
+        For SSO: which identity provider, any unusual configuration (custom claims, conditional access, hosted-domain restriction).
+        For ServiceNow: instance type (developer / enterprise / Personal Developer Instance), version, custom CMDB schema if any.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: logs
+    attributes:
+      label: Willing to share anonymized logs?
+      options:
+        - "Yes — backend logs (with secrets redacted)"
+        - "Yes — backend + frontend devtools network captures"
+        - "No — happy to summarize behavior only"
+    validations:
+      required: true
+
+  - type: textarea
+    id: contact
+    attributes:
+      label: Contact preference
+      description: How should the maintainer reach you for follow-up? (e.g. respond on this issue, GitHub username, email — your choice; this issue is public).
+    validations:
+      required: true
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else
+      description: Specific scenarios you want to validate, prior pain points, deployment shape.
+    validations:
+      required: false

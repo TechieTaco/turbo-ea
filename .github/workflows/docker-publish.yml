@@ -9,6 +9,10 @@ on:
 permissions:
   contents: read
   packages: write
+  # Required for cosign keyless signing via the GitHub OIDC token.
+  id-token: write
+  # Required for the SARIF upload step (Trivy → Security tab).
+  security-events: write
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -32,16 +36,16 @@ jobs:
         #     --push .
         image: [db, backend, frontend, nginx, mcp-server]
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
+        uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
 
       - name: Log in to GHCR
-        uses: docker/login-action@v3
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -49,7 +53,7 @@ jobs:
 
       - name: Extract image metadata
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5
         with:
           images: ghcr.io/${{ github.repository }}/${{ matrix.image }}
           flavor: latest=auto
@@ -61,7 +65,8 @@ jobs:
             type=semver,pattern={{major}}
 
       - name: Build and push
-        uses: docker/build-push-action@v6
+        id: build
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
         with:
           context: .
           file: Dockerfile
@@ -74,3 +79,41 @@ jobs:
           cache-to: type=gha,mode=max,scope=${{ matrix.image }}
           provenance: true
           sbom: true
+
+      # Sign the manifest list digest. Buildx returns a single digest covering
+      # both linux/amd64 and linux/arm64, so one cosign call covers all
+      # platforms transparently. Keyless OIDC signing — no cosign key to
+      # rotate; verification uses the workflow identity certificate.
+      - name: Install cosign
+        uses: sigstore/cosign-installer@f713795cb21599bc4e5c4b58cbad1da852d7eeb9 # v3
+
+      - name: Sign image
+        env:
+          IMAGE: ghcr.io/${{ github.repository }}/${{ matrix.image }}
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: cosign sign --yes "${IMAGE}@${DIGEST}"
+
+      # Trivy is intentionally non-blocking (`exit-code: 0`). The Alpine bases
+      # used by every image (python:3.12-alpine, postgres:18-alpine,
+      # nginx:alpine) carry baseline musl-libc + apk transitive findings that
+      # would block all publishes on day one. Findings are uploaded as SARIF
+      # to the Security tab so they're visible and triageable; once the
+      # baseline is captured in `.github/trivy-allowlist.yaml`, flip
+      # `exit-code` to `1` in a follow-up to make the gate enforcing.
+      - name: Trivy image scan
+        uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8 # v0.36.0
+        with:
+          image-ref: ghcr.io/${{ github.repository }}/${{ matrix.image }}@${{ steps.build.outputs.digest }}
+          format: sarif
+          output: trivy-${{ matrix.image }}.sarif
+          severity: HIGH,CRITICAL
+          exit-code: "0"
+          ignore-unfixed: true
+          trivyignores: .github/trivy-allowlist.yaml
+
+      - name: Upload Trivy SARIF to Security tab
+        if: always()
+        uses: github/codeql-action/upload-sarif@53e96ec3b35fce51c141c0d6f0e31028a448722d # v3
+        with:
+          sarif_file: trivy-${{ matrix.image }}.sarif
+          category: trivy-${{ matrix.image }}

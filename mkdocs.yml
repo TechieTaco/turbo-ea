@@ -93,8 +93,11 @@ plugins:
             Surveys: Encuestas
             Web Portals: Portales web
             ServiceNow Integration: Integración con ServiceNow
+            Supply Chain: Cadena de suministro
             Reference: Referencia
             Glossary: Glosario
+            Compatibility Policy: Política de compatibilidad
+            Releases: Publicaciones
         - locale: de
           name: Deutsch
           build: true
@@ -131,8 +134,11 @@ plugins:
             Surveys: Umfragen
             Web Portals: Webportale
             ServiceNow Integration: ServiceNow-Integration
+            Supply Chain: Lieferkette
             Reference: Referenz
             Glossary: Glossar
+            Compatibility Policy: Kompatibilitätsrichtlinie
+            Releases: Releases
         - locale: fr
           name: Français
           build: true
@@ -169,8 +175,11 @@ plugins:
             Surveys: Enquêtes
             Web Portals: Portails web
             ServiceNow Integration: Intégration ServiceNow
+            Supply Chain: Chaîne d'approvisionnement
             Reference: Référence
             Glossary: Glossaire
+            Compatibility Policy: Politique de compatibilité
+            Releases: Versions
         - locale: it
           name: Italiano
           build: true
@@ -207,8 +216,11 @@ plugins:
             Surveys: Sondaggi
             Web Portals: Portali web
             ServiceNow Integration: Integrazione ServiceNow
+            Supply Chain: Catena di approvvigionamento
             Reference: Riferimenti
             Glossary: Glossario
+            Compatibility Policy: Politica di compatibilità
+            Releases: Rilasci
         - locale: pt
           name: Português
           build: true
@@ -245,8 +257,11 @@ plugins:
             Surveys: Pesquisas
             Web Portals: Portais web
             ServiceNow Integration: Integração com ServiceNow
+            Supply Chain: Cadeia de suprimentos
             Reference: Referência
             Glossary: Glossário
+            Compatibility Policy: Política de compatibilidade
+            Releases: Lançamentos
         - locale: zh
           name: 中文
           build: true
@@ -283,8 +298,11 @@ plugins:
             Surveys: 调查
             Web Portals: Web 门户
             ServiceNow Integration: ServiceNow 集成
+            Supply Chain: 供应链
             Reference: 参考
             Glossary: 术语表
+            Compatibility Policy: 兼容性政策
+            Releases: 版本发布
         - locale: ru
           name: Русский
           build: true
@@ -321,8 +339,11 @@ plugins:
             Surveys: Опросы
             Web Portals: Веб-порталы
             ServiceNow Integration: Интеграция с ServiceNow
+            Supply Chain: Цепочка поставок
             Reference: Справочник
             Glossary: Глоссарий
+            Compatibility Policy: Политика совместимости
+            Releases: Релизы
 
   - search:
       lang:
@@ -387,8 +408,11 @@ nav:
       - Surveys: admin/surveys.md
       - Web Portals: admin/web-portals.md
       - ServiceNow Integration: admin/servicenow.md
+      - Supply Chain: admin/supply-chain.md
   - Reference:
       - Glossary: reference/glossary.md
+      - Compatibility Policy: reference/compatibility.md
+      - Releases: reference/releases.md
 
 # ---------------------------------------------------------------------------
 # Extra
