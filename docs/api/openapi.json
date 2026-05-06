@@ -4497,8 +4497,15 @@
             ]
           },
           "reporter_id": {
-            "title": "Reporter Id",
-            "type": "string"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reporter Id"
           },
           "schedule_health": {
             "title": "Schedule Health",
@@ -4528,7 +4535,6 @@
         "required": [
           "id",
           "initiative_id",
-          "reporter_id",
           "report_date",
           "schedule_health",
           "cost_health",
