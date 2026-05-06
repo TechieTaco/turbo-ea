@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.0.5] - 2026-05-06
+
+### Changed
+- **Bundled Ollama now exposes an `OLLAMA_KEEP_ALIVE` sample-env setting.** Operators can keep the selected AI model warm between requests by setting `OLLAMA_KEEP_ALIVE` in `.env` (for example `24h` or `-1` to keep it loaded indefinitely), instead of being limited to the upstream 5-minute default.
+
 ## [1.0.4] - 2026-05-06
 
 ### Fixed

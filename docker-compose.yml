@@ -146,6 +146,8 @@ services:
       - ai
     restart: unless-stopped
     user: "${APP_UID:-1000}:${APP_GID:-1000}"
+    environment:
+      OLLAMA_KEEP_ALIVE: ${OLLAMA_KEEP_ALIVE:-5m}
     volumes:
       - ollama_models:/models
     expose:
