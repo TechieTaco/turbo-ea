@@ -43,28 +43,30 @@ else
   log "Existing .env detected — keeping current secrets."
 fi
 
-COMPOSE="docker compose -f docker-compose.yml -f dev/docker-compose.dev.yml"
+COMPOSE="docker compose -f docker-compose.yml"
 
 # Nginx mounts ${TLS_CERTS_DIR:-./certs} read-only; the directory must exist
 # even when TLS is disabled, otherwise the bind mount fails on container start.
 mkdir -p ./certs
 
-# Build images with one retry. The frontend build clones jgraph/drawio
-# (~50 MB) from GitHub and runs npm ci, both of which can fail on a
-# flaky Codespaces network. A single retry is usually enough.
-log "Building images (first run takes 5–10 minutes)..."
-if ! $COMPOSE build; then
-  warn "Initial build failed, retrying after 10s..."
+# Pull published images with one retry. We deliberately do NOT layer the
+# dev/docker-compose.dev.yml override here — a demo codespace should mirror
+# what a real user gets from `docker compose pull`, not rebuild every image
+# from source (which takes 5–10 minutes and exercises the dev path instead
+# of the published one).
+log "Pulling Turbo EA images from GHCR..."
+if ! $COMPOSE pull; then
+  warn "Initial pull failed, retrying after 10s..."
   sleep 10
-  if ! $COMPOSE build; then
-    fail "Build failed twice. Diagnostics:"
+  if ! $COMPOSE pull; then
+    fail "Pull failed twice. Diagnostics:"
     $COMPOSE ps || true
     docker images || true
-    fail "Re-run manually:  $COMPOSE build"
+    fail "Re-run manually:  $COMPOSE pull"
     exit 0
   fi
 fi
-log "Build complete."
+log "Images ready."
 
 # Bring up the stack.
 log "Starting containers..."

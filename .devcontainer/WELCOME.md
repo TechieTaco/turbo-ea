@@ -1,8 +1,9 @@
 # Turbo EA Demo
 
-The Codespace builds and starts the full Turbo EA stack with the NexaTech
-demo dataset (including BPM and PPM data). Setup typically takes 5–10
-minutes the first time the codespace is created.
+The Codespace pulls the published Turbo EA images from GHCR and starts
+the full stack with the NexaTech demo dataset (including BPM and PPM
+data). First-run setup is a couple of minutes — mostly the image pull
+and the demo seed.
 
 Once the build finishes, **open the forwarded port `8920`** in your
 browser (the *Ports* panel pops it open automatically the first time).
@@ -26,16 +27,16 @@ Run from the repository root:
 
 ```bash
 # Tail all logs
-docker compose -f docker-compose.yml -f dev/docker-compose.dev.yml logs -f
+docker compose logs -f
 
 # Restart the stack
-docker compose -f docker-compose.yml -f dev/docker-compose.dev.yml restart
+docker compose restart
 
 # Stop the stack
-docker compose -f docker-compose.yml -f dev/docker-compose.dev.yml down
+docker compose down
 
-# Or use the Makefile shortcut
-make up-dev
+# Pull newer images and restart
+docker compose pull && docker compose up -d
 ```
 
 ## Troubleshooting
@@ -43,8 +44,8 @@ make up-dev
 If port 8920 returns 502:
 
 ```bash
-docker compose -f docker-compose.yml -f dev/docker-compose.dev.yml ps
-docker compose -f docker-compose.yml -f dev/docker-compose.dev.yml logs --tail=200
+docker compose ps
+docker compose logs --tail=200
 ```
 
 The first-run database migrations + demo seed take a couple of minutes
