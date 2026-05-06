@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.0.2] - 2026-05-06
+
+### Security
+- **Triaged the Trivy baseline and added apk patch-upgrade to every runtime image stage.** Each runtime Dockerfile stage (`backend`, `db`, `frontend`, `nginx`, `mcp-server`) now runs `apk upgrade --no-cache` before installing its app payload, so apk-package CVEs in the pinned alpine bases are picked up automatically when fixes ship in the alpine repo. Findings that cannot be fixed from this repo — build-stage-only CVEs in `alpine/git:v2.47.2` (drawio clone) and `node:20-alpine` (npm dev deps), and upstream Go binaries (`gosu` in `postgres:18-alpine`, the `ollama` binary) — are now captured with rationale in `.github/trivy-allowlist.yaml` and re-evaluated quarterly. The Trivy gate stays non-blocking (`exit-code: 0`) for this release; a follow-up will flip it to enforcing once the apk-upgrade chain has drained the backlog.
+
 ## [1.0.1] - 2026-05-06
 
 ### Fixed
