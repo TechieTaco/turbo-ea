@@ -29,5 +29,15 @@ Questa guida è destinata a **tutti gli utenti di Turbo EA** — enterprise arch
 | **Relazione** | Una connessione tra due card che descrive come sono correlate (es. "utilizza", "dipende da", "fa parte di") |
 | **Metamodello** | La struttura che definisce quali tipi di card esistono, quali campi hanno e come si relazionano tra loro. Completamente configurabile dall'amministratore |
 | **Ciclo di vita** | Le fasi temporali di un componente: Plan, Phase In, Active, Phase Out, End of Life |
-| **BPM** | Business Process Management — modellazione e analisi dei processi aziendali |
-| **SoAW** | Statement of Architecture Work — un documento formale TOGAF per le iniziative architetturali |
+| **Inventario** | Elenco ricercabile e filtrabile di tutte le card di ogni tipo. Modifica in blocco, import-export Excel/CSV e viste salvate con condivisione |
+| **Report** | Visualizzazioni predefinite: Portfolio, Mappa delle Capability, Ciclo di Vita, Dipendenze, Costi, Matrice, Qualità dei Dati e End-of-Life |
+| **BPM** | Business Process Management — modellate i processi con un editor BPMN 2.0, collegate gli elementi del diagramma alle card e valutate maturità, rischio e automazione |
+| **PPM** | Project Portfolio Management — gestite le card Initiative come progetti completi con report di stato, Work Breakdown Structures, board kanban e Gantt, budget, costi e un registro dei rischi per iniziativa |
+| **TurboLens** | Intelligenza EA basata sull'AI — analisi fornitori, rilevamento duplicati, valutazione di modernizzazione, l'assistente Architecture AI in 5 fasi e le scansioni Security & Compliance (CVE più EU AI Act / GDPR / NIS2 / DORA / SOC 2 / ISO 27001) |
+| **EA Delivery** | La superficie di delivery allineata a TOGAF — Statements of Architecture Work, Architecture Decision Records e il Registro dei Rischi a livello di panorama |
+| **SoAW** | Statement of Architecture Work — documento formale TOGAF che delimita un'iniziativa architetturale |
+| **ADR** | Architecture Decision Record — cattura contesto, alternative e conseguenze di una decisione, con workflow di stato e collegamento alle card |
+| **Registro dei Rischi** | Registro dei rischi a livello di panorama (TOGAF Fase G), separato dai rischi a livello di iniziativa di PPM. L'assegnazione di un proprietario crea automaticamente una Todo |
+| **Portale Web** | Vista pubblica, basata su slug e di sola lettura di parte del panorama EA — condivisibile senza login |
+| **Server MCP** | Accesso AI in sola lettura tramite Model Context Protocol — interrogate i dati EA da Claude Desktop, Cursor, GitHub Copilot e altri client MCP |
+| **RBAC** | Role-Based Access Control — ruoli a livello di applicazione più ruoli di stakeholder per card, con oltre 50 permessi granulari |
