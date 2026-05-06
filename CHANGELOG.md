@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.0.8] - 2026-05-06
+
+### Security
+- **Upgraded bundled pip in the `mcp-server` image too.** `1.0.7` patched the `backend` image but missed the optional `mcp-server` image, which is built from the same `python:3.12-alpine` base and shipped its own pip 25.0.1 — Trivy kept flagging `CVE-2025-8869`, `CVE-2026-1703`, and `CVE-2026-6357` against the published `mcp-server` image. The mcp-server stage now upgrades pip past `pip>=26.1` before installing the app, with the same rationale (pip is never invoked at runtime; this is purely scan hygiene).
+
 ## [1.0.7] - 2026-05-06
 
 ### Security
