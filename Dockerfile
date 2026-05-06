@@ -33,6 +33,10 @@ COPY --from=backend-build /app/app ./app
 COPY --from=backend-build /app/alembic ./alembic
 COPY --from=backend-build /app/alembic.ini ./alembic.ini
 
+# Upgrade the bundled pip past CVE-2025-8869 / CVE-2026-1703 / CVE-2026-6357.
+# pip is never executed at runtime — this only silences Trivy noise on the image.
+RUN pip install --no-cache-dir --upgrade 'pip>=26.1'
+
 RUN chown -R ${APP_UID}:${APP_GID} /app
 
 USER ${APP_UID}:${APP_GID}
@@ -88,6 +92,12 @@ COPY frontend/nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=drawio /drawio/src/main/webapp /usr/share/nginx/drawio
 COPY frontend/drawio-config/PreConfig.js /usr/share/nginx/drawio/js/PreConfig.js
 COPY frontend/drawio-config/PostConfig.js /usr/share/nginx/drawio/js/PostConfig.js
+
+# WEB-INF is the Java-servlet deployment path of the upstream drawio webapp
+# (commons-fileupload, commons-io, commons-lang3 JARs). nginx serves drawio
+# as static files only and there is no JRE in this image — drop the dead
+# JARs so Trivy stops re-flagging upstream Java CVEs that we cannot reach.
+RUN rm -rf /usr/share/nginx/drawio/WEB-INF
 
 RUN sed -i \
     -e '/<link rel="manifest"/d' \

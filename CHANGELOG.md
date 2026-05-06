@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.0.7] - 2026-05-06
+
+### Security
+- **Triaged the second wave of Trivy findings: removed dead Java JARs from the drawio webapp, upgraded bundled pip past three CVEs, and extended the gosu allowlist with sixteen new Go stdlib advisories.** The frontend image is `nginx:alpine` (no JRE), so the upstream `WEB-INF/lib/*.jar` payload bundled by `jgraph/drawio` (commons-fileupload, commons-io, commons-lang3) was unreachable dead weight that Trivy kept re-flagging — it is now stripped during the `frontend` build. The backend image's bundled pip is bumped past `pip>=26.1` to clear `CVE-2025-8869`, `CVE-2026-1703`, and `CVE-2026-6357` even though pip is never invoked at runtime. Sixteen additional Go stdlib CVEs in the upstream `gosu` binary shipped by `postgres:18-alpine` (net/http, net/url, net/mail, net/textproto, html/template, encoding/asn1, encoding/pem, crypto/x509, crypto/tls, archive/tar, os.Root) are added to `.github/trivy-allowlist` with the same "gosu only does setuid+exec" rationale as the existing block — they cannot be rebuilt from this repo and land when postgres rebuilds against Go 1.25.9+ / 1.26.2+.
+
 ## [1.0.6] - 2026-05-06
 
 ### Changed
