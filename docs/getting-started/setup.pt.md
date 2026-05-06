@@ -1,13 +1,17 @@
 # Instalação e configuração
 
-Este guia orienta a instalação do Turbo EA com Docker, a configuração do ambiente, o carregamento de dados de demonstração e a inicialização de serviços opcionais como IA e servidor MCP.
+Este guia o acompanha pela instalação do Turbo EA com Docker, configuração do ambiente, carga de dados de demonstração e início de serviços opcionais como sugestões de IA e o servidor MCP.
 
 ## Pré-requisitos
 
 - [Docker](https://docs.docker.com/get-docker/) (v20.10+)
 - [Docker Compose](https://docs.docker.com/compose/install/) (v2.0+)
 
-## Passo 1: Clonar e configurar
+Cerca de 2 GB de espaço livre em disco, alguns minutos de largura de banda para o primeiro pull de imagens e as portas `8920` (HTTP) e opcionalmente `9443` (HTTPS) livres no host.
+
+## Passo 1: Obter a configuração
+
+Você precisa de `docker-compose.yml` e de um arquivo `.env` configurado em um diretório de trabalho. A maneira mais simples é clonar o repositório:
 
 ```bash
 git clone https://github.com/vincentmakes/turbo-ea.git
@@ -15,113 +19,58 @@ cd turbo-ea
 cp .env.example .env
 ```
 
-Abra `.env` em um editor de texto e defina os valores necessários:
+Abra `.env` e defina os dois valores obrigatórios:
 
 ```dotenv
-# Credenciais do PostgreSQL (usadas pelo contêiner de banco de dados integrado)
-POSTGRES_PASSWORD=escolha-uma-senha-forte
+# Credenciais do PostgreSQL (usadas pelo contêiner de banco de dados integrado).
+# Escolha uma senha forte — ela persiste no volume integrado.
+POSTGRES_PASSWORD=choose-a-strong-password
 
-# Chave de assinatura JWT — gere uma com:
+# Chave de assinatura JWT. Gere uma com:
 #   python3 -c "import secrets; print(secrets.token_urlsafe(64))"
-SECRET_KEY=sua-chave-gerada
-
-# Porta na qual o aplicativo estará disponível
-HOST_PORT=8920
+SECRET_KEY=your-generated-secret
 ```
 
-## Passo 2: Escolher a opção de banco de dados
-
-### Opção A: Banco de dados integrado (recomendado para começar)
-
-O arquivo `docker-compose.db.yml` inicia um contêiner PostgreSQL junto com o backend e o frontend. Nenhum banco de dados externo é necessário — os dados são persistidos em um volume Docker.
-
-```bash
-docker compose -f docker-compose.db.yml up --build -d
-```
-
-### Opção B: PostgreSQL externo
-
-Se você já possui um servidor PostgreSQL (banco de dados gerenciado, contêiner separado ou instalação local), use o arquivo base `docker-compose.yml` que inicia apenas o backend e o frontend.
-
-Primeiro, crie um banco de dados e um usuário:
-
-```sql
-CREATE USER turboea WITH PASSWORD 'sua-senha';
-CREATE DATABASE turboea OWNER turboea;
-```
-
-Em seguida, configure seu `.env`:
-
-```dotenv
-POSTGRES_HOST=seu-host-postgresql
-POSTGRES_PORT=5432
-POSTGRES_DB=turboea
-POSTGRES_USER=turboea
-POSTGRES_PASSWORD=sua-senha
-```
-
-Inicie o aplicativo:
-
-```bash
-docker compose up --build -d
-```
+Todo o restante em `.env.example` tem valores padrão razoáveis.
 
 !!! note
-    O arquivo base `docker-compose.yml` espera uma rede Docker chamada `guac-net`. Crie-a com `docker network create guac-net` se não existir.
+    O backend recusa-se a iniciar com a `SECRET_KEY` de exemplo fora do desenvolvimento. Gere uma real antes de prosseguir.
 
-## Opcional: Usar imagens pré-compiladas do GHCR
+## Passo 2: Pull e arranque
 
-Cada push para `main` e cada tag de versão `v*.*.*` publica automaticamente imagens multi-arquitetura (`amd64` + `arm64`) no [GitHub Container Registry](https://ghcr.io):
-
-- `ghcr.io/vincentmakes/turbo-ea/backend`
-- `ghcr.io/vincentmakes/turbo-ea/frontend`
-- `ghcr.io/vincentmakes/turbo-ea/mcp-server`
-
-Os dois arquivos compose referenciam essas imagens diretamente — nenhum arquivo de sobreposição é necessário. Para pular a compilação local (que pode levar 5–10 minutos no primeiro arranque, pois a imagem do frontend inclui uma compilação Node, o código-fonte do DrawIO e o Nginx), basta baixar e iniciar:
+A pilha integrada (Postgres + backend + frontend + nginx de borda) é executada a partir de imagens multi-arquitetura pré-compiladas no GHCR — nenhuma compilação local necessária:
 
 ```bash
-# Com o banco de dados integrado
-docker compose -f docker-compose.db.yml pull
-docker compose -f docker-compose.db.yml up -d
-
-# Com o seu próprio PostgreSQL externo
 docker compose pull
 docker compose up -d
 ```
 
-Por padrão a tag `latest` é baixada. Para fixar uma versão específica, defina `TURBO_EA_TAG`:
+Abra **http://localhost:8920** e registre o primeiro usuário. O primeiro usuário registrado é automaticamente promovido a **Admin**.
 
-```bash
-TURBO_EA_TAG=0.65.3 docker compose -f docker-compose.db.yml up -d
-```
-
-As versões publicadas recebem as tags `:<versão-completa>`, `:<major.minor>`, `:<major>` e `:latest`. Os pushes para `main` entre as versões também recebem as tags `:main` e `:sha-<short>` para usuários que querem acompanhar o ramo de desenvolvimento.
-
-!!! tip
-    As imagens pré-compiladas são os mesmos artefatos produzidos pelo fluxo local `docker compose up --build` — mesmos Dockerfiles, mesmo arquivo `VERSION` e mesmas camadas multi-estágio. Defina `TURBO_EA_PULL_POLICY=always` para forçar um pull a cada `up` (útil em CI), ou use `docker compose up --build` para reconstruir localmente em vez de baixar.
+Para alterar a porta do host, defina `HOST_PORT` em `.env` (padrão `8920`). A terminação HTTPS direta é tratada no [Passo 5](#passo-5-https-direto-opcional).
 
 ## Passo 3: Carregar dados de demonstração (opcional)
 
-O Turbo EA pode iniciar com um metamodelo vazio (apenas os 14 tipos de card integrados e os tipos de relação) ou com um conjunto de dados de demonstração completo. Os dados de demonstração são ideais para avaliar a plataforma, realizar sessões de treinamento ou explorar funcionalidades.
+O Turbo EA pode iniciar vazio (apenas o metamodelo integrado) ou com o conjunto de dados de demonstração **NexaTech Industries**, ideal para avaliação, treinamento e exploração de recursos.
 
-### Opções de carregamento
-
-Adicione estas variáveis ao seu `.env` **antes da primeira inicialização**:
-
-| Variável | Padrão | Descrição |
-|----------|--------|-----------|
-| `SEED_DEMO` | `false` | Carrega o conjunto completo de dados NexaTech Industries, incluindo BPM e PPM |
-| `SEED_BPM` | `false` | Carrega apenas os processos de demonstração BPM (requer dados base existentes) |
-| `SEED_PPM` | `false` | Carrega apenas os dados de projeto PPM (requer dados base existentes) |
-| `RESET_DB` | `false` | Exclui todas as tabelas e as recria na inicialização |
-
-### Demonstração completa (recomendada para avaliação)
+Defina o flag de seed em `.env` **antes do primeiro arranque**:
 
 ```dotenv
 SEED_DEMO=true
 ```
 
-Isso carrega todo o conjunto de dados NexaTech Industries com uma única configuração. Você **não** precisa definir `SEED_BPM` ou `SEED_PPM` separadamente — eles são incluídos automaticamente.
+Em seguida `docker compose up -d` (se já iniciou, consulte «Redefinir e re-semear» abaixo).
+
+### Opções de carregamento
+
+| Variável | Padrão | Descrição |
+|----------|--------|-----------|
+| `SEED_DEMO` | `false` | Carrega o conjunto completo NexaTech Industries, incluindo dados BPM e PPM |
+| `SEED_BPM` | `false` | Carrega apenas processos BPM de demonstração (subconjunto de `SEED_DEMO`) |
+| `SEED_PPM` | `false` | Carrega apenas dados de projetos PPM (subconjunto de `SEED_DEMO`) |
+| `RESET_DB` | `false` | Elimina todas as tabelas e as recria a partir do zero ao iniciar |
+
+`SEED_DEMO=true` já inclui dados BPM e PPM — não é necessário definir os flags de subconjunto separadamente.
 
 ### Conta de administrador de demonstração
 
@@ -129,69 +78,47 @@ Quando os dados de demonstração são carregados, uma conta de administrador pa
 
 | Campo | Valor |
 |-------|-------|
-| **E-mail** | `admin@turboea.demo` |
+| **Email** | `admin@turboea.demo` |
 | **Senha** | `TurboEA!2025` |
-| **Função** | Administrador |
+| **Função** | Admin |
 
 !!! warning
-    A conta de administrador de demonstração usa credenciais conhecidas. Altere a senha ou crie sua própria conta de administrador para qualquer ambiente além da avaliação local.
+    A conta de administrador de demonstração usa credenciais conhecidas e públicas. Altere a senha — ou crie sua própria conta de administrador e desative esta — para qualquer ambiente além da avaliação local.
 
-### O que os dados de demonstração incluem
+### O que a demo inclui
 
-O conjunto de dados NexaTech Industries contém aproximadamente 150 cards em todas as camadas de arquitetura:
+Cerca de 150 cards distribuídos pelas quatro camadas de arquitetura, além de relações, etiquetas, comentários, tarefas, diagramas BPM, dados PPM, ADR e um Statement of Architecture Work:
 
-**Dados EA principais** (sempre incluídos com `SEED_DEMO=true`):
+- **Núcleo EA** — Organizações, ~20 Capacidades de Negócio, Contextos de Negócio, ~15 Aplicações, ~20 Componentes de TI, Interfaces, Objetos de Dados, Plataformas, Objetivos, 6 Iniciativas, 5 grupos de etiquetas, 60+ relações.
+- **BPM** — ~30 processos de negócio em uma hierarquia de 4 níveis com diagramas BPMN 2.0, vínculos elemento-card e avaliações de processo.
+- **PPM** — Relatórios de status, Work Breakdown Structures, ~60 tarefas, linhas de orçamento e custo, e um registro de riscos sobre as 6 Iniciativas de demonstração.
+- **EA Delivery** — Architecture Decision Records e Statements of Architecture Work.
 
-- **Organizações** — Hierarquia corporativa: NexaTech Industries com unidades de negócio (Engenharia, Manufatura, Vendas e Marketing), regiões, equipes e clientes
-- **Capacidades de negócio** — Mais de 20 capacidades em uma hierarquia multinível
-- **Contextos de negócio** — Processos, fluxos de valor, jornadas do cliente, produtos de negócio
-- **Aplicações** — Mais de 15 aplicações (NexaCore ERP, Plataforma IoT, Salesforce CRM, etc.) com dados completos de ciclo de vida e custos
-- **Componentes TI** — Mais de 20 itens de infraestrutura (bancos de dados, servidores, middleware, SaaS, modelos de IA)
-- **Interfaces e objetos de dados** — Definições de API e fluxos de dados entre sistemas
-- **Plataformas** — Plataformas Cloud e IoT com subtipos
-- **Objetivos e iniciativas** — 6 iniciativas estratégicas com diferentes status de aprovação
-- **Tags** — 5 grupos: Valor de Negócio, Stack Tecnológico, Status do Ciclo de Vida, Nível de Risco, Escopo Regulatório
-- **Relações** — Mais de 60 relações conectando cards entre todas as camadas
-- **Entrega EA** — Registros de decisões de arquitetura e documentos de trabalho de arquitetura
+### Redefinir e re-semear
 
-**Dados BPM** (incluídos com `SEED_DEMO=true` ou `SEED_BPM=true`):
-
-- ~30 processos de negócio organizados em uma hierarquia de 4 níveis (categorias, grupos, processos, variantes)
-- Diagramas BPMN 2.0 com elementos de processo extraídos (tarefas, eventos, gateways, raias)
-- Links de elementos para cards conectando tarefas BPMN a aplicações, componentes TI e objetos de dados
-- Avaliações de processos com pontuações de maturidade, eficácia e conformidade
-
-**Dados PPM** (incluídos com `SEED_DEMO=true` ou `SEED_PPM=true`):
-
-- Relatórios de status para 6 iniciativas mostrando a saúde do projeto ao longo do tempo
-- Estruturas analíticas de projeto (EAP) com decomposição hierárquica e marcos
-- ~60 tarefas entre iniciativas com status, prioridades, responsáveis e tags
-- Linhas de orçamento (capex/opex por ano fiscal) e linhas de custo (despesas reais)
-- Registro de riscos com pontuações de probabilidade/impacto e planos de mitigação
-
-### Redefinir o banco de dados
-
-Para apagar tudo e começar do zero:
+Para apagar o banco de dados e recomeçar:
 
 ```dotenv
 RESET_DB=true
 SEED_DEMO=true
 ```
 
-Reinicie os contêineres e então **remova `RESET_DB` do `.env`** para evitar redefinição a cada reinicialização:
+Reinicie a pilha, então **remova `RESET_DB=true` de `.env`** — deixá-lo definido redefinirá o banco a cada reinício:
 
 ```bash
-docker compose -f docker-compose.db.yml up --build -d
-# Após confirmar o funcionamento, remova RESET_DB=true do .env
+docker compose up -d
+# Verifique que os novos dados estão presentes, então edite .env para remover RESET_DB
 ```
 
-## Passo 4: Serviços opcionais
+## Passo 4: Serviços opcionais (perfis do Compose)
+
+Ambos os complementos são opcionais via perfis do Docker Compose e funcionam ao lado da pilha principal sem perturbá-la.
 
 ### Sugestões de descrição com IA
 
-O Turbo EA pode gerar descrições de cards usando um LLM local (Ollama) ou provedores comerciais. O contêiner Ollama integrado é a forma mais fácil de começar.
+Gere descrições de cards com um LLM local (Ollama integrado) ou um fornecedor comercial. O contêiner Ollama integrado é o caminho mais simples para configurações auto-hospedadas.
 
-Adicione ao `.env`:
+Adicione a `.env`:
 
 ```dotenv
 AI_PROVIDER_URL=http://ollama:11434
@@ -202,44 +129,113 @@ AI_AUTO_CONFIGURE=true
 Inicie com o perfil `ai`:
 
 ```bash
-docker compose -f docker-compose.db.yml --profile ai up --build -d
+docker compose --profile ai up -d
 ```
 
-O modelo é baixado automaticamente na primeira inicialização (isso pode levar alguns minutos dependendo da sua conexão). Consulte [Funcionalidades de IA](../admin/ai.md) para detalhes de configuração.
+O modelo é baixado automaticamente no primeiro arranque (alguns minutos, dependendo de sua conexão). Veja [Capacidades de IA](../admin/ai.md) para a referência completa de configuração, incluindo como usar OpenAI / Gemini / Claude / DeepSeek em vez do Ollama integrado.
 
-### Servidor MCP (integração com ferramentas de IA)
+### Servidor MCP
 
-O servidor MCP permite que ferramentas de IA como Claude Desktop, Cursor e GitHub Copilot consultem seus dados EA.
+O servidor MCP permite que ferramentas de IA — Claude Desktop, Cursor, GitHub Copilot e outras — consultem seus dados EA via [Model Context Protocol](https://modelcontextprotocol.io/) com RBAC por usuário. Somente leitura.
 
 ```bash
-docker compose -f docker-compose.db.yml --profile mcp up --build -d
+docker compose --profile mcp up -d
 ```
 
-Consulte [Integração MCP](../admin/mcp.md) para detalhes de configuração e autenticação.
+Veja [Integração MCP](../admin/mcp.md) para a configuração OAuth e detalhes das ferramentas.
 
-### Combinar perfis
-
-Você pode habilitar múltiplos perfis ao mesmo tempo:
+### Ambos juntos
 
 ```bash
-docker compose -f docker-compose.db.yml --profile ai --profile mcp up --build -d
+docker compose --profile ai --profile mcp up -d
 ```
 
-## Referência rápida: Comandos de inicialização comuns
+## Passo 5: HTTPS direto (opcional)
+
+O nginx de borda integrado pode terminar TLS por conta própria — útil se você não tem um reverse proxy externo. Adicione a `.env`:
+
+```dotenv
+TURBO_EA_TLS_ENABLED=true
+TLS_CERTS_DIR=./certs
+TURBO_EA_TLS_CERT_FILE=cert.pem
+TURBO_EA_TLS_KEY_FILE=key.pem
+HOST_PORT=80
+TLS_HOST_PORT=443
+```
+
+Coloque `cert.pem` e `key.pem` em `./certs/` (o diretório é montado em modo somente leitura no contêiner nginx). A imagem deriva `server_name` e o esquema encaminhado de `TURBO_EA_PUBLIC_URL`, serve tanto HTTP quanto HTTPS e redireciona HTTP para HTTPS automaticamente.
+
+Para configurações atrás de um reverse proxy existente (Caddy, Traefik, Cloudflare Tunnel), deixe `TURBO_EA_TLS_ENABLED=false` e deixe o proxy gerenciar o TLS.
+
+## Fixar uma versão
+
+`docker compose pull` usa `:latest` por padrão. Para fixar uma versão específica em produção, defina `TURBO_EA_TAG`:
+
+```bash
+TURBO_EA_TAG=1.0.0 docker compose up -d
+```
+
+As versões publicadas são marcadas como `:<full-version>`, `:<major>.<minor>`, `:<major>` e `:latest`. O workflow de publicação exclui pre-releases (`-rc.N`) de `:latest` e das tags curtas `:X.Y` / `:X`. Veja [Lançamentos](../reference/releases.md) para a árvore completa de tags e a política do canal de pré-lançamento.
+
+## Usar um PostgreSQL existente
+
+Se você já executa uma instância PostgreSQL gerenciada ou compartilhada, aponte o backend para ela e dispense o serviço `db` integrado.
+
+Crie o banco de dados e o usuário no seu servidor existente:
+
+```sql
+CREATE USER turboea WITH PASSWORD 'your-password';
+CREATE DATABASE turboea OWNER turboea;
+```
+
+Substitua as variáveis de conexão em `.env`:
+
+```dotenv
+POSTGRES_HOST=your-postgres-host
+POSTGRES_PORT=5432
+POSTGRES_DB=turboea
+POSTGRES_USER=turboea
+POSTGRES_PASSWORD=your-password
+```
+
+Em seguida inicie como de costume: `docker compose up -d`. O serviço `db` integrado permanece definido em `docker-compose.yml`; você pode deixá-lo ocioso ou pará-lo explicitamente.
+
+## Verificar imagens
+
+Desde `1.0.0`, cada imagem publicada é assinada com cosign keyless OIDC e traz uma SBOM SPDX gerada pelo buildkit. Veja [Cadeia de suprimentos](../admin/supply-chain.md) para o comando de verificação e como obter a SBOM do registro.
+
+## Desenvolvimento a partir do código fonte
+
+Se você quiser construir a pilha a partir do código fonte (modificando código backend ou frontend), use a sobreposição Compose de desenvolvimento:
+
+```bash
+docker compose -f docker-compose.yml -f dev/docker-compose.dev.yml up -d --build
+```
+
+Ou o alvo de conveniência:
+
+```bash
+make up-dev
+```
+
+O guia completo do desenvolvedor — nomenclatura de branches, comandos de lint e teste, verificações pre-commit — está em [CONTRIBUTING.md](https://github.com/vincentmakes/turbo-ea/blob/main/CONTRIBUTING.md).
+
+## Referência rápida
 
 | Cenário | Comando |
 |---------|---------|
-| **Início mínimo** (BD integrado, vazio) | `docker compose -f docker-compose.db.yml up --build -d` |
-| **Demo completa** (BD integrado, todos os dados) | Defina `SEED_DEMO=true` no `.env`, depois `docker compose -f docker-compose.db.yml up --build -d` |
-| **Demo completa + IA** | Defina `SEED_DEMO=true` + variáveis IA no `.env`, depois `docker compose -f docker-compose.db.yml --profile ai up --build -d` |
-| **BD externo** | Configure as variáveis de BD no `.env`, depois `docker compose up --build -d` |
-| **Imagens pré-compiladas (sem build local)** | `docker compose -f docker-compose.db.yml pull && docker compose -f docker-compose.db.yml up -d` |
-| **Redefinir e recarregar** | Defina `RESET_DB=true` + `SEED_DEMO=true` no `.env`, reinicie, depois remova `RESET_DB` |
+| Primeiro arranque (dados vazios) | `docker compose pull && docker compose up -d` |
+| Primeiro arranque com dados de demonstração | Defina `SEED_DEMO=true` em `.env`, então o mesmo comando |
+| Adicionar sugestões de IA | Adicione variáveis IA, então `docker compose --profile ai up -d` |
+| Adicionar servidor MCP | `docker compose --profile mcp up -d` |
+| Fixar uma versão | `TURBO_EA_TAG=1.0.0 docker compose up -d` |
+| Redefinir e re-semear | `RESET_DB=true` + `SEED_DEMO=true`, reinicie, então remova `RESET_DB` |
+| Usar Postgres externo | Substitua variáveis `POSTGRES_*` em `.env`, então `docker compose up -d` |
+| Construir do código fonte | `make up-dev` |
 
 ## Próximos passos
 
-- Abra **http://localhost:8920** (ou seu `HOST_PORT` configurado) no navegador
-- Se carregou dados de demonstração, faça login com `admin@turboea.demo` / `TurboEA!2025`
-- Caso contrário, registre uma nova conta — o primeiro usuário recebe automaticamente a função de **Administrador**
-- Explore o [Painel de controle](../guide/dashboard.md) para uma visão geral do seu panorama EA
-- Configure o [Metamodelo](../admin/metamodel.md) para personalizar tipos de cards e campos
+- Abra **http://localhost:8920** (ou seu `HOST_PORT` configurado) e faça login. Se carregou dados de demonstração, use `admin@turboea.demo` / `TurboEA!2025`. Caso contrário, registre-se — o primeiro usuário é automaticamente promovido a Admin.
+- Explore o [Dashboard](../guide/dashboard.md) para uma visão geral do seu panorama EA.
+- Personalize [tipos de cards e campos](../admin/metamodel.md) — o metamodelo é totalmente baseado em dados, sem alterações de código.
+- Para implantações de produção, revise [Política de compatibilidade](../reference/compatibility.md) e [Cadeia de suprimentos](../admin/supply-chain.md).
