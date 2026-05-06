@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.0.4] - 2026-05-06
+
+### Fixed
+- **Trivy publish workflow now actually runs.** The allowlist file added in `1.0.2` was named `.github/trivy-allowlist.yaml`, but Trivy 0.65+ infers the ignorefile format from the extension — `.yaml` triggers the YAML schema parser, which fails on bare `CVE-XXXX-YYYYY` lines (`yaml decode error: cannot unmarshal !!str into result.IgnoreConfig`). Trivy aborted before producing the SARIF, breaking the publish for all five images. Renamed to `.github/trivy-allowlist` (no extension → plain-text parser) and added an inline note in the file header so future renames don't regress this.
+
 ## [1.0.3] - 2026-05-06
 
 ### Fixed

@@ -112,7 +112,11 @@ jobs:
           severity: HIGH,CRITICAL
           exit-code: "0"
           ignore-unfixed: true
-          trivyignores: .github/trivy-allowlist.yaml
+          # Plain-text format (one CVE id per line + comments). Filename
+          # has no `.yaml`/`.yml` extension on purpose — Trivy 0.65+ would
+          # otherwise try to parse it as the YAML ignorefile schema and
+          # fail on the bare CVE lines.
+          trivyignores: .github/trivy-allowlist
 
       - name: Upload Trivy SARIF to Security tab
         if: always()
