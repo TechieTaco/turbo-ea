@@ -149,13 +149,11 @@ case "$tls_enabled" in
         fi
         export NGINX_HTTP_SERVER_BLOCK="server {
     listen 8080;
-    listen [::]:8080;
     server_name ${NGINX_SERVER_NAME};
     return 301 https://\$host:${NGINX_TLS_HOST_PORT}\$request_uri;
 }"
         export NGINX_HTTPS_SERVER_BLOCK="server {
     listen 8443 ssl;
-    listen [::]:8443 ssl;
     http2 on;
     server_name ${NGINX_SERVER_NAME};
     client_max_body_size 5m;
@@ -253,7 +251,6 @@ case "$tls_enabled" in
     false|0|no|off|'')
         export NGINX_HTTP_SERVER_BLOCK="server {
     listen 8080;
-    listen [::]:8080;
     server_name ${NGINX_SERVER_NAME};
     client_max_body_size 5m;
 
@@ -354,6 +351,7 @@ EOF
 
 RUN mkdir -p /etc/nginx/templates /etc/nginx/turboea-templates /var/cache/nginx /var/run && \
     touch /var/run/nginx.pid && \
+    sed -i '/^user\s\+/d' /etc/nginx/nginx.conf && \
     chmod 755 /usr/local/bin/turboea-nginx-entrypoint && \
     chown -R ${APP_UID}:${APP_GID} /etc/nginx/conf.d /etc/nginx/turboea-templates /etc/nginx/templates /var/cache/nginx /var/log/nginx /run
 

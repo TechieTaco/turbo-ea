@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.0.1] - 2026-05-06
+
+### Fixed
+- **Bundled edge nginx now starts on IPv4-only hosts and defaults to standard public ports in the sample env file.** The generated nginx config no longer forces IPv6 `listen [::]` sockets when the container runtime does not support them, the stock root-only `user` directive is stripped from the nginx main config to avoid non-root startup noise, and `.env.example` now defaults to `HOST_PORT=80` / `TLS_HOST_PORT=443` so direct TLS deployments land on the normal public ports without extra edits.
+
 ## [1.0.0] - 2026-05-05
 
 `1.0.0` is a stability declaration, not a feature release. The code shipping here is the same code that shipped in `0.71.0`, plus the supply-chain hardening and contributor-flow changes below. What's actually new is the **commitment** that `1.x` will not break operators within a major version line — see [`docs/reference/compatibility.md`](docs/reference/compatibility.md) for the full contract (Alembic migrations stay additive, the seeded metamodel and `/api/v1/` surface stay stable, permission keys stay stable, and removals go through a deprecation cycle).
