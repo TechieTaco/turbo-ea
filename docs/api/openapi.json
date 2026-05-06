@@ -25976,6 +25976,47 @@
         ]
       }
     },
+    "/api/v1/users/{user_id}/resend-invitation": {
+      "post": {
+        "description": "Re-send the invitation email to a previously invited user.\n\nUseful when the original send failed (bad SMTP creds, recipient lost\nthe message, etc.). Mirrors the invite branch of ``create_user``: if\nthe user still has a pending setup token and SSO is disabled, the\nemail links to the password-setup page; otherwise it points at the\nsign-in page.",
+        "operationId": "resend_invitation_api_v1_users__user_id__resend_invitation_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "title": "User Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Resend Invitation",
+        "tags": [
+          "users"
+        ]
+      }
+    },
     "/api/v1/web-portals": {
       "get": {
         "operationId": "list_portals_api_v1_web_portals_get",

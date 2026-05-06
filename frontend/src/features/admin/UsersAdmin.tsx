@@ -66,6 +66,7 @@ export default function UsersAdmin() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [warning, setWarning] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
 
   // Invite dialog state
   const [inviteOpen, setInviteOpen] = useState(false);
@@ -179,6 +180,25 @@ export default function UsersAdmin() {
       setUsers((prev) => prev.filter((u) => u.id !== user.id));
     } catch (err) {
       setError(err instanceof Error ? err.message : t("common:errors.generic"));
+    }
+  };
+
+  // --- Resend invitation ---
+  const handleResendInvite = async (user: User) => {
+    setSuccess(null);
+    setError(null);
+    setWarning(null);
+    try {
+      await api.post(`/users/${user.id}/resend-invitation`, {});
+      setSuccess(
+        t("users.resendInviteSuccess", { email: user.email })
+      );
+    } catch (err) {
+      setError(
+        t("users.resendInviteFailed", {
+          error: err instanceof Error ? err.message : t("common:errors.generic"),
+        })
+      );
     }
   };
 
@@ -388,6 +408,13 @@ export default function UsersAdmin() {
         </Alert>
       )}
 
+      {/* Success banner — confirms admin actions like resending an invite */}
+      {success && (
+        <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccess(null)}>
+          {success}
+        </Alert>
+      )}
+
       {/* Users table */}
       <TableContainer component={Paper} variant="outlined">
         <Table>
@@ -511,6 +538,11 @@ export default function UsersAdmin() {
                     <Tooltip title={t("users.editTooltip")}>
                       <IconButton size="small" onClick={() => openEdit(u)}>
                         <MaterialSymbol icon="edit" size={20} />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title={t("users.resendInviteTooltip")}>
+                      <IconButton size="small" onClick={() => handleResendInvite(u)}>
+                        <MaterialSymbol icon="forward_to_inbox" size={20} />
                       </IconButton>
                     </Tooltip>
                     <Tooltip

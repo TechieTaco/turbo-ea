@@ -318,6 +318,80 @@ async def create_user(
     return response
 
 
+def _build_invite_email(
+    *, app_title: str, setup_token: str | None, sso_enabled: bool
+) -> tuple[str, str, str]:
+    """Return (title, message, link) for an invitation email."""
+    invite_title = f"You've been invited to {app_title}"
+    if setup_token and not sso_enabled:
+        invite_message = (
+            f"You have been invited to join {app_title}. "
+            "Click the button below to set your password and get started."
+        )
+        invite_link = f"/auth/set-password?token={setup_token}"
+    elif sso_enabled:
+        invite_message = (
+            f"You have been invited to join {app_title}. Click the button below to sign in."
+        )
+        invite_link = "/"
+    else:
+        invite_message = (
+            f"You have been invited to join {app_title}. "
+            "A password has been set for your account. "
+            "Click the button below to sign in."
+        )
+        invite_link = "/"
+    return invite_title, invite_message, invite_link
+
+
+@router.post("/{user_id}/resend-invitation")
+async def resend_invitation(
+    user_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Re-send the invitation email to a previously invited user.
+
+    Useful when the original send failed (bad SMTP creds, recipient lost
+    the message, etc.). Mirrors the invite branch of ``create_user``: if
+    the user still has a pending setup token and SSO is disabled, the
+    email links to the password-setup page; otherwise it points at the
+    sign-in page.
+    """
+    await PermissionService.require_permission(db, current_user, "admin.users")
+
+    result = await db.execute(select(User).where(User.id == uuid.UUID(user_id)))
+    u = result.scalar_one_or_none()
+    if not u:
+        raise HTTPException(404, "User not found")
+
+    from app.services.email_service import _get_app_title, send_notification_email
+
+    sso_cfg = await _get_sso_config(db)
+    sso_enabled = sso_cfg.get("enabled", False)
+    title, message, link = _build_invite_email(
+        app_title=_get_app_title(),
+        setup_token=u.password_setup_token,
+        sso_enabled=sso_enabled,
+    )
+
+    try:
+        sent = await send_notification_email(to=u.email, title=title, message=message, link=link)
+    except Exception as exc:
+        import logging
+
+        logging.getLogger(__name__).exception("Failed to resend invitation email to %s", u.email)
+        raise HTTPException(502, f"Failed to send invitation email: {exc}") from exc
+
+    if not sent:
+        raise HTTPException(
+            400,
+            "SMTP is not configured. Configure SMTP in admin settings before resending.",
+        )
+
+    return {"email_sent": True, "sent_to": u.email}
+
+
 @router.patch("/{user_id}")
 async def update_user(
     user_id: str,
