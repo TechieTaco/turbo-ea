@@ -179,7 +179,8 @@
   "import.errors.typeMismatch": "Fila {{row}}: discrepancia de tipo \u2014 el archivo tiene \"{{fileType}}\", la existente tiene \"{{existingType}}\"",
   "import.errors.invalidParentId": "Fila {{row}}: formato de parent_id inv\u00e1lido \"{{parentId}}\"",
   "import.errors.parentNotFound": "Fila {{row}}: parent_id \"{{parentId}}\" no encontrado \u2014 debe hacer referencia a una ficha existente u otra fila en este archivo",
-  "import.errors.parentSelfReference": "Fila {{row}}: parent_id no puede hacer referencia a s\u00ed mismo",
+  "import.errors.parentSelfReference": "Fila {{row}}: la referencia al padre no puede apuntar a s\u00ed misma",
+  "import.errors.invalidParentPath": "Fila {{row}}: la ruta del padre \u00ab{{path}}\u00bb no se pudo resolver \u2014 no existe ninguna ficha con esa jerarqu\u00eda en esta instancia ni en el archivo",
   "import.errors.invalidApprovalStatus": "Fila {{row}}: approval_status inv\u00e1lido \"{{status}}\" (v\u00e1lidos: DRAFT, APPROVED, BROKEN, REJECTED)",
   "import.errors.invalidDate": "Fila {{row}}: {{field}} espera una fecha (AAAA-MM-DD), se recibi\u00f3 \"{{value}}\"",
   "import.errors.requiredFieldEmpty": "Fila {{row}}: el campo obligatorio \"{{field}}\" est\u00e1 vac\u00edo",
@@ -188,5 +189,7 @@
   "import.errors.invalidSelectValue": "Fila {{row}}: valor inv\u00e1lido \"{{value}}\" para el campo \"{{field}}\" (v\u00e1lidos: {{valid}})",
   "import.errors.unknown": "Error desconocido",
   "import.warnings.unrecognisedColumn": "La columna \"{{column}}\" no se reconoce y ser\u00e1 ignorada",
-  "import.warnings.unknownTag": "Fila {{row}}: etiqueta desconocida «{{value}}» — ignorada"
+  "import.warnings.unknownTag": "Fila {{row}}: etiqueta desconocida «{{value}}» — ignorada",
+  "import.warnings.idNotFoundCreating": "Fila {{row}}: el id «{{id}}» no existe en esta instancia — se creará como ficha nueva",
+  "import.warnings.ambiguousParentPath": "Fila {{row}}: la ruta del padre «{{path}}» coincide con varias fichas — se usa la primera coincidencia"
 }

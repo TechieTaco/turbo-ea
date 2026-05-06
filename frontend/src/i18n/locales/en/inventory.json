@@ -178,8 +178,9 @@
   "import.errors.noExistingCard": "Row {{row}}: no existing card with id \"{{id}}\"",
   "import.errors.typeMismatch": "Row {{row}}: type mismatch \u2014 file has \"{{fileType}}\", existing has \"{{existingType}}\"",
   "import.errors.invalidParentId": "Row {{row}}: invalid parent_id format \"{{parentId}}\"",
-  "import.errors.parentNotFound": "Row {{row}}: parent_id \"{{parentId}}\" not found \u2014 must reference an existing card or another row in this file",
-  "import.errors.parentSelfReference": "Row {{row}}: parent_id cannot reference itself",
+  "import.errors.parentNotFound": "Row {{row}}: parent_id \"{{parentId}}\" not found \u2014 must reference an existing card, a row in this file, or use the parent_path column instead",
+  "import.errors.parentSelfReference": "Row {{row}}: parent cannot reference itself",
+  "import.errors.invalidParentPath": "Row {{row}}: parent path \"{{path}}\" couldn't be resolved \u2014 no card with that ancestry exists in this instance or in the file",
   "import.errors.invalidApprovalStatus": "Row {{row}}: invalid approval_status \"{{status}}\" (valid: DRAFT, APPROVED, BROKEN, REJECTED)",
   "import.errors.invalidDate": "Row {{row}}: {{field}} expects a date (YYYY-MM-DD), got \"{{value}}\"",
   "import.errors.requiredFieldEmpty": "Row {{row}}: required field \"{{field}}\" is empty",
@@ -188,5 +189,7 @@
   "import.errors.invalidSelectValue": "Row {{row}}: invalid value \"{{value}}\" for field \"{{field}}\" (valid: {{valid}})",
   "import.errors.unknown": "Unknown error",
   "import.warnings.unrecognisedColumn": "Column \"{{column}}\" is not recognised and will be ignored",
-  "import.warnings.unknownTag": "Row {{row}}: unknown tag \"{{value}}\" — ignored"
+  "import.warnings.unknownTag": "Row {{row}}: unknown tag \"{{value}}\" — ignored",
+  "import.warnings.idNotFoundCreating": "Row {{row}}: id \"{{id}}\" doesn't exist in this instance — creating as a new card",
+  "import.warnings.ambiguousParentPath": "Row {{row}}: parent path \"{{path}}\" matches multiple cards — using the first match"
 }

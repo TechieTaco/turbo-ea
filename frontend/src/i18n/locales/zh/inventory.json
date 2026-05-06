@@ -169,7 +169,8 @@
   "import.errors.typeMismatch": "第 {{row}} 行：类型不匹配 — 文件中为 \"{{fileType}}\"，现有为 \"{{existingType}}\"",
   "import.errors.invalidParentId": "第 {{row}} 行：无效的 parent_id 格式 \"{{parentId}}\"",
   "import.errors.parentNotFound": "第 {{row}} 行：parent_id \"{{parentId}}\" 未找到 — 必须引用现有卡片或此文件中的其他行",
-  "import.errors.parentSelfReference": "第 {{row}} 行：parent_id 不能引用自身",
+  "import.errors.parentSelfReference": "第 {{row}} 行：父级引用不能指向自身",
+  "import.errors.invalidParentPath": "第 {{row}} 行：无法解析父级路径「{{path}}」— 此实例或此文件中均不存在具有该层级的卡片",
   "import.errors.invalidApprovalStatus": "第 {{row}} 行：无效的 approval_status \"{{status}}\"（有效值：DRAFT、APPROVED、BROKEN、REJECTED）",
   "import.errors.invalidDate": "第 {{row}} 行：{{field}} 需要日期格式 (YYYY-MM-DD)，得到 \"{{value}}\"",
   "import.errors.requiredFieldEmpty": "第 {{row}} 行：必填字段 \"{{field}}\" 为空",
@@ -178,5 +179,7 @@
   "import.errors.invalidSelectValue": "第 {{row}} 行：字段 \"{{field}}\" 的值 \"{{value}}\" 无效（有效值：{{valid}}）",
   "import.errors.unknown": "未知错误",
   "import.warnings.unrecognisedColumn": "列 \"{{column}}\" 未被识别，将被忽略",
-  "import.warnings.unknownTag": "第 {{row}} 行：未知标签「{{value}}」— 已忽略"
+  "import.warnings.unknownTag": "第 {{row}} 行：未知标签「{{value}}」— 已忽略",
+  "import.warnings.idNotFoundCreating": "第 {{row}} 行：此实例中不存在 id「{{id}}」— 将作为新卡片创建",
+  "import.warnings.ambiguousParentPath": "第 {{row}} 行：父级路径「{{path}}」匹配到多张卡片 — 将使用第一个匹配项"
 }

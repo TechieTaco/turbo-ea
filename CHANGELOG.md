@@ -10,6 +10,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ### Added
 - **Multi-select export of Architecture Decision Records to Word.** The Decisions tab on EA Delivery now has a checkbox column on the ADR grid; selecting one or more rows reveals an "Export to Word" button that generates a single styled `.docx` with a cover page, a table of contents (when more than one decision is selected), and one section per ADR containing reference, title, status, metadata, Context / Decision / Consequences / Alternatives, linked cards, and signatures. Useful for circulating the decisions taken during an architecture review meeting as a single deliverable.
 
+## [1.0.9] - 2026-05-06
+
+### Changed
+- **Excel export/import is now portable across instances.** The export sheet replaces the per-instance `parent_id` UUID with a `parent_path` column (a `" / "`-separated chain of ancestor names, with `\` and `/` both escaped), inspired by LeanIX's LDIF approach. Import resolves the parent by walking that path against the target instance's hierarchy and falls back to the legacy `parent_id` column for same-instance round-trips. A source `id` that doesn't match any local card no longer hard-fails the row — it's demoted to a "create" with a warning so a full-dataset export drops cleanly into a fresh tenant. Empty required attributes on a create are also demoted from a blocking error to a warning, since the backend treats required fields as a data-quality signal rather than a hard constraint — incomplete source data now imports and is reflected in the card's quality score instead of stopping the whole migration. Ambiguous parent paths (siblings with identical names) emit a warning and pick the first match; users can still disambiguate by including the GUID column.
+
 ## [1.0.8] - 2026-05-06
 
 ### Security

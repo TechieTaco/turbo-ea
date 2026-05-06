@@ -169,7 +169,8 @@
   "import.errors.typeMismatch": "Строка {{row}}: несоответствие типов \u2014 в файле «{{fileType}}», существующий «{{existingType}}»",
   "import.errors.invalidParentId": "Строка {{row}}: некорректный формат parent_id «{{parentId}}»",
   "import.errors.parentNotFound": "Строка {{row}}: parent_id «{{parentId}}» не найден \u2014 должен ссылаться на существующую карточку или другую строку в этом файле",
-  "import.errors.parentSelfReference": "Строка {{row}}: parent_id не может ссылаться на себя",
+  "import.errors.parentSelfReference": "Строка {{row}}: ссылка на родителя не может указывать на саму себя",
+  "import.errors.invalidParentPath": "Строка {{row}}: путь к родителю «{{path}}» не удалось разрешить — карточки с такой иерархией нет ни в этом экземпляре, ни в файле",
   "import.errors.invalidApprovalStatus": "Строка {{row}}: некорректный approval_status «{{status}}» (допустимые: DRAFT, APPROVED, BROKEN, REJECTED)",
   "import.errors.invalidDate": "Строка {{row}}: {{field}} ожидает дату (YYYY-MM-DD), получено «{{value}}»",
   "import.errors.requiredFieldEmpty": "Строка {{row}}: обязательное поле «{{field}}» пусто",
@@ -178,5 +179,7 @@
   "import.errors.invalidSelectValue": "Строка {{row}}: некорректное значение «{{value}}» для поля «{{field}}» (допустимые: {{valid}})",
   "import.errors.unknown": "Неизвестная ошибка",
   "import.warnings.unrecognisedColumn": "Столбец «{{column}}» не распознан и будет проигнорирован",
-  "import.warnings.unknownTag": "Строка {{row}}: неизвестный тег «{{value}}» — проигнорирован"
+  "import.warnings.unknownTag": "Строка {{row}}: неизвестный тег «{{value}}» — проигнорирован",
+  "import.warnings.idNotFoundCreating": "Строка {{row}}: id «{{id}}» отсутствует в этом экземпляре — будет создана новая карточка",
+  "import.warnings.ambiguousParentPath": "Строка {{row}}: путь к родителю «{{path}}» соответствует нескольким карточкам — используется первое совпадение"
 }

@@ -179,7 +179,8 @@
   "import.errors.typeMismatch": "Linha {{row}}: incompatibilidade de tipo \u2014 o arquivo tem \"{{fileType}}\", o existente tem \"{{existingType}}\"",
   "import.errors.invalidParentId": "Linha {{row}}: formato de parent_id inválido \"{{parentId}}\"",
   "import.errors.parentNotFound": "Linha {{row}}: parent_id \"{{parentId}}\" não encontrado \u2014 deve referenciar uma ficha existente ou outra linha neste arquivo",
-  "import.errors.parentSelfReference": "Linha {{row}}: parent_id não pode referenciar a si mesmo",
+  "import.errors.parentSelfReference": "Linha {{row}}: a referência ao pai não pode apontar para si mesma",
+  "import.errors.invalidParentPath": "Linha {{row}}: o caminho do pai «{{path}}» não pôde ser resolvido — nenhuma ficha com essa hierarquia existe nesta instância ou no arquivo",
   "import.errors.invalidApprovalStatus": "Linha {{row}}: approval_status inválido \"{{status}}\" (válidos: DRAFT, APPROVED, BROKEN, REJECTED)",
   "import.errors.invalidDate": "Linha {{row}}: {{field}} espera uma data (AAAA-MM-DD), recebido \"{{value}}\"",
   "import.errors.requiredFieldEmpty": "Linha {{row}}: campo obrigatório \"{{field}}\" está vazio",
@@ -188,5 +189,7 @@
   "import.errors.invalidSelectValue": "Linha {{row}}: valor inválido \"{{value}}\" para o campo \"{{field}}\" (válidos: {{valid}})",
   "import.errors.unknown": "Erro desconhecido",
   "import.warnings.unrecognisedColumn": "A coluna \"{{column}}\" não é reconhecida e será ignorada",
-  "import.warnings.unknownTag": "Linha {{row}}: tag desconhecida «{{value}}» — ignorada"
+  "import.warnings.unknownTag": "Linha {{row}}: tag desconhecida «{{value}}» — ignorada",
+  "import.warnings.idNotFoundCreating": "Linha {{row}}: o id «{{id}}» não existe nesta instância — será criada como nova ficha",
+  "import.warnings.ambiguousParentPath": "Linha {{row}}: o caminho do pai «{{path}}» corresponde a várias fichas — a primeira correspondência será usada"
 }

@@ -179,7 +179,8 @@
   "import.errors.typeMismatch": "Ligne {{row}} : incoh\u00e9rence de type \u2014 le fichier indique \u00ab {{fileType}} \u00bb, la fiche existante est \u00ab {{existingType}} \u00bb",
   "import.errors.invalidParentId": "Ligne {{row}} : format de parent_id invalide \u00ab {{parentId}} \u00bb",
   "import.errors.parentNotFound": "Ligne {{row}} : parent_id \u00ab {{parentId}} \u00bb introuvable \u2014 doit r\u00e9f\u00e9rencer une fiche existante ou une autre ligne de ce fichier",
-  "import.errors.parentSelfReference": "Ligne {{row}} : parent_id ne peut pas r\u00e9f\u00e9rencer lui-m\u00eame",
+  "import.errors.parentSelfReference": "Ligne {{row}} : la r\u00e9f\u00e9rence parent ne peut pas pointer vers elle-m\u00eame",
+  "import.errors.invalidParentPath": "Ligne {{row}} : le chemin parent \u00ab {{path}} \u00bb n\u2019a pas pu \u00eatre r\u00e9solu \u2014 aucune fiche avec cette hi\u00e9rarchie n\u2019existe dans cette instance ni dans le fichier",
   "import.errors.invalidApprovalStatus": "Ligne {{row}} : statut d\u2019approbation invalide \u00ab {{status}} \u00bb (valides : DRAFT, APPROVED, BROKEN, REJECTED)",
   "import.errors.invalidDate": "Ligne {{row}} : {{field}} attend une date (AAAA-MM-JJ), re\u00e7u \u00ab {{value}} \u00bb",
   "import.errors.requiredFieldEmpty": "Ligne {{row}} : le champ obligatoire \u00ab {{field}} \u00bb est vide",
@@ -188,5 +189,7 @@
   "import.errors.invalidSelectValue": "Ligne {{row}} : valeur invalide \u00ab {{value}} \u00bb pour le champ \u00ab {{field}} \u00bb (valides : {{valid}})",
   "import.errors.unknown": "Erreur inconnue",
   "import.warnings.unrecognisedColumn": "La colonne \u00ab {{column}} \u00bb n\u2019est pas reconnue et sera ignor\u00e9e",
-  "import.warnings.unknownTag": "Ligne {{row}} : tag inconnu « {{value}} » — ignoré"
+  "import.warnings.unknownTag": "Ligne {{row}} : tag inconnu « {{value}} » — ignoré",
+  "import.warnings.idNotFoundCreating": "Ligne {{row}} : l’id « {{id}} » n’existe pas dans cette instance — création d’une nouvelle fiche",
+  "import.warnings.ambiguousParentPath": "Ligne {{row}} : le chemin parent « {{path}} » correspond à plusieurs fiches — la première correspondance est utilisée"
 }
