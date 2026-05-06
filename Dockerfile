@@ -22,7 +22,7 @@ FROM python:3.12-alpine AS backend
 ARG APP_UID
 ARG APP_GID
 
-RUN apk add --no-cache libpq && rm -rf /var/cache/apk/*
+RUN apk upgrade --no-cache && apk add --no-cache libpq && rm -rf /var/cache/apk/*
 RUN addgroup -g ${APP_GID} -S appgroup && adduser -S -D -u ${APP_UID} -G appgroup appuser
 
 WORKDIR /app
@@ -46,7 +46,8 @@ FROM postgres:18-alpine AS db
 ARG APP_UID
 ARG APP_GID
 
-RUN apk add --no-cache shadow && \
+RUN apk upgrade --no-cache && \
+    apk add --no-cache shadow && \
     groupmod -g ${APP_GID} postgres && \
     usermod -u ${APP_UID} -g ${APP_GID} postgres && \
     apk del shadow && \
@@ -79,6 +80,7 @@ FROM nginx:alpine AS frontend
 ARG APP_UID
 ARG APP_GID
 
+RUN apk upgrade --no-cache && rm -rf /var/cache/apk/*
 RUN addgroup -g ${APP_GID} -S appgroup && adduser -S -D -H -u ${APP_UID} -G appgroup appuser
 
 COPY --from=frontend-build /app/dist /usr/share/nginx/html
@@ -108,6 +110,7 @@ FROM nginx:alpine AS nginx
 ARG APP_UID
 ARG APP_GID
 
+RUN apk upgrade --no-cache && rm -rf /var/cache/apk/*
 RUN addgroup -g ${APP_GID} -S appgroup && adduser -S -D -H -u ${APP_UID} -G appgroup appuser
 
 COPY nginx/default.conf /etc/nginx/turboea-templates/default.conf.template
@@ -401,6 +404,8 @@ FROM python:3.12-alpine AS mcp-server
 
 ARG APP_UID
 ARG APP_GID
+
+RUN apk upgrade --no-cache && rm -rf /var/cache/apk/*
 
 WORKDIR /app
 

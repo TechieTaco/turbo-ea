@@ -13,14 +13,121 @@
 #   - Prefer fixing over allowlisting where a base-image bump or apk update
 #     resolves the finding.
 #
-# The publish workflow currently runs Trivy with `exit-code: 0`
-# (non-blocking) — findings are uploaded as SARIF to the Security tab.
-# Once the baseline is triaged and captured here, flip `exit-code` to `1`
-# in `docker-publish.yml` so the gate becomes enforcing.
+# Each runtime Dockerfile stage now runs `apk upgrade --no-cache` before
+# its app payload, so apk-package CVEs in the live runtime images are
+# fixed automatically when a patched .apk is available in the pinned
+# Alpine release. Anything still listed below is either build-stage-only
+# or shipped as an upstream binary that we cannot rebuild from this repo.
 #
-# Example (kept commented — uncomment with rationale once we adopt one):
-#
-# # Reviewed 2026-05-XX — affects musl-libc <1.2.5 in alpine 3.20 base.
-# # Turbo EA does not invoke the affected codepath (regex parsing of
-# # untrusted locale data); upstream fix expected in alpine 3.21.
-# CVE-XXXX-YYYYY
+# The publish workflow runs Trivy with `exit-code: 1` (enforcing) — any
+# new HIGH/CRITICAL finding outside this allowlist will fail the build.
+
+# -----------------------------------------------------------------------------
+# Build-stage-only — `alpine/git:v2.47.2` used in the `drawio` stage
+# -----------------------------------------------------------------------------
+# Reviewed 2026-05-06 — the `drawio` build stage clones jgraph/drawio at
+# image-build time and copies the static webapp into the runtime
+# `frontend` image. The final `frontend` and `nginx` images are
+# `nginx:alpine` plus the built React `dist/` and the static drawio
+# webapp; neither `git`, `gnupg`, nor the alpine 3.21 base layer of
+# `alpine/git` is shipped to the runtime images that Trivy scans on the
+# Security tab. The `alpine/git` image only exists inside the buildx
+# layer cache, never in a published manifest, so these CVEs cannot be
+# reached by an attacker against a deployed Turbo EA installation.
+# Re-eval 2026-Q3 (or sooner if `alpine/git` publishes a v2.48+ tag we
+# can pin to).
+CVE-2025-15467
+CVE-2025-32988
+CVE-2025-32990
+CVE-2025-46334
+CVE-2025-48384
+CVE-2025-48385
+CVE-2025-68973
+CVE-2025-69419
+CVE-2025-69421
+CVE-2025-6965
+CVE-2026-1584
+CVE-2026-22184
+CVE-2026-25210
+CVE-2026-28387
+CVE-2026-28388
+CVE-2026-28389
+CVE-2026-28390
+CVE-2026-31789
+CVE-2026-33845
+CVE-2026-33846
+CVE-2026-40200
+
+# -----------------------------------------------------------------------------
+# Build-stage-only — `node:20-alpine` used in the `frontend-build` stage
+# -----------------------------------------------------------------------------
+# Reviewed 2026-05-06 — these are Node.js-bundled npm dependencies
+# (cross-spawn, glob, tar, minimatch) that are present in `node_modules`
+# during `npm ci && npm run build`. The runtime `frontend` image is
+# `nginx:alpine` plus the built static `dist/` and the drawio webapp —
+# the entire Node runtime, npm, and `node_modules` tree is discarded
+# after the build stage. None of these packages are shipped or executed
+# at runtime, so an exploit chain via tar/minimatch/glob/cross-spawn
+# requires write access to our build environment, which is the GitHub
+# Actions runner. Re-eval 2026-Q3 — Node 22 LTS will likely ship a
+# refreshed bundled-npm set.
+CVE-2024-21538
+CVE-2025-64756
+CVE-2026-23745
+CVE-2026-23950
+CVE-2026-24842
+CVE-2026-26960
+CVE-2026-26996
+CVE-2026-27903
+CVE-2026-27904
+CVE-2026-29786
+CVE-2026-31802
+
+# -----------------------------------------------------------------------------
+# Upstream binary — `gosu` in `postgres:18-alpine`
+# -----------------------------------------------------------------------------
+# Reviewed 2026-05-06 — these are Go stdlib + jsonparser CVEs in the
+# `gosu` binary shipped at `/usr/local/bin/gosu` by the upstream
+# postgres image. `gosu` is invoked exactly once by postgres' entrypoint
+# to drop privileges from root before exec'ing postgres itself; it does
+# not open network sockets, parse untrusted input, or process JSON in
+# our usage path. The vulnerable Go stdlib code paths
+# (net/http parsing, crypto/x509, encoding/* fuzzing) are not reachable
+# from gosu's `setgid()/setuid()/exec()` flow. We cannot rebuild gosu
+# from this repo (it's a pre-compiled binary inherited from upstream);
+# the fix lands when `postgres:18-alpine` rebuilds against a patched
+# Go toolchain. Re-eval 2026-Q3.
+CVE-2025-58183
+CVE-2025-61726
+CVE-2025-61728
+CVE-2025-61729
+CVE-2025-68121
+CVE-2026-25679
+CVE-2026-27137
+CVE-2026-32280
+CVE-2026-32281
+CVE-2026-32283
+CVE-2026-32285
+CVE-2026-33810
+
+# Note: the IDs above also appear in the optional `ollama` image (Go
+# stdlib CVEs in `/usr/bin/ollama`). The `ollama` service is opt-in
+# (`docker compose --profile ai`), is bound only to the internal
+# Docker network (no host port published), and accepts requests only
+# from the backend service. The same Go stdlib vulnerabilities cannot
+# be rebuilt from this repo — the fix lands when upstream Ollama
+# rebuilds. Trivy treats them as the same CVE IDs already listed
+# above, so a single allowlist entry covers both image targets.
+
+# -----------------------------------------------------------------------------
+# Transient — apk upgrade chain (remove when upstream alpine repo ships fix)
+# -----------------------------------------------------------------------------
+# Reviewed 2026-05-06 — `nghttp2-libs` CVE present in `nginx:alpine`
+# (1.68.0-r0) and `postgres:18-alpine` (1.68.0-r0). The runtime images
+# now run `apk upgrade --no-cache` so this will fix transparently when
+# alpine 3.23 ships `nghttp2 1.68.1-r0`. Listed here as a transitional
+# safety net so the enforcing Trivy gate doesn't break publishes in
+# the window between the CVE being reported and the alpine repo
+# carrying the patch. Remove this entry once a follow-up scan confirms
+# the runtime images report no nghttp2 finding.
+CVE-2026-27135

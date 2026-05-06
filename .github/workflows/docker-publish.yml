@@ -93,13 +93,13 @@ jobs:
           DIGEST: ${{ steps.build.outputs.digest }}
         run: cosign sign --yes "${IMAGE}@${DIGEST}"
 
-      # Trivy is intentionally non-blocking (`exit-code: 0`). The Alpine bases
-      # used by every image (python:3.12-alpine, postgres:18-alpine,
-      # nginx:alpine) carry baseline musl-libc + apk transitive findings that
-      # would block all publishes on day one. Findings are uploaded as SARIF
-      # to the Security tab so they're visible and triageable; once the
-      # baseline is captured in `.github/trivy-allowlist.yaml`, flip
-      # `exit-code` to `1` in a follow-up to make the gate enforcing.
+      # Trivy gate is enforcing (`exit-code: 1`). Each runtime stage in the
+      # Dockerfile runs `apk upgrade --no-cache` so apk-package CVEs in the
+      # pinned alpine bases are picked up automatically; everything else
+      # (build-stage-only findings, upstream binaries we can't rebuild) is
+      # captured with rationale in `.github/trivy-allowlist.yaml`. New
+      # HIGH/CRITICAL findings outside the allowlist will fail the publish
+      # — triage and either fix in the Dockerfile or add an allowlist entry.
       - name: Trivy image scan
         uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8 # v0.36.0
         with:
@@ -107,7 +107,7 @@ jobs:
           format: sarif
           output: trivy-${{ matrix.image }}.sarif
           severity: HIGH,CRITICAL
-          exit-code: "0"
+          exit-code: "1"
           ignore-unfixed: true
           trivyignores: .github/trivy-allowlist.yaml
 
