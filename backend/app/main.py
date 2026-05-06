@@ -375,7 +375,9 @@ async def lifespan(app: FastAPI):
             if _email.get("smtp_user"):
                 settings.SMTP_USER = _email["smtp_user"]
             if _email.get("smtp_password"):
-                settings.SMTP_PASSWORD = _email["smtp_password"]
+                from app.core.encryption import decrypt_value
+
+                settings.SMTP_PASSWORD = decrypt_value(_email["smtp_password"])
             if _email.get("smtp_from"):
                 settings.SMTP_FROM = _email["smtp_from"]
             if "smtp_tls" in _email:
