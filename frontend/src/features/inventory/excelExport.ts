@@ -7,9 +7,17 @@ const LIFECYCLE_PHASES = ["plan", "phaseIn", "active", "phaseOut", "endOfLife"] 
 const MAX_PATH_DEPTH = 8;
 
 /**
+ * Encode a single name for inclusion in a `parent_path`. Both `\` and `/`
+ * are escaped (`\` → `\\`, `/` → `\/`) so the path is unambiguous and
+ * names containing either character round-trip cleanly through import.
+ */
+function encodePathSegment(name: string): string {
+  return name.replace(/\\/g, "\\\\").replace(/\//g, "\\/");
+}
+
+/**
  * Build a `" / "`-separated path of ancestor names for a card, root first,
- * immediate parent last. Returns an empty string for root cards. Literal
- * `/` characters in names are escaped as `\/` so the path is unambiguous.
+ * immediate parent last. Returns an empty string for root cards.
  */
 function buildParentPath(card: Card, byId: Map<string, Card>): string {
   const segments: string[] = [];
@@ -17,7 +25,7 @@ function buildParentPath(card: Card, byId: Map<string, Card>): string {
   let current = card.parent_id ? byId.get(card.parent_id) : undefined;
   while (current && !seen.has(current.id) && segments.length < MAX_PATH_DEPTH) {
     seen.add(current.id);
-    segments.unshift(current.name.replace(/\//g, "\\/"));
+    segments.unshift(encodePathSegment(current.name));
     current = current.parent_id ? byId.get(current.parent_id) : undefined;
   }
   return segments.join(" / ");
