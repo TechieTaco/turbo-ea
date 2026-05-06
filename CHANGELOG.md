@@ -5,6 +5,13 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.0.2] - 2026-05-06
+
+### Fixed
+- **Surveys can now target a single specific card.** A new "Specific cards" filter in the Survey Builder lets admins pick one or more exact target cards (filtered to the chosen card type), alongside the existing "Cards related to" relation-based filter. Previously the only card picker was the relation filter, so picking a single card silently excluded it (the resolver looked for cards *related to* it, not the card itself), producing zero recipients.
+- **Survey response form now shows translated labels instead of raw keys.** The card type chip, subtype chip, section names and select-option values displayed under "Current value" are now resolved through the metamodel's translations. The backend `respond` endpoint enriches the survey snapshot with the live metamodel translations so existing surveys benefit without re-saving.
+- **Demo seed surveys now reference fields that exist on their target card type.** The Application survey no longer asks to maintain the removed `vendor` text field (Applications use the Provider relation instead) and the IT Component survey no longer references the non-existent `supportLevel` field. A new `test_survey_field_keys_match_target_type` test in `tests/services/test_seed_demo.py` prevents this drift in the future.
+
 ## [1.0.1] - 2026-05-06
 
 ### Fixed

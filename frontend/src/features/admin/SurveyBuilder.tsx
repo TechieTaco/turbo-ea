@@ -71,9 +71,13 @@ export default function SurveyBuilder() {
   const [targetRoles, setTargetRoles] = useState<string[]>([]);
   const [relatedIds, setRelatedIds] = useState<string[]>([]);
   const [relatedItems, setRelatedItems] = useState<Card[]>([]);
+  const [cardIds, setCardIds] = useState<string[]>([]);
+  const [cardItems, setCardItems] = useState<Card[]>([]);
   const [tagIds, setTagIds] = useState<string[]>([]);
   const [relatedSearch, setRelatedSearch] = useState("");
   const [relatedOptions, setRelatedOptions] = useState<Card[]>([]);
+  const [cardSearch, setCardSearch] = useState("");
+  const [cardOptions, setCardOptions] = useState<Card[]>([]);
   const [tagGroups, setTagGroups] = useState<TagGroup[]>([]);
   const [roles, setRoles] = useState<StakeholderRoleDef[]>([]);
   const [attributeFilters, setAttributeFilters] = useState<
@@ -99,6 +103,7 @@ export default function SurveyBuilder() {
         setTargetTypeKey(s.target_type_key);
         setTargetRoles(s.target_roles || []);
         setRelatedIds(s.target_filters?.related_ids || []);
+        setCardIds(s.target_filters?.card_ids || []);
         setTagIds(s.target_filters?.tag_ids || []);
         setAttributeFilters(s.target_filters?.attribute_filters || []);
         setSelectedFields(s.fields || []);
@@ -137,11 +142,53 @@ export default function SurveyBuilder() {
     return () => clearTimeout(timer);
   }, [relatedSearch]);
 
+  // Search cards for the "specific cards" picker — restricted to the target type
+  useEffect(() => {
+    if (!targetTypeKey || !cardSearch || cardSearch.length < 2) {
+      setCardOptions([]);
+      return;
+    }
+    const timer = setTimeout(async () => {
+      try {
+        const res = await api.get<{ items: Card[] }>(
+          `/cards?type=${encodeURIComponent(targetTypeKey)}&search=${encodeURIComponent(cardSearch)}&page_size=20`,
+        );
+        setCardOptions(res.items);
+      } catch {
+        // ignore
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [cardSearch, targetTypeKey]);
+
+  // Hydrate selected items so autocomplete chips render names when editing an existing survey
+  useEffect(() => {
+    const missing = cardIds.filter((id) => !cardItems.some((c) => c.id === id));
+    if (missing.length === 0) return;
+    Promise.all(
+      missing.map((id) => api.get<Card>(`/cards/${id}`).catch(() => null)),
+    ).then((cards) => {
+      const fetched = cards.filter((c): c is Card => !!c);
+      if (fetched.length > 0) {
+        setCardItems((prev) => {
+          const known = new Set(prev.map((c) => c.id));
+          return [...prev, ...fetched.filter((c) => !known.has(c.id))];
+        });
+      }
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cardIds]);
+
   // Merge selected items with search results so selected values are always in options
   const mergedRelatedOptions = useMemo(() => {
     const ids = new Set(relatedOptions.map((o) => o.id));
     return [...relatedOptions, ...relatedItems.filter((item) => !ids.has(item.id))];
   }, [relatedOptions, relatedItems]);
+
+  const mergedCardOptions = useMemo(() => {
+    const ids = new Set(cardOptions.map((o) => o.id));
+    return [...cardOptions, ...cardItems.filter((item) => !ids.has(item.id))];
+  }, [cardOptions, cardItems]);
 
   // Get the selected type's fields schema
   const selectedType = useMemo(
@@ -183,6 +230,7 @@ export default function SurveyBuilder() {
         message,
         target_type_key: targetTypeKey,
         target_filters: {
+          card_ids: cardIds.length > 0 ? cardIds : undefined,
           related_ids: relatedIds.length > 0 ? relatedIds : undefined,
           tag_ids: tagIds.length > 0 ? tagIds : undefined,
           attribute_filters: attributeFilters.length > 0 ? attributeFilters : undefined,
@@ -203,7 +251,7 @@ export default function SurveyBuilder() {
     } finally {
       setSaving(false);
     }
-  }, [name, description, message, targetTypeKey, targetRoles, relatedIds, tagIds, attributeFilters, selectedFields, surveyId]);
+  }, [name, description, message, targetTypeKey, targetRoles, relatedIds, cardIds, tagIds, attributeFilters, selectedFields, surveyId]);
 
   // Preview targets
   const loadPreview = useCallback(async () => {
@@ -221,6 +269,7 @@ export default function SurveyBuilder() {
         message,
         target_type_key: targetTypeKey,
         target_filters: {
+          card_ids: cardIds.length > 0 ? cardIds : undefined,
           related_ids: relatedIds.length > 0 ? relatedIds : undefined,
           tag_ids: tagIds.length > 0 ? tagIds : undefined,
           attribute_filters: attributeFilters.length > 0 ? attributeFilters : undefined,
@@ -246,7 +295,7 @@ export default function SurveyBuilder() {
     } finally {
       setPreviewing(false);
     }
-  }, [surveyId, name, description, message, targetTypeKey, targetRoles, relatedIds, tagIds, attributeFilters, selectedFields, saveDraft]);
+  }, [surveyId, name, description, message, targetTypeKey, targetRoles, relatedIds, cardIds, tagIds, attributeFilters, selectedFields, saveDraft]);
 
   // Send survey
   const handleSend = async () => {
@@ -430,6 +479,51 @@ export default function SurveyBuilder() {
                 </MenuItem>
               ))}
           </TextField>
+
+          <Divider sx={{ my: 2 }} />
+          <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
+            {t("surveyBuilder.target.filterSpecific")}
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+            {t("surveyBuilder.target.filterSpecificHint")}
+          </Typography>
+          <Autocomplete
+            multiple
+            filterSelectedOptions
+            disabled={!targetTypeKey}
+            options={mergedCardOptions}
+            getOptionLabel={(o) => o.name}
+            isOptionEqualToValue={(opt, val) => opt.id === val.id}
+            value={cardItems}
+            inputValue={cardSearch}
+            onInputChange={(_, val, reason) => {
+              if (reason !== "reset") setCardSearch(val);
+            }}
+            onChange={(_, vals) => {
+              setCardItems(vals);
+              setCardIds(vals.map((v) => v.id));
+            }}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                label={t("surveyBuilder.target.searchSpecificCards")}
+                size="small"
+              />
+            )}
+            renderTags={(vals, getTagProps) =>
+              vals.map((v, i) => (
+                <Chip {...getTagProps({ index: i })} key={v.id} label={v.name} size="small" />
+              ))
+            }
+            sx={{ mb: 3 }}
+            noOptionsText={
+              !targetTypeKey
+                ? t("surveyBuilder.target.selectTypeFirst")
+                : cardSearch.length < 2
+                  ? t("common:labels.loading")
+                  : t("common:labels.noResults")
+            }
+          />
 
           <Divider sx={{ my: 2 }} />
           <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>

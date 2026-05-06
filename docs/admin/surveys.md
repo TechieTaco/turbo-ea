@@ -34,7 +34,11 @@ Select which card type the survey applies to (e.g., Application, IT Component). 
 
 ### Filters
 
-Optionally narrow the scope by filtering cards (e.g., only Active applications, only cards owned by a specific organization).
+Optionally narrow the scope by filtering cards. Three filter types are available and can be combined:
+
+- **Specific cards** — Pick one or more cards directly (filtered to the selected target type). Use this to target a single card or a hand-picked subset.
+- **Cards related to** — Only include cards that have a relation to one of the listed items (e.g., all Applications related to the Sales organization).
+- **Tags** and **Attribute filters** — Match cards by tag or by attribute conditions (e.g., cost greater than 10 000, TIME rating is missing).
 
 ### Questions
 

@@ -34,7 +34,11 @@ Wählen Sie aus, auf welchen Kartentyp sich die Umfrage bezieht (z.B. Anwendung,
 
 ### Filter
 
-Optional den Umfang einschränken, indem Sie Karten filtern (z.B. nur aktive Anwendungen, nur Karten einer bestimmten Organisation zugeordnet).
+Schränken Sie den Umfang optional über Filter ein. Drei Filtertypen lassen sich beliebig kombinieren:
+
+- **Bestimmte Karten** — Wählen Sie eine oder mehrere Karten direkt aus (eingeschränkt auf den gewählten Zieltyp). Geeignet, um eine einzelne oder eine handverlesene Auswahl von Karten anzusprechen.
+- **Mit Karten verknüpft** — Nur Karten einbeziehen, die eine Beziehung zu einem der aufgeführten Elemente haben (z. B. alle Anwendungen, die mit der Organisation Vertrieb verknüpft sind).
+- **Tags** und **Attributfilter** — Karten anhand von Tags oder Attributbedingungen treffen (z. B. Kosten größer als 10 000, TIME-Bewertung fehlt).
 
 ### Fragen
 
