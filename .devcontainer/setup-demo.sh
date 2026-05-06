@@ -42,7 +42,11 @@ else
   log "Existing .env detected — keeping current secrets."
 fi
 
-COMPOSE="docker compose -f docker-compose.db.yml"
+COMPOSE="docker compose -f docker-compose.yml -f dev/docker-compose.dev.yml"
+
+# Nginx mounts ${TLS_CERTS_DIR:-./certs} read-only; the directory must exist
+# even when TLS is disabled, otherwise the bind mount fails on container start.
+mkdir -p ./certs
 
 # Build images with one retry. The frontend build clones jgraph/drawio
 # (~50 MB) from GitHub and runs npm ci, both of which can fail on a
@@ -55,7 +59,7 @@ if ! $COMPOSE build; then
     fail "Build failed twice. Diagnostics:"
     $COMPOSE ps || true
     docker images || true
-    fail "Re-run manually:  docker compose -f docker-compose.db.yml build"
+    fail "Re-run manually:  $COMPOSE build"
     exit 0
   fi
 fi

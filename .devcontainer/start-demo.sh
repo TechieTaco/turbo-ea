@@ -15,4 +15,4 @@ if [ ! -f .env ]; then
 fi
 
 echo "Ensuring Turbo EA containers are running..."
-docker compose -f docker-compose.db.yml up -d
+docker compose -f docker-compose.yml -f dev/docker-compose.dev.yml up -d
