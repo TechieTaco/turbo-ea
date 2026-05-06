@@ -34,7 +34,11 @@ Seleccione a qué tipo de ficha se aplica la encuesta (por ejemplo, Aplicación,
 
 ### Filtros
 
-Opcionalmente, limite el alcance filtrando fichas (por ejemplo, solo aplicaciones Activas, solo fichas propiedad de una organización específica).
+Limite opcionalmente el alcance mediante filtros. Hay tres tipos de filtros que pueden combinarse:
+
+- **Fichas específicas** — Elija una o varias fichas directamente (restringidas al tipo objetivo). Útil para dirigirse a una sola ficha o a un subconjunto seleccionado manualmente.
+- **Fichas relacionadas con** — Incluir solo fichas que tengan una relación con alguno de los elementos listados (por ejemplo, todas las aplicaciones relacionadas con la organización de Ventas).
+- **Etiquetas** y **filtros de atributos** — Acotar las fichas por etiqueta o por condición de atributo (por ejemplo, coste superior a 10 000, calificación TIME ausente).
 
 ### Preguntas
 

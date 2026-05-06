@@ -544,6 +544,21 @@ class TestExtrasDemoData:
                 )
         assert not errors, "\n".join(errors)
 
+    def test_survey_field_keys_match_target_type(self):
+        """Each surveyed field key must exist on the target card type's metamodel."""
+        errors = []
+        for survey in SURVEY_DEFS:
+            type_key = survey["target_type_key"]
+            valid_fields = _fields_by_type.get(type_key, {})
+            for f in survey.get("fields", []) or []:
+                fk = f.get("key")
+                if fk and fk not in valid_fields:
+                    errors.append(
+                        f"Survey '{survey['name']}': field '{fk}' does not exist "
+                        f"on card type '{type_key}'"
+                    )
+        assert not errors, "\n".join(errors)
+
     def test_survey_response_cards_exist(self):
         """Survey response target cards must exist in demo data."""
         errors = []

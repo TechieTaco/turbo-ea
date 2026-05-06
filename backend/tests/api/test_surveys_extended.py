@@ -128,20 +128,21 @@ async def survey_env(db):
     }
 
 
-async def _create_draft_survey(client, admin, *, fields=None, target_roles=None):
+async def _create_draft_survey(
+    client, admin, *, fields=None, target_roles=None, target_filters=None
+):
     """Helper to create a draft survey via the API."""
-    resp = await client.post(
-        "/api/v1/surveys",
-        json={
-            "name": "Workflow Test Survey",
-            "description": "Testing the full survey workflow",
-            "message": "Please review and update your application data.",
-            "target_type_key": "Application",
-            "target_roles": target_roles if target_roles is not None else ["responsible"],
-            "fields": fields if fields is not None else SURVEY_FIELDS,
-        },
-        headers=auth_headers(admin),
-    )
+    body = {
+        "name": "Workflow Test Survey",
+        "description": "Testing the full survey workflow",
+        "message": "Please review and update your application data.",
+        "target_type_key": "Application",
+        "target_roles": target_roles if target_roles is not None else ["responsible"],
+        "fields": fields if fields is not None else SURVEY_FIELDS,
+    }
+    if target_filters is not None:
+        body["target_filters"] = target_filters
+    resp = await client.post("/api/v1/surveys", json=body, headers=auth_headers(admin))
     assert resp.status_code == 201
     return resp.json()
 
@@ -965,3 +966,109 @@ class TestFullSurveyWorkflow:
         assert stats["total_responses"] >= 1
         assert stats["completed_responses"] >= 1
         assert stats["applied_responses"] >= 1
+
+
+# ---------------------------------------------------------------------------
+# target_filters.card_ids — direct single-card targeting
+# ---------------------------------------------------------------------------
+
+
+class TestCardIdsFilter:
+    async def test_card_ids_targets_single_card(self, client, db, survey_env):
+        """A survey with target_filters.card_ids resolves to that exact card."""
+        admin = survey_env["admin"]
+        member = survey_env["member"]
+        card = survey_env["card"]
+
+        # Second Application without the right stakeholder — should be excluded
+        await create_card(
+            db,
+            card_type="Application",
+            name="Other App",
+            user_id=admin.id,
+            attributes={"costTotalAnnual": 1000, "riskLevel": "low"},
+        )
+
+        survey = await _create_draft_survey(
+            client,
+            admin,
+            target_filters={"card_ids": [str(card.id)]},
+        )
+        survey_id = survey["id"]
+
+        send_resp = await client.post(
+            f"/api/v1/surveys/{survey_id}/send",
+            headers=auth_headers(admin),
+        )
+        assert send_resp.status_code == 200, send_resp.json()
+        body = send_resp.json()
+        assert body["status"] == "active"
+        assert body["targets_created"] == 1
+        assert body["total_responses"] == 1
+
+        # Member can fetch the response form for that card
+        form = await client.get(
+            f"/api/v1/surveys/{survey_id}/respond/{card.id}",
+            headers=auth_headers(member),
+        )
+        assert form.status_code == 200
+
+    async def test_card_ids_excludes_other_cards(self, client, db, survey_env):
+        """Cards not listed in card_ids are not surveyed even if of the right type."""
+        admin = survey_env["admin"]
+        member = survey_env["member"]
+
+        # Create a second Application with the same stakeholder role assigned
+        other = await create_card(
+            db,
+            card_type="Application",
+            name="Other App With Stakeholder",
+            user_id=admin.id,
+            attributes={"costTotalAnnual": 1000, "riskLevel": "low"},
+        )
+        db.add(Stakeholder(card_id=other.id, user_id=member.id, role="responsible"))
+        await db.flush()
+
+        # Target only the first card
+        survey = await _create_draft_survey(
+            client,
+            admin,
+            target_filters={"card_ids": [str(survey_env["card"].id)]},
+        )
+        send_resp = await client.post(
+            f"/api/v1/surveys/{survey['id']}/send",
+            headers=auth_headers(admin),
+        )
+        assert send_resp.status_code == 200
+        assert send_resp.json()["targets_created"] == 1
+
+    async def test_respond_form_includes_metamodel_translations(self, client, db, survey_env):
+        """The respond form enriches each field with translations from the live metamodel."""
+        admin = survey_env["admin"]
+        member = survey_env["member"]
+        card = survey_env["card"]
+
+        survey = await _create_draft_survey(
+            client,
+            admin,
+            target_filters={"card_ids": [str(card.id)]},
+        )
+        await client.post(
+            f"/api/v1/surveys/{survey['id']}/send",
+            headers=auth_headers(admin),
+        )
+
+        form = await client.get(
+            f"/api/v1/surveys/{survey['id']}/respond/{card.id}",
+            headers=auth_headers(member),
+        )
+        assert form.status_code == 200
+        data = form.json()
+
+        # The card payload exposes metamodel translation maps (may be None when no
+        # metamodel translations are defined on the test fixture, but the keys must exist)
+        assert "type_translations" in data["card"]
+        assert "subtype_translations" in data["card"]
+        # Each field carries at least its key + current_value so the response form
+        # can render it; translation maps are added when the live metamodel has any
+        assert all("key" in f and "current_value" in f for f in data["fields"])

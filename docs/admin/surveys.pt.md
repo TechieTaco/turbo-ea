@@ -34,7 +34,11 @@ Selecione a qual tipo de card a pesquisa se aplica (ex.: Aplicação, Componente
 
 ### Filtros
 
-Opcionalmente restrinja o escopo filtrando cards (ex.: apenas aplicações Ativas, apenas cards pertencentes a uma organização específica).
+Restrinja opcionalmente o escopo com filtros. Há três tipos de filtro disponíveis, que podem ser combinados:
+
+- **Cards específicos** — Escolha um ou mais cards diretamente (restritos ao tipo alvo). Útil para direcionar um único card ou um subconjunto selecionado manualmente.
+- **Cards relacionados com** — Inclua apenas cards que tenham uma relação com um dos itens listados (ex.: todas as aplicações relacionadas à organização Vendas).
+- **Tags** e **filtros de atributos** — Selecione cards por tag ou por condição de atributo (ex.: custo superior a 10 000, classificação TIME ausente).
 
 ### Perguntas
 
