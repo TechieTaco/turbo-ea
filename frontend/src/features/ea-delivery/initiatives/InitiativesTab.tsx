@@ -291,7 +291,13 @@ export default function InitiativesTab({
   const noInitiatives = initiatives.length === 0;
 
   return (
-    <Box sx={{ display: "flex", flexDirection: "column", height: "100%" }}>
+    <Box
+      sx={{
+        display: "flex",
+        flexDirection: "column",
+        height: "calc(100vh - 180px)",
+      }}
+    >
       {error && (
         <Alert severity="error" sx={{ mb: 1 }} onClose={() => setError("")}>
           {error}
