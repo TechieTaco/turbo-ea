@@ -10,6 +10,7 @@ import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import { getPhaseLabels } from "@/features/cards/sections/cardDetailUtils";
 import { useMetamodel } from "@/hooks/useMetamodel";
+import { useResolveLabel } from "@/hooks/useResolveLabel";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import type { EventEntry } from "@/types";
 
@@ -217,7 +218,37 @@ function PlainSummary({ text }: { text: string }) {
   );
 }
 
-function parseChanges(changes: Record<string, unknown>, fieldLabels: Record<string, string>, phaseLabels: Record<string, string>): ChangeRow[] {
+/**
+ * Resolve a raw change-payload key (e.g. `attr_costTotalAnnual` from the
+ * survey-apply path, or a bare attribute key from the regular PATCH path)
+ * to a human-friendly label using whichever source matches first:
+ *   1. Static i18n labels for built-in fields (`name`, `description`, etc.)
+ *   2. Lifecycle phase keys (`plan`, `phaseIn`, `active`, …)
+ *   3. Metamodel attribute label resolved via the card type's fields_schema
+ *   4. The raw key as a last-resort fallback
+ */
+function resolveFieldLabel(
+  rawKey: string,
+  fieldLabels: Record<string, string>,
+  phaseLabels: Record<string, string>,
+  attrLabels: Record<string, string>,
+): string {
+  if (fieldLabels[rawKey]) return fieldLabels[rawKey];
+  if (phaseLabels[rawKey]) return phaseLabels[rawKey];
+  // The survey-apply path emits attribute changes keyed as `attr_<fieldKey>`
+  // so the audit event distinguishes attribute updates from core-field
+  // updates. Strip the prefix before looking up the metamodel label.
+  const attrKey = rawKey.startsWith("attr_") ? rawKey.slice(5) : rawKey;
+  if (attrLabels[attrKey]) return attrLabels[attrKey];
+  return rawKey;
+}
+
+function parseChanges(
+  changes: Record<string, unknown>,
+  fieldLabels: Record<string, string>,
+  phaseLabels: Record<string, string>,
+  attrLabels: Record<string, string>,
+): ChangeRow[] {
   const rows: ChangeRow[] = [];
   for (const [field, change] of Object.entries(changes)) {
     if (!change || typeof change !== "object" || !("old" in change) || !("new" in change)) {
@@ -230,7 +261,11 @@ function parseChanges(changes: Record<string, unknown>, fieldLabels: Record<stri
       const newA = (c.new || {}) as Record<string, unknown>;
       for (const key of new Set([...Object.keys(oldA), ...Object.keys(newA)])) {
         if (JSON.stringify(oldA[key]) !== JSON.stringify(newA[key])) {
-          rows.push({ field: key, oldVal: fmtVal(oldA[key], phaseLabels), newVal: fmtVal(newA[key], phaseLabels) });
+          rows.push({
+            field: resolveFieldLabel(key, fieldLabels, phaseLabels, attrLabels),
+            oldVal: fmtVal(oldA[key], phaseLabels),
+            newVal: fmtVal(newA[key], phaseLabels),
+          });
         }
       }
     } else if (field === "lifecycle" && typeof c.old === "object" && typeof c.new === "object") {
@@ -242,13 +277,17 @@ function parseChanges(changes: Record<string, unknown>, fieldLabels: Record<stri
         }
       }
     } else {
-      rows.push({ field: fieldLabels[field] || field, oldVal: fmtVal(c.old, phaseLabels), newVal: fmtVal(c.new, phaseLabels) });
+      rows.push({
+        field: resolveFieldLabel(field, fieldLabels, phaseLabels, attrLabels),
+        oldVal: fmtVal(c.old, phaseLabels),
+        newVal: fmtVal(c.new, phaseLabels),
+      });
     }
   }
   return rows;
 }
 
-function HistoryTab({ fsId }: { fsId: string }) {
+function HistoryTab({ fsId, cardType }: { fsId: string; cardType?: string }) {
   const { t } = useTranslation(["cards", "common"]);
   const theme = useTheme();
   const { formatDateTime } = useDateFormat();
@@ -256,6 +295,20 @@ function HistoryTab({ fsId }: { fsId: string }) {
   const fieldLabels = getFieldLabels(t);
   const phaseLabels = getPhaseLabels(t);
   const { getType } = useMetamodel();
+  const rl = useResolveLabel();
+  // Build a `{attributeKey: localizedLabel}` map for the card's type so
+  // change rows can show "Total Annual Cost" instead of `costTotalAnnual`.
+  const attrLabels: Record<string, string> = {};
+  if (cardType) {
+    const ct = getType(cardType);
+    if (ct) {
+      for (const section of ct.fields_schema || []) {
+        for (const f of section.fields || []) {
+          attrLabels[f.key] = rl(f.label || f.key, f.translations);
+        }
+      }
+    }
+  }
   const typeIconFor = (typeKey: string | null | undefined) => {
     if (!typeKey) return null;
     const ct = getType(typeKey);
@@ -276,7 +329,7 @@ function HistoryTab({ fsId }: { fsId: string }) {
       {events.map((e) => {
         const meta = eventMeta[e.event_type] || { label: e.event_type, icon: "info", color: "#9e9e9e" };
         const changes = e.data?.changes as Record<string, unknown> | undefined;
-        const rows = changes ? parseChanges(changes, fieldLabels, phaseLabels) : [];
+        const rows = changes ? parseChanges(changes, fieldLabels, phaseLabels, attrLabels) : [];
         const summary = typeof e.data?.summary === "string" ? (e.data.summary as string) : null;
 
         return (

@@ -439,7 +439,7 @@ export default function CardDetailContent({
         <ErrorBoundary label="History">
           <MuiCard>
             <CardContent>
-              <HistoryTab fsId={card.id} />
+              <HistoryTab fsId={card.id} cardType={card.type} />
             </CardContent>
           </MuiCard>
         </ErrorBoundary>
