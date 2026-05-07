@@ -350,56 +350,88 @@ COMMENT_DEFS: list[tuple[str, str, int, int | None]] = [
 # ---------------------------------------------------------------------------
 # Saved report configurations
 # ---------------------------------------------------------------------------
+# Each entry's `config` dict must use the keys the corresponding report
+# component actually reads in its `consumeConfig` effect. Mismatched keys
+# load silently as no-ops, which is what previously made the demo saved
+# reports look broken — they opened with default state instead of the
+# preset the user expected.
 SAVED_REPORT_DEFS: list[dict] = [
     {
         "name": "Application Portfolio Overview",
         "description": (
-            "Strategic view of all applications plotted by business criticality "
-            "and technical suitability, sized by annual cost."
+            "Applications grouped by business criticality and coloured by "
+            "time model — useful for spotting concentrations of "
+            "mission-critical legacy apps at a glance."
         ),
         "report_type": "portfolio",
+        # PortfolioReport.tsx → consumeConfig reads:
+        # view, groupByRaw, colorBy, search, attrFilters, relationFilters,
+        # tagFilterIds, sortK, sortD, timelineDate.
+        # groupByRaw uses the `attr:<fieldKey>` / `rel:<typeKey>` prefixes
+        # the report writes when the user clicks Save — bare keys load as
+        # a no-op and the chart shows the report's default grouping.
         "config": {
-            "typeKey": "Application",
-            "xAxis": "businessCriticality",
-            "yAxis": "technicalSuitability",
-            "sizeField": "costTotalAnnual",
-            "colorField": "timeModel",
+            "view": "chart",
+            "groupByRaw": "attr:businessCriticality",
+            "colorBy": "timeModel",
         },
         "visibility": "public",
     },
     {
-        "name": "Technology Lifecycle Roadmap",
+        "name": "Application Portfolio by Organization",
         "description": (
-            "Timeline view of IT component lifecycles showing phase-in, "
-            "active, phase-out, and end-of-life dates."
+            "Same applications grouped instead by the owning Organization "
+            "(via the Organization → Application relation), still coloured "
+            "by time model — surfaces which business units carry the most "
+            "tolerate / migrate / eliminate workload."
         ),
-        "report_type": "lifecycle",
+        "report_type": "portfolio",
         "config": {
-            "typeKey": "ITComponent",
+            "view": "chart",
+            "groupByRaw": "rel:Organization",
+            "colorBy": "timeModel",
         },
         "visibility": "public",
     },
     {
         "name": "Business Capability Heatmap",
         "description": (
-            "Heatmap of business capabilities colored by the number of supporting applications."
+            "Heatmap of business capabilities coloured by application "
+            "business criticality so you can see where critical workload "
+            "concentration sits."
         ),
         "report_type": "capability-map",
+        # CapabilityMapReport.tsx → consumeConfig reads:
+        # metric, displayLevel, showApps, colorBy, attrFilters,
+        # relationFilters, tagFilterIds, timelineDate
         "config": {
-            "typeKey": "Application",
-            "colorField": "businessCriticality",
+            "metric": "count",
+            "displayLevel": 2,
+            "showApps": True,
+            "colorBy": "businessCriticality",
         },
         "visibility": "public",
     },
     {
-        "name": "Application Dependencies",
+        "name": "Cost by Provider (Apps + IT Components)",
         "description": (
-            "Network graph showing application-to-application dependencies with interface details."
+            "Cost report rolled up by Provider, aggregating annual cost "
+            "from related Applications and IT Components — useful for "
+            "vendor consolidation and contract negotiation."
         ),
-        "report_type": "dependencies",
+        "report_type": "cost",
+        # CostReport.tsx → consumeConfig reads:
+        # cardTypeKey, costField, costSources, groupBy, view, sortK, sortD,
+        # drillStack. costSources are `<typeKey>:<costFieldKey>` strings
+        # for the related types whose costs roll up to the primary.
         "config": {
-            "typeKey": "Application",
-            "depth": 2,
+            "cardTypeKey": "Provider",
+            "costField": "costTotalAnnual",
+            "costSources": [
+                "Application:costTotalAnnual",
+                "ITComponent:costTotalAnnual",
+            ],
+            "view": "chart",
         },
         "visibility": "public",
     },
@@ -587,20 +619,44 @@ DOCUMENT_DEFS: list[tuple[str, str, str]] = [
 
 # ---------------------------------------------------------------------------
 # Bookmark (saved inventory view) definitions
+#
+# Filter and column shapes must match the frontend's `Filters` interface and
+# the inventory grid's column-key conventions:
+#   - `filters.types` is the array the inventory page filters on (the
+#     `card_type` column on the bookmark itself is a one-of-many hint used
+#     when displaying the bookmark; it does NOT drive the filter)
+#   - core / always-on columns use the `core_` prefix, attribute columns
+#     use `attr_`, relation columns use `rel_`. Bare keys (e.g. `name`,
+#     `businessCriticality`) silently fail to match anything, which was
+#     the previous bug — bookmarks loaded but showed neither the right
+#     filter nor the right columns.
 # ---------------------------------------------------------------------------
 BOOKMARK_DEFS: list[dict] = [
     {
         "name": "All Applications",
         "card_type": "Application",
-        "filters": {},
+        "filters": {
+            "types": ["Application"],
+            "search": "",
+            "subtypes": [],
+            "lifecyclePhases": [],
+            "dataQualityMin": None,
+            "approvalStatuses": [],
+            "showArchived": False,
+            "attributes": {},
+            "relations": {},
+            "tagIds": [],
+        },
         "columns": [
-            "name",
-            "subtype",
-            "businessCriticality",
-            "technicalSuitability",
-            "costTotalAnnual",
-            "productName",
-            "lifecycle",
+            "core_type",
+            "core_name",
+            "core_path",
+            "core_subtype",
+            "core_lifecycle",
+            "attr_businessCriticality",
+            "attr_technicalSuitability",
+            "attr_costTotalAnnual",
+            "attr_productName",
         ],
         "sort": {"field": "name", "direction": "asc"},
         "visibility": "public",
@@ -608,15 +664,31 @@ BOOKMARK_DEFS: list[dict] = [
     {
         "name": "Active Initiatives",
         "card_type": "Initiative",
-        "filters": {"status": "ACTIVE"},
+        "filters": {
+            "types": ["Initiative"],
+            "search": "",
+            "subtypes": [],
+            "lifecyclePhases": ["active"],
+            "dataQualityMin": None,
+            "approvalStatuses": [],
+            "showArchived": False,
+            "attributes": {},
+            "relations": {},
+            "tagIds": [],
+        },
         "columns": [
-            "name",
-            "subtype",
-            "priority",
-            "costBudget",
-            "costActual",
-            "startDate",
-            "endDate",
+            "core_type",
+            "core_name",
+            "core_path",
+            "core_subtype",
+            "core_lifecycle",
+            "attr_initiativeStatus",
+            "attr_businessValue",
+            "attr_effort",
+            "attr_costBudget",
+            "attr_costActual",
+            "attr_startDate",
+            "attr_endDate",
         ],
         "sort": {"field": "name", "direction": "asc"},
         "visibility": "public",
@@ -624,15 +696,29 @@ BOOKMARK_DEFS: list[dict] = [
     {
         "name": "IT Components by Category",
         "card_type": "ITComponent",
-        "filters": {},
+        "filters": {
+            "types": ["ITComponent"],
+            "search": "",
+            "subtypes": [],
+            "lifecyclePhases": [],
+            "dataQualityMin": None,
+            "approvalStatuses": [],
+            "showArchived": False,
+            "attributes": {},
+            "relations": {},
+            "tagIds": [],
+        },
         "columns": [
-            "name",
-            "subtype",
-            "version",
-            "vendor",
-            "supportLevel",
-            "costTotalAnnual",
-            "lifecycle",
+            "core_type",
+            "core_name",
+            "core_path",
+            "core_subtype",
+            "core_lifecycle",
+            "attr_version",
+            "attr_technicalSuitability",
+            "attr_resourceClassification",
+            "attr_licenseType",
+            "attr_costTotalAnnual",
         ],
         "sort": {"field": "subtype", "direction": "asc"},
         "visibility": "public",

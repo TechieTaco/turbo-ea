@@ -20,6 +20,7 @@ from app.models.survey import Survey, SurveyResponse
 from app.models.tag import CardTag
 from app.models.user import User
 from app.services import notification_service
+from app.services.event_bus import event_bus
 from app.services.permission_service import PermissionService
 
 router = APIRouter(prefix="/surveys", tags=["surveys"])
@@ -637,10 +638,12 @@ async def apply_responses(
             errors.append({"response_id": rid_str, "error": "Card not found"})
             continue
 
-        # Apply changes from response
+        # Apply changes from response, recording old → new per field so the
+        # audit event has parity with the regular PATCH /cards/{id} path.
         field_responses = resp.responses or {}
-        attrs = dict(card.attributes or {})
-        changed = False
+        old_attrs = card.attributes or {}
+        attrs = dict(old_attrs)
+        changes: dict[str, dict[str, object]] = {}
 
         for field_key, field_data in field_responses.items():
             if not isinstance(field_data, dict):
@@ -649,13 +652,31 @@ async def apply_responses(
             new_value = field_data.get("new_value")
 
             if not confirmed and new_value is not None:
-                # User proposed a change
+                changes[f"attr_{field_key}"] = {
+                    "old": old_attrs.get(field_key),
+                    "new": new_value,
+                }
                 attrs[field_key] = new_value
-                changed = True
 
-        if changed:
+        if changes:
             card.attributes = attrs
             card.updated_by = user.id
+            # Audit-log the survey-driven update so it shows up in the card's
+            # History tab alongside manual edits. The `source` payload field
+            # lets future UI distinguish survey responses from PATCH edits.
+            await event_bus.publish(
+                "card.updated",
+                {
+                    "id": str(card.id),
+                    "changes": changes,
+                    "source": "survey_response",
+                    "survey_id": str(survey.id),
+                    "response_id": str(resp.id),
+                },
+                db=db,
+                card_id=card.id,
+                user_id=user.id,
+            )
 
         resp.applied = True
         resp.applied_at = datetime.now(timezone.utc)

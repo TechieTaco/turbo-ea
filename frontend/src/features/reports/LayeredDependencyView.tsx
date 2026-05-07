@@ -6,7 +6,7 @@ import Paper from "@mui/material/Paper";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import Chip from "@mui/material/Chip";
-import { useTheme } from "@mui/material/styles";
+import { lighten, useTheme } from "@mui/material/styles";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import {
   ReactFlow,
@@ -52,11 +52,32 @@ let _longPressFired = false;
 
 const LP_CIRCUMFERENCE = 2 * Math.PI * 15; // ~94.25
 
+/**
+ * Returns a card-type color that reads cleanly against the active theme.
+ * Card-type metamodel colors (e.g. `#003399` for BusinessCapability,
+ * `#774fcc` for DataObject) are tuned for white-ish backgrounds — on the
+ * dark theme paper they fall below 4.5:1 contrast and the borders / type
+ * labels become unreadable. We lighten them to a fixed brightness in dark
+ * mode while passing the original through untouched in light mode.
+ */
+export function readableTypeColor(hex: string, isDark: boolean): string {
+  if (!isDark) return hex;
+  try {
+    return lighten(hex, 0.45);
+  } catch {
+    return hex;
+  }
+}
+
 const LdvNode = memo(({ data }: NodeProps<Node<LdvNodeData>>) => {
   const rml = useResolveMetaLabel();
   const theme = useTheme();
   const isDark = theme.palette.mode === "dark";
   const color = data.typeColor;
+  // Lightened version for borders and caption text — keeps darker
+  // card-type colors (BusinessCapability navy, DataObject purple, etc.)
+  // readable against the dark-theme paper.
+  const accent = readableTypeColor(color, isDark);
 
   // Light tint for background
   const r = parseInt(color.slice(1, 3), 16);
@@ -149,7 +170,7 @@ const LdvNode = memo(({ data }: NodeProps<Node<LdvNodeData>>) => {
         width: LDV_NODE_W,
         height: LDV_NODE_H,
         borderRadius: "8px",
-        border: data.proposed ? `2px dashed ${color}` : `1.5px solid ${color}`,
+        border: data.proposed ? `2px dashed ${accent}` : `1.5px solid ${accent}`,
         bgcolor: data.proposed ? (isDark ? `rgba(${r},${g},${b},0.06)` : `rgba(${r},${g},${b},0.06)`) : bg,
         display: "flex",
         flexDirection: "column",
@@ -251,7 +272,7 @@ const LdvNode = memo(({ data }: NodeProps<Node<LdvNodeData>>) => {
       <Typography
         variant="caption"
         sx={{
-          color,
+          color: accent,
           fontStyle: "italic",
           lineHeight: 1.2,
           mt: 0.25,
@@ -271,13 +292,14 @@ LdvNode.displayName = "LdvNode";
 const LdvGroup = memo(({ data }: NodeProps<Node<LdvGroupData>>) => {
   const theme = useTheme();
   const isDark = theme.palette.mode === "dark";
+  const accent = readableTypeColor(data.color, isDark);
 
   return (
     <Box
       sx={{
         width: "100%",
         height: "100%",
-        border: `1.5px dashed ${data.color}`,
+        border: `1.5px dashed ${accent}`,
         borderRadius: "12px",
         bgcolor: isDark ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.012)",
         position: "relative",
@@ -290,7 +312,7 @@ const LdvGroup = memo(({ data }: NodeProps<Node<LdvGroupData>>) => {
           top: 8,
           left: 14,
           fontWeight: 700,
-          color: data.color,
+          color: accent,
           fontSize: "0.8rem",
         }}
       >

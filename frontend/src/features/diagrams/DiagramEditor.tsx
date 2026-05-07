@@ -964,7 +964,23 @@ export default function DiagramEditor() {
   const iframeSrc = `${DRAWIO_BASE_URL}?${DRAWIO_URL_PARAMS}`;
 
   return (
-    <Box sx={{ height: "calc(100vh - 64px)", m: -3, display: "flex", flexDirection: "column" }}>
+    <Box
+      sx={{
+        // Dynamic viewport height (Safari 15.4+, Chrome, Firefox); falls back
+        // to `vh` on older browsers via @supports. `100vh` on iPad Safari
+        // returns the larger layout-viewport size while the URL bar is
+        // visible, so the editor extended past the visible area and the
+        // toolbar drifted out of reach. `dvh` tracks the actual visible
+        // viewport, which keeps the toolbar inside it.
+        height: "calc(100vh - 64px)",
+        "@supports (height: 100dvh)": {
+          height: "calc(100dvh - 64px)",
+        },
+        m: -3,
+        display: "flex",
+        flexDirection: "column",
+      }}
+    >
       {/* Toolbar */}
       <Box
         sx={{

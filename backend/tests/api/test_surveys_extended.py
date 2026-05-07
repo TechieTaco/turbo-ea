@@ -15,8 +15,10 @@ from __future__ import annotations
 import uuid
 
 import pytest
+from sqlalchemy import select
 
 from app.core.permissions import MEMBER_PERMISSIONS, VIEWER_PERMISSIONS
+from app.models.event import Event
 from app.models.stakeholder import Stakeholder
 from tests.conftest import (
     auth_headers,
@@ -727,6 +729,30 @@ class TestApplyResponses:
         assert len(applied) == 1
         assert applied[0]["applied"] is True
         assert applied[0]["applied_at"] is not None
+
+        # Audit trail: applying a survey response must emit a card.updated
+        # event so the card's History tab shows what changed and who triggered
+        # it. Previously this path updated the card silently.
+        events = (
+            (
+                await db.execute(
+                    select(Event).where(
+                        Event.card_id == card.id,
+                        Event.event_type == "card.updated",
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+        assert len(events) == 1, "expected exactly one card.updated event"
+        ev = events[0]
+        assert ev.user_id == admin.id
+        assert ev.data["source"] == "survey_response"
+        assert ev.data["survey_id"] == survey_id
+        assert ev.data["response_id"] == response_id
+        assert "attr_costTotalAnnual" in ev.data["changes"]
+        assert ev.data["changes"]["attr_costTotalAnnual"]["new"] == 75000
 
     async def test_apply_already_applied_returns_error(self, client, db, survey_env):
         """Applying an already-applied response returns an error in the errors list."""

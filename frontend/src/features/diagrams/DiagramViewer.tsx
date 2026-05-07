@@ -127,7 +127,18 @@ export default function DiagramViewer() {
   const iframeSrc = buildViewerSrc(xml);
 
   return (
-    <Box sx={{ height: "calc(100vh - 64px)", m: -3, display: "flex", flexDirection: "column" }}>
+    <Box
+      sx={{
+        // See DiagramEditor.tsx for the rationale — same iPad Safari fix.
+        height: "calc(100vh - 64px)",
+        "@supports (height: 100dvh)": {
+          height: "calc(100dvh - 64px)",
+        },
+        m: -3,
+        display: "flex",
+        flexDirection: "column",
+      }}
+    >
       {/* App toolbar */}
       <Box
         sx={{

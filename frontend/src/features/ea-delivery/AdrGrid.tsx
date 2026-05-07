@@ -401,7 +401,20 @@ export default function AdrGrid({
 
         <Box
           className={isDark ? "ag-theme-quartz-dark" : "ag-theme-quartz"}
-          sx={{ flex: 1, minHeight: 0 }}
+          sx={{
+            flex: 1,
+            minHeight: 0,
+            // Rows are clickable (open ADR detail) — surface that affordance:
+            // pointer cursor over the body cells (skip the leftmost checkbox
+            // selection column so it keeps its native cursor) and a slightly
+            // stronger hover background than the AG Grid default.
+            "& .ag-row .ag-cell:not(.ag-selection-checkbox-cell)": {
+              cursor: "pointer",
+            },
+            "& .ag-row-hover": {
+              backgroundColor: "var(--ag-row-hover-color)",
+            },
+          }}
           onContextMenu={handleContextMenu}
         >
           <AgGridReact<ArchitectureDecision>

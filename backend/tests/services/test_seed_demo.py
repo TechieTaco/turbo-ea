@@ -612,3 +612,153 @@ class TestExtrasDemoData:
             if ct and ct not in _type_by_key:
                 errors.append(f"Bookmark '{bm['name']}': invalid card_type '{ct}'")
         assert not errors, "\n".join(errors)
+
+    def test_bookmark_filters_match_frontend_shape(self):
+        """Bookmark filters must use the keys the frontend Filters interface
+        reads in handleApplyView — otherwise the bookmark loads but doesn't
+        actually filter (the original demo-saved-views bug)."""
+        required_keys = {
+            "types",
+            "search",
+            "subtypes",
+            "lifecyclePhases",
+            "dataQualityMin",
+            "approvalStatuses",
+            "showArchived",
+            "attributes",
+            "relations",
+            "tagIds",
+        }
+        errors = []
+        for bm in BOOKMARK_DEFS:
+            f = bm.get("filters") or {}
+            missing = required_keys - set(f.keys())
+            if missing:
+                errors.append(f"Bookmark '{bm['name']}': filters missing keys {sorted(missing)}")
+            # If a card_type hint is set, filters.types should mention it so
+            # the inventory grid actually filters down to that type.
+            ct = bm.get("card_type")
+            if ct and ct not in (f.get("types") or []):
+                errors.append(
+                    f"Bookmark '{bm['name']}': card_type '{ct}' not present in "
+                    f"filters.types {f.get('types')}"
+                )
+        assert not errors, "\n".join(errors)
+
+    def test_bookmark_columns_use_proper_prefixes(self):
+        """Bookmark column keys must use the conventional prefixes the
+        inventory grid recognises: `core_`, `attr_`, `rel_`, `meta_`. Bare
+        keys (e.g. `name`, `businessCriticality`) silently match nothing,
+        which is what made the demo bookmarks open with the wrong columns."""
+        valid_prefixes = ("core_", "attr_", "rel_", "meta_")
+        errors = []
+        for bm in BOOKMARK_DEFS:
+            for col in bm.get("columns") or []:
+                if not col.startswith(valid_prefixes):
+                    errors.append(
+                        f"Bookmark '{bm['name']}': column key '{col}' must "
+                        f"start with one of {valid_prefixes}"
+                    )
+        assert not errors, "\n".join(errors)
+
+    def test_bookmark_attribute_columns_exist_on_target_type(self):
+        """`attr_<key>` columns referenced by a bookmark must exist as fields
+        on the bookmark's `card_type` (otherwise the column shows up as a
+        ghost in the column selector and the grid never resolves a value)."""
+        errors = []
+        for bm in BOOKMARK_DEFS:
+            type_key = bm.get("card_type")
+            if not type_key:
+                continue
+            valid_fields = _fields_by_type.get(type_key, {})
+            for col in bm.get("columns") or []:
+                if col.startswith("attr_"):
+                    fk = col[len("attr_") :]
+                    if fk not in valid_fields:
+                        errors.append(
+                            f"Bookmark '{bm['name']}': attribute '{fk}' does "
+                            f"not exist on card type '{type_key}'"
+                        )
+        assert not errors, "\n".join(errors)
+
+    def test_saved_report_configs_use_valid_keys(self):
+        """Each saved report's `config` must only use keys the corresponding
+        report component reads in its `consumeConfig` effect. Anything else
+        loads as a no-op, which made the demo saved reports look broken
+        because they opened with default state instead of the preset."""
+        # Mirrors the consumeConfig branches in each report component. If a
+        # report adds a new readable key the test will fail closed and the
+        # demo seed can be updated to take advantage of it.
+        valid_keys_by_report_type = {
+            "portfolio": {
+                "view",
+                "groupByRaw",
+                "colorBy",
+                "search",
+                "attrFilters",
+                "relationFilters",
+                "tagFilterIds",
+                "tagFilters",
+                "filterOrgs",
+                "sortK",
+                "sortD",
+                "timelineDate",
+            },
+            "lifecycle": {
+                "cardTypeKey",
+                "view",
+                "sortK",
+                "sortD",
+                "useCustomDates",
+                "useInitiativeDates",
+                "customColorBy",
+                "initiativeColorBy",
+            },
+            "capability-map": {
+                "metric",
+                "displayLevel",
+                "showApps",
+                "colorBy",
+                "attrFilters",
+                "relationFilters",
+                "tagFilterIds",
+                "tagFilters",
+                "filterOrgs",
+                "timelineDate",
+            },
+            "dependencies": {
+                "cardTypeKey",
+                "center",
+                "view",
+                "chartMode",
+            },
+            "cost": {
+                "cardTypeKey",
+                "costField",
+                "costSources",
+                "costSource",  # legacy single-string shape
+                "groupBy",
+                "view",
+                "sortK",
+                "sortD",
+                "drillStack",
+            },
+        }
+        errors = []
+        for report in SAVED_REPORT_DEFS:
+            rt = report["report_type"]
+            cfg = report.get("config") or {}
+            valid = valid_keys_by_report_type.get(rt)
+            if valid is None:
+                # New report type — push a fixture before it can ship.
+                errors.append(
+                    f"Report '{report['name']}': test missing valid-keys set for report_type '{rt}'"
+                )
+                continue
+            extra = set(cfg.keys()) - valid
+            if extra:
+                errors.append(
+                    f"Report '{report['name']}': config has keys "
+                    f"{sorted(extra)} that the {rt} component doesn't read"
+                )
+        assert not errors, "\n".join(errors)
