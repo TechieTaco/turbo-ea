@@ -359,33 +359,37 @@ SAVED_REPORT_DEFS: list[dict] = [
     {
         "name": "Application Portfolio Overview",
         "description": (
-            "Strategic view of applications grouped by business criticality and "
-            "coloured by time model — useful for spotting concentrations of "
+            "Applications grouped by business criticality and coloured by "
+            "time model — useful for spotting concentrations of "
             "mission-critical legacy apps at a glance."
         ),
         "report_type": "portfolio",
         # PortfolioReport.tsx → consumeConfig reads:
         # view, groupByRaw, colorBy, search, attrFilters, relationFilters,
-        # tagFilterIds, sortK, sortD, timelineDate
+        # tagFilterIds, sortK, sortD, timelineDate.
+        # groupByRaw uses the `attr:<fieldKey>` / `rel:<typeKey>` prefixes
+        # the report writes when the user clicks Save — bare keys load as
+        # a no-op and the chart shows the report's default grouping.
         "config": {
             "view": "chart",
-            "groupByRaw": "businessCriticality",
+            "groupByRaw": "attr:businessCriticality",
             "colorBy": "timeModel",
         },
         "visibility": "public",
     },
     {
-        "name": "Technology Lifecycle Roadmap",
+        "name": "Application Portfolio by Organization",
         "description": (
-            "Timeline view of IT component lifecycles showing phase-in, "
-            "active, phase-out, and end-of-life dates."
+            "Same applications grouped instead by the owning Organization "
+            "(via the Organization → Application relation), still coloured "
+            "by time model — surfaces which business units carry the most "
+            "tolerate / migrate / eliminate workload."
         ),
-        "report_type": "lifecycle",
-        # LifecycleReport.tsx → consumeConfig reads:
-        # cardTypeKey, view, sortK, sortD, useCustomDates, customColorBy
+        "report_type": "portfolio",
         "config": {
-            "cardTypeKey": "ITComponent",
             "view": "chart",
+            "groupByRaw": "rel:Organization",
+            "colorBy": "timeModel",
         },
         "visibility": "public",
     },
@@ -409,18 +413,25 @@ SAVED_REPORT_DEFS: list[dict] = [
         "visibility": "public",
     },
     {
-        "name": "Application Dependencies",
+        "name": "Cost by Provider (Apps + IT Components)",
         "description": (
-            "Network graph showing application-to-application dependencies "
-            "via interfaces. Pick a centre app from the toolbar to drill in."
+            "Cost report rolled up by Provider, aggregating annual cost "
+            "from related Applications and IT Components — useful for "
+            "vendor consolidation and contract negotiation."
         ),
-        "report_type": "dependencies",
-        # DependencyReport.tsx → consumeConfig reads:
-        # cardTypeKey, center, view, chartMode
+        "report_type": "cost",
+        # CostReport.tsx → consumeConfig reads:
+        # cardTypeKey, costField, costSources, groupBy, view, sortK, sortD,
+        # drillStack. costSources are `<typeKey>:<costFieldKey>` strings
+        # for the related types whose costs roll up to the primary.
         "config": {
-            "cardTypeKey": "Application",
+            "cardTypeKey": "Provider",
+            "costField": "costTotalAnnual",
+            "costSources": [
+                "Application:costTotalAnnual",
+                "ITComponent:costTotalAnnual",
+            ],
             "view": "chart",
-            "chartMode": "c4",
         },
         "visibility": "public",
     },

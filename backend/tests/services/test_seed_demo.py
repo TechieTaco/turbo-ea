@@ -732,6 +732,17 @@ class TestExtrasDemoData:
                 "view",
                 "chartMode",
             },
+            "cost": {
+                "cardTypeKey",
+                "costField",
+                "costSources",
+                "costSource",  # legacy single-string shape
+                "groupBy",
+                "view",
+                "sortK",
+                "sortD",
+                "drillStack",
+            },
         }
         errors = []
         for report in SAVED_REPORT_DEFS:
