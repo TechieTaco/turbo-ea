@@ -1,5 +1,8 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import Accordion from "@mui/material/Accordion";
+import AccordionDetails from "@mui/material/AccordionDetails";
+import AccordionSummary from "@mui/material/AccordionSummary";
 import Box from "@mui/material/Box";
 import Chip from "@mui/material/Chip";
 import IconButton from "@mui/material/IconButton";
@@ -210,48 +213,70 @@ function InitiativeView({
       </Box>
 
       {/* Deliverables section */}
-      <Box sx={{ mb: 3 }}>
-        <Box sx={{ display: "flex", alignItems: "center", mb: 1 }}>
-          <Typography variant="h6" fontWeight={600} sx={{ flex: 1 }}>
-            {t("workspace.section.deliverables")}
-          </Typography>
-          <NewArtefactSplitButton
+      <Accordion defaultExpanded disableGutters>
+        <AccordionSummary
+          expandIcon={<MaterialSymbol icon="expand_more" size={20} />}
+        >
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1, flex: 1 }}>
+            <MaterialSymbol icon="inventory_2" size={20} />
+            <Typography fontWeight={600}>
+              {t("workspace.section.deliverables")}
+            </Typography>
+          </Box>
+          <Box onClick={(e) => e.stopPropagation()}>
+            <NewArtefactSplitButton
+              initiativeId={initiative.id}
+              onSelect={onCreateArtefact}
+              variant="text"
+              label={t("common:actions.add")}
+            />
+          </Box>
+        </AccordionSummary>
+        <AccordionDetails>
+          <DeliverableSection
+            kind="soaw"
+            items={soaws}
             initiativeId={initiative.id}
-            onSelect={onCreateArtefact}
-            variant="text"
-            label={t("common:actions.add")}
+            onAdd={onCreateArtefact}
+            onSoawContextMenu={onSoawContextMenu}
           />
-        </Box>
-        <DeliverableSection
-          kind="soaw"
-          items={soaws}
-          initiativeId={initiative.id}
-          onAdd={onCreateArtefact}
-          onSoawContextMenu={onSoawContextMenu}
-        />
-        <DeliverableSection
-          kind="diagram"
-          items={diagrams}
-          initiativeId={initiative.id}
-          onAdd={onCreateArtefact}
-          onUnlinkDiagram={onUnlinkDiagram}
-          onLinkDiagrams={onLinkDiagrams}
-        />
-        <DeliverableSection
-          kind="adr"
-          items={adrs}
-          initiativeId={initiative.id}
-          onAdd={onCreateArtefact}
-        />
-      </Box>
+          <DeliverableSection
+            kind="diagram"
+            items={diagrams}
+            initiativeId={initiative.id}
+            onAdd={onCreateArtefact}
+            onUnlinkDiagram={onUnlinkDiagram}
+            onLinkDiagrams={onLinkDiagrams}
+          />
+          <DeliverableSection
+            kind="adr"
+            items={adrs}
+            initiativeId={initiative.id}
+            onAdd={onCreateArtefact}
+          />
+        </AccordionDetails>
+      </Accordion>
 
       {/* Children section */}
       {children.length > 0 && (
-        <Box sx={{ mb: 3 }}>
-          <Typography variant="h6" fontWeight={600} sx={{ mb: 1 }}>
-            {t("workspace.section.children")}
-          </Typography>
-          <Box>
+        <Accordion defaultExpanded disableGutters>
+          <AccordionSummary
+            expandIcon={<MaterialSymbol icon="expand_more" size={20} />}
+          >
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1, flex: 1 }}>
+              <MaterialSymbol icon="account_tree" size={20} />
+              <Typography fontWeight={600}>
+                {t("workspace.section.children")}
+              </Typography>
+              <Chip
+                label={children.length}
+                size="small"
+                variant="outlined"
+                sx={{ height: 20, fontSize: "0.7rem" }}
+              />
+            </Box>
+          </AccordionSummary>
+          <AccordionDetails>
             {children.map((c) => (
               <Box
                 key={c.initiative.id}
@@ -284,49 +309,60 @@ function InitiativeView({
                 )}
               </Box>
             ))}
-          </Box>
-        </Box>
+          </AccordionDetails>
+        </Accordion>
       )}
 
       {/* Details section */}
-      <Box>
-        <Typography variant="h6" fontWeight={600} sx={{ mb: 1 }}>
-          {t("workspace.section.details")}
-        </Typography>
-        <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
-          {initiative.subtype && (
+      <Accordion defaultExpanded disableGutters>
+        <AccordionSummary
+          expandIcon={<MaterialSymbol icon="expand_more" size={20} />}
+        >
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1, flex: 1 }}>
+            <MaterialSymbol icon="info" size={20} />
+            <Typography fontWeight={600}>
+              {t("workspace.section.details")}
+            </Typography>
+          </Box>
+        </AccordionSummary>
+        <AccordionDetails>
+          <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+            {initiative.subtype && (
+              <DetailRow
+                label={t("filter.subtype")}
+                value={initiative.subtype}
+                capitalize
+              />
+            )}
             <DetailRow
-              label={t("filter.subtype")}
-              value={initiative.subtype}
-              capitalize
+              label={t("filter.status")}
+              value={
+                isArchived
+                  ? t("common:status.archived")
+                  : t("common:status.active")
+              }
             />
-          )}
-          <DetailRow
-            label={t("filter.status")}
-            value={
-              isArchived ? t("common:status.archived") : t("common:status.active")
-            }
-          />
-          {initiative.description && (
-            <Box>
-              <Typography variant="caption" color="text.secondary">
-                {t("common:labels.description")}
-              </Typography>
-              <Typography
-                variant="body2"
-                sx={{
-                  display: "-webkit-box",
-                  WebkitLineClamp: 4,
-                  WebkitBoxOrient: "vertical",
-                  overflow: "hidden",
-                }}
-              >
-                {initiative.description}
-              </Typography>
-            </Box>
-          )}
-        </Box>
-      </Box>
+            {initiative.description && (
+              <Box>
+                <Typography variant="caption" color="text.secondary">
+                  {t("common:labels.description")}
+                </Typography>
+                <Typography
+                  variant="body2"
+                  sx={{
+                    display: "-webkit-box",
+                    WebkitLineClamp: 4,
+                    WebkitBoxOrient: "vertical",
+                    overflow: "hidden",
+                  }}
+                >
+                  {initiative.description}
+                </Typography>
+              </Box>
+            )}
+          </Box>
+        </AccordionDetails>
+      </Accordion>
     </Box>
   );
 }
