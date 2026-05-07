@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.5.1] - 2026-05-08
+
+### Fixed
+- **iPhone-width layout regressions on the Card Detail side panel and EA Delivery → Initiatives tab.** The Card Detail side panel header now lets the data-quality / lifecycle / approval badges wrap to a second row on `xs` viewports so the title and subtype no longer truncate to "A…" / "p…". The EA Delivery page header wraps the "New artefact" / "New ADR" button to its own line on narrow viewports instead of overlapping the description text. The Initiatives tab swaps its 320 px sticky sidebar for a left-anchored MUI Drawer on `xs` so the workspace can use the full viewport width; the drawer auto-closes when an initiative is selected.
+
 ## [1.5.0] - 2026-05-08
 
 ### Added

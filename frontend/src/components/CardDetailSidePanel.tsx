@@ -157,7 +157,16 @@ export default function CardDetailSidePanel({ cardId, open, onClose }: Props) {
           zIndex: 1,
         }}
       >
-        <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
+        <Box
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            flexWrap: "wrap",
+            rowGap: 1,
+            columnGap: 1,
+            mb: 1,
+          }}
+        >
           <IconButton size="small" onClick={onClose}>
             <MaterialSymbol icon="close" size={20} />
           </IconButton>
@@ -188,7 +197,7 @@ export default function CardDetailSidePanel({ cardId, open, onClose }: Props) {
                   {card.name}
                 </Typography>
                 <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-                  <Typography variant="caption" color="text.secondary">
+                  <Typography variant="caption" color="text.secondary" noWrap>
                     {rml(typeConfig?.key ?? "", typeConfig?.translations, "label") || card.type}
                   </Typography>
                   {card.subtype && typeof card.subtype === "string" && (
@@ -208,7 +217,16 @@ export default function CardDetailSidePanel({ cardId, open, onClose }: Props) {
             )}
           </Box>
           {card && (
-            <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+            <Box
+              sx={{
+                display: "flex",
+                alignItems: "center",
+                flexWrap: "wrap",
+                gap: 0.5,
+                flexBasis: { xs: "100%", sm: "auto" },
+                order: { xs: 1, sm: 0 },
+              }}
+            >
               <DataQualityPill value={card.data_quality} />
               <LifecycleBadge lifecycle={card.lifecycle} />
               <ApprovalStatusBadge status={card.approval_status} />
