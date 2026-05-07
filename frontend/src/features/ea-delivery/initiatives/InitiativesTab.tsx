@@ -397,7 +397,7 @@ export default function InitiativesTab({
                     open={mobileOpen}
                     onClose={() => setMobileOpen(false)}
                     PaperProps={{
-                      sx: { width: "85vw", maxWidth: 360 },
+                      sx: { width: "92vw", maxWidth: 400 },
                     }}
                   >
                     <Box
