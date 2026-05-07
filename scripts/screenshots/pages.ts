@@ -467,9 +467,11 @@ export const DOC_PAGES: PageDef[] = [
   // ── EA Delivery ────────────────────────────────────────────────────────
   {
     id: "17_ea_delivery",
-    route: "/ea-delivery",
+    // Deep-link to a specific initiative so the right pane shows the
+    // workspace (deliverables, children, details) instead of the empty CTA.
+    route: "/ea-delivery?tab=initiatives&initiative={{cardId:sampleInitiative}}",
     waitFor: ".MuiPaper-root",
-    actions: [{ type: "wait", ms: 600 }],
+    actions: [{ type: "wait", ms: 800 }],
     filenames: {
       en: "17_ea_delivery",
       de: "17_ea_lieferung",

@@ -3,6 +3,7 @@
   "actions.cancel": "Cancel",
   "actions.delete": "Delete",
   "actions.create": "Create",
+  "actions.add": "Add",
   "actions.edit": "Edit",
   "actions.close": "Close",
   "actions.confirm": "Confirm",

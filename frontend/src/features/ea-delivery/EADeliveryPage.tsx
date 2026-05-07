@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo, useCallback, useRef } from "react";
+import { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import Box from "@mui/material/Box";
@@ -29,6 +29,10 @@ import AdrGrid from "./AdrGrid";
 import AdrFilterSidebar, { type AdrFilters, EMPTY_ADR_FILTERS } from "./AdrFilterSidebar";
 import { exportAdrsToDocx } from "./adrExport";
 import { InitiativesTab } from "./initiatives";
+import NewArtefactSplitButton from "./initiatives/NewArtefactSplitButton";
+import type { ArtefactKind } from "./initiatives/NewArtefactSplitButton";
+import { UNLINKED_KEY } from "./initiatives/InitiativeTreeSidebar";
+import CreateDiagramDialog from "../diagrams/CreateDiagramDialog";
 import RiskRegisterPage from "./risks/RiskRegisterPage";
 import type { SoAW, DiagramSummary, EAPrinciple, ArchitectureDecision } from "@/types";
 import type { useInitiativeData } from "./initiatives";
@@ -53,9 +57,39 @@ export default function EADeliveryPage() {
     rawTab === "risks"
       ? rawTab
       : "initiatives";
-  const setPageTab = useCallback(
-    (tab: PageTab) => setSearchParams({ tab }, { replace: true }),
+  const selectedInitiativeId = searchParams.get("initiative");
+
+  /**
+   * Merge-style search-param updater. Pass `null` to clear a key. This
+   * preserves any unrelated params (e.g. `?initiative=…`) when the user
+   * switches tabs — replacing the params object wholesale would silently
+   * wipe them.
+   */
+  const updateParams = useCallback(
+    (patch: Record<string, string | null>) => {
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          for (const [k, v] of Object.entries(patch)) {
+            if (v === null || v === "") next.delete(k);
+            else next.set(k, v);
+          }
+          return next;
+        },
+        { replace: true },
+      );
+    },
     [setSearchParams],
+  );
+
+  const setPageTab = useCallback(
+    (tab: PageTab) => updateParams({ tab }),
+    [updateParams],
+  );
+
+  const setSelectedInitiativeId = useCallback(
+    (id: string | null) => updateParams({ initiative: id }),
+    [updateParams],
   );
 
   // ── Principles tab state ────────────────────────────────────────────────
@@ -86,9 +120,9 @@ export default function EADeliveryPage() {
   const [linkSelected, setLinkSelected] = useState<string[]>([]);
   const [linking, setLinking] = useState(false);
 
-  // ── Create artefact menu ────────────────────────────────────────────────
-  const [createMenuAnchor, setCreateMenuAnchor] = useState<HTMLElement | null>(null);
-  const [createMenuInitiativeId, setCreateMenuInitiativeId] = useState("");
+  // ── Create diagram dialog state ─────────────────────────────────────────
+  const [diagramCreateOpen, setDiagramCreateOpen] = useState(false);
+  const [diagramCreateCardIds, setDiagramCreateCardIds] = useState<string[]>([]);
 
   // ── SoAW context menu ───────────────────────────────────────────────────
   const [ctxMenu, setCtxMenu] = useState<{
@@ -184,19 +218,13 @@ export default function EADeliveryPage() {
     setCreateOpen(true);
   }, []);
 
-  const openCreateMenu = useCallback(
-    (e: React.MouseEvent<HTMLElement>, initiativeId: string) => {
-      e.stopPropagation();
-      setCreateMenuAnchor(e.currentTarget);
-      setCreateMenuInitiativeId(initiativeId);
+  const handleCreateDiagramForInitiative = useCallback(
+    (initiativeId?: string) => {
+      setDiagramCreateCardIds(initiativeId ? [initiativeId] : []);
+      setDiagramCreateOpen(true);
     },
     [],
   );
-
-  const closeCreateMenu = () => {
-    setCreateMenuAnchor(null);
-    setCreateMenuInitiativeId("");
-  };
 
   // ── Link diagram handlers ──────────────────────────────────────────────
 
@@ -290,6 +318,40 @@ export default function EADeliveryPage() {
       setAdrCreateOpen(true);
     },
     [],
+  );
+
+  /**
+   * Single dispatcher for the page-header "+ New artefact" button. The
+   * Initiatives tab also uses this through its own `onCreateArtefact` chain.
+   */
+  const handleCreateArtefact = useCallback(
+    (kind: ArtefactKind, initiativeId?: string) => {
+      const target =
+        initiativeId && initiativeId !== UNLINKED_KEY ? initiativeId : "";
+      if (kind === "soaw") {
+        handleCreateSoawForInitiative(target);
+        return;
+      }
+      if (kind === "diagram") {
+        handleCreateDiagramForInitiative(target || undefined);
+        return;
+      }
+      if (kind === "adr") {
+        if (target) {
+          const init = dataRef.current?.initiatives.find((i) => i.id === target);
+          openAdrCreateDialog(
+            init ? [{ id: init.id, name: init.name, type: init.type }] : [],
+          );
+        } else {
+          openAdrCreateDialog([]);
+        }
+      }
+    },
+    [
+      handleCreateSoawForInitiative,
+      handleCreateDiagramForInitiative,
+      openAdrCreateDialog,
+    ],
   );
 
   const handleDeleteAdr = async (id: string) => {
@@ -632,7 +694,18 @@ export default function EADeliveryPage() {
           </Typography>
         </Box>
         <Box sx={{ flex: 1 }} />
-{pageTab === "decisions" && (
+        {pageTab === "initiatives" && (
+          <NewArtefactSplitButton
+            initiativeId={
+              selectedInitiativeId && selectedInitiativeId !== UNLINKED_KEY
+                ? selectedInitiativeId
+                : undefined
+            }
+            onSelect={(kind, id) => handleCreateArtefact(kind, id)}
+            variant="contained"
+          />
+        )}
+        {pageTab === "decisions" && (
           <Button
             variant="contained"
             size="small"
@@ -701,10 +774,12 @@ export default function EADeliveryPage() {
       {/* Initiatives tab */}
       {pageTab === "initiatives" && (
         <InitiativesTab
+          selectedInitiativeId={selectedInitiativeId}
+          onSelectInitiative={setSelectedInitiativeId}
           onCreateSoaw={handleCreateSoawForInitiative}
           onCreateAdr={openAdrCreateDialog}
+          onCreateDiagram={handleCreateDiagramForInitiative}
           onLinkDiagrams={openLinkDialog}
-          onCreateArtefact={openCreateMenu}
           onUnlinkDiagram={handleUnlinkDiagram}
           onSoawContextMenu={handleSoawContextMenu}
           onDataReady={handleDataReady}
@@ -811,40 +886,13 @@ export default function EADeliveryPage() {
         preLinkedCards={adrCreatePreLinkedCards}
       />
 
-      {/* Create artefact menu (SoAW or ADR) for initiative "+" button */}
-      <Menu
-        anchorEl={createMenuAnchor}
-        open={Boolean(createMenuAnchor)}
-        onClose={closeCreateMenu}
-      >
-        <MenuItem
-          onClick={() => {
-            const initId = createMenuInitiativeId;
-            closeCreateMenu();
-            handleCreateSoawForInitiative(initId);
-          }}
-        >
-          <ListItemIcon>
-            <MaterialSymbol icon="description" size={18} />
-          </ListItemIcon>
-          <ListItemText>{t("card.createSoawForInitiative")}</ListItemText>
-        </MenuItem>
-        <MenuItem
-          onClick={() => {
-            const initId = createMenuInitiativeId;
-            const init = dataRef.current?.initiatives.find((i) => i.id === initId);
-            closeCreateMenu();
-            openAdrCreateDialog(
-              init ? [{ id: init.id, name: init.name, type: init.type }] : [],
-            );
-          }}
-        >
-          <ListItemIcon>
-            <MaterialSymbol icon="gavel" size={18} />
-          </ListItemIcon>
-          <ListItemText>{t("card.createAdrForInitiative")}</ListItemText>
-        </MenuItem>
-      </Menu>
+      {/* Create diagram dialog (used both from page header and per-section "+" buttons) */}
+      <CreateDiagramDialog
+        open={diagramCreateOpen}
+        onClose={() => setDiagramCreateOpen(false)}
+        initialCardIds={diagramCreateCardIds}
+        onCreated={() => dataRef.current?.refetch()}
+      />
 
       {/* Link diagrams dialog */}
       <LinkDiagramsDialog

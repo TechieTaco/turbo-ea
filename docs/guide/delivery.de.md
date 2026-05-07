@@ -6,18 +6,25 @@ Das **EA Delivery**-Modul verwaltet **Architekturinitiativen und deren Artefakte
 
 ## Initiativenübersicht
 
-Die Seite ist rund um **Initiative**-Karten organisiert. Jede Initiative zeigt:
+Der Reiter "Initiativen" ist ein **Zwei-Spalten-Arbeitsbereich**:
 
-| Feld | Beschreibung |
-|------|-------------|
+- **Linke Seitenleiste** — ein eingerückter, filterbarer Baum aller Initiativen (mit verschachtelten Unterinitiativen). Suchen Sie nach Namen, filtern Sie nach Status / Subtyp / Artefakten oder markieren Sie Favoriten.
+- **Rechter Arbeitsbereich** — die Lieferobjekte, untergeordneten Initiativen und Details der links ausgewählten Initiative. Bei der Auswahl einer anderen Zeile wird der Arbeitsbereich neu aufgebaut.
+
+Die Auswahl ist Teil der URL (`?initiative=<id>`), sodass Sie eine bestimmte Initiative direkt verlinken oder die Seite neu laden können, ohne den Kontext zu verlieren.
+
+Eine zentrale primäre Schaltfläche **+ Neues Artefakt ▾** oben auf der Seite erlaubt es, ein neues SoAW, Diagramm oder ADR anzulegen — automatisch mit der ausgewählten Initiative verknüpft (oder unverknüpft, wenn keine Auswahl getroffen wurde). Leere Lieferobjekt-Gruppen im Arbeitsbereich bieten zudem eine **+ Hinzufügen …**-Schaltfläche, sodass das Anlegen immer nur einen Klick entfernt ist.
+
+Jede Baumzeile zeigt:
+
+| Element | Bedeutung |
+|---------|-----------|
 | **Name** | Name der Initiative |
-| **Subtyp** | Idee, Programm, Projekt oder Epic |
-| **Status** | Im Plan, Gefährdet, Aus dem Plan, Pausiert oder Abgeschlossen |
-| **Artefakte** | Anzahl der verknüpften Diagramme und SoAW-Dokumente |
+| **Anzahl-Chip** | Gesamtzahl verknüpfter Artefakte (SoAW + Diagramme + ADRs) |
+| **Status-Punkt** | Farbpunkt für Im Plan / Gefährdet / Aus dem Plan / Pausiert / Abgeschlossen |
+| **Stern** | Favoriten-Umschalter — Favoriten erscheinen oben |
 
-Sie können zwischen einer **Kartengalerie**-Ansicht und einer **Listen**-Ansicht wechseln und Initiativen nach Status filtern (Aktiv oder Archiviert).
-
-Ein Klick auf eine Initiative klappt sie auf und zeigt alle verknüpften **Diagramme** und **SoAW-Dokumente**.
+Die synthetische Zeile **Nicht verknüpfte Artefakte** oben im Baum erscheint, wenn es SoAWs, Diagramme oder ADRs gibt, die noch keiner Initiative zugeordnet sind. Öffnen Sie sie, um sie wieder zu verknüpfen.
 
 ## Statement of Architecture Work (SoAW)
 
@@ -27,9 +34,10 @@ Turbo EA bietet einen integrierten SoAW-Editor mit TOGAF-konformen Abschnittsvor
 
 ### Ein SoAW erstellen
 
-1. Klicken Sie auf die **+**-Schaltfläche einer Initiativkarte und wählen Sie **Neues SoAW**
-2. Geben Sie den Dokumenttitel ein
-3. Der Editor öffnet sich mit **vorgefertigten Abschnittsvorlagen** basierend auf dem TOGAF-Standard
+1. Wählen Sie die Initiative links aus (optional — Sie können auch ein nicht verknüpftes SoAW erstellen).
+2. Klicken Sie oben auf der Seite auf **+ Neues Artefakt ▾** (oder auf die **+ Hinzufügen**-Schaltfläche im Abschnitt *Lieferobjekte*) und wählen Sie **Neues Statement of Architecture Work**.
+3. Geben Sie den Dokumenttitel ein.
+4. Der Editor öffnet sich mit **vorgefertigten Abschnittsvorlagen** basierend auf dem TOGAF-Standard.
 
 ### Der SoAW-Editor
 
@@ -100,7 +108,7 @@ Verwenden Sie die **Schnellfilter**-Suchleiste für die Volltextsuche über alle
 ADRs können von drei Stellen aus erstellt werden:
 
 1. **EA Delivery → Entscheidungen-Tab**: Klicken Sie auf **+ Neues ADR**, geben Sie den Titel ein und verknüpfen Sie optional Karten (einschließlich Initiativen).
-2. **Initiative-„+"-Knopf** (Initiativen-Tab): Wählen Sie **Neue Architekturentscheidung** aus dem Menü — die Initiative wird automatisch als Kartenverknüpfung hinzugefügt.
+2. **EA Delivery → Initiativen-Tab**: Wählen Sie eine Initiative aus, klicken Sie oben auf **+ Neues Artefakt ▾** (oder auf die **+ Hinzufügen**-Schaltfläche im Abschnitt *Architekturentscheidungen*) und wählen Sie **Neue Architekturentscheidung** — die Initiative wird automatisch als Kartenverknüpfung hinzugefügt.
 3. **Karten-Ressourcen-Tab**: Klicken Sie auf **ADR erstellen** — die aktuelle Karte wird automatisch verknüpft.
 
 In allen Fällen können Sie während der Erstellung weitere Karten suchen und verknüpfen. Initiativen werden über denselben Kartenverknüpfungsmechanismus wie jede andere Karte verknüpft, sodass ein ADR mit mehreren Initiativen verknüpft werden kann. Der Editor öffnet sich mit Abschnitten für Kontext, Entscheidung, Konsequenzen und Erwogene Alternativen.

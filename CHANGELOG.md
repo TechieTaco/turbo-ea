@@ -5,6 +5,18 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.3.0] - 2026-05-07
+
+### Changed
+- **EA Delivery — Initiatives tab redesigned as a two-pane workspace.** The previous vertical stack of expandable cards with a 3-column artefact grid is replaced by a left-side initiative tree (search + Status / Subtype / Artefacts filters + favourites, indented hierarchy with tree guide lines, synthetic "Unlinked artefacts" row at the top) and a right-side workspace that shows the selected initiative's deliverables, child initiatives, and details. The selection is URL-backed (`?initiative=<id>`), so refreshes and shared links preserve context. Cards/list view toggle removed in favour of the two-pane layout.
+
+### Added
+- **Single primary "+ New artefact" CTA on the EA Delivery page header**, with a dropdown for SoAW / Diagram / ADR. Each option pre-links to the currently selected initiative. Per-section "+ Add" buttons on empty deliverable groups give the same flow inline.
+- **Diagram creation from the Initiatives tab.** Diagrams could previously only be linked from this tab, not created. The `+ New artefact ▾` menu now exposes "New Diagram", which opens the existing Diagrams create dialog (extracted to `CreateDiagramDialog` for reuse) pre-linked to the selected initiative and routes to the editor on save.
+
+### Fixed
+- **EA Delivery URL params no longer wipe each other.** Switching tabs preserved the `?tab=` param but the underlying setter was destructive — clicking a tab would silently drop any other query string (now used by the new `?initiative=` param). Replaced with a merge-style `updateParams` helper.
+
 ## [1.2.2] - 2026-05-07
 
 ### Fixed
