@@ -69,7 +69,7 @@ export default function InitiativeWorkspace({
 
   if (selection.kind === "unlinked") {
     return (
-      <Box sx={{ p: 2, overflow: "auto", height: "100%" }}>
+      <Box sx={{ p: 2 }}>
         <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, mb: 2 }}>
           <MaterialSymbol icon="folder_open" size={28} color="#999" />
           <Typography variant="h5" fontWeight={600}>
@@ -143,7 +143,7 @@ function InitiativeView({
   };
 
   return (
-    <Box sx={{ p: 2, overflow: "auto", height: "100%" }}>
+    <Box sx={{ p: 2 }}>
       {/* Header strip */}
       <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, mb: 1 }}>
         <MaterialSymbol

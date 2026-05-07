@@ -291,13 +291,7 @@ export default function InitiativesTab({
   const noInitiatives = initiatives.length === 0;
 
   return (
-    <Box
-      sx={{
-        display: "flex",
-        flexDirection: "column",
-        height: "calc(100vh - 180px)",
-      }}
-    >
+    <Box sx={{ display: "flex", flexDirection: "column" }}>
       {error && (
         <Alert severity="error" sx={{ mb: 1 }} onClose={() => setError("")}>
           {error}
@@ -310,8 +304,13 @@ export default function InitiativesTab({
         <Box
           sx={{
             display: "flex",
-            flex: 1,
-            minHeight: 0,
+            // Min-height so the panel still fills the viewport when the
+            // right pane is short (empty state, tiny initiative). The right
+            // pane's natural content height takes over when it's larger,
+            // and the sidebar stretches to match via flex's default
+            // `align-items: stretch`.
+            minHeight: "calc(100vh - 220px)",
+            alignItems: "stretch",
             border: 1,
             borderColor: "divider",
             borderRadius: 1,
