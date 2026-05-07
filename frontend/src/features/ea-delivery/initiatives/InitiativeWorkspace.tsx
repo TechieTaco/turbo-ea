@@ -370,7 +370,7 @@ function EmptyState({
   return (
     <Box
       sx={{
-        height: "100%",
+        minHeight: "calc(100vh - 96px)",
         display: "flex",
         flexDirection: "column",
         alignItems: "center",

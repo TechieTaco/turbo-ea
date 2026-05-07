@@ -304,59 +304,74 @@ export default function InitiativesTab({
         <Box
           sx={{
             display: "flex",
-            // Min-height so the panel still fills the viewport when the
-            // right pane is short (empty state, tiny initiative). The right
-            // pane's natural content height takes over when it's larger,
-            // and the sidebar stretches to match via flex's default
-            // `align-items: stretch`.
-            minHeight: "calc(100vh - 220px)",
-            alignItems: "stretch",
+            // Top-align so the sidebar isn't stretched by the workspace —
+            // the sidebar gets its own explicit height (sticky to viewport)
+            // and the workspace flows naturally with the page.
+            alignItems: "flex-start",
             border: 1,
             borderColor: "divider",
             borderRadius: 1,
-            overflow: "hidden",
             bgcolor: "background.paper",
           }}
         >
-          <SidebarShell
-            title={t("tabs.initiatives")}
-            width={sidebarWidth}
-            onWidthChange={setSidebarWidth}
-            collapsed={collapsed}
-            onToggleCollapse={toggleCollapsed}
-            collapseTooltip={t("sidebar.collapse")}
-            expandTooltip={t("sidebar.expand")}
+          {/* Sidebar — sticks to the viewport below the fixed AppBar (64px),
+              with a small breathing-room offset, and keeps its definite
+              height so the SidebarShell's internal flex layout (header /
+              scrollable tree / footer) resolves correctly. */}
+          <Box
+            sx={{
+              position: "sticky",
+              top: 80,
+              alignSelf: "flex-start",
+              flexShrink: 0,
+              height: "calc(100vh - 96px)",
+              display: "flex",
+              borderTopLeftRadius: 4,
+              borderBottomLeftRadius: 4,
+              overflow: "hidden",
+            }}
           >
-            <InitiativeTreeSidebar
-              tree={visibleTree}
-              totalCount={totalCount}
-              selectedId={selectedInitiativeId}
-              onSelect={handleSelect}
-              favorites={favorites}
-              onToggleFavorite={toggleFavorite}
-              filter={{
-                search,
-                status: statusFilter,
-                subtype: subtypeFilter,
-                artefacts: artefactFilter,
-                favoritesOnly,
-              }}
-              filterSetters={{
-                setSearch,
-                setStatus: setStatusFilter,
-                setSubtype: setSubtypeFilter,
-                setArtefacts: setArtefactFilter,
-                setFavoritesOnly,
-              }}
-              unlinkedCount={
-                unlinkedSoaws.length +
-                unlinkedDiagrams.length +
-                unlinkedAdrs.length
-              }
-            />
-          </SidebarShell>
+            <SidebarShell
+              title={t("tabs.initiatives")}
+              width={sidebarWidth}
+              onWidthChange={setSidebarWidth}
+              collapsed={collapsed}
+              onToggleCollapse={toggleCollapsed}
+              collapseTooltip={t("sidebar.collapse")}
+              expandTooltip={t("sidebar.expand")}
+            >
+              <InitiativeTreeSidebar
+                tree={visibleTree}
+                totalCount={totalCount}
+                selectedId={selectedInitiativeId}
+                onSelect={handleSelect}
+                favorites={favorites}
+                onToggleFavorite={toggleFavorite}
+                filter={{
+                  search,
+                  status: statusFilter,
+                  subtype: subtypeFilter,
+                  artefacts: artefactFilter,
+                  favoritesOnly,
+                }}
+                filterSetters={{
+                  setSearch,
+                  setStatus: setStatusFilter,
+                  setSubtype: setSubtypeFilter,
+                  setArtefacts: setArtefactFilter,
+                  setFavoritesOnly,
+                }}
+                unlinkedCount={
+                  unlinkedSoaws.length +
+                  unlinkedDiagrams.length +
+                  unlinkedAdrs.length
+                }
+              />
+            </SidebarShell>
+          </Box>
 
-          <Box sx={{ flex: 1, minWidth: 0, overflow: "hidden" }}>
+          {/* Workspace — natural content height, drives the page scroll. */}
+          <Box sx={{ flex: 1, minWidth: 0 }}>
             {filteredInitiatives.length === 0 && !favoritesOnly ? (
               <Box sx={{ p: 4 }}>
                 <Alert severity="info">{t("empty.noMatch")}</Alert>
