@@ -350,20 +350,27 @@ COMMENT_DEFS: list[tuple[str, str, int, int | None]] = [
 # ---------------------------------------------------------------------------
 # Saved report configurations
 # ---------------------------------------------------------------------------
+# Each entry's `config` dict must use the keys the corresponding report
+# component actually reads in its `consumeConfig` effect. Mismatched keys
+# load silently as no-ops, which is what previously made the demo saved
+# reports look broken — they opened with default state instead of the
+# preset the user expected.
 SAVED_REPORT_DEFS: list[dict] = [
     {
         "name": "Application Portfolio Overview",
         "description": (
-            "Strategic view of all applications plotted by business criticality "
-            "and technical suitability, sized by annual cost."
+            "Strategic view of applications grouped by business criticality and "
+            "coloured by time model — useful for spotting concentrations of "
+            "mission-critical legacy apps at a glance."
         ),
         "report_type": "portfolio",
+        # PortfolioReport.tsx → consumeConfig reads:
+        # view, groupByRaw, colorBy, search, attrFilters, relationFilters,
+        # tagFilterIds, sortK, sortD, timelineDate
         "config": {
-            "typeKey": "Application",
-            "xAxis": "businessCriticality",
-            "yAxis": "technicalSuitability",
-            "sizeField": "costTotalAnnual",
-            "colorField": "timeModel",
+            "view": "chart",
+            "groupByRaw": "businessCriticality",
+            "colorBy": "timeModel",
         },
         "visibility": "public",
     },
@@ -374,32 +381,46 @@ SAVED_REPORT_DEFS: list[dict] = [
             "active, phase-out, and end-of-life dates."
         ),
         "report_type": "lifecycle",
+        # LifecycleReport.tsx → consumeConfig reads:
+        # cardTypeKey, view, sortK, sortD, useCustomDates, customColorBy
         "config": {
-            "typeKey": "ITComponent",
+            "cardTypeKey": "ITComponent",
+            "view": "chart",
         },
         "visibility": "public",
     },
     {
         "name": "Business Capability Heatmap",
         "description": (
-            "Heatmap of business capabilities colored by the number of supporting applications."
+            "Heatmap of business capabilities coloured by application "
+            "business criticality so you can see where critical workload "
+            "concentration sits."
         ),
         "report_type": "capability-map",
+        # CapabilityMapReport.tsx → consumeConfig reads:
+        # metric, displayLevel, showApps, colorBy, attrFilters,
+        # relationFilters, tagFilterIds, timelineDate
         "config": {
-            "typeKey": "Application",
-            "colorField": "businessCriticality",
+            "metric": "count",
+            "displayLevel": 2,
+            "showApps": True,
+            "colorBy": "businessCriticality",
         },
         "visibility": "public",
     },
     {
         "name": "Application Dependencies",
         "description": (
-            "Network graph showing application-to-application dependencies with interface details."
+            "Network graph showing application-to-application dependencies "
+            "via interfaces. Pick a centre app from the toolbar to drill in."
         ),
         "report_type": "dependencies",
+        # DependencyReport.tsx → consumeConfig reads:
+        # cardTypeKey, center, view, chartMode
         "config": {
-            "typeKey": "Application",
-            "depth": 2,
+            "cardTypeKey": "Application",
+            "view": "chart",
+            "chartMode": "c4",
         },
         "visibility": "public",
     },
@@ -587,20 +608,44 @@ DOCUMENT_DEFS: list[tuple[str, str, str]] = [
 
 # ---------------------------------------------------------------------------
 # Bookmark (saved inventory view) definitions
+#
+# Filter and column shapes must match the frontend's `Filters` interface and
+# the inventory grid's column-key conventions:
+#   - `filters.types` is the array the inventory page filters on (the
+#     `card_type` column on the bookmark itself is a one-of-many hint used
+#     when displaying the bookmark; it does NOT drive the filter)
+#   - core / always-on columns use the `core_` prefix, attribute columns
+#     use `attr_`, relation columns use `rel_`. Bare keys (e.g. `name`,
+#     `businessCriticality`) silently fail to match anything, which was
+#     the previous bug — bookmarks loaded but showed neither the right
+#     filter nor the right columns.
 # ---------------------------------------------------------------------------
 BOOKMARK_DEFS: list[dict] = [
     {
         "name": "All Applications",
         "card_type": "Application",
-        "filters": {},
+        "filters": {
+            "types": ["Application"],
+            "search": "",
+            "subtypes": [],
+            "lifecyclePhases": [],
+            "dataQualityMin": None,
+            "approvalStatuses": [],
+            "showArchived": False,
+            "attributes": {},
+            "relations": {},
+            "tagIds": [],
+        },
         "columns": [
-            "name",
-            "subtype",
-            "businessCriticality",
-            "technicalSuitability",
-            "costTotalAnnual",
-            "productName",
-            "lifecycle",
+            "core_type",
+            "core_name",
+            "core_path",
+            "core_subtype",
+            "core_lifecycle",
+            "attr_businessCriticality",
+            "attr_technicalSuitability",
+            "attr_costTotalAnnual",
+            "attr_productName",
         ],
         "sort": {"field": "name", "direction": "asc"},
         "visibility": "public",
@@ -608,15 +653,31 @@ BOOKMARK_DEFS: list[dict] = [
     {
         "name": "Active Initiatives",
         "card_type": "Initiative",
-        "filters": {"status": "ACTIVE"},
+        "filters": {
+            "types": ["Initiative"],
+            "search": "",
+            "subtypes": [],
+            "lifecyclePhases": ["active"],
+            "dataQualityMin": None,
+            "approvalStatuses": [],
+            "showArchived": False,
+            "attributes": {},
+            "relations": {},
+            "tagIds": [],
+        },
         "columns": [
-            "name",
-            "subtype",
-            "priority",
-            "costBudget",
-            "costActual",
-            "startDate",
-            "endDate",
+            "core_type",
+            "core_name",
+            "core_path",
+            "core_subtype",
+            "core_lifecycle",
+            "attr_initiativeStatus",
+            "attr_businessValue",
+            "attr_effort",
+            "attr_costBudget",
+            "attr_costActual",
+            "attr_startDate",
+            "attr_endDate",
         ],
         "sort": {"field": "name", "direction": "asc"},
         "visibility": "public",
@@ -624,15 +685,29 @@ BOOKMARK_DEFS: list[dict] = [
     {
         "name": "IT Components by Category",
         "card_type": "ITComponent",
-        "filters": {},
+        "filters": {
+            "types": ["ITComponent"],
+            "search": "",
+            "subtypes": [],
+            "lifecyclePhases": [],
+            "dataQualityMin": None,
+            "approvalStatuses": [],
+            "showArchived": False,
+            "attributes": {},
+            "relations": {},
+            "tagIds": [],
+        },
         "columns": [
-            "name",
-            "subtype",
-            "version",
-            "vendor",
-            "supportLevel",
-            "costTotalAnnual",
-            "lifecycle",
+            "core_type",
+            "core_name",
+            "core_path",
+            "core_subtype",
+            "core_lifecycle",
+            "attr_version",
+            "attr_technicalSuitability",
+            "attr_resourceClassification",
+            "attr_licenseType",
+            "attr_costTotalAnnual",
         ],
         "sort": {"field": "subtype", "direction": "asc"},
         "visibility": "public",

@@ -220,7 +220,16 @@ export default function OverviewTab() {
                       tick={{ fontSize: 12, fill: theme.palette.text.secondary }}
                       tickLine={false}
                     />
-                    <RTooltip cursor={{ fill: theme.palette.action.hover }} contentStyle={{ backgroundColor: theme.palette.background.paper, borderColor: theme.palette.divider, color: theme.palette.text.primary }} />
+                    <RTooltip
+                      cursor={{ fill: theme.palette.action.hover }}
+                      contentStyle={{
+                        backgroundColor: theme.palette.background.paper,
+                        borderColor: theme.palette.divider,
+                        color: theme.palette.text.primary,
+                      }}
+                      labelStyle={{ color: theme.palette.text.primary }}
+                      itemStyle={{ color: theme.palette.text.primary }}
+                    />
                     <Bar
                       dataKey="count"
                       name={t("labels.count")}
@@ -273,7 +282,16 @@ export default function OverviewTab() {
                         <Cell key={i} fill={d.color} />
                       ))}
                     </Pie>
-                    <RTooltip cursor={{ fill: theme.palette.action.hover }} contentStyle={{ backgroundColor: theme.palette.background.paper, borderColor: theme.palette.divider, color: theme.palette.text.primary }} />
+                    <RTooltip
+                      cursor={{ fill: theme.palette.action.hover }}
+                      contentStyle={{
+                        backgroundColor: theme.palette.background.paper,
+                        borderColor: theme.palette.divider,
+                        color: theme.palette.text.primary,
+                      }}
+                      labelStyle={{ color: theme.palette.text.primary }}
+                      itemStyle={{ color: theme.palette.text.primary }}
+                    />
                     <Legend formatter={(value: string) => <span style={{ color: theme.palette.text.primary }}>{value}</span>} />
                   </PieChart>
                 </ResponsiveContainer>
@@ -298,7 +316,16 @@ export default function OverviewTab() {
                   <CartesianGrid strokeDasharray="3 3" stroke={theme.palette.divider} />
                   <XAxis dataKey="name" tick={{ fontSize: 12, fill: theme.palette.text.secondary }} />
                   <YAxis allowDecimals={false} tick={{ fill: theme.palette.text.secondary }} />
-                  <RTooltip cursor={{ fill: theme.palette.action.hover }} contentStyle={{ backgroundColor: theme.palette.background.paper, borderColor: theme.palette.divider, color: theme.palette.text.primary }} />
+                  <RTooltip
+                    cursor={{ fill: theme.palette.action.hover }}
+                    contentStyle={{
+                      backgroundColor: theme.palette.background.paper,
+                      borderColor: theme.palette.divider,
+                      color: theme.palette.text.primary,
+                    }}
+                    labelStyle={{ color: theme.palette.text.primary }}
+                    itemStyle={{ color: theme.palette.text.primary }}
+                  />
                   <Bar
                     dataKey="count"
                     name={t("labels.cards")}
@@ -327,7 +354,16 @@ export default function OverviewTab() {
                   <CartesianGrid strokeDasharray="3 3" stroke={theme.palette.divider} />
                   <XAxis dataKey="name" tick={{ fontSize: 12, fill: theme.palette.text.secondary }} />
                   <YAxis allowDecimals={false} tick={{ fill: theme.palette.text.secondary }} />
-                  <RTooltip cursor={{ fill: theme.palette.action.hover }} contentStyle={{ backgroundColor: theme.palette.background.paper, borderColor: theme.palette.divider, color: theme.palette.text.primary }} />
+                  <RTooltip
+                    cursor={{ fill: theme.palette.action.hover }}
+                    contentStyle={{
+                      backgroundColor: theme.palette.background.paper,
+                      borderColor: theme.palette.divider,
+                      color: theme.palette.text.primary,
+                    }}
+                    labelStyle={{ color: theme.palette.text.primary }}
+                    itemStyle={{ color: theme.palette.text.primary }}
+                  />
                   <Bar
                     dataKey="count"
                     name={t("labels.cards")}

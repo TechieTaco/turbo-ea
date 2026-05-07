@@ -21,7 +21,8 @@ import ToggleButton from "@mui/material/ToggleButton";
 import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import ReportShell from "./ReportShell";
 import SaveReportDialog from "./SaveReportDialog";
-import LayeredDependencyView from "./LayeredDependencyView";
+import LayeredDependencyView, { readableTypeColor } from "./LayeredDependencyView";
+import { useTheme } from "@mui/material/styles";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useSavedReport } from "@/hooks/useSavedReport";
@@ -351,6 +352,8 @@ export default function DependencyReport() {
   const { t } = useTranslation(["reports", "common"]);
   const { types } = useMetamodel();
   const rml = useResolveMetaLabel();
+  const theme = useTheme();
+  const isDark = theme.palette.mode === "dark";
   const saved = useSavedReport("dependencies");
   const { chartRef, thumbnail, captureAndSave } = useThumbnailCapture(() => saved.setSaveDialogOpen(true));
   const [cardTypeKey, setCardTypeKey] = useState("");
@@ -964,7 +967,7 @@ export default function DependencyReport() {
               {/* Cards */}
               {layout.cards.map((card) => {
                 const h = cardH(card);
-                const color = tc(card.node.type, types);
+                const color = readableTypeColor(tc(card.node.type, types), isDark);
                 const inChain =
                   hovered !== null && hoveredChain.has(card.instanceId);
                 const dimmed = hovered !== null && !inChain;
