@@ -6,18 +6,25 @@ O módulo de **Entregas de EA** gerencia **iniciativas de arquitetura e seus art
 
 ## Visão Geral de Iniciativas
 
-A página é organizada em torno de cards de **Iniciativa**. Cada iniciativa mostra:
+O separador "Iniciativas" é um **espaço de trabalho de dois painéis**:
 
-| Campo | Descrição |
-|-------|-----------|
+- **Barra lateral à esquerda** — uma árvore indentada e filtrável de todas as iniciativas (com as iniciativas filhas aninhadas). Pesquise por nome, filtre por Status / Subtipo / Artefatos ou marque favoritos.
+- **Espaço de trabalho à direita** — os entregáveis, iniciativas filhas e detalhes da iniciativa selecionada à esquerda. Selecionar outra linha atualiza o espaço de trabalho.
+
+A seleção faz parte do URL (`?initiative=<id>`), pelo que pode partilhar um link direto para uma iniciativa ou recarregar a página sem perder o contexto.
+
+Um único botão principal **+ Novo artefato ▾** no topo da página permite criar um novo SoAW, diagrama ou ADR — automaticamente vinculado à iniciativa selecionada (ou não vinculado se nada estiver selecionado). Os grupos de entregáveis vazios no espaço de trabalho também expõem um botão **+ Adicionar …**, para que a criação esteja sempre a um clique.
+
+Cada linha da árvore mostra:
+
+| Elemento | Significado |
+|----------|-------------|
 | **Nome** | Nome da iniciativa |
-| **Subtipo** | Ideia, Programa, Projeto ou Epic |
-| **Status** | No Prazo, Em Risco, Fora do Prazo, Em Espera ou Concluído |
-| **Artefatos** | Contagem de diagramas e documentos SoAW vinculados |
+| **Chip de contagem** | Total de artefatos vinculados (SoAW + diagramas + ADRs) |
+| **Ponto de status** | Ponto colorido para No Prazo / Em Risco / Fora do Prazo / Em Espera / Concluído |
+| **Estrela** | Botão de favorito — os favoritos sobem ao topo |
 
-Você pode alternar entre uma visualização em **galeria de cartões** e uma visualização em **lista**, e filtrar iniciativas por status (Ativas ou Arquivadas).
-
-Clicar em uma iniciativa a expande para mostrar todos os seus **diagramas** e **documentos SoAW** vinculados.
+A linha sintética **Artefatos não vinculados** no topo da árvore aparece quando há SoAWs, diagramas ou ADRs ainda não vinculados a uma iniciativa. Abra-a para os religar.
 
 ## Statement of Architecture Work (SoAW)
 
@@ -27,9 +34,10 @@ O Turbo EA fornece um editor de SoAW integrado com templates de seções alinhad
 
 ### Criando um SoAW
 
-1. Clique no botão **+** de um cartão de iniciativa e selecione **Novo SoAW**
-2. Insira o título do documento
-3. O editor abre com **templates de seções pré-construídos** baseados no padrão TOGAF
+1. Selecione a iniciativa à esquerda (opcional — também pode criar um SoAW sem vinculação).
+2. Clique em **+ Novo artefato ▾** no topo da página (ou no botão **+ Adicionar** dentro da secção *Entregáveis*) e escolha **Novo Statement of Architecture Work**.
+3. Insira o título do documento.
+4. O editor abre com **templates de seções pré-construídos** baseados no padrão TOGAF.
 
 ### O Editor de SoAW
 
@@ -100,7 +108,7 @@ Use a barra de **filtro rápido** para pesquisa de texto completo em todos os AD
 Os ADR podem ser criados a partir de três locais:
 
 1. **Entregas de EA → aba Decisões**: Clique em **+ Novo ADR**, preencha o título e opcionalmente vincule cards (incluindo iniciativas).
-2. **Botão «+» da iniciativa** (aba Iniciativas): Escolha **Nova Decisão de Arquitetura** no menu — a iniciativa é pré-vinculada como um vínculo de card.
+2. **EA Delivery → separador Iniciativas**: Selecione uma iniciativa, clique em **+ Novo artefato ▾** no topo (ou no botão **+ Adicionar** da secção *Decisões de Arquitetura*) e escolha **Nova Decisão de Arquitetura** — a iniciativa é pré-vinculada como um vínculo de card.
 3. **Aba Recursos do cartão**: Clique em **Criar ADR** — o cartão atual é pré-vinculado.
 
 Em todos os casos, você pode pesquisar e vincular cartões adicionais durante a criação. As iniciativas são vinculadas através do mesmo mecanismo de vinculação de cards utilizado para qualquer outro card, o que significa que um ADR pode ser vinculado a múltiplas iniciativas. O editor abre com seções para Contexto, Decisão, Consequências e Alternativas Consideradas.

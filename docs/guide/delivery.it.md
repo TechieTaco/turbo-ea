@@ -6,18 +6,25 @@ Il modulo **EA Delivery** gestisce le **iniziative architetturali e i relativi a
 
 ## Panoramica delle iniziative
 
-La pagina è organizzata attorno alle card **Initiative**. Ogni iniziativa mostra:
+La scheda "Iniziative" è uno **spazio di lavoro a due pannelli**:
 
-| Campo | Descrizione |
-|-------|-------------|
+- **Barra laterale a sinistra** — un albero indentato e filtrabile di tutte le iniziative (con le iniziative figlie nidificate). Cerca per nome, filtra per Stato / Sottotipo / Artefatti o segna i preferiti.
+- **Spazio di lavoro a destra** — i deliverable, le iniziative figlie e i dettagli dell'iniziativa selezionata a sinistra. Selezionando un'altra riga, lo spazio di lavoro si aggiorna.
+
+La selezione fa parte dell'URL (`?initiative=<id>`), quindi è possibile condividere un link diretto a un'iniziativa o aggiornare la pagina senza perdere il contesto.
+
+Un pulsante principale **+ Nuovo artefatto ▾** in alto nella pagina permette di creare un nuovo SoAW, diagramma o ADR — automaticamente collegato all'iniziativa selezionata (o non collegato se nessuna selezione è attiva). I gruppi di deliverable vuoti nello spazio di lavoro mostrano anche un pulsante **+ Aggiungi …**, in modo che la creazione sia sempre a un solo clic.
+
+Ogni riga dell'albero mostra:
+
+| Elemento | Significato |
+|----------|-------------|
 | **Nome** | Nome dell'iniziativa |
-| **Sottotipo** | Idea, Program, Project o Epic |
-| **Stato** | On Track, At Risk, Off Track, On Hold o Completed |
-| **Artefatti** | Conteggio dei diagrammi e documenti SoAW collegati |
+| **Chip di conteggio** | Totale degli artefatti collegati (SoAW + diagrammi + ADR) |
+| **Punto di stato** | Pallino colorato per On Track / At Risk / Off Track / On Hold / Completed |
+| **Stella** | Toggle dei preferiti — i preferiti risalgono in cima |
 
-Potete alternare tra una vista a **galleria di schede** e una vista a **elenco**, e filtrare le iniziative per stato (Attive o Archiviate).
-
-Cliccando su un'iniziativa la si espande per mostrare tutti i **diagrammi** e i **documenti SoAW** collegati.
+La riga sintetica **Artefatti non collegati** in cima all'albero compare quando ci sono SoAW, diagrammi o ADR non ancora collegati a un'iniziativa. Aprila per ricollegarli.
 
 ## Statement of Architecture Work (SoAW)
 
@@ -27,9 +34,10 @@ Turbo EA fornisce un editor SoAW integrato con template di sezioni allineati a T
 
 ### Creazione di un SoAW
 
-1. Cliccate sul pulsante **+** di una scheda iniziativa e selezionate **Nuovo SoAW**
-2. Inserite il titolo del documento
-3. L'editor si apre con **template di sezioni predefiniti** basati sullo standard TOGAF
+1. Selezionate l'iniziativa a sinistra (facoltativo — potete anche creare un SoAW non collegato).
+2. Cliccate su **+ Nuovo artefatto ▾** in alto nella pagina (oppure sul pulsante **+ Aggiungi** nella sezione *Deliverable*) e scegliete **Nuovo Statement of Architecture Work**.
+3. Inserite il titolo del documento.
+4. L'editor si apre con **template di sezioni predefiniti** basati sullo standard TOGAF.
 
 ### L'editor SoAW
 
@@ -100,7 +108,7 @@ Utilizzate la barra del **filtro rapido** per la ricerca full-text in tutti gli 
 Gli ADR possono essere creati da tre punti:
 
 1. **EA Delivery → scheda Decisioni**: Cliccate su **+ Nuovo ADR**, compilate il titolo e opzionalmente collegate card (incluse le iniziative).
-2. **Pulsante «+» dell'iniziativa** (scheda Iniziative): Scegliete **Nuova Decisione di Architettura** dal menu — l'iniziativa viene pre-collegata come collegamento di card.
+2. **EA Delivery → scheda Iniziative**: Selezionate un'iniziativa, cliccate su **+ Nuovo artefatto ▾** in alto (oppure sul pulsante **+ Aggiungi** della sezione *Decisioni di Architettura*) e scegliete **Nuova Decisione di Architettura** — l'iniziativa viene pre-collegata come collegamento di card.
 3. **Scheda Risorse della carta**: Cliccate su **Crea ADR** — la carta corrente viene pre-collegata.
 
 In tutti i casi, potete cercare e collegare carte aggiuntive durante la creazione. Le iniziative vengono collegate attraverso lo stesso meccanismo di collegamento di card utilizzato per qualsiasi altra card, il che significa che un ADR può essere collegato a più iniziative. L'editor si apre con sezioni per Contesto, Decisione, Conseguenze e Alternative considerate.

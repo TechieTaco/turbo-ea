@@ -6,18 +6,25 @@ The **EA Delivery** module manages **architecture initiatives and their artifact
 
 ## Initiative Overview
 
-The page is organized around **Initiative** cards. Each initiative shows:
+The Initiatives tab is a **two-pane workspace**:
 
-| Field | Description |
-|-------|-------------|
+- **Left sidebar** — an indented, filterable tree of every initiative (with their child initiatives nested below). Search by name, filter by Status / Subtype / Artefacts, or pin favourites.
+- **Right workspace** — the deliverables, child initiatives, and details for the initiative you select on the left. Pick another row, and the workspace re-renders.
+
+The selection is part of the URL (`?initiative=<id>`), so you can deep-link to a specific initiative or refresh the page without losing your place.
+
+A single primary **+ New artefact ▾** button at the top of the page lets you create a new SoAW, Diagram, or ADR — pre-linked to the initiative you have selected (or unlinked if you have no selection yet). Empty deliverable groups inside the workspace also expose a **+ Add …** button so creation is always one click away.
+
+Each tree row shows:
+
+| Element | Meaning |
+|---------|---------|
 | **Name** | Initiative name |
-| **Subtype** | Idea, Program, Project, or Epic |
-| **Status** | On Track, At Risk, Off Track, On Hold, or Completed |
-| **Artifacts** | Count of linked diagrams and SoAW documents |
+| **Count chip** | Total number of linked artefacts (SoAW + Diagrams + ADRs) |
+| **Status dot** | Coloured dot for On Track / At Risk / Off Track / On Hold / Completed |
+| **Star** | Favourite toggle — favourites bubble to the top |
 
-You can switch between a **card gallery** view and a **list** view, and filter initiatives by status (Active or Archived).
-
-Clicking an initiative expands it to show all its linked **diagrams** and **SoAW documents**.
+The synthetic **Unlinked artefacts** row at the top of the tree appears when there are SoAWs, diagrams, or ADRs that aren't yet linked to an initiative. Open it to relink them.
 
 ## Statement of Architecture Work (SoAW)
 
@@ -27,9 +34,10 @@ Turbo EA provides a built-in SoAW editor with TOGAF-aligned section templates, r
 
 ### Creating a SoAW
 
-1. Click the **+** button on an initiative card and select **New SoAW**
-2. Enter the document title
-3. The editor opens with **pre-built section templates** based on the TOGAF standard
+1. Select the initiative on the left (optional — you can also create an unlinked SoAW).
+2. Click **+ New artefact ▾** at the top of the page (or the **+ Add** button inside the *Deliverables* section) and choose **New Statement of Architecture Work**.
+3. Enter the document title.
+4. The editor opens with **pre-built section templates** based on the TOGAF standard.
 
 ### The SoAW Editor
 
@@ -100,7 +108,7 @@ Use the **quick filter** search bar for full-text search across all ADRs. Right-
 ADRs can be created from three places:
 
 1. **EA Delivery → Decisions tab**: Click **+ New ADR**, fill in the title and optionally link cards (including initiatives).
-2. **Initiative "+" button** (Initiatives tab): Choose **New Architecture Decision** from the menu — the initiative is pre-linked as a card link.
+2. **EA Delivery → Initiatives tab**: Select an initiative, then click **+ New artefact ▾** in the page header (or the **+ Add** button on the *Architecture Decisions* deliverable section) and choose **New Architecture Decision** — the initiative is pre-linked as a card link.
 3. **Card Resources tab**: Click **Create ADR** — the current card is pre-linked.
 
 In all cases, you can search and link additional cards during creation. Initiatives are linked through the same card linking mechanism as any other card, which means an ADR can be linked to multiple initiatives. The editor opens with sections for Context, Decision, Consequences, and Alternatives Considered.

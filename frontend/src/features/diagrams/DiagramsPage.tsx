@@ -14,9 +14,6 @@ import DialogContent from "@mui/material/DialogContent";
 import DialogActions from "@mui/material/DialogActions";
 import TextField from "@mui/material/TextField";
 import MenuItem from "@mui/material/MenuItem";
-import Select from "@mui/material/Select";
-import FormControl from "@mui/material/FormControl";
-import InputLabel from "@mui/material/InputLabel";
 import Grid from "@mui/material/Grid";
 import Chip from "@mui/material/Chip";
 import Checkbox from "@mui/material/Checkbox";
@@ -38,6 +35,7 @@ import { useMetamodel } from "@/hooks/useMetamodel";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { api } from "@/api/client";
 import type { Card, DiagramSummary } from "@/types";
+import CreateDiagramDialog from "./CreateDiagramDialog";
 
 type ViewMode = "card" | "list";
 
@@ -56,10 +54,6 @@ export default function DiagramsPage() {
 
   // Create dialog
   const [createOpen, setCreateOpen] = useState(false);
-  const [createName, setCreateName] = useState("");
-  const [createDesc, setCreateDesc] = useState("");
-  const [createType, setCreateType] = useState("free_draw");
-  const [createCardIds, setCreateCardIds] = useState<string[]>([]);
 
   // Edit dialog (rename + description + initiatives)
   const [editOpen, setEditOpen] = useState(false);
@@ -98,24 +92,6 @@ export default function DiagramsPage() {
       setViewMode(mode);
       localStorage.setItem("diagrams_view", mode);
     }
-  };
-
-  const handleCreate = async () => {
-    if (!createName.trim()) return;
-    const d = await api.post<{ id: string }>("/diagrams", {
-      name: createName,
-      description: createDesc.trim() || undefined,
-      type: createType,
-      card_ids: createCardIds.length > 0 ? createCardIds : undefined,
-    });
-    setCreateOpen(false);
-    setCreateName("");
-    setCreateDesc("");
-    setCreateType("free_draw");
-    setCreateCardIds([]);
-    // A freshly-created diagram is empty — go straight to the editor so the
-    // user can start drawing. Existing diagrams open in the read-only viewer.
-    navigate(`/diagrams/${d.id}/edit`);
   };
 
   const openEdit = (d: DiagramSummary) => {
@@ -494,85 +470,10 @@ export default function DiagramsPage() {
         </MenuItem>
       </Menu>
 
-      {/* Create Dialog */}
-      <Dialog
+      <CreateDiagramDialog
         open={createOpen}
         onClose={() => setCreateOpen(false)}
-        maxWidth="xs"
-        fullWidth
-      >
-        <DialogTitle>{t("gallery.newDiagram")}</DialogTitle>
-        <DialogContent>
-          <TextField
-            fullWidth
-            label={t("common:labels.name")}
-            value={createName}
-            onChange={(e) => setCreateName(e.target.value)}
-            sx={{ mt: 1, mb: 2 }}
-            autoFocus
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && createName.trim()) handleCreate();
-            }}
-          />
-          <TextField
-            fullWidth
-            label={t("common:labels.description")}
-            value={createDesc}
-            onChange={(e) => setCreateDesc(e.target.value)}
-            multiline
-            rows={2}
-            sx={{ mb: 2 }}
-          />
-          <FormControl fullWidth sx={{ mb: 2 }}>
-            <InputLabel>{t("common:labels.type")}</InputLabel>
-            <Select
-              value={createType}
-              label={t("common:labels.type")}
-              onChange={(e) => setCreateType(e.target.value)}
-            >
-              <MenuItem value="free_draw">{t("gallery.types.freeDraw")}</MenuItem>
-              <MenuItem value="data_flow">{t("gallery.types.dataFlow")}</MenuItem>
-            </Select>
-          </FormControl>
-          <Autocomplete
-            multiple
-            options={allCards}
-            getOptionLabel={(opt) => opt.name}
-            groupBy={(opt) => typeMap[opt.type]?.label || opt.type}
-            value={allCards.filter((c) => createCardIds.includes(c.id))}
-            onChange={(_, newVal) => setCreateCardIds(newVal.map((v) => v.id))}
-            disableCloseOnSelect
-            renderOption={(props, option, { selected }) => (
-              <li {...props} key={option.id}>
-                <Checkbox size="small" checked={selected} sx={{ mr: 1 }} />
-                <MaterialSymbol
-                  icon={typeMap[option.type]?.icon || "apps"}
-                  size={18}
-                  color={typeMap[option.type]?.color}
-                />
-                <Box component="span" sx={{ ml: 0.5 }}>{option.name}</Box>
-              </li>
-            )}
-            renderInput={(params) => (
-              <TextField
-                {...params}
-                label={t("gallery.linkedCards")}
-                helperText={t("gallery.linkedCardsHelperText")}
-              />
-            )}
-          />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setCreateOpen(false)}>{t("common:actions.cancel")}</Button>
-          <Button
-            variant="contained"
-            onClick={handleCreate}
-            disabled={!createName.trim()}
-          >
-            {t("common:actions.create")}
-          </Button>
-        </DialogActions>
-      </Dialog>
+      />
 
       {/* Edit Dialog */}
       <Dialog

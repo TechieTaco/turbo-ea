@@ -107,9 +107,9 @@ const mockAdrs = [
   },
 ];
 
-function renderPage() {
+function renderPage(initialEntries: string[] = ["/"]) {
   return render(
-    <MemoryRouter>
+    <MemoryRouter initialEntries={initialEntries}>
       <EADeliveryPage />
     </MemoryRouter>,
   );
@@ -152,39 +152,38 @@ describe("EADeliveryPage", () => {
     });
   });
 
-  it("shows typed artefact chips on initiative cards", async () => {
+  it("shows artefact count badge on initiative tree row", async () => {
     renderPage();
     await waitFor(() => {
-      // Cloud Migration has 1 diagram + 1 soaw + 1 adr, shown as typed chips
-      expect(screen.getByText("1 SoAW")).toBeInTheDocument();
+      expect(screen.getByText("Cloud Migration")).toBeInTheDocument();
     });
+    // init-1 has 1 SoAW + 1 diagram + 1 ADR ⇒ count chip "3" on the row.
+    // The chip is rendered only when totalArtefacts > 0; init-2 has none.
+    expect(screen.getByText("3")).toBeInTheDocument();
   });
 
-  it("shows subtype chip on initiative", async () => {
-    renderPage();
+  it("shows subtype + status when an initiative is selected via URL", async () => {
+    // Deep-link to a specific initiative — the workspace should populate with
+    // the subtype + initiativeStatus chips from the header strip. (Subtype
+    // text also appears in the filter dropdown options, so allow multiple.)
+    renderPage(["/?tab=initiatives&initiative=init-1"]);
     await waitFor(() => {
-      expect(screen.getByText("Program")).toBeInTheDocument();
-    });
-  });
-
-  it("shows initiative status chip", async () => {
-    renderPage();
-    await waitFor(() => {
+      expect(screen.getAllByText("Program").length).toBeGreaterThan(0);
       expect(screen.getByText("On Track")).toBeInTheDocument();
     });
   });
 
-  it("shows unlinked artefacts group", async () => {
+  it("shows unlinked artefacts pseudo-row in the sidebar", async () => {
     renderPage();
     await waitFor(() => {
-      expect(screen.getByText("Not linked to an Initiative")).toBeInTheDocument();
+      expect(screen.getByText("Unlinked artefacts")).toBeInTheDocument();
     });
   });
 
   it("shows search field", async () => {
     renderPage();
     await waitFor(() => {
-      expect(screen.getByPlaceholderText("Search initiatives...")).toBeInTheDocument();
+      expect(screen.getByPlaceholderText("Search initiatives…")).toBeInTheDocument();
     });
   });
 
@@ -194,24 +193,24 @@ describe("EADeliveryPage", () => {
       expect(screen.getByText("Cloud Migration")).toBeInTheDocument();
     });
 
-    const searchInput = screen.getByPlaceholderText("Search initiatives...");
+    const searchInput = screen.getByPlaceholderText("Search initiatives…");
     await userEvent.type(searchInput, "Cloud");
 
     expect(screen.getByText("Cloud Migration")).toBeInTheDocument();
     expect(screen.getByText("1 initiative")).toBeInTheDocument();
   });
 
-  it("opens create SoAW dialog via initiative + button", async () => {
-    renderPage();
+  it("opens create SoAW dialog via the page-header New artefact button", async () => {
+    // Pre-select via URL — the SplitButton then pre-links to that initiative.
+    renderPage(["/?tab=initiatives&initiative=init-1"]);
+    // The selected initiative renders in both the sidebar tree row and the
+    // workspace header strip — find at least one occurrence.
     await waitFor(() => {
-      expect(screen.getByText("Cloud Migration")).toBeInTheDocument();
+      expect(screen.getAllByText("Cloud Migration").length).toBeGreaterThan(0);
     });
 
-    // Click the "+" (create artefact) button on the first initiative card
-    const addButtons = screen.getAllByLabelText("Create artefact for this initiative");
-    await userEvent.click(addButtons[0]);
-
-    // Pick "New Statement of Architecture Work" from the menu
+    const newArtefactBtn = screen.getByRole("button", { name: /New artefact/i });
+    await userEvent.click(newArtefactBtn);
     await userEvent.click(screen.getByText("New Statement of Architecture Work"));
 
     expect(
@@ -220,15 +219,16 @@ describe("EADeliveryPage", () => {
     expect(screen.getByLabelText("Document name")).toBeInTheDocument();
   });
 
-  it("creates a new SoAW via initiative + button", async () => {
+  it("creates a new SoAW via the page-header New artefact button", async () => {
     vi.mocked(api.post).mockResolvedValue({ id: "new-soaw" });
-    renderPage();
+    renderPage(["/?tab=initiatives&initiative=init-1"]);
+    // The selected initiative renders in both the sidebar tree row and the
+    // workspace header strip — find at least one occurrence.
     await waitFor(() => {
-      expect(screen.getByText("Cloud Migration")).toBeInTheDocument();
+      expect(screen.getAllByText("Cloud Migration").length).toBeGreaterThan(0);
     });
 
-    const addButtons = screen.getAllByLabelText("Create artefact for this initiative");
-    await userEvent.click(addButtons[0]);
+    await userEvent.click(screen.getByRole("button", { name: /New artefact/i }));
     await userEvent.click(screen.getByText("New Statement of Architecture Work"));
     await userEvent.type(screen.getByLabelText("Document name"), "Test SoAW");
 
