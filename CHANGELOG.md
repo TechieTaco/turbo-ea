@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.2.2] - 2026-05-07
+
+### Fixed
+- **AI description suggest available in card side panel.** The AI suggest icon in the Description section header was only wired into the full-page card view, so opening a card via the inventory eye-icon side panel hid the feature even when AI was enabled. The side panel now fetches AI status, exposes the suggest button under the same gating (AI enabled, edit permission, not archived, no pending suggestion), and renders the `AiSuggestPanel` above the tabs to apply or dismiss results.
+
 ## [1.2.1] - 2026-05-07
 
 ### Fixed

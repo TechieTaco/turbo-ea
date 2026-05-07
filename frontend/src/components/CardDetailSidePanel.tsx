@@ -12,12 +12,18 @@ import { useTranslation } from "react-i18next";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import ApprovalStatusBadge from "@/components/ApprovalStatusBadge";
 import LifecycleBadge from "@/components/LifecycleBadge";
+import AiSuggestPanel, { type AiApplyPayload } from "@/components/AiSuggestPanel";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useResolveMetaLabel } from "@/hooks/useResolveLabel";
 import { api } from "@/api/client";
 import { DataQualityPill } from "@/features/cards/sections";
 import CardDetailContent from "@/features/cards/CardDetailContent";
-import type { Card, CardEffectivePermissions } from "@/types";
+import type {
+  Card,
+  CardEffectivePermissions,
+  AiStatus,
+  AiSuggestResponse,
+} from "@/types";
 
 const DEFAULT_PERMISSIONS: CardEffectivePermissions["effective"] = {
   can_view: true,
@@ -55,12 +61,20 @@ export default function CardDetailSidePanel({ cardId, open, onClose }: Props) {
   const [perms, setPerms] =
     useState<CardEffectivePermissions["effective"]>(DEFAULT_PERMISSIONS);
 
+  const [aiStatus, setAiStatus] = useState<AiStatus | null>(null);
+  const [aiResponse, setAiResponse] = useState<AiSuggestResponse | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState("");
+
   // Reset state and fetch when cardId changes
   useEffect(() => {
     if (!cardId || !open) return;
     setCard(null);
     setError("");
     setPerms(DEFAULT_PERMISSIONS);
+    setAiResponse(null);
+    setAiError("");
+    setAiLoading(false);
     api
       .get<Card>(`/cards/${cardId}`)
       .then(setCard)
@@ -71,7 +85,52 @@ export default function CardDetailSidePanel({ cardId, open, onClose }: Props) {
       .catch(() => {});
   }, [cardId, open]);
 
+  // Fetch AI status once
+  useEffect(() => {
+    api
+      .get<AiStatus>("/ai/status")
+      .then(setAiStatus)
+      .catch(() => {});
+  }, []);
+
   const typeConfig = card ? getType(card.type) : null;
+  const isArchived = card?.status === "ARCHIVED";
+  const aiEnabled =
+    !!card &&
+    !!aiStatus?.enabled &&
+    !!aiStatus?.configured &&
+    aiStatus.enabled_types.includes(card.type);
+
+  const handleAiSuggest = async () => {
+    if (!card) return;
+    setAiError("");
+    setAiResponse(null);
+    setAiLoading(true);
+    try {
+      const res = await api.post<AiSuggestResponse>("/ai/suggest", {
+        type_key: card.type,
+        subtype: card.subtype || undefined,
+        name: card.name,
+      });
+      setAiResponse(res);
+    } catch (e: unknown) {
+      setAiError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
+  const handleAiApply = async (payload: AiApplyPayload) => {
+    if (!card) return;
+    const patch: Record<string, unknown> = {};
+    if (payload.description) patch.description = payload.description;
+    if (payload.fields) {
+      patch.attributes = { ...(card.attributes ?? {}), ...payload.fields };
+    }
+    const updated = await api.patch<Card>(`/cards/${card.id}`, patch);
+    setCard(updated);
+    setAiResponse(null);
+  };
 
   return (
     <Drawer
@@ -182,6 +241,27 @@ export default function CardDetailSidePanel({ cardId, open, onClose }: Props) {
             perms={perms}
             onCardUpdate={setCard}
             showBpmTabs={false}
+            onAiSuggest={
+              aiEnabled && perms.can_edit && !isArchived && !aiResponse
+                ? handleAiSuggest
+                : undefined
+            }
+            aiBusy={aiLoading}
+            beforeTabs={
+              (aiLoading || aiError || aiResponse) && (
+                <AiSuggestPanel
+                  response={aiResponse}
+                  loading={aiLoading}
+                  error={aiError}
+                  onApply={handleAiApply}
+                  onDismiss={() => {
+                    setAiResponse(null);
+                    setAiError("");
+                  }}
+                  fieldsSchema={typeConfig?.fields_schema}
+                />
+              )
+            }
           />
         )}
       </Box>
