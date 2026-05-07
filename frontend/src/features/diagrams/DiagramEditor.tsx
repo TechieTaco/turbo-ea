@@ -964,7 +964,28 @@ export default function DiagramEditor() {
   const iframeSrc = `${DRAWIO_BASE_URL}?${DRAWIO_URL_PARAMS}`;
 
   return (
-    <Box sx={{ height: "calc(100vh - 64px)", m: -3, display: "flex", flexDirection: "column" }}>
+    <Box
+      sx={{
+        // Dynamic viewport height (Safari 15.4+, Chrome, Firefox); falls back
+        // to vh on older browsers via @supports. `100vh` on iPad Safari keeps
+        // the larger layout-viewport size while the URL bar is visible, which
+        // (combined with the negative top margin previously used here) pushed
+        // the toolbar behind the fixed AppBar — the AppBar sticks to the
+        // visual viewport but flow content positions against the layout
+        // viewport, and the two diverge while Safari's chrome is shown.
+        height: "calc(100vh - 64px - 24px)",
+        "@supports (height: 100dvh)": {
+          height: "calc(100dvh - 64px - 24px)",
+        },
+        // Escape the AppLayout content padding horizontally and at the bottom
+        // only. We deliberately keep the inner-Box top padding so the editor
+        // toolbar always has a safe 24px gap from the fixed AppBar.
+        mx: -3,
+        mb: -3,
+        display: "flex",
+        flexDirection: "column",
+      }}
+    >
       {/* Toolbar */}
       <Box
         sx={{

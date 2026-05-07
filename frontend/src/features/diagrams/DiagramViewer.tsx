@@ -127,7 +127,21 @@ export default function DiagramViewer() {
   const iframeSrc = buildViewerSrc(xml);
 
   return (
-    <Box sx={{ height: "calc(100vh - 64px)", m: -3, display: "flex", flexDirection: "column" }}>
+    <Box
+      sx={{
+        // See DiagramEditor.tsx for the rationale — same iPad Safari issue
+        // affected this page (the Edit button in the top toolbar was hidden
+        // behind the AppBar when Safari's URL bar was visible).
+        height: "calc(100vh - 64px - 24px)",
+        "@supports (height: 100dvh)": {
+          height: "calc(100dvh - 64px - 24px)",
+        },
+        mx: -3,
+        mb: -3,
+        display: "flex",
+        flexDirection: "column",
+      }}
+    >
       {/* App toolbar */}
       <Box
         sx={{
