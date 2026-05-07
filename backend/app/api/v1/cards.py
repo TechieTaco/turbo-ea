@@ -1285,8 +1285,11 @@ async def export_csv(
             ]
         )
     output.seek(0)
+    stamp = datetime.now().strftime("%Y-%m-%d_%H%M")
+    base = f"cards_{type}" if type else "cards"
+    filename = f"{base}_{stamp}.csv"
     return StreamingResponse(
         iter([output.getvalue()]),
         media_type="text/csv",
-        headers={"Content-Disposition": "attachment; filename=cards.csv"},
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
     )

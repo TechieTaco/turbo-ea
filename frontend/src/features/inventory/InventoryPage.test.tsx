@@ -29,6 +29,8 @@ vi.mock("ag-grid-react", () => ({
 // Stub sub-components not under test
 vi.mock("./InventoryFilterSidebar", () => ({
   default: () => <div data-testid="filter-sidebar" />,
+  CORE_COLUMNS: [],
+  CORE_COLUMN_KEYS: [],
 }));
 
 vi.mock("@/components/CreateCardDialog", () => ({

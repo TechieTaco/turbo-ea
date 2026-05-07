@@ -7,6 +7,8 @@
   "toolbar.gridEdit": "Edici\u00f3n en cuadr\u00edcula",
   "toolbar.editing": "Editando",
 
+  "actions.previewCard": "Vista previa de la ficha",
+
   "columns.title": "Columnas",
   "columns.lifecycle": "Ciclo de vida",
   "columns.approvalStatus": "Estado de aprobaci\u00f3n",
@@ -23,10 +25,12 @@
   "columns.selectedCount_other": "{{count}} columnas mostradas",
   "columns.clearAll": "Limpiar todo",
   "columns.selectAll": "Seleccionar todo",
+  "columns.defaults": "Columnas predeterminadas",
   "columns.metadata": "Metadatos",
   "columns.attributes": "Atributos",
   "columns.relations": "Relaciones",
   "columns.reset": "Restablecer",
+  "columns.path": "Ruta",
 
   "filter.title": "Filtros",
   "filter.expand": "Expandir filtros",
@@ -191,5 +195,6 @@
   "import.warnings.unrecognisedColumn": "La columna \"{{column}}\" no se reconoce y ser\u00e1 ignorada",
   "import.warnings.unknownTag": "Fila {{row}}: etiqueta desconocida «{{value}}» — ignorada",
   "import.warnings.idNotFoundCreating": "Fila {{row}}: el id «{{id}}» no existe en esta instancia — se creará como ficha nueva",
-  "import.warnings.ambiguousParentPath": "Fila {{row}}: la ruta del padre «{{path}}» coincide con varias fichas — se usa la primera coincidencia"
+  "import.warnings.ambiguousParentPath": "Fila {{row}}: la ruta del padre «{{path}}» coincide con varias fichas — se usa la primera coincidencia",
+  "import.warnings.readOnlyFieldIgnored": "Fila {{row}}: «{{field}}» es un campo de solo lectura — el valor se ignorará"
 }

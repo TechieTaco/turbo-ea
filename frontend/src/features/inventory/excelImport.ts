@@ -1,7 +1,7 @@
 import * as XLSX from "xlsx";
 import i18n from "@/i18n";
 import { resolveLabel } from "@/hooks/useResolveLabel";
-import type { Card, CardType, FieldDef, TagGroup } from "@/types";
+import type { CalculatedFieldsMap, Card, CardType, FieldDef, TagGroup } from "@/types";
 import { api } from "@/api/client";
 
 const t = (key: string, opts?: Record<string, unknown>) =>
@@ -283,6 +283,7 @@ export function validateImport(
   allTypes: CardType[],
   preSelectedType?: string,
   tagGroups: TagGroup[] = [],
+  calculatedFields: CalculatedFieldsMap = {},
 ): ImportReport {
   const errors: ImportError[] = [];
   const warnings: ImportWarning[] = [];
@@ -596,6 +597,7 @@ export function validateImport(
 
     // Build attributes object, validating against field defs
     const fieldDefs = fieldDefsForType(type, allTypes);
+    const calcFieldsForType = new Set(calculatedFields[type] || []);
     const attributes: Record<string, unknown> = {};
     let rowHasAttrError = false;
 
@@ -603,6 +605,23 @@ export function validateImport(
       const colKey = `attr_${field.key}`;
       const rawVal = raw[colKey];
       const val = str(rawVal);
+
+      // Read-only fields (admin-marked or calculated) cannot be set via import.
+      // If the user supplied a value, warn and skip it; otherwise stay silent.
+      const isReadOnly = field.readonly === true || calcFieldsForType.has(field.key);
+      if (isReadOnly) {
+        if (val) {
+          warnings.push({
+            row: rowNum,
+            column: colKey,
+            message: t("import.warnings.readOnlyFieldIgnored", {
+              row: rowNum,
+              field: resolveLabel(field.key, field.translations, i18n.language),
+            }),
+          });
+        }
+        continue;
+      }
 
       if (!val) {
         // A missing required attribute is a data-quality concern, not a data

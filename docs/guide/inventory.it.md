@@ -32,13 +32,16 @@ La scheda **Colonne** nel pannello laterale consente di scegliere quali colonne 
 - **Più tipi selezionati** — Sono disponibili solo i campi **comuni a tutti i tipi selezionati**
 - **Nessun tipo selezionato** — Un messaggio suggerisce di selezionare prima un tipo di scheda
 
-Le colonne sono raggruppate in tre categorie:
+Le colonne sono raggruppate in quattro categorie:
 
 | Categoria | Descrizione |
 |-----------|-------------|
+| **Colonne predefinite** | Colonne sempre attive: Tipo, Nome, Percorso, Descrizione, Sottotipo, Ciclo di vita, Stato di approvazione, Qualità dei dati. Toglile dalla selezione per nasconderle dalla griglia — utile per restringere una vista salvata alle sole colonne che usi davvero. |
 | **Metadati** | Creato, Modificato, Creato da, Modificato da |
 | **Attributi** | Campi personalizzati definiti nel metamodello (testo, numero, costo, data, selezione, ecc.) |
 | **Relazioni** | Tipi di schede correlati (ad es., Applicazioni collegate a una Capacità Aziendale) |
+
+La colonna **Percorso** mostra la gerarchia della scheda (per es. «Nord America / Vendite / Vendite interne») senza il nome della scheda stessa, così puoi tenere Nome e Percorso visibili contemporaneamente.
 
 Ogni categoria ha una casella di controllo **Seleziona tutto** per attivare o disattivare rapidamente tutte le colonne di quel gruppo. Un campo di ricerca in alto consente di trovare colonne specifiche per nome. Il badge su ogni intestazione di sezione mostra quante colonne di quel gruppo sono attualmente visibili.
 

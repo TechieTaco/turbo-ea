@@ -5,6 +5,19 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.2.0] - 2026-05-07
+
+### Added
+- **Inventory: pop-out card detail side panel.** Each name cell now has an eye icon that opens a right-anchored side panel showing the card's full detail without leaving the inventory grid. Clicking the name itself still navigates to the full card page.
+- **Inventory: separate Name and Path columns.** The Name column now shows just the card's own name; a new Path column shows the breadcrumb to the parent and is shown by default. Both columns can be toggled in the column selector.
+- **Inventory column selector: Default columns section.** The previously always-visible columns (Type, Name, Path, Description, Subtype, Lifecycle, Approval Status, Data Quality) are now listed at the top of the column selector and can be deselected — useful for tightening a saved view to just the columns you need.
+- **Import: read-only field warning.** Importing rows that supply values for read-only or calculated fields (e.g. `attr_capabilityLevel`) now surfaces a warning per row and skips the value rather than silently passing it through. The import still proceeds.
+
+### Changed
+- **Top-nav links open in a new tab on Ctrl/Cmd/middle-click.** Inventory, Reports, BPM, PPM, EA Delivery, the Reports submenu, the brand logo, the user-menu admin items, and a card's name in the Inventory grid now render as real anchors. Plain clicks behave as before.
+- **Top-nav Create button.** Clicking Create now opens the Create Card dialog over the user's current screen instead of routing them to `/inventory?create=true` first. The previous URL still works for any saved deep links.
+- **Export filenames include time.** XLSX/PPTX/DOCX/CSV exports for inventory, reports, SoAW documents, ADRs, and the cards CSV API now use a `YYYY-MM-DD_HHMM` local-time stamp so multiple same-day exports don't collide.
+
 ## [1.1.0] - 2026-05-06
 
 ### Added

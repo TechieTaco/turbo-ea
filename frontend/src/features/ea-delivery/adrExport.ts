@@ -521,10 +521,15 @@ export async function exportAdrsToDocx(adrs: ArchitectureDecision[]): Promise<vo
   });
 
   const blob = await Packer.toBlob(doc);
-  const today = new Date().toISOString().slice(0, 10);
+  const stamp = exportTimestamp();
   const filename =
     adrs.length === 1
-      ? `${adrs[0].reference_number}_${today}.docx`
-      : `ADRs_${today}.docx`;
+      ? `${adrs[0].reference_number}_${stamp}.docx`
+      : `ADRs_${stamp}.docx`;
   saveAs(blob, filename);
+}
+
+function exportTimestamp(now: Date = new Date()): string {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}`;
 }

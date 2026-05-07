@@ -5,6 +5,8 @@
   "toolbar.filters": "Filter",
   "toolbar.gridEdit": "Tabellenbearbeitung",
   "toolbar.editing": "Bearbeitung",
+
+  "actions.previewCard": "Karte vorschauen",
   "columns.title": "Spalten",
   "columns.lifecycle": "Lebenszyklus",
   "columns.approvalStatus": "Genehmigungsstatus",
@@ -21,10 +23,12 @@
   "columns.selectedCount_other": "{{count}} Spalten angezeigt",
   "columns.clearAll": "Alle löschen",
   "columns.selectAll": "Alle auswählen",
+  "columns.defaults": "Standardspalten",
   "columns.metadata": "Metadaten",
   "columns.attributes": "Attribute",
   "columns.relations": "Beziehungen",
   "columns.reset": "Zurücksetzen",
+  "columns.path": "Pfad",
   "filter.title": "Filter",
   "filter.expand": "Filter aufklappen",
   "filter.searchPlaceholder": "Karten suchen...",
@@ -181,5 +185,6 @@
   "import.warnings.unrecognisedColumn": "Spalte \"{{column}}\" wird nicht erkannt und ignoriert",
   "import.warnings.unknownTag": "Zeile {{row}}: unbekannter Tag „{{value}}“ — ignoriert",
   "import.warnings.idNotFoundCreating": "Zeile {{row}}: ID „{{id}}“ existiert in dieser Instanz nicht — wird als neue Karte angelegt",
-  "import.warnings.ambiguousParentPath": "Zeile {{row}}: Elternpfad „{{path}}“ trifft auf mehrere Karten zu — der erste Treffer wird verwendet"
+  "import.warnings.ambiguousParentPath": "Zeile {{row}}: Elternpfad „{{path}}“ trifft auf mehrere Karten zu — der erste Treffer wird verwendet",
+  "import.warnings.readOnlyFieldIgnored": "Zeile {{row}}: „{{field}}“ ist ein schreibgeschütztes Feld — Wert wird ignoriert"
 }

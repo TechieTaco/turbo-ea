@@ -1591,6 +1591,24 @@ const METADATA_COLUMNS = [
   { key: "meta_updated_by", icon: "person", tKey: "columns.updatedBy" as const },
 ];
 
+// Default-visible "core" columns that are always rendered by the grid unless
+// explicitly hidden via the column selector. These keys live in
+// `selectedColumns` alongside attribute/relation/meta keys; the InventoryPage
+// `columnDefs` memo applies `hide: !selectedColumns.has(key)` for each.
+// The labels below are i18n keys, namespace-prefixed where applicable.
+export const CORE_COLUMNS = [
+  { key: "core_type", icon: "category", tKey: "common:labels.type" as const },
+  { key: "core_name", icon: "label", tKey: "common:labels.name" as const },
+  { key: "core_path", icon: "account_tree", tKey: "columns.path" as const },
+  { key: "core_description", icon: "description", tKey: "common:labels.description" as const },
+  { key: "core_subtype", icon: "subdirectory_arrow_right", tKey: "common:labels.subtype" as const },
+  { key: "core_lifecycle", icon: "timeline", tKey: "columns.lifecycle" as const },
+  { key: "core_approval_status", icon: "verified", tKey: "columns.approvalStatus" as const },
+  { key: "core_data_quality", icon: "donut_small", tKey: "columns.dataQuality" as const },
+];
+
+export const CORE_COLUMN_KEYS = CORE_COLUMNS.map((c) => c.key);
+
 function ColumnsTab({
   types,
   filters,
@@ -1616,6 +1634,7 @@ function ColumnsTab({
 }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
+    defaults: true,
     metadata: true,
     attributes: true,
     relations: true,
@@ -1685,6 +1704,18 @@ function ColumnsTab({
 
   // Filter items by search query
   const lowerSearch = searchQuery.toLowerCase();
+  // Subtype is meaningful only when a single type with subtypes is selected;
+  // hide it from the selector otherwise so users don't toggle a non-existent
+  // column. All other core keys are universal.
+  const singleTypeWithSubtypes =
+    filters.types.length === 1
+      ? types.find((ct) => ct.key === filters.types[0])?.subtypes?.length ?? 0
+      : 0;
+  const filteredCore = CORE_COLUMNS.filter((c) => {
+    if (c.key === "core_subtype" && !singleTypeWithSubtypes) return false;
+    if (searchQuery && !t(c.tKey).toLowerCase().includes(lowerSearch)) return false;
+    return true;
+  });
   const filteredMeta = METADATA_COLUMNS.filter(
     (m) => !searchQuery || t(m.tKey).toLowerCase().includes(lowerSearch),
   );
@@ -1702,6 +1733,9 @@ function ColumnsTab({
     return label.toLowerCase().includes(lowerSearch);
   });
 
+  const coreKeys = filteredCore.map((c) => c.key);
+  const allCoreChecked = coreKeys.length > 0 && coreKeys.every((k) => selectedColumns.has(k));
+  const someCoreChecked = coreKeys.some((k) => selectedColumns.has(k));
   const metaKeys = filteredMeta.map((m) => m.key);
   const attrKeys = filteredAttrs.map((f) => `attr_${f.key}`);
   const relKeys = filteredRels.map((rt) => {
@@ -1781,6 +1815,64 @@ function ColumnsTab({
             </Button>
           </Box>
         </Box>
+      )}
+
+      {/* Default (always-visible) columns section */}
+      {filteredCore.length > 0 && (
+        <>
+          <SectionHeader
+            label={t("columns.defaults")}
+            icon="grid_view"
+            expanded={expandedSections.defaults}
+            onToggle={() => toggleSection("defaults")}
+            count={coreKeys.filter((k) => selectedColumns.has(k)).length}
+          />
+          <Collapse in={expandedSections.defaults}>
+            <List dense disablePadding sx={{ mb: 1 }}>
+              <ListItemButton
+                sx={{ py: 0.25, px: 0.5, borderRadius: 1 }}
+                onClick={() => toggleAll(coreKeys, !allCoreChecked)}
+              >
+                <ListItemIcon sx={{ minWidth: 28 }}>
+                  <Checkbox
+                    size="small"
+                    checked={allCoreChecked}
+                    indeterminate={someCoreChecked && !allCoreChecked}
+                    sx={{ p: 0 }}
+                  />
+                </ListItemIcon>
+                <ListItemText
+                  primary={
+                    <Typography variant="body2" fontSize={13} fontWeight={500} fontStyle="italic">
+                      {t("columns.selectAll")}
+                    </Typography>
+                  }
+                />
+              </ListItemButton>
+              {filteredCore.map((c) => (
+                <ListItemButton
+                  key={c.key}
+                  sx={{ py: 0.25, px: 0.5, borderRadius: 1 }}
+                  onClick={() => toggleColumn(c.key)}
+                >
+                  <ListItemIcon sx={{ minWidth: 28 }}>
+                    <Checkbox size="small" checked={selectedColumns.has(c.key)} sx={{ p: 0 }} />
+                  </ListItemIcon>
+                  <ListItemIcon sx={{ minWidth: 24 }}>
+                    <MaterialSymbol icon={c.icon} size={16} />
+                  </ListItemIcon>
+                  <ListItemText
+                    primary={
+                      <Typography variant="body2" fontSize={13}>
+                        {t(c.tKey)}
+                      </Typography>
+                    }
+                  />
+                </ListItemButton>
+              ))}
+            </List>
+          </Collapse>
+        </>
       )}
 
       {/* Metadata section */}

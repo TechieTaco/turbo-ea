@@ -32,13 +32,16 @@ L'onglet **Colonnes** dans le panneau latéral vous permet de choisir les colonn
 - **Plusieurs types sélectionnés** — Seuls les champs **communs à tous les types sélectionnés** sont disponibles
 - **Aucun type sélectionné** — Un message d'indication vous invite à sélectionner d'abord un type de carte
 
-Les colonnes sont regroupées en trois catégories :
+Les colonnes sont regroupées en quatre catégories :
 
 | Catégorie | Description |
 |-----------|-------------|
+| **Colonnes par défaut** | Colonnes toujours actives : Type, Nom, Chemin, Description, Sous-type, Cycle de vie, Statut d'approbation, Qualité des données. Décochez-les pour les masquer de la grille — utile pour resserrer une vue enregistrée aux seules colonnes que vous utilisez vraiment. |
 | **Métadonnées** | Créé, Modifié, Créé par, Modifié par |
 | **Attributs** | Champs personnalisés définis dans le métamodèle (texte, nombre, coût, date, sélection, etc.) |
 | **Relations** | Types de cartes liés (par ex., Applications liées à une Capacité Métier) |
+
+La colonne **Chemin** affiche le fil d'Ariane hiérarchique (par ex. « Amérique du Nord / Ventes / Ventes internes ») sans le nom de la fiche elle-même, ce qui vous permet d'afficher Nom et Chemin en même temps.
 
 Chaque catégorie dispose d'une case à cocher **Tout sélectionner** pour activer ou désactiver rapidement toutes les colonnes du groupe. Un champ de recherche en haut permet de trouver des colonnes spécifiques par nom. Le badge sur chaque en-tête de section indique combien de colonnes de ce groupe sont actuellement visibles.
 

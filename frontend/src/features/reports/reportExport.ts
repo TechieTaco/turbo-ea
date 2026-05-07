@@ -196,8 +196,7 @@ export async function exportReportToXlsx(data: ReportExportData): Promise<void> 
     XLSX.utils.book_append_sheet(wb, ws, name);
   }
 
-  const date = new Date().toISOString().slice(0, 10);
-  const filename = `${sanitizeFilename(data.title)}_${date}.xlsx`;
+  const filename = `${sanitizeFilename(data.title)}_${exportTimestamp()}.xlsx`;
   XLSX.writeFile(wb, filename);
 }
 
@@ -627,7 +626,11 @@ export async function exportReportToPptx(data: ReportExportData): Promise<void> 
   // just duplicate that content; reach for XLSX when raw data is the
   // goal.
 
-  const date = new Date().toISOString().slice(0, 10);
-  const filename = `${sanitizeFilename(data.title)}_${date}.pptx`;
+  const filename = `${sanitizeFilename(data.title)}_${exportTimestamp()}.pptx`;
   await pptx.writeFile({ fileName: filename });
+}
+
+function exportTimestamp(now: Date = new Date()): string {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}`;
 }
