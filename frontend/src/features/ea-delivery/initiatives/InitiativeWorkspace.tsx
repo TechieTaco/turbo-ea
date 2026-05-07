@@ -212,8 +212,15 @@ function InitiativeView({
         )}
       </Box>
 
-      {/* Deliverables section */}
-      <Accordion defaultExpanded disableGutters>
+      {/* Stacked sections — each one is its own bordered card so they
+          read as distinct blocks instead of merging into a single panel. */}
+      <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
+      <Accordion
+        defaultExpanded
+        disableGutters
+        variant="outlined"
+        sx={{ "&:before": { display: "none" }, borderRadius: 1 }}
+      >
         <AccordionSummary
           expandIcon={<MaterialSymbol icon="expand_more" size={20} />}
         >
@@ -259,7 +266,12 @@ function InitiativeView({
 
       {/* Children section */}
       {children.length > 0 && (
-        <Accordion defaultExpanded disableGutters>
+        <Accordion
+          defaultExpanded
+          disableGutters
+          variant="outlined"
+          sx={{ "&:before": { display: "none" }, borderRadius: 1 }}
+        >
           <AccordionSummary
             expandIcon={<MaterialSymbol icon="expand_more" size={20} />}
           >
@@ -314,7 +326,12 @@ function InitiativeView({
       )}
 
       {/* Details section */}
-      <Accordion defaultExpanded disableGutters>
+      <Accordion
+        defaultExpanded
+        disableGutters
+        variant="outlined"
+        sx={{ "&:before": { display: "none" }, borderRadius: 1 }}
+      >
         <AccordionSummary
           expandIcon={<MaterialSymbol icon="expand_more" size={20} />}
         >
@@ -363,6 +380,7 @@ function InitiativeView({
           </Box>
         </AccordionDetails>
       </Accordion>
+      </Box>
     </Box>
   );
 }
