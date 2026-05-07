@@ -129,15 +129,12 @@ export default function DiagramViewer() {
   return (
     <Box
       sx={{
-        // See DiagramEditor.tsx for the rationale — same iPad Safari issue
-        // affected this page (the Edit button in the top toolbar was hidden
-        // behind the AppBar when Safari's URL bar was visible).
-        height: "calc(100vh - 64px - 24px)",
+        // See DiagramEditor.tsx for the rationale — same iPad Safari fix.
+        height: "calc(100vh - 64px)",
         "@supports (height: 100dvh)": {
-          height: "calc(100dvh - 64px - 24px)",
+          height: "calc(100dvh - 64px)",
         },
-        mx: -3,
-        mb: -3,
+        m: -3,
         display: "flex",
         flexDirection: "column",
       }}

@@ -967,21 +967,16 @@ export default function DiagramEditor() {
     <Box
       sx={{
         // Dynamic viewport height (Safari 15.4+, Chrome, Firefox); falls back
-        // to vh on older browsers via @supports. `100vh` on iPad Safari keeps
-        // the larger layout-viewport size while the URL bar is visible, which
-        // (combined with the negative top margin previously used here) pushed
-        // the toolbar behind the fixed AppBar — the AppBar sticks to the
-        // visual viewport but flow content positions against the layout
-        // viewport, and the two diverge while Safari's chrome is shown.
-        height: "calc(100vh - 64px - 24px)",
+        // to `vh` on older browsers via @supports. `100vh` on iPad Safari
+        // returns the larger layout-viewport size while the URL bar is
+        // visible, so the editor extended past the visible area and the
+        // toolbar drifted out of reach. `dvh` tracks the actual visible
+        // viewport, which keeps the toolbar inside it.
+        height: "calc(100vh - 64px)",
         "@supports (height: 100dvh)": {
-          height: "calc(100dvh - 64px - 24px)",
+          height: "calc(100dvh - 64px)",
         },
-        // Escape the AppLayout content padding horizontally and at the bottom
-        // only. We deliberately keep the inner-Box top padding so the editor
-        // toolbar always has a safe 24px gap from the fixed AppBar.
-        mx: -3,
-        mb: -3,
+        m: -3,
         display: "flex",
         flexDirection: "column",
       }}
