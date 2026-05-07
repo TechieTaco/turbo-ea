@@ -29,7 +29,7 @@
   "workspace.section.deliverables": "Entregables",
   "workspace.section.children": "Iniciativas secundarias",
   "workspace.section.details": "Detalles",
-  "workspace.openCard": "Abrir tarjeta completa",
+  "workspace.openCard": "Vista previa de la tarjeta",
   "workspace.unlinkedSubtitle": "Artefactos que aún no están vinculados a ninguna iniciativa. Abra uno para volver a vincularlo.",
   "deliverable.add.soaw": "Añadir Statement of Architecture Work",
   "deliverable.add.diagram": "Añadir diagrama",

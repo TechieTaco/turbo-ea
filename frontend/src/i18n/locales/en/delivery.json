@@ -29,7 +29,7 @@
   "workspace.section.deliverables": "Deliverables",
   "workspace.section.children": "Child initiatives",
   "workspace.section.details": "Details",
-  "workspace.openCard": "Open the full card",
+  "workspace.openCard": "Preview card",
   "workspace.unlinkedSubtitle": "Artefacts that aren't yet linked to any initiative. Open one to relink it.",
   "deliverable.add.soaw": "Add Statement of Architecture Work",
   "deliverable.add.diagram": "Add Diagram",

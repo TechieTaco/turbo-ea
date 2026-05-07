@@ -29,7 +29,7 @@
   "workspace.section.deliverables": "Артефакты",
   "workspace.section.children": "Дочерние инициативы",
   "workspace.section.details": "Подробности",
-  "workspace.openCard": "Открыть карточку",
+  "workspace.openCard": "Предпросмотр карточки",
   "workspace.unlinkedSubtitle": "Артефакты, ещё не связанные с инициативой. Откройте, чтобы привязать снова.",
   "deliverable.add.soaw": "Добавить Statement of Architecture Work",
   "deliverable.add.diagram": "Добавить диаграмму",

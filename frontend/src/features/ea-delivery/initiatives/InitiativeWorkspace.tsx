@@ -1,10 +1,11 @@
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useNavigate } from "react-router-dom";
 import Box from "@mui/material/Box";
 import Chip from "@mui/material/Chip";
 import IconButton from "@mui/material/IconButton";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
+import CardDetailSidePanel from "@/components/CardDetailSidePanel";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { CARD_TYPE_COLORS } from "@/theme/tokens";
 import { INITIATIVE_STATUS_COLORS } from "./constants";
@@ -125,7 +126,7 @@ function InitiativeView({
   onToggleFavorite: (id: string) => void;
 }) {
   const { t } = useTranslation(["delivery", "common"]);
-  const navigate = useNavigate();
+  const [previewOpen, setPreviewOpen] = useState(false);
 
   const { initiative, children, soaws, diagrams, adrs } = node;
   const attrs = (initiative.attributes ?? {}) as Record<string, unknown>;
@@ -165,14 +166,17 @@ function InitiativeView({
           </IconButton>
         </Tooltip>
         <Tooltip title={t("workspace.openCard")}>
-          <IconButton
-            size="small"
-            onClick={() => navigate(`/cards/${initiative.id}`)}
-          >
-            <MaterialSymbol icon="open_in_new" size={20} />
+          <IconButton size="small" onClick={() => setPreviewOpen(true)}>
+            <MaterialSymbol icon="visibility" size={20} />
           </IconButton>
         </Tooltip>
       </Box>
+
+      <CardDetailSidePanel
+        cardId={previewOpen ? initiative.id : null}
+        open={previewOpen}
+        onClose={() => setPreviewOpen(false)}
+      />
 
       {/* Status chips */}
       <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.75, mb: 2 }}>

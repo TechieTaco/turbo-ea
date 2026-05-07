@@ -25,6 +25,7 @@ type ArtefactFilter = "" | "with" | "without";
 const FILTERS_STORAGE_KEY = "turboea-delivery-filters";
 
 interface StoredFilters {
+  search?: string;
   statusFilter?: StatusFilter;
   subtypeFilter?: string;
   artefactFilter?: ArtefactFilter;
@@ -136,9 +137,8 @@ export function useInitiativeData(): UseInitiativeDataResult {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  const [search, setSearch] = useState("");
-
   const storedFilters = useMemo(readFiltersFromStorage, []);
+  const [search, setSearchRaw] = useState(storedFilters.search ?? "");
   const [statusFilter, setStatusFilterRaw] = useState<StatusFilter>(
     storedFilters.statusFilter ?? "ACTIVE",
   );
@@ -147,6 +147,10 @@ export function useInitiativeData(): UseInitiativeDataResult {
     storedFilters.artefactFilter ?? "",
   );
 
+  const setSearch = useCallback((v: string) => {
+    setSearchRaw(v);
+    writeFiltersToStorage({ ...readFiltersFromStorage(), search: v });
+  }, []);
   const setStatusFilter = useCallback((v: StatusFilter) => {
     setStatusFilterRaw(v);
     writeFiltersToStorage({ ...readFiltersFromStorage(), statusFilter: v });

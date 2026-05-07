@@ -19,6 +19,7 @@ import type { DiagramSummary, SoAW } from "@/types";
 const SIDEBAR_WIDTH_KEY = "turboea-delivery-sidebar-width";
 const SIDEBAR_COLLAPSED_KEY = "turboea-delivery-sidebar-collapsed";
 const LAST_SELECTED_KEY = "turboea-delivery-last-selected";
+const FAVORITES_ONLY_KEY = "turboea-delivery-favorites-only";
 
 function readNumber(key: string, fallback: number): number {
   try {
@@ -119,7 +120,18 @@ export default function InitiativesTab({
 
   // ── Favorites (server-side, mirrors prior tab behaviour) ────────────
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
-  const [favoritesOnly, setFavoritesOnly] = useState(false);
+  const [favoritesOnly, setFavoritesOnlyRaw] = useState(() =>
+    readBool(FAVORITES_ONLY_KEY, false),
+  );
+
+  const setFavoritesOnly = useCallback((v: boolean) => {
+    setFavoritesOnlyRaw(v);
+    try {
+      localStorage.setItem(FAVORITES_ONLY_KEY, String(v));
+    } catch {
+      // ignore
+    }
+  }, []);
 
   useEffect(() => {
     let cancelled = false;

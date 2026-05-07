@@ -29,7 +29,7 @@
   "workspace.section.deliverables": "交付物",
   "workspace.section.children": "子举措",
   "workspace.section.details": "详情",
-  "workspace.openCard": "打开完整卡片",
+  "workspace.openCard": "预览卡片",
   "workspace.unlinkedSubtitle": "尚未关联到任何举措的工件。打开以重新关联。",
   "deliverable.add.soaw": "添加架构工作说明书",
   "deliverable.add.diagram": "添加图表",

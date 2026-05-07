@@ -29,7 +29,7 @@
   "workspace.section.deliverables": "Lieferobjekte",
   "workspace.section.children": "Untergeordnete Initiativen",
   "workspace.section.details": "Details",
-  "workspace.openCard": "Karte öffnen",
+  "workspace.openCard": "Karte anzeigen",
   "workspace.unlinkedSubtitle": "Artefakte, die noch keiner Initiative zugeordnet sind. Öffnen Sie eines, um es erneut zu verknüpfen.",
   "deliverable.add.soaw": "Statement of Architecture Work hinzufügen",
   "deliverable.add.diagram": "Diagramm hinzufügen",
