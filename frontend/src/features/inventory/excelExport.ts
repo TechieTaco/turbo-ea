@@ -111,10 +111,20 @@ export function exportToExcel(
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, i18n.t("common:labels.cards"));
 
-  // Build filename
+  // Build filename. Local-time YYYY-MM-DD_HHMM so users exporting multiple
+  // times in the same day don't end up with colliding filenames.
   const typeLabel = typeConfig
     ? resolveMetaLabel(typeConfig.key, typeConfig.translations, "label", i18n.language)
     : "cards";
-  const date = new Date().toISOString().slice(0, 10);
-  XLSX.writeFile(wb, `${typeLabel}_export_${date}.xlsx`);
+  XLSX.writeFile(wb, `${typeLabel}_export_${exportTimestamp()}.xlsx`);
+}
+
+function exportTimestamp(now: Date = new Date()): string {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const y = now.getFullYear();
+  const mo = pad(now.getMonth() + 1);
+  const d = pad(now.getDate());
+  const h = pad(now.getHours());
+  const mi = pad(now.getMinutes());
+  return `${y}-${mo}-${d}_${h}${mi}`;
 }

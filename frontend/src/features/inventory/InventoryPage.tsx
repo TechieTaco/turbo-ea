@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { Link as RouterLink, useNavigate, useSearchParams } from "react-router-dom";
 import { AgGridReact } from "ag-grid-react";
 import type { ColDef, CellValueChangedEvent, SelectionChangedEvent, RowClickedEvent, SortChangedEvent } from "ag-grid-community";
 import Box from "@mui/material/Box";
@@ -30,7 +30,11 @@ import { useTheme } from "@mui/material/styles";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import LifecycleBadge from "@/components/LifecycleBadge";
 import CreateCardDialog from "@/components/CreateCardDialog";
-import InventoryFilterSidebar, { type Filters } from "./InventoryFilterSidebar";
+import CardDetailSidePanel from "@/components/CardDetailSidePanel";
+import InventoryFilterSidebar, {
+  CORE_COLUMN_KEYS,
+  type Filters,
+} from "./InventoryFilterSidebar";
 import ImportDialog from "./ImportDialog";
 import { exportToExcel } from "./excelExport";
 import RelationCellPopover from "./RelationCellPopover";
@@ -57,12 +61,12 @@ function getLifecyclePhase(card: Card): string {
 }
 
 /**
- * Pre-compute hierarchy display paths from raw card data.
- * Reads names and parent_ids once into plain-string maps, then builds
- * each path by walking the parent chain.  The result is a Map<id, path>
- * that is completely detached from the original data objects.
+ * Pre-compute the breadcrumb path *up to* each card's parent (i.e. excluding
+ * the card's own name) from raw card data. Reads names and parent_ids once
+ * into plain-string maps, then builds each path by walking the parent chain.
+ * Returns a Map<id, parentPath> where root cards map to an empty string.
  */
-function buildHierarchyPaths(items: Card[]): Map<string, string> {
+function buildParentPaths(items: Card[]): Map<string, string> {
   const names = new Map<string, string>();
   const parents = new Map<string, string>();
   for (const card of items) {
@@ -70,28 +74,35 @@ function buildHierarchyPaths(items: Card[]): Map<string, string> {
     if (card.parent_id) parents.set(card.id, card.parent_id);
   }
 
-  const cache = new Map<string, string>();
-
-  function resolve(id: string, seen: Set<string>): string {
-    const cached = cache.get(id);
+  // `fullCache` holds "Ancestor / Parent / Self"; we derive the parent-only
+  // breadcrumb by stripping the leaf segment when reading.
+  const fullCache = new Map<string, string>();
+  function resolveFull(id: string, seen: Set<string>): string {
+    const cached = fullCache.get(id);
     if (cached !== undefined) return cached;
     const name = names.get(id) ?? "";
     const parentId = parents.get(id);
     if (!parentId || !names.has(parentId) || seen.has(parentId)) {
-      cache.set(id, name);
+      fullCache.set(id, name);
       return name;
     }
     seen.add(id);
-    const parentPath = resolve(parentId, seen);
+    const parentPath = resolveFull(parentId, seen);
     const path = parentPath ? parentPath + " / " + name : name;
-    cache.set(id, path);
+    fullCache.set(id, path);
     return path;
   }
 
+  const parentOnly = new Map<string, string>();
   for (const card of items) {
-    resolve(card.id, new Set([card.id]));
+    const parentId = parents.get(card.id);
+    if (!parentId) {
+      parentOnly.set(card.id, "");
+      continue;
+    }
+    parentOnly.set(card.id, resolveFull(parentId, new Set([card.id])));
   }
-  return cache;
+  return parentOnly;
 }
 
 /**
@@ -243,6 +254,8 @@ export default function InventoryPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [gridEditMode, setGridEditMode] = useState(false);
+  // Card-detail side panel: opened from the eye icon in the Name column.
+  const [previewCardId, setPreviewCardId] = useState<string | null>(null);
 
   // Relations data: relTypeKey → Map<cardId, relatedNames[]>
   const [relationsMap, setRelationsMap] = useState<Map<string, Map<string, string[]>>>(new Map());
@@ -271,7 +284,16 @@ export default function InventoryPage() {
   const [selectedColumns, setSelectedColumns] = useState<Set<string>>(() => {
     const saved = savedPrefsRef.current;
     if (saved?.columns && saved.columns.length > 0) {
-      return new Set(saved.columns);
+      const restored = new Set(saved.columns);
+      // Backwards compat: prefs saved before "Default columns" were togglable
+      // contain only attribute/relation/meta keys. Detect that and merge in
+      // the full core set so users keep seeing the columns that used to be
+      // unconditionally rendered.
+      const hasAnyCore = saved.columns.some((k) => k.startsWith("core_"));
+      if (!hasAnyCore) {
+        for (const k of CORE_COLUMN_KEYS) restored.add(k);
+      }
+      return restored;
     }
     return new Set();
   });
@@ -406,9 +428,13 @@ export default function InventoryPage() {
     return map;
   }, [selectedType, relationTypes, visibleTypeKeys]);
 
-  // Compute the "default" set of columns: all attribute + all relation columns checked
+  // Compute the "default" set of columns: all core columns + all attribute +
+  // all relation columns checked. The core keys (type, name, path, etc.) used
+  // to be unconditionally rendered; they're now togglable, so include them in
+  // the defaults so a fresh / reset state matches the legacy "everything on"
+  // behavior.
   const defaultColumns = useMemo(() => {
-    const cols = new Set<string>();
+    const cols = new Set<string>(CORE_COLUMN_KEYS);
     if (typeConfig) {
       for (const section of typeConfig.fields_schema) {
         for (const f of section.fields) {
@@ -522,7 +548,7 @@ export default function InventoryPage() {
   // Pre-computed hierarchy display paths (id → "Parent / Child").
   // Built once from raw API data; completely detached from the mutable row objects
   // that AG Grid holds, so grid-internal writes to data[field] cannot corrupt paths.
-  const hierarchyPaths = useMemo(() => buildHierarchyPaths(data), [data]);
+  const parentPaths = useMemo(() => buildParentPaths(data), [data]);
 
   // Client-side filtering
   const filteredData = useMemo(() => {
@@ -686,12 +712,17 @@ export default function InventoryPage() {
   const getRowId = useCallback((p: { data: Card }) => p.data.id, []);
   const getRowStyle = useCallback((p: { data?: Card }) => p.data?.status === "ARCHIVED" ? { opacity: 0.6 } : undefined, []);
   const onRowClicked = useCallback((e: RowClickedEvent<Card>) => {
-    if (!gridEditMode && e.data && !e.event?.defaultPrevented) {
-      const api = gridRef.current?.api;
-      const selected = api?.getSelectedRows() || [];
-      if (selected.length > 0) return;
-      navigate(`/cards/${e.data.id}`);
-    }
+    if (gridEditMode || !e.data || e.event?.defaultPrevented) return;
+    // Let the browser handle Ctrl/Cmd/Shift+Click and middle-click — they're
+    // intended for "open in new tab/window" via the real anchor in the Name
+    // cell. Re-firing programmatic navigation here would also navigate the
+    // current tab, so skip.
+    const evt = e.event as MouseEvent | undefined;
+    if (evt?.ctrlKey || evt?.metaKey || evt?.shiftKey || evt?.button === 1) return;
+    const api = gridRef.current?.api;
+    const selected = api?.getSelectedRows() || [];
+    if (selected.length > 0) return;
+    navigate(`/cards/${e.data.id}`);
   }, [gridEditMode, navigate]);
 
   // Mass-editable fields for current type
@@ -1071,6 +1102,7 @@ export default function InventoryPage() {
         field: "type",
         headerName: t("common:labels.type"),
         width: 140,
+        hide: !selectedColumns.has("core_type"),
         cellRenderer: (p: { value: string }) => {
           const tp = types.find((x) => x.key === p.value);
           return tp ? (
@@ -1088,17 +1120,86 @@ export default function InventoryPage() {
         field: "name",
         headerName: t("common:labels.name"),
         flex: 1,
-        minWidth: 200,
+        minWidth: 220,
         editable: gridEditMode,
-        // valueFormatter only affects display — AG Grid still reads/writes the
-        // raw name via `field: "name"`, so editing and data stay clean.
-        valueFormatter: (p) => {
-          if (!p.data || gridEditMode) return p.value;
-          return hierarchyPaths.get(p.data.id) ?? p.value;
-        },
+        hide: !selectedColumns.has("core_name"),
         cellStyle: gridEditMode
           ? { fontWeight: 500 }
           : { cursor: "pointer", fontWeight: 500 },
+        cellRenderer: gridEditMode
+          ? undefined
+          : (p: { data?: Card; value: string }) => {
+              if (!p.data) return p.value ?? "";
+              const id = p.data.id;
+              return (
+                <Box
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 0.5,
+                    width: "100%",
+                  }}
+                >
+                  <Tooltip title={t("actions.previewCard")}>
+                    <IconButton
+                      size="small"
+                      onClick={(e) => {
+                        // Don't bubble up to onRowClicked (which would
+                        // navigate to the full page), and don't follow the
+                        // sibling link.
+                        e.stopPropagation();
+                        e.preventDefault();
+                        setPreviewCardId(id);
+                      }}
+                      sx={{ p: 0.25 }}
+                      aria-label={t("actions.previewCard")}
+                    >
+                      <MaterialSymbol icon="visibility" size={16} />
+                    </IconButton>
+                  </Tooltip>
+                  <Box
+                    component={RouterLink}
+                    to={`/cards/${id}`}
+                    sx={{
+                      color: "inherit",
+                      textDecoration: "none",
+                      flex: 1,
+                      minWidth: 0,
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                      "&:hover": { textDecoration: "underline" },
+                    }}
+                    onClick={(e) => {
+                      // Modifier-clicks: let the browser handle natively
+                      // (open in new tab/window). Suppress the row-click so
+                      // the current tab doesn't also navigate.
+                      if (
+                        e.ctrlKey ||
+                        e.metaKey ||
+                        e.shiftKey ||
+                        (e as React.MouseEvent).button === 1
+                      ) {
+                        e.stopPropagation();
+                      }
+                    }}
+                  >
+                    {p.value}
+                  </Box>
+                </Box>
+              );
+            },
+      },
+      {
+        colId: "core_path",
+        headerName: t("columns.path"),
+        flex: 1,
+        minWidth: 180,
+        sortable: true,
+        hide: !selectedColumns.has("core_path"),
+        valueGetter: (p: { data?: Card }) =>
+          p.data ? parentPaths.get(p.data.id) ?? "" : "",
+        cellStyle: { color: "var(--mui-palette-text-secondary)" },
       },
       {
         field: "description",
@@ -1106,6 +1207,7 @@ export default function InventoryPage() {
         flex: 1,
         minWidth: 200,
         editable: gridEditMode,
+        hide: !selectedColumns.has("core_description"),
       },
     ];
 
@@ -1116,6 +1218,7 @@ export default function InventoryPage() {
         headerName: t("common:labels.subtype"),
         width: 140,
         editable: gridEditMode,
+        hide: !selectedColumns.has("core_subtype"),
         ...(gridEditMode
           ? {
               cellEditor: "agSelectCellEditor",
@@ -1142,6 +1245,7 @@ export default function InventoryPage() {
       {
         headerName: t("columns.lifecycle"),
         width: 150,
+        hide: !selectedColumns.has("core_lifecycle"),
         valueGetter: (p: { data: Card }) => {
           const lc = p.data?.lifecycle || {};
           const now = new Date().toISOString().slice(0, 10);
@@ -1168,6 +1272,7 @@ export default function InventoryPage() {
         field: "approval_status",
         headerName: t("columns.approvalStatus"),
         width: 110,
+        hide: !selectedColumns.has("core_approval_status"),
         cellRenderer: (p: { value: string }) => {
           const color =
             APPROVAL_STATUS_COLORS[p.value as keyof typeof APPROVAL_STATUS_COLORS];
@@ -1191,6 +1296,7 @@ export default function InventoryPage() {
         field: "data_quality",
         headerName: t("columns.dataQuality"),
         width: 130,
+        hide: !selectedColumns.has("core_data_quality"),
         cellRenderer: (p: { value: number }) => {
           const v = Math.round(p.value || 0);
           const color =
@@ -1500,7 +1606,7 @@ export default function InventoryPage() {
     );
 
     return cols;
-  }, [types, typeConfig, commonFields, gridEditMode, relevantRelTypes, relTypeGroupMap, relationsMap, selectedType, hierarchyPaths, filters.showArchived, selectedColumns, userNameMap, t, formatDate, formatDateTime, canViewCostsGlobally]);
+  }, [types, typeConfig, commonFields, gridEditMode, relevantRelTypes, relTypeGroupMap, relationsMap, selectedType, parentPaths, filters.showArchived, selectedColumns, userNameMap, t, formatDate, formatDateTime, canViewCostsGlobally]);
 
   // Render mass edit value input based on field type
   const renderMassEditInput = () => {
@@ -2110,6 +2216,12 @@ export default function InventoryPage() {
         allTypes={types}
         preSelectedType={selectedType || undefined}
         tagGroups={tagGroups}
+      />
+
+      <CardDetailSidePanel
+        cardId={previewCardId}
+        open={!!previewCardId}
+        onClose={() => setPreviewCardId(null)}
       />
 
       {relEditRelType && (

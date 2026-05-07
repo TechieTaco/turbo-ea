@@ -7,6 +7,8 @@
   "toolbar.gridEdit": "\u00c9dition grille",
   "toolbar.editing": "\u00c9dition",
 
+  "actions.previewCard": "Aper\u00e7u de la fiche",
+
   "columns.title": "Colonnes",
   "columns.lifecycle": "Cycle de vie",
   "columns.approvalStatus": "Statut d\u2019approbation",
@@ -23,10 +25,12 @@
   "columns.selectedCount_other": "{{count}} colonnes affichées",
   "columns.clearAll": "Tout effacer",
   "columns.selectAll": "Tout sélectionner",
+  "columns.defaults": "Colonnes par défaut",
   "columns.metadata": "Métadonnées",
   "columns.attributes": "Attributs",
   "columns.relations": "Relations",
   "columns.reset": "Réinitialiser",
+  "columns.path": "Chemin",
 
   "filter.title": "Filtres",
   "filter.expand": "D\u00e9plier les filtres",
@@ -191,5 +195,6 @@
   "import.warnings.unrecognisedColumn": "La colonne \u00ab {{column}} \u00bb n\u2019est pas reconnue et sera ignor\u00e9e",
   "import.warnings.unknownTag": "Ligne {{row}} : tag inconnu « {{value}} » — ignoré",
   "import.warnings.idNotFoundCreating": "Ligne {{row}} : l’id « {{id}} » n’existe pas dans cette instance — création d’une nouvelle fiche",
-  "import.warnings.ambiguousParentPath": "Ligne {{row}} : le chemin parent « {{path}} » correspond à plusieurs fiches — la première correspondance est utilisée"
+  "import.warnings.ambiguousParentPath": "Ligne {{row}} : le chemin parent « {{path}} » correspond à plusieurs fiches — la première correspondance est utilisée",
+  "import.warnings.readOnlyFieldIgnored": "Ligne {{row}} : « {{field}} » est un champ en lecture seule — la valeur sera ignorée"
 }

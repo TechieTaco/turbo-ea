@@ -5,6 +5,8 @@
   "toolbar.filters": "Filtri",
   "toolbar.gridEdit": "Modifica griglia",
   "toolbar.editing": "In modifica",
+
+  "actions.previewCard": "Anteprima scheda",
   "columns.title": "Colonne",
   "columns.lifecycle": "Ciclo di vita",
   "columns.approvalStatus": "Stato di approvazione",
@@ -21,10 +23,12 @@
   "columns.selectedCount_other": "{{count}} colonne mostrate",
   "columns.clearAll": "Cancella tutto",
   "columns.selectAll": "Seleziona tutto",
+  "columns.defaults": "Colonne predefinite",
   "columns.metadata": "Metadati",
   "columns.attributes": "Attributi",
   "columns.relations": "Relazioni",
   "columns.reset": "Ripristina",
+  "columns.path": "Percorso",
   "filter.title": "Filtri",
   "filter.expand": "Espandi filtri",
   "filter.searchPlaceholder": "Cerca schede...",
@@ -181,5 +185,6 @@
   "import.warnings.unrecognisedColumn": "La colonna \"{{column}}\" non \u00e8 riconosciuta e verr\u00e0 ignorata",
   "import.warnings.unknownTag": "Riga {{row}}: tag sconosciuto «{{value}}» — ignorato",
   "import.warnings.idNotFoundCreating": "Riga {{row}}: l’id «{{id}}» non esiste in questa istanza — verrà creata come nuova scheda",
-  "import.warnings.ambiguousParentPath": "Riga {{row}}: il percorso del genitore «{{path}}» corrisponde a più schede — viene usato il primo risultato"
+  "import.warnings.ambiguousParentPath": "Riga {{row}}: il percorso del genitore «{{path}}» corrisponde a più schede — viene usato il primo risultato",
+  "import.warnings.readOnlyFieldIgnored": "Riga {{row}}: «{{field}}» è un campo di sola lettura — il valore verrà ignorato"
 }

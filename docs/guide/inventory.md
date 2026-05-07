@@ -32,13 +32,16 @@ The **Columns** tab in the side panel lets you choose which additional columns t
 - **Multiple types selected** — Only fields that are **common across all selected types** are available
 - **No type selected** — A hint message prompts you to select a card type first
 
-Columns are grouped into three categories:
+Columns are grouped into four categories:
 
 | Category | Description |
 |----------|-------------|
+| **Default columns** | Always-on columns: Type, Name, Path, Description, Subtype, Lifecycle, Approval Status, Data Quality. Untick any of these to hide them from the grid — useful when tightening a saved view to just the columns you actually use. |
 | **Metadata** | Created, Modified, Created by, Modified by |
 | **Attributes** | Custom fields defined in the metamodel (text, number, cost, date, select, etc.) |
 | **Relations** | Related card types (e.g., Applications linked to a Business Capability) |
+
+The **Path** column shows the card's hierarchy breadcrumb (e.g. `North America / Sales / Inside Sales`) without including the card's own name, so you can keep both Name and Path on screen at once.
 
 Each category has a **Select all** checkbox to quickly toggle all columns in that group. A search field at the top lets you find specific columns by name. The badge on each section header shows how many columns from that group are currently visible.
 
@@ -55,7 +58,8 @@ The inventory uses an **AG Grid** data table with powerful features:
 | Column | Description |
 |--------|-------------|
 | **Type** | Card type with color-coded icon |
-| **Name** | Component name (click to open card detail) |
+| **Name** | Component name (click to open card detail). Each name cell has a 👁 eye icon — click it to open the card detail in a side panel without leaving the grid. Ctrl/Cmd-click the name to open the card in a new browser tab. |
+| **Path** | Hierarchy breadcrumb up to the card's parent — empty for root cards |
 | **Description** | Brief description |
 | **Lifecycle** | Current lifecycle state |
 | **Approval Status** | Review status badge |
@@ -67,8 +71,9 @@ The inventory uses an **AG Grid** data table with powerful features:
 - **Sorting** — Click any column header to sort ascending/descending
 - **Inline editing** — In grid edit mode, edit field values directly in the table
 - **Multi-select** — Select multiple rows for bulk operations
-- **Hierarchy display** — Parent/child relationships shown as breadcrumb paths
-- **Column configuration** — Show, hide, and reorder columns
+- **Quick preview** — Use the eye icon next to any name to open the card detail in a side panel
+- **Open in new tab** — Ctrl/Cmd-click a name to open the card in a new browser tab; main-nav links also support this
+- **Column configuration** — Show, hide, and reorder columns (including the always-on default columns)
 
 ### Toolbar
 

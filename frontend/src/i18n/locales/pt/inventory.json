@@ -7,6 +7,8 @@
   "toolbar.gridEdit": "Edição em grade",
   "toolbar.editing": "Editando",
 
+  "actions.previewCard": "Pré-visualizar ficha",
+
   "columns.title": "Colunas",
   "columns.lifecycle": "Ciclo de vida",
   "columns.approvalStatus": "Status de aprovação",
@@ -23,10 +25,12 @@
   "columns.selectedCount_other": "{{count}} colunas exibidas",
   "columns.clearAll": "Limpar tudo",
   "columns.selectAll": "Selecionar tudo",
+  "columns.defaults": "Colunas padrão",
   "columns.metadata": "Metadados",
   "columns.attributes": "Atributos",
   "columns.relations": "Relações",
   "columns.reset": "Redefinir",
+  "columns.path": "Caminho",
 
   "filter.title": "Filtros",
   "filter.expand": "Expandir filtros",
@@ -191,5 +195,6 @@
   "import.warnings.unrecognisedColumn": "A coluna \"{{column}}\" não é reconhecida e será ignorada",
   "import.warnings.unknownTag": "Linha {{row}}: tag desconhecida «{{value}}» — ignorada",
   "import.warnings.idNotFoundCreating": "Linha {{row}}: o id «{{id}}» não existe nesta instância — será criada como nova ficha",
-  "import.warnings.ambiguousParentPath": "Linha {{row}}: o caminho do pai «{{path}}» corresponde a várias fichas — a primeira correspondência será usada"
+  "import.warnings.ambiguousParentPath": "Linha {{row}}: o caminho do pai «{{path}}» corresponde a várias fichas — a primeira correspondência será usada",
+  "import.warnings.readOnlyFieldIgnored": "Linha {{row}}: «{{field}}» é um campo somente leitura — o valor será ignorado"
 }

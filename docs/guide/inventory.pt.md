@@ -32,13 +32,16 @@ A aba **Colunas** no painel lateral permite escolher quais colunas adicionais ex
 - **Vários tipos selecionados** — Apenas os campos que são **comuns a todos os tipos selecionados** estão disponíveis
 - **Nenhum tipo selecionado** — Uma mensagem de orientação solicita que você selecione primeiro um tipo de cartão
 
-As colunas são agrupadas em três categorias:
+As colunas são agrupadas em quatro categorias:
 
 | Categoria | Descrição |
 |-----------|-----------|
+| **Colunas padrão** | Colunas sempre ativas: Tipo, Nome, Caminho, Descrição, Subtipo, Ciclo de vida, Estado de aprovação, Qualidade dos dados. Desmarque-as para ocultá-las da grade — útil para ajustar uma visualização salva apenas às colunas que você realmente usa. |
 | **Metadados** | Criado, Modificado, Criado por, Modificado por |
 | **Atributos** | Campos personalizados definidos no metamodelo (texto, número, custo, data, seleção, etc.) |
 | **Relações** | Tipos de cartões relacionados (por ex., Aplicações vinculadas a uma Capacidade de Negócio) |
+
+A coluna **Caminho** mostra a hierarquia da ficha (por ex. «América do Norte / Vendas / Vendas internas») sem incluir o próprio nome da ficha, para que você possa exibir Nome e Caminho ao mesmo tempo.
 
 Cada categoria tem uma caixa de seleção **Selecionar tudo** para ativar ou desativar rapidamente todas as colunas desse grupo. Um campo de pesquisa no topo permite encontrar colunas específicas por nome. O indicador em cada cabeçalho de seção mostra quantas colunas desse grupo estão atualmente visíveis.
 

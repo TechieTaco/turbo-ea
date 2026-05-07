@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef, useMemo, type ReactNode } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate, useLocation, Link as RouterLink } from "react-router-dom";
 import Box from "@mui/material/Box";
 import AppBar from "@mui/material/AppBar";
 import Toolbar from "@mui/material/Toolbar";
@@ -32,7 +32,8 @@ import { useAppTitle } from "@/hooks/useAppTitle";
 import { SUPPORTED_LOCALES, LOCALE_LABELS, type SupportedLocale } from "@/i18n";
 import { useEnabledLocales } from "@/hooks/useEnabledLocales";
 import SearchDialog from "@/components/SearchDialog";
-import type { BadgeCounts } from "@/types";
+import CreateCardDialog from "@/components/CreateCardDialog";
+import type { BadgeCounts, Card } from "@/types";
 
 interface NavItemDef {
   labelKey: string;
@@ -175,6 +176,9 @@ export default function AppLayout({ children, user, onLogout }: Props) {
   const [userMenu, setUserMenu] = useState<HTMLElement | null>(null);
   const [reportsMenu, setReportsMenu] = useState<HTMLElement | null>(null);
   const [searchDialogOpen, setSearchDialogOpen] = useState(false);
+  // Inline Create dialog mounted in the layout so the Create button works
+  // from any route without navigating to /inventory first.
+  const [createOpen, setCreateOpen] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerReportsOpen, setDrawerReportsOpen] = useState(false);
   const [drawerAdminOpen, setDrawerAdminOpen] = useState(false);
@@ -433,7 +437,10 @@ export default function AppLayout({ children, user, onLogout }: Props) {
 
             {/* Create */}
             <ListItemButton
-              onClick={() => drawerNav("/inventory?create=true")}
+              onClick={() => {
+                setDrawerOpen(false);
+                setCreateOpen(true);
+              }}
               sx={{ borderRadius: 1, color: "rgba(255,255,255,0.7)" }}
             >
               <ListItemIcon sx={{ minWidth: 36, color: "inherit" }}>
@@ -487,13 +494,15 @@ export default function AppLayout({ children, user, onLogout }: Props) {
 
           {/* Brand */}
           <Box
+            component={RouterLink}
+            to="/"
             sx={{
               display: "flex",
               alignItems: "center",
               mr: isMobile ? 0 : isCondensed ? 1.5 : 3,
               cursor: "pointer",
+              textDecoration: "none",
             }}
-            onClick={() => navigate("/")}
           >
             <img
               src="/api/v1/settings/logo"
@@ -537,7 +546,9 @@ export default function AppLayout({ children, user, onLogout }: Props) {
                         color: isActive(item.path) ? "#fff" : "rgba(255,255,255,0.7)",
                         bgcolor: isActive(item.path) ? "rgba(255,255,255,0.12)" : "transparent",
                       }}
-                      onClick={() => item.path && navigate(item.path)}
+                      // Render as a real anchor so Ctrl/Cmd+Click and middle-click
+                      // open in a new tab natively.
+                      {...(item.path ? { component: RouterLink, to: item.path } : {})}
                     >
                       <Badge color="error" variant="dot" invisible={!hasBadge(item.path)}>
                         <MaterialSymbol icon={item.icon} size={20} />
@@ -554,7 +565,7 @@ export default function AppLayout({ children, user, onLogout }: Props) {
                       </Badge>
                     }
                     sx={navBtnSx(isActive(item.path))}
-                    onClick={() => item.path && navigate(item.path)}
+                    {...(item.path ? { component: RouterLink, to: item.path } : {})}
                   >
                     {item.label}
                   </Button>
@@ -577,11 +588,10 @@ export default function AppLayout({ children, user, onLogout }: Props) {
                 <Box key={child.path}>
                   {needsDivider && idx > 0 && <Divider sx={{ my: 0.5 }} />}
                   <MenuItem
+                    component={RouterLink}
+                    to={child.path}
                     selected={isActive(child.path)}
-                    onClick={() => {
-                      navigate(child.path);
-                      setReportsMenu(null);
-                    }}
+                    onClick={() => setReportsMenu(null)}
                   >
                     <ListItemIcon>
                       <MaterialSymbol icon={child.icon} size={18} />
@@ -614,7 +624,7 @@ export default function AppLayout({ children, user, onLogout }: Props) {
               <Tooltip title={t("create")}>
                 <IconButton
                   sx={{ color: "#fff" }}
-                  onClick={() => navigate("/inventory?create=true")}
+                  onClick={() => setCreateOpen(true)}
                 >
                   <MaterialSymbol icon="add_circle" size={24} />
                 </IconButton>
@@ -625,7 +635,7 @@ export default function AppLayout({ children, user, onLogout }: Props) {
                 size="small"
                 startIcon={<MaterialSymbol icon="add" size={18} />}
                 sx={{ ml: 1.5, px: 2, textTransform: "none", flexShrink: 0 }}
-                onClick={() => navigate("/inventory?create=true")}
+                onClick={() => setCreateOpen(true)}
               >
                 {t("create")}
               </Button>
@@ -701,10 +711,9 @@ export default function AppLayout({ children, user, onLogout }: Props) {
             </MenuItem>
             {can("inventory.view") && (
               <MenuItem
-                onClick={() => {
-                  setUserMenu(null);
-                  navigate("/capability-catalogue");
-                }}
+                component={RouterLink}
+                to="/capability-catalogue"
+                onClick={() => setUserMenu(null)}
               >
                 <ListItemIcon>
                   <MaterialSymbol icon="account_tree" size={18} />
@@ -725,10 +734,8 @@ export default function AppLayout({ children, user, onLogout }: Props) {
               <MenuItem
                 key={item.path}
                 selected={isActive(item.path)}
-                onClick={() => {
-                  item.path && navigate(item.path);
-                  setUserMenu(null);
-                }}
+                {...(item.path ? { component: RouterLink, to: item.path } : {})}
+                onClick={() => setUserMenu(null)}
                 sx={{ pl: 3 }}
               >
                 <ListItemIcon>
@@ -755,6 +762,20 @@ export default function AppLayout({ children, user, onLogout }: Props) {
 
       {/* Search dialog */}
       <SearchDialog open={searchDialogOpen} onClose={() => setSearchDialogOpen(false)} />
+
+      {/* Create card dialog — global so the top-nav Create button works from
+          any route without first navigating to /inventory. CreateCardDialog
+          handles routing to /cards/{newId} on success. */}
+      {can("inventory.create") && (
+        <CreateCardDialog
+          open={createOpen}
+          onClose={() => setCreateOpen(false)}
+          onCreate={async (data) => {
+            const card = await api.post<Card>("/cards", data);
+            return card.id;
+          }}
+        />
+      )}
 
       {/* Notification preferences dialog */}
       <NotificationPreferencesDialog

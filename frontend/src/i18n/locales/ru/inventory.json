@@ -5,6 +5,8 @@
   "toolbar.filters": "Фильтры",
   "toolbar.gridEdit": "Редактирование таблицы",
   "toolbar.editing": "Редактирование",
+
+  "actions.previewCard": "Просмотр карточки",
   "columns.title": "Столбцы",
   "columns.lifecycle": "Жизненный цикл",
   "columns.approvalStatus": "Статус утверждения",
@@ -21,10 +23,12 @@
   "columns.selectedCount_other": "{{count}} столбцов показано",
   "columns.clearAll": "Очистить все",
   "columns.selectAll": "Выбрать все",
+  "columns.defaults": "Столбцы по умолчанию",
   "columns.metadata": "Метаданные",
   "columns.attributes": "Атрибуты",
   "columns.relations": "Связи",
   "columns.reset": "Сбросить",
+  "columns.path": "Путь",
   "filter.title": "Фильтры",
   "filter.expand": "Развернуть фильтры",
   "filter.searchPlaceholder": "Поиск карточек...",
@@ -181,5 +185,6 @@
   "import.warnings.unrecognisedColumn": "Столбец «{{column}}» не распознан и будет проигнорирован",
   "import.warnings.unknownTag": "Строка {{row}}: неизвестный тег «{{value}}» — проигнорирован",
   "import.warnings.idNotFoundCreating": "Строка {{row}}: id «{{id}}» отсутствует в этом экземпляре — будет создана новая карточка",
-  "import.warnings.ambiguousParentPath": "Строка {{row}}: путь к родителю «{{path}}» соответствует нескольким карточкам — используется первое совпадение"
+  "import.warnings.ambiguousParentPath": "Строка {{row}}: путь к родителю «{{path}}» соответствует нескольким карточкам — используется первое совпадение",
+  "import.warnings.readOnlyFieldIgnored": "Строка {{row}}: «{{field}}» — поле только для чтения, значение будет проигнорировано"
 }

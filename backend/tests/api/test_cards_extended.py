@@ -5,6 +5,7 @@ These endpoints are NOT covered by test_cards.py and require a PostgreSQL test d
 
 from __future__ import annotations
 
+import re
 import uuid
 
 import pytest
@@ -367,7 +368,13 @@ class TestExportCsv:
         assert "text/csv" in response.headers["content-type"]
         assert "Content-Disposition" in response.headers
         assert "attachment" in response.headers["Content-Disposition"]
-        assert "cards.csv" in response.headers["Content-Disposition"]
+        # Filename now includes a YYYY-MM-DD_HHMM stamp so multiple same-day
+        # exports don't collide; the prefix is still `cards` (with a `_<type>`
+        # segment when the request filters by card type).
+        disposition = response.headers["Content-Disposition"]
+        assert re.search(r"filename=cards(?:_[^_]+)?_\d{4}-\d{2}-\d{2}_\d{4}\.csv", disposition), (
+            f"unexpected filename in Content-Disposition: {disposition}"
+        )
 
     async def test_export_csv_with_type_filter(self, client, db, env):
         """CSV export with type filter only includes cards of that type."""

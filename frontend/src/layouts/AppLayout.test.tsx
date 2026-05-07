@@ -118,26 +118,29 @@ describe("AppLayout", () => {
   it("renders core navigation items for admin", () => {
     renderLayout();
 
-    expect(screen.getByRole("button", { name: /dashboard/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /inventory/i })).toBeInTheDocument();
+    // Nav items render as <a> (RouterLink) so Ctrl+Click opens a new tab —
+    // ARIA role is `link`, not `button`. Reports is still a dropdown trigger
+    // so it stays a button.
+    expect(screen.getByRole("link", { name: /dashboard/i })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /inventory/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /reports/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /bpm/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /diagrams/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /todos/i })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /bpm/i })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /diagrams/i })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /todos/i })).toBeInTheDocument();
   });
 
   it("hides BPM nav item when BPM is disabled", () => {
     vi.mocked(useBpmEnabled).mockReturnValue({ bpmEnabled: false, loading: false });
     renderLayout();
 
-    expect(screen.queryByRole("button", { name: /^bpm$/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /^bpm$/i })).not.toBeInTheDocument();
   });
 
   it("hides nav items based on permissions", () => {
     // Viewer has no soaw.view permission, so Delivery should be hidden
     renderLayout(viewerUser);
 
-    expect(screen.queryByRole("button", { name: /delivery/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /delivery/i })).not.toBeInTheDocument();
   });
 
   it("shows Create button for users with inventory.create permission", () => {

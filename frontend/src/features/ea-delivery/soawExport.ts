@@ -541,8 +541,13 @@ export async function exportToDocx(
   });
 
   const blob = await Packer.toBlob(doc);
-  const filename = `${name || "SoAW"}_${new Date().toISOString().slice(0, 10)}.docx`;
+  const filename = `${name || "SoAW"}_${exportTimestamp()}.docx`;
   saveAs(blob, filename);
+}
+
+function exportTimestamp(now: Date = new Date()): string {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}`;
 }
 
 // ─── Preview / PDF shared HTML ──────────────────────────────────────────────

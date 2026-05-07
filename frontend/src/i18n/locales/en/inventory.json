@@ -7,6 +7,8 @@
   "toolbar.gridEdit": "Grid Edit",
   "toolbar.editing": "Editing",
 
+  "actions.previewCard": "Preview card",
+
   "columns.title": "Columns",
   "columns.lifecycle": "Lifecycle",
   "columns.approvalStatus": "Approval Status",
@@ -23,10 +25,12 @@
   "columns.selectedCount_other": "{{count}} columns shown",
   "columns.clearAll": "Clear all",
   "columns.selectAll": "Select all",
+  "columns.defaults": "Default columns",
   "columns.metadata": "Metadata",
   "columns.attributes": "Attributes",
   "columns.relations": "Relations",
   "columns.reset": "Reset",
+  "columns.path": "Path",
 
   "filter.title": "Filters",
   "filter.expand": "Expand filters",
@@ -191,5 +195,6 @@
   "import.warnings.unrecognisedColumn": "Column \"{{column}}\" is not recognised and will be ignored",
   "import.warnings.unknownTag": "Row {{row}}: unknown tag \"{{value}}\" — ignored",
   "import.warnings.idNotFoundCreating": "Row {{row}}: id \"{{id}}\" doesn't exist in this instance — creating as a new card",
-  "import.warnings.ambiguousParentPath": "Row {{row}}: parent path \"{{path}}\" matches multiple cards — using the first match"
+  "import.warnings.ambiguousParentPath": "Row {{row}}: parent path \"{{path}}\" matches multiple cards — using the first match",
+  "import.warnings.readOnlyFieldIgnored": "Row {{row}}: \"{{field}}\" is a read-only field — value will be ignored"
 }

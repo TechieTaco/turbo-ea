@@ -18,6 +18,7 @@ import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import type { Card, CardType, TagGroup } from "@/types";
+import { useCalculatedFields } from "@/hooks/useCalculatedFields";
 import {
   parseWorkbook,
   validateImport,
@@ -48,6 +49,7 @@ export default function ImportDialog({
   tagGroups = [],
 }: ImportDialogProps) {
   const { t } = useTranslation(["inventory", "common"]);
+  const { calculatedFields } = useCalculatedFields();
   const fileRef = useRef<HTMLInputElement>(null);
   const [step, setStep] = useState<Step>("upload");
   const [fileName, setFileName] = useState("");
@@ -87,7 +89,14 @@ export default function ImportDialog({
     try {
       const buffer = await file.arrayBuffer();
       const rows = parseWorkbook(buffer);
-      const rpt = validateImport(rows, existingCards, allTypes, preSelectedType, tagGroups);
+      const rpt = validateImport(
+        rows,
+        existingCards,
+        allTypes,
+        preSelectedType,
+        tagGroups,
+        calculatedFields,
+      );
       setReport(rpt);
       setStep("report");
     } catch {

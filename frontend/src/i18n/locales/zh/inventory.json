@@ -5,6 +5,8 @@
   "toolbar.filters": "筛选",
   "toolbar.gridEdit": "表格编辑",
   "toolbar.editing": "编辑中",
+
+  "actions.previewCard": "预览卡片",
   "columns.title": "列",
   "columns.lifecycle": "生命周期",
   "columns.approvalStatus": "审批状态",
@@ -21,10 +23,12 @@
   "columns.selectedCount_other": "显示 {{count}} 列",
   "columns.clearAll": "全部清除",
   "columns.selectAll": "全部选择",
+  "columns.defaults": "默认列",
   "columns.metadata": "元数据",
   "columns.attributes": "属性",
   "columns.relations": "关系",
   "columns.reset": "重置",
+  "columns.path": "路径",
   "filter.title": "筛选",
   "filter.expand": "展开筛选",
   "filter.searchPlaceholder": "搜索卡片...",
@@ -181,5 +185,6 @@
   "import.warnings.unrecognisedColumn": "列 \"{{column}}\" 未被识别，将被忽略",
   "import.warnings.unknownTag": "第 {{row}} 行：未知标签「{{value}}」— 已忽略",
   "import.warnings.idNotFoundCreating": "第 {{row}} 行：此实例中不存在 id「{{id}}」— 将作为新卡片创建",
-  "import.warnings.ambiguousParentPath": "第 {{row}} 行：父级路径「{{path}}」匹配到多张卡片 — 将使用第一个匹配项"
+  "import.warnings.ambiguousParentPath": "第 {{row}} 行：父级路径「{{path}}」匹配到多张卡片 — 将使用第一个匹配项",
+  "import.warnings.readOnlyFieldIgnored": "第 {{row}} 行：「{{field}}」是只读字段 — 值将被忽略"
 }
