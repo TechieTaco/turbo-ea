@@ -5,29 +5,22 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
-## [1.5.1] - 2026-05-08
-
-### Changed
-- **Archive now severs every relation that crosses out of the archived set.** When a card is archived without ticking its peers, the `relations` rows that connected the archived card to still-active cards are deleted. Peer rows between two cards that were archived together (cascade bubble + ticked peers) survive, so they reappear in the active landscape if both ends are later restored. The existing `disconnect`/`reparent` strategies already cleared `parent_id`; the relations table is now treated symmetrically.
-- **Restore now shows a confirmation dialog** explaining that severed parent links and peer relationships do not come back automatically — they have to be re-linked by hand.
-
-### Fixed
-- **`GET /relations` no longer returns rows whose source or target is archived**, mirroring the existing hidden-type filter. Defends against historical or manually-created rows that the new sever-at-archive rule didn't touch.
-- **Archive-impact endpoint** no longer lists already-archived cards as peers.
-
 ## [1.5.0] - 2026-05-08
 
 ### Added
 - **Archive and delete dialogs now ask what to do with children and related cards.** When archiving or deleting a card that has children (via `parent_id`), a strategy chooser appears with three options: archive/delete all descendants too (cascade), keep children as root cards (disconnect their `parent_id`), or move children up to the grandparent (reparent — hidden when no grandparent exists). When the card has peer relations, the same dialog lists every linked card grouped by relation type with checkboxes so the user can opt to archive/delete those cards in the same operation. Inventory bulk actions reuse the same dialog with a global toggle to also process every selected card's direct relations.
-- **`GET /cards/{id}/archive-impact`** endpoint surfaces the children, grandparent, and peer relations the dialog needs in one round-trip. Hidden card-types are filtered.
+- **`GET /cards/{id}/archive-impact`** endpoint surfaces the children, grandparent, and peer relations the dialog needs in one round-trip. Hidden card-types and already-archived peers are filtered.
+- **Restore confirmation dialog** explains that severed parent links and peer relationships do not come back automatically — they have to be re-linked by hand.
 
 ### Changed
 - **`POST /cards/{id}/archive`** and **`DELETE /cards/{id}`** accept an optional JSON body `{child_strategy, related_card_ids, cascade_all_related}`. The endpoints now return a richer response (`primary` + affected ID lists for archive; `deleted_card_ids` + affected ID lists for delete). Callers who omit the body but have direct children get **409 Conflict** with `{"error": "children_present"}` so they make a deliberate choice. Backwards-compatible when the card has no children.
 - **APPROVED children whose `parent_id` is mutated by `disconnect` or `reparent` become BROKEN** — same rule as the existing manual `parent_id` edit.
+- **Archive now severs every relation that crosses out of the archived set.** Peer rows between the archived card and a card that stays active are deleted. Rows between two cards that were archived together (cascade bubble + ticked peers) survive, so they reappear in the active landscape if both ends are later restored. The existing `disconnect`/`reparent` strategies already cleared `parent_id`; the relations table is now treated symmetrically.
 
 ### Fixed
 - **Auto-purge no longer fails on cards that still have children pointing at them.** The hourly purge loop now disconnects any stranded children (`parent_id = NULL`) before deleting the parent, fixing a latent FK violation that would have hit historical data created before the new strategy chooser shipped.
 - **Hard-deleting a card with children no longer fails with an integrity error.** The new cascade/disconnect/reparent flow handles the `cards.parent_id` self-FK properly.
+- **`GET /relations` no longer returns rows whose source or target is archived**, mirroring the existing hidden-type filter. Defends against historical or manually-created rows that the new sever-at-archive rule didn't touch.
 
 ## [1.4.0] - 2026-05-08
 
