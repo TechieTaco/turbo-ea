@@ -249,3 +249,44 @@ def archive_cards_in_place(cards: list[Card], user_id: uuid.UUID | None) -> list
             card.updated_by = user_id
         changed.append(card)
     return changed
+
+
+async def find_latest_archive_batch(db: AsyncSession, card_id: uuid.UUID) -> dict | None:
+    """Return the most recent `card.archived.batch` event payload keyed to `card_id`.
+
+    The batch event records `affected_children_ids` and `affected_related_card_ids`
+    — i.e. the passengers archived alongside this card. None if the card has
+    never been the root of a batch archive.
+    """
+    from app.models.event import Event  # local import — avoids cycle
+
+    res = await db.execute(
+        select(Event.data)
+        .where(Event.card_id == card_id, Event.event_type == "card.archived.batch")
+        .order_by(Event.created_at.desc())
+        .limit(1)
+    )
+    row = res.first()
+    return row[0] if row else None
+
+
+async def gather_restore_impact(db: AsyncSession, primary: Card) -> list[tuple[Card, str]]:
+    """Return passengers (still-archived cards from the latest batch) with role."""
+    batch = await find_latest_archive_batch(db, primary.id)
+    if not batch:
+        return []
+    child_ids = [uuid.UUID(x) for x in batch.get("affected_children_ids") or []]
+    related_ids = [uuid.UUID(x) for x in batch.get("affected_related_card_ids") or []]
+    all_ids = list({*child_ids, *related_ids})
+    if not all_ids:
+        return []
+    res = await db.execute(
+        select(Card).where(Card.id.in_(all_ids), Card.status == "ARCHIVED").order_by(Card.name)
+    )
+    rows = list(res.scalars().all())
+    role_for: dict[uuid.UUID, str] = {}
+    for cid in child_ids:
+        role_for[cid] = "child"
+    for cid in related_ids:
+        role_for.setdefault(cid, "related")
+    return [(c, role_for.get(c.id, "related")) for c in rows]

@@ -342,8 +342,9 @@ class TestArchiveRestore:
         )
         assert response.status_code == 200
         data = response.json()
-        assert data["status"] == "ACTIVE"
-        assert data["archived_at"] is None
+        assert data["primary"]["status"] == "ACTIVE"
+        assert data["primary"]["archived_at"] is None
+        assert data["restored_passenger_ids"] == []
 
     async def test_restore_non_archived_returns_400(self, client, db, cards_env):
         admin = cards_env["admin"]

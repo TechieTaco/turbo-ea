@@ -35,7 +35,11 @@ from app.schemas.card import (
     CardDeleteResponse,
     CardListResponse,
     CardResponse,
+    CardRestoreRequest,
+    CardRestoreResponse,
     CardUpdate,
+    RestoreImpactPassenger,
+    RestoreImpactResponse,
     StakeholderRef,
     TagRef,
 )
@@ -1184,13 +1188,53 @@ async def archive_card(
     )
 
 
-@router.post("/{card_id}/restore", response_model=CardResponse)
+@router.get("/{card_id}/restore-impact", response_model=RestoreImpactResponse)
+async def get_restore_impact(
+    card_id: str,
+    db: AsyncSession = Depends(get_db),
+    _user: User = Depends(get_current_user),
+):
+    """List the cards that were archived together with this one and are still archived.
+
+    Reads the latest `card.archived.batch` audit event keyed to this card.
+    Cards whose `affected_*_ids` come back from that event but were already
+    individually restored are filtered out.
+    """
+    uid = uuid.UUID(card_id)
+    res = await db.execute(select(Card).where(Card.id == uid))
+    primary = res.scalar_one_or_none()
+    if not primary:
+        raise HTTPException(404, "Card not found")
+    rows = await card_lifecycle.gather_restore_impact(db, primary)
+    return RestoreImpactResponse(
+        passengers=[
+            RestoreImpactPassenger(
+                id=str(c.id),
+                name=c.name,
+                type=c.type,
+                subtype=c.subtype,
+                role=role,
+            )
+            for c, role in rows
+        ]
+    )
+
+
+@router.post("/{card_id}/restore", response_model=CardRestoreResponse)
 async def restore_card(
     card_id: str,
+    body: CardRestoreRequest = Body(default_factory=CardRestoreRequest),
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    """Restore an archived card back to ACTIVE status."""
+    """Restore an archived card back to ACTIVE status.
+
+    `also_restore_card_ids` lets the caller restore passengers from the
+    original archive batch in the same operation. Each ID is checked
+    individually; the same `card.archive` permission applies. IDs that
+    resolve to non-archived cards are skipped silently. Only one
+    `card.restored` event is emitted per card actually flipped.
+    """
     card_uuid = uuid.UUID(card_id)
     if not await PermissionService.check_permission(
         db, user, "inventory.archive", card_uuid, "card.archive"
@@ -1202,6 +1246,25 @@ async def restore_card(
         raise HTTPException(404, "Card not found")
     if card.status != "ARCHIVED":
         raise HTTPException(400, "Card is not archived")
+
+    passenger_ids: list[uuid.UUID] = []
+    for raw in body.also_restore_card_ids:
+        try:
+            pid = uuid.UUID(raw)
+        except (TypeError, ValueError) as exc:
+            raise HTTPException(422, f"Invalid also_restore_card_ids entry: {raw!r}") from exc
+        if pid != card.id and pid not in passenger_ids:
+            passenger_ids.append(pid)
+
+    await _ensure_permission_on_each(
+        db,
+        user,
+        passenger_ids,
+        app_perm="inventory.archive",
+        card_perm="card.archive",
+    )
+
+    # Flip primary.
     card.status = "ACTIVE"
     card.archived_at = None
     card.updated_by = user.id
@@ -1212,6 +1275,26 @@ async def restore_card(
         card_id=card.id,
         user_id=user.id,
     )
+
+    # Flip passengers that are still archived.
+    restored_passenger_ids: list[uuid.UUID] = []
+    if passenger_ids:
+        pass_res = await db.execute(
+            select(Card).where(Card.id.in_(passenger_ids), Card.status == "ARCHIVED")
+        )
+        for p in pass_res.scalars().all():
+            p.status = "ACTIVE"
+            p.archived_at = None
+            p.updated_by = user.id
+            restored_passenger_ids.append(p.id)
+            await event_bus.publish(
+                "card.restored",
+                {"id": str(p.id), "type": p.type, "name": p.name},
+                db=db,
+                card_id=p.id,
+                user_id=user.id,
+            )
+
     await db.commit()
     result = await db.execute(
         select(Card)
@@ -1222,7 +1305,10 @@ async def restore_card(
         )
     )
     card = result.scalar_one()
-    return await _card_response_with_cost_check(db, user, card)
+    return CardRestoreResponse(
+        primary=await _card_response_with_cost_check(db, user, card),
+        restored_passenger_ids=[str(x) for x in restored_passenger_ids],
+    )
 
 
 @router.delete("/{card_id}", response_model=CardDeleteResponse)

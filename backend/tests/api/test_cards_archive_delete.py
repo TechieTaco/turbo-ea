@@ -691,3 +691,130 @@ class TestRelationsArchivedFilter:
         )
         assert resp.status_code == 200
         assert resp.json()["related_cards"] == []
+
+
+# ---------------------------------------------------------------------------
+# Restore-impact endpoint + cascade-restore via also_restore_card_ids
+# ---------------------------------------------------------------------------
+
+
+class TestCascadeRestore:
+    async def test_restore_impact_lists_cascade_children_and_ticked_peers(self, client, db, env):
+        admin = env["admin"]
+        parent = await create_card(db, name="Parent", user_id=admin.id)
+        child = await create_card(db, name="Child", parent_id=parent.id, user_id=admin.id)
+        peer = await create_card(db, card_type="ITComponent", name="Peer", user_id=admin.id)
+        await create_relation(db, type_key="app_to_itc", source_id=parent.id, target_id=peer.id)
+
+        resp = await client.post(
+            f"/api/v1/cards/{parent.id}/archive",
+            json={"child_strategy": "cascade", "related_card_ids": [str(peer.id)]},
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 200
+
+        impact_resp = await client.get(
+            f"/api/v1/cards/{parent.id}/restore-impact", headers=auth_headers(admin)
+        )
+        assert impact_resp.status_code == 200
+        body = impact_resp.json()
+        ids_to_role = {p["id"]: p["role"] for p in body["passengers"]}
+        assert ids_to_role.get(str(child.id)) == "child"
+        assert ids_to_role.get(str(peer.id)) == "related"
+
+    async def test_restore_with_also_restore_card_ids_flips_passengers(self, client, db, env):
+        admin = env["admin"]
+        parent = await create_card(db, name="Parent", user_id=admin.id)
+        child = await create_card(db, name="Child", parent_id=parent.id, user_id=admin.id)
+        peer = await create_card(db, card_type="ITComponent", name="Peer", user_id=admin.id)
+        await create_relation(db, type_key="app_to_itc", source_id=parent.id, target_id=peer.id)
+
+        resp = await client.post(
+            f"/api/v1/cards/{parent.id}/archive",
+            json={"child_strategy": "cascade", "related_card_ids": [str(peer.id)]},
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 200
+
+        resp = await client.post(
+            f"/api/v1/cards/{parent.id}/restore",
+            json={"also_restore_card_ids": [str(child.id), str(peer.id)]},
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["primary"]["status"] == "ACTIVE"
+        assert set(body["restored_passenger_ids"]) == {str(child.id), str(peer.id)}
+
+        for cid in (parent.id, child.id, peer.id):
+            row = (await db.execute(select(Card).where(Card.id == cid))).scalar_one()
+            assert row.status == "ACTIVE"
+
+        # Bubble relation reappears in active views.
+        rels_resp = await client.get(
+            f"/api/v1/relations?card_id={parent.id}", headers=auth_headers(admin)
+        )
+        assert rels_resp.status_code == 200
+        assert len(rels_resp.json()) == 1
+
+    async def test_restore_skips_already_restored_passengers(self, client, db, env):
+        admin = env["admin"]
+        parent = await create_card(db, name="Parent", user_id=admin.id)
+        c1 = await create_card(db, name="C1", parent_id=parent.id, user_id=admin.id)
+        c2 = await create_card(db, name="C2", parent_id=parent.id, user_id=admin.id)
+
+        resp = await client.post(
+            f"/api/v1/cards/{parent.id}/archive",
+            json={"child_strategy": "cascade"},
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 200
+
+        # Individually restore C1 first.
+        resp = await client.post(f"/api/v1/cards/{c1.id}/restore", headers=auth_headers(admin))
+        assert resp.status_code == 200
+
+        # Now batch-restore parent with both passengers; C1 is silently skipped.
+        resp = await client.post(
+            f"/api/v1/cards/{parent.id}/restore",
+            json={"also_restore_card_ids": [str(c1.id), str(c2.id)]},
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["restored_passenger_ids"] == [str(c2.id)]
+
+    async def test_restore_impact_empty_when_no_batch(self, client, db, env):
+        admin = env["admin"]
+        card = await create_card(db, name="Solo", user_id=admin.id, status="ARCHIVED")
+        from datetime import datetime, timezone
+
+        card.archived_at = datetime.now(timezone.utc)
+        await db.flush()
+
+        resp = await client.get(
+            f"/api/v1/cards/{card.id}/restore-impact", headers=auth_headers(admin)
+        )
+        assert resp.status_code == 200
+        assert resp.json()["passengers"] == []
+
+    async def test_restore_passenger_permission_failure_aborts(self, client, db, env):
+        """If the user can't archive one of the passengers, the whole call fails."""
+        admin = env["admin"]
+        parent = await create_card(db, name="Parent", user_id=admin.id)
+        child = await create_card(db, name="Child", parent_id=parent.id, user_id=admin.id)
+
+        resp = await client.post(
+            f"/api/v1/cards/{parent.id}/archive",
+            json={"child_strategy": "cascade"},
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 200
+
+        viewer = env["viewer"]
+        resp = await client.post(
+            f"/api/v1/cards/{parent.id}/restore",
+            json={"also_restore_card_ids": [str(child.id)]},
+            headers=auth_headers(viewer),
+        )
+        assert resp.status_code == 403

@@ -1675,6 +1675,40 @@
         "title": "CardResponse",
         "type": "object"
       },
+      "CardRestoreRequest": {
+        "properties": {
+          "also_restore_card_ids": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 200,
+            "title": "Also Restore Card Ids",
+            "type": "array"
+          }
+        },
+        "title": "CardRestoreRequest",
+        "type": "object"
+      },
+      "CardRestoreResponse": {
+        "properties": {
+          "primary": {
+            "$ref": "#/components/schemas/CardResponse"
+          },
+          "restored_passenger_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Restored Passenger Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "primary",
+          "restored_passenger_ids"
+        ],
+        "title": "CardRestoreResponse",
+        "type": "object"
+      },
       "CardUpdate": {
         "properties": {
           "alias": {
@@ -6328,6 +6362,65 @@
           "display_name"
         ],
         "title": "ReporterOut",
+        "type": "object"
+      },
+      "RestoreImpactPassenger": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "role": {
+            "enum": [
+              "child",
+              "related"
+            ],
+            "title": "Role",
+            "type": "string"
+          },
+          "subtype": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subtype"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "type",
+          "role"
+        ],
+        "title": "RestoreImpactPassenger",
+        "type": "object"
+      },
+      "RestoreImpactResponse": {
+        "properties": {
+          "passengers": {
+            "items": {
+              "$ref": "#/components/schemas/RestoreImpactPassenger"
+            },
+            "title": "Passengers",
+            "type": "array"
+          }
+        },
+        "required": [
+          "passengers"
+        ],
+        "title": "RestoreImpactResponse",
         "type": "object"
       },
       "RiskCardLinkOut": {
@@ -14353,7 +14446,7 @@
     },
     "/api/v1/cards/{card_id}/restore": {
       "post": {
-        "description": "Restore an archived card back to ACTIVE status.",
+        "description": "Restore an archived card back to ACTIVE status.\n\n`also_restore_card_ids` lets the caller restore passengers from the\noriginal archive batch in the same operation. Each ID is checked\nindividually; the same `card.archive` permission applies. IDs that\nresolve to non-archived cards are skipped silently. Only one\n`card.restored` event is emitted per card actually flipped.",
         "operationId": "restore_card_api_v1_cards__card_id__restore_post",
         "parameters": [
           {
@@ -14366,12 +14459,21 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CardRestoreRequest"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/CardResponse"
+                  "$ref": "#/components/schemas/CardRestoreResponse"
                 }
               }
             },
@@ -14389,6 +14491,49 @@
           }
         },
         "summary": "Restore Card",
+        "tags": [
+          "cards"
+        ]
+      }
+    },
+    "/api/v1/cards/{card_id}/restore-impact": {
+      "get": {
+        "description": "List the cards that were archived together with this one and are still archived.\n\nReads the latest `card.archived.batch` audit event keyed to this card.\nCards whose `affected_*_ids` come back from that event but were already\nindividually restored are filtered out.",
+        "operationId": "get_restore_impact_api_v1_cards__card_id__restore_impact_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "card_id",
+            "required": true,
+            "schema": {
+              "title": "Card Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RestoreImpactResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Restore Impact",
         "tags": [
           "cards"
         ]

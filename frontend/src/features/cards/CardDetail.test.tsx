@@ -373,9 +373,13 @@ describe("CardDetail", () => {
     };
     vi.mocked(api.get).mockImplementation((path: string) => {
       if (path.includes("/my-permissions")) return Promise.resolve(mockPerms);
+      if (path.includes("/restore-impact")) return Promise.resolve({ passengers: [] });
       return Promise.resolve(archivedCard);
     });
-    vi.mocked(api.post).mockResolvedValueOnce({ ...archivedCard, status: "ACTIVE", archived_at: null });
+    vi.mocked(api.post).mockResolvedValueOnce({
+      primary: { ...archivedCard, status: "ACTIVE", archived_at: null },
+      restored_passenger_ids: [],
+    });
 
     renderCardDetail();
 
@@ -399,7 +403,7 @@ describe("CardDetail", () => {
     await user.click(restoreButtonsAfterOpen[restoreButtonsAfterOpen.length - 1]);
 
     await waitFor(() => {
-      expect(api.post).toHaveBeenCalledWith(`/cards/${mockCard.id}/restore`);
+      expect(api.post).toHaveBeenCalledWith(`/cards/${mockCard.id}/restore`, {});
     });
   });
 

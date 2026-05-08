@@ -193,3 +193,20 @@ class CardDeleteResponse(BaseModel):
     deleted_card_ids: list[str]
     affected_children_ids: list[str]
     affected_related_card_ids: list[str]
+
+
+class RestoreImpactPassenger(ArchiveImpactCardRef):
+    role: Literal["child", "related"]
+
+
+class RestoreImpactResponse(BaseModel):
+    passengers: list[RestoreImpactPassenger]
+
+
+class CardRestoreRequest(BaseModel):
+    also_restore_card_ids: list[str] = Field(default_factory=list, max_length=200)
+
+
+class CardRestoreResponse(BaseModel):
+    primary: CardResponse
+    restored_passenger_ids: list[str]

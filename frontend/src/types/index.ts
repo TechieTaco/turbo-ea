@@ -1785,3 +1785,24 @@ export interface CardDeleteResponse {
   affected_children_ids: string[];
   affected_related_card_ids: string[];
 }
+
+export interface RestoreImpactPassenger {
+  id: string;
+  name: string;
+  type: string;
+  subtype?: string | null;
+  role: "child" | "related";
+}
+
+export interface RestoreImpact {
+  passengers: RestoreImpactPassenger[];
+}
+
+export interface CardRestoreRequest {
+  also_restore_card_ids?: string[];
+}
+
+export interface CardRestoreResponse {
+  primary: Card;
+  restored_passenger_ids: string[];
+}
