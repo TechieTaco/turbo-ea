@@ -709,16 +709,48 @@ export default function AppLayout({ children, user, onLogout }: Props) {
               </ListItemIcon>
               <ListItemText>{t("userMenu.userManual")}</ListItemText>
             </MenuItem>
+            {(can("inventory.view") || can("admin.metamodel")) && <Divider />}
+            {(can("inventory.view") || can("admin.metamodel")) && (
+              <MenuItem disabled sx={{ opacity: 0.7, minHeight: 32 }}>
+                <ListItemIcon>
+                  <MaterialSymbol icon="library_books" size={18} />
+                </ListItemIcon>
+                <ListItemText
+                  primaryTypographyProps={{
+                    variant: "caption",
+                    fontWeight: 700,
+                    textTransform: "uppercase",
+                    letterSpacing: 0.5,
+                  }}
+                >
+                  {t("userMenu.referenceCatalogues")}
+                </ListItemText>
+              </MenuItem>
+            )}
             {can("inventory.view") && (
               <MenuItem
                 component={RouterLink}
                 to="/capability-catalogue"
                 onClick={() => setUserMenu(null)}
+                sx={{ pl: 3 }}
               >
                 <ListItemIcon>
                   <MaterialSymbol icon="account_tree" size={18} />
                 </ListItemIcon>
                 <ListItemText>{t("userMenu.capabilityCatalogue")}</ListItemText>
+              </MenuItem>
+            )}
+            {can("admin.metamodel") && (
+              <MenuItem
+                component={RouterLink}
+                to="/principles-catalogue"
+                onClick={() => setUserMenu(null)}
+                sx={{ pl: 3 }}
+              >
+                <ListItemIcon>
+                  <MaterialSymbol icon="bookmark_star" size={18} />
+                </ListItemIcon>
+                <ListItemText>{t("userMenu.principlesCatalogue")}</ListItemText>
               </MenuItem>
             )}
             {showAdmin && <Divider />}

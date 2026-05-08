@@ -43,5 +43,7 @@
   "turbolens.assessments": "评估记录",
   "turbolens.security": "安全与合规",
   "turbolens.history": "历史记录",
-  "userMenu.capabilityCatalogue": "能力目录"
+  "userMenu.capabilityCatalogue": "能力目录",
+  "userMenu.principlesCatalogue": "原则目录",
+  "userMenu.referenceCatalogues": "参考目录"
 }

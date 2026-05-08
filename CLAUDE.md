@@ -699,7 +699,7 @@ All tables use UUID primary keys and `created_at`/`updated_at` timestamps (from 
 | `sso_invitations` | `SsoInvitation` | Pre-assigned SSO invitations |
 | `architecture_decisions` | `ArchitectureDecision` | ADR records (status, context, decision, alternatives, consequences) |
 | `architecture_decision_cards` | `ArchitectureDecisionCard` | M:N junction between ADRs and cards |
-| `ea_principles` | `EAPrinciple` | EA principles (statement, rationale, implications, sort_order) — exposed via `/metamodel/principles` |
+| `ea_principles` | `EAPrinciple` | EA principles (statement, rationale, implications, sort_order, optional `catalogue_id` linking back to the bundled Principles Catalogue) — exposed via `/metamodel/principles`; the curated reference set is browsable at `/principles-catalogue` |
 | `kpi_snapshots` | `KpiSnapshot` | Daily KPI snapshots powering the dashboard trend charts |
 | `user_favorites` | `UserFavorite` | Per-user favorited cards (M:N user × card) |
 | `risks` | `Risk` | EA Risk Register entries (TOGAF Phase G) — see Risk Register section |

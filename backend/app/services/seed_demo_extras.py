@@ -22,12 +22,14 @@ from app.models.card import Card
 from app.models.comment import Comment
 from app.models.diagram import Diagram, diagram_cards
 from app.models.document import Document
+from app.models.ea_principle import EAPrinciple
 from app.models.event import Event
 from app.models.saved_report import SavedReport
 from app.models.stakeholder import Stakeholder
 from app.models.survey import Survey, SurveyResponse
 from app.models.todo import Todo
 from app.models.user import User
+from app.services.principles_catalogue_service import get_catalogue_principle
 
 # ---------------------------------------------------------------------------
 # Card name constants (must match seed_demo.py card names)
@@ -1322,6 +1324,31 @@ async def seed_extras_demo_data(db: AsyncSession) -> dict:
         bookmark_count += 1
     await db.flush()
     counts["bookmarks"] = bookmark_count
+
+    # ----- EA Principles (first 5 from the catalogue) -----
+    # Leaves PR-006..PR-010 catalogue-only so the user can test the import flow.
+    principle_count = 0
+    existing_principles = await db.execute(select(EAPrinciple.id).limit(1))
+    if existing_principles.scalar_one_or_none() is None:
+        for idx, cat_id in enumerate(("PR-001", "PR-002", "PR-003", "PR-004", "PR-005")):
+            entry = get_catalogue_principle(cat_id)
+            if entry is None:
+                continue
+            db.add(
+                EAPrinciple(
+                    id=uuid.uuid4(),
+                    title=entry["title"],
+                    description=entry.get("description"),
+                    rationale=entry.get("rationale"),
+                    implications=entry.get("implications"),
+                    is_active=True,
+                    sort_order=(idx + 1) * 10,
+                    catalogue_id=cat_id,
+                )
+            )
+            principle_count += 1
+        await db.flush()
+    counts["principles"] = principle_count
 
     await db.commit()
     return counts

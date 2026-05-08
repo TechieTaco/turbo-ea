@@ -17,3 +17,4 @@ class EAPrinciple(Base, UUIDMixin, TimestampMixin):
     implications: Mapped[str | None] = mapped_column(Text)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
+    catalogue_id: Mapped[str | None] = mapped_column(String(100), nullable=True, index=True)

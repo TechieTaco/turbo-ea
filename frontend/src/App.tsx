@@ -60,6 +60,9 @@ const AssessmentViewer = lazy(() => import("@/features/turbolens/AssessmentViewe
 const CapabilityCataloguePage = lazy(
   () => import("@/features/capability-catalogue/CapabilityCataloguePage"),
 );
+const PrinciplesCataloguePage = lazy(
+  () => import("@/features/principles-catalogue/PrinciplesCataloguePage"),
+);
 
 /** Centered spinner shown while lazy components are loading. */
 function PageLoader() {
@@ -155,6 +158,7 @@ function AppRoutes() {
                 <Route path="/turbolens/assessments/:id" element={<ModuleGate module="turbolens"><AssessmentViewer /></ModuleGate>} />
                 <Route path="/admin/turbolens" element={<Navigate to="/admin/settings?tab=turbolens" />} />
                 <Route path="/capability-catalogue" element={<CapabilityCataloguePage />} />
+                <Route path="/principles-catalogue" element={<PrinciplesCataloguePage />} />
                 <Route path="*" element={<Navigate to="/" />} />
               </Routes>
             </Suspense>

@@ -2843,6 +2843,24 @@
         "title": "HTTPValidationError",
         "type": "object"
       },
+      "ImportPrinciplesRequest": {
+        "properties": {
+          "catalogue_ids": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 200,
+            "minItems": 1,
+            "title": "Catalogue Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "catalogue_ids"
+        ],
+        "title": "ImportPrinciplesRequest",
+        "type": "object"
+      },
       "ImportRequest": {
         "properties": {
           "catalogue_ids": {
@@ -18133,6 +18151,66 @@
         "summary": "Update Wbs",
         "tags": [
           "ppm"
+        ]
+      }
+    },
+    "/api/v1/principles-catalogue": {
+      "get": {
+        "description": "Return the bundled principles catalogue with `existing_principle_id`\nannotations so the frontend can render a green tick on already-imported\nentries.",
+        "operationId": "get_catalogue_api_v1_principles_catalogue_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Catalogue",
+        "tags": [
+          "principles-catalogue"
+        ]
+      }
+    },
+    "/api/v1/principles-catalogue/import": {
+      "post": {
+        "description": "Create EAPrinciple rows for the selected catalogue entries.\n\nIdempotent: catalogue ids that already exist as a principle (matched by\n`catalogue_id`) are skipped and reported in the `skipped` list.",
+        "operationId": "import_principles_api_v1_principles_catalogue_import_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImportPrinciplesRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Import Principles",
+        "tags": [
+          "principles-catalogue"
         ]
       }
     },

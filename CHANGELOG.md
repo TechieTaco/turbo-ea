@@ -5,6 +5,16 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.4.0] - 2026-05-08
+
+### Added
+- **EA Principles Reference Catalogue.** A curated set of 10 industry-standard EA principles (Reuse before Buy before Build, Prefer fully managed Services, Business value-driven Architecture, One capability One solution, Exit Strategy, TCO, Seamless Integration, Technical Debt, Legal & Regulatory Compliance, Security by Design) is now browsable from the user menu. Admins can multi-select entries and import them into the EA principles register; imports are idempotent — re-running an import skips already-imported entries and survives title edits via a sticky `catalogue_id`.
+- **Reference Catalogues section in the user menu.** The Capability Catalogue and the new Principles Catalogue are grouped under a `REFERENCE CATALOGUES` section header in the avatar dropdown, mirroring how the `ADMIN` section is rendered.
+- **Demo dataset now ships with 5 EA principles pre-seeded.** Running `SEED_DEMO=true` populates the first 5 catalogue principles so the NexaTech demo has a realistic principles landscape; the remaining 5 stay catalogue-only so users can test the import workflow.
+
+### Changed
+- **`ea_principles` table gains a `catalogue_id` column** (nullable, indexed) so principles imported from the catalogue carry a stable, locale-agnostic identifier independent of their display title.
+
 ## [1.3.0] - 2026-05-07
 
 ### Changed
