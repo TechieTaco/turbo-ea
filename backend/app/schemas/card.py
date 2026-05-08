@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, Field, field_validator
 
 # M-1: Limits for JSONB dict fields to prevent memory exhaustion
 _MAX_DICT_KEYS = 200
@@ -140,3 +140,73 @@ class CardListResponse(BaseModel):
     total: int
     page: int
     page_size: int
+
+
+ChildStrategy = Literal["cascade", "disconnect", "reparent"]
+
+
+class CardArchiveRequest(BaseModel):
+    child_strategy: ChildStrategy | None = None
+    related_card_ids: list[str] = Field(default_factory=list, max_length=200)
+    cascade_all_related: bool = False
+
+
+class CardDeleteRequest(CardArchiveRequest):
+    pass
+
+
+class ArchiveImpactCardRef(BaseModel):
+    id: str
+    name: str
+    type: str
+    subtype: str | None = None
+
+
+class ArchiveImpactChild(ArchiveImpactCardRef):
+    descendants_count: int = 0
+    approval_status: str = "DRAFT"
+
+
+class ArchiveImpactRelatedCard(ArchiveImpactCardRef):
+    relation_id: str
+    relation_type_key: str
+    relation_label: str
+    direction: Literal["outgoing", "incoming"]
+
+
+class ArchiveImpactResponse(BaseModel):
+    child_count: int
+    descendant_count: int
+    approved_descendant_count: int
+    grandparent: ArchiveImpactCardRef | None = None
+    children: list[ArchiveImpactChild]
+    related_cards: list[ArchiveImpactRelatedCard]
+
+
+class CardArchiveResponse(BaseModel):
+    primary: CardResponse
+    affected_children_ids: list[str]
+    affected_related_card_ids: list[str]
+
+
+class CardDeleteResponse(BaseModel):
+    deleted_card_ids: list[str]
+    affected_children_ids: list[str]
+    affected_related_card_ids: list[str]
+
+
+class RestoreImpactPassenger(ArchiveImpactCardRef):
+    role: Literal["child", "related"]
+
+
+class RestoreImpactResponse(BaseModel):
+    passengers: list[RestoreImpactPassenger]
+
+
+class CardRestoreRequest(BaseModel):
+    also_restore_card_ids: list[str] = Field(default_factory=list, max_length=200)
+
+
+class CardRestoreResponse(BaseModel):
+    primary: CardResponse
+    restored_passenger_ids: list[str]

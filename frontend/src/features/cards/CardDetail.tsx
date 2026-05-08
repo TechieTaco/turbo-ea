@@ -14,15 +14,13 @@ import TextField from "@mui/material/TextField";
 import Tooltip from "@mui/material/Tooltip";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import { useTheme } from "@mui/material/styles";
-import Dialog from "@mui/material/Dialog";
-import DialogTitle from "@mui/material/DialogTitle";
-import DialogContent from "@mui/material/DialogContent";
-import DialogActions from "@mui/material/DialogActions";
 import { useTranslation } from "react-i18next";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import ApprovalStatusBadge from "@/components/ApprovalStatusBadge";
 import LifecycleBadge from "@/components/LifecycleBadge";
 import AiSuggestPanel, { type AiApplyPayload } from "@/components/AiSuggestPanel";
+import ArchiveDeleteDialog from "@/features/cards/ArchiveDeleteDialog";
+import RestoreDialog from "@/features/cards/RestoreDialog";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useResolveLabel, useResolveMetaLabel } from "@/hooks/useResolveLabel";
 import { api, ApiError } from "@/api/client";
@@ -73,6 +71,7 @@ export default function CardDetail() {
   const [perms, setPerms] = useState<CardEffectivePermissions["effective"]>(DEFAULT_PERMISSIONS);
   const [archiveDialogOpen, setArchiveDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [restoreDialogOpen, setRestoreDialogOpen] = useState(false);
   const [actionsMenuAnchor, setActionsMenuAnchor] = useState<HTMLElement | null>(null);
 
   // Favorite star
@@ -304,20 +303,24 @@ export default function CardDetail() {
   };
 
   // ── Archive / Restore / Delete ───────────────────────────────
-  const handleArchive = async () => {
+  const handleArchiveConfirmed = async () => {
+    // The dialog already issued the API call; just refresh the card.
     setArchiveDialogOpen(false);
-    const updated = await api.post<Card>(`/cards/${card.id}/archive`);
-    setCard(updated);
+    try {
+      const refreshed = await api.get<Card>(`/cards/${card.id}`);
+      setCard(refreshed);
+    } catch {
+      navigate("/inventory");
+    }
   };
 
-  const handleRestore = async () => {
-    const updated = await api.post<Card>(`/cards/${card.id}/restore`);
-    setCard(updated);
+  const handleRestoreConfirmed = (primary: Card) => {
+    setRestoreDialogOpen(false);
+    setCard(primary);
   };
 
-  const handleDelete = async () => {
+  const handleDeleteConfirmed = () => {
     setDeleteDialogOpen(false);
-    await api.delete(`/cards/${card.id}`);
     navigate("/inventory");
   };
 
@@ -604,39 +607,36 @@ export default function CardDetail() {
         </Box>
       </Box>
 
-      {/* ── Archive confirmation dialog ── */}
-      <Dialog open={archiveDialogOpen} onClose={() => setArchiveDialogOpen(false)}>
-        <DialogTitle>{t("detail.dialogs.archive.title")}</DialogTitle>
-        <DialogContent>
-          <Typography>
-            <span dangerouslySetInnerHTML={{ __html: t("detail.dialogs.archive.confirm", { name: card.name }) }} />
-          </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-            {t("detail.dialogs.archive.description")}
-          </Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setArchiveDialogOpen(false)}>{t("common:actions.cancel")}</Button>
-          <Button variant="contained" color="warning" onClick={handleArchive}>{t("common:actions.archive")}</Button>
-        </DialogActions>
-      </Dialog>
+      {/* ── Archive dialog (with children + related strategies) ── */}
+      <ArchiveDeleteDialog
+        open={archiveDialogOpen}
+        mode="archive"
+        scope="single"
+        cardId={card.id}
+        cardName={card.name}
+        onClose={() => setArchiveDialogOpen(false)}
+        onConfirmed={handleArchiveConfirmed}
+      />
 
-      {/* ── Delete confirmation dialog ── */}
-      <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)}>
-        <DialogTitle>{t("detail.dialogs.delete.title")}</DialogTitle>
-        <DialogContent>
-          <Typography>
-            <span dangerouslySetInnerHTML={{ __html: t("detail.dialogs.delete.confirm", { name: card.name }) }} />
-          </Typography>
-          <Typography variant="body2" color="error" sx={{ mt: 1 }}>
-            {t("detail.dialogs.delete.description")}
-          </Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setDeleteDialogOpen(false)}>{t("common:actions.cancel")}</Button>
-          <Button variant="contained" color="error" onClick={handleDelete}>{t("detail.dialogs.delete.submit")}</Button>
-        </DialogActions>
-      </Dialog>
+      {/* ── Delete dialog (with children + related strategies) ── */}
+      <ArchiveDeleteDialog
+        open={deleteDialogOpen}
+        mode="delete"
+        scope="single"
+        cardId={card.id}
+        cardName={card.name}
+        onClose={() => setDeleteDialogOpen(false)}
+        onConfirmed={handleDeleteConfirmed}
+      />
+
+      {/* ── Restore dialog with cascade-restore checkboxes ── */}
+      <RestoreDialog
+        open={restoreDialogOpen}
+        cardId={card.id}
+        cardName={card.name}
+        onClose={() => setRestoreDialogOpen(false)}
+        onConfirmed={handleRestoreConfirmed}
+      />
 
       <CardDetailContent
         card={card}
@@ -661,7 +661,7 @@ export default function CardDetail() {
                 action={
                   <Box sx={{ display: "flex", gap: 1 }}>
                     {perms.can_archive && (
-                      <Button size="small" color="inherit" onClick={handleRestore} startIcon={<MaterialSymbol icon="restore" size={18} />}>
+                      <Button size="small" color="inherit" onClick={() => setRestoreDialogOpen(true)} startIcon={<MaterialSymbol icon="restore" size={18} />}>
                         {t("common:actions.restore")}
                       </Button>
                     )}

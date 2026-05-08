@@ -29,6 +29,7 @@ import useMediaQuery from "@mui/material/useMediaQuery";
 import { useTheme } from "@mui/material/styles";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import LifecycleBadge from "@/components/LifecycleBadge";
+import ArchiveDeleteDialog from "@/features/cards/ArchiveDeleteDialog";
 import CreateCardDialog from "@/components/CreateCardDialog";
 import CardDetailSidePanel from "@/components/CardDetailSidePanel";
 import InventoryFilterSidebar, {
@@ -329,9 +330,7 @@ export default function InventoryPage() {
 
   // Mass archive / delete state
   const [massArchiveOpen, setMassArchiveOpen] = useState(false);
-  const [massArchiveLoading, setMassArchiveLoading] = useState(false);
   const [massDeleteOpen, setMassDeleteOpen] = useState(false);
-  const [massDeleteLoading, setMassDeleteLoading] = useState(false);
 
   // Relation cell dialog state
   const [relEditOpen, setRelEditOpen] = useState(false);
@@ -1068,32 +1067,18 @@ export default function InventoryPage() {
     }
   };
 
-  const handleMassArchive = async () => {
-    if (selectedIds.length === 0) return;
-    setMassArchiveLoading(true);
-    try {
-      await Promise.all(selectedIds.map((id) => api.post(`/cards/${id}/archive`)));
-      setMassArchiveOpen(false);
-      setSelectedIds([]);
-      gridRef.current?.api?.deselectAll();
-      loadData();
-    } finally {
-      setMassArchiveLoading(false);
-    }
+  const handleMassArchiveConfirmed = () => {
+    setMassArchiveOpen(false);
+    setSelectedIds([]);
+    gridRef.current?.api?.deselectAll();
+    loadData();
   };
 
-  const handleMassDelete = async () => {
-    if (selectedIds.length === 0) return;
-    setMassDeleteLoading(true);
-    try {
-      await Promise.all(selectedIds.map((id) => api.delete(`/cards/${id}`)));
-      setMassDeleteOpen(false);
-      setSelectedIds([]);
-      gridRef.current?.api?.deselectAll();
-      loadData();
-    } finally {
-      setMassDeleteLoading(false);
-    }
+  const handleMassDeleteConfirmed = () => {
+    setMassDeleteOpen(false);
+    setSelectedIds([]);
+    gridRef.current?.api?.deselectAll();
+    loadData();
   };
 
   const columnDefs = useMemo<ColDef[]>(() => {
@@ -2165,38 +2150,51 @@ export default function InventoryPage() {
         </DialogActions>
       </Dialog>
 
-      {/* Mass Archive Confirmation */}
-      <Dialog open={massArchiveOpen} onClose={() => setMassArchiveOpen(false)} maxWidth="xs" fullWidth>
-        <DialogTitle>{t("massArchive.dialogTitle", { count: selectedIds.length })}</DialogTitle>
-        <DialogContent>
-          <Typography>
-            {t("massArchive.confirmMessage", { count: selectedIds.length })}
-          </Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setMassArchiveOpen(false)}>{t("common:actions.cancel")}</Button>
-          <Button variant="contained" color="warning" onClick={handleMassArchive} disabled={massArchiveLoading}>
-            {massArchiveLoading ? t("massArchive.archiving") : t("common:actions.archive")}
-          </Button>
-        </DialogActions>
-      </Dialog>
+      {/* Archive — single dialog when one card selected, bulk dialog otherwise */}
+      {massArchiveOpen &&
+        (selectedIds.length === 1 ? (
+          <ArchiveDeleteDialog
+            open
+            mode="archive"
+            scope="single"
+            cardId={selectedIds[0]}
+            cardName={data.find((c) => c.id === selectedIds[0])?.name ?? ""}
+            onClose={() => setMassArchiveOpen(false)}
+            onConfirmed={handleMassArchiveConfirmed}
+          />
+        ) : (
+          <ArchiveDeleteDialog
+            open
+            mode="archive"
+            scope="bulk"
+            cardIds={selectedIds}
+            onClose={() => setMassArchiveOpen(false)}
+            onConfirmed={handleMassArchiveConfirmed}
+          />
+        ))}
 
-      {/* Mass Delete Confirmation */}
-      <Dialog open={massDeleteOpen} onClose={() => setMassDeleteOpen(false)} maxWidth="xs" fullWidth>
-        <DialogTitle>{t("massDelete.dialogTitle", { count: selectedIds.length })}</DialogTitle>
-        <DialogContent>
-          <Alert severity="error" sx={{ mb: 2 }}>{t("massDelete.cannotBeUndone")}</Alert>
-          <Typography>
-            {t("massDelete.confirmMessage", { count: selectedIds.length })}
-          </Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setMassDeleteOpen(false)}>{t("common:actions.cancel")}</Button>
-          <Button variant="contained" color="error" onClick={handleMassDelete} disabled={massDeleteLoading}>
-            {massDeleteLoading ? t("massDelete.deleting") : t("massEdit.deletePermanently")}
-          </Button>
-        </DialogActions>
-      </Dialog>
+      {/* Delete — single dialog when one card selected, bulk dialog otherwise */}
+      {massDeleteOpen &&
+        (selectedIds.length === 1 ? (
+          <ArchiveDeleteDialog
+            open
+            mode="delete"
+            scope="single"
+            cardId={selectedIds[0]}
+            cardName={data.find((c) => c.id === selectedIds[0])?.name ?? ""}
+            onClose={() => setMassDeleteOpen(false)}
+            onConfirmed={handleMassDeleteConfirmed}
+          />
+        ) : (
+          <ArchiveDeleteDialog
+            open
+            mode="delete"
+            scope="bulk"
+            cardIds={selectedIds}
+            onClose={() => setMassDeleteOpen(false)}
+            onConfirmed={handleMassDeleteConfirmed}
+          />
+        ))}
 
       <CreateCardDialog
         open={createOpen}

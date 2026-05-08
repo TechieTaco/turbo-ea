@@ -81,14 +81,29 @@ async def _purge_archived_cards_loop() -> None:
                 for rel in rels.scalars().all():
                     await db.delete(rel)
 
+                # Self-heal stranded children: any card whose `parent_id` still
+                # points at a card we're about to purge gets disconnected first.
+                # Without this the self-FK on `cards.parent_id` (no ON DELETE
+                # rule) blocks the delete. Covers historical data created before
+                # the child-strategy feature shipped.
+                stranded_res = await db.execute(
+                    select(Card).where(Card.parent_id.in_(purged_ids), Card.id.not_in(purged_ids))
+                )
+                stranded_count = 0
+                for stranded in stranded_res.scalars().all():
+                    stranded.parent_id = None
+                    stranded_count += 1
+
                 for card in cards_to_purge:
                     await db.delete(card)
 
                 await db.commit()
                 logger.info(
-                    "Auto-purged %d archived cards (archived before %s)",
+                    "Auto-purged %d archived cards (archived before %s); "
+                    "disconnected %d stranded child(ren).",
                     len(purged_ids),
                     cutoff.isoformat(),
+                    stranded_count,
                 )
         except asyncio.CancelledError:
             raise
