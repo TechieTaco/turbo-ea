@@ -368,6 +368,15 @@ describe("CardDetail", () => {
     const user = userEvent.setup();
     vi.mocked(api.get).mockImplementation((path: string) => {
       if (path.includes("/my-permissions")) return Promise.resolve(mockPerms);
+      if (path.includes("/archive-impact"))
+        return Promise.resolve({
+          child_count: 0,
+          descendant_count: 0,
+          approved_descendant_count: 0,
+          grandparent: null,
+          children: [],
+          related_cards: [],
+        });
       return Promise.resolve(mockCard);
     });
 
@@ -394,6 +403,15 @@ describe("CardDetail", () => {
     const user = userEvent.setup();
     vi.mocked(api.get).mockImplementation((path: string) => {
       if (path.includes("/my-permissions")) return Promise.resolve(mockPerms);
+      if (path.includes("/archive-impact"))
+        return Promise.resolve({
+          child_count: 0,
+          descendant_count: 0,
+          approved_descendant_count: 0,
+          grandparent: null,
+          children: [],
+          related_cards: [],
+        });
       return Promise.resolve(mockCard);
     });
 
@@ -420,9 +438,22 @@ describe("CardDetail", () => {
     const user = userEvent.setup();
     vi.mocked(api.get).mockImplementation((path: string) => {
       if (path.includes("/my-permissions")) return Promise.resolve(mockPerms);
+      if (path.includes("/archive-impact"))
+        return Promise.resolve({
+          child_count: 0,
+          descendant_count: 0,
+          approved_descendant_count: 0,
+          grandparent: null,
+          children: [],
+          related_cards: [],
+        });
       return Promise.resolve(mockCard);
     });
-    vi.mocked(api.delete).mockResolvedValueOnce(undefined);
+    vi.mocked(api.delete).mockResolvedValueOnce({
+      deleted_card_ids: ["card-1"],
+      affected_children_ids: [],
+      affected_related_card_ids: [],
+    });
 
     renderCardDetail();
 
@@ -445,7 +476,7 @@ describe("CardDetail", () => {
     await user.click(screen.getByRole("button", { name: /delete permanently/i }));
 
     await waitFor(() => {
-      expect(api.delete).toHaveBeenCalledWith("/cards/card-1");
+      expect(api.delete).toHaveBeenCalledWith("/cards/card-1", {});
     });
   });
 

@@ -301,8 +301,10 @@ class TestArchiveRestore:
         )
         assert response.status_code == 200
         data = response.json()
-        assert data["status"] == "ARCHIVED"
-        assert data["archived_at"] is not None
+        assert data["primary"]["status"] == "ARCHIVED"
+        assert data["primary"]["archived_at"] is not None
+        assert data["affected_children_ids"] == []
+        assert data["affected_related_card_ids"] == []
 
     async def test_archive_already_archived_returns_400(self, client, db, cards_env):
         admin = cards_env["admin"]
@@ -368,7 +370,11 @@ class TestDeleteCard:
             f"/api/v1/cards/{card.id}",
             headers=auth_headers(admin),
         )
-        assert response.status_code == 204
+        assert response.status_code == 200
+        data = response.json()
+        assert data["deleted_card_ids"] == [str(card.id)]
+        assert data["affected_children_ids"] == []
+        assert data["affected_related_card_ids"] == []
 
     async def test_viewer_cannot_delete(self, client, db, cards_env):
         admin = cards_env["admin"]

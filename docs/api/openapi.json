@@ -451,6 +451,191 @@
         "title": "ApplyBody",
         "type": "object"
       },
+      "ArchiveImpactCardRef": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "subtype": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subtype"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "type"
+        ],
+        "title": "ArchiveImpactCardRef",
+        "type": "object"
+      },
+      "ArchiveImpactChild": {
+        "properties": {
+          "approval_status": {
+            "default": "DRAFT",
+            "title": "Approval Status",
+            "type": "string"
+          },
+          "descendants_count": {
+            "default": 0,
+            "title": "Descendants Count",
+            "type": "integer"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "subtype": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subtype"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "type"
+        ],
+        "title": "ArchiveImpactChild",
+        "type": "object"
+      },
+      "ArchiveImpactRelatedCard": {
+        "properties": {
+          "direction": {
+            "enum": [
+              "outgoing",
+              "incoming"
+            ],
+            "title": "Direction",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "relation_id": {
+            "title": "Relation Id",
+            "type": "string"
+          },
+          "relation_label": {
+            "title": "Relation Label",
+            "type": "string"
+          },
+          "relation_type_key": {
+            "title": "Relation Type Key",
+            "type": "string"
+          },
+          "subtype": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subtype"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "type",
+          "relation_id",
+          "relation_type_key",
+          "relation_label",
+          "direction"
+        ],
+        "title": "ArchiveImpactRelatedCard",
+        "type": "object"
+      },
+      "ArchiveImpactResponse": {
+        "properties": {
+          "approved_descendant_count": {
+            "title": "Approved Descendant Count",
+            "type": "integer"
+          },
+          "child_count": {
+            "title": "Child Count",
+            "type": "integer"
+          },
+          "children": {
+            "items": {
+              "$ref": "#/components/schemas/ArchiveImpactChild"
+            },
+            "title": "Children",
+            "type": "array"
+          },
+          "descendant_count": {
+            "title": "Descendant Count",
+            "type": "integer"
+          },
+          "grandparent": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ArchiveImpactCardRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "related_cards": {
+            "items": {
+              "$ref": "#/components/schemas/ArchiveImpactRelatedCard"
+            },
+            "title": "Related Cards",
+            "type": "array"
+          }
+        },
+        "required": [
+          "child_count",
+          "descendant_count",
+          "approved_descendant_count",
+          "children",
+          "related_cards"
+        ],
+        "title": "ArchiveImpactResponse",
+        "type": "object"
+      },
       "Body_import_bpmn_api_v1_bpm_processes__process_id__diagram_import_post": {
         "properties": {
           "file": {
@@ -998,6 +1183,69 @@
         "title": "CalculationUpdate",
         "type": "object"
       },
+      "CardArchiveRequest": {
+        "properties": {
+          "cascade_all_related": {
+            "default": false,
+            "title": "Cascade All Related",
+            "type": "boolean"
+          },
+          "child_strategy": {
+            "anyOf": [
+              {
+                "enum": [
+                  "cascade",
+                  "disconnect",
+                  "reparent"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Child Strategy"
+          },
+          "related_card_ids": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 200,
+            "title": "Related Card Ids",
+            "type": "array"
+          }
+        },
+        "title": "CardArchiveRequest",
+        "type": "object"
+      },
+      "CardArchiveResponse": {
+        "properties": {
+          "affected_children_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Affected Children Ids",
+            "type": "array"
+          },
+          "affected_related_card_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Affected Related Card Ids",
+            "type": "array"
+          },
+          "primary": {
+            "$ref": "#/components/schemas/CardResponse"
+          }
+        },
+        "required": [
+          "primary",
+          "affected_children_ids",
+          "affected_related_card_ids"
+        ],
+        "title": "CardArchiveResponse",
+        "type": "object"
+      },
       "CardBulkUpdate": {
         "properties": {
           "ids": {
@@ -1113,6 +1361,73 @@
           "name"
         ],
         "title": "CardCreate",
+        "type": "object"
+      },
+      "CardDeleteRequest": {
+        "properties": {
+          "cascade_all_related": {
+            "default": false,
+            "title": "Cascade All Related",
+            "type": "boolean"
+          },
+          "child_strategy": {
+            "anyOf": [
+              {
+                "enum": [
+                  "cascade",
+                  "disconnect",
+                  "reparent"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Child Strategy"
+          },
+          "related_card_ids": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 200,
+            "title": "Related Card Ids",
+            "type": "array"
+          }
+        },
+        "title": "CardDeleteRequest",
+        "type": "object"
+      },
+      "CardDeleteResponse": {
+        "properties": {
+          "affected_children_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Affected Children Ids",
+            "type": "array"
+          },
+          "affected_related_card_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Affected Related Card Ids",
+            "type": "array"
+          },
+          "deleted_card_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Deleted Card Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "deleted_card_ids",
+          "affected_children_ids",
+          "affected_related_card_ids"
+        ],
+        "title": "CardDeleteResponse",
         "type": "object"
       },
       "CardListResponse": {
@@ -13342,7 +13657,7 @@
     },
     "/api/v1/cards/{card_id}": {
       "delete": {
-        "description": "Permanently delete a card. Admin only.",
+        "description": "Permanently delete a card plus optional descendants and related peer cards.\n\nMirrors `archive_card`'s body shape and rules. The primary is always deleted;\ndescendants are deleted leaves-first to satisfy the self-FK on `parent_id`.\nRelated cards are processed single-hop only.\n\nReturns 409 if the primary has direct children and `child_strategy` is None.",
         "operationId": "delete_card_api_v1_cards__card_id__delete",
         "parameters": [
           {
@@ -13355,8 +13670,24 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CardDeleteRequest"
+              }
+            }
+          }
+        },
         "responses": {
-          "204": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CardDeleteResponse"
+                }
+              }
+            },
             "description": "Successful Response"
           },
           "422": {
@@ -13518,7 +13849,7 @@
     },
     "/api/v1/cards/{card_id}/archive": {
       "post": {
-        "description": "Archive a card (soft delete). Sets status to ARCHIVED and records archived_at.",
+        "description": "Archive a card (soft delete) plus optional descendants and related peer cards.\n\nBody shape:\n  - `child_strategy`: `cascade` | `disconnect` | `reparent` (required if the\n    primary card has direct children \u2014 otherwise 409).\n  - `related_card_ids`: peer cards (capped at 200) to also archive in the\n    same operation. Single-hop only \u2014 the related cards' own peer relations\n    are NOT recursed.\n  - `cascade_all_related`: bulk-mode shortcut that resolves all direct\n    relations of the primary on the server side.\n\nPermission check runs against every affected card; first denial aborts.",
         "operationId": "archive_card_api_v1_cards__card_id__archive_post",
         "parameters": [
           {
@@ -13531,12 +13862,21 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CardArchiveRequest"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/CardResponse"
+                  "$ref": "#/components/schemas/CardArchiveResponse"
                 }
               }
             },
@@ -13554,6 +13894,49 @@
           }
         },
         "summary": "Archive Card",
+        "tags": [
+          "cards"
+        ]
+      }
+    },
+    "/api/v1/cards/{card_id}/archive-impact": {
+      "get": {
+        "description": "Pre-flight payload for the archive/delete dialog.\n\nReturns the direct children, the grandparent (if any), and every peer card\nlinked via a `relations` row. Hidden card-types are filtered out, mirroring\nthe relations list endpoint at `/api/v1/relations`.",
+        "operationId": "get_archive_impact_api_v1_cards__card_id__archive_impact_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "card_id",
+            "required": true,
+            "schema": {
+              "title": "Card Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArchiveImpactResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Archive Impact",
         "tags": [
           "cards"
         ]

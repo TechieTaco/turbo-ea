@@ -5,6 +5,20 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.5.0] - 2026-05-08
+
+### Added
+- **Archive and delete dialogs now ask what to do with children and related cards.** When archiving or deleting a card that has children (via `parent_id`), a strategy chooser appears with three options: archive/delete all descendants too (cascade), keep children as root cards (disconnect their `parent_id`), or move children up to the grandparent (reparent — hidden when no grandparent exists). When the card has peer relations, the same dialog lists every linked card grouped by relation type with checkboxes so the user can opt to archive/delete those cards in the same operation. Inventory bulk actions reuse the same dialog with a global toggle to also process every selected card's direct relations.
+- **`GET /cards/{id}/archive-impact`** endpoint surfaces the children, grandparent, and peer relations the dialog needs in one round-trip. Hidden card-types are filtered.
+
+### Changed
+- **`POST /cards/{id}/archive`** and **`DELETE /cards/{id}`** accept an optional JSON body `{child_strategy, related_card_ids, cascade_all_related}`. The endpoints now return a richer response (`primary` + affected ID lists for archive; `deleted_card_ids` + affected ID lists for delete). Callers who omit the body but have direct children get **409 Conflict** with `{"error": "children_present"}` so they make a deliberate choice. Backwards-compatible when the card has no children.
+- **APPROVED children whose `parent_id` is mutated by `disconnect` or `reparent` become BROKEN** — same rule as the existing manual `parent_id` edit.
+
+### Fixed
+- **Auto-purge no longer fails on cards that still have children pointing at them.** The hourly purge loop now disconnects any stranded children (`parent_id = NULL`) before deleting the parent, fixing a latent FK violation that would have hit historical data created before the new strategy chooser shipped.
+- **Hard-deleting a card with children no longer fails with an integrity error.** The new cascade/disconnect/reparent flow handles the `cards.parent_id` self-FK properly.
+
 ## [1.4.0] - 2026-05-08
 
 ### Added

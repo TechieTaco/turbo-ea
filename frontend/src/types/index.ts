@@ -1736,3 +1736,52 @@ export interface TurboLensCommitProgress {
   adr_id?: string;
   detail?: string;
 }
+
+// ── Archive / delete with children + related cards ──────────────
+export type ChildStrategy = "cascade" | "disconnect" | "reparent";
+
+export interface ArchiveImpactCardRef {
+  id: string;
+  name: string;
+  type: string;
+  subtype?: string | null;
+}
+
+export interface ArchiveImpactChild extends ArchiveImpactCardRef {
+  descendants_count: number;
+  approval_status: string;
+}
+
+export interface ArchiveImpactRelatedCard extends ArchiveImpactCardRef {
+  relation_id: string;
+  relation_type_key: string;
+  relation_label: string;
+  direction: "outgoing" | "incoming";
+}
+
+export interface ArchiveImpact {
+  child_count: number;
+  descendant_count: number;
+  approved_descendant_count: number;
+  grandparent: ArchiveImpactCardRef | null;
+  children: ArchiveImpactChild[];
+  related_cards: ArchiveImpactRelatedCard[];
+}
+
+export interface CardArchiveDeleteRequest {
+  child_strategy?: ChildStrategy;
+  related_card_ids?: string[];
+  cascade_all_related?: boolean;
+}
+
+export interface CardArchiveResponse {
+  primary: Card;
+  affected_children_ids: string[];
+  affected_related_card_ids: string[];
+}
+
+export interface CardDeleteResponse {
+  deleted_card_ids: string[];
+  affected_children_ids: string[];
+  affected_related_card_ids: string[];
+}

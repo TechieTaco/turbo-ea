@@ -71,6 +71,13 @@ async def _run_purge(db):
     for rel in rels.scalars().all():
         await db.delete(rel)
 
+    # Self-heal stranded children — mirrors the production purge loop.
+    stranded_res = await db.execute(
+        select(Card).where(Card.parent_id.in_(purged_ids), Card.id.not_in(purged_ids))
+    )
+    for stranded in stranded_res.scalars().all():
+        stranded.parent_id = None
+
     for card in cards_to_purge:
         await db.delete(card)
 
@@ -247,6 +254,43 @@ class TestPurgeArchivedCards:
 
         count = await _run_purge(db)
         assert count == 0
+
+    async def test_purge_self_heals_stranded_children(self, db, purge_env):
+        """An ACTIVE child whose parent is being purged should survive with parent_id=NULL.
+
+        This protects against historical data created before the child-strategy
+        feature shipped (where archive could leave children pointing at an
+        archived parent and the self-FK would block the delete at purge time).
+        """
+        parent = await create_card(
+            db,
+            card_type="Application",
+            name="Old Parent",
+            status="ARCHIVED",
+            user_id=purge_env["user"].id,
+        )
+        parent.archived_at = datetime.now(timezone.utc) - timedelta(days=45)
+        child = await create_card(
+            db,
+            card_type="Application",
+            name="Surviving Child",
+            parent_id=parent.id,
+            user_id=purge_env["user"].id,
+        )
+        await db.flush()
+
+        count = await _run_purge(db)
+        assert count == 1
+
+        # Parent gone.
+        parent_row = (
+            await db.execute(select(Card).where(Card.id == parent.id))
+        ).scalar_one_or_none()
+        assert parent_row is None
+        # Child survived with parent_id cleared.
+        child_row = (await db.execute(select(Card).where(Card.id == child.id))).scalar_one()
+        assert child_row.parent_id is None
+        assert child_row.status == "ACTIVE"
 
     async def test_mix_of_old_and_recent(self, db, purge_env):
         """Only old archived cards are purged; recent ones are kept."""

@@ -3,9 +3,9 @@ from __future__ import annotations
 import csv
 import io
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Body, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -23,15 +23,23 @@ from app.models.stakeholder_role_definition import StakeholderRoleDefinition
 from app.models.tag import Tag
 from app.models.user import User
 from app.schemas.card import (
+    ArchiveImpactCardRef,
+    ArchiveImpactChild,
+    ArchiveImpactRelatedCard,
+    ArchiveImpactResponse,
+    CardArchiveRequest,
+    CardArchiveResponse,
     CardBulkUpdate,
     CardCreate,
+    CardDeleteRequest,
+    CardDeleteResponse,
     CardListResponse,
     CardResponse,
     CardUpdate,
     StakeholderRef,
     TagRef,
 )
-from app.services import notification_service
+from app.services import card_lifecycle, notification_service
 from app.services.calculation_engine import run_calculations_for_card
 from app.services.card_completeness import missing_mandatory
 from app.services.cost_field_filter import cost_field_keys_from_card_schema
@@ -879,45 +887,279 @@ async def update_card(
     return await _card_response_with_cost_check(db, user, card)
 
 
-@router.post("/{card_id}/archive", response_model=CardResponse)
+@router.get("/{card_id}/archive-impact", response_model=ArchiveImpactResponse)
+async def get_archive_impact(
+    card_id: str,
+    db: AsyncSession = Depends(get_db),
+    _user: User = Depends(get_current_user),
+):
+    """Pre-flight payload for the archive/delete dialog.
+
+    Returns the direct children, the grandparent (if any), and every peer card
+    linked via a `relations` row. Hidden card-types are filtered out, mirroring
+    the relations list endpoint at `/api/v1/relations`.
+    """
+    uid = uuid.UUID(card_id)
+    res = await db.execute(select(Card).where(Card.id == uid))
+    primary = res.scalar_one_or_none()
+    if not primary:
+        raise HTTPException(404, "Card not found")
+
+    children, grandparent, related_rows = await card_lifecycle.gather_archive_impact(db, primary)
+
+    descendants = await card_lifecycle.collect_descendants(db, uid)
+    descendant_count = len(descendants)
+    approved_descendant_count = 0
+    if descendants:
+        approved_res = await db.execute(
+            select(func.count(Card.id)).where(
+                Card.id.in_(descendants), Card.approval_status == "APPROVED"
+            )
+        )
+        approved_descendant_count = int(approved_res.scalar_one() or 0)
+
+    children_per_descendant: dict[uuid.UUID, int] = {}
+    if children:
+        for child in children:
+            sub = await card_lifecycle.collect_descendants(db, child.id)
+            children_per_descendant[child.id] = len(sub)
+
+    return ArchiveImpactResponse(
+        child_count=len(children),
+        descendant_count=descendant_count,
+        approved_descendant_count=approved_descendant_count,
+        grandparent=(
+            ArchiveImpactCardRef(
+                id=str(grandparent.id),
+                name=grandparent.name,
+                type=grandparent.type,
+                subtype=grandparent.subtype,
+            )
+            if grandparent
+            else None
+        ),
+        children=[
+            ArchiveImpactChild(
+                id=str(c.id),
+                name=c.name,
+                type=c.type,
+                subtype=c.subtype,
+                descendants_count=children_per_descendant.get(c.id, 0),
+                approval_status=c.approval_status,
+            )
+            for c in children
+        ],
+        related_cards=[
+            ArchiveImpactRelatedCard(
+                id=str(peer.id),
+                name=peer.name,
+                type=peer.type,
+                subtype=peer.subtype,
+                relation_id=str(rel.id),
+                relation_type_key=rel.type,
+                relation_label=label,
+                direction=direction,
+            )
+            for rel, peer, direction, label in related_rows
+        ],
+    )
+
+
+async def _resolve_archive_delete_set(
+    db: AsyncSession,
+    primary: Card,
+    body: CardArchiveRequest | CardDeleteRequest,
+) -> tuple[list[uuid.UUID], list[uuid.UUID], list[uuid.UUID]]:
+    """Resolve (descendants, related_card_ids, full_affected_excluding_primary).
+
+    - descendants: empty unless `child_strategy == "cascade"`.
+    - related_card_ids: deduped, primary-stripped, descendant-stripped.
+    - full_affected_excluding_primary: union, deduped.
+    """
+    descendants: list[uuid.UUID] = []
+    if body.child_strategy == "cascade":
+        descendants = await card_lifecycle.collect_descendants(db, primary.id)
+
+    requested_related: list[uuid.UUID] = []
+    seen_related: set[uuid.UUID] = set()
+    for raw in body.related_card_ids:
+        try:
+            rid = uuid.UUID(raw)
+        except (TypeError, ValueError) as exc:
+            raise HTTPException(422, f"Invalid related_card_ids entry: {raw!r}") from exc
+        if rid == primary.id or rid in seen_related:
+            continue
+        seen_related.add(rid)
+        requested_related.append(rid)
+
+    if body.cascade_all_related:
+        for peer_id in await card_lifecycle.expand_cascade_all_related(db, primary.id):
+            if peer_id == primary.id or peer_id in seen_related:
+                continue
+            seen_related.add(peer_id)
+            requested_related.append(peer_id)
+
+    descendant_set = set(descendants)
+    related_card_ids = [rid for rid in requested_related if rid not in descendant_set]
+
+    full_set: list[uuid.UUID] = []
+    seen_full: set[uuid.UUID] = set()
+    for cid in [*descendants, *related_card_ids]:
+        if cid in seen_full:
+            continue
+        seen_full.add(cid)
+        full_set.append(cid)
+
+    return descendants, related_card_ids, full_set
+
+
+async def _ensure_permission_on_each(
+    db: AsyncSession,
+    user: User,
+    card_ids: list[uuid.UUID],
+    *,
+    app_perm: str,
+    card_perm: str,
+) -> None:
+    if not card_ids:
+        return
+    denied: list[str] = []
+    for cid in card_ids:
+        if not await PermissionService.check_permission(db, user, app_perm, cid, card_perm):
+            denied.append(str(cid))
+            if len(denied) >= 5:
+                break
+    if denied:
+        raise HTTPException(
+            403,
+            f"Not enough permissions for cards: {', '.join(denied)}"
+            + (" (and possibly more)" if len(denied) >= 5 else ""),
+        )
+
+
+@router.post("/{card_id}/archive", response_model=CardArchiveResponse)
 async def archive_card(
     card_id: str,
+    body: CardArchiveRequest = Body(default_factory=CardArchiveRequest),
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    """Archive a card (soft delete). Sets status to ARCHIVED and records archived_at."""
+    """Archive a card (soft delete) plus optional descendants and related peer cards.
+
+    Body shape:
+      - `child_strategy`: `cascade` | `disconnect` | `reparent` (required if the
+        primary card has direct children — otherwise 409).
+      - `related_card_ids`: peer cards (capped at 200) to also archive in the
+        same operation. Single-hop only — the related cards' own peer relations
+        are NOT recursed.
+      - `cascade_all_related`: bulk-mode shortcut that resolves all direct
+        relations of the primary on the server side.
+
+    Permission check runs against every affected card; first denial aborts.
+    """
     card_uuid = uuid.UUID(card_id)
     if not await PermissionService.check_permission(
         db, user, "inventory.archive", card_uuid, "card.archive"
     ):
         raise HTTPException(403, "Not enough permissions")
-    result = await db.execute(select(Card).where(Card.id == card_uuid))
-    card = result.scalar_one_or_none()
-    if not card:
+    res = await db.execute(select(Card).where(Card.id == card_uuid))
+    primary = res.scalar_one_or_none()
+    if not primary:
         raise HTTPException(404, "Card not found")
-    if card.status == "ARCHIVED":
+    if primary.status == "ARCHIVED":
         raise HTTPException(400, "Card is already archived")
-    card.status = "ARCHIVED"
-    card.archived_at = datetime.now(timezone.utc)
-    card.updated_by = user.id
-    await event_bus.publish(
-        "card.archived",
-        {"id": str(card.id), "type": card.type, "name": card.name},
-        db=db,
-        card_id=card.id,
-        user_id=user.id,
+
+    direct_children = await card_lifecycle.direct_children(db, primary.id)
+    if direct_children and body.child_strategy is None:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "error": "children_present",
+                "child_count": len(direct_children),
+            },
+        )
+
+    descendants, related_card_ids, full_affected = await _resolve_archive_delete_set(
+        db, primary, body
     )
-    await db.commit()
-    result = await db.execute(
+    await _ensure_permission_on_each(
+        db,
+        user,
+        full_affected,
+        app_perm="inventory.archive",
+        card_perm="card.archive",
+    )
+
+    # Apply parent-id mutation on the primary's direct children for disconnect/reparent.
+    if direct_children and body.child_strategy in ("disconnect", "reparent"):
+        await card_lifecycle.apply_child_strategy(db, primary, body.child_strategy, user.id)
+    # For ticked related cards, give their own children a `disconnect` so their
+    # `parent_id` doesn't point at a soon-to-be-archived parent. Single-hop.
+    for rid in related_card_ids:
+        rel_res = await db.execute(select(Card).where(Card.id == rid))
+        rcard = rel_res.scalar_one_or_none()
+        if rcard is not None and rcard.status == "ACTIVE":
+            await card_lifecycle.apply_child_strategy(db, rcard, "disconnect", user.id)
+
+    # Flip primary + cascade descendants + ticked related to ARCHIVED.
+    to_flip_ids = [primary.id, *full_affected]
+    flip_res = await db.execute(
         select(Card)
-        .where(Card.id == card.id)
+        .where(Card.id.in_(to_flip_ids), Card.status == "ACTIVE")
         .options(
             selectinload(Card.tags).selectinload(Tag.group),
             selectinload(Card.stakeholders).selectinload(Stakeholder.user),
         )
     )
-    card = result.scalar_one()
-    return await _card_response_with_cost_check(db, user, card)
+    flip_cards = list(flip_res.scalars().all())
+    flipped = card_lifecycle.archive_cards_in_place(flip_cards, user.id)
+
+    affected_children_ids = [
+        cid for cid in descendants if cid in {c.id for c in flipped if c.id != primary.id}
+    ]
+    affected_related_card_ids = [rid for rid in related_card_ids if rid in {c.id for c in flipped}]
+
+    for fcard in flipped:
+        await event_bus.publish(
+            "card.archived",
+            {"id": str(fcard.id), "type": fcard.type, "name": fcard.name},
+            db=db,
+            card_id=fcard.id,
+            user_id=user.id,
+        )
+
+    if affected_children_ids or affected_related_card_ids:
+        await event_bus.publish(
+            "card.archived.batch",
+            {
+                "id": str(primary.id),
+                "type": primary.type,
+                "name": primary.name,
+                "child_strategy": body.child_strategy,
+                "affected_children_ids": [str(x) for x in affected_children_ids],
+                "affected_related_card_ids": [str(x) for x in affected_related_card_ids],
+            },
+            db=db,
+            card_id=primary.id,
+            user_id=user.id,
+        )
+
+    await db.commit()
+
+    res = await db.execute(
+        select(Card)
+        .where(Card.id == primary.id)
+        .options(
+            selectinload(Card.tags).selectinload(Tag.group),
+            selectinload(Card.stakeholders).selectinload(Stakeholder.user),
+        )
+    )
+    primary = res.scalar_one()
+    return CardArchiveResponse(
+        primary=await _card_response_with_cost_check(db, user, primary),
+        affected_children_ids=[str(x) for x in affected_children_ids],
+        affected_related_card_ids=[str(x) for x in affected_related_card_ids],
+    )
 
 
 @router.post("/{card_id}/restore", response_model=CardResponse)
@@ -961,13 +1203,21 @@ async def restore_card(
     return await _card_response_with_cost_check(db, user, card)
 
 
-@router.delete("/{card_id}", status_code=204)
+@router.delete("/{card_id}", response_model=CardDeleteResponse)
 async def delete_card(
     card_id: str,
+    body: CardDeleteRequest = Body(default_factory=CardDeleteRequest),
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    """Permanently delete a card. Admin only."""
+    """Permanently delete a card plus optional descendants and related peer cards.
+
+    Mirrors `archive_card`'s body shape and rules. The primary is always deleted;
+    descendants are deleted leaves-first to satisfy the self-FK on `parent_id`.
+    Related cards are processed single-hop only.
+
+    Returns 409 if the primary has direct children and `child_strategy` is None.
+    """
     card_uuid = uuid.UUID(card_id)
     if not await PermissionService.check_permission(
         db, user, "inventory.delete", card_uuid, "card.delete"
@@ -975,33 +1225,104 @@ async def delete_card(
         raise HTTPException(
             403, "Not enough permissions — only admins can permanently delete cards"
         )
-    result = await db.execute(select(Card).where(Card.id == card_uuid))
-    card = result.scalar_one_or_none()
-    if not card:
+    res = await db.execute(select(Card).where(Card.id == card_uuid))
+    primary = res.scalar_one_or_none()
+    if not primary:
         raise HTTPException(404, "Card not found")
 
-    card_name = card.name
-    card_type = card.type
-
-    # Delete related records first
-    relations = await db.execute(
-        select(Relation).where(
-            or_(Relation.source_id == card_uuid, Relation.target_id == card_uuid)
+    direct_children = await card_lifecycle.direct_children(db, primary.id)
+    if direct_children and body.child_strategy is None:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "error": "children_present",
+                "child_count": len(direct_children),
+            },
         )
-    )
-    for rel in relations.scalars().all():
-        await db.delete(rel)
 
-    await event_bus.publish(
-        "card.deleted",
-        {"id": str(card_uuid), "type": card_type, "name": card_name},
-        db=db,
-        card_id=card_uuid,
-        user_id=user.id,
+    descendants, related_card_ids, _full_affected = await _resolve_archive_delete_set(
+        db, primary, body
+    )
+    permission_targets = [*descendants, *related_card_ids]
+    await _ensure_permission_on_each(
+        db,
+        user,
+        permission_targets,
+        app_perm="inventory.delete",
+        card_perm="card.delete",
     )
 
-    await db.delete(card)
+    # For disconnect/reparent, mutate the primary's children before deletion.
+    if direct_children and body.child_strategy in ("disconnect", "reparent"):
+        await card_lifecycle.apply_child_strategy(db, primary, body.child_strategy, user.id)
+    # Single-hop: any ticked related card's children get disconnected before
+    # the related card is deleted, so the FK on `cards.parent_id` doesn't trip.
+    for rid in related_card_ids:
+        rel_res = await db.execute(select(Card).where(Card.id == rid))
+        rcard = rel_res.scalar_one_or_none()
+        if rcard is not None:
+            await card_lifecycle.apply_child_strategy(db, rcard, "disconnect", user.id)
+
+    # Capture what we'll be reporting before the rows are gone.
+    affected_children_ids = list(descendants)
+    affected_related_card_ids = list(related_card_ids)
+    deleted_payload: list[tuple[uuid.UUID, str, str]] = []
+
+    # Resolve all targets (descendants + related + primary) up front, then
+    # publish their `card.deleted` events BEFORE the DELETE runs. The events
+    # FK uses `ON DELETE SET NULL`, but inserting the event row after the
+    # cards row is gone would still violate the FK at flush time.
+    target_objs: list[Card] = []
+    for cid in [*descendants, *related_card_ids]:
+        row_res = await db.execute(select(Card).where(Card.id == cid))
+        cobj = row_res.scalar_one_or_none()
+        if cobj is None:
+            continue
+        target_objs.append(cobj)
+        deleted_payload.append((cobj.id, cobj.type, cobj.name))
+    target_objs.append(primary)
+    deleted_payload.append((primary.id, primary.type, primary.name))
+
+    for did, dtype, dname in deleted_payload:
+        await event_bus.publish(
+            "card.deleted",
+            {"id": str(did), "type": dtype, "name": dname},
+            db=db,
+            card_id=did,
+            user_id=user.id,
+        )
+
+    if affected_children_ids or affected_related_card_ids:
+        await event_bus.publish(
+            "card.deleted.batch",
+            {
+                "id": str(primary.id),
+                "type": primary.type,
+                "name": primary.name,
+                "child_strategy": body.child_strategy,
+                "affected_children_ids": [str(x) for x in affected_children_ids],
+                "affected_related_card_ids": [str(x) for x in affected_related_card_ids],
+            },
+            db=db,
+            card_id=primary.id,
+            user_id=user.id,
+        )
+
+    # Cascade descendants are ordered deepest-first; primary is last so its
+    # children (which were either reparented above or are the descendants
+    # themselves) are gone before the parent FK is removed. Flush between
+    # each row so SQLAlchemy doesn't batch the DELETEs into one executemany
+    # call (which would lose the deepest-first ordering).
+    for cobj in target_objs:
+        await db.delete(cobj)
+        await db.flush()
+
     await db.commit()
+    return CardDeleteResponse(
+        deleted_card_ids=[str(did) for did, _, _ in deleted_payload],
+        affected_children_ids=[str(x) for x in affected_children_ids],
+        affected_related_card_ids=[str(x) for x in affected_related_card_ids],
+    )
 
 
 @router.post("/fix-hierarchy-names")
