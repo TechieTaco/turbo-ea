@@ -268,9 +268,22 @@ export default function ArchiveDeleteDialog(props: Props) {
             {showChildrenSection && (
               <Box>
                 <Divider sx={{ mb: 2 }} />
-                <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                  {t("cards:detail.dialogs.children.title")}
-                </Typography>
+                <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
+                  <Typography variant="subtitle2">
+                    {t("cards:detail.dialogs.children.title")}
+                  </Typography>
+                  {scope === "single" && impact && impact.child_count > 0 && (
+                    <Chip
+                      label={t("cards:detail.dialogs.children.countChip", {
+                        count: impact.child_count,
+                        descendants: impact.descendant_count,
+                      })}
+                      size="small"
+                      color="warning"
+                      variant="outlined"
+                    />
+                  )}
+                </Stack>
                 {scope === "single" && impact && (
                   <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
                     {t("cards:detail.dialogs.children.intro", {
@@ -368,9 +381,34 @@ export default function ArchiveDeleteDialog(props: Props) {
             {showRelatedSection && impact && (
               <Box>
                 <Divider sx={{ mb: 2 }} />
-                <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                  {t("cards:detail.dialogs.related.title")}
-                </Typography>
+                <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
+                  <Typography variant="subtitle2">
+                    {t("cards:detail.dialogs.related.title")}
+                  </Typography>
+                  <Chip
+                    label={t("cards:detail.dialogs.related.countChip", {
+                      count: impact.related_cards.length,
+                    })}
+                    size="small"
+                    color="info"
+                    variant="outlined"
+                  />
+                  {tickedCount > 0 && (
+                    <Chip
+                      label={t("cards:detail.dialogs.related.tickedChip", {
+                        count: tickedCount,
+                      })}
+                      size="small"
+                      color={
+                        tickedCount >= TYPED_CONFIRM_THRESHOLD
+                          ? "error"
+                          : tickedCount >= WARNING_THRESHOLD
+                            ? "warning"
+                            : "primary"
+                      }
+                    />
+                  )}
+                </Stack>
                 <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
                   {t("cards:detail.dialogs.related.intro", {
                     count: impact.related_cards.length,
@@ -384,6 +422,9 @@ export default function ArchiveDeleteDialog(props: Props) {
                         <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 0.5 }}>
                           <Typography variant="body2" sx={{ fontWeight: 600 }}>
                             {group.label}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            ({group.cards.length})
                           </Typography>
                           <Link
                             component="button"
