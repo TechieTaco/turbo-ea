@@ -47,7 +47,7 @@ def get_catalogue_principle(catalogue_id: str) -> dict[str, Any] | None:
     """Return a single catalogue entry by id, or None if unknown."""
     for p in _load_catalogue().get("principles", []):
         if p.get("id") == catalogue_id:
-            return p
+            return dict(p)
     return None
 
 
