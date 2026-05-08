@@ -284,14 +284,6 @@ export default function ArchiveDeleteDialog(props: Props) {
                     />
                   )}
                 </Stack>
-                {scope === "single" && impact && (
-                  <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                    {t("cards:detail.dialogs.children.intro", {
-                      count: impact.child_count,
-                      descendants: impact.descendant_count,
-                    })}
-                  </Typography>
-                )}
                 <FormControl>
                   <RadioGroup
                     value={strategy ?? ""}
@@ -307,11 +299,11 @@ export default function ArchiveDeleteDialog(props: Props) {
                       )}
                     />
                     <FormHelperText sx={{ ml: 4, mt: -1 }}>
-                      {scope === "single" && impact
-                        ? t("cards:detail.dialogs.children.cascadeHelp", {
-                            count: impact.descendant_count,
-                          })
-                        : t("inventory:massArchive.cascadeHelp")}
+                      {t(
+                        mode === "archive"
+                          ? "cards:detail.dialogs.children.cascadeHelpArchive"
+                          : "cards:detail.dialogs.children.cascadeHelpDelete",
+                      )}
                     </FormHelperText>
                     <FormControlLabel
                       value="disconnect"
@@ -410,9 +402,7 @@ export default function ArchiveDeleteDialog(props: Props) {
                   )}
                 </Stack>
                 <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                  {t("cards:detail.dialogs.related.intro", {
-                    count: impact.related_cards.length,
-                  })}
+                  {t("cards:detail.dialogs.related.tickPrompt")}
                 </Typography>
                 <Stack spacing={1.5}>
                   {groupedRelated.map((group) => {
