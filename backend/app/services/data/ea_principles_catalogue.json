@@ -1,0 +1,76 @@
+{
+  "catalogue_version": "1.0.0",
+  "generated_at": "2026-05-08",
+  "principles": [
+    {
+      "id": "PR-001",
+      "title": "Reuse before Buy before Build",
+      "description": "Consider reusing existing solutions before purchasing new ones and only consider building new solutions as a last resort.",
+      "rationale": "- Improves cost efficiency, reduces complexity and time to market\n- Packaged solutions are well tested and based on market standards\n- Highly customized solutions lead to high maintenance costs",
+      "implications": "- Always look at existing solutions within the company first to solve a new business need\n- Architectural components should be centralized and designed for reuse in order to minimize the cost of purchasing/developing new ones\n- If opting for a packaged solution, limit customization to less than 30% of the package's overall functionality"
+    },
+    {
+      "id": "PR-002",
+      "title": "Prefer fully managed Services",
+      "description": "Prioritize the adoption of fully managed services over self-managed infrastructure solutions (SaaS before PaaS, before IaaS).",
+      "rationale": "- Reduces operational burden as managed services offer built-in maintenance, support and scalability\n- Accelerates time-to-market and fosters innovation by freeing up internal resources",
+      "implications": "- Always scout the market for fully managed services (SaaS) to solve a business need\n- Opt for PaaS when SaaS solutions are unavailable in the market or deemed unsuitable due to compliance considerations\n- Utilize IaaS sparingly, reserving it as a fallback option, while ensuring a strategy is in place for ultimately transitioning towards PaaS or SaaS"
+    },
+    {
+      "id": "PR-003",
+      "title": "Business value-driven Architecture",
+      "description": "All architecture decisions should be driven by business drivers and goals.",
+      "rationale": "- Drives business value\n- Avoid the cost of implementing technology for technology's sake\n- All IT investments should be aligned with business strategy and anchored to clear business objectives\n- Clarifies responsibilities and ownership",
+      "implications": "- Seek to understand business drivers and goals\n- Link all architecture decisions to business objectives\n- Always have a business case, business requirements and clear business value in mind"
+    },
+    {
+      "id": "PR-004",
+      "title": "One capability, One solution",
+      "description": "Implement one solution per business capability.",
+      "rationale": "- Ensures cost efficiency and optimal use of resources by avoiding functional redundancy\n- Simplifies IT portfolio and minimizes maintenance/support efforts (less applications to manage)",
+      "implications": "- Always look at existing solutions within the company when addressing a new requirement\n- Ensure that existing solutions cannot be utilized before implementing a new solution"
+    },
+    {
+      "id": "PR-005",
+      "title": "Exit Strategy",
+      "description": "Have an exit strategy in place when selecting solutions.",
+      "rationale": "- Avoid vendor/solution lock-in\n- Acknowledges the dynamic nature of business strategies and tech landscapes where solutions may need to be replaced or retired over time\n- Mitigates risks associated with vendor discontinuations, EOL scenarios, pricing or changes in business/technical needs",
+      "implications": "- Develop data migration strategies and contingency plans to accommodate for exit scenarios\n- Regularly review and update exit strategies to align with evolving business needs and technology landscapes"
+    },
+    {
+      "id": "PR-006",
+      "title": "Total Cost of Ownership (TCO)",
+      "description": "Consider all direct and indirect costs associated with acquiring, implementing, operating and maintaining technology solutions throughout their lifecycle.",
+      "rationale": "- Ensures that overall solution costs have been considered for value for money\n- The initial purchase cost of a technology solution represents only a fraction of its total cost over its entire lifecycle\n- TCO analysis provides a more comprehensive assessment of the financial implications and long-term value of IT-related investments",
+      "implications": "- Analyze and document thoroughly all financial implications when selecting solutions\n- Consider alternative solutions or deployment models based on TCO"
+    },
+    {
+      "id": "PR-007",
+      "title": "Seamless Integration",
+      "description": "Prioritize solutions that offer seamless integration capabilities out of the box, utilizing open protocols and standards.",
+      "rationale": "- Facilitates interoperability with existing solutions\n- Minimizes the need for custom development and reduces integration complexity\n- Enables (OOTB) efficient data exchange across diverse technology landscapes",
+      "implications": "- Assess integration capabilities considering support for open standards such as HTTP, REST etc.\n- Leverage pre-built connectors, adapters and integration patterns for commonly used solutions"
+    },
+    {
+      "id": "PR-008",
+      "title": "Technical Debt",
+      "description": "Be mindful of the impact that accumulated technical debt has and prioritize solutions with limited technical debt impact.",
+      "rationale": "- Promotes architecture standardization and consistency\n- Reduces architectural complexity and maintainability efforts\n- Supports long-term cost savings and agility by reducing the need for refactoring and rework",
+      "implications": "- Be mindful of what constitutes technical debt\n- Thoroughly evaluate solutions for potential technical debt\n- Track and monitor technical debt over time"
+    },
+    {
+      "id": "PR-009",
+      "title": "Legal & Regulatory Compliance",
+      "description": "All solutions must adhere to applicable legal and regulatory requirements.",
+      "rationale": "- Ensures compliance with relevant laws, standards and industry regulations\n- Mitigates legal risks and protects sensitive data\n- Supports integrity, accountability and responsible business practices",
+      "implications": "- Engage legal and compliance experts\n- Thoroughly evaluate solutions against relevant legal and regulatory frameworks"
+    },
+    {
+      "id": "PR-010",
+      "title": "Security by Design",
+      "description": "All solutions must adhere to the enterprise's security and cybersecurity standards.",
+      "rationale": "- Mitigates security/cybersecurity risks and safeguards the organization's assets\n- Security measures implemented during design are more effective and cost-efficient than retroactive security fixes applied after deployment",
+      "implications": "- Embed security requirements into solution design from the outset rather than bolting them on later\n- Engage security experts during architecture and solution design reviews\n- Continuously assess solutions against the enterprise's security and cybersecurity standards throughout their lifecycle"
+    }
+  ]
+}

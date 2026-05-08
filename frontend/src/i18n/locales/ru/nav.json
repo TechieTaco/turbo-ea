@@ -43,5 +43,7 @@
   "turbolens.assessments": "Оценки",
   "turbolens.security": "Безопасность и комплаенс",
   "turbolens.history": "История",
-  "userMenu.capabilityCatalogue": "Каталог возможностей"
+  "userMenu.capabilityCatalogue": "Каталог возможностей",
+  "userMenu.principlesCatalogue": "Каталог принципов",
+  "userMenu.referenceCatalogues": "Справочные каталоги"
 }

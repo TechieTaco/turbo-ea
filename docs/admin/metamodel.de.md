@@ -135,6 +135,16 @@ Jedes Prinzip hat vier Felder:
 
 Prinzipien können über den Umschalter auf jeder Karte einzeln **aktiviert** oder **deaktiviert** werden.
 
+### Aus dem Prinzipienkatalog importieren
+
+Turbo EA liefert einen **kuratierten Referenzkatalog mit 10 branchenüblichen EA-Prinzipien**, damit Sie nicht bei null anfangen müssen. Öffnen Sie das Avatar-Menü oben rechts und wählen Sie **Referenzkataloge → Prinzipienkatalog**. Dort können Sie:
+
+- Die mitgelieferten Prinzipien durchsuchen (Titel, Beschreibung, Begründung, Auswirkungen).
+- Mehrere Einträge auswählen und auf **Importieren** klicken — die ausgewählten Prinzipien erscheinen im Tab „EA-Prinzipien" als reguläre, vollständig editierbare Einträge.
+- Sicher erneut importieren: bereits vorhandene Prinzipien (über ihre stabile Katalog-ID erkannt) werden übersprungen, auch wenn Sie sie lokal umbenannt haben. Im Katalog erhalten diese eine grüne „Bereits importiert"-Kennzeichnung.
+
+Verwenden Sie den Katalog als Ausgangspunkt und passen Sie anschließend Titel, Aussage, Begründung und Auswirkungen jedes Prinzips an Ihre Organisation an.
+
 ### Wie Prinzipien die KI-Insights beeinflussen
 
 Wenn Sie **KI-Portfolio-Insights** im [Portfolio-Bericht](../guide/reports.md#ai-portfolio-insights) generieren, werden alle aktiven Prinzipien in die Analyse einbezogen. Die KI bewertet Ihre Portfoliodaten anhand jedes Prinzips und berichtet:

@@ -23,6 +23,7 @@ from app.api.v1 import (
     notifications,
     ppm,
     ppm_reports,
+    principles_catalogue,
     relations,
     reports,
     risks,
@@ -81,3 +82,4 @@ api_router.include_router(risks.cards_risks_router)
 api_router.include_router(file_attachments.router)
 api_router.include_router(favorites.router)
 api_router.include_router(capability_catalogue.router)
+api_router.include_router(principles_catalogue.router)

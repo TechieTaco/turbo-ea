@@ -135,6 +135,16 @@ Cada principio tiene cuatro campos:
 
 Los principios se pueden **activar** o **desactivar** individualmente mediante el interruptor en cada tarjeta.
 
+### Importar desde el Catálogo de principios
+
+Turbo EA incluye un **catálogo de referencia comisariado con 10 principios EA estándar del sector** para que no tenga que empezar desde una página en blanco. Abra el menú de avatar en la esquina superior derecha y seleccione **Catálogos de referencia → Catálogo de principios**. Desde ahí puede:
+
+- Buscar y explorar los principios incluidos (título, descripción, justificación, implicaciones).
+- Seleccionar varias entradas y pulsar **Importar** — los principios seleccionados aparecerán en la pestaña «Principios EA» como entradas estándar totalmente editables.
+- Reimportar con seguridad: los principios que ya existen (identificados por su ID de catálogo estable) se omiten, incluso si los ha renombrado localmente. El catálogo muestra una insignia verde «Ya importado» para estas entradas.
+
+Use el catálogo como punto de partida y luego adapte el título, el enunciado, la justificación y las implicaciones de cada principio a su organización.
+
 ### Cómo los principios influyen en los insights de IA
 
 Cuando genera **Insights IA del portafolio** en el [Informe de portafolio](../guide/reports.md#ai-portfolio-insights), todos los principios activos se incluyen en el análisis. La IA evalúa los datos de su portafolio frente a cada principio e informa:

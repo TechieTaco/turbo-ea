@@ -135,6 +135,16 @@ Each principle has four fields:
 
 Principles can be **activated** or **deactivated** individually using the toggle switch on each card.
 
+### Importing from the Principles Catalogue
+
+Turbo EA ships a **curated reference catalogue of 10 industry-standard EA principles** so you don't have to start from a blank page. Open the avatar menu in the top-right corner and pick **Reference Catalogues → Principles Catalogue**. From there you can:
+
+- Search and browse the bundled principles (title, description, rationale, implications).
+- Multi-select the entries you want and click **Import** — selected principles land in the EA Principles tab as standard, fully-editable rows.
+- Re-import safely: principles that already exist (matched by their stable catalogue ID) are skipped, even if you've renamed them locally. The catalogue shows a green "Already imported" badge for these.
+
+Use the catalogue as a starting point and then tailor each principle's title, statement, rationale, and implications to your organisation.
+
 ### How Principles Influence AI Insights
 
 When you generate **AI Portfolio Insights** on the [Portfolio Report](../guide/reports.md#ai-portfolio-insights), all active principles are included in the analysis. The AI evaluates your portfolio data against each principle and reports:

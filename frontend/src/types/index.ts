@@ -269,8 +269,30 @@ export interface EAPrinciple {
   implications?: string;
   is_active: boolean;
   sort_order: number;
+  catalogue_id?: string | null;
   created_at?: string;
   updated_at?: string;
+}
+
+export interface CataloguePrinciple {
+  id: string;
+  title: string;
+  description: string | null;
+  rationale: string | null;
+  implications: string | null;
+  existing_principle_id: string | null;
+}
+
+export interface PrinciplesCataloguePayload {
+  catalogue_version: string | null;
+  generated_at: string | null;
+  principles: CataloguePrinciple[];
+}
+
+export interface PrinciplesImportResult {
+  created: { catalogue_id: string; principle_id: string }[];
+  skipped: { catalogue_id: string; principle_id: string; reason: string }[];
+  catalogue_version: string | null;
 }
 
 export interface CalculatedFieldsMap {

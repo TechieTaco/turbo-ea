@@ -135,6 +135,16 @@ Ogni principio ha quattro campi:
 
 I principi possono essere **attivati** o **disattivati** individualmente tramite l'interruttore su ciascuna scheda.
 
+### Importare dal Catalogo dei principi
+
+Turbo EA include un **catalogo di riferimento curato con 10 principi EA standard del settore** in modo da non dover partire da una pagina vuota. Apri il menu dell'avatar in alto a destra e seleziona **Cataloghi di riferimento → Catalogo dei principi**. Da qui puoi:
+
+- Cercare e sfogliare i principi inclusi (titolo, descrizione, motivazione, implicazioni).
+- Selezionare più voci e fare clic su **Importa** — i principi selezionati appaiono nella scheda «Principi EA» come voci standard completamente modificabili.
+- Reimportare in sicurezza: i principi già esistenti (riconosciuti tramite il loro ID catalogo stabile) vengono saltati, anche se li hai rinominati localmente. Il catalogo mostra un badge verde «Già importato» per queste voci.
+
+Usa il catalogo come punto di partenza e poi adatta titolo, enunciato, motivazione e implicazioni di ciascun principio alla tua organizzazione.
+
 ### Come i principi influenzano gli insight IA
 
 Quando generate **Insight IA del portafoglio** nel [Report del portafoglio](../guide/reports.md#ai-portfolio-insights), tutti i principi attivi vengono inclusi nell'analisi. L'IA valuta i dati del vostro portafoglio rispetto a ciascun principio e riporta:

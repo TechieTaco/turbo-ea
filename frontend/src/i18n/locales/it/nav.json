@@ -43,5 +43,7 @@
   "turbolens.assessments": "Valutazioni",
   "turbolens.security": "Sicurezza e Conformità",
   "turbolens.history": "Cronologia",
-  "userMenu.capabilityCatalogue": "Catalogo delle capacità"
+  "userMenu.capabilityCatalogue": "Catalogo delle capacità",
+  "userMenu.principlesCatalogue": "Catalogo dei principi",
+  "userMenu.referenceCatalogues": "Cataloghi di riferimento"
 }
