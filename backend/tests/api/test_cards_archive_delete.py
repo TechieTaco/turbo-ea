@@ -19,6 +19,7 @@ from sqlalchemy import select
 
 from app.core.permissions import MEMBER_PERMISSIONS, VIEWER_PERMISSIONS
 from app.models.card import Card
+from app.models.relation import Relation
 from tests.conftest import (
     auth_headers,
     create_card,
@@ -493,3 +494,200 @@ class TestArchiveImpact:
         assert body["grandparent"] is None
         assert body["children"] == []
         assert body["related_cards"] == []
+
+
+# ---------------------------------------------------------------------------
+# Sever-on-archive: peer relations crossing the archived/active boundary
+# get deleted; relations between two cards inside the archived set survive
+# ---------------------------------------------------------------------------
+
+
+class TestSeverOnArchive:
+    async def test_archive_severs_unticked_peer_relation(self, client, db, env):
+        admin = env["admin"]
+        app = await create_card(db, name="App", user_id=admin.id)
+        peer = await create_card(db, card_type="ITComponent", name="Peer", user_id=admin.id)
+        rel = await create_relation(db, type_key="app_to_itc", source_id=app.id, target_id=peer.id)
+
+        resp = await client.post(f"/api/v1/cards/{app.id}/archive", headers=auth_headers(admin))
+        assert resp.status_code == 200
+
+        # Relation row is gone.
+        gone = (
+            await db.execute(select(Relation).where(Relation.id == rel.id))
+        ).scalar_one_or_none()
+        assert gone is None
+        # Peer card still active.
+        peer_row = (await db.execute(select(Card).where(Card.id == peer.id))).scalar_one()
+        assert peer_row.status == "ACTIVE"
+
+    async def test_archive_keeps_relation_inside_cascade_bubble(self, client, db, env):
+        admin = env["admin"]
+        # Bubble: primary cascade-archived along with peer that's also ticked.
+        app = await create_card(db, name="App", user_id=admin.id)
+        peer = await create_card(db, card_type="ITComponent", name="BubblePeer", user_id=admin.id)
+        rel = await create_relation(db, type_key="app_to_itc", source_id=app.id, target_id=peer.id)
+
+        resp = await client.post(
+            f"/api/v1/cards/{app.id}/archive",
+            json={"related_card_ids": [str(peer.id)]},
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 200
+
+        # Both archived together.
+        for cid in (app.id, peer.id):
+            row = (await db.execute(select(Card).where(Card.id == cid))).scalar_one()
+            assert row.status == "ARCHIVED"
+        # Relation row preserved inside the bubble.
+        kept = (
+            await db.execute(select(Relation).where(Relation.id == rel.id))
+        ).scalar_one_or_none()
+        assert kept is not None
+
+    async def test_archive_severs_cascade_descendant_external_relations(self, client, db, env):
+        admin = env["admin"]
+        # Parent → child (cascade-archived together). Child also has a peer
+        # that stays active. Parent has its own external peer.
+        parent = await create_card(db, name="Parent", user_id=admin.id)
+        child = await create_card(db, name="Child", parent_id=parent.id, user_id=admin.id)
+        outside_peer = await create_card(
+            db, card_type="ITComponent", name="Outside", user_id=admin.id
+        )
+        await create_relation_type(
+            db,
+            key="app_self_ref",
+            label="depends",
+            source_type_key="Application",
+            target_type_key="ITComponent",
+        )
+        child_rel = await create_relation(
+            db, type_key="app_self_ref", source_id=child.id, target_id=outside_peer.id
+        )
+        parent_rel = await create_relation(
+            db, type_key="app_to_itc", source_id=parent.id, target_id=outside_peer.id
+        )
+
+        resp = await client.post(
+            f"/api/v1/cards/{parent.id}/archive",
+            json={"child_strategy": "cascade"},
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 200
+
+        # Both crossing-boundary relations are gone.
+        for rid in (child_rel.id, parent_rel.id):
+            row = (
+                await db.execute(select(Relation).where(Relation.id == rid))
+            ).scalar_one_or_none()
+            assert row is None
+        # Outside peer still active.
+        op_row = (await db.execute(select(Card).where(Card.id == outside_peer.id))).scalar_one()
+        assert op_row.status == "ACTIVE"
+
+    async def test_restore_does_not_resurrect_severed_relations(self, client, db, env):
+        admin = env["admin"]
+        app = await create_card(db, name="App", user_id=admin.id)
+        peer = await create_card(db, card_type="ITComponent", name="Peer", user_id=admin.id)
+        await create_relation(db, type_key="app_to_itc", source_id=app.id, target_id=peer.id)
+
+        # Archive then restore — the row should stay deleted.
+        resp = await client.post(f"/api/v1/cards/{app.id}/archive", headers=auth_headers(admin))
+        assert resp.status_code == 200
+        resp = await client.post(f"/api/v1/cards/{app.id}/restore", headers=auth_headers(admin))
+        assert resp.status_code == 200
+
+        # Confirm via GET /relations: app has zero peers.
+        rels_resp = await client.get(
+            f"/api/v1/relations?card_id={app.id}", headers=auth_headers(admin)
+        )
+        assert rels_resp.status_code == 200
+        assert rels_resp.json() == []
+
+    async def test_restore_reattaches_cascade_bubble_relations(self, client, db, env):
+        admin = env["admin"]
+        # Bubble: app + peer ticked together → relation preserved.
+        app = await create_card(db, name="App", user_id=admin.id)
+        peer = await create_card(db, card_type="ITComponent", name="Peer", user_id=admin.id)
+        await create_relation(db, type_key="app_to_itc", source_id=app.id, target_id=peer.id)
+
+        resp = await client.post(
+            f"/api/v1/cards/{app.id}/archive",
+            json={"related_card_ids": [str(peer.id)]},
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 200
+
+        # While both archived, GET /relations hides the row.
+        rels_resp = await client.get(
+            f"/api/v1/relations?card_id={app.id}", headers=auth_headers(admin)
+        )
+        assert rels_resp.status_code == 200
+        assert rels_resp.json() == []
+
+        # Restore the app only — relation still hidden because peer is archived.
+        resp = await client.post(f"/api/v1/cards/{app.id}/restore", headers=auth_headers(admin))
+        assert resp.status_code == 200
+        rels_resp = await client.get(
+            f"/api/v1/relations?card_id={app.id}", headers=auth_headers(admin)
+        )
+        assert rels_resp.json() == []
+
+        # Restore the peer — bubble relation comes back.
+        resp = await client.post(f"/api/v1/cards/{peer.id}/restore", headers=auth_headers(admin))
+        assert resp.status_code == 200
+        rels_resp = await client.get(
+            f"/api/v1/relations?card_id={app.id}", headers=auth_headers(admin)
+        )
+        body = rels_resp.json()
+        assert len(body) == 1
+        assert body[0]["target_id"] == str(peer.id)
+
+
+# ---------------------------------------------------------------------------
+# Defensive filter on GET /relations and on archive-impact for archived peers
+# ---------------------------------------------------------------------------
+
+
+class TestRelationsArchivedFilter:
+    async def test_list_relations_excludes_archived_peers(self, client, db, env):
+        """Defends against historical or manual rows that survive sever-at-archive."""
+        admin = env["admin"]
+        a = await create_card(db, name="A", user_id=admin.id)
+        b = await create_card(db, card_type="ITComponent", name="B", user_id=admin.id)
+        await create_relation(db, type_key="app_to_itc", source_id=a.id, target_id=b.id)
+
+        # Manually flip B to ARCHIVED (bypasses the sever logic, simulates
+        # historical data) to prove the GET filter is defensive.
+        b.status = "ARCHIVED"
+        from datetime import datetime, timezone
+
+        b.archived_at = datetime.now(timezone.utc)
+        await db.flush()
+        await db.commit()
+
+        rels_resp = await client.get(
+            f"/api/v1/relations?card_id={a.id}", headers=auth_headers(admin)
+        )
+        assert rels_resp.status_code == 200
+        assert rels_resp.json() == []
+
+    async def test_archive_impact_excludes_archived_peers(self, client, db, env):
+        admin = env["admin"]
+        app = await create_card(db, name="App", user_id=admin.id)
+        archived_peer = await create_card(
+            db,
+            card_type="ITComponent",
+            name="OldPeer",
+            user_id=admin.id,
+            status="ARCHIVED",
+        )
+        await create_relation(
+            db, type_key="app_to_itc", source_id=app.id, target_id=archived_peer.id
+        )
+
+        resp = await client.get(
+            f"/api/v1/cards/{app.id}/archive-impact", headers=auth_headers(admin)
+        )
+        assert resp.status_code == 200
+        assert resp.json()["related_cards"] == []

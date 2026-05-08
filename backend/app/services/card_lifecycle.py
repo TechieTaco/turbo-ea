@@ -169,8 +169,13 @@ async def gather_archive_impact(
         gp_res = await db.execute(select(Card).where(Card.id == primary.parent_id))
         grandparent = gp_res.scalar_one_or_none()
 
+    # Exclude peers that are hidden by type OR already archived. Archived peers
+    # should never appear in an active card's archive-impact dialog because
+    # they're no longer part of the active landscape (sever-on-archive rule).
     hidden_types_sq = select(CardType.key).where(CardType.is_hidden.is_(True))
-    excluded_card_ids_sq = select(Card.id).where(Card.type.in_(hidden_types_sq))
+    excluded_card_ids_sq = select(Card.id).where(
+        or_(Card.type.in_(hidden_types_sq), Card.status == "ARCHIVED")
+    )
     rel_res = await db.execute(
         select(Relation).where(
             or_(Relation.source_id == primary.id, Relation.target_id == primary.id),

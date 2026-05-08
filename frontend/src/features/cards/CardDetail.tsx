@@ -9,6 +9,10 @@ import MenuItem from "@mui/material/MenuItem";
 import ListItemIcon from "@mui/material/ListItemIcon";
 import ListItemText from "@mui/material/ListItemText";
 import Alert from "@mui/material/Alert";
+import Dialog from "@mui/material/Dialog";
+import DialogTitle from "@mui/material/DialogTitle";
+import DialogContent from "@mui/material/DialogContent";
+import DialogActions from "@mui/material/DialogActions";
 import LinearProgress from "@mui/material/LinearProgress";
 import TextField from "@mui/material/TextField";
 import Tooltip from "@mui/material/Tooltip";
@@ -70,6 +74,7 @@ export default function CardDetail() {
   const [perms, setPerms] = useState<CardEffectivePermissions["effective"]>(DEFAULT_PERMISSIONS);
   const [archiveDialogOpen, setArchiveDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [restoreDialogOpen, setRestoreDialogOpen] = useState(false);
   const [actionsMenuAnchor, setActionsMenuAnchor] = useState<HTMLElement | null>(null);
 
   // Favorite star
@@ -313,6 +318,7 @@ export default function CardDetail() {
   };
 
   const handleRestore = async () => {
+    setRestoreDialogOpen(false);
     const updated = await api.post<Card>(`/cards/${card.id}/restore`);
     setCard(updated);
   };
@@ -627,6 +633,23 @@ export default function CardDetail() {
         onConfirmed={handleDeleteConfirmed}
       />
 
+      {/* ── Restore confirmation: severed links don't come back automatically ── */}
+      <Dialog open={restoreDialogOpen} onClose={() => setRestoreDialogOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>{t("detail.dialogs.restore.title")}</DialogTitle>
+        <DialogContent>
+          <Typography sx={{ mb: 1 }}>
+            <span dangerouslySetInnerHTML={{ __html: t("detail.dialogs.restore.confirm", { name: card.name }) }} />
+          </Typography>
+          <Alert severity="info">{t("detail.restoreCascadeWarning")}</Alert>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setRestoreDialogOpen(false)}>{t("common:actions.cancel")}</Button>
+          <Button variant="contained" color="primary" onClick={handleRestore} startIcon={<MaterialSymbol icon="restore" size={18} />}>
+            {t("common:actions.restore")}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
       <CardDetailContent
         card={card}
         perms={perms}
@@ -650,7 +673,7 @@ export default function CardDetail() {
                 action={
                   <Box sx={{ display: "flex", gap: 1 }}>
                     {perms.can_archive && (
-                      <Button size="small" color="inherit" onClick={handleRestore} startIcon={<MaterialSymbol icon="restore" size={18} />}>
+                      <Button size="small" color="inherit" onClick={() => setRestoreDialogOpen(true)} startIcon={<MaterialSymbol icon="restore" size={18} />}>
                         {t("common:actions.restore")}
                       </Button>
                     )}

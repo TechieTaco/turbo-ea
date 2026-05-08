@@ -5,6 +5,16 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.5.1] - 2026-05-08
+
+### Changed
+- **Archive now severs every relation that crosses out of the archived set.** When a card is archived without ticking its peers, the `relations` rows that connected the archived card to still-active cards are deleted. Peer rows between two cards that were archived together (cascade bubble + ticked peers) survive, so they reappear in the active landscape if both ends are later restored. The existing `disconnect`/`reparent` strategies already cleared `parent_id`; the relations table is now treated symmetrically.
+- **Restore now shows a confirmation dialog** explaining that severed parent links and peer relationships do not come back automatically — they have to be re-linked by hand.
+
+### Fixed
+- **`GET /relations` no longer returns rows whose source or target is archived**, mirroring the existing hidden-type filter. Defends against historical or manually-created rows that the new sever-at-archive rule didn't touch.
+- **Archive-impact endpoint** no longer lists already-archived cards as peers.
+
 ## [1.5.0] - 2026-05-08
 
 ### Added

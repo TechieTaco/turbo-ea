@@ -364,6 +364,45 @@ describe("CardDetail", () => {
     });
   });
 
+  it("shows restore confirmation dialog with severed-link warning when Restore is clicked", async () => {
+    const user = userEvent.setup();
+    const archivedCard = {
+      ...mockCard,
+      status: "ARCHIVED",
+      archived_at: new Date().toISOString(),
+    };
+    vi.mocked(api.get).mockImplementation((path: string) => {
+      if (path.includes("/my-permissions")) return Promise.resolve(mockPerms);
+      return Promise.resolve(archivedCard);
+    });
+    vi.mocked(api.post).mockResolvedValueOnce({ ...archivedCard, status: "ACTIVE", archived_at: null });
+
+    renderCardDetail();
+
+    // Banner renders with a Restore button. Its accessible name includes the
+    // material-symbol icon's text, so match leniently.
+    await waitFor(() => {
+      expect(screen.getByText(/this card is archived/i)).toBeInTheDocument();
+    });
+    const restoreButtons = screen.getAllByRole("button", { name: /restore/i });
+    await user.click(restoreButtons[0]);
+
+    // Severed-link warning appears in the confirmation dialog.
+    await waitFor(() => {
+      expect(
+        screen.getByText(/does not bring back any parent link or peer relationship/i),
+      ).toBeInTheDocument();
+    });
+
+    // Click the dialog's confirm Restore (last matching button).
+    const restoreButtonsAfterOpen = screen.getAllByRole("button", { name: /restore/i });
+    await user.click(restoreButtonsAfterOpen[restoreButtonsAfterOpen.length - 1]);
+
+    await waitFor(() => {
+      expect(api.post).toHaveBeenCalledWith(`/cards/${mockCard.id}/restore`);
+    });
+  });
+
   it("shows archive confirmation dialog when Archive is clicked via overflow menu", async () => {
     const user = userEvent.setup();
     vi.mocked(api.get).mockImplementation((path: string) => {
