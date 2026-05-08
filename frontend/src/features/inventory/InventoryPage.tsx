@@ -2150,25 +2150,51 @@ export default function InventoryPage() {
         </DialogActions>
       </Dialog>
 
-      {/* Mass Archive (with children + related strategies) */}
-      <ArchiveDeleteDialog
-        open={massArchiveOpen}
-        mode="archive"
-        scope="bulk"
-        cardIds={selectedIds}
-        onClose={() => setMassArchiveOpen(false)}
-        onConfirmed={handleMassArchiveConfirmed}
-      />
+      {/* Archive — single dialog when one card selected, bulk dialog otherwise */}
+      {massArchiveOpen &&
+        (selectedIds.length === 1 ? (
+          <ArchiveDeleteDialog
+            open
+            mode="archive"
+            scope="single"
+            cardId={selectedIds[0]}
+            cardName={data.find((c) => c.id === selectedIds[0])?.name ?? ""}
+            onClose={() => setMassArchiveOpen(false)}
+            onConfirmed={handleMassArchiveConfirmed}
+          />
+        ) : (
+          <ArchiveDeleteDialog
+            open
+            mode="archive"
+            scope="bulk"
+            cardIds={selectedIds}
+            onClose={() => setMassArchiveOpen(false)}
+            onConfirmed={handleMassArchiveConfirmed}
+          />
+        ))}
 
-      {/* Mass Delete (with children + related strategies) */}
-      <ArchiveDeleteDialog
-        open={massDeleteOpen}
-        mode="delete"
-        scope="bulk"
-        cardIds={selectedIds}
-        onClose={() => setMassDeleteOpen(false)}
-        onConfirmed={handleMassDeleteConfirmed}
-      />
+      {/* Delete — single dialog when one card selected, bulk dialog otherwise */}
+      {massDeleteOpen &&
+        (selectedIds.length === 1 ? (
+          <ArchiveDeleteDialog
+            open
+            mode="delete"
+            scope="single"
+            cardId={selectedIds[0]}
+            cardName={data.find((c) => c.id === selectedIds[0])?.name ?? ""}
+            onClose={() => setMassDeleteOpen(false)}
+            onConfirmed={handleMassDeleteConfirmed}
+          />
+        ) : (
+          <ArchiveDeleteDialog
+            open
+            mode="delete"
+            scope="bulk"
+            cardIds={selectedIds}
+            onClose={() => setMassDeleteOpen(false)}
+            onConfirmed={handleMassDeleteConfirmed}
+          />
+        ))}
 
       <CreateCardDialog
         open={createOpen}
