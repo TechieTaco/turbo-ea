@@ -31,6 +31,7 @@ vi.mock("./InventoryFilterSidebar", () => ({
   default: () => <div data-testid="filter-sidebar" />,
   CORE_COLUMNS: [],
   CORE_COLUMN_KEYS: [],
+  LOCKED_COLUMN_KEYS: new Set<string>(),
 }));
 
 vi.mock("@/components/CreateCardDialog", () => ({

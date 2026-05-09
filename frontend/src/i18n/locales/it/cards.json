@@ -48,7 +48,7 @@
   "detail.dialogs.related.largeImpactWarning_other": "You're about to archive {{count}} additional cards. Make sure the impact is intentional.",
   "detail.dialogs.related.confirmTypePrompt": "You're affecting {{count}} additional cards. Type the card name ({{name}}) to confirm.",
   "detail.dialogs.related.empty": "No related cards.",
-  "detail.restoreCascadeWarning": "Restoring this card does not bring back any parent link or peer relationship that was removed when it was archived. Re-link by hand if needed.",
+  "detail.restoreCascadeWarning": "Il ripristino di questa scheda non ripristina i collegamenti al genitore che sono stati scollegati durante l'archiviazione. Ricollegali manualmente se necessario.",
   "detail.dialogs.restore.title": "Restore card",
   "detail.dialogs.restore.confirm": "Restore <strong>{{name}}</strong> to ACTIVE?",
   "detail.dialogs.restore.passengersTitle": "Cards archived together with this one",

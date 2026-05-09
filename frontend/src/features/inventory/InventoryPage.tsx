@@ -34,6 +34,7 @@ import CreateCardDialog from "@/components/CreateCardDialog";
 import CardDetailSidePanel from "@/components/CardDetailSidePanel";
 import InventoryFilterSidebar, {
   CORE_COLUMN_KEYS,
+  LOCKED_COLUMN_KEYS,
   type Filters,
 } from "./InventoryFilterSidebar";
 import ImportDialog from "./ImportDialog";
@@ -294,9 +295,12 @@ export default function InventoryPage() {
       if (!hasAnyCore) {
         for (const k of CORE_COLUMN_KEYS) restored.add(k);
       }
+      // Type and name are required and can't be deselected — re-add them in
+      // case an older pref omitted them.
+      for (const k of LOCKED_COLUMN_KEYS) restored.add(k);
       return restored;
     }
-    return new Set();
+    return new Set(LOCKED_COLUMN_KEYS);
   });
   // Track whether the user has explicitly set columns (vs auto-populated defaults)
   const [columnsInitialized, setColumnsInitialized] = useState(
@@ -1899,9 +1903,11 @@ export default function InventoryPage() {
             sx={{
               display: "flex",
               alignItems: "center",
-              gap: 2,
+              flexWrap: "wrap",
+              columnGap: { xs: 1, sm: 2 },
+              rowGap: 1,
               mb: 1,
-              px: 2,
+              px: { xs: 1, sm: 2 },
               py: 1,
               bgcolor: "primary.main",
               color: "primary.contrastText",
@@ -1910,14 +1916,24 @@ export default function InventoryPage() {
             }}
           >
             <MaterialSymbol icon="check_box" size={20} />
-            <Typography variant="body2" fontWeight={600}>
+            <Typography
+              variant="body2"
+              fontWeight={600}
+              sx={{ whiteSpace: "nowrap", mr: { xs: "auto", sm: 0 } }}
+            >
               {t("selectedCount", { count: selectedIds.length })}
             </Typography>
             <Button
               size="small"
               variant="contained"
               color="inherit"
-              sx={{ color: "primary.main", bgcolor: "background.paper", textTransform: "none", "&:hover": { bgcolor: "action.selected" } }}
+              sx={{
+                color: "primary.main",
+                bgcolor: "background.paper",
+                textTransform: "none",
+                whiteSpace: "nowrap",
+                "&:hover": { bgcolor: "action.selected" },
+              }}
               startIcon={<MaterialSymbol icon="edit" size={16} />}
               onClick={() => {
                 setMassEditOpen(true);
@@ -1938,7 +1954,13 @@ export default function InventoryPage() {
                 size="small"
                 variant="contained"
                 color="inherit"
-                sx={{ color: "#e65100", bgcolor: "background.paper", textTransform: "none", "&:hover": { bgcolor: "action.selected" } }}
+                sx={{
+                  color: "#e65100",
+                  bgcolor: "background.paper",
+                  textTransform: "none",
+                  whiteSpace: "nowrap",
+                  "&:hover": { bgcolor: "action.selected" },
+                }}
                 startIcon={<MaterialSymbol icon="archive" size={16} />}
                 onClick={() => setMassArchiveOpen(true)}
               >
@@ -1950,7 +1972,13 @@ export default function InventoryPage() {
                 size="small"
                 variant="contained"
                 color="inherit"
-                sx={{ color: "#c62828", bgcolor: "background.paper", textTransform: "none", "&:hover": { bgcolor: "action.selected" } }}
+                sx={{
+                  color: "#c62828",
+                  bgcolor: "background.paper",
+                  textTransform: "none",
+                  whiteSpace: "nowrap",
+                  "&:hover": { bgcolor: "action.selected" },
+                }}
                 startIcon={<MaterialSymbol icon="delete_forever" size={16} />}
                 onClick={() => setMassDeleteOpen(true)}
               >
@@ -1961,7 +1989,11 @@ export default function InventoryPage() {
               size="small"
               variant="outlined"
               color="inherit"
-              sx={{ borderColor: "rgba(255,255,255,0.5)", textTransform: "none" }}
+              sx={{
+                borderColor: "rgba(255,255,255,0.5)",
+                textTransform: "none",
+                whiteSpace: "nowrap",
+              }}
               onClick={() => gridRef.current?.api?.deselectAll()}
             >
               {t("massEdit.clearSelection")}

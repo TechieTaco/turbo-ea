@@ -185,9 +185,9 @@ async def list_relations(
     src_fs = select(Card.id).where(Card.type.in_(hidden_types_sq))
     q = q.where(Relation.source_id.not_in(src_fs), Relation.target_id.not_in(src_fs))
 
-    # Exclude relations whose source or target is archived. Archive-time
-    # severing should already remove these, but the filter defends against
-    # historical or manually-created rows.
+    # Hide relations whose source or target is archived. Rows are kept on
+    # archive so they reappear on restore; hard-delete and the 30-day
+    # auto-purge clean them up.
     archived_sq = select(Card.id).where(Card.status == "ARCHIVED")
     q = q.where(Relation.source_id.not_in(archived_sq), Relation.target_id.not_in(archived_sq))
 

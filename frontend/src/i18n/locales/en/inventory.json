@@ -30,6 +30,7 @@
   "columns.attributes": "Attributes",
   "columns.relations": "Relations",
   "columns.reset": "Reset",
+  "columns.alwaysVisible": "Always visible",
   "columns.path": "Path",
 
   "filter.title": "Filters",

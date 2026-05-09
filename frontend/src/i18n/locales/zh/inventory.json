@@ -27,6 +27,7 @@
   "columns.attributes": "属性",
   "columns.relations": "关系",
   "columns.reset": "重置",
+  "columns.alwaysVisible": "始终显示",
   "columns.path": "路径",
   "filter.title": "筛选",
   "filter.expand": "展开筛选",

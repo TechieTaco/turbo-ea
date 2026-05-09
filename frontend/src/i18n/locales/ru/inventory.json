@@ -27,6 +27,7 @@
   "columns.attributes": "Атрибуты",
   "columns.relations": "Связи",
   "columns.reset": "Сбросить",
+  "columns.alwaysVisible": "Всегда видно",
   "columns.path": "Путь",
   "filter.title": "Фильтры",
   "filter.expand": "Развернуть фильтры",

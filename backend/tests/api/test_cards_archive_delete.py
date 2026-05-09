@@ -497,13 +497,14 @@ class TestArchiveImpact:
 
 
 # ---------------------------------------------------------------------------
-# Sever-on-archive: peer relations crossing the archived/active boundary
-# get deleted; relations between two cards inside the archived set survive
+# Hide-on-archive: peer relations crossing the archived/active boundary are
+# kept in the database but hidden from active views via the GET /relations
+# filter; restoring either end re-exposes them automatically.
 # ---------------------------------------------------------------------------
 
 
-class TestSeverOnArchive:
-    async def test_archive_severs_unticked_peer_relation(self, client, db, env):
+class TestArchiveHidesPeerRelations:
+    async def test_archive_keeps_unticked_peer_relation_hidden(self, client, db, env):
         admin = env["admin"]
         app = await create_card(db, name="App", user_id=admin.id)
         peer = await create_card(db, card_type="ITComponent", name="Peer", user_id=admin.id)
@@ -512,11 +513,17 @@ class TestSeverOnArchive:
         resp = await client.post(f"/api/v1/cards/{app.id}/archive", headers=auth_headers(admin))
         assert resp.status_code == 200
 
-        # Relation row is gone.
-        gone = (
+        # Relation row still in the database.
+        kept = (
             await db.execute(select(Relation).where(Relation.id == rel.id))
         ).scalar_one_or_none()
-        assert gone is None
+        assert kept is not None
+        # …but hidden from GET /relations because the source is archived.
+        rels_resp = await client.get(
+            f"/api/v1/relations?card_id={peer.id}", headers=auth_headers(admin)
+        )
+        assert rels_resp.status_code == 200
+        assert rels_resp.json() == []
         # Peer card still active.
         peer_row = (await db.execute(select(Card).where(Card.id == peer.id))).scalar_one()
         assert peer_row.status == "ACTIVE"
@@ -545,7 +552,9 @@ class TestSeverOnArchive:
         ).scalar_one_or_none()
         assert kept is not None
 
-    async def test_archive_severs_cascade_descendant_external_relations(self, client, db, env):
+    async def test_archive_keeps_cascade_descendant_external_relations_hidden(
+        self, client, db, env
+    ):
         admin = env["admin"]
         # Parent → child (cascade-archived together). Child also has a peer
         # that stays active. Parent has its own external peer.
@@ -575,34 +584,46 @@ class TestSeverOnArchive:
         )
         assert resp.status_code == 200
 
-        # Both crossing-boundary relations are gone.
+        # Both crossing-boundary relations are kept in the database.
         for rid in (child_rel.id, parent_rel.id):
             row = (
                 await db.execute(select(Relation).where(Relation.id == rid))
             ).scalar_one_or_none()
-            assert row is None
+            assert row is not None
+        # …but hidden from the surviving peer's view of GET /relations.
+        rels_resp = await client.get(
+            f"/api/v1/relations?card_id={outside_peer.id}", headers=auth_headers(admin)
+        )
+        assert rels_resp.status_code == 200
+        assert rels_resp.json() == []
         # Outside peer still active.
         op_row = (await db.execute(select(Card).where(Card.id == outside_peer.id))).scalar_one()
         assert op_row.status == "ACTIVE"
 
-    async def test_restore_does_not_resurrect_severed_relations(self, client, db, env):
+    async def test_restore_reveals_hidden_peer_relations(self, client, db, env):
         admin = env["admin"]
         app = await create_card(db, name="App", user_id=admin.id)
         peer = await create_card(db, card_type="ITComponent", name="Peer", user_id=admin.id)
-        await create_relation(db, type_key="app_to_itc", source_id=app.id, target_id=peer.id)
+        rel = await create_relation(db, type_key="app_to_itc", source_id=app.id, target_id=peer.id)
 
-        # Archive then restore — the row should stay deleted.
+        # Archive: relation row stays in DB but hidden from active views.
         resp = await client.post(f"/api/v1/cards/{app.id}/archive", headers=auth_headers(admin))
         assert resp.status_code == 200
+        rels_resp = await client.get(
+            f"/api/v1/relations?card_id={peer.id}", headers=auth_headers(admin)
+        )
+        assert rels_resp.json() == []
+
+        # Restore: the row reappears in GET /relations because both ends are ACTIVE.
         resp = await client.post(f"/api/v1/cards/{app.id}/restore", headers=auth_headers(admin))
         assert resp.status_code == 200
-
-        # Confirm via GET /relations: app has zero peers.
         rels_resp = await client.get(
             f"/api/v1/relations?card_id={app.id}", headers=auth_headers(admin)
         )
-        assert rels_resp.status_code == 200
-        assert rels_resp.json() == []
+        body = rels_resp.json()
+        assert len(body) == 1
+        assert body[0]["id"] == str(rel.id)
+        assert body[0]["target_id"] == str(peer.id)
 
     async def test_restore_reattaches_cascade_bubble_relations(self, client, db, env):
         admin = env["admin"]
