@@ -93,8 +93,19 @@ export default function RelatedImportDialog({
     setLoadError(null);
     setResult(null);
     setSubmitError(null);
+    // Map the catalogue payload key (`capabilities` / `processes` /
+    // `value_streams`) to the *_ids field the backend expects on the
+    // related + bundle requests. Sending the wrong key was a silent bug
+    // that surfaced as "At least one id list must be non-empty" on every
+    // dialog open.
+    const primaryFieldKey: "capability_ids" | "process_ids" | "value_stream_ids" =
+      primaryConfig.payloadKey === "capabilities"
+        ? "capability_ids"
+        : primaryConfig.payloadKey === "processes"
+          ? "process_ids"
+          : "value_stream_ids";
     const body: Record<string, unknown> = { locale };
-    body[primaryConfig.payloadKey] = primaryNodes.map((n) => n.id);
+    body[primaryFieldKey] = primaryNodes.map((n) => n.id);
     api
       .post<RelatedPayload>("/reference-catalogue/related", body)
       .then((data) => {
