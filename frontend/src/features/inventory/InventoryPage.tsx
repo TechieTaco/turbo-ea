@@ -141,6 +141,11 @@ interface InventoryPrefs {
   filters?: Filters;
   columns?: string[];
   sortModel?: { colId: string; sort: string }[];
+  // Set to true after the one-time migration that surfaces the previously
+  // always-on Tags column in users' saved column selection. Without this
+  // flag, existing users would suddenly stop seeing the Tags column once
+  // it became togglable.
+  coreTagsMerged?: boolean;
 }
 
 function loadPrefs(): InventoryPrefs | null {
@@ -294,6 +299,12 @@ export default function InventoryPage() {
       const hasAnyCore = saved.columns.some((k) => k.startsWith("core_"));
       if (!hasAnyCore) {
         for (const k of CORE_COLUMN_KEYS) restored.add(k);
+      }
+      // One-time migration: surface the previously-always-on Tags column in
+      // existing users' saved column sets. Cleared on the next save (the
+      // persist effect writes coreTagsMerged: true).
+      if (!saved.coreTagsMerged) {
+        restored.add("core_tags");
       }
       // Type and name are required and can't be deselected — re-add them in
       // case an older pref omitted them.
@@ -473,6 +484,7 @@ export default function InventoryPage() {
       filters,
       columns: Array.from(selectedColumns),
       sortModel,
+      coreTagsMerged: true,
     });
   }, [filters, selectedColumns, sortModel]);
 
@@ -1323,6 +1335,7 @@ export default function InventoryPage() {
         headerName: t("columns.tags"),
         width: 200,
         sortable: false,
+        hide: !selectedColumns.has("core_tags"),
         cellRenderer: (p: { value: TagRef[] }) => {
           const tags = p.value || [];
           if (tags.length === 0) return "";

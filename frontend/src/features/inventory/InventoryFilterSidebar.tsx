@@ -1605,6 +1605,7 @@ export const CORE_COLUMNS = [
   { key: "core_lifecycle", icon: "timeline", tKey: "columns.lifecycle" as const },
   { key: "core_approval_status", icon: "verified", tKey: "columns.approvalStatus" as const },
   { key: "core_data_quality", icon: "donut_small", tKey: "columns.dataQuality" as const },
+  { key: "core_tags", icon: "sell", tKey: "columns.tags" as const },
 ];
 
 export const CORE_COLUMN_KEYS = CORE_COLUMNS.map((c) => c.key);
