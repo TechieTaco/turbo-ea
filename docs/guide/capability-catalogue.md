@@ -27,6 +27,14 @@ The page picks up the app-wide light/dark theme automatically — dark mode rend
 
 Capabilities that **already exist** in your inventory appear with a **green check icon** instead of a checkbox. They cannot be selected — you can never create the same Business Capability twice through the catalogue. Matching prefers the `attributes.catalogueId` stamp left by a previous import (so the green tick survives display-name edits) and falls back to a case-insensitive display-name match for cards you created by hand.
 
+## Importing the linked subgraph
+
+When you confirm an import, Turbo EA also looks up what your selection touches in the **other two reference catalogues** (Process Catalogue + Value Stream Catalogue) and offers each related entry as a tickbox in the confirmation dialog. Tick what you want to land alongside your capabilities; un-tick what you don't. By default everything is ticked.
+
+- For value streams the dialog offers only the **stages** that exercise your selected capabilities, plus their parent streams — not the full catalogue of stages under each stream.
+- Items that are already in your inventory show a green check + greyed-out checkbox so you can see they're connected and trust the auto-relation logic to wire to them.
+- The bundled import runs in dependency order (capabilities → processes → value-stream stages), so process-realises-capability and stage-touches-capability/process relations all land on cards that exist by the time their service runs.
+
 ## Mass-creating cards
 
 When you have one or more capabilities selected, a sticky **Create N capabilities** button appears at the bottom of the page. It uses the regular `inventory.create` permission — if your role doesn't allow card creation, the button is disabled.

@@ -5,6 +5,14 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.7.0] - 2026-05-09
+
+### Added
+- **Cross-catalogue bundle import** in the three reference-catalogue browsers. When you confirm an import, the dialog now also offers the directly-linked entries from the **other two catalogues** as tickboxes — by default all ticked. Capabilities → processes that realise them + value-stream stages that exercise them; processes → realised capabilities + the stages they're used in; value streams → the capabilities and processes their stages reference. Items already in your inventory render with a green check + greyed-out checkbox so users see the connection is intact and trust auto-relations to wire to them.
+- **`POST /reference-catalogue/related`** computes the cross-catalogue related items in one round-trip with display names + existing-card flags.
+- **`POST /reference-catalogue/import-bundle`** runs the three per-catalogue imports in dependency order (capabilities → processes → value-stream stages) so every auto-relation lands on a card that exists by the time it's wired. Idempotent: re-running the bundle skips already-created cards.
+- **For value streams** the bundled offer is surgical — only the stages that exercise the selected capabilities/processes are pre-ticked, plus their parent streams. You don't pull in the unrelated stages of a long stream just because one of them touches your selection.
+
 ## [1.6.0] - 2026-05-09
 
 ### Added
