@@ -20,10 +20,6 @@ Tick the checkbox next to any stream or stage to add it to the selection. Select
 
 Streams and stages that **already exist** in your inventory appear with a **green check icon** instead of a checkbox.
 
-## Importing the linked subgraph
-
-When you confirm an import the dialog also offers the **capabilities** and **processes** referenced by the selected stages. All cross-catalogue checkboxes start ticked; un-tick what you don't want. Items already in your inventory show with a green check + greyed-out checkbox so you know auto-relations will wire to them. The bundled import runs capabilities first, then processes, then value-stream stages, so the stage-touches-capability and process-uses-stage relations all land correctly in one click.
-
 ## Mass-creating cards
 
 When you have one or more streams or stages selected, a sticky **Create N items** button appears at the bottom of the page. It uses the regular `inventory.create` permission.

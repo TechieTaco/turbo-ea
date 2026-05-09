@@ -89,38 +89,6 @@ export interface ImportResult {
   auto_relations_created?: number;
 }
 
-/** Cross-catalogue related-items payload returned by
- *  ``POST /reference-catalogue/related``. */
-export interface RelatedItem {
-  id: string;
-  name: string;
-  level: number | null;
-  parent_id: string | null;
-  /** Card id of an existing matching card in the inventory, or null. */
-  existing_card_id: string | null;
-}
-
-export interface RelatedPayload {
-  capabilities: RelatedItem[];
-  processes: RelatedItem[];
-  value_streams: RelatedItem[];
-  active_locale: string;
-}
-
-export interface BundleImportRequest {
-  capability_ids: string[];
-  process_ids: string[];
-  value_stream_ids: string[];
-  locale?: string;
-}
-
-export interface BundleImportResult {
-  capabilities: ImportResult;
-  processes: ImportResult;
-  value_streams: ImportResult;
-  total_auto_relations: number;
-}
-
 /** Per-catalogue configuration consumed by the shared shell + browser. */
 export interface CatalogueKindConfig {
   kind: "capability" | "process" | "valueStream";

@@ -5,17 +5,6 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
-## [1.7.0] - 2026-05-09
-
-### Changed
-- **Backend default memory limit raised from 512M → 1G.** The bundled `turbo-ea-capabilities` wheel (capability + process + value-stream catalogues) plus the metamodel + optional demo seed pushed resident memory past 512M during cold boot under cgroup limits, OOM-killing the backend mid-lifespan on tight hosts (Unraid, small VPSes). The `BACKEND_MEMORY_LIMIT` env var is unchanged — set it back to 512M only if you've disabled SEED_DEMO/SEED_BPM/SEED_PPM and never use the catalogue import flow.
-
-### Added
-- **Cross-catalogue bundle import** in the three reference-catalogue browsers. When you confirm an import, the dialog now also offers the directly-linked entries from the **other two catalogues** as tickboxes — by default all ticked. Capabilities → processes that realise them + value-stream stages that exercise them; processes → realised capabilities + the stages they're used in; value streams → the capabilities and processes their stages reference. Items already in your inventory render with a green check + greyed-out checkbox so users see the connection is intact and trust auto-relations to wire to them.
-- **`POST /reference-catalogue/related`** computes the cross-catalogue related items in one round-trip with display names + existing-card flags.
-- **`POST /reference-catalogue/import-bundle`** runs the three per-catalogue imports in dependency order (capabilities → processes → value-stream stages) so every auto-relation lands on a card that exists by the time it's wired. Idempotent: re-running the bundle skips already-created cards.
-- **For value streams** the bundled offer is surgical — only the stages that exercise the selected capabilities/processes are pre-ticked, plus their parent streams. You don't pull in the unrelated stages of a long stream just because one of them touches your selection.
-
 ## [1.6.0] - 2026-05-09
 
 ### Added
@@ -28,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - **Frontend catalogue UI generalised into `frontend/src/features/reference-catalogue/`** — `<CatalogueBrowser>`, `<CataloguePage>`, `IndustryFilter`, the CSS, and the types are shared across all three catalogues. The accent and selection colours are driven by CSS custom properties (`--tcc-accent`, `--tcc-selection`) so each per-catalogue page passes its brand colour without duplicating the stylesheet.
 - **`turbo-ea-capabilities` minimum version bumped to `>=2026.5.9.297`** (the first `schema_version=2` release that ships `business-processes.json` + `value-streams.json` alongside `capabilities.json`).
 - **Backend catalogue services refactored**: cross-cutting concerns (PyPI fetch + wheel extraction, settings cache, locale resolution, BFS ordering, existing-card lookup) extracted to `backend/app/services/catalogue_common.py` so the three per-catalogue services stay focused on their own import semantics.
+- **Backend default memory limit raised from 512M → 1G.** The bundled `turbo-ea-capabilities` wheel plus the metamodel + optional demo seed pushed resident memory past 512M during cold boot under cgroup limits, OOM-killing the backend mid-lifespan on tight hosts (Unraid, small VPSes). The `BACKEND_MEMORY_LIMIT` env var is unchanged — set it back to 512M only if you've disabled SEED_DEMO/SEED_BPM/SEED_PPM and never use the catalogue import flow.
 
 ## [1.5.1] - 2026-05-08
 

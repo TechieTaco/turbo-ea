@@ -950,47 +950,6 @@
         "title": "BpmRowOrderPayload",
         "type": "object"
       },
-      "BundleImportRequest": {
-        "properties": {
-          "capability_ids": {
-            "items": {
-              "type": "string"
-            },
-            "maxItems": 2000,
-            "title": "Capability Ids",
-            "type": "array"
-          },
-          "locale": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Locale"
-          },
-          "process_ids": {
-            "items": {
-              "type": "string"
-            },
-            "maxItems": 2000,
-            "title": "Process Ids",
-            "type": "array"
-          },
-          "value_stream_ids": {
-            "items": {
-              "type": "string"
-            },
-            "maxItems": 2000,
-            "title": "Value Stream Ids",
-            "type": "array"
-          }
-        },
-        "title": "BundleImportRequest",
-        "type": "object"
-      },
       "CalculationCreate": {
         "properties": {
           "description": {
@@ -6227,47 +6186,6 @@
           "comment"
         ],
         "title": "RejectRequest",
-        "type": "object"
-      },
-      "RelatedRequest": {
-        "properties": {
-          "capability_ids": {
-            "items": {
-              "type": "string"
-            },
-            "maxItems": 2000,
-            "title": "Capability Ids",
-            "type": "array"
-          },
-          "locale": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Locale"
-          },
-          "process_ids": {
-            "items": {
-              "type": "string"
-            },
-            "maxItems": 2000,
-            "title": "Process Ids",
-            "type": "array"
-          },
-          "value_stream_ids": {
-            "items": {
-              "type": "string"
-            },
-            "maxItems": 2000,
-            "title": "Value Stream Ids",
-            "type": "array"
-          }
-        },
-        "title": "RelatedRequest",
         "type": "object"
       },
       "RelationCreate": {
@@ -18949,86 +18867,6 @@
         "summary": "Update Status",
         "tags": [
           "process-catalogue"
-        ]
-      }
-    },
-    "/api/v1/reference-catalogue/import-bundle": {
-      "post": {
-        "description": "Run the three imports in dependency order. Capabilities first, then\nprocesses (so realises-relations land on already-created BCs), then\nvalue-stream stages (so capability + process relations land on both\nsets of already-created cards). Returns the aggregated result.",
-        "operationId": "import_bundle_api_v1_reference_catalogue_import_bundle_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/BundleImportRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Import Bundle",
-        "tags": [
-          "reference-catalogue"
-        ]
-      }
-    },
-    "/api/v1/reference-catalogue/related": {
-      "post": {
-        "description": "Compute cross-catalogue related items for the given primary\nselection. Returns three lists (capabilities / processes /\nvalue_streams) with names and existing-card flags so the dialog can\nrender checkboxes.",
-        "operationId": "compute_related_api_v1_reference_catalogue_related_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/RelatedRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Compute Related",
-        "tags": [
-          "reference-catalogue"
         ]
       }
     },

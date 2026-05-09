@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Fab from "@mui/material/Fab";
 import Fade from "@mui/material/Fade";
 import { useTranslation } from "react-i18next";
+import { useNavigate } from "react-router-dom";
 import Box from "@mui/material/Box";
 import Stack from "@mui/material/Stack";
 import Paper from "@mui/material/Paper";
@@ -13,6 +14,7 @@ import Tooltip from "@mui/material/Tooltip";
 import Dialog from "@mui/material/Dialog";
 import DialogTitle from "@mui/material/DialogTitle";
 import DialogContent from "@mui/material/DialogContent";
+import DialogActions from "@mui/material/DialogActions";
 import Alert from "@mui/material/Alert";
 import CircularProgress from "@mui/material/CircularProgress";
 import Snackbar from "@mui/material/Snackbar";
@@ -20,11 +22,11 @@ import { api } from "@/api/client";
 import { useAuth } from "@/hooks/useAuth";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import CatalogueBrowser from "./CatalogueBrowser";
-import RelatedImportDialog from "./RelatedImportDialog";
 import type {
   CatalogueKindConfig,
   CatalogueNode,
   CataloguePayload,
+  ImportResult,
   UpdateStatus,
 } from "./types";
 
@@ -35,6 +37,7 @@ interface Props {
 export default function CataloguePage({ config }: Props) {
   const { t, i18n } = useTranslation(["cards", "common"]);
   const { user } = useAuth();
+  const navigate = useNavigate();
   const ns = config.i18nNamespace;
 
   const can = (key: string): boolean => {
@@ -53,6 +56,9 @@ export default function CataloguePage({ config }: Props) {
   const [detailId, setDetailId] = useState<string | null>(null);
 
   const [importOpen, setImportOpen] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState<ImportResult | null>(null);
+  const [importError, setImportError] = useState<string | null>(null);
 
   const [updateStatus, setUpdateStatus] = useState<UpdateStatus | null>(null);
   const [updateChecking, setUpdateChecking] = useState(false);
@@ -138,12 +144,24 @@ export default function CataloguePage({ config }: Props) {
     }
   };
 
-  const handleDialogClose = useCallback(async () => {
-    setImportOpen(false);
-    // Refresh the catalogue so newly-imported items show their green tick.
-    setSelected(new Set());
-    await reload();
-  }, [reload]);
+  const handleImport = async () => {
+    if (selectedCaps.length === 0) return;
+    setImporting(true);
+    setImportError(null);
+    try {
+      const r = await api.post<ImportResult>(`${config.basePath}/import`, {
+        catalogue_ids: selectedCaps.map((c) => c.id),
+        locale: activeLocale,
+      });
+      setImportResult(r);
+      setSelected(new Set());
+      await reload();
+    } catch (e: any) {
+      setImportError(e?.detail || e?.message || "Import failed");
+    } finally {
+      setImporting(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -297,19 +315,85 @@ export default function CataloguePage({ config }: Props) {
         </Paper>
       )}
 
-      {/* Cross-catalogue bundle import dialog. Replaces the simple
-          single-catalogue confirmation: on open it fetches related items
-          from the other two catalogues and lets the user opt them in via
-          checkboxes. On confirm it issues a single bundled import that
-          runs the three per-catalogue imports in dependency order so
-          auto-relations land correctly. */}
-      <RelatedImportDialog
-        open={importOpen}
-        onClose={handleDialogClose}
-        primaryConfig={config}
-        primaryNodes={selectedCaps}
-        locale={activeLocale}
-      />
+      <Dialog open={importOpen} onClose={() => !importing && setImportOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>
+          {importResult ? t(`cards:${ns}.importDoneTitle`) : t(`cards:${ns}.importConfirmTitle`)}
+        </DialogTitle>
+        <DialogContent>
+          {!importResult && (
+            <>
+              <Typography variant="body2" sx={{ mb: 1 }}>
+                {t(`cards:${ns}.importConfirmBody`, { count: selectedCaps.length })}
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                {t(`cards:${ns}.importConfirmHint`)}
+              </Typography>
+              {importError && (
+                <Alert severity="error" sx={{ mt: 2 }}>
+                  {importError}
+                </Alert>
+              )}
+            </>
+          )}
+          {importResult && (
+            <>
+              <Alert severity="success" sx={{ mb: 2 }}>
+                {t(`cards:${ns}.importDoneBody`, {
+                  created: importResult.created.length,
+                  skipped: importResult.skipped.length,
+                  relinked: importResult.relinked.length,
+                })}
+              </Alert>
+              {/* Per-catalogue services emit `auto_relations_created` —
+                  surface it as a secondary line so the user can see how
+                  many cross-references landed automatically. */}
+              {(importResult.auto_relations_created ?? 0) > 0 && (
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                  {t(`cards:${ns}.autoRelationsCreated`, {
+                    count: importResult.auto_relations_created,
+                  })}
+                </Typography>
+              )}
+              {importResult.created.length > 0 && (
+                <Button
+                  size="small"
+                  onClick={() => navigate(`/inventory?type=${config.inventoryCardType}`)}
+                >
+                  {t(`cards:${ns}.openInventory`)}
+                </Button>
+              )}
+            </>
+          )}
+        </DialogContent>
+        <DialogActions>
+          {!importResult && (
+            <>
+              <Button onClick={() => setImportOpen(false)} disabled={importing}>
+                {t("common:actions.cancel")}
+              </Button>
+              <Button
+                onClick={handleImport}
+                variant="contained"
+                color="primary"
+                disabled={importing}
+                startIcon={importing ? <CircularProgress size={14} color="inherit" /> : null}
+              >
+                {t(`cards:${ns}.confirmCreate`)}
+              </Button>
+            </>
+          )}
+          {importResult && (
+            <Button
+              onClick={() => {
+                setImportOpen(false);
+                setImportResult(null);
+              }}
+            >
+              {t("common:actions.close")}
+            </Button>
+          )}
+        </DialogActions>
+      </Dialog>
 
       {detailId && byId.get(detailId) && (
         <DetailDialog

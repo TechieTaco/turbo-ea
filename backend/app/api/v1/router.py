@@ -25,7 +25,6 @@ from app.api.v1 import (
     ppm_reports,
     principles_catalogue,
     process_catalogue,
-    reference_catalogue,
     relations,
     reports,
     risks,
@@ -87,5 +86,4 @@ api_router.include_router(favorites.router)
 api_router.include_router(capability_catalogue.router)
 api_router.include_router(process_catalogue.router)
 api_router.include_router(value_stream_catalogue.router)
-api_router.include_router(reference_catalogue.router)
 api_router.include_router(principles_catalogue.router)

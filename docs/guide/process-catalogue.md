@@ -19,10 +19,6 @@ Tick the checkbox next to any process to add it to the selection. Selection casc
 
 Processes that **already exist** in your inventory appear with a **green check icon** instead of a checkbox. Matching prefers the `attributes.catalogueId` stamp left by a previous import and falls back to a case-insensitive display-name match.
 
-## Importing the linked subgraph
-
-When you confirm an import the dialog also offers the **related capabilities** (everything in the selected processes' `realizes_capability_ids`) and the **value-stream stages** that touch them. All cross-catalogue checkboxes start ticked; un-tick what you don't want. Items already in your inventory show with a green check + greyed-out checkbox. The bundled import runs capabilities first, then processes, then value-stream stages, so every auto-relation lands on a card that exists by the time it's wired.
-
 ## Mass-creating cards
 
 When you have one or more processes selected, a sticky **Create N processes** button appears at the bottom of the page. It uses the regular `inventory.create` permission.
