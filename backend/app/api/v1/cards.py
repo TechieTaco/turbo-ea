@@ -1118,26 +1118,10 @@ async def archive_card(
     flip_cards = list(flip_res.scalars().all())
     flipped = card_lifecycle.archive_cards_in_place(flip_cards, user.id)
 
-    # Sever any `relations` row that crosses the archived/active boundary.
-    # A row survives only if BOTH ends are inside the archived set (cascade
-    # bubble + ticked peers) — those rows reappear in active views as the user
-    # restores cards individually. Mirrors the rule already applied to
-    # `parent_id` by the disconnect/reparent strategies.
-    archived_id_set: set[uuid.UUID] = {primary.id, *full_affected}
-    sever_res = await db.execute(
-        select(Relation).where(
-            or_(
-                Relation.source_id.in_(archived_id_set),
-                Relation.target_id.in_(archived_id_set),
-            )
-        )
-    )
-    severed_relation_count = 0
-    for rel in sever_res.scalars().all():
-        if rel.source_id in archived_id_set and rel.target_id in archived_id_set:
-            continue  # bubble row — keep inside the archived set
-        await db.delete(rel)
-        severed_relation_count += 1
+    # Cross-boundary peer relations are kept in the database and hidden from
+    # active views via the archived-status filter in `GET /relations`. They
+    # reappear automatically when the card is restored. Hard-delete and the
+    # 30-day auto-purge clean them up.
 
     affected_children_ids = [
         cid for cid in descendants if cid in {c.id for c in flipped if c.id != primary.id}
@@ -1153,7 +1137,7 @@ async def archive_card(
             user_id=user.id,
         )
 
-    if affected_children_ids or affected_related_card_ids or severed_relation_count:
+    if affected_children_ids or affected_related_card_ids:
         await event_bus.publish(
             "card.archived.batch",
             {
@@ -1163,7 +1147,6 @@ async def archive_card(
                 "child_strategy": body.child_strategy,
                 "affected_children_ids": [str(x) for x in affected_children_ids],
                 "affected_related_card_ids": [str(x) for x in affected_related_card_ids],
-                "severed_relation_count": severed_relation_count,
             },
             db=db,
             card_id=primary.id,

@@ -5,6 +5,19 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.5.1] - 2026-05-08
+
+### Changed
+- **Archiving no longer permanently deletes cross-boundary peer relations.** When a card is archived without cascading to a peer, the `relations` row is now kept in the database and simply hidden from active views (the `GET /relations` filter, dependency reports, capability heatmap, RelationsSection, etc.) for as long as either end is archived. Restoring the card automatically re-exposes the row — no more re-linking by hand. Hard-delete and the 30-day auto-purge still clean up referencing rows, so archived-then-purged cards leave nothing behind. The `card.archived.batch` audit event no longer carries `severed_relation_count` since severance no longer happens.
+
+### Fixed
+- **iPhone-width layout regressions on the Card Detail side panel and EA Delivery → Initiatives tab.** The Card Detail side panel header now lets the data-quality / lifecycle / approval badges wrap to a second row on `xs` viewports so the title and subtype no longer truncate to "A…" / "p…". The EA Delivery page header wraps the "New artefact" / "New ADR" button to its own line on narrow viewports instead of overlapping the description text. The Initiatives tab swaps its 320 px sticky sidebar for a left-anchored MUI Drawer on `xs` so the workspace can use the full viewport width; the drawer auto-closes when an initiative is selected.
+- **Restore dialog warning narrowed.** The cascade warning previously claimed both parent links *and* peer relationships had to be re-linked manually after restore. Peer relationships now come back automatically, so the copy was misleading; it now only mentions parent links severed by the disconnect / reparent strategies. Re-translated into all 8 supported locales (the previous string was English-in-every-file).
+- **Inventory column picker — Type and Name are now always-on.** Deselecting the Type or Name columns broke row identification and downstream features in subtle ways. They now render as checked + disabled (greyed out) with an "Always visible" tooltip, and "Clear all" preserves them. Backwards-compatible: any saved column preferences that omitted them get them merged back in on load.
+- **Inventory column picker — Tags column is now in the Default columns set.** The Tags column was rendered unconditionally and missing from the picker entirely, so users couldn't toggle it off and a default-column reset wouldn't bring it back if it had ever been hidden by a custom column profile. It is now exposed under Default columns alongside Type / Name / Path / etc., on by default, and a one-time migration adds it to existing users' saved column selection so they don't lose the column visually.
+- **Inventory mass-selection toolbar overflowed on iPhone.** The Mass Edit / Archive / Clear Selection buttons sat in a fixed-gap flex row that wrapped text inside each button on narrow viewports ("Mass Edit" rendered as two stacked lines, etc.). The toolbar now wraps to multiple rows with `flexWrap`, the buttons keep their text on a single line via `whiteSpace: nowrap`, and the desktop layout is unchanged.
+- **Inventory filter drawer no longer closes on every keystroke on iPhone.** The mobile drawer was wired to dismiss itself on any filter change, including each character typed into the search field. The drawer now stays open while the user filters; it dismisses via the backdrop, swipe, or the explicit collapse button.
+
 ## [1.5.0] - 2026-05-08
 
 ### Added

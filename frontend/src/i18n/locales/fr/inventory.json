@@ -27,6 +27,7 @@
   "columns.attributes": "Attributs",
   "columns.relations": "Relations",
   "columns.reset": "Réinitialiser",
+  "columns.alwaysVisible": "Toujours visible",
   "columns.path": "Chemin",
   "filter.title": "Filtres",
   "filter.expand": "Déplier les filtres",

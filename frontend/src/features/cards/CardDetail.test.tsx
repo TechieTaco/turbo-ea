@@ -364,7 +364,7 @@ describe("CardDetail", () => {
     });
   });
 
-  it("shows restore confirmation dialog with severed-link warning when Restore is clicked", async () => {
+  it("shows restore confirmation dialog with parent-link warning when Restore is clicked", async () => {
     const user = userEvent.setup();
     const archivedCard = {
       ...mockCard,
@@ -391,10 +391,10 @@ describe("CardDetail", () => {
     const restoreButtons = screen.getAllByRole("button", { name: /restore/i });
     await user.click(restoreButtons[0]);
 
-    // Severed-link warning appears in the confirmation dialog.
+    // Parent-link warning appears in the confirmation dialog.
     await waitFor(() => {
       expect(
-        screen.getByText(/does not bring back any parent link or peer relationship/i),
+        screen.getByText(/does not bring back any parent link/i),
       ).toBeInTheDocument();
     });
 

@@ -1605,9 +1605,18 @@ export const CORE_COLUMNS = [
   { key: "core_lifecycle", icon: "timeline", tKey: "columns.lifecycle" as const },
   { key: "core_approval_status", icon: "verified", tKey: "columns.approvalStatus" as const },
   { key: "core_data_quality", icon: "donut_small", tKey: "columns.dataQuality" as const },
+  { key: "core_tags", icon: "sell", tKey: "columns.tags" as const },
 ];
 
 export const CORE_COLUMN_KEYS = CORE_COLUMNS.map((c) => c.key);
+
+// Columns that must always be visible — deselecting them broke the inventory
+// in subtle ways (no way to identify rows, broken keyboard navigation, etc.).
+// These render as checked + disabled in the column picker.
+export const LOCKED_COLUMN_KEYS: ReadonlySet<string> = new Set([
+  "core_type",
+  "core_name",
+]);
 
 function ColumnsTab({
   types,
@@ -1644,6 +1653,7 @@ function ColumnsTab({
     setExpandedSections((prev) => ({ ...prev, [key]: !prev[key] }));
 
   const toggleColumn = (key: string) => {
+    if (LOCKED_COLUMN_KEYS.has(key)) return;
     const next = new Set(selectedColumns);
     if (next.has(key)) {
       next.delete(key);
@@ -1657,7 +1667,7 @@ function ColumnsTab({
     const next = new Set(selectedColumns);
     for (const k of keys) {
       if (checked) next.add(k);
-      else next.delete(k);
+      else if (!LOCKED_COLUMN_KEYS.has(k)) next.delete(k);
     }
     onSelectedColumnsChange(next);
   };
@@ -1808,7 +1818,7 @@ function ColumnsTab({
             )}
             <Button
               size="small"
-              onClick={() => onSelectedColumnsChange(new Set())}
+              onClick={() => onSelectedColumnsChange(new Set(LOCKED_COLUMN_KEYS))}
               sx={{ textTransform: "none", fontSize: 12, minWidth: 0, px: 1 }}
             >
               {t("columns.clearAll")}
@@ -1849,27 +1859,55 @@ function ColumnsTab({
                   }
                 />
               </ListItemButton>
-              {filteredCore.map((c) => (
-                <ListItemButton
-                  key={c.key}
-                  sx={{ py: 0.25, px: 0.5, borderRadius: 1 }}
-                  onClick={() => toggleColumn(c.key)}
-                >
-                  <ListItemIcon sx={{ minWidth: 28 }}>
-                    <Checkbox size="small" checked={selectedColumns.has(c.key)} sx={{ p: 0 }} />
-                  </ListItemIcon>
-                  <ListItemIcon sx={{ minWidth: 24 }}>
-                    <MaterialSymbol icon={c.icon} size={16} />
-                  </ListItemIcon>
-                  <ListItemText
-                    primary={
-                      <Typography variant="body2" fontSize={13}>
-                        {t(c.tKey)}
-                      </Typography>
-                    }
-                  />
-                </ListItemButton>
-              ))}
+              {filteredCore.map((c) => {
+                const locked = LOCKED_COLUMN_KEYS.has(c.key);
+                const row = (
+                  <ListItemButton
+                    key={c.key}
+                    disabled={locked}
+                    sx={{
+                      py: 0.25,
+                      px: 0.5,
+                      borderRadius: 1,
+                      // MUI greys out disabled buttons; bump opacity slightly so
+                      // the locked rows remain readable while signalling they
+                      // can't be toggled.
+                      ...(locked ? { "&.Mui-disabled": { opacity: 0.7 } } : {}),
+                    }}
+                    onClick={() => toggleColumn(c.key)}
+                  >
+                    <ListItemIcon sx={{ minWidth: 28 }}>
+                      <Checkbox
+                        size="small"
+                        checked={locked ? true : selectedColumns.has(c.key)}
+                        disabled={locked}
+                        sx={{ p: 0 }}
+                      />
+                    </ListItemIcon>
+                    <ListItemIcon sx={{ minWidth: 24 }}>
+                      <MaterialSymbol icon={c.icon} size={16} />
+                    </ListItemIcon>
+                    <ListItemText
+                      primary={
+                        <Typography variant="body2" fontSize={13}>
+                          {t(c.tKey)}
+                        </Typography>
+                      }
+                    />
+                  </ListItemButton>
+                );
+                return locked ? (
+                  <Tooltip
+                    key={c.key}
+                    title={t("columns.alwaysVisible")}
+                    placement="right"
+                  >
+                    <span>{row}</span>
+                  </Tooltip>
+                ) : (
+                  row
+                );
+              })}
             </List>
           </Collapse>
         </>

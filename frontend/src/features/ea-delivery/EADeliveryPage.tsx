@@ -683,38 +683,66 @@ export default function EADeliveryPage() {
   return (
     <Box>
       {/* Header */}
-      <Box sx={{ display: "flex", alignItems: "center", mb: 1 }}>
-        <MaterialSymbol icon="architecture" size={28} color="#1976d2" />
-        <Box sx={{ ml: 1 }}>
-          <Typography variant="h5" sx={{ fontWeight: 700 }}>
-            {t("page.title")}
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            {t("page.subtitle")}
-          </Typography>
+      <Box
+        sx={{
+          display: "flex",
+          alignItems: "center",
+          flexWrap: "wrap",
+          rowGap: 1,
+          columnGap: 1,
+          mb: 1,
+        }}
+      >
+        <Box sx={{ display: "flex", alignItems: "center", flex: "1 1 auto", minWidth: 0 }}>
+          <MaterialSymbol icon="architecture" size={28} color="#1976d2" />
+          <Box sx={{ ml: 1, minWidth: 0 }}>
+            <Typography variant="h5" sx={{ fontWeight: 700 }}>
+              {t("page.title")}
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              {t("page.subtitle")}
+            </Typography>
+          </Box>
         </Box>
-        <Box sx={{ flex: 1 }} />
         {pageTab === "initiatives" && (
-          <NewArtefactSplitButton
-            initiativeId={
-              selectedInitiativeId && selectedInitiativeId !== UNLINKED_KEY
-                ? selectedInitiativeId
-                : undefined
-            }
-            onSelect={(kind, id) => handleCreateArtefact(kind, id)}
-            variant="contained"
-          />
+          <Box
+            sx={{
+              ml: { sm: "auto" },
+              width: { xs: "100%", sm: "auto" },
+              display: "flex",
+              justifyContent: { xs: "flex-start", sm: "flex-end" },
+            }}
+          >
+            <NewArtefactSplitButton
+              initiativeId={
+                selectedInitiativeId && selectedInitiativeId !== UNLINKED_KEY
+                  ? selectedInitiativeId
+                  : undefined
+              }
+              onSelect={(kind, id) => handleCreateArtefact(kind, id)}
+              variant="contained"
+            />
+          </Box>
         )}
         {pageTab === "decisions" && (
-          <Button
-            variant="contained"
-            size="small"
-            startIcon={<MaterialSymbol icon="add" size={18} />}
-            sx={{ textTransform: "none" }}
-            onClick={() => openAdrCreateDialog()}
+          <Box
+            sx={{
+              ml: { sm: "auto" },
+              width: { xs: "100%", sm: "auto" },
+              display: "flex",
+              justifyContent: { xs: "flex-start", sm: "flex-end" },
+            }}
           >
-            {t("adr.new")}
-          </Button>
+            <Button
+              variant="contained"
+              size="small"
+              startIcon={<MaterialSymbol icon="add" size={18} />}
+              sx={{ textTransform: "none" }}
+              onClick={() => openAdrCreateDialog()}
+            >
+              {t("adr.new")}
+            </Button>
+          </Box>
         )}
       </Box>
 

@@ -2,8 +2,15 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
+import Button from "@mui/material/Button";
 import CircularProgress from "@mui/material/CircularProgress";
+import Drawer from "@mui/material/Drawer";
+import IconButton from "@mui/material/IconButton";
+import Typography from "@mui/material/Typography";
+import useMediaQuery from "@mui/material/useMediaQuery";
+import { useTheme } from "@mui/material/styles";
 import { api } from "@/api/client";
+import MaterialSymbol from "@/components/MaterialSymbol";
 import SidebarShell from "../SidebarShell";
 import InitiativeTreeSidebar, { UNLINKED_KEY } from "./InitiativeTreeSidebar";
 import InitiativeWorkspace, {
@@ -63,6 +70,9 @@ export default function InitiativesTab({
   onDataReady,
 }: Props) {
   const { t } = useTranslation(["delivery", "common"]);
+  const theme = useTheme();
+  const compact = useMediaQuery(theme.breakpoints.down("sm"));
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   const data = useInitiativeData();
   const {
@@ -240,6 +250,7 @@ export default function InitiativesTab({
           // ignore
         }
       }
+      setMobileOpen(false);
     },
     [onSelectInitiative],
   );
@@ -301,45 +312,9 @@ export default function InitiativesTab({
       {noInitiatives ? (
         <Alert severity="info">{t("empty.noInitiatives")}</Alert>
       ) : (
-        <Box
-          sx={{
-            display: "flex",
-            // Top-align so the sidebar isn't stretched by the workspace —
-            // the sidebar gets its own explicit height (sticky to viewport)
-            // and the workspace flows naturally with the page.
-            alignItems: "flex-start",
-            border: 1,
-            borderColor: "divider",
-            borderRadius: 1,
-            bgcolor: "background.paper",
-          }}
-        >
-          {/* Sidebar — sticks to the viewport below the fixed AppBar (64px),
-              with a small breathing-room offset, and keeps its definite
-              height so the SidebarShell's internal flex layout (header /
-              scrollable tree / footer) resolves correctly. */}
-          <Box
-            sx={{
-              position: "sticky",
-              top: 80,
-              alignSelf: "flex-start",
-              flexShrink: 0,
-              height: "calc(100vh - 96px)",
-              display: "flex",
-              borderTopLeftRadius: 4,
-              borderBottomLeftRadius: 4,
-              overflow: "hidden",
-            }}
-          >
-            <SidebarShell
-              title={t("tabs.initiatives")}
-              width={sidebarWidth}
-              onWidthChange={setSidebarWidth}
-              collapsed={collapsed}
-              onToggleCollapse={toggleCollapsed}
-              collapseTooltip={t("sidebar.collapse")}
-              expandTooltip={t("sidebar.expand")}
-            >
+        <>
+          {(() => {
+            const treeSidebar = (
               <InitiativeTreeSidebar
                 tree={visibleTree}
                 totalCount={totalCount}
@@ -367,29 +342,145 @@ export default function InitiativesTab({
                   unlinkedAdrs.length
                 }
               />
-            </SidebarShell>
-          </Box>
+            );
 
-          {/* Workspace — natural content height, drives the page scroll. */}
-          <Box sx={{ flex: 1, minWidth: 0 }}>
-            {filteredInitiatives.length === 0 && !favoritesOnly ? (
-              <Box sx={{ p: 4 }}>
-                <Alert severity="info">{t("empty.noMatch")}</Alert>
+            const workspace =
+              filteredInitiatives.length === 0 && !favoritesOnly ? (
+                <Box sx={{ p: 4 }}>
+                  <Alert severity="info">{t("empty.noMatch")}</Alert>
+                </Box>
+              ) : (
+                <InitiativeWorkspace
+                  selection={selection}
+                  onSelectInitiative={handleSelect}
+                  onCreateArtefact={handleCreateArtefact}
+                  onLinkDiagrams={onLinkDiagrams}
+                  onUnlinkDiagram={onUnlinkDiagram}
+                  onSoawContextMenu={onSoawContextMenu}
+                  isFavorite={(id) => favorites.has(id)}
+                  onToggleFavorite={toggleFavorite}
+                />
+              );
+
+            if (compact) {
+              return (
+                <>
+                  <Box
+                    sx={{
+                      border: 1,
+                      borderColor: "divider",
+                      borderRadius: 1,
+                      bgcolor: "background.paper",
+                    }}
+                  >
+                    <Box
+                      sx={{
+                        p: 1,
+                        borderBottom: 1,
+                        borderColor: "divider",
+                      }}
+                    >
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        startIcon={<MaterialSymbol icon="menu_open" size={18} />}
+                        onClick={() => setMobileOpen(true)}
+                        sx={{ textTransform: "none" }}
+                      >
+                        {t("sidebar.expand")}
+                      </Button>
+                    </Box>
+                    <Box sx={{ minWidth: 0 }}>{workspace}</Box>
+                  </Box>
+                  <Drawer
+                    anchor="left"
+                    open={mobileOpen}
+                    onClose={() => setMobileOpen(false)}
+                    PaperProps={{
+                      sx: { width: "92vw", maxWidth: 400 },
+                    }}
+                  >
+                    <Box
+                      sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        px: 1.5,
+                        py: 0.5,
+                        borderBottom: 1,
+                        borderColor: "divider",
+                        flexShrink: 0,
+                      }}
+                    >
+                      <Typography variant="subtitle2" sx={{ fontSize: 14 }}>
+                        {t("tabs.initiatives")}
+                      </Typography>
+                      <IconButton
+                        size="small"
+                        onClick={() => setMobileOpen(false)}
+                        aria-label={t("sidebar.collapse")}
+                      >
+                        <MaterialSymbol icon="close" size={20} />
+                      </IconButton>
+                    </Box>
+                    <Box sx={{ flex: 1, minHeight: 0, display: "flex" }}>
+                      {treeSidebar}
+                    </Box>
+                  </Drawer>
+                </>
+              );
+            }
+
+            return (
+              <Box
+                sx={{
+                  display: "flex",
+                  // Top-align so the sidebar isn't stretched by the workspace —
+                  // the sidebar gets its own explicit height (sticky to viewport)
+                  // and the workspace flows naturally with the page.
+                  alignItems: "flex-start",
+                  border: 1,
+                  borderColor: "divider",
+                  borderRadius: 1,
+                  bgcolor: "background.paper",
+                }}
+              >
+                {/* Sidebar — sticks to the viewport below the fixed AppBar (64px),
+                    with a small breathing-room offset, and keeps its definite
+                    height so the SidebarShell's internal flex layout (header /
+                    scrollable tree / footer) resolves correctly. */}
+                <Box
+                  sx={{
+                    position: "sticky",
+                    top: 80,
+                    alignSelf: "flex-start",
+                    flexShrink: 0,
+                    height: "calc(100vh - 96px)",
+                    display: "flex",
+                    borderTopLeftRadius: 4,
+                    borderBottomLeftRadius: 4,
+                    overflow: "hidden",
+                  }}
+                >
+                  <SidebarShell
+                    title={t("tabs.initiatives")}
+                    width={sidebarWidth}
+                    onWidthChange={setSidebarWidth}
+                    collapsed={collapsed}
+                    onToggleCollapse={toggleCollapsed}
+                    collapseTooltip={t("sidebar.collapse")}
+                    expandTooltip={t("sidebar.expand")}
+                  >
+                    {treeSidebar}
+                  </SidebarShell>
+                </Box>
+
+                {/* Workspace — natural content height, drives the page scroll. */}
+                <Box sx={{ flex: 1, minWidth: 0 }}>{workspace}</Box>
               </Box>
-            ) : (
-              <InitiativeWorkspace
-                selection={selection}
-                onSelectInitiative={handleSelect}
-                onCreateArtefact={handleCreateArtefact}
-                onLinkDiagrams={onLinkDiagrams}
-                onUnlinkDiagram={onUnlinkDiagram}
-                onSoawContextMenu={onSoawContextMenu}
-                isFavorite={(id) => favorites.has(id)}
-                onToggleFavorite={toggleFavorite}
-              />
-            )}
-          </Box>
-        </Box>
+            );
+          })()}
+        </>
       )}
     </Box>
   );
