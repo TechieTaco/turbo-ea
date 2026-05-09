@@ -45,5 +45,7 @@
   "turbolens.history": "История",
   "userMenu.capabilityCatalogue": "Каталог возможностей",
   "userMenu.principlesCatalogue": "Каталог принципов",
-  "userMenu.referenceCatalogues": "Справочные каталоги"
+  "userMenu.referenceCatalogues": "Справочные каталоги",
+  "userMenu.processCatalogue": "Каталог процессов",
+  "userMenu.valueStreamCatalogue": "Каталог потоков создания ценности"
 }

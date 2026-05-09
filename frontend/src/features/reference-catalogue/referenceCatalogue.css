@@ -1,18 +1,31 @@
-/* Tree-specific visuals for the Capability Catalogue browser.
-   Scoped under .tcc-root so it doesn't leak into other pages.
+/* Generic styles for the three reference catalogue browsers (capability,
+   business process, value stream). Scoped under .tcc-root.
 
-   Visual model (matches the rest of the app — see HierarchySection,
-   CapabilityMapReport.CapabilityCard, PpmTaskCard):
-     • Surfaces stay neutral (`background.paper`, divider borders).
-     • Hierarchy is read from indentation + a single typography step-down
-       (bold L1, semi-bold L2, regular L3+).
-     • The brand navy `#003399` is the chrome accent (L1 type-icon prefix,
-       L1 name, hover ring), matching the public capability catalogue site
-       at https://capabilities.turbo-ea.org/.
-     • The magenta `#D63384` is reserved for the selected-state ring/wash
-       so selection always reads as a deliberate, attention-grabbing cue
-       (same convention as the reference site).
+   The accent and selection colours are driven by two CSS custom properties
+   so the same stylesheet can render any catalogue:
+     --tcc-accent      → chrome accent (header tint, hover, L1 name, ID label,
+                          industry trigger). Defaults to navy #003399.
+     --tcc-selection   → checkbox + selected-row state. Defaults to magenta
+                          #D63384.
+
+   Per-catalogue pages override these on the catalogue root via inline style:
+     <Box className="tcc-root" style={{ "--tcc-accent": "#e65100" }}>
+
+   The class names retain the `tcc-` prefix from the original capability-
+   catalogue stylesheet for git-history continuity. Translucent washes use
+   `color-mix(in srgb, ...)` so the accent's opacity stops follow whatever
+   colour the page passed in without needing per-stop variables.
 */
+
+.tcc-root {
+  --tcc-accent: #003399;
+  --tcc-selection: #D63384;
+  --tcc-accent-soft: color-mix(in srgb, var(--tcc-accent) 5%, transparent);
+  --tcc-accent-mid: color-mix(in srgb, var(--tcc-accent) 8%, transparent);
+  --tcc-accent-strong: color-mix(in srgb, var(--tcc-accent) 35%, transparent);
+  --tcc-accent-stronger: color-mix(in srgb, var(--tcc-accent) 45%, transparent);
+  --tcc-selection-soft: color-mix(in srgb, var(--tcc-selection) 7%, transparent);
+}
 
 .tcc-root .tcc-l1-grid {
   display: grid;
@@ -36,22 +49,17 @@
 }
 
 .tcc-root .tcc-l1-card.is-selected {
-  border-color: #D63384;
-  box-shadow: 0 0 0 1px #D63384;
+  border-color: var(--tcc-selection);
+  box-shadow: 0 0 0 1px var(--tcc-selection);
 }
 
-/* L1 header — pale-blue band that visually anchors the card without
-   competing with the neutral child rows. The tint is the same brand-navy
-   wash used for the selected-row state, just slightly lighter (4 % vs
-   6 %), so it reads as "this is the L1 banner" but stays well behind the
-   navy title. */
 .tcc-root .tcc-l1-header {
   display: flex;
   align-items: center;
   gap: 8px;
   padding: 10px 12px;
   min-width: 0;
-  background: rgba(0, 51, 153, 0.05);
+  background: var(--tcc-accent-soft);
   border-bottom: 1px solid var(--mui-palette-divider, rgba(0, 0, 0, 0.08));
 }
 
@@ -73,12 +81,9 @@
 }
 
 .tcc-root .tcc-l1-name:hover {
-  color: #003399;
+  color: var(--tcc-accent);
 }
 
-/* Cap-count badge — picks up the row's foreground colour via
-   currentColor + a translucent same-colour pill. Reads on neutral
-   surfaces in both modes without per-class overrides. */
 .tcc-root .tcc-cap-count {
   font-size: 11px;
   font-weight: 700;
@@ -89,16 +94,15 @@
   flex-shrink: 0;
 }
 
-/* Per-L1 ± stepper pill. Navy outline + tint on a white-paper header. */
 .tcc-root .tcc-branch-stepper {
   display: inline-flex;
   align-items: stretch;
-  border: 1px solid rgba(0, 51, 153, 0.35);
+  border: 1px solid var(--tcc-accent-strong);
   border-radius: 999px;
   overflow: hidden;
   background: transparent;
   flex-shrink: 0;
-  color: #003399;
+  color: var(--tcc-accent);
 }
 
 .tcc-root .tcc-branch-stepper button {
@@ -114,11 +118,11 @@
 }
 
 .tcc-root .tcc-branch-stepper button + button {
-  border-left: 1px solid rgba(0, 51, 153, 0.35);
+  border-left: 1px solid var(--tcc-accent-strong);
 }
 
 .tcc-root .tcc-branch-stepper button:hover:not(:disabled) {
-  background: rgba(0, 51, 153, 0.06);
+  background: color-mix(in srgb, var(--tcc-accent) 6%, transparent);
 }
 
 .tcc-root .tcc-branch-stepper button:disabled {
@@ -136,20 +140,12 @@
   gap: 4px;
 }
 
-/* Nested levels: indent + a faint vertical rail that signals depth without
-   colour. Same idiom as .tcc-detail-tree-children below. */
 .tcc-root .tcc-l2-children {
   padding: 4px 0 4px 16px;
   margin-left: 14px;
-  border-left: 1px solid rgba(0, 51, 153, 0.10);
+  border-left: 1px solid color-mix(in srgb, var(--tcc-accent) 10%, transparent);
 }
 
-/* Rows are neutral — paper bg, divider border, slate text. Depth is conveyed
-   by indentation (.tcc-l2-children) + typography (is-l2 weight bump),
-   plus a barely-there grey wash on the L2 group header. The brand navy
-   #003399 carries hover; the magenta #D63384 carries the selected state
-   (matching https://capabilities.turbo-ea.org/) so a chosen row visibly
-   pops without the catalog reading as a wall of navy. */
 .tcc-root .tcc-row {
   display: flex;
   align-items: center;
@@ -165,23 +161,21 @@
 
 .tcc-root .tcc-row:hover {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
-  color: #003399;
+  color: var(--tcc-accent);
 }
 
 .tcc-root .tcc-row.is-l2 {
   background: #F9FAFC;
 }
 
-/* L3+ rows shed the boxed look so the L2 band reads as the group anchor
-   and the deeper levels feel like a flat outline list. */
 .tcc-root .tcc-l2-children .tcc-row {
   border-color: transparent;
 }
 
 .tcc-root .tcc-row.is-selected {
-  background: rgba(214, 51, 132, 0.07);
-  color: #D63384;
-  box-shadow: 0 0 0 1px #D63384;
+  background: var(--tcc-selection-soft);
+  color: var(--tcc-selection);
+  box-shadow: 0 0 0 1px var(--tcc-selection);
 }
 
 .tcc-root .tcc-row .tcc-name-btn {
@@ -343,14 +337,7 @@
   margin-left: 6px;
 }
 
-/* -- Dark mode -------------------------------------------------------------
-   MUI 6 isn't running with `cssVariables: true`, so the
-   var(--mui-palette-…) tokens above don't actually resolve at runtime —
-   the browser falls back to the literal #fff / divider values. The
-   component reads `theme.palette.mode` and tags the root with
-   `tcc-root--dark`; everything below mirrors the neutral light-mode
-   layout on a #1e1e1e paper with lifted-lavender text. No per-level
-   tints in either mode — depth is read from indentation + typography. */
+/* -- Dark mode ------------------------------------------------------------- */
 
 .tcc-root.tcc-root--dark .tcc-l1-card {
   background: #1e1e1e;
@@ -408,10 +395,6 @@
   border-left-color: rgba(168, 196, 255, 0.18);
 }
 
-/* MUI Checkbox in rows: magenta in both modes (selection cue), tuned
-   lighter for dark mode legibility. The CSS selector chain (3 classes)
-   wins over MUI's emotion-generated single-class `sx` rule on
-   specificity, so no !important needed. */
 .tcc-root.tcc-root--dark .tcc-row .MuiCheckbox-root {
   color: rgba(244, 114, 182, 0.55);
 }
@@ -463,30 +446,19 @@
   border-color: rgba(255, 255, 255, 0.18);
 }
 
-/* -- Industry filter (matches capabilities.turbo-ea.org) -------------------
-   A bespoke dropdown rather than a vanilla MUI Select: the trigger is a
-   single rounded-rectangle button with the field name baked in (bold
-   navy "INDUSTRY" + value + chevron), and the popover surfaces a
-   pinned "Cross-Industry" row at the top, separated from the rest of
-   the alphabetical list by a hairline. Picks up the same #003399 navy
-   chrome / #D63384 magenta accent the rest of the catalogue uses. */
+/* -- Industry filter ------------------------------------------------------- */
 
 .tcc-industry-trigger {
   display: inline-flex;
   align-items: center;
   gap: 12px;
   height: 40px;
-  /* Locked width so the trigger doesn't reflow as the value text changes
-     ("All" → "Cross-Industry" → "3 selected"). Combined with the anchor
-     position being captured on open in IndustryFilter.tsx, this keeps
-     the menu stable when the underlying BC list resizes (scrollbar
-     appearing/disappearing was reflowing the whole filter row). */
   width: 220px;
   padding: 0 10px 0 16px;
   border: 1px solid var(--mui-palette-divider, rgba(0, 0, 0, 0.23));
   border-radius: 8px;
   background: var(--mui-palette-background-paper, #fff);
-  color: #003399;
+  color: var(--tcc-accent, #003399);
   font-family: inherit;
   font-size: 13px;
   cursor: pointer;
@@ -494,12 +466,12 @@
 }
 
 .tcc-industry-trigger:hover {
-  background: rgba(0, 51, 153, 0.04);
+  background: color-mix(in srgb, var(--tcc-accent, #003399) 4%, transparent);
   border-color: rgba(0, 0, 0, 0.42);
 }
 
 .tcc-industry-trigger:focus-visible {
-  outline: 2px solid rgba(0, 51, 153, 0.35);
+  outline: 2px solid color-mix(in srgb, var(--tcc-accent, #003399) 35%, transparent);
   outline-offset: 2px;
 }
 
@@ -534,7 +506,6 @@
   transform: rotate(180deg);
 }
 
-/* Popover surface */
 .tcc-industry-menu .tcc-industry-menu-paper {
   border-radius: 10px;
   box-shadow: 0 10px 28px rgba(15, 23, 42, 0.12), 0 1px 3px rgba(15, 23, 42, 0.06);
@@ -542,14 +513,9 @@
   min-width: 280px;
   max-width: 360px;
   margin-top: 6px;
-  /* overflow-y: auto so the list scrolls when there are more industries
-     than fit on screen — the rounded corners still clip via border-radius
-     on modern browsers. (overflow: hidden was clipping the scrollbar
-     and making the list unreachable past the visible items.) */
   overflow-y: auto;
 }
 
-/* "Clear (N)" row */
 .tcc-industry-menu .tcc-industry-clear.MuiMenuItem-root {
   font-weight: 600;
   font-size: 13px;
@@ -562,7 +528,6 @@
   background: rgba(214, 51, 132, 0.06);
 }
 
-/* Industry rows */
 .tcc-industry-menu .tcc-industry-row.MuiMenuItem-root {
   display: flex;
   align-items: center;
@@ -598,7 +563,6 @@
   line-height: 1.3;
 }
 
-/* Hairline separator below the pinned Cross-Industry block */
 .tcc-industry-menu .tcc-industry-separator {
   list-style: none;
   height: 1px;
@@ -606,9 +570,7 @@
   background: var(--mui-palette-divider, rgba(0, 0, 0, 0.10));
 }
 
-/* Dark mode — the trigger lives inside .tcc-root (so .tcc-root--dark works
-   as the ancestor), but the Menu portals to <body>, which is why the
-   IndustryFilter component tags the menu itself with .tcc-industry-menu--dark. */
+/* Dark mode for the industry filter */
 
 .tcc-root--dark .tcc-industry-trigger {
   background: #1e1e1e;

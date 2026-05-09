@@ -45,5 +45,7 @@
   "turbolens.history": "Cronologia",
   "userMenu.capabilityCatalogue": "Catalogo delle capacità",
   "userMenu.principlesCatalogue": "Catalogo dei principi",
-  "userMenu.referenceCatalogues": "Cataloghi di riferimento"
+  "userMenu.referenceCatalogues": "Cataloghi di riferimento",
+  "userMenu.processCatalogue": "Catalogo dei processi",
+  "userMenu.valueStreamCatalogue": "Catalogo dei flussi di valore"
 }

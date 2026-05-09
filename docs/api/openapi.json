@@ -639,7 +639,7 @@
       "Body_import_bpmn_api_v1_bpm_processes__process_id__diagram_import_post": {
         "properties": {
           "file": {
-            "contentMediaType": "application/octet-stream",
+            "format": "binary",
             "title": "File",
             "type": "string"
           }
@@ -653,7 +653,7 @@
       "Body_upload_favicon_api_v1_settings_favicon_post": {
         "properties": {
           "file": {
-            "contentMediaType": "application/octet-stream",
+            "format": "binary",
             "title": "File",
             "type": "string"
           }
@@ -678,7 +678,7 @@
             "title": "Category"
           },
           "file": {
-            "contentMediaType": "application/octet-stream",
+            "format": "binary",
             "title": "File",
             "type": "string"
           }
@@ -692,7 +692,7 @@
       "Body_upload_logo_api_v1_settings_logo_post": {
         "properties": {
           "file": {
-            "contentMediaType": "application/octet-stream",
+            "format": "binary",
             "title": "File",
             "type": "string"
           }
@@ -9580,13 +9580,6 @@
       },
       "ValidationError": {
         "properties": {
-          "ctx": {
-            "title": "Context",
-            "type": "object"
-          },
-          "input": {
-            "title": "Input"
-          },
           "loc": {
             "items": {
               "anyOf": [
@@ -18742,6 +18735,134 @@
         ]
       }
     },
+    "/api/v1/process-catalogue": {
+      "get": {
+        "description": "Return the full active process catalogue with `existing_card_id`\nannotations.",
+        "operationId": "get_catalogue_api_v1_process_catalogue_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "locale",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Locale"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Catalogue",
+        "tags": [
+          "process-catalogue"
+        ]
+      }
+    },
+    "/api/v1/process-catalogue/import": {
+      "post": {
+        "description": "Create BusinessProcess cards for the selected catalogue entries.\n\nIdempotent and hierarchy-preserving. Auto-creates `relProcessToBC`\nrelations to any matching BusinessCapability cards (skipped silently\nif the target capability hasn't been imported yet).",
+        "operationId": "import_processes_api_v1_process_catalogue_import_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImportRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Import Processes",
+        "tags": [
+          "process-catalogue"
+        ]
+      }
+    },
+    "/api/v1/process-catalogue/update-fetch": {
+      "post": {
+        "description": "Download the latest wheel from PyPI. Hydrates all three caches.",
+        "operationId": "update_fetch_api_v1_process_catalogue_update_fetch_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Update Fetch",
+        "tags": [
+          "process-catalogue"
+        ]
+      }
+    },
+    "/api/v1/process-catalogue/update-status": {
+      "get": {
+        "description": "Compare the bundled/cached process catalogue against PyPI.",
+        "operationId": "update_status_api_v1_process_catalogue_update_status_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Update Status",
+        "tags": [
+          "process-catalogue"
+        ]
+      }
+    },
     "/api/v1/relations": {
       "get": {
         "operationId": "list_relations_api_v1_relations_get",
@@ -26620,6 +26741,132 @@
         "summary": "Update User",
         "tags": [
           "users"
+        ]
+      }
+    },
+    "/api/v1/value-stream-catalogue": {
+      "get": {
+        "description": "Return the full active value-stream catalogue, flattened to a\nparent-stream + child-stage tree so the existing browser UI can render\nit. Each node is annotated with `existing_card_id`.",
+        "operationId": "get_catalogue_api_v1_value_stream_catalogue_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "locale",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Locale"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Catalogue",
+        "tags": [
+          "value-stream-catalogue"
+        ]
+      }
+    },
+    "/api/v1/value-stream-catalogue/import": {
+      "post": {
+        "description": "Create BusinessContext / valueStream cards for selected streams or\nstages. Selecting a stage automatically pulls in its parent stream so\n`parent_id` is wired correctly. Auto-creates relBizCtxToBC and\nrelProcessToBizCtx relations to any matching capability/process cards.",
+        "operationId": "import_value_streams_api_v1_value_stream_catalogue_import_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImportRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Import Value Streams",
+        "tags": [
+          "value-stream-catalogue"
+        ]
+      }
+    },
+    "/api/v1/value-stream-catalogue/update-fetch": {
+      "post": {
+        "operationId": "update_fetch_api_v1_value_stream_catalogue_update_fetch_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Update Fetch",
+        "tags": [
+          "value-stream-catalogue"
+        ]
+      }
+    },
+    "/api/v1/value-stream-catalogue/update-status": {
+      "get": {
+        "operationId": "update_status_api_v1_value_stream_catalogue_update_status_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Update Status",
+        "tags": [
+          "value-stream-catalogue"
         ]
       }
     },

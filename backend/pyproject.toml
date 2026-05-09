@@ -21,7 +21,7 @@ dependencies = [
     "slowapi>=0.1.9",
     "simpleeval>=1.0.0",
     "defusedxml>=0.7.1",
-    "turbo-ea-capabilities>=2026.4.27",
+    "turbo-ea-capabilities>=2026.5.9.297",
 ]
 
 [project.optional-dependencies]

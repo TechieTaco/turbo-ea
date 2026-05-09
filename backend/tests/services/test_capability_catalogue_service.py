@@ -19,6 +19,7 @@ import pytest
 from sqlalchemy import select
 
 from app.models.card import Card
+from app.services import catalogue_common as common
 from tests.conftest import create_card, create_user
 
 # ---------------------------------------------------------------------------
@@ -428,11 +429,11 @@ async def test_import_relinks_when_existing_child_points_to_archived_parent(db, 
 @pytest.mark.asyncio
 async def test_version_tuple_handles_double_digit(monkeypatch):
     _install_fake_pkg(monkeypatch)
-    from app.services.capability_catalogue_service import _version_tuple
+    from app.services.catalogue_common import version_tuple
 
-    assert _version_tuple("1.10.0") > _version_tuple("1.9.0")
-    assert _version_tuple("2.0.0") > _version_tuple("1.99.99")
-    assert _version_tuple("0") == (0,)
+    assert version_tuple("1.10.0") > version_tuple("1.9.0")
+    assert version_tuple("2.0.0") > version_tuple("1.99.99")
+    assert version_tuple("0") == (0,)
 
 
 # ---------------------------------------------------------------------------
@@ -770,10 +771,10 @@ async def test_check_remote_version_reports_pypi_update(db, monkeypatch):
     from app.services import capability_catalogue_service as svc
 
     def route(url: str) -> _FakeHttpResponse:
-        assert url == svc.PYPI_INDEX_URL
+        assert url == common.PYPI_INDEX_URL
         return _FakeHttpResponse(json_data={"info": {"version": "1.5.0"}, "urls": []})
 
-    monkeypatch.setattr(svc.httpx, "AsyncClient", lambda **kw: _FakeHttpClient(route, **kw))
+    monkeypatch.setattr(common.httpx, "AsyncClient", lambda **kw: _FakeHttpClient(route, **kw))
 
     result = await svc.check_remote_version(db)
 
@@ -781,7 +782,7 @@ async def test_check_remote_version_reports_pypi_update(db, monkeypatch):
     assert result["remote"] == {
         "catalogue_version": "1.5.0",
         "source": "pypi",
-        "project": svc.PYPI_PROJECT_NAME,
+        "project": common.PYPI_PROJECT_NAME,
     }
     assert result["bundled_version"] == "1.2.3"
     assert result["active_version"] == "1.2.3"
@@ -799,7 +800,7 @@ async def test_check_remote_version_no_update_when_pypi_matches_bundled(db, monk
     def route(_: str) -> _FakeHttpResponse:
         return _FakeHttpResponse(json_data={"info": {"version": "1.2.3"}, "urls": []})
 
-    monkeypatch.setattr(svc.httpx, "AsyncClient", lambda **kw: _FakeHttpClient(route, **kw))
+    monkeypatch.setattr(common.httpx, "AsyncClient", lambda **kw: _FakeHttpClient(route, **kw))
 
     result = await svc.check_remote_version(db)
     assert result["update_available"] is False
@@ -816,7 +817,7 @@ async def test_check_remote_version_handles_pypi_unreachable(db, monkeypatch):
 
         raise _httpx.ConnectError("network down")
 
-    monkeypatch.setattr(svc.httpx, "AsyncClient", lambda **kw: _FakeHttpClient(route, **kw))
+    monkeypatch.setattr(common.httpx, "AsyncClient", lambda **kw: _FakeHttpClient(route, **kw))
 
     result = await svc.check_remote_version(db)
     assert result["update_available"] is False
@@ -841,7 +842,7 @@ async def test_fetch_remote_catalogue_downloads_wheel_from_pypi(db, monkeypatch)
     )
 
     def route(url: str) -> _FakeHttpResponse:
-        if url == svc.PYPI_INDEX_URL:
+        if url == common.PYPI_INDEX_URL:
             return _FakeHttpResponse(
                 json_data={
                     "info": {"version": "1.5.0"},
@@ -852,7 +853,7 @@ async def test_fetch_remote_catalogue_downloads_wheel_from_pypi(db, monkeypatch)
             return _FakeHttpResponse(content=wheel_bytes)
         raise AssertionError(f"unexpected URL {url}")
 
-    monkeypatch.setattr(svc.httpx, "AsyncClient", lambda **kw: _FakeHttpClient(route, **kw))
+    monkeypatch.setattr(common.httpx, "AsyncClient", lambda **kw: _FakeHttpClient(route, **kw))
 
     result = await svc.fetch_remote_catalogue(db)
     assert result["catalogue_version"] == "1.5.0"
@@ -860,7 +861,7 @@ async def test_fetch_remote_catalogue_downloads_wheel_from_pypi(db, monkeypatch)
 
     # Cached payload is the source of truth for subsequent check_remote_version
     # calls — a working fetch must clear the update-available flag.
-    cached = await svc._get_cached_remote(db)
+    cached = await common.get_cached_remote(db, common.CAPABILITY_CACHE_KEY)
     assert cached is not None
     assert cached["catalogue_version"] == "1.5.0"
     assert cached["source"] == "pypi"
@@ -882,7 +883,7 @@ async def test_fetch_remote_catalogue_falls_back_to_sdist_when_no_wheel(db, monk
     sdist_url = "https://files.pythonhosted.org/packages/cc/dd/turbo_ea_capabilities-1.5.0.tar.gz"
 
     def route(url: str) -> _FakeHttpResponse:
-        if url == svc.PYPI_INDEX_URL:
+        if url == common.PYPI_INDEX_URL:
             return _FakeHttpResponse(
                 json_data={
                     "info": {"version": "1.5.0"},
@@ -893,7 +894,7 @@ async def test_fetch_remote_catalogue_falls_back_to_sdist_when_no_wheel(db, monk
             return _FakeHttpResponse(content=wheel_bytes)
         raise AssertionError(f"unexpected URL {url}")
 
-    monkeypatch.setattr(svc.httpx, "AsyncClient", lambda **kw: _FakeHttpClient(route, **kw))
+    monkeypatch.setattr(common.httpx, "AsyncClient", lambda **kw: _FakeHttpClient(route, **kw))
 
     result = await svc.fetch_remote_catalogue(db)
     assert result["catalogue_version"] == "1.5.0"
@@ -908,12 +909,12 @@ async def test_fetch_remote_catalogue_rejects_unparseable_pypi_response(db, monk
         # No `info.version`, no `urls` — should not silently cache anything.
         return _FakeHttpResponse(json_data={"info": {}, "urls": []})
 
-    monkeypatch.setattr(svc.httpx, "AsyncClient", lambda **kw: _FakeHttpClient(route, **kw))
+    monkeypatch.setattr(common.httpx, "AsyncClient", lambda **kw: _FakeHttpClient(route, **kw))
 
     with pytest.raises(ValueError):
         await svc.fetch_remote_catalogue(db)
 
-    assert await svc._get_cached_remote(db) is None
+    assert await common.get_cached_remote(db, common.CAPABILITY_CACHE_KEY) is None
 
 
 # ---------------------------------------------------------------------------
@@ -936,13 +937,12 @@ def _seed_cached_remote(
     `app_settings`) keeps tests honest about the on-disk shape — if the
     fetch path stops storing `i18n`, these tests will catch it.
     """
-    from app.services import capability_catalogue_service as svc
 
     wheel_bytes = _build_fake_wheel(version=version, caps=data, i18n=i18n)
     wheel_url = f"https://example.invalid/turbo_ea_capabilities-{version}.whl"
 
     def route(url: str) -> _FakeHttpResponse:
-        if url == svc.PYPI_INDEX_URL:
+        if url == common.PYPI_INDEX_URL:
             return _FakeHttpResponse(
                 json_data={
                     "info": {"version": version},
@@ -953,7 +953,7 @@ def _seed_cached_remote(
             return _FakeHttpResponse(content=wheel_bytes)
         raise AssertionError(f"unexpected URL {url}")
 
-    monkeypatch.setattr(svc.httpx, "AsyncClient", lambda **kw: _FakeHttpClient(route, **kw))
+    monkeypatch.setattr(common.httpx, "AsyncClient", lambda **kw: _FakeHttpClient(route, **kw))
 
 
 @pytest.mark.asyncio
@@ -1070,7 +1070,7 @@ async def test_cached_remote_payload_falls_back_to_bundled_translations(db, monk
 
     # Manually shape a cached payload that lacks the `i18n` key (simulates a
     # cache stored by a version of Turbo EA before i18n caching landed).
-    settings = await svc._get_app_settings(db)
+    settings = await common.get_app_settings(db)
     settings.general_settings = {
         svc.SETTINGS_KEY: {
             "data": [
@@ -1162,7 +1162,7 @@ async def test_fetch_remote_catalogue_persists_i18n_tables(db, monkeypatch):
     wheel_url = "https://example.invalid/turbo_ea_capabilities-2.0.0.whl"
 
     def route(url: str) -> _FakeHttpResponse:
-        if url == svc.PYPI_INDEX_URL:
+        if url == common.PYPI_INDEX_URL:
             return _FakeHttpResponse(
                 json_data={
                     "info": {"version": "2.0.0"},
@@ -1173,12 +1173,12 @@ async def test_fetch_remote_catalogue_persists_i18n_tables(db, monkeypatch):
             return _FakeHttpResponse(content=wheel_bytes)
         raise AssertionError(f"unexpected URL {url}")
 
-    monkeypatch.setattr(svc.httpx, "AsyncClient", lambda **kw: _FakeHttpClient(route, **kw))
+    monkeypatch.setattr(common.httpx, "AsyncClient", lambda **kw: _FakeHttpClient(route, **kw))
 
     result = await svc.fetch_remote_catalogue(db)
     assert sorted(result["available_locales"]) == ["de", "en", "fr"]
 
-    cached = await svc._get_cached_remote(db)
+    cached = await common.get_cached_remote(db, common.CAPABILITY_CACHE_KEY)
     assert cached is not None
     assert sorted(cached["i18n"].keys()) == ["de", "fr"]
     assert cached["i18n"]["fr"]["BC-1"]["name"] == "Gestion de la clientèle"
@@ -1187,11 +1187,13 @@ async def test_fetch_remote_catalogue_persists_i18n_tables(db, monkeypatch):
 @pytest.mark.asyncio
 async def test_extract_catalogue_from_wheel_handles_missing_i18n_dir():
     """Wheels published before i18n shipped must still extract cleanly —
-    they just yield an empty i18n dict."""
-    from app.services import capability_catalogue_service as svc
-
-    wheel_bytes = _build_fake_wheel(version="1.0.0")  # no i18n kw
-    caps, ver, i18n = svc._extract_catalogue_from_wheel(wheel_bytes)
-    assert ver["catalogue_version"] == "1.0.0"
-    assert len(caps) == 2
-    assert i18n == {}
+    they just yield an empty i18n dict. Newer wheels also ship business-process
+    and value-stream payloads; the unified extractor reports `None` for any
+    artefact a given wheel pre-dates."""
+    wheel_bytes = _build_fake_wheel(version="1.0.0")  # no i18n kw, no BP/VS files
+    artefacts = common.extract_all_catalogues_from_wheel(wheel_bytes)
+    assert artefacts["version"]["catalogue_version"] == "1.0.0"
+    assert len(artefacts["capabilities"]) == 2
+    assert artefacts["processes"] is None
+    assert artefacts["value_streams"] is None
+    assert artefacts["i18n"] == {}

@@ -1,0 +1,272 @@
+"""Tests for the value-stream catalogue service.
+
+Value Streams are flattened to a 2-level tree (stream parent + stage
+children) before reaching the browser, and during import each stage card is
+auto-linked to existing capability and process cards via `relBizCtxToBC`
+(stage → capability) and `relProcessToBizCtx` (process → stage) relations.
+"""
+
+from __future__ import annotations
+
+import types
+from typing import Any
+
+import pytest
+from sqlalchemy import select
+
+from app.models.card import Card
+from app.models.relation import Relation
+from app.services import catalogue_common as common  # noqa: F401
+from tests.conftest import create_card, create_user
+
+# ---------------------------------------------------------------------------
+# Fake catalogue
+# ---------------------------------------------------------------------------
+
+_FAKE_VALUE_STREAMS: list[dict[str, Any]] = [
+    {
+        "id": "VS-10",
+        "name": "Acquire-to-Retire",
+        "description": "Asset lifecycle stream",
+        "industries": ["Cross-Industry"],
+        "deprecated": False,
+        "deprecation_reason": None,
+        "successor_id": None,
+        "metadata": {},
+        "stages": [
+            {
+                "id": "VS-10.10",
+                "stage_order": 1,
+                "stage_name": "Asset Need & Justification",
+                "capability_ids": ["BC-1"],
+                "process_ids": ["BP-100"],
+                "industries": [],
+                "industry_variant": None,
+                "description": None,
+                "notes": "Strategy + business case",
+            },
+            {
+                "id": "VS-10.20",
+                "stage_order": 2,
+                "stage_name": "Asset Construction",
+                "capability_ids": ["BC-2"],
+                "process_ids": [],
+                "industries": [],
+                "industry_variant": "Manufacturing",
+                "description": None,
+                "notes": None,
+            },
+        ],
+    }
+]
+
+
+class _FakeStage:
+    def __init__(self, **kw: Any) -> None:
+        for k, v in kw.items():
+            setattr(self, k, v)
+
+
+class _FakeStream:
+    def __init__(self, **kw: Any) -> None:
+        for k, v in kw.items():
+            if k == "stages":
+                setattr(self, k, [_FakeStage(**s) for s in v])
+            else:
+                setattr(self, k, v)
+
+    def localized(self, lang: str, *, fallback: str = "en") -> "_FakeStream":
+        return self
+
+
+def _install_fake_pkg(monkeypatch: pytest.MonkeyPatch) -> None:
+    fake = types.ModuleType("turbo_ea_capabilities")
+    fake.VERSION = "2.0.0"
+    fake.SCHEMA_VERSION = "2"
+    fake.GENERATED_AT = "2026-05-09T15:00:00Z"
+    fake.NODE_COUNT = 5
+    fake.PROCESS_COUNT = 1
+    fake.available_locales = lambda: ("en",)
+    fake.load_value_streams = lambda: [_FakeStream(**vs) for vs in _FAKE_VALUE_STREAMS]
+    fake.get_value_stream = lambda vid: next(
+        (_FakeStream(**vs) for vs in _FAKE_VALUE_STREAMS if vs["id"] == vid), None
+    )
+
+    from app.services import value_stream_catalogue_service as svc
+
+    monkeypatch.setattr(svc, "catalogue_pkg", fake)
+
+
+# ---------------------------------------------------------------------------
+# Tests
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_get_payload_flattens_streams_and_stages(db, monkeypatch):
+    _install_fake_pkg(monkeypatch)
+    from app.services import value_stream_catalogue_service as svc
+
+    payload = await svc.get_catalogue_payload(db)
+    nodes = payload["value_streams"]
+    by_id = {n["id"]: n for n in nodes}
+
+    # Stream first, then both stages.
+    assert by_id["VS-10"]["level"] == 1
+    assert by_id["VS-10"]["parent_id"] is None
+    assert by_id["VS-10.10"]["level"] == 2
+    assert by_id["VS-10.10"]["parent_id"] == "VS-10"
+    assert by_id["VS-10.20"]["parent_id"] == "VS-10"
+
+    # Stage data round-tripped.
+    assert by_id["VS-10.10"]["stage_order"] == 1
+    assert by_id["VS-10.10"]["capability_ids"] == ["BC-1"]
+    assert by_id["VS-10.10"]["process_ids"] == ["BP-100"]
+    assert by_id["VS-10.20"]["industry_variant"] == "Manufacturing"
+
+
+@pytest.mark.asyncio
+async def test_import_creates_stream_then_stage_with_parent(db, monkeypatch):
+    _install_fake_pkg(monkeypatch)
+    from app.services import value_stream_catalogue_service as svc
+
+    user = await create_user(db, email="u@x.com")
+    result = await svc.import_value_streams(
+        db, user=user, catalogue_ids=["VS-10", "VS-10.10", "VS-10.20"]
+    )
+    assert len(result["created"]) == 3
+
+    rows = {
+        r.attributes["catalogueId"]: r
+        for r in (
+            await db.execute(
+                select(Card).where(Card.type == "BusinessContext", Card.subtype == "valueStream")
+            )
+        )
+        .scalars()
+        .all()
+    }
+    assert rows["VS-10"].parent_id is None
+    assert str(rows["VS-10.10"].parent_id) == str(rows["VS-10"].id)
+    assert str(rows["VS-10.20"].parent_id) == str(rows["VS-10"].id)
+    assert rows["VS-10"].attributes["valueStreamLevel"] == "Stream"
+    assert rows["VS-10.10"].attributes["valueStreamLevel"] == "Stage"
+    assert rows["VS-10.10"].attributes["stageOrder"] == 1
+    assert rows["VS-10.20"].attributes["industryVariant"] == "Manufacturing"
+
+
+@pytest.mark.asyncio
+async def test_import_stage_alone_pulls_in_parent_stream(db, monkeypatch):
+    """Selecting only a stage must auto-include the parent stream so the
+    stage's parent_id is wired correctly."""
+    _install_fake_pkg(monkeypatch)
+    from app.services import value_stream_catalogue_service as svc
+
+    user = await create_user(db, email="u@x.com")
+    result = await svc.import_value_streams(db, user=user, catalogue_ids=["VS-10.10"])
+
+    assert len(result["created"]) == 2  # stream + stage
+    rows = {
+        r.attributes["catalogueId"]: r
+        for r in (
+            await db.execute(
+                select(Card).where(Card.type == "BusinessContext", Card.subtype == "valueStream")
+            )
+        )
+        .scalars()
+        .all()
+    }
+    assert "VS-10" in rows
+    assert "VS-10.10" in rows
+    assert str(rows["VS-10.10"].parent_id) == str(rows["VS-10"].id)
+
+
+@pytest.mark.asyncio
+async def test_import_creates_relations_to_existing_capabilities_and_processes(db, monkeypatch):
+    _install_fake_pkg(monkeypatch)
+    from app.services import value_stream_catalogue_service as svc
+
+    user = await create_user(db, email="u@x.com")
+    bc1 = await create_card(
+        db,
+        card_type="BusinessCapability",
+        name="Customer Management",
+        user_id=user.id,
+        attributes={"catalogueId": "BC-1"},
+    )
+    bp100 = await create_card(
+        db,
+        card_type="BusinessProcess",
+        name="Acquire, Construct, and Manage Assets",
+        user_id=user.id,
+        attributes={"catalogueId": "BP-100"},
+    )
+
+    result = await svc.import_value_streams(db, user=user, catalogue_ids=["VS-10", "VS-10.10"])
+    # Stage links: VS-10.10 → BC-1 (relBizCtxToBC) + BP-100 → VS-10.10 (relProcessToBizCtx).
+    assert result["auto_relations_created"] == 2
+
+    stage = (
+        await db.execute(select(Card).where(Card.attributes["catalogueId"].astext == "VS-10.10"))
+    ).scalar_one()
+
+    bc_rels = (
+        (
+            await db.execute(
+                select(Relation).where(
+                    Relation.type == "relBizCtxToBC",
+                    Relation.source_id == stage.id,
+                    Relation.target_id == bc1.id,
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    assert len(bc_rels) == 1
+
+    proc_rels = (
+        (
+            await db.execute(
+                select(Relation).where(
+                    Relation.type == "relProcessToBizCtx",
+                    Relation.source_id == bp100.id,
+                    Relation.target_id == stage.id,
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    assert len(proc_rels) == 1
+
+
+@pytest.mark.asyncio
+async def test_import_skips_relations_when_targets_missing(db, monkeypatch):
+    _install_fake_pkg(monkeypatch)
+    from app.services import value_stream_catalogue_service as svc
+
+    user = await create_user(db, email="u@x.com")
+    result = await svc.import_value_streams(db, user=user, catalogue_ids=["VS-10", "VS-10.10"])
+    assert result["auto_relations_created"] == 0
+
+    stage = (
+        await db.execute(select(Card).where(Card.attributes["catalogueId"].astext == "VS-10.10"))
+    ).scalar_one()
+    # Source ids preserved on attributes for future re-link.
+    assert stage.attributes["capabilityIds"] == ["BC-1"]
+    assert stage.attributes["processIds"] == ["BP-100"]
+
+
+@pytest.mark.asyncio
+async def test_import_idempotent_on_rerun(db, monkeypatch):
+    _install_fake_pkg(monkeypatch)
+    from app.services import value_stream_catalogue_service as svc
+
+    user = await create_user(db, email="u@x.com")
+    first = await svc.import_value_streams(db, user=user, catalogue_ids=["VS-10", "VS-10.10"])
+    assert len(first["created"]) == 2
+
+    second = await svc.import_value_streams(db, user=user, catalogue_ids=["VS-10", "VS-10.10"])
+    assert second["created"] == []
+    assert len(second["skipped"]) == 2

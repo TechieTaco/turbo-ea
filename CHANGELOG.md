@@ -5,6 +5,19 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.6.0] - 2026-05-09
+
+### Added
+- **Process Catalogue** at `/process-catalogue` — browse the bundled APQC-PCF business-process tree (Category → Process Group → Process → Activity, ~1200 entries) and import selected entries as `BusinessProcess` cards in bulk. Subtypes are derived from the catalogue level; hierarchy is preserved through `parent_id`. On import, `relProcessToBC` (supports) relations are auto-created to every existing `BusinessCapability` whose ID appears in the process's `realizes_capability_ids` (skipped silently when the target card hasn't been imported yet).
+- **Value Stream Catalogue** at `/value-stream-catalogue` — browse the bundled value-stream library (Acquire-to-Retire, Order-to-Cash, Hire-to-Retire, …) and import streams + stages as `BusinessContext` cards (subtype Value Stream). Stages land as children of their parent stream; selecting a stage alone automatically pulls in the parent. On import, `relBizCtxToBC` (stage → capability) and `relProcessToBizCtx` (process → stage) relations are auto-created to every existing target.
+- **`POST /process-catalogue/import`**, **`POST /value-stream-catalogue/import`**, plus the matching `GET` payloads and admin `update-status` / `update-fetch` endpoints. The wheel ships all three artefact types in a single download, so any one of the three "Fetch update" admin actions hydrates all three caches at the same time.
+
+### Changed
+- **Reference Catalogues section in the user menu is now collapsible** (Capability + Process + Value Stream + Principles) and starts collapsed by default to keep the menu compact. Open/closed state is persisted in `localStorage`. The drop-down now shows a chevron next to the section header.
+- **Frontend catalogue UI generalised into `frontend/src/features/reference-catalogue/`** — `<CatalogueBrowser>`, `<CataloguePage>`, `IndustryFilter`, the CSS, and the types are shared across all three catalogues. The accent and selection colours are driven by CSS custom properties (`--tcc-accent`, `--tcc-selection`) so each per-catalogue page passes its brand colour without duplicating the stylesheet.
+- **`turbo-ea-capabilities` minimum version bumped to `>=2026.5.9.297`** (the first `schema_version=2` release that ships `business-processes.json` + `value-streams.json` alongside `capabilities.json`).
+- **Backend catalogue services refactored**: cross-cutting concerns (PyPI fetch + wheel extraction, settings cache, locale resolution, BFS ordering, existing-card lookup) extracted to `backend/app/services/catalogue_common.py` so the three per-catalogue services stay focused on their own import semantics.
+
 ## [1.5.1] - 2026-05-08
 
 ### Changed
