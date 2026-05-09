@@ -115,12 +115,24 @@ def _stage_to_node(stream_id: str, stream_industries: list[str], stage: Any) -> 
         (stage.get("industries") if is_dict else stage.industries) or stream_industries
     )
     stage_name = stage.get("stage_name") if is_dict else stage.stage_name
+    industry_variant = stage.get("industry_variant") if is_dict else stage.industry_variant
+    # The source catalogue intentionally repeats stages once per industry
+    # variant (Agriculture, Automotive, Oil & Gas, …) so each variant can
+    # carry its own ``capability_ids`` / ``process_ids``. Without
+    # surfacing the variant in the display name the tree shows the same
+    # bare ``stage_name`` 8+ times in a row, which looks like a bug.
+    # Suffix the variant in parentheses so the cross-industry baseline
+    # and each specialisation are visually distinct in the list, in the
+    # search hay, and on the imported cards.
+    display_name = (
+        f"{stage_name} ({industry_variant})" if stage_name and industry_variant else stage_name
+    )
     return {
         "id": stage["id"] if is_dict else stage.id,
         # The `name` slot drives the tree UI; stages have no `name` field —
         # they have `stage_name`. Surface it as both so name-anchored
         # search + the catalogueId index keep working.
-        "name": stage_name,
+        "name": display_name,
         "stage_name": stage_name,
         "level": LEVEL_STAGE,
         "parent_id": stream_id,
@@ -128,7 +140,7 @@ def _stage_to_node(stream_id: str, stream_industries: list[str], stage: Any) -> 
         "stage_order": stage.get("stage_order") if is_dict else stage.stage_order,
         "industries": stage_industries,
         "industry": _industries_summary(stage_industries),
-        "industry_variant": (stage.get("industry_variant") if is_dict else stage.industry_variant),
+        "industry_variant": industry_variant,
         "notes": stage.get("notes") if is_dict else stage.notes,
         "capability_ids": list(
             (stage.get("capability_ids") if is_dict else stage.capability_ids) or []
@@ -163,20 +175,32 @@ def _bundled_available_locales() -> tuple[str, ...]:
 
 
 def _bundled_payload(*, locale: str = "en") -> tuple[list[dict[str, Any]], dict[str, Any]]:
-    """Bundled flattened list, optionally localized."""
-    available = _bundled_available_locales()
-    effective = common.resolve_effective_locale(locale, available)
-    streams = catalogue_pkg.load_value_streams()
-    if effective != "en":
-        streams = [s.localized(effective, fallback="en") for s in streams]
-    flat = _flatten_streams(list(streams))
+    """Bundled flattened list, optionally localized.
+
+    Unlike ``Capability`` and ``BusinessProcess``, the upstream
+    ``ValueStream`` model does not expose a ``.localized()`` helper —
+    translations live exclusively in the wheel's i18n JSON tables. The
+    cached-remote path applies them via ``localize_flat_with_table``;
+    the bundled path stays English-only on the first version, and we
+    advertise that honestly via ``available_locales = ("en",)`` so the
+    UI doesn't promise translations the bundled wheel won't actually
+    deliver. Admins who want localised value-stream cards can use
+    "Fetch update" — the cached-remote path then serves the wheel's
+    i18n tables.
+    """
+    # Suppress an unused-variable warning: locale is only consulted by
+    # the cached-remote path; the bundled path is English-only by design
+    # until the upstream model gains ``.localized()``.
+    _ = locale
+    streams = list(catalogue_pkg.load_value_streams())
+    flat = _flatten_streams(streams)
     meta = {
         "catalogue_version": catalogue_pkg.VERSION,
         "schema_version": str(catalogue_pkg.SCHEMA_VERSION),
         "generated_at": catalogue_pkg.GENERATED_AT,
         "value_stream_count": len(streams),
-        "available_locales": list(available),
-        "active_locale": effective,
+        "available_locales": ["en"],
+        "active_locale": "en",
     }
     return flat, meta
 
@@ -521,10 +545,10 @@ async def import_value_streams(
         created_in_batch.add(node["id"])
 
     for cat_id in pre_existing_ids:
-        node = by_id.get(cat_id)
-        if node is None:
+        relink_node = by_id.get(cat_id)
+        if relink_node is None:
             continue
-        cat_parent = node.get("parent_id")
+        cat_parent = relink_node.get("parent_id")
         if not cat_parent or cat_parent not in created_in_batch:
             continue
         existing_card_id = catalogue_id_to_card_id[cat_id]
