@@ -181,10 +181,25 @@ _FAKE_PKG_STREAMS = [
     _Stream(
         id="VS-10",
         name="Acquire-to-Retire",
+        # ``_stream_to_node`` reads every attribute below; the Pydantic
+        # ``ValueStream`` model has them all as defaulted-empty fields, so
+        # we mirror that here on the test stub.
+        description="Asset lifecycle",
+        industries=["Cross-Industry"],
+        deprecated=False,
+        deprecation_reason=None,
+        successor_id=None,
+        metadata={},
         stages=(
             _Stage(
                 id="VS-10.10",
+                # ``_stage_to_node`` likewise reads every attribute below.
                 stage_name="Customer Onboarding",
+                description=None,
+                stage_order=1,
+                industries=[],
+                industry_variant=None,
+                notes=None,
                 capability_ids=("BC-1",),
                 process_ids=("BP-200",),
             ),
