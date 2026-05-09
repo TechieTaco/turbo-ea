@@ -56,8 +56,11 @@ const config: CatalogueKindConfig = {
   idPrefix: "BP-",
   i18nNamespace: "processCatalogue",
   inventoryCardType: "BusinessProcess",
-  // Matches the BusinessProcess card-type colour in the metamodel seed.
-  accentColor: "#e65100",
+  // Matches the BPM module's process accent (process flow header, optimized
+  // maturity, start events, watermarks). The BusinessProcess type token
+  // (#e65100, orange) is correct for inventory chips but reads off here
+  // because users associate processes with the BPM module's green chrome.
+  accentColor: "#2e7d32",
   selectionColor: "#D63384",
   levelLabel: (level) => `L${level}`,
   heroIcon: "route",
