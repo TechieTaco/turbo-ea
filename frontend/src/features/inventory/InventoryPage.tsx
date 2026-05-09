@@ -1778,7 +1778,7 @@ export default function InventoryPage() {
           <InventoryFilterSidebar
             types={types}
             filters={filters}
-            onFiltersChange={(f) => { setFilters(f); setFilterDrawerOpen(false); }}
+            onFiltersChange={setFilters}
             collapsed={false}
             onToggleCollapse={() => setFilterDrawerOpen(false)}
             width={300}
