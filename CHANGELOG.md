@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [1.7.0] - 2026-05-09
 
+### Changed
+- **Backend default memory limit raised from 512M → 1G.** The bundled `turbo-ea-capabilities` wheel (capability + process + value-stream catalogues) plus the metamodel + optional demo seed pushed resident memory past 512M during cold boot under cgroup limits, OOM-killing the backend mid-lifespan on tight hosts (Unraid, small VPSes). The `BACKEND_MEMORY_LIMIT` env var is unchanged — set it back to 512M only if you've disabled SEED_DEMO/SEED_BPM/SEED_PPM and never use the catalogue import flow.
+
 ### Added
 - **Cross-catalogue bundle import** in the three reference-catalogue browsers. When you confirm an import, the dialog now also offers the directly-linked entries from the **other two catalogues** as tickboxes — by default all ticked. Capabilities → processes that realise them + value-stream stages that exercise them; processes → realised capabilities + the stages they're used in; value streams → the capabilities and processes their stages reference. Items already in your inventory render with a green check + greyed-out checkbox so users see the connection is intact and trust auto-relations to wire to them.
 - **`POST /reference-catalogue/related`** computes the cross-catalogue related items in one round-trip with display names + existing-card flags.
