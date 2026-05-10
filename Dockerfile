@@ -55,6 +55,13 @@ RUN apk upgrade --no-cache && \
     groupmod -g ${APP_GID} postgres && \
     usermod -u ${APP_UID} -g ${APP_GID} postgres && \
     apk del shadow && \
+    # The upstream postgres-alpine image bundles a gosu binary built against
+    # an older Go stdlib. The entrypoint only invokes it when running as root
+    # (id -u == 0) to drop privileges to the postgres user — but we set USER
+    # to a fixed non-root UID below, so the gosu branch is never taken.
+    # Deleting the binary closes 8 Go-stdlib CVEs that Trivy flags on every
+    # image scan without changing runtime behaviour.
+    rm -f /usr/local/bin/gosu /usr/local/bin/gosu.asc && \
     mkdir -p /var/lib/postgresql/data /var/run/postgresql && \
     chown -R ${APP_UID}:${APP_GID} /var/lib/postgresql /var/run/postgresql && \
     chmod 700 /var/lib/postgresql/data && \

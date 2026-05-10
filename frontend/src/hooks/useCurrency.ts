@@ -2,11 +2,35 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { api } from "@/api/client";
 
 let _cache: string | null = null;
+let _inflight: Promise<void> | null = null;
 const _listeners = new Set<(c: string) => void>();
 
 function notify(c: string) {
   _cache = c;
   for (const fn of _listeners) fn(c);
+}
+
+/**
+ * Prime the cache from outside the hook (e.g. /settings/bootstrap on app boot)
+ * so first-mount consumers skip their own GET.
+ */
+export function invalidateCurrency(c: string) {
+  notify(c);
+}
+
+function _fetchOnce(): Promise<void> {
+  if (_cache) return Promise.resolve();
+  if (_inflight) return _inflight;
+  _inflight = api
+    .get<{ currency: string }>("/settings/currency")
+    .then((r) => notify(r.currency))
+    .catch(() => {
+      /* keep default */
+    })
+    .finally(() => {
+      _inflight = null;
+    });
+  return _inflight;
 }
 
 export function useCurrency() {
@@ -16,10 +40,7 @@ export function useCurrency() {
   useEffect(() => {
     _listeners.add(setCurrency);
     if (!_cache) {
-      api
-        .get<{ currency: string }>("/settings/currency")
-        .then((r) => notify(r.currency))
-        .finally(() => setLoading(false));
+      _fetchOnce().finally(() => setLoading(false));
     }
     return () => {
       _listeners.delete(setCurrency);

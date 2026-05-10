@@ -5,6 +5,12 @@ import { SUPPORTED_LOCALES, type SupportedLocale } from "@/i18n";
 /** Module-level cache so all consumers share a single fetch. */
 let cached: SupportedLocale[] | null = null;
 let fetchPromise: Promise<SupportedLocale[]> | null = null;
+const _listeners = new Set<(v: SupportedLocale[]) => void>();
+
+function _notify(v: SupportedLocale[]) {
+  cached = v;
+  for (const fn of _listeners) fn(v);
+}
 
 async function doFetch(): Promise<SupportedLocale[]> {
   try {
@@ -12,12 +18,20 @@ async function doFetch(): Promise<SupportedLocale[]> {
     const valid = res.locales.filter((l): l is SupportedLocale =>
       (SUPPORTED_LOCALES as readonly string[]).includes(l),
     );
-    cached = valid.length > 0 ? valid : [...SUPPORTED_LOCALES];
+    _notify(valid.length > 0 ? valid : [...SUPPORTED_LOCALES]);
   } catch {
-    cached = [...SUPPORTED_LOCALES];
+    _notify([...SUPPORTED_LOCALES]);
   }
   fetchPromise = null;
-  return cached;
+  return cached!;
+}
+
+/**
+ * Prime the cache from outside the hook (e.g. /settings/bootstrap on app boot)
+ * so first-mount consumers skip their own GET.
+ */
+export function invalidateEnabledLocalesGlobal(v: SupportedLocale[]) {
+  _notify(v);
 }
 
 /**
@@ -30,18 +44,21 @@ export function useEnabledLocales() {
   );
 
   useEffect(() => {
+    _listeners.add(setLocales);
     if (cached) {
       setLocales(cached);
-      return;
+    } else {
+      if (!fetchPromise) fetchPromise = doFetch();
+      fetchPromise.then(setLocales);
     }
-    if (!fetchPromise) fetchPromise = doFetch();
-    fetchPromise.then(setLocales);
+    return () => {
+      _listeners.delete(setLocales);
+    };
   }, []);
 
   const invalidate = useCallback((newLocales?: SupportedLocale[]) => {
     if (newLocales) {
-      cached = newLocales;
-      setLocales(newLocales);
+      _notify(newLocales);
     } else {
       cached = null;
       fetchPromise = doFetch();

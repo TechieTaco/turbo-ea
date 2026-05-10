@@ -22296,6 +22296,26 @@
         ]
       }
     },
+    "/api/v1/settings/bootstrap": {
+      "get": {
+        "description": "Public endpoint \u2014 returns all small boot-time settings in one round-trip.\n\nThe frontend calls this once on app boot to prime its module-level caches\nso each individual settings hook (currency, date format, BPM/PPM/TurboLens\ntoggles, locales, etc.) doesn't have to fire its own GET. Replaces what\nused to be ~8 sequential round-trips with one query against the singleton\nAppSettings row. Per-endpoint reads remain available for selective\nrefresh after admin edits.",
+        "operationId": "get_bootstrap_api_v1_settings_bootstrap_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Bootstrap",
+        "tags": [
+          "settings"
+        ]
+      }
+    },
     "/api/v1/settings/bpm-enabled": {
       "get": {
         "description": "Public endpoint \u2014 returns whether the BPM module is enabled.",

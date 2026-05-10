@@ -117,6 +117,34 @@ def _apply_to_runtime(email: dict) -> None:
 # ---------------------------------------------------------------------------
 
 
+@router.get("/bootstrap")
+async def get_bootstrap(db: AsyncSession = Depends(get_db)):
+    """Public endpoint — returns all small boot-time settings in one round-trip.
+
+    The frontend calls this once on app boot to prime its module-level caches
+    so each individual settings hook (currency, date format, BPM/PPM/TurboLens
+    toggles, locales, etc.) doesn't have to fire its own GET. Replaces what
+    used to be ~8 sequential round-trips with one query against the singleton
+    AppSettings row. Per-endpoint reads remain available for selective
+    refresh after admin edits.
+    """
+    result = await db.execute(select(AppSettings).where(AppSettings.id == "default"))
+    row = result.scalar_one_or_none()
+    general = (row.general_settings if row else None) or {}
+    return {
+        "currency": general.get("currency", DEFAULT_CURRENCY),
+        "date_format": general.get("dateFormat", DEFAULT_DATE_FORMAT),
+        "app_title": (general.get("app_title") or "").strip() or DEFAULT_APP_TITLE,
+        "bpm_enabled": general.get("bpmEnabled", True),
+        "ppm_enabled": general.get("ppmEnabled", False),
+        "turbolens_enabled": general.get("turboLensEnabled", True),
+        "enabled_locales": general.get("enabledLocales", SUPPORTED_LOCALES),
+        "fiscal_year_start": general.get("fiscalYearStart", 1),
+        "bpm_row_order": general.get("bpmRowOrder", ["management", "core", "support"]),
+        "show_principles_tab": general.get("showPrinciplesTab", True),
+    }
+
+
 @router.get("/email")
 async def get_email_settings(
     db: AsyncSession = Depends(get_db),
@@ -524,8 +552,14 @@ async def get_logo(db: AsyncSession = Depends(get_db)):
             headers={"Cache-Control": "public, max-age=300"},
         )
 
-    # No custom logo — redirect to the static default in frontend/public/
-    return RedirectResponse(url="/logo.png", status_code=302)
+    # No custom logo — redirect to the static default in frontend/public/.
+    # Cache the redirect itself so browsers don't re-do this round-trip on
+    # every page nav (the static target is cached separately by nginx).
+    return RedirectResponse(
+        url="/logo.png",
+        status_code=302,
+        headers={"Cache-Control": "public, max-age=300"},
+    )
 
 
 @router.get("/favicon")
@@ -544,8 +578,13 @@ async def get_favicon(db: AsyncSession = Depends(get_db)):
             headers={"Cache-Control": "public, max-age=300"},
         )
 
-    # No custom favicon — redirect to the static default in frontend/public/
-    return RedirectResponse(url="/favicon.png", status_code=302)
+    # No custom favicon — redirect to the static default in frontend/public/.
+    # Same Cache-Control treatment as the logo redirect above.
+    return RedirectResponse(
+        url="/favicon.png",
+        status_code=302,
+        headers={"Cache-Control": "public, max-age=300"},
+    )
 
 
 @router.get("/logo/info")

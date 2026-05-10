@@ -269,3 +269,54 @@ class TestEmailSettings:
         data = get_resp.json()
         assert data["smtp_host"] == "smtp.example.com"
         assert data["smtp_port"] == 465
+
+
+# -------------------------------------------------------------------
+# GET /settings/bootstrap
+# -------------------------------------------------------------------
+
+
+class TestBootstrapSettings:
+    """One round-trip equivalent of the small per-setting GETs."""
+
+    async def test_bootstrap_returns_defaults_on_fresh_db(self, client, db, settings_env):
+        resp = await client.get("/api/v1/settings/bootstrap")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["currency"] == "USD"
+        assert data["date_format"] == "DD MMM YYYY"
+        assert data["app_title"] == "Turbo EA"
+        assert data["bpm_enabled"] is True
+        assert data["ppm_enabled"] is False
+        assert data["turbolens_enabled"] is True
+        assert "en" in data["enabled_locales"]
+        assert data["fiscal_year_start"] == 1
+        assert data["bpm_row_order"] == ["management", "core", "support"]
+        assert data["show_principles_tab"] is True
+
+    async def test_bootstrap_reflects_admin_edits(self, client, db, settings_env):
+        admin = settings_env["admin"]
+        # Tweak two unrelated settings via their per-endpoint PATCH paths
+        await client.patch(
+            "/api/v1/settings/currency",
+            json={"currency": "EUR"},
+            headers=auth_headers(admin),
+        )
+        await client.patch(
+            "/api/v1/settings/ppm-enabled",
+            json={"enabled": True},
+            headers=auth_headers(admin),
+        )
+
+        resp = await client.get("/api/v1/settings/bootstrap")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["currency"] == "EUR"
+        assert data["ppm_enabled"] is True
+        # Untouched fields keep their defaults
+        assert data["bpm_enabled"] is True
+
+    async def test_bootstrap_is_public(self, client, db, settings_env):
+        """Used during boot, before the user has a token — must not require auth."""
+        resp = await client.get("/api/v1/settings/bootstrap")
+        assert resp.status_code == 200

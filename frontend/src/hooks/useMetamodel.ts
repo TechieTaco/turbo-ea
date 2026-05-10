@@ -2,7 +2,26 @@ import { useState, useEffect } from "react";
 import { api } from "@/api/client";
 import type { CardType, RelationType } from "@/types";
 
-let _cache: { types: CardType[]; relationTypes: RelationType[] } | null = null;
+type Snapshot = { types: CardType[]; relationTypes: RelationType[] };
+
+let _cache: Snapshot | null = null;
+let _inflight: Promise<Snapshot> | null = null;
+
+function _fetchOnce(): Promise<Snapshot> {
+  if (_cache) return Promise.resolve(_cache);
+  if (_inflight) return _inflight;
+  _inflight = (async () => {
+    const [t, r] = await Promise.all([
+      api.get<CardType[]>("/metamodel/types"),
+      api.get<RelationType[]>("/metamodel/relation-types"),
+    ]);
+    _cache = { types: t, relationTypes: r };
+    return _cache;
+  })().finally(() => {
+    _inflight = null;
+  });
+  return _inflight;
+}
 
 export function useMetamodel() {
   const [types, setTypes] = useState<CardType[]>(_cache?.types || []);
@@ -11,19 +30,19 @@ export function useMetamodel() {
 
   useEffect(() => {
     if (_cache) return;
-    (async () => {
-      try {
-        const [t, r] = await Promise.all([
-          api.get<CardType[]>("/metamodel/types"),
-          api.get<RelationType[]>("/metamodel/relation-types"),
-        ]);
-        _cache = { types: t, relationTypes: r };
-        setTypes(t);
-        setRelationTypes(r);
-      } finally {
-        setLoading(false);
-      }
-    })();
+    let cancelled = false;
+    _fetchOnce()
+      .then((snap) => {
+        if (cancelled) return;
+        setTypes(snap.types);
+        setRelationTypes(snap.relationTypes);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const getType = (key: string) => types.find((t) => t.key === key);
@@ -35,6 +54,7 @@ export function useMetamodel() {
 
   const invalidateCache = () => {
     _cache = null;
+    _inflight = null;
   };
 
   return { types, relationTypes, loading, getType, getRelationsForType, invalidateCache };
