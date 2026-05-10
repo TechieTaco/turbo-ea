@@ -33,13 +33,19 @@ import type {
 const TYPED_CONFIRM_THRESHOLD = 50;
 const WARNING_THRESHOLD = 10;
 
-// Bulk archive/delete dispatches one HTTP request per card. Firing them all
-// in parallel exhausts the browser's per-origin socket pool with selections
-// in the thousands (Chrome surfaces this as ERR_INSUFFICIENT_RESOURCES, with
-// requests failing before they even leave the tab). A small worker pool keeps
-// the browser happy and the backend unhammered while still draining the queue
-// quickly.
-const BULK_CONCURRENCY = 5;
+interface BulkArchiveResponse {
+  requested: number;
+  archived_card_ids: string[];
+  cascaded_card_ids: string[];
+  skipped: { card_id: string; reason: string }[];
+}
+
+interface BulkDeleteResponse {
+  requested: number;
+  deleted_card_ids: string[];
+  cascaded_card_ids: string[];
+  skipped: { card_id: string; reason: string }[];
+}
 
 interface SingleProps {
   open: boolean;
@@ -94,11 +100,6 @@ export default function ArchiveDeleteDialog(props: Props) {
   const [typedName, setTypedName] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
-  const [bulkProgress, setBulkProgress] = useState<{
-    done: number;
-    total: number;
-    failed: number;
-  } | null>(null);
 
   // Reset on open/close.
   useEffect(() => {
@@ -187,7 +188,6 @@ export default function ArchiveDeleteDialog(props: Props) {
   const handleConfirm = async () => {
     setSubmitError("");
     setSubmitting(true);
-    setBulkProgress(null);
     try {
       const body: CardArchiveDeleteRequest = {};
       if (showChildrenSection && strategy) body.child_strategy = strategy;
@@ -206,75 +206,20 @@ export default function ArchiveDeleteDialog(props: Props) {
         }
         onConfirmed();
       } else {
+        // Bulk: single server-side request. The /cards/bulk-archive and
+        // /cards/bulk-delete endpoints handle the full input transactionally,
+        // so there's no cascade race between siblings and no per-card retry
+        // logic to manage on the client. Failures abort the whole batch with
+        // a 4xx; idempotent skips (already-archived, missing-after-cascade)
+        // come back in the response's `skipped` list and are not failures.
         const cardIds = (props as BulkProps).cardIds;
-        const queue = [...cardIds];
-        const failures: { id: string; error: unknown }[] = [];
-        let done = 0;
-        setBulkProgress({ done: 0, total: cardIds.length, failed: 0 });
-
-        const worker = async () => {
-          while (queue.length > 0) {
-            const id = queue.shift();
-            if (id === undefined) break;
-            try {
-              if (mode === "archive") {
-                await api.post(`/cards/${id}/archive`, body);
-              } else {
-                await api.delete(`/cards/${id}`, body);
-              }
-            } catch (err) {
-              // Cascade race: archiving a parent server-side cascades to its
-              // descendants in one transaction, so a sibling worker that
-              // reaches one of those descendants a moment later sees it
-              // already in the desired end state — backend returns 400
-              // "already archived" / 404 "not found". The user's intent is
-              // satisfied either way, so treat as a no-op rather than a
-              // failure (otherwise the dialog reports false negatives like
-              // "243 of 1050 failed" when the data is in fact all archived).
-              const detail =
-                err instanceof ApiError && typeof err.detail === "string" ? err.detail : "";
-              const idempotent =
-                err instanceof ApiError &&
-                ((mode === "archive" && err.status === 400 && /already archived/i.test(detail)) ||
-                  (mode === "delete" && err.status === 404));
-              if (!idempotent) {
-                failures.push({ id, error: err });
-              }
-            }
-            done += 1;
-            setBulkProgress({ done, total: cardIds.length, failed: failures.length });
-          }
-        };
-        await Promise.all(
-          Array.from({ length: Math.min(BULK_CONCURRENCY, cardIds.length) }, () => worker()),
-        );
-
-        if (failures.length === 0) {
-          onConfirmed();
-        } else {
-          // Report partial-failure inline; keep the dialog open so the user
-          // sees what didn't land instead of silently closing on success-ish.
-          const sample = failures[0].error;
-          const sampleMsg =
-            sample instanceof ApiError
-              ? sample.detail || sample.message
-              : sample instanceof Error
-                ? sample.message
-                : String(sample);
-          setSubmitError(
-            t(
-              mode === "archive"
-                ? "inventory:massArchive.partialFailure"
-                : "inventory:massDelete.partialFailure",
-              {
-                succeeded: cardIds.length - failures.length,
-                total: cardIds.length,
-                failed: failures.length,
-                error: sampleMsg,
-              },
-            ),
-          );
-        }
+        const url = mode === "archive" ? "/cards/bulk-archive" : "/cards/bulk-delete";
+        await api.post<BulkArchiveResponse | BulkDeleteResponse>(url, {
+          card_ids: cardIds,
+          child_strategy: body.child_strategy,
+          cascade_all_related: body.cascade_all_related ?? false,
+        });
+        onConfirmed();
       }
     } catch (e) {
       if (e instanceof ApiError && e.status === 409) {
@@ -569,21 +514,17 @@ export default function ArchiveDeleteDialog(props: Props) {
               </Alert>
             )}
 
-            {submitting && bulkProgress && bulkProgress.total > 1 && (
+            {submitting && scope === "bulk" && (
               <Box>
                 <Typography variant="caption" color="text.secondary">
                   {t(
                     mode === "archive"
                       ? "inventory:massArchive.progressing"
                       : "inventory:massDelete.progressing",
-                    { done: bulkProgress.done, total: bulkProgress.total },
+                    { count: (props as BulkProps).cardIds.length },
                   )}
                 </Typography>
-                <LinearProgress
-                  variant="determinate"
-                  value={(bulkProgress.done / bulkProgress.total) * 100}
-                  sx={{ mt: 0.5 }}
-                />
+                <LinearProgress sx={{ mt: 0.5 }} />
               </Box>
             )}
 

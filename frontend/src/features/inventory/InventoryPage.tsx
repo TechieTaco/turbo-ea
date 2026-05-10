@@ -30,6 +30,7 @@ import { useTheme } from "@mui/material/styles";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import LifecycleBadge from "@/components/LifecycleBadge";
 import ArchiveDeleteDialog from "@/features/cards/ArchiveDeleteDialog";
+import BulkRestoreDialog from "@/features/cards/BulkRestoreDialog";
 import CreateCardDialog from "@/components/CreateCardDialog";
 import CardDetailSidePanel from "@/components/CardDetailSidePanel";
 import InventoryFilterSidebar, {
@@ -346,6 +347,7 @@ export default function InventoryPage() {
   // Mass archive / delete state
   const [massArchiveOpen, setMassArchiveOpen] = useState(false);
   const [massDeleteOpen, setMassDeleteOpen] = useState(false);
+  const [massRestoreOpen, setMassRestoreOpen] = useState(false);
 
   // Relation cell dialog state
   const [relEditOpen, setRelEditOpen] = useState(false);
@@ -1092,6 +1094,13 @@ export default function InventoryPage() {
 
   const handleMassDeleteConfirmed = () => {
     setMassDeleteOpen(false);
+    setSelectedIds([]);
+    gridRef.current?.api?.deselectAll();
+    loadData();
+  };
+
+  const handleMassRestoreConfirmed = () => {
+    setMassRestoreOpen(false);
     setSelectedIds([]);
     gridRef.current?.api?.deselectAll();
     loadData();
@@ -1980,6 +1989,24 @@ export default function InventoryPage() {
                 {t("common:actions.archive")}
               </Button>
             )}
+            {canArchive && filters.showArchived && (
+              <Button
+                size="small"
+                variant="contained"
+                color="inherit"
+                sx={{
+                  color: "#2e7d32",
+                  bgcolor: "background.paper",
+                  textTransform: "none",
+                  whiteSpace: "nowrap",
+                  "&:hover": { bgcolor: "action.selected" },
+                }}
+                startIcon={<MaterialSymbol icon="restore" size={16} />}
+                onClick={() => setMassRestoreOpen(true)}
+              >
+                {t("common:actions.restore")}
+              </Button>
+            )}
             {canDelete && filters.showArchived && (
               <Button
                 size="small"
@@ -2217,6 +2244,16 @@ export default function InventoryPage() {
             onConfirmed={handleMassArchiveConfirmed}
           />
         ))}
+
+      {/* Restore (bulk only — single-card restore opens from CardDetail). */}
+      {massRestoreOpen && (
+        <BulkRestoreDialog
+          open
+          cardIds={selectedIds}
+          onClose={() => setMassRestoreOpen(false)}
+          onConfirmed={handleMassRestoreConfirmed}
+        />
+      )}
 
       {/* Delete — single dialog when one card selected, bulk dialog otherwise */}
       {massDeleteOpen &&

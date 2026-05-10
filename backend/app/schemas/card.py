@@ -195,6 +195,66 @@ class CardDeleteResponse(BaseModel):
     affected_related_card_ids: list[str]
 
 
+class CardBulkArchiveRequest(BaseModel):
+    card_ids: list[str] = Field(..., min_length=1, max_length=10000)
+    child_strategy: ChildStrategy | None = None
+    cascade_all_related: bool = False
+
+
+CardBulkSkipReason = Literal["already_archived", "not_found"]
+
+
+class CardBulkSkippedEntry(BaseModel):
+    card_id: str
+    reason: CardBulkSkipReason
+
+
+class CardBulkArchiveResponse(BaseModel):
+    requested: int
+    archived_card_ids: list[str]
+    cascaded_card_ids: list[str]
+    skipped: list[CardBulkSkippedEntry]
+
+
+CardBulkDeleteSkipReason = Literal["not_found"]
+
+
+class CardBulkDeleteSkippedEntry(BaseModel):
+    card_id: str
+    reason: CardBulkDeleteSkipReason
+
+
+class CardBulkDeleteRequest(BaseModel):
+    card_ids: list[str] = Field(..., min_length=1, max_length=10000)
+    child_strategy: ChildStrategy | None = None
+    cascade_all_related: bool = False
+
+
+class CardBulkDeleteResponse(BaseModel):
+    requested: int
+    deleted_card_ids: list[str]
+    cascaded_card_ids: list[str]
+    skipped: list[CardBulkDeleteSkippedEntry]
+
+
+CardBulkRestoreSkipReason = Literal["already_active", "not_found"]
+
+
+class CardBulkRestoreSkippedEntry(BaseModel):
+    card_id: str
+    reason: CardBulkRestoreSkipReason
+
+
+class CardBulkRestoreRequest(BaseModel):
+    card_ids: list[str] = Field(..., min_length=1, max_length=10000)
+
+
+class CardBulkRestoreResponse(BaseModel):
+    requested: int
+    restored_card_ids: list[str]
+    skipped: list[CardBulkRestoreSkippedEntry]
+
+
 class RestoreImpactPassenger(ArchiveImpactCardRef):
     role: Literal["child", "related"]
 

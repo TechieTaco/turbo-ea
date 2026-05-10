@@ -250,10 +250,13 @@ describe("ArchiveDeleteDialog", () => {
     await user.click(screen.getByLabelText(/keep children/i));
     await user.click(screen.getByLabelText(/also archive cards linked via relationships/i));
     await user.click(screen.getByRole("button", { name: /^archive$/i }));
+    // Bulk now goes through one server-side transaction: a single
+    // POST /cards/bulk-archive with the full card_ids list.
     await waitFor(() => {
-      expect(api.post).toHaveBeenCalledTimes(3);
+      expect(api.post).toHaveBeenCalledTimes(1);
     });
-    expect(api.post).toHaveBeenCalledWith("/cards/a/archive", {
+    expect(api.post).toHaveBeenCalledWith("/cards/bulk-archive", {
+      card_ids: ["a", "b", "c"],
       child_strategy: "disconnect",
       cascade_all_related: true,
     });
