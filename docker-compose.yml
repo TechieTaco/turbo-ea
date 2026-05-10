@@ -29,7 +29,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: ${BACKEND_MEMORY_LIMIT:-1G}
+          memory: ${BACKEND_MEMORY_LIMIT:-2G}
     environment:
       POSTGRES_HOST: ${POSTGRES_HOST:-db}
       POSTGRES_PORT: ${POSTGRES_PORT:-5432}
