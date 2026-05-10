@@ -5,6 +5,14 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.6.4] - 2026-05-10
+
+### Documentation
+- **Principles Catalogue is now documented in the user manual.** The `/principles-catalogue` page (admin-only, browses the bundled EA Principles Reference Catalogue) gets a dedicated guide page covering opening, filtering, selection, idempotent mass-import semantics, and the bundled-wheel update flow. Added in English plus all 7 non-English locales (de / fr / es / it / pt / zh / ru) and wired into `mkdocs.yml` (root nav + `nav_translations` blocks).
+- **Process Catalogue and Value Stream Catalogue guide pages are now fully translated.** Both pages previously existed only in English even though their nav entries were already localized; this fills the seven non-English variants.
+- **Refreshed EA Delivery screenshots.** `17_ea_delivery.png` and `17b_ea_delivery_decisions.png` now show the two-pane workspace (left initiatives sidebar + right deliverables / decisions / details pane) introduced earlier in 1.6.x. Captured for all 8 locales.
+- **New screenshot definitions.** `scripts/screenshots/pages.ts` gains entries 48 (Process Catalogue), 49 (Value Stream Catalogue), and 50 (Principles Catalogue) with localized filenames for all 8 locales; the matching screenshots are committed under `docs/assets/img/{locale}/`.
+
 ## [1.6.3] - 2026-05-10
 
 ### Performance

@@ -81,6 +81,7 @@ plugins:
             Capability Catalogue: Catálogo de capacidades
             Process Catalogue: Catálogo de procesos
             Value Stream Catalogue: Catálogo de cadenas de valor
+            Principles Catalogue: Catálogo de principios
             Administration: Administración
             General Settings: Configuración general
             Metamodel: Metamodelo
@@ -124,6 +125,7 @@ plugins:
             Capability Catalogue: Capability-Katalog
             Process Catalogue: Prozesskatalog
             Value Stream Catalogue: Wertstrom-Katalog
+            Principles Catalogue: Prinzipienkatalog
             Administration: Administration
             General Settings: Allgemeine Einstellungen
             Metamodel: Metamodell
@@ -167,6 +169,7 @@ plugins:
             Capability Catalogue: Catalogue de capacités
             Process Catalogue: Catalogue de processus
             Value Stream Catalogue: Catalogue de chaînes de valeur
+            Principles Catalogue: Catalogue de principes
             Administration: Administration
             General Settings: Paramètres généraux
             Metamodel: Métamodèle
@@ -210,6 +213,7 @@ plugins:
             Capability Catalogue: Catalogo delle capacità
             Process Catalogue: Catalogo dei processi
             Value Stream Catalogue: Catalogo dei flussi di valore
+            Principles Catalogue: Catalogo dei principi
             Administration: Amministrazione
             General Settings: Impostazioni generali
             Metamodel: Metamodello
@@ -253,6 +257,7 @@ plugins:
             Capability Catalogue: Catálogo de capacidades
             Process Catalogue: Catálogo de processos
             Value Stream Catalogue: Catálogo de cadeias de valor
+            Principles Catalogue: Catálogo de princípios
             Administration: Administração
             General Settings: Configurações gerais
             Metamodel: Metamodelo
@@ -296,6 +301,7 @@ plugins:
             Capability Catalogue: 能力目录
             Process Catalogue: 流程目录
             Value Stream Catalogue: 价值流目录
+            Principles Catalogue: 原则目录
             Administration: 管理
             General Settings: 常规设置
             Metamodel: 元模型
@@ -339,6 +345,7 @@ plugins:
             Capability Catalogue: Каталог возможностей
             Process Catalogue: Каталог процессов
             Value Stream Catalogue: Каталог потоков создания ценности
+            Principles Catalogue: Каталог принципов
             Administration: Администрирование
             General Settings: Общие настройки
             Metamodel: Метамодель
@@ -409,6 +416,7 @@ nav:
       - Capability Catalogue: guide/capability-catalogue.md
       - Process Catalogue: guide/process-catalogue.md
       - Value Stream Catalogue: guide/value-stream-catalogue.md
+      - Principles Catalogue: guide/principles-catalogue.md
   - Administration:
       - admin/index.md
       - General Settings: admin/settings.md

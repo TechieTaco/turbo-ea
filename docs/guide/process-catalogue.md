@@ -2,6 +2,8 @@
 
 Turbo EA ships with the **Business Process Reference Catalogue** — an APQC-PCF-anchored process tree maintained alongside the capability catalogue at [github.com/vincentmakes/turbo-ea-capabilities](https://github.com/vincentmakes/turbo-ea-capabilities). The Process Catalogue page lets you browse this reference and create matching `BusinessProcess` cards in bulk.
 
+![Process Catalogue](../assets/img/en/48_process_catalogue.png)
+
 ## Opening the page
 
 Click the user icon in the top-right corner of the app, expand **Reference Catalogues** in the menu (the section is collapsed by default to keep the menu compact), then click **Process Catalogue**. The page is available to anyone with the `inventory.view` permission.
