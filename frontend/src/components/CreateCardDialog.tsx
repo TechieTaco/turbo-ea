@@ -29,6 +29,7 @@ import VendorField from "@/components/VendorField";
 import TagPicker from "@/components/TagPicker";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useResolveLabel, useResolveMetaLabel } from "@/hooks/useResolveLabel";
+import { useAiStatus } from "@/hooks/useAiStatus";
 import { api } from "@/api/client";
 import type {
   FieldDef,
@@ -36,7 +37,6 @@ import type {
   EolCycle,
   EolProductMatch,
   AiSuggestResponse,
-  AiStatus,
   TagGroup,
 } from "@/types";
 
@@ -96,7 +96,7 @@ export default function CreateCardDialog({
   const [eolAutoSearchDone, setEolAutoSearchDone] = useState(false);
 
   // AI suggestion state
-  const [aiStatus, setAiStatus] = useState<AiStatus | null>(null);
+  const { aiStatus } = useAiStatus();
   const [aiResponse, setAiResponse] = useState<AiSuggestResponse | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState("");
@@ -141,14 +141,6 @@ export default function CreateCardDialog({
     }
     return fields;
   }, [typeConfig, hiddenFieldKeys]);
-
-  // Fetch AI status on mount
-  useEffect(() => {
-    api
-      .get<AiStatus>("/ai/status")
-      .then(setAiStatus)
-      .catch(() => setAiStatus(null));
-  }, []);
 
   // Fetch tag groups when the dialog opens
   useEffect(() => {
@@ -279,7 +271,7 @@ export default function CreateCardDialog({
 
   // Whether AI suggest button should be shown for the current type
   const aiEnabled =
-    aiStatus?.enabled &&
+    aiStatus.enabled &&
     aiStatus.configured &&
     selectedType &&
     (aiStatus.enabled_types.length === 0 || aiStatus.enabled_types.includes(selectedType));

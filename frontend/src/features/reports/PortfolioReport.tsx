@@ -38,7 +38,8 @@ import { useSavedReport } from "@/hooks/useSavedReport";
 import { useThumbnailCapture } from "@/hooks/useThumbnailCapture";
 import { useTimeline } from "@/hooks/useTimeline";
 import { useResolveLabel, useResolveMetaLabel } from "@/hooks/useResolveLabel";
-import type { AiStatus, PortfolioInsightsResponse, StructuredInsight } from "@/types";
+import { useAiStatus } from "@/hooks/useAiStatus";
+import type { PortfolioInsightsResponse, StructuredInsight } from "@/types";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -517,7 +518,7 @@ export default function PortfolioReport() {
   const [view, setView] = useState<"chart" | "table">("chart");
 
   // AI insights
-  const [aiStatus, setAiStatus] = useState<AiStatus | null>(null);
+  const { aiStatus } = useAiStatus();
   const [aiInsights, setAiInsights] = useState<PortfolioInsightsResponse | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState("");
@@ -598,10 +599,6 @@ export default function PortfolioReport() {
   // Fetch data
   useEffect(() => {
     api.get<ApiResponse>("/reports/app-portfolio").then((r) => setData(r));
-    api
-      .get<AiStatus>("/ai/status")
-      .then(setAiStatus)
-      .catch(() => setAiStatus(null));
   }, []);
 
   // Derived data — resolve field & option labels for the current locale
@@ -962,7 +959,7 @@ export default function PortfolioReport() {
       onReset={handleReset}
       printParams={printParams}
       actions={
-        aiStatus?.portfolio_insights_enabled ? (
+        aiStatus.portfolio_insights_enabled ? (
           <Tooltip title={t("portfolio.aiInsights")}>
             <span>
               <IconButton

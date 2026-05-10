@@ -15,13 +15,13 @@ import LifecycleBadge from "@/components/LifecycleBadge";
 import AiSuggestPanel, { type AiApplyPayload } from "@/components/AiSuggestPanel";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useResolveMetaLabel } from "@/hooks/useResolveLabel";
+import { useAiStatus } from "@/hooks/useAiStatus";
 import { api } from "@/api/client";
 import { DataQualityPill } from "@/features/cards/sections";
 import CardDetailContent from "@/features/cards/CardDetailContent";
 import type {
   Card,
   CardEffectivePermissions,
-  AiStatus,
   AiSuggestResponse,
 } from "@/types";
 
@@ -61,7 +61,7 @@ export default function CardDetailSidePanel({ cardId, open, onClose }: Props) {
   const [perms, setPerms] =
     useState<CardEffectivePermissions["effective"]>(DEFAULT_PERMISSIONS);
 
-  const [aiStatus, setAiStatus] = useState<AiStatus | null>(null);
+  const { aiStatus } = useAiStatus();
   const [aiResponse, setAiResponse] = useState<AiSuggestResponse | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState("");
@@ -85,20 +85,12 @@ export default function CardDetailSidePanel({ cardId, open, onClose }: Props) {
       .catch(() => {});
   }, [cardId, open]);
 
-  // Fetch AI status once
-  useEffect(() => {
-    api
-      .get<AiStatus>("/ai/status")
-      .then(setAiStatus)
-      .catch(() => {});
-  }, []);
-
   const typeConfig = card ? getType(card.type) : null;
   const isArchived = card?.status === "ARCHIVED";
   const aiEnabled =
     !!card &&
-    !!aiStatus?.enabled &&
-    !!aiStatus?.configured &&
+    aiStatus.enabled &&
+    aiStatus.configured &&
     aiStatus.enabled_types.includes(card.type);
 
   const handleAiSuggest = async () => {

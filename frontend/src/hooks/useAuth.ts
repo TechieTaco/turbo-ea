@@ -35,10 +35,13 @@ export function useAuth() {
     try {
       const u = await auth.me();
       setAuthenticated(true);
-      // Kick off bootstrap before the authenticated UI mounts so per-hook
-      // singleton caches are primed by the time their components subscribe.
-      // Fire-and-forget — hooks have their own fallback fetches.
-      primeBootstrap();
+      // Await bootstrap before mounting the authenticated UI so per-hook
+      // singleton caches are populated by the time their components subscribe.
+      // Trade-off: delays first paint by one /settings/bootstrap round-trip,
+      // but eliminates ~7 per-hook fallback GETs that race when the cache is
+      // still empty. Bootstrap failures are swallowed inside primeBootstrap()
+      // so a transient bootstrap error doesn't block login.
+      await primeBootstrap();
       setUser(u as User);
       i18n.changeLanguage(u.locale || "en");
       startRefreshTimer();
