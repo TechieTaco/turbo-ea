@@ -10,6 +10,7 @@ import DialogActions from "@mui/material/DialogActions";
 import DialogContent from "@mui/material/DialogContent";
 import DialogTitle from "@mui/material/DialogTitle";
 import Divider from "@mui/material/Divider";
+import LinearProgress from "@mui/material/LinearProgress";
 import FormControl from "@mui/material/FormControl";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import FormHelperText from "@mui/material/FormHelperText";
@@ -31,6 +32,20 @@ import type {
 
 const TYPED_CONFIRM_THRESHOLD = 50;
 const WARNING_THRESHOLD = 10;
+
+interface BulkArchiveResponse {
+  requested: number;
+  archived_card_ids: string[];
+  cascaded_card_ids: string[];
+  skipped: { card_id: string; reason: string }[];
+}
+
+interface BulkDeleteResponse {
+  requested: number;
+  deleted_card_ids: string[];
+  cascaded_card_ids: string[];
+  skipped: { card_id: string; reason: string }[];
+}
 
 interface SingleProps {
   open: boolean;
@@ -189,15 +204,23 @@ export default function ArchiveDeleteDialog(props: Props) {
         } else {
           await api.delete(`/cards/${cardId}`, body);
         }
+        onConfirmed();
       } else {
+        // Bulk: single server-side request. The /cards/bulk-archive and
+        // /cards/bulk-delete endpoints handle the full input transactionally,
+        // so there's no cascade race between siblings and no per-card retry
+        // logic to manage on the client. Failures abort the whole batch with
+        // a 4xx; idempotent skips (already-archived, missing-after-cascade)
+        // come back in the response's `skipped` list and are not failures.
         const cardIds = (props as BulkProps).cardIds;
-        if (mode === "archive") {
-          await Promise.all(cardIds.map((id) => api.post(`/cards/${id}/archive`, body)));
-        } else {
-          await Promise.all(cardIds.map((id) => api.delete(`/cards/${id}`, body)));
-        }
+        const url = mode === "archive" ? "/cards/bulk-archive" : "/cards/bulk-delete";
+        await api.post<BulkArchiveResponse | BulkDeleteResponse>(url, {
+          card_ids: cardIds,
+          child_strategy: body.child_strategy,
+          cascade_all_related: body.cascade_all_related ?? false,
+        });
+        onConfirmed();
       }
-      onConfirmed();
     } catch (e) {
       if (e instanceof ApiError && e.status === 409) {
         setSubmitError(t("cards:detail.dialogs.children.serverError409"));
@@ -489,6 +512,20 @@ export default function ArchiveDeleteDialog(props: Props) {
                   ? t("cards:detail.dialogs.delete.description")
                   : t("inventory:massDelete.cannotBeUndone")}
               </Alert>
+            )}
+
+            {submitting && scope === "bulk" && (
+              <Box>
+                <Typography variant="caption" color="text.secondary">
+                  {t(
+                    mode === "archive"
+                      ? "inventory:massArchive.progressing"
+                      : "inventory:massDelete.progressing",
+                    { count: (props as BulkProps).cardIds.length },
+                  )}
+                </Typography>
+                <LinearProgress sx={{ mt: 0.5 }} />
+              </Box>
             )}
 
             {submitError && <Alert severity="error">{submitError}</Alert>}

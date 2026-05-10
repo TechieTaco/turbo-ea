@@ -2235,7 +2235,7 @@ TYPES = [
         "label": "Business Process",
         "description": "Business processes with BPMN 2.0 flow modeling, lifecycle, and maturity tracking.",
         "icon": "route",
-        "color": "#e65100",
+        "color": "#028f00",
         "category": "Business Architecture",
         "has_hierarchy": True,
         "has_successors": True,

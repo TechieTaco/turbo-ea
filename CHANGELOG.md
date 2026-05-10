@@ -5,6 +5,21 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.6.2] - 2026-05-10
+
+This release is a stress-test pass: shaking out a real-world large-dataset workflow (the bundled 9329-entry capability catalogue plus thousands of demo cards on a real Unraid install) surfaced two unrelated UI regressions where bulk frontend operations fanned out an unbounded number of parallel HTTP requests. Both are fixed here, plus a third unrelated regression to the `BusinessProcess` card-type colour spotted along the way.
+
+### Fixed
+- **Catalogue imports no longer crash on large selections.** Importing more than 2000 entries from the Capability / Process / Value Stream catalogue used to fail with a 422 (the backend caps `catalogue_ids` at 2000 per request, and the UI sent everything in one shot — selecting all 9329 capabilities reliably blanked the dialog and tripped the React error boundary). The frontend now batches the selection into chunks of 500 and POSTs them sequentially with a per-batch progress bar; partial failures preserve already-committed batches and report how far the import got.
+- **Bulk archive / bulk delete no longer trip Chrome's `ERR_INSUFFICIENT_RESOURCES` or report cascade-race responses as failures.** The Inventory used to dispatch one parallel `POST /cards/{id}/archive` (or `DELETE /cards/{id}`) per selected card; with thousands of cards Chrome's per-origin socket pool exhausted before the requests left the browser. Two intermediate frontend workarounds (a 5-worker queue, then a "treat 400/404 as idempotent" adapter) didn't fully solve it because the per-card endpoints aren't designed to compose into a coherent batch. **New approach: server-side `POST /cards/bulk-archive` and `POST /cards/bulk-delete` endpoints** that take the full id list and process it in a single database transaction — no parallel HTTP fan-out, no cascade race (parent + descendant in the same input both end up in the desired state because they're resolved together), no per-card retry logic on the client. The frontend dialog now makes one round-trip per bulk action instead of N. Skipped items (already-archived, missing, etc.) are reported in a structured `skipped` list rather than as errors.
+
+### Added
+- **Mass restore from Inventory.** When viewing archived cards (filter "Show archived") and selecting multiple, a *Restore* button now appears alongside *Permanently delete*. Backed by the new `POST /cards/bulk-restore` endpoint, which mirrors `bulk-archive` for the inverse operation: one transaction, structured `skipped` reporting (`already_active` / `not_found`), idempotent semantics. Works with selections of any size — the bulk endpoint caps each request at 10 000 cards.
+- **`BusinessProcess` card type built-in colour restored to `#028f00`.** The seed default had drifted to `#e65100` (orange); existing installs on the original colour were unaffected, but any reseed picked up the wrong default. Migration `072` performs a guarded `UPDATE` on the `card_types` row only if its colour still matches the drifted value, so customers with the original colour or with admin-customised colours are left untouched. Hardcoded `#e65100` / `#8e24aa` fallbacks in `ProcessNavigator` and the dashboard activity stream were realigned to the new token, and the `CLAUDE.md` metamodel reference table (which had been wrong since the relationship-rework commit) plus `frontend/UI_GUIDELINES.md` were corrected.
+
+### Changed
+- **Built-in metamodel default convention.** `CLAUDE.md` now documents that editing a built-in card type's `color` / `icon` / `label` in `seed.py` has zero effect on existing installs (the seed only inserts missing rows), and that any such change must be paired with a guarded `UPDATE` migration. `072_restore_business_process_color.py` is the canonical pattern.
+
 ## [1.6.1] - 2026-05-10
 
 ### Performance

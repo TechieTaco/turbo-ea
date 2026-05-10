@@ -1834,7 +1834,7 @@ export default function ProcessNavigator() {
   // Metamodel type info for BusinessProcess
   const processType = getType("BusinessProcess");
   const typeIcon = processType?.icon ?? "route";
-  const typeColor = processType?.color ?? "#e65100";
+  const typeColor = processType?.color ?? "#028f00";
 
   // ── Data ──
   const [data, setData] = useState<ProcItem[] | null>(null);

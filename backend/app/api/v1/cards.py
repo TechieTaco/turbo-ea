@@ -29,6 +29,15 @@ from app.schemas.card import (
     ArchiveImpactResponse,
     CardArchiveRequest,
     CardArchiveResponse,
+    CardBulkArchiveRequest,
+    CardBulkArchiveResponse,
+    CardBulkDeleteRequest,
+    CardBulkDeleteResponse,
+    CardBulkDeleteSkippedEntry,
+    CardBulkRestoreRequest,
+    CardBulkRestoreResponse,
+    CardBulkRestoreSkippedEntry,
+    CardBulkSkippedEntry,
     CardBulkUpdate,
     CardCreate,
     CardDeleteRequest,
@@ -735,6 +744,404 @@ async def bulk_update(
     return [
         _card_to_response(card, strip_cost_keys=redact.get(card.id, frozenset())) for card in sheets
     ]
+
+
+@router.post("/bulk-archive", response_model=CardBulkArchiveResponse)
+async def bulk_archive_cards(
+    body: CardBulkArchiveRequest,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Archive many cards in a single transaction.
+
+    Solves a class of problems that the per-card endpoint cannot:
+      - browser parallelism: 1 round-trip instead of N (no socket-pool exhaustion);
+      - cascade race: archiving a parent that cascades to a descendant which is
+        also in the input list is a single coherent operation, not a fight
+        between sibling workers seeing the descendant in different states;
+      - reporting: one aggregated response with `archived`, `cascaded`, `skipped`
+        instead of N independent failures the caller has to stitch together.
+
+    Cards already at status=ARCHIVED, or whose IDs don't resolve, are returned
+    in `skipped` rather than failing the batch — the user's intent (everything
+    in the input ends up archived) is satisfied either way.
+    """
+    requested_ids: list[uuid.UUID] = []
+    seen: set[uuid.UUID] = set()
+    for raw in body.card_ids:
+        try:
+            cid = uuid.UUID(raw)
+        except (TypeError, ValueError) as exc:
+            raise HTTPException(422, f"Invalid card_id: {raw!r}") from exc
+        if cid in seen:
+            continue
+        seen.add(cid)
+        requested_ids.append(cid)
+
+    found_res = await db.execute(select(Card).where(Card.id.in_(requested_ids)))
+    found_map: dict[uuid.UUID, Card] = {c.id: c for c in found_res.scalars().all()}
+
+    skipped: list[CardBulkSkippedEntry] = []
+    primaries: list[Card] = []
+    for cid in requested_ids:
+        card = found_map.get(cid)
+        if card is None:
+            skipped.append(CardBulkSkippedEntry(card_id=str(cid), reason="not_found"))
+        elif card.status == "ARCHIVED":
+            skipped.append(CardBulkSkippedEntry(card_id=str(cid), reason="already_archived"))
+        else:
+            primaries.append(card)
+
+    if not primaries:
+        return CardBulkArchiveResponse(
+            requested=len(requested_ids),
+            archived_card_ids=[],
+            cascaded_card_ids=[],
+            skipped=skipped,
+        )
+
+    # Children check at bulk level: if ANY primary has direct children and the
+    # user didn't pick a strategy, abort the whole batch — same semantic as the
+    # single-card endpoint, just told once instead of N times.
+    if body.child_strategy is None:
+        for p in primaries:
+            children = await card_lifecycle.direct_children(db, p.id)
+            if children:
+                raise HTTPException(
+                    status_code=409,
+                    detail={
+                        "error": "children_present",
+                        "card_id": str(p.id),
+                        "child_count": len(children),
+                    },
+                )
+
+    primary_id_set = {p.id for p in primaries}
+    descendants_set: set[uuid.UUID] = set()
+    related_set: set[uuid.UUID] = set()
+
+    for p in primaries:
+        per_primary_body = CardArchiveRequest(
+            child_strategy=body.child_strategy,
+            cascade_all_related=body.cascade_all_related,
+        )
+        descendants, related, _ = await _resolve_archive_delete_set(db, p, per_primary_body)
+        for did in descendants:
+            if did not in primary_id_set:
+                descendants_set.add(did)
+        for rid in related:
+            if rid not in primary_id_set and rid not in descendants_set:
+                related_set.add(rid)
+
+    full_affected = list(primary_id_set | descendants_set | related_set)
+    await _ensure_permission_on_each(
+        db, user, full_affected, app_perm="inventory.archive", card_perm="card.archive"
+    )
+
+    if body.child_strategy in ("disconnect", "reparent"):
+        for p in primaries:
+            await card_lifecycle.apply_child_strategy(db, p, body.child_strategy, user.id)
+    for rid in related_set:
+        rel_res = await db.execute(select(Card).where(Card.id == rid))
+        rcard = rel_res.scalar_one_or_none()
+        if rcard is not None and rcard.status == "ACTIVE":
+            await card_lifecycle.apply_child_strategy(db, rcard, "disconnect", user.id)
+
+    flip_res = await db.execute(
+        select(Card)
+        .where(Card.id.in_(full_affected), Card.status == "ACTIVE")
+        .options(
+            selectinload(Card.tags).selectinload(Tag.group),
+            selectinload(Card.stakeholders).selectinload(Stakeholder.user),
+        )
+    )
+    to_flip = list(flip_res.scalars().all())
+    flipped = card_lifecycle.archive_cards_in_place(to_flip, user.id)
+
+    flipped_ids = {c.id for c in flipped}
+    archived_card_ids = [str(p.id) for p in primaries if p.id in flipped_ids]
+    cascaded_card_ids = [str(cid) for cid in (descendants_set | related_set) if cid in flipped_ids]
+
+    for fcard in flipped:
+        await event_bus.publish(
+            "card.archived",
+            {"id": str(fcard.id), "type": fcard.type, "name": fcard.name},
+            db=db,
+            card_id=fcard.id,
+            user_id=user.id,
+        )
+
+    if cascaded_card_ids:
+        await event_bus.publish(
+            "card.archived.bulk",
+            {
+                "primary_count": len(archived_card_ids),
+                "cascaded_count": len(cascaded_card_ids),
+                "child_strategy": body.child_strategy,
+            },
+            db=db,
+            user_id=user.id,
+        )
+
+    await db.commit()
+
+    return CardBulkArchiveResponse(
+        requested=len(requested_ids),
+        archived_card_ids=archived_card_ids,
+        cascaded_card_ids=cascaded_card_ids,
+        skipped=skipped,
+    )
+
+
+@router.post("/bulk-delete", response_model=CardBulkDeleteResponse)
+async def bulk_delete_cards(
+    body: CardBulkDeleteRequest,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Permanently delete many cards in a single transaction.
+
+    Mirrors `bulk_archive_cards`. Unlike archive, delete works on cards in any
+    status (ACTIVE or ARCHIVED), so the only `skipped` reason is `not_found`
+    (the card was already deleted by a sibling primary's cascade in the same
+    batch, or never existed).
+
+    Descendants are deleted leaves-first to satisfy the self-FK on `parent_id`.
+    """
+    requested_ids: list[uuid.UUID] = []
+    seen: set[uuid.UUID] = set()
+    for raw in body.card_ids:
+        try:
+            cid = uuid.UUID(raw)
+        except (TypeError, ValueError) as exc:
+            raise HTTPException(422, f"Invalid card_id: {raw!r}") from exc
+        if cid in seen:
+            continue
+        seen.add(cid)
+        requested_ids.append(cid)
+
+    found_res = await db.execute(select(Card).where(Card.id.in_(requested_ids)))
+    found_map: dict[uuid.UUID, Card] = {c.id: c for c in found_res.scalars().all()}
+
+    skipped: list[CardBulkDeleteSkippedEntry] = []
+    primaries: list[Card] = []
+    for cid in requested_ids:
+        card = found_map.get(cid)
+        if card is None:
+            skipped.append(CardBulkDeleteSkippedEntry(card_id=str(cid), reason="not_found"))
+        else:
+            primaries.append(card)
+
+    if not primaries:
+        return CardBulkDeleteResponse(
+            requested=len(requested_ids),
+            deleted_card_ids=[],
+            cascaded_card_ids=[],
+            skipped=skipped,
+        )
+
+    if body.child_strategy is None:
+        for p in primaries:
+            children = await card_lifecycle.direct_children(db, p.id)
+            if children:
+                raise HTTPException(
+                    status_code=409,
+                    detail={
+                        "error": "children_present",
+                        "card_id": str(p.id),
+                        "child_count": len(children),
+                    },
+                )
+
+    primary_id_set = {p.id for p in primaries}
+    descendants_set: set[uuid.UUID] = set()
+    related_set: set[uuid.UUID] = set()
+
+    for p in primaries:
+        per_primary_body = CardDeleteRequest(
+            child_strategy=body.child_strategy,
+            cascade_all_related=body.cascade_all_related,
+        )
+        descendants, related, _ = await _resolve_archive_delete_set(db, p, per_primary_body)
+        for did in descendants:
+            if did in primary_id_set:
+                continue
+            descendants_set.add(did)
+        for rid in related:
+            if rid in primary_id_set or rid in descendants_set:
+                continue
+            related_set.add(rid)
+
+    full_affected = list(primary_id_set | descendants_set | related_set)
+    await _ensure_permission_on_each(
+        db, user, full_affected, app_perm="inventory.delete", card_perm="card.delete"
+    )
+
+    if body.child_strategy in ("disconnect", "reparent"):
+        for p in primaries:
+            await card_lifecycle.apply_child_strategy(db, p, body.child_strategy, user.id)
+    for rid in related_set:
+        rel_res = await db.execute(select(Card).where(Card.id == rid))
+        rcard = rel_res.scalar_one_or_none()
+        if rcard is not None:
+            await card_lifecycle.apply_child_strategy(db, rcard, "disconnect", user.id)
+
+    # Order the DELETE leaves-first across the entire target set so the self-FK
+    # on `parent_id` is satisfied at every step. The naive "primaries last,
+    # descendants first" ordering breaks when two primaries have a parent-child
+    # relationship between them (the input includes both P and P's child) —
+    # without a global depth sort we'd try to delete P before its child, and
+    # the FK on the child's `parent_id` would block it.
+    target_res = await db.execute(select(Card).where(Card.id.in_(full_affected)))
+    target_by_id: dict[uuid.UUID, Card] = {c.id: c for c in target_res.scalars().all()}
+
+    depth_memo: dict[uuid.UUID, int] = {}
+
+    def depth_within_set(cid: uuid.UUID) -> int:
+        if cid in depth_memo:
+            return depth_memo[cid]
+        # Defensive guard against a (shouldn't-happen) parent_id cycle: cap
+        # recursion by inserting 0 before recursing, so a cycle resolves to 0
+        # rather than recursing forever.
+        depth_memo[cid] = 0
+        obj = target_by_id.get(cid)
+        if obj is None or obj.parent_id is None or obj.parent_id not in target_by_id:
+            return 0
+        d = 1 + depth_within_set(obj.parent_id)
+        depth_memo[cid] = d
+        return d
+
+    for cid in target_by_id:
+        depth_within_set(cid)
+
+    target_objs: list[Card] = sorted(
+        target_by_id.values(), key=lambda c: depth_memo[c.id], reverse=True
+    )
+    deleted_payload: list[tuple[uuid.UUID, str, str]] = [
+        (c.id, c.type, c.name) for c in target_objs
+    ]
+
+    for did, dtype, dname in deleted_payload:
+        await event_bus.publish(
+            "card.deleted",
+            {"id": str(did), "type": dtype, "name": dname},
+            db=db,
+            card_id=did,
+            user_id=user.id,
+        )
+
+    deleted_id_set = {did for did, _, _ in deleted_payload}
+    deleted_card_ids = [str(p.id) for p in primaries if p.id in deleted_id_set]
+    cascaded_card_ids = [
+        str(cid) for cid in (descendants_set | related_set) if cid in deleted_id_set
+    ]
+
+    if cascaded_card_ids:
+        await event_bus.publish(
+            "card.deleted.bulk",
+            {
+                "primary_count": len(deleted_card_ids),
+                "cascaded_count": len(cascaded_card_ids),
+                "child_strategy": body.child_strategy,
+            },
+            db=db,
+            user_id=user.id,
+        )
+
+    for cobj in target_objs:
+        await db.delete(cobj)
+        await db.flush()
+
+    await db.commit()
+
+    return CardBulkDeleteResponse(
+        requested=len(requested_ids),
+        deleted_card_ids=deleted_card_ids,
+        cascaded_card_ids=cascaded_card_ids,
+        skipped=skipped,
+    )
+
+
+@router.post("/bulk-restore", response_model=CardBulkRestoreResponse)
+async def bulk_restore_cards(
+    body: CardBulkRestoreRequest,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Restore many archived cards back to ACTIVE status in a single transaction.
+
+    Mirrors `bulk_archive_cards` for the inverse operation. Cards already at
+    ACTIVE, or whose IDs don't resolve, come back in `skipped` rather than
+    failing the batch — restoring is idempotent in spirit (the desired end
+    state is "this card is active", and that's already true).
+
+    No cascade: restore is a flat per-card status flip. The single-card
+    endpoint takes `also_restore_card_ids` to lift passengers from the
+    original archive batch; for bulk we expect the caller (the inventory
+    selection UI) to have already gathered the full list of cards to restore.
+    """
+    requested_ids: list[uuid.UUID] = []
+    seen: set[uuid.UUID] = set()
+    for raw in body.card_ids:
+        try:
+            cid = uuid.UUID(raw)
+        except (TypeError, ValueError) as exc:
+            raise HTTPException(422, f"Invalid card_id: {raw!r}") from exc
+        if cid in seen:
+            continue
+        seen.add(cid)
+        requested_ids.append(cid)
+
+    found_res = await db.execute(select(Card).where(Card.id.in_(requested_ids)))
+    found_map: dict[uuid.UUID, Card] = {c.id: c for c in found_res.scalars().all()}
+
+    skipped: list[CardBulkRestoreSkippedEntry] = []
+    to_restore: list[Card] = []
+    for cid in requested_ids:
+        card = found_map.get(cid)
+        if card is None:
+            skipped.append(CardBulkRestoreSkippedEntry(card_id=str(cid), reason="not_found"))
+        elif card.status == "ACTIVE":
+            skipped.append(CardBulkRestoreSkippedEntry(card_id=str(cid), reason="already_active"))
+        else:
+            to_restore.append(card)
+
+    if not to_restore:
+        return CardBulkRestoreResponse(
+            requested=len(requested_ids),
+            restored_card_ids=[],
+            skipped=skipped,
+        )
+
+    await _ensure_permission_on_each(
+        db,
+        user,
+        [c.id for c in to_restore],
+        app_perm="inventory.archive",
+        card_perm="card.archive",
+    )
+
+    restored_card_ids: list[str] = []
+    for card in to_restore:
+        card.status = "ACTIVE"
+        card.archived_at = None
+        card.updated_by = user.id
+        restored_card_ids.append(str(card.id))
+        await event_bus.publish(
+            "card.restored",
+            {"id": str(card.id), "type": card.type, "name": card.name},
+            db=db,
+            card_id=card.id,
+            user_id=user.id,
+        )
+
+    await db.commit()
+
+    return CardBulkRestoreResponse(
+        requested=len(requested_ids),
+        restored_card_ids=restored_card_ids,
+        skipped=skipped,
+    )
 
 
 @router.patch("/{card_id}", response_model=CardResponse)

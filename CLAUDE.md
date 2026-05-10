@@ -34,6 +34,7 @@ When working on this codebase, follow these conventions:
 - New permission keys must be added to `backend/app/core/permissions.py` (the single source of truth for all valid permission keys).
 - New models go in `backend/app/models/` (one file per table) and must be imported in `backend/app/models/__init__.py`.
 - Schema changes require a new Alembic migration in `backend/alembic/versions/` with sequential numbering (e.g., `036_description.py`).
+- **Built-in metamodel default changes need a migration too.** `seed.py` only runs when the relevant row is missing on startup, so editing a built-in card type's `color`, `icon`, `label`, etc. has zero effect on existing installs. If you change a built-in default, add a guarded `UPDATE` migration that only rewrites rows still carrying the drifted-from value (so admin customisations and pre-drift defaults are preserved). See `072_restore_business_process_color.py` for the canonical pattern.
 - Sensitive values (SSO secrets, SMTP passwords) must use `encrypt_value()`/`decrypt_value()` from `backend/app/core/encryption.py`.
 - Ruff linting: line length 100, rules E/F/I/N/W. Run `ruff check .` and `ruff format .`.
 - **Before every commit**, run `cd backend && ruff format . && ruff check .` to ensure CI won't fail on formatting or lint errors. This is mandatory — do not skip it.
@@ -1038,7 +1039,7 @@ The default metamodel seeds 13 card types across 4 layers and 30+ relation types
 | `Organization` | Organization | corporate_fare | #2889ff | Business Architecture | Yes | Business Unit, Region, Legal Entity, Team, Customer |
 | `BusinessCapability` | Business Capability | account_tree | #003399 | Business Architecture | Yes | - |
 | `BusinessContext` | Business Context | swap_horiz | #fe6690 | Business Architecture | Yes | Process, Value Stream, Customer Journey, Business Product, ESG Capability |
-| `BusinessProcess` | Business Process | schema | #8e24aa | Business Architecture | Yes | Core, Support, Management |
+| `BusinessProcess` | Business Process | route | #028f00 | Business Architecture | Yes | Core, Support, Management |
 | `Application` | Application | apps | #0f7eb5 | Application & Data | Yes | Business Application, Microservice, AI Agent, Deployment |
 | `Interface` | Interface | sync_alt | #02afa4 | Application & Data | No | Logical Interface, API, MCP Server |
 | `DataObject` | Data Object | database | #774fcc | Application & Data | Yes | - |

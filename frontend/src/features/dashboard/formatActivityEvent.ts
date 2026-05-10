@@ -75,7 +75,7 @@ const CATEGORY_COLORS: Record<ActivityCategory, string> = {
   document: "#0f7eb5",
   comment: "#0f7eb5",
   diagram: "#02afa4",
-  process: "#8e24aa",
+  process: "#028f00",
   adr: "#c7527d",
   soaw: "#2889ff",
   notification: STATUS_COLORS.info,

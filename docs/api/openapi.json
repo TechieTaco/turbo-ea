@@ -1246,6 +1246,268 @@
         "title": "CardArchiveResponse",
         "type": "object"
       },
+      "CardBulkArchiveRequest": {
+        "properties": {
+          "card_ids": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 10000,
+            "minItems": 1,
+            "title": "Card Ids",
+            "type": "array"
+          },
+          "cascade_all_related": {
+            "default": false,
+            "title": "Cascade All Related",
+            "type": "boolean"
+          },
+          "child_strategy": {
+            "anyOf": [
+              {
+                "enum": [
+                  "cascade",
+                  "disconnect",
+                  "reparent"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Child Strategy"
+          }
+        },
+        "required": [
+          "card_ids"
+        ],
+        "title": "CardBulkArchiveRequest",
+        "type": "object"
+      },
+      "CardBulkArchiveResponse": {
+        "properties": {
+          "archived_card_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Archived Card Ids",
+            "type": "array"
+          },
+          "cascaded_card_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Cascaded Card Ids",
+            "type": "array"
+          },
+          "requested": {
+            "title": "Requested",
+            "type": "integer"
+          },
+          "skipped": {
+            "items": {
+              "$ref": "#/components/schemas/CardBulkSkippedEntry"
+            },
+            "title": "Skipped",
+            "type": "array"
+          }
+        },
+        "required": [
+          "requested",
+          "archived_card_ids",
+          "cascaded_card_ids",
+          "skipped"
+        ],
+        "title": "CardBulkArchiveResponse",
+        "type": "object"
+      },
+      "CardBulkDeleteRequest": {
+        "properties": {
+          "card_ids": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 10000,
+            "minItems": 1,
+            "title": "Card Ids",
+            "type": "array"
+          },
+          "cascade_all_related": {
+            "default": false,
+            "title": "Cascade All Related",
+            "type": "boolean"
+          },
+          "child_strategy": {
+            "anyOf": [
+              {
+                "enum": [
+                  "cascade",
+                  "disconnect",
+                  "reparent"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Child Strategy"
+          }
+        },
+        "required": [
+          "card_ids"
+        ],
+        "title": "CardBulkDeleteRequest",
+        "type": "object"
+      },
+      "CardBulkDeleteResponse": {
+        "properties": {
+          "cascaded_card_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Cascaded Card Ids",
+            "type": "array"
+          },
+          "deleted_card_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Deleted Card Ids",
+            "type": "array"
+          },
+          "requested": {
+            "title": "Requested",
+            "type": "integer"
+          },
+          "skipped": {
+            "items": {
+              "$ref": "#/components/schemas/CardBulkDeleteSkippedEntry"
+            },
+            "title": "Skipped",
+            "type": "array"
+          }
+        },
+        "required": [
+          "requested",
+          "deleted_card_ids",
+          "cascaded_card_ids",
+          "skipped"
+        ],
+        "title": "CardBulkDeleteResponse",
+        "type": "object"
+      },
+      "CardBulkDeleteSkippedEntry": {
+        "properties": {
+          "card_id": {
+            "title": "Card Id",
+            "type": "string"
+          },
+          "reason": {
+            "const": "not_found",
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "card_id",
+          "reason"
+        ],
+        "title": "CardBulkDeleteSkippedEntry",
+        "type": "object"
+      },
+      "CardBulkRestoreRequest": {
+        "properties": {
+          "card_ids": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 10000,
+            "minItems": 1,
+            "title": "Card Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "card_ids"
+        ],
+        "title": "CardBulkRestoreRequest",
+        "type": "object"
+      },
+      "CardBulkRestoreResponse": {
+        "properties": {
+          "requested": {
+            "title": "Requested",
+            "type": "integer"
+          },
+          "restored_card_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Restored Card Ids",
+            "type": "array"
+          },
+          "skipped": {
+            "items": {
+              "$ref": "#/components/schemas/CardBulkRestoreSkippedEntry"
+            },
+            "title": "Skipped",
+            "type": "array"
+          }
+        },
+        "required": [
+          "requested",
+          "restored_card_ids",
+          "skipped"
+        ],
+        "title": "CardBulkRestoreResponse",
+        "type": "object"
+      },
+      "CardBulkRestoreSkippedEntry": {
+        "properties": {
+          "card_id": {
+            "title": "Card Id",
+            "type": "string"
+          },
+          "reason": {
+            "enum": [
+              "already_active",
+              "not_found"
+            ],
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "card_id",
+          "reason"
+        ],
+        "title": "CardBulkRestoreSkippedEntry",
+        "type": "object"
+      },
+      "CardBulkSkippedEntry": {
+        "properties": {
+          "card_id": {
+            "title": "Card Id",
+            "type": "string"
+          },
+          "reason": {
+            "enum": [
+              "already_archived",
+              "not_found"
+            ],
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "card_id",
+          "reason"
+        ],
+        "title": "CardBulkSkippedEntry",
+        "type": "object"
+      },
       "CardBulkUpdate": {
         "properties": {
           "ids": {
@@ -13515,6 +13777,132 @@
           }
         },
         "summary": "Bulk Update",
+        "tags": [
+          "cards"
+        ]
+      }
+    },
+    "/api/v1/cards/bulk-archive": {
+      "post": {
+        "description": "Archive many cards in a single transaction.\n\nSolves a class of problems that the per-card endpoint cannot:\n  - browser parallelism: 1 round-trip instead of N (no socket-pool exhaustion);\n  - cascade race: archiving a parent that cascades to a descendant which is\n    also in the input list is a single coherent operation, not a fight\n    between sibling workers seeing the descendant in different states;\n  - reporting: one aggregated response with `archived`, `cascaded`, `skipped`\n    instead of N independent failures the caller has to stitch together.\n\nCards already at status=ARCHIVED, or whose IDs don't resolve, are returned\nin `skipped` rather than failing the batch \u2014 the user's intent (everything\nin the input ends up archived) is satisfied either way.",
+        "operationId": "bulk_archive_cards_api_v1_cards_bulk_archive_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CardBulkArchiveRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CardBulkArchiveResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Bulk Archive Cards",
+        "tags": [
+          "cards"
+        ]
+      }
+    },
+    "/api/v1/cards/bulk-delete": {
+      "post": {
+        "description": "Permanently delete many cards in a single transaction.\n\nMirrors `bulk_archive_cards`. Unlike archive, delete works on cards in any\nstatus (ACTIVE or ARCHIVED), so the only `skipped` reason is `not_found`\n(the card was already deleted by a sibling primary's cascade in the same\nbatch, or never existed).\n\nDescendants are deleted leaves-first to satisfy the self-FK on `parent_id`.",
+        "operationId": "bulk_delete_cards_api_v1_cards_bulk_delete_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CardBulkDeleteRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CardBulkDeleteResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Bulk Delete Cards",
+        "tags": [
+          "cards"
+        ]
+      }
+    },
+    "/api/v1/cards/bulk-restore": {
+      "post": {
+        "description": "Restore many archived cards back to ACTIVE status in a single transaction.\n\nMirrors `bulk_archive_cards` for the inverse operation. Cards already at\nACTIVE, or whose IDs don't resolve, come back in `skipped` rather than\nfailing the batch \u2014 restoring is idempotent in spirit (the desired end\nstate is \"this card is active\", and that's already true).\n\nNo cascade: restore is a flat per-card status flip. The single-card\nendpoint takes `also_restore_card_ids` to lift passengers from the\noriginal archive batch; for bulk we expect the caller (the inventory\nselection UI) to have already gathered the full list of cards to restore.",
+        "operationId": "bulk_restore_cards_api_v1_cards_bulk_restore_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CardBulkRestoreRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CardBulkRestoreResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Bulk Restore Cards",
         "tags": [
           "cards"
         ]
