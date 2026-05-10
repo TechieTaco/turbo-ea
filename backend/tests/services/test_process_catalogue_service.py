@@ -94,17 +94,15 @@ _FAKE_PROCESSES: list[dict[str, Any]] = [
 ]
 
 
-class _FakeBP:
-    def __init__(self, **kw: Any) -> None:
-        for k, v in kw.items():
-            setattr(self, k, v)
-
-    def localized(self, lang: str, *, fallback: str = "en") -> "_FakeBP":
-        # No translations in these tests — same instance back regardless.
-        return self
-
-
 def _install_fake_pkg(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Patch the bundled-data readers + the catalogue_pkg constants.
+
+    The service no longer goes through the upstream Pydantic loader (the
+    upstream model's ``Literal`` had fallen behind the data) — it reads
+    the wheel's ``data/business-processes.json`` directly. Tests have to
+    swap out ``_load_bundled_processes_raw`` and ``_bundled_i18n_table``
+    instead of patching the package's loader.
+    """
     fake = types.ModuleType("turbo_ea_capabilities")
     fake.VERSION = "2.0.0"
     fake.SCHEMA_VERSION = "2"
@@ -112,14 +110,12 @@ def _install_fake_pkg(monkeypatch: pytest.MonkeyPatch) -> None:
     fake.NODE_COUNT = 4
     fake.PROCESS_COUNT = len(_FAKE_PROCESSES)
     fake.available_locales = lambda: ("en",)
-    fake.load_business_processes = lambda: [_FakeBP(**p) for p in _FAKE_PROCESSES]
-    fake.get_business_process = lambda pid: next(
-        (_FakeBP(**p) for p in _FAKE_PROCESSES if p["id"] == pid), None
-    )
 
     from app.services import process_catalogue_service as svc
 
     monkeypatch.setattr(svc, "catalogue_pkg", fake)
+    monkeypatch.setattr(svc, "_load_bundled_processes_raw", lambda: list(_FAKE_PROCESSES))
+    monkeypatch.setattr(svc, "_bundled_i18n_table", lambda locale: None)
 
 
 # ---------------------------------------------------------------------------
