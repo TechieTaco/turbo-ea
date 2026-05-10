@@ -10,7 +10,7 @@ const config: CatalogueKindConfig = {
   inventoryCardType: "BusinessCapability",
   // Brand navy used across the EA app for capabilities (see HierarchySection,
   // CapabilityMapReport.CapabilityCard, the public catalogue site at
-  // capabilities.turbo-ea.org).
+  // catalog.turbo-ea.org).
   accentColor: "#003399",
   selectionColor: "#D63384",
   levelLabel: (level) => `L${level}`,

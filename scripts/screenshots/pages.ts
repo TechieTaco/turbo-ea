@@ -1164,6 +1164,24 @@ export const DOC_PAGES: PageDef[] = [
     },
   },
 
+  // ── Reference Catalogues — Capability Catalogue ──────────────────────────
+  {
+    id: "51_capability_catalogue",
+    route: "/capability-catalogue",
+    waitFor: ".MuiPaper-root",
+    actions: [{ type: "wait", ms: 1200 }],
+    filenames: {
+      en: "51_capability_catalogue",
+      de: "51_capability_katalog",
+      fr: "51_catalogue_capacites",
+      es: "51_catalogo_capacidades",
+      it: "51_catalogo_capacita",
+      pt: "51_catalogo_capacidades",
+      zh: "51_capability_catalogue",
+      ru: "51_katalog_vozmozhnostey",
+    },
+  },
+
 ];
 
 // ---------------------------------------------------------------------------
