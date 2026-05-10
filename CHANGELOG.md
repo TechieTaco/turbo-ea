@@ -5,6 +5,30 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.6.0] - 2026-05-09
+
+### Upgrade notes
+
+- **GHCR image users: pull the new `docker-compose.yml` too, not just the image.** The bundled `turbo-ea-capabilities` wheel grew significantly in this release (now 9329 capabilities + 1273 processes + 64 value streams), and the catalogue browsers exercise it on every visit. The default `BACKEND_MEMORY_LIMIT` was bumped from `512M` → `2G` to accommodate this. If you only run `docker compose pull && docker compose up -d` without also pulling the new compose file (or without removing an explicit `BACKEND_MEMORY_LIMIT=512M` from your `.env`), your container keeps the old 512M cap and may OOM-cycle on first hit to a catalogue page or any large `?page_size=` inventory request. The safe upgrade flow is:
+  ```bash
+  git pull              # picks up the new docker-compose.yml + .env.example
+  docker compose pull   # pulls the new images
+  docker compose up -d
+  ```
+  Symptoms of the old cap on the new image: `docker compose ps` shows `Up Xs (healthy)` flickering, `dmesg | grep oom` shows `Memory cgroup out of memory: Killed process … (uvicorn) anon-rss:5XXMB`, and the browser shows a wave of `502` errors on every endpoint. Bumping the cap to `1G` (or removing the `BACKEND_MEMORY_LIMIT` line entirely so the new `2G` default kicks in) resolves it.
+
+### Added
+- **Process Catalogue** at `/process-catalogue` — browse the bundled APQC-PCF business-process tree (Category → Process Group → Process → Activity, ~1200 entries) and import selected entries as `BusinessProcess` cards in bulk. Subtypes are derived from the catalogue level; hierarchy is preserved through `parent_id`. On import, `relProcessToBC` (supports) relations are auto-created to every existing `BusinessCapability` whose ID appears in the process's `realizes_capability_ids` (skipped silently when the target card hasn't been imported yet).
+- **Value Stream Catalogue** at `/value-stream-catalogue` — browse the bundled value-stream library (Acquire-to-Retire, Order-to-Cash, Hire-to-Retire, …) and import streams + stages as `BusinessContext` cards (subtype Value Stream). Stages land as children of their parent stream; selecting a stage alone automatically pulls in the parent. On import, `relBizCtxToBC` (stage → capability) and `relProcessToBizCtx` (process → stage) relations are auto-created to every existing target.
+- **`POST /process-catalogue/import`**, **`POST /value-stream-catalogue/import`**, plus the matching `GET` payloads and admin `update-status` / `update-fetch` endpoints. The wheel ships all three artefact types in a single download, so any one of the three "Fetch update" admin actions hydrates all three caches at the same time.
+
+### Changed
+- **Reference Catalogues section in the user menu is now collapsible** (Capability + Process + Value Stream + Principles) and starts collapsed by default to keep the menu compact. Open/closed state is persisted in `localStorage`. The drop-down now shows a chevron next to the section header.
+- **Frontend catalogue UI generalised into `frontend/src/features/reference-catalogue/`** — `<CatalogueBrowser>`, `<CataloguePage>`, `IndustryFilter`, the CSS, and the types are shared across all three catalogues. The accent and selection colours are driven by CSS custom properties (`--tcc-accent`, `--tcc-selection`) so each per-catalogue page passes its brand colour without duplicating the stylesheet.
+- **`turbo-ea-capabilities` minimum version bumped to `>=2026.5.10.494`** — first the move to `schema_version=2` (which ships `business-processes.json` + `value-streams.json` alongside `capabilities.json`), then the latest content drops. The bundled wheel now carries 9329 capabilities, **1273 processes** (up from 1211), and 64 value streams across all eight supported locales.
+- **Backend catalogue services refactored**: cross-cutting concerns (PyPI fetch + wheel extraction, settings cache, locale resolution, BFS ordering, existing-card lookup) extracted to `backend/app/services/catalogue_common.py` so the three per-catalogue services stay focused on their own import semantics.
+- **Backend default memory limit raised from 512M → 2G.** The bundled `turbo-ea-capabilities` wheel + the metamodel + optional demo seed sit around 250–500M at idle on x86 hosts, and request-time spikes (e.g. `?page_size=10000` inventory dumps, large bundled catalogue payloads, long-lived SSE connections) regularly cross the previous 1G ceiling, OOM-killing the backend mid-request under cgroup limits. The `BACKEND_MEMORY_LIMIT` env var is unchanged — set it back to 1G if you've disabled SEED_DEMO/SEED_BPM/SEED_PPM and rarely use the catalogue browsers, or 512M for the most aggressive tightening.
+
 ## [1.5.1] - 2026-05-08
 
 ### Changed

@@ -184,6 +184,29 @@ export default function AppLayout({ children, user, onLogout }: Props) {
   const [drawerAdminOpen, setDrawerAdminOpen] = useState(false);
   const [notifPrefsOpen, setNotifPrefsOpen] = useState(false);
   const [langMenu, setLangMenu] = useState<HTMLElement | null>(null);
+  // Reference Catalogues menu section starts collapsed by default — there are
+  // now three catalogue links (capability, process, value stream) plus
+  // principles, and most users only visit the section occasionally. Open
+  // state is persisted in localStorage so frequent users only need to expand
+  // once.
+  const [refCatExpanded, setRefCatExpanded] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem("refCatExpanded") === "true";
+    } catch {
+      return false;
+    }
+  });
+  const toggleRefCat = useCallback(() => {
+    setRefCatExpanded((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem("refCatExpanded", String(next));
+      } catch {
+        // localStorage may be disabled — best-effort persistence
+      }
+      return next;
+    });
+  }, []);
   const [badgeCounts, setBadgeCounts] = useState<BadgeCounts>({ open_todos: 0, pending_surveys: 0 });
 
   const handleLanguageChange = useCallback(
@@ -711,7 +734,11 @@ export default function AppLayout({ children, user, onLogout }: Props) {
             </MenuItem>
             {(can("inventory.view") || can("admin.metamodel")) && <Divider />}
             {(can("inventory.view") || can("admin.metamodel")) && (
-              <MenuItem disabled sx={{ opacity: 0.7, minHeight: 32 }}>
+              <MenuItem
+                onClick={toggleRefCat}
+                sx={{ minHeight: 32 }}
+                aria-expanded={refCatExpanded}
+              >
                 <ListItemIcon>
                   <MaterialSymbol icon="library_books" size={18} />
                 </ListItemIcon>
@@ -725,34 +752,66 @@ export default function AppLayout({ children, user, onLogout }: Props) {
                 >
                   {t("userMenu.referenceCatalogues")}
                 </ListItemText>
+                <MaterialSymbol
+                  icon={refCatExpanded ? "expand_less" : "expand_more"}
+                  size={18}
+                />
               </MenuItem>
             )}
-            {can("inventory.view") && (
-              <MenuItem
-                component={RouterLink}
-                to="/capability-catalogue"
-                onClick={() => setUserMenu(null)}
-                sx={{ pl: 3 }}
-              >
-                <ListItemIcon>
-                  <MaterialSymbol icon="account_tree" size={18} />
-                </ListItemIcon>
-                <ListItemText>{t("userMenu.capabilityCatalogue")}</ListItemText>
-              </MenuItem>
-            )}
-            {can("admin.metamodel") && (
-              <MenuItem
-                component={RouterLink}
-                to="/principles-catalogue"
-                onClick={() => setUserMenu(null)}
-                sx={{ pl: 3 }}
-              >
-                <ListItemIcon>
-                  <MaterialSymbol icon="bookmark_star" size={18} />
-                </ListItemIcon>
-                <ListItemText>{t("userMenu.principlesCatalogue")}</ListItemText>
-              </MenuItem>
-            )}
+            <Collapse in={refCatExpanded} timeout="auto" unmountOnExit>
+              {can("inventory.view") && (
+                <MenuItem
+                  component={RouterLink}
+                  to="/capability-catalogue"
+                  onClick={() => setUserMenu(null)}
+                  sx={{ pl: 3 }}
+                >
+                  <ListItemIcon>
+                    <MaterialSymbol icon="account_tree" size={18} />
+                  </ListItemIcon>
+                  <ListItemText>{t("userMenu.capabilityCatalogue")}</ListItemText>
+                </MenuItem>
+              )}
+              {can("inventory.view") && (
+                <MenuItem
+                  component={RouterLink}
+                  to="/process-catalogue"
+                  onClick={() => setUserMenu(null)}
+                  sx={{ pl: 3 }}
+                >
+                  <ListItemIcon>
+                    <MaterialSymbol icon="route" size={18} />
+                  </ListItemIcon>
+                  <ListItemText>{t("userMenu.processCatalogue")}</ListItemText>
+                </MenuItem>
+              )}
+              {can("inventory.view") && (
+                <MenuItem
+                  component={RouterLink}
+                  to="/value-stream-catalogue"
+                  onClick={() => setUserMenu(null)}
+                  sx={{ pl: 3 }}
+                >
+                  <ListItemIcon>
+                    <MaterialSymbol icon="alt_route" size={18} />
+                  </ListItemIcon>
+                  <ListItemText>{t("userMenu.valueStreamCatalogue")}</ListItemText>
+                </MenuItem>
+              )}
+              {can("admin.metamodel") && (
+                <MenuItem
+                  component={RouterLink}
+                  to="/principles-catalogue"
+                  onClick={() => setUserMenu(null)}
+                  sx={{ pl: 3 }}
+                >
+                  <ListItemIcon>
+                    <MaterialSymbol icon="bookmark_star" size={18} />
+                  </ListItemIcon>
+                  <ListItemText>{t("userMenu.principlesCatalogue")}</ListItemText>
+                </MenuItem>
+              )}
+            </Collapse>
             {showAdmin && <Divider />}
             {showAdmin && (
               <MenuItem disabled sx={{ opacity: 0.7, minHeight: 32 }}>

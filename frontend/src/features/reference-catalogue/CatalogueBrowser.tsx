@@ -13,19 +13,25 @@ import Tooltip from "@mui/material/Tooltip";
 import { useTheme } from "@mui/material/styles";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import IndustryFilter from "./IndustryFilter";
-import type { FlatCapability } from "./types";
-import "./capabilityCatalogue.css";
+import type { CatalogueNode, CatalogueKindConfig } from "./types";
+import "./referenceCatalogue.css";
 
-function compareIds(a: string, b: string): number {
-  const sa = a.replace(/^BC-/, "").split(".").map(Number);
-  const sb = b.replace(/^BC-/, "").split(".").map(Number);
-  const len = Math.max(sa.length, sb.length);
-  for (let i = 0; i < len; i++) {
-    const av = sa[i] ?? -1;
-    const bv = sb[i] ?? -1;
-    if (av !== bv) return av - bv;
-  }
-  return 0;
+/** Stable hierarchy sort key. Strips the catalogue's id prefix so the
+ *  numeric segments compare correctly: BC-1.10 must sort *after* BC-1.9. */
+function makeCompareIds(idPrefix: string) {
+  return (a: string, b: string): number => {
+    const stripPrefix = (s: string) =>
+      s.startsWith(idPrefix) ? s.slice(idPrefix.length) : s;
+    const sa = stripPrefix(a).split(".").map(Number);
+    const sb = stripPrefix(b).split(".").map(Number);
+    const len = Math.max(sa.length, sb.length);
+    for (let i = 0; i < len; i++) {
+      const av = sa[i] ?? -1;
+      const bv = sb[i] ?? -1;
+      if (av !== bv) return av - bv;
+    }
+    return 0;
+  };
 }
 
 function splitIndustry(s: string | null | undefined): string[] {
@@ -34,34 +40,34 @@ function splitIndustry(s: string | null | undefined): string[] {
 }
 
 interface Props {
-  data: FlatCapability[];
+  data: CatalogueNode[];
   selected: Set<string>;
   onSelectedChange: (next: Set<string>) => void;
   onOpenDetail: (id: string) => void;
+  config: CatalogueKindConfig;
 }
 
-export default function CapabilityCatalogueBrowser({
+export default function CatalogueBrowser({
   data,
   selected,
   onSelectedChange,
   onOpenDetail,
+  config,
 }: Props) {
   const { t } = useTranslation(["cards", "common"]);
-  // Without `cssVariables: true` on the MUI theme, the `var(--mui-palette-…)`
-  // tokens used in the catalogue stylesheet aren't actually injected, so we
-  // must read the active palette mode at render time and toggle a class on
-  // the root. The CSS file owns all the dual-mode rules.
   const isDark = useTheme().palette.mode === "dark";
+  const ns = config.i18nNamespace;
+  const compareIds = useMemo(() => makeCompareIds(config.idPrefix), [config.idPrefix]);
 
   // Indexes ----------------------------------------------------------------
   const byId = useMemo(() => {
-    const m = new Map<string, FlatCapability>();
+    const m = new Map<string, CatalogueNode>();
     for (const c of data) m.set(c.id, c);
     return m;
   }, [data]);
 
   const byParent = useMemo(() => {
-    const map = new Map<string | null, FlatCapability[]>();
+    const map = new Map<string | null, CatalogueNode[]>();
     for (const c of data) {
       const list = map.get(c.parent_id) ?? [];
       list.push(c);
@@ -69,7 +75,7 @@ export default function CapabilityCatalogueBrowser({
     }
     for (const list of map.values()) list.sort((a, b) => compareIds(a.id, b.id));
     return map;
-  }, [data]);
+  }, [data, compareIds]);
 
   const descendantsOf = useMemo(() => {
     const cache = new Map<string, string[]>();
@@ -95,7 +101,7 @@ export default function CapabilityCatalogueBrowser({
 
   const allIndustries = useMemo(() => {
     const s = new Set<string>();
-    for (const c of data) for (const ind of splitIndustry(c.industry)) s.add(ind);
+    for (const c of data) for (const ind of splitIndustry(c.industry ?? null)) s.add(ind);
     return Array.from(s).sort();
   }, [data]);
 
@@ -110,7 +116,6 @@ export default function CapabilityCatalogueBrowser({
     return s;
   });
 
-  // Re-seed the level filter once data finishes loading.
   useEffect(() => {
     setLevels((prev) => (prev.size === 0 ? new Set(allLevels) : prev));
   }, [allLevels]);
@@ -120,7 +125,7 @@ export default function CapabilityCatalogueBrowser({
     return data.filter((c) => {
       if (!levels.has(c.level)) return false;
       if (industries.size > 0) {
-        const inds = splitIndustry(c.industry);
+        const inds = splitIndustry(c.industry ?? null);
         if (!inds.some((i) => industries.has(i))) return false;
       }
       if (!showDeprecated && c.deprecated) return false;
@@ -134,7 +139,6 @@ export default function CapabilityCatalogueBrowser({
     });
   }, [data, levels, industries, showDeprecated, query]);
 
-  // Always include ancestors so each L1 column shows something.
   const visibleSet = useMemo(() => {
     const ids = new Set(visible.map((c) => c.id));
     for (const c of visible) {
@@ -149,17 +153,8 @@ export default function CapabilityCatalogueBrowser({
   }, [visible, byId]);
 
   // Selection helpers ------------------------------------------------------
-  // Existing-card matches are non-selectable (rendered as a green tick).
-  const isSelectable = (cap: FlatCapability) => !cap.existing_card_id;
+  const isSelectable = (cap: CatalogueNode) => !cap.existing_card_id;
 
-  // Subtree-cascading selection — symmetric in direction (always walks
-  // downward) but never touches ancestors:
-  //   - selecting an unselected node adds the node + all selectable descendants
-  //   - deselecting a selected node removes the node + all selectable descendants
-  // Deselecting a child therefore never tears down its parent, so users can
-  // assemble "L1 + a couple of leaves" by selecting L1, then pruning the
-  // intermediate L2/L3 they don't want. Conversely, deselecting the parent
-  // wipes the whole subtree in one action.
   const toggleSelect = (id: string) => {
     const cap = byId.get(id);
     if (!cap || !isSelectable(cap)) return;
@@ -221,19 +216,6 @@ export default function CapabilityCatalogueBrowser({
 
   const stepperMax = Math.max(maxLevel - 1, 0);
 
-  // Per-L1 stepwise expand / collapse — one tree level at a time, scoped to a
-  // single L1's subtree. Mirrors the global level stepper but applies only to
-  // descendants of the chosen L1, so users can pop one branch open without
-  // disturbing the others. The current "depth" of an L1 is the deepest tree
-  // level k such that every expandable node within the subtree at levels
-  // 1..k is in `expanded`:
-  //   depth 0 — L1 collapsed (header only)
-  //   depth 1 — L1 expanded, no L2 children opened (L2 list visible)
-  //   depth 2 — L1 + every L2-with-kids expanded (L3 visible)
-  //   …
-  // Pressing + bumps the depth by one (opens that level); pressing − closes
-  // the current depth and everything deeper, so the next press always
-  // strictly decreases the depth by exactly one.
   const l1OpenDepth = (l1Id: string): number => {
     const within = new Set([l1Id, ...(descendantsOf.get(l1Id) ?? [])]);
     let depth = 0;
@@ -274,8 +256,6 @@ export default function CapabilityCatalogueBrowser({
     const cur = l1OpenDepth(l1Id);
     if (cur === 0) return;
     const next = new Set(expanded);
-    // Close the current depth AND everything deeper, so depth strictly drops
-    // by one regardless of any leftover state from earlier interactions.
     for (let lvl = cur; lvl <= maxLevel - 1; lvl++) {
       for (const id of expandablesByLevel.get(lvl) ?? []) {
         if (within.has(id)) next.delete(id);
@@ -328,9 +308,9 @@ export default function CapabilityCatalogueBrowser({
   );
 
   const industryGroups = useMemo(() => {
-    const map = new Map<string, FlatCapability[]>();
+    const map = new Map<string, CatalogueNode[]>();
     for (const r of roots) {
-      const key = splitIndustry(r.industry)[0] || "__none__";
+      const key = splitIndustry(r.industry ?? null)[0] || "__none__";
       if (!map.has(key)) map.set(key, []);
       map.get(key)!.push(r);
     }
@@ -356,11 +336,16 @@ export default function CapabilityCatalogueBrowser({
     [visibleSet, byId],
   );
 
+  const accentStyle = {
+    "--tcc-accent": config.accentColor,
+    "--tcc-selection": config.selectionColor,
+  } as React.CSSProperties;
+
   return (
-    <Box className={`tcc-root${isDark ? " tcc-root--dark" : ""}`}>
-      {/* Sticky filter + action bar — sticks just below the AppBar (64 px).
-          On mobile (xs) it stays in the normal flow so it doesn't eat scarce
-          vertical real-estate. */}
+    <Box
+      className={`tcc-root${isDark ? " tcc-root--dark" : ""}`}
+      style={accentStyle}
+    >
       <Box
         sx={{
           position: { xs: "static", sm: "sticky" },
@@ -376,12 +361,11 @@ export default function CapabilityCatalogueBrowser({
           },
         }}
       >
-      {/* Filter bar */}
       <Paper variant="outlined" sx={{ p: 1.5, mb: 1 }}>
         <Stack direction="row" spacing={1.5} alignItems="center" flexWrap="wrap" useFlexGap>
           <TextField
             size="small"
-            placeholder={t("cards:catalogue.searchPlaceholder")}
+            placeholder={t(`cards:${ns}.searchPlaceholder`)}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             sx={{ flex: "1 1 220px", minWidth: 200 }}
@@ -396,14 +380,14 @@ export default function CapabilityCatalogueBrowser({
 
           <Stack direction="row" spacing={0.5} alignItems="center">
             <Typography variant="overline" color="text.secondary">
-              {t("cards:catalogue.levelLabel")}
+              {t(`cards:${ns}.levelLabel`)}
             </Typography>
             {allLevels.map((lvl) => {
               const checked = levels.has(lvl);
               return (
                 <Chip
                   key={lvl}
-                  label={`L${lvl}`}
+                  label={config.levelLabel(lvl)}
                   size="small"
                   color={checked ? "primary" : "default"}
                   variant={checked ? "filled" : "outlined"}
@@ -423,26 +407,26 @@ export default function CapabilityCatalogueBrowser({
               industries={allIndustries}
               selected={industries}
               onChange={setIndustries}
+              i18nNamespace={ns}
             />
           )}
 
-          <Tooltip title={t("cards:catalogue.deprecatedTooltip")}>
+          <Tooltip title={t(`cards:${ns}.deprecatedTooltip`)}>
             <Chip
               size="small"
               variant={showDeprecated ? "filled" : "outlined"}
               color={showDeprecated ? "warning" : "default"}
-              label={t("cards:catalogue.deprecatedToggle")}
+              label={t(`cards:${ns}.deprecatedToggle`)}
               onClick={() => setShowDeprecated((v) => !v)}
             />
           </Tooltip>
 
           <Button size="small" onClick={resetFilters}>
-            {t("cards:catalogue.resetFilters")}
+            {t(`cards:${ns}.resetFilters`)}
           </Button>
         </Stack>
       </Paper>
 
-      {/* Action bar */}
       <Stack
         className="tcc-action-bar"
         direction="row"
@@ -453,17 +437,17 @@ export default function CapabilityCatalogueBrowser({
       >
         <Typography variant="body2" color="text.secondary" sx={{ flex: 1 }}>
           <strong>{visible.length}</strong>{" "}
-          {t("cards:catalogue.matchCount", { count: visible.length })}
+          {t(`cards:${ns}.matchCount`, { count: visible.length })}
           {visible.length !== data.length && (
             <>
               {" · "}
-              <strong>{data.length}</strong> {t("cards:catalogue.total")}
+              <strong>{data.length}</strong> {t(`cards:${ns}.total`)}
             </>
           )}
           {selectionCount > 0 && (
             <>
               {" · "}
-              <strong>{selectionCount}</strong> {t("cards:catalogue.selectedLabel")}
+              <strong>{selectionCount}</strong> {t(`cards:${ns}.selectedLabel`)}
             </>
           )}
         </Typography>
@@ -478,10 +462,7 @@ export default function CapabilityCatalogueBrowser({
             <MaterialSymbol icon="remove" size={16} />
           </button>
           <span className="tcc-stepper-label">
-            {/* Display levels 1-indexed: depth=0 in state means "L1 cards
-                visible only" → "Level 1 / N" in the UI. The underlying state
-                still uses 0-based depth so the calculations remain natural. */}
-            {t("cards:catalogue.levelStepper", {
+            {t(`cards:${ns}.levelStepper`, {
               current: currentLevel + 1,
               max: stepperMax + 1,
             })}
@@ -497,30 +478,25 @@ export default function CapabilityCatalogueBrowser({
         </div>
 
         <Button size="small" onClick={expandAll}>
-          {t("cards:catalogue.expandAll")}
+          {t(`cards:${ns}.expandAll`)}
         </Button>
         <Button size="small" onClick={collapseAll}>
-          {t("cards:catalogue.collapseAll")}
+          {t(`cards:${ns}.collapseAll`)}
         </Button>
-        <Button
-          size="small"
-          onClick={selectAllVisible}
-          disabled={visibleCreatable.length === 0}
-        >
-          {t("cards:catalogue.selectVisible")}
+        <Button size="small" onClick={selectAllVisible} disabled={visibleCreatable.length === 0}>
+          {t(`cards:${ns}.selectVisible`)}
         </Button>
         <Button size="small" onClick={clearSelection} disabled={selectionCount === 0}>
-          {t("cards:catalogue.clearSelection")}
+          {t(`cards:${ns}.clearSelection`)}
         </Button>
       </Stack>
-      </Box>{/* end sticky wrapper */}
+      </Box>
 
-      {/* L1 grid — grouped by industry */}
       {roots.length === 0 ? (
         <Paper variant="outlined" sx={{ p: 4, textAlign: "center" }}>
-          <Typography variant="h6">{t("cards:catalogue.noMatches")}</Typography>
+          <Typography variant="h6">{t(`cards:${ns}.noMatches`)}</Typography>
           <Typography variant="body2" color="text.secondary">
-            {t("cards:catalogue.adjustFilters")}
+            {t(`cards:${ns}.adjustFilters`)}
           </Typography>
         </Paper>
       ) : (
@@ -532,7 +508,7 @@ export default function CapabilityCatalogueBrowser({
                 color="text.secondary"
                 sx={{ display: "block", mb: 1, pl: 0.5, fontWeight: 700 }}
               >
-                {key === "__none__" ? t("cards:catalogue.industryGroupUnknown") : key}
+                {key === "__none__" ? t(`cards:${ns}.industryGroupUnknown`) : key}
               </Typography>
               <div className="tcc-l1-grid">
                 {items.map((r) => (
@@ -552,6 +528,9 @@ export default function CapabilityCatalogueBrowser({
                     onToggleSelect={toggleSelect}
                     onOpenDetail={onOpenDetail}
                     isSelectable={isSelectable}
+                    selectionColor={config.selectionColor}
+                    expandLabel={t(`cards:${ns}.expandOneLevel`)}
+                    collapseLabel={t(`cards:${ns}.collapseOneLevel`)}
                   />
                 ))}
               </div>
@@ -563,13 +542,9 @@ export default function CapabilityCatalogueBrowser({
   );
 }
 
-// ---------------------------------------------------------------------------
-// L1Card + ChildRow
-// ---------------------------------------------------------------------------
-
 interface L1CardProps {
-  node: FlatCapability;
-  byParent: Map<string | null, FlatCapability[]>;
+  node: CatalogueNode;
+  byParent: Map<string | null, CatalogueNode[]>;
   visible: Set<string>;
   expanded: Set<string>;
   selected: Set<string>;
@@ -581,7 +556,10 @@ interface L1CardProps {
   maxDepth: number;
   onToggleSelect: (id: string) => void;
   onOpenDetail: (id: string) => void;
-  isSelectable: (cap: FlatCapability) => boolean;
+  isSelectable: (cap: CatalogueNode) => boolean;
+  selectionColor: string;
+  expandLabel: string;
+  collapseLabel: string;
 }
 
 function L1Card({
@@ -599,25 +577,16 @@ function L1Card({
   onToggleSelect,
   onOpenDetail,
   isSelectable,
+  selectionColor,
+  expandLabel,
+  collapseLabel,
 }: L1CardProps) {
-  const { t } = useTranslation(["cards"]);
   const kids = (byParent.get(node.id) ?? []).filter((c) => visible.has(c.id));
   const hasKids = kids.length > 0;
   const isOpen = expanded.has(node.id);
   const selfSelected = selected.has(node.id);
   const isExisting = !!node.existing_card_id;
 
-  // Tri-state for the L1 checkbox is bound to L1's OWN selection state, not
-  // the subtree:
-  //   selfSelected            → "checked"      (user picked L1; stays solid
-  //                                              even if individual descendants
-  //                                              are then unticked)
-  //   some descendants picked → "indeterminate" (visual hint that the subtree
-  //                                              is partially populated even
-  //                                              though L1 itself isn't ticked)
-  //   none of the above       → "unchecked"
-  // This keeps the deselect cascade unsurprising: unticking an L2 must never
-  // make the L1 checkbox jump to indeterminate or unchecked.
   let someDescendantsSelected = false;
   for (const sid of descendantsOf.get(node.id) ?? []) {
     if (selected.has(sid)) {
@@ -637,17 +606,14 @@ function L1Card({
     }
   }, [checkState]);
 
-  const expandLabel = t("cards:catalogue.expandOneLevel");
-  const collapseLabel = t("cards:catalogue.collapseOneLevel");
   const canExpand = hasKids && openDepth < maxDepth;
   const canCollapse = openDepth > 0;
+
+  const checkboxColor = `color-mix(in srgb, ${selectionColor} 55%, transparent)`;
 
   return (
     <section className={`tcc-l1-card${selfSelected ? " is-selected" : ""}`}>
       <header className="tcc-l1-header">
-        {/* Per-L1 ± pill — scoped to this L1's subtree. + opens one tree level
-            within this L1; − closes the deepest open level. The global
-            stepper at the top of the page is unaffected. */}
         <div className="tcc-branch-stepper" role="group" aria-label={expandLabel}>
           <button
             type="button"
@@ -683,8 +649,8 @@ function L1Card({
             inputProps={{ "aria-label": `Select ${node.id} ${node.name}` }}
             sx={{
               p: 0.5,
-              color: "rgba(214,51,132,0.55)",
-              "&.Mui-checked, &.MuiCheckbox-indeterminate": { color: "#D63384" },
+              color: checkboxColor,
+              "&.Mui-checked, &.MuiCheckbox-indeterminate": { color: selectionColor },
             }}
           />
         )}
@@ -712,6 +678,7 @@ function L1Card({
               onToggleSelect={onToggleSelect}
               onOpenDetail={onOpenDetail}
               isSelectable={isSelectable}
+              selectionColor={selectionColor}
               depth={1}
             />
           ))}
@@ -722,15 +689,16 @@ function L1Card({
 }
 
 interface ChildRowProps {
-  node: FlatCapability;
-  byParent: Map<string | null, FlatCapability[]>;
+  node: CatalogueNode;
+  byParent: Map<string | null, CatalogueNode[]>;
   visible: Set<string>;
   expanded: Set<string>;
   selected: Set<string>;
   onToggleExpand: (id: string) => void;
   onToggleSelect: (id: string) => void;
   onOpenDetail: (id: string) => void;
-  isSelectable: (cap: FlatCapability) => boolean;
+  isSelectable: (cap: CatalogueNode) => boolean;
+  selectionColor: string;
   depth: number;
 }
 
@@ -744,6 +712,7 @@ function ChildRow({
   onToggleSelect,
   onOpenDetail,
   isSelectable,
+  selectionColor,
   depth,
 }: ChildRowProps) {
   const kids = (byParent.get(node.id) ?? []).filter((c) => visible.has(c.id));
@@ -752,6 +721,8 @@ function ChildRow({
   const isExisting = !!node.existing_card_id;
   const selfSelected = selected.has(node.id);
   const isL2 = depth === 1;
+
+  const checkboxColor = `color-mix(in srgb, ${selectionColor} 55%, transparent)`;
 
   const checkbox = isExisting ? (
     <Tooltip title={`Already a card: ${node.name}`}>
@@ -765,7 +736,11 @@ function ChildRow({
       checked={selfSelected}
       onChange={() => onToggleSelect(node.id)}
       inputProps={{ "aria-label": `Select ${node.id} ${node.name}` }}
-      sx={{ p: 0.5, color: "rgba(214,51,132,0.55)", "&.Mui-checked": { color: "#D63384" } }}
+      sx={{
+        p: 0.5,
+        color: checkboxColor,
+        "&.Mui-checked": { color: selectionColor },
+      }}
     />
   );
 
@@ -811,6 +786,7 @@ function ChildRow({
               onToggleSelect={onToggleSelect}
               onOpenDetail={onOpenDetail}
               isSelectable={isSelectable}
+              selectionColor={selectionColor}
               depth={depth + 1}
             />
           ))}

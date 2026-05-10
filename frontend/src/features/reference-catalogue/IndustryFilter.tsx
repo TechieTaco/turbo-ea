@@ -18,20 +18,22 @@ interface Props {
   industries: string[];
   selected: Set<string>;
   onChange: (next: Set<string>) => void;
+  /** Translation namespace prefix on `cards.json`, e.g. `"catalogue"`. The
+   *  filter text strings (`industryTriggerLabel`, `industryValueAll`, etc.)
+   *  are looked up under `cards:${i18nNamespace}.X`. */
+  i18nNamespace: string;
 }
 
-export default function IndustryFilter({ industries, selected, onChange }: Props) {
+export default function IndustryFilter({ industries, selected, onChange, i18nNamespace }: Props) {
   const { t } = useTranslation(["cards"]);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const [open, setOpen] = useState(false);
   // Snapshot the trigger's screen position at open time and pin the menu
-  // there. Selecting an industry filters the BC tree below, which can show
+  // there. Selecting an industry filters the tree below, which can show
   // or hide the page scrollbar; that ~16px viewport-width swing was making
-  // the menu visibly slide left/right on every toggle. With a captured
-  // anchorPosition the menu stays put for the lifetime of the open state.
+  // the menu visibly slide left/right on every toggle.
   const [anchorPos, setAnchorPos] = useState<{ top: number; left: number } | null>(null);
-  // The Menu portals to <body>, so it can't inherit the .tcc-root--dark class
-  // we set on the catalogue browser. Tag the menu directly instead.
+  // The Menu portals to <body>, so it can't inherit the .tcc-root--dark class.
   const isDark = useTheme().palette.mode === "dark";
 
   const { pinned, rest } = useMemo(() => {
@@ -43,10 +45,10 @@ export default function IndustryFilter({ industries, selected, onChange }: Props
 
   const valueText = useMemo(() => {
     const arr = Array.from(selected);
-    if (arr.length === 0) return t("cards:catalogue.industryValueAll");
+    if (arr.length === 0) return t(`cards:${i18nNamespace}.industryValueAll`);
     if (arr.length === 1) return arr[0];
-    return t("cards:catalogue.industryValueNSelected", { count: arr.length });
-  }, [selected, t]);
+    return t(`cards:${i18nNamespace}.industryValueNSelected`, { count: arr.length });
+  }, [selected, t, i18nNamespace]);
 
   const toggle = (name: string) => {
     const next = new Set(selected);
@@ -102,7 +104,7 @@ export default function IndustryFilter({ industries, selected, onChange }: Props
         onClick={() => (open ? setOpen(false) : openMenu())}
       >
         <span className="tcc-industry-trigger-label">
-          {t("cards:catalogue.industryTriggerLabel")}
+          {t(`cards:${i18nNamespace}.industryTriggerLabel`)}
         </span>
         <span className="tcc-industry-trigger-value">{valueText}</span>
         <span className="tcc-industry-trigger-chevron" aria-hidden="true">
@@ -135,7 +137,7 @@ export default function IndustryFilter({ industries, selected, onChange }: Props
             onClick={clearAll}
             disableRipple
           >
-            {t("cards:catalogue.industryClearN", { count: selectionCount })}
+            {t(`cards:${i18nNamespace}.industryClearN`, { count: selectionCount })}
           </MenuItem>
         )}
         {pinned.map(renderRow)}

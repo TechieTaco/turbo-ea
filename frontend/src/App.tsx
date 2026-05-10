@@ -60,6 +60,12 @@ const AssessmentViewer = lazy(() => import("@/features/turbolens/AssessmentViewe
 const CapabilityCataloguePage = lazy(
   () => import("@/features/capability-catalogue/CapabilityCataloguePage"),
 );
+const ProcessCataloguePage = lazy(
+  () => import("@/features/process-catalogue/ProcessCataloguePage"),
+);
+const ValueStreamCataloguePage = lazy(
+  () => import("@/features/value-stream-catalogue/ValueStreamCataloguePage"),
+);
 const PrinciplesCataloguePage = lazy(
   () => import("@/features/principles-catalogue/PrinciplesCataloguePage"),
 );
@@ -158,6 +164,8 @@ function AppRoutes() {
                 <Route path="/turbolens/assessments/:id" element={<ModuleGate module="turbolens"><AssessmentViewer /></ModuleGate>} />
                 <Route path="/admin/turbolens" element={<Navigate to="/admin/settings?tab=turbolens" />} />
                 <Route path="/capability-catalogue" element={<CapabilityCataloguePage />} />
+                <Route path="/process-catalogue" element={<ProcessCataloguePage />} />
+                <Route path="/value-stream-catalogue" element={<ValueStreamCataloguePage />} />
                 <Route path="/principles-catalogue" element={<PrinciplesCataloguePage />} />
                 <Route path="*" element={<Navigate to="/" />} />
               </Routes>
