@@ -133,29 +133,30 @@ class _FakeCap:
 
 
 def _install_fake_pkg(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Replace `catalogue_pkg` inside the service module with an in-memory fake.
+    """Patch the bundled-data readers + the catalogue_pkg constants.
 
-    Patching the attribute directly on the already-imported service module
-    bypasses any sys.modules / import-order issues — the swap takes effect
-    immediately even if the service was loaded earlier (e.g. via the FastAPI
-    app fixture).
+    The service no longer goes through the upstream Pydantic loader (the
+    upstream model layer has fallen behind data drift more than once and
+    we don't want to be coupled to it) — it reads the wheel's
+    ``data/capabilities.json`` directly via
+    ``common.load_bundled_capabilities_raw``. Tests have to swap out
+    those helpers, plus the i18n table reader, instead of patching
+    ``catalogue_pkg.load_all``.
     """
     fake = types.ModuleType("turbo_ea_capabilities")
     fake.VERSION = "1.2.3"
     fake.SCHEMA_VERSION = "1"
     fake.GENERATED_AT = "2026-04-25T12:00:00Z"
     fake.NODE_COUNT = len(_FAKE_CATALOGUE)
-    fake.Capability = _FakeCap
     fake.available_locales = lambda: _FAKE_AVAILABLE_LOCALES
-    fake.load_all = lambda: [_FakeCap(**c) for c in _FAKE_CATALOGUE]
-    fake.load_tree = lambda: [_FakeCap(**c) for c in _FAKE_CATALOGUE if c["parent_id"] is None]
-    fake.get_by_id = lambda cid: next(
-        (_FakeCap(**c) for c in _FAKE_CATALOGUE if c["id"] == cid),
-        None,
-    )
+
     from app.services import capability_catalogue_service as svc
 
     monkeypatch.setattr(svc, "catalogue_pkg", fake)
+    monkeypatch.setattr(common, "load_bundled_capabilities_raw", lambda: list(_FAKE_CATALOGUE))
+    monkeypatch.setattr(
+        common, "bundled_i18n_table", lambda locale: _FAKE_FR if locale == "fr" else None
+    )
 
 
 # ---------------------------------------------------------------------------

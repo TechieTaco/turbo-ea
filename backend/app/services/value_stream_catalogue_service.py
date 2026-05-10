@@ -177,30 +177,30 @@ def _bundled_available_locales() -> tuple[str, ...]:
 def _bundled_payload(*, locale: str = "en") -> tuple[list[dict[str, Any]], dict[str, Any]]:
     """Bundled flattened list, optionally localized.
 
-    Unlike ``Capability`` and ``BusinessProcess``, the upstream
-    ``ValueStream`` model does not expose a ``.localized()`` helper —
-    translations live exclusively in the wheel's i18n JSON tables. The
-    cached-remote path applies them via ``localize_flat_with_table``;
-    the bundled path stays English-only on the first version, and we
-    advertise that honestly via ``available_locales = ("en",)`` so the
-    UI doesn't promise translations the bundled wheel won't actually
-    deliver. Admins who want localised value-stream cards can use
-    "Fetch update" — the cached-remote path then serves the wheel's
-    i18n tables.
+    Reads ``data/value-streams.json`` directly via
+    ``common.load_bundled_value_streams_raw`` and applies the wheel's
+    i18n tables itself, sidestepping the upstream Pydantic loader for
+    the same reason ``capability_catalogue_service`` and
+    ``process_catalogue_service`` do (see ``catalogue_common`` for the
+    rationale). The flattened payload uses dicts throughout, so the
+    localization overlay can be applied to stream + stage rows the
+    same way as the other two catalogues.
     """
-    # Suppress an unused-variable warning: locale is only consulted by
-    # the cached-remote path; the bundled path is English-only by design
-    # until the upstream model gains ``.localized()``.
-    _ = locale
-    streams = list(catalogue_pkg.load_value_streams())
+    available = _bundled_available_locales()
+    effective = common.resolve_effective_locale(locale, available)
+    streams = common.load_bundled_value_streams_raw()
     flat = _flatten_streams(streams)
+    if effective != "en":
+        table = common.bundled_i18n_table(effective)
+        if table:
+            flat = common.localize_flat_with_table(flat, table)
     meta = {
         "catalogue_version": catalogue_pkg.VERSION,
         "schema_version": str(catalogue_pkg.SCHEMA_VERSION),
         "generated_at": catalogue_pkg.GENERATED_AT,
         "value_stream_count": len(streams),
-        "available_locales": ["en"],
-        "active_locale": "en",
+        "available_locales": list(available),
+        "active_locale": effective,
     }
     return flat, meta
 

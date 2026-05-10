@@ -17,10 +17,8 @@ so a subsequent import of new capability cards can be re-linked retroactively
 
 from __future__ import annotations
 
-import json
 import logging
 import uuid
-from importlib.resources import as_file, files
 from typing import Any
 
 import turbo_ea_capabilities as catalogue_pkg
@@ -59,79 +57,20 @@ def _bundled_available_locales() -> tuple[str, ...]:
     return tuple(catalogue_pkg.available_locales())
 
 
-# ---------------------------------------------------------------------------
-# Direct JSON readers — bypass the upstream Pydantic loader
-# ---------------------------------------------------------------------------
-#
-# Background: ``turbo_ea_capabilities.load_business_processes()`` validates
-# every entry through ``BusinessProcess.model_validate``. Recent content
-# drops introduced new framework codes (DCOR, COBIT, SHRM-BoCK, ISO-31000,
-# ISO-55000, COSO-ERM, TOGAF) on processes' ``framework_refs.framework``,
-# but the package's ``Literal`` whitelist only covers the original five
-# (APQC-PCF, BIAN, eTOM, ITIL, SCOR). The JSON Schema in the same wheel
-# already lists all 15 codes — only the Python model has fallen behind.
-# That mismatch makes ``load_business_processes()`` raise on every call.
-#
-# Fix is in flight upstream
-# (https://github.com/vincentmakes/turbo-ea-capabilities/pull/81) but we
-# need the catalogue to keep working in the meantime, and we'd rather not
-# couple to the package's internal model anyway: the rest of the service
-# treats catalogue rows as plain dicts, so reading the bundled JSON
-# directly via importlib.resources is both simpler and immune to future
-# model/data drift on either side.
-
-
-def _read_bundled_json(name: str) -> Any | None:
-    """Read a bundled ``data/<name>`` JSON file from the installed wheel.
-
-    Returns ``None`` if the file is missing — which is the case for older
-    wheels that pre-date schema_version 2 (no ``business-processes.json``)
-    or for locales the wheel doesn't ship.
-    """
-    res = files("turbo_ea_capabilities") / "data" / name
-    try:
-        with as_file(res) as path:
-            if not path.is_file():
-                return None
-            return json.loads(path.read_text(encoding="utf-8"))
-    except (FileNotFoundError, ModuleNotFoundError):
-        return None
-
-
-def _load_bundled_processes_raw() -> list[dict[str, Any]]:
-    """Flat list of bundled processes as plain dicts. Strips ``children``.
-
-    ``children`` in the wheel's flat file is a list of child ids and we
-    rebuild hierarchy from ``parent_id`` downstream — same approach the
-    cached-remote path takes via ``extract_all_catalogues_from_wheel``.
-    """
-    raw = _read_bundled_json("business-processes.json")
-    if not isinstance(raw, list):
-        return []
-    return [{k: v for k, v in p.items() if k != "children"} for p in raw]
-
-
-def _bundled_i18n_table(locale: str) -> dict[str, dict[str, Any]] | None:
-    if locale == "en":
-        return None
-    table = _read_bundled_json(f"i18n/{locale}.json")
-    return table if isinstance(table, dict) else None
-
-
 def _bundled_payload(*, locale: str = "en") -> tuple[list[dict[str, Any]], dict[str, Any]]:
     """Bundled flat list, optionally localized.
 
-    Reads ``data/business-processes.json`` directly (see module-level
-    note). Translations come from ``data/i18n/<locale>.json`` applied
-    via the same overlay helper the cached-remote path uses, so the
-    behaviour matches: per-field fallback to English silently when a
-    translation is missing, and an unbundled locale degrades to English.
+    Reads ``data/business-processes.json`` directly via
+    ``common.load_bundled_processes_raw`` (sidesteps the upstream
+    Pydantic loader — see catalogue_common's rationale). Translations
+    come from ``data/i18n/<locale>.json`` applied via the same overlay
+    helper the cached-remote path uses.
     """
     available = _bundled_available_locales()
     effective = common.resolve_effective_locale(locale, available)
-    flat = _load_bundled_processes_raw()
+    flat = common.load_bundled_processes_raw()
     if effective != "en":
-        table = _bundled_i18n_table(effective)
+        table = common.bundled_i18n_table(effective)
         if table:
             flat = common.localize_flat_with_table(flat, table)
     meta = {
@@ -150,15 +89,10 @@ def _localize_via_bundled_package(
     *,
     locale: str,
 ) -> list[dict[str, Any]]:
-    """Fallback localizer for cached payloads pre-dating i18n caching.
-
-    Reads the bundled ``data/i18n/<locale>.json`` and overlays it on the
-    cached entries by id. Bypasses the upstream Pydantic model for the
-    same reason ``_bundled_payload`` does.
-    """
+    """Fallback localizer for cached payloads pre-dating i18n caching."""
     if locale == "en":
         return flat
-    table = _bundled_i18n_table(locale)
+    table = common.bundled_i18n_table(locale)
     if not table:
         return flat
     return common.localize_flat_with_table(flat, table)

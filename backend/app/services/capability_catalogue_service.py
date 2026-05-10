@@ -40,28 +40,6 @@ SETTINGS_KEY: str = common.CAPABILITY_CACHE_KEY
 # ---------------------------------------------------------------------------
 
 
-def _capability_to_dict(c: catalogue_pkg.Capability) -> dict[str, Any]:
-    """Pydantic Capability → plain JSON-serialisable dict (children stripped)."""
-    return {
-        "id": c.id,
-        "name": c.name,
-        "level": c.level,
-        "parent_id": c.parent_id,
-        "description": c.description,
-        "aliases": list(c.aliases),
-        "owner": c.owner,
-        "tags": list(c.tags),
-        "industry": c.industry,
-        "references": list(c.references),
-        "in_scope": list(c.in_scope),
-        "out_of_scope": list(c.out_of_scope),
-        "deprecated": c.deprecated,
-        "deprecation_reason": c.deprecation_reason,
-        "successor_id": c.successor_id,
-        "metadata": dict(c.metadata),
-    }
-
-
 def _bundled_available_locales() -> tuple[str, ...]:
     return tuple(catalogue_pkg.available_locales())
 
@@ -69,21 +47,25 @@ def _bundled_available_locales() -> tuple[str, ...]:
 def _bundled_payload(*, locale: str = "en") -> tuple[list[dict[str, Any]], dict[str, Any]]:
     """Bundled flat list, optionally localized.
 
-    `Capability.localized(lang, fallback="en")` is a no-op for `lang="en"`
-    or any locale not bundled with the wheel, and falls back per-field to
-    English silently for missing translations.
+    Reads ``data/capabilities.json`` directly via
+    ``common.load_bundled_capabilities_raw`` instead of going through the
+    package's Pydantic ``load_all()``. The model layer has fallen behind
+    the data at least once (see comment in catalogue_common); decoupling
+    here means a future stricter validator on any artefact type cannot
+    break Turbo EA's catalogue endpoints.
     """
     available = _bundled_available_locales()
     effective = common.resolve_effective_locale(locale, available)
-    caps = catalogue_pkg.load_all()
+    flat = common.load_bundled_capabilities_raw()
     if effective != "en":
-        caps = [c.localized(effective, fallback="en") for c in caps]
-    flat = [_capability_to_dict(c) for c in caps]
+        table = common.bundled_i18n_table(effective)
+        if table:
+            flat = common.localize_flat_with_table(flat, table)
     meta = {
         "catalogue_version": catalogue_pkg.VERSION,
         "schema_version": str(catalogue_pkg.SCHEMA_VERSION),
         "generated_at": catalogue_pkg.GENERATED_AT,
-        "node_count": catalogue_pkg.NODE_COUNT,
+        "node_count": getattr(catalogue_pkg, "NODE_COUNT", len(flat)),
         "available_locales": list(available),
         "active_locale": effective,
     }
@@ -97,32 +79,15 @@ def _localize_via_bundled_package(
 ) -> list[dict[str, Any]]:
     """Fallback localizer for cached payloads that pre-date i18n caching.
 
-    Looks each cached entry up in the bundled package by id and applies
-    `localized()` to grab a translation. Capabilities that don't exist in
-    the bundled package (e.g. cached payload is from a newer catalogue
-    version) stay English.
+    Reads ``data/i18n/<locale>.json`` and overlays it on the cached
+    entries by id, same approach as the bundled path.
     """
     if locale == "en":
         return flat
-    out: list[dict[str, Any]] = []
-    for entry in flat:
-        bundled_cap = catalogue_pkg.get_by_id(entry["id"])
-        if bundled_cap is None:
-            out.append(entry)
-            continue
-        localized = bundled_cap.localized(locale, fallback="en")
-        merged = dict(entry)
-        for field in common.LOCALIZABLE_FIELDS:
-            bundled_value = getattr(bundled_cap, field, None)
-            localized_value = getattr(localized, field, None)
-            if localized_value is None or localized_value == bundled_value:
-                continue
-            if field in common.LIST_LOCALIZABLE_FIELDS:
-                merged[field] = list(localized_value)
-            else:
-                merged[field] = localized_value
-        out.append(merged)
-    return out
+    table = common.bundled_i18n_table(locale)
+    if not table:
+        return flat
+    return common.localize_flat_with_table(flat, table)
 
 
 async def _resolve_active_catalogue(

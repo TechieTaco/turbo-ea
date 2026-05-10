@@ -26,6 +26,7 @@ import logging
 import os
 import zipfile
 from datetime import datetime, timezone
+from importlib.resources import as_file, files
 from typing import Any
 
 import httpx
@@ -219,6 +220,70 @@ def bfs_order_by_parent(
     selected = [by_id[i] for i in selected_ids if i in by_id]
     selected.sort(key=lambda c: (depth_of(c["id"]), c["id"]))
     return selected
+
+
+# ---------------------------------------------------------------------------
+# Bundled-JSON readers (sidestep the upstream Pydantic loader)
+# ---------------------------------------------------------------------------
+#
+# Backwards-compatibility shield. The upstream ``turbo-ea-capabilities``
+# package ships ``data/*.json`` plus a Pydantic model layer. The model has
+# fallen behind the data at least once (FrameworkRef.framework Literal
+# rejected new framework codes the data already used, breaking
+# ``load_business_processes()`` on every call). We don't need the Pydantic
+# layer — the rest of the catalogue services operate on plain dicts —
+# so we read the JSON directly and stay independent of the model. That
+# means a future stricter validator on any artefact type cannot break
+# Turbo EA's catalogue endpoints.
+
+
+def read_bundled_json(name: str) -> Any | None:
+    """Read a ``data/<name>`` JSON file from the installed wheel.
+
+    Returns ``None`` when the file is missing — older wheels pre-date
+    ``business-processes.json`` / ``value-streams.json`` and locale
+    files only exist for shipped locales.
+    """
+    res = files("turbo_ea_capabilities") / "data" / name
+    try:
+        with as_file(res) as path:
+            if not path.is_file():
+                return None
+            return json.loads(path.read_text(encoding="utf-8"))
+    except (FileNotFoundError, ModuleNotFoundError):
+        return None
+
+
+def load_bundled_capabilities_raw() -> list[dict[str, Any]]:
+    """Flat list of bundled capabilities as plain dicts. Strips ``children``."""
+    raw = read_bundled_json("capabilities.json")
+    if not isinstance(raw, list):
+        return []
+    return [{k: v for k, v in c.items() if k != "children"} for c in raw]
+
+
+def load_bundled_processes_raw() -> list[dict[str, Any]]:
+    """Flat list of bundled business processes as plain dicts. Strips ``children``."""
+    raw = read_bundled_json("business-processes.json")
+    if not isinstance(raw, list):
+        return []
+    return [{k: v for k, v in p.items() if k != "children"} for p in raw]
+
+
+def load_bundled_value_streams_raw() -> list[dict[str, Any]]:
+    """Nested list of bundled value streams (``stream`` → ``stages``)."""
+    raw = read_bundled_json("value-streams.json")
+    if not isinstance(raw, list):
+        return []
+    return list(raw)
+
+
+def bundled_i18n_table(locale: str) -> dict[str, dict[str, Any]] | None:
+    """Read ``data/i18n/<locale>.json`` (returns None for ``en`` or missing)."""
+    if locale == "en":
+        return None
+    table = read_bundled_json(f"i18n/{locale}.json")
+    return table if isinstance(table, dict) else None
 
 
 # ---------------------------------------------------------------------------

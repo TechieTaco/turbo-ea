@@ -16,7 +16,7 @@ from sqlalchemy import select
 
 from app.models.card import Card
 from app.models.relation import Relation
-from app.services import catalogue_common as common  # noqa: F401
+from app.services import catalogue_common as common
 from tests.conftest import create_card, create_user
 
 # ---------------------------------------------------------------------------
@@ -61,25 +61,16 @@ _FAKE_VALUE_STREAMS: list[dict[str, Any]] = [
 ]
 
 
-class _FakeStage:
-    def __init__(self, **kw: Any) -> None:
-        for k, v in kw.items():
-            setattr(self, k, v)
-
-
-class _FakeStream:
-    def __init__(self, **kw: Any) -> None:
-        for k, v in kw.items():
-            if k == "stages":
-                setattr(self, k, [_FakeStage(**s) for s in v])
-            else:
-                setattr(self, k, v)
-
-    def localized(self, lang: str, *, fallback: str = "en") -> "_FakeStream":
-        return self
-
-
 def _install_fake_pkg(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Patch the bundled-data readers + the catalogue_pkg constants.
+
+    The service no longer goes through the upstream Pydantic loader
+    (data drift on any artefact type used to be able to break us — see
+    catalogue_common's rationale). It reads the wheel's
+    ``data/value-streams.json`` directly via
+    ``common.load_bundled_value_streams_raw``. Tests have to swap out
+    that helper plus the i18n table reader.
+    """
     fake = types.ModuleType("turbo_ea_capabilities")
     fake.VERSION = "2.0.0"
     fake.SCHEMA_VERSION = "2"
@@ -87,14 +78,12 @@ def _install_fake_pkg(monkeypatch: pytest.MonkeyPatch) -> None:
     fake.NODE_COUNT = 5
     fake.PROCESS_COUNT = 1
     fake.available_locales = lambda: ("en",)
-    fake.load_value_streams = lambda: [_FakeStream(**vs) for vs in _FAKE_VALUE_STREAMS]
-    fake.get_value_stream = lambda vid: next(
-        (_FakeStream(**vs) for vs in _FAKE_VALUE_STREAMS if vs["id"] == vid), None
-    )
 
     from app.services import value_stream_catalogue_service as svc
 
     monkeypatch.setattr(svc, "catalogue_pkg", fake)
+    monkeypatch.setattr(common, "load_bundled_value_streams_raw", lambda: list(_FAKE_VALUE_STREAMS))
+    monkeypatch.setattr(common, "bundled_i18n_table", lambda locale: None)
 
 
 # ---------------------------------------------------------------------------
