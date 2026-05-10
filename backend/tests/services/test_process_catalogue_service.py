@@ -20,9 +20,7 @@ from sqlalchemy import select
 
 from app.models.card import Card
 from app.models.relation import Relation
-from app.services import (
-    catalogue_common as common,  # noqa: F401  (kept consistent with capability tests)
-)
+from app.services import catalogue_common as common
 from tests.conftest import create_card, create_user
 
 # ---------------------------------------------------------------------------
@@ -97,11 +95,10 @@ _FAKE_PROCESSES: list[dict[str, Any]] = [
 def _install_fake_pkg(monkeypatch: pytest.MonkeyPatch) -> None:
     """Patch the bundled-data readers + the catalogue_pkg constants.
 
-    The service no longer goes through the upstream Pydantic loader (the
-    upstream model's ``Literal`` had fallen behind the data) — it reads
-    the wheel's ``data/business-processes.json`` directly. Tests have to
-    swap out ``_load_bundled_processes_raw`` and ``_bundled_i18n_table``
-    instead of patching the package's loader.
+    The JSON-bypass helpers were promoted from this service module to
+    ``catalogue_common`` so all three catalogues share them. Tests now
+    monkeypatch ``common.load_bundled_processes_raw`` /
+    ``common.bundled_i18n_table`` rather than the per-service copies.
     """
     fake = types.ModuleType("turbo_ea_capabilities")
     fake.VERSION = "2.0.0"
@@ -114,8 +111,8 @@ def _install_fake_pkg(monkeypatch: pytest.MonkeyPatch) -> None:
     from app.services import process_catalogue_service as svc
 
     monkeypatch.setattr(svc, "catalogue_pkg", fake)
-    monkeypatch.setattr(svc, "_load_bundled_processes_raw", lambda: list(_FAKE_PROCESSES))
-    monkeypatch.setattr(svc, "_bundled_i18n_table", lambda locale: None)
+    monkeypatch.setattr(common, "load_bundled_processes_raw", lambda: list(_FAKE_PROCESSES))
+    monkeypatch.setattr(common, "bundled_i18n_table", lambda locale: None)
 
 
 # ---------------------------------------------------------------------------
