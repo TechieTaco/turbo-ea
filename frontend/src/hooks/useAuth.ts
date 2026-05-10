@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { auth, setToken, clearToken, setAuthenticated } from "@/api/client";
+import { primeBootstrap, resetBootstrap } from "@/api/bootstrap";
 import i18n from "@/i18n";
 import type { User } from "@/types";
 
@@ -33,8 +34,12 @@ export function useAuth() {
   const loadUser = useCallback(async () => {
     try {
       const u = await auth.me();
-      setUser(u as User);
       setAuthenticated(true);
+      // Kick off bootstrap before the authenticated UI mounts so per-hook
+      // singleton caches are primed by the time their components subscribe.
+      // Fire-and-forget — hooks have their own fallback fetches.
+      primeBootstrap();
+      setUser(u as User);
       i18n.changeLanguage(u.locale || "en");
       startRefreshTimer();
     } catch {
@@ -81,6 +86,7 @@ export function useAuth() {
     }
     clearToken();
     stopRefreshTimer();
+    resetBootstrap();
     setUser(null);
   };
 

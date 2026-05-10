@@ -5,6 +5,14 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.6.1] - 2026-05-10
+
+### Performance
+- **Inventory page boot is materially faster.** Three independent fixes collapse what used to be a ~9 s wait for 450 cards down to roughly the cards-list response time on a warm cache.
+  - Module-level singleton hooks (`useMetamodel`, `useDateFormat`, `useCurrency`, `useBpmEnabled`, `usePpmEnabled`, `useTurboLensReady`) had a race where multiple components mounting simultaneously each saw an empty cache and fired their own `GET`. They now share a single inflight promise, so concurrent first-callers attach to one fetch instead of N. Observed in the wild: 8× duplicate `GET /settings/date-format` and 3× duplicate `GET /metamodel/types` per inventory navigation.
+  - **New `GET /api/v1/settings/bootstrap`** returns currency, date format, app title, BPM/PPM/TurboLens toggles, enabled locales, fiscal-year start, and BPM row order in one round-trip. The frontend calls it once after login (`useAuth.loadUser`) and primes each per-hook singleton cache so first-mount components skip their own `GET`. Per-endpoint reads remain available for selective refresh after admin edits.
+  - **Default-logo / default-favicon redirects now carry `Cache-Control: public, max-age=300`,** so browsers stop re-doing the round-trip on every page nav (the static target was already cached by nginx; only the redirect step was un-cached).
+
 ## [1.6.0] - 2026-05-09
 
 ### Upgrade notes

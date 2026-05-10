@@ -6,6 +6,7 @@ import { useState, useEffect, useCallback } from "react";
 import { api } from "@/api/client";
 
 let _cached: boolean | null = null;
+let _inflight: Promise<void> | null = null;
 let _listeners: Array<(v: boolean) => void> = [];
 
 function _notify(v: boolean) {
@@ -13,14 +14,28 @@ function _notify(v: boolean) {
   _listeners.forEach((fn) => fn(v));
 }
 
-async function _fetch() {
-  try {
-    const res = await api.get<{ enabled: boolean }>("/settings/ppm-enabled");
-    _notify(res.enabled);
-  } catch {
-    // default to false (opt-in) if fetch fails
-    if (_cached === null) _notify(false);
-  }
+/**
+ * Prime the cache from outside the hook (e.g. /settings/bootstrap on app boot)
+ * so first-mount consumers skip their own GET.
+ */
+export function invalidatePpmEnabled(v: boolean) {
+  _notify(v);
+}
+
+function _fetch(): Promise<void> {
+  if (_inflight) return _inflight;
+  _inflight = (async () => {
+    try {
+      const res = await api.get<{ enabled: boolean }>("/settings/ppm-enabled");
+      _notify(res.enabled);
+    } catch {
+      // default to false (opt-in) if fetch fails
+      if (_cached === null) _notify(false);
+    }
+  })().finally(() => {
+    _inflight = null;
+  });
+  return _inflight;
 }
 
 export function usePpmEnabled() {

@@ -19,11 +19,34 @@ export const DATE_FORMAT_OPTIONS: DateFormatKey[] = [
 ];
 
 let _cache: DateFormatKey | null = null;
+let _inflight: Promise<DateFormatKey> | null = null;
 const _listeners = new Set<(f: DateFormatKey) => void>();
 
 function notify(f: DateFormatKey) {
   _cache = f;
   for (const fn of _listeners) fn(f);
+}
+
+function _fetchOnce(): Promise<DateFormatKey> {
+  if (_cache) return Promise.resolve(_cache);
+  if (_inflight) return _inflight;
+  _inflight = api
+    .get<{ date_format: string }>("/settings/date-format")
+    .then((r) => {
+      const next = (DATE_FORMAT_OPTIONS as string[]).includes(r.date_format)
+        ? (r.date_format as DateFormatKey)
+        : DEFAULT_DATE_FORMAT;
+      notify(next);
+      return next;
+    })
+    .catch(() => {
+      notify(DEFAULT_DATE_FORMAT);
+      return DEFAULT_DATE_FORMAT;
+    })
+    .finally(() => {
+      _inflight = null;
+    });
+  return _inflight;
 }
 
 function toDate(value: Date | string | number | null | undefined): Date | null {
@@ -89,18 +112,7 @@ export function useDateFormat() {
   useEffect(() => {
     _listeners.add(setDateFormat);
     if (!_cache) {
-      api
-        .get<{ date_format: string }>("/settings/date-format")
-        .then((r) => {
-          const next = (DATE_FORMAT_OPTIONS as string[]).includes(r.date_format)
-            ? (r.date_format as DateFormatKey)
-            : DEFAULT_DATE_FORMAT;
-          notify(next);
-        })
-        .catch(() => {
-          notify(DEFAULT_DATE_FORMAT);
-        })
-        .finally(() => setLoading(false));
+      _fetchOnce().finally(() => setLoading(false));
     }
     return () => {
       _listeners.delete(setDateFormat);
