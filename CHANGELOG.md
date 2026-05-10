@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [1.6.0] - 2026-05-09
 
+### Upgrade notes
+
+- **GHCR image users: pull the new `docker-compose.yml` too, not just the image.** The bundled `turbo-ea-capabilities` wheel grew significantly in this release (now 9329 capabilities + 1273 processes + 64 value streams), and the catalogue browsers exercise it on every visit. The default `BACKEND_MEMORY_LIMIT` was bumped from `512M` → `2G` to accommodate this. If you only run `docker compose pull && docker compose up -d` without also pulling the new compose file (or without removing an explicit `BACKEND_MEMORY_LIMIT=512M` from your `.env`), your container keeps the old 512M cap and may OOM-cycle on first hit to a catalogue page or any large `?page_size=` inventory request. The safe upgrade flow is:
+  ```bash
+  git pull              # picks up the new docker-compose.yml + .env.example
+  docker compose pull   # pulls the new images
+  docker compose up -d
+  ```
+  Symptoms of the old cap on the new image: `docker compose ps` shows `Up Xs (healthy)` flickering, `dmesg | grep oom` shows `Memory cgroup out of memory: Killed process … (uvicorn) anon-rss:5XXMB`, and the browser shows a wave of `502` errors on every endpoint. Bumping the cap to `1G` (or removing the `BACKEND_MEMORY_LIMIT` line entirely so the new `2G` default kicks in) resolves it.
+
 ### Added
 - **Process Catalogue** at `/process-catalogue` — browse the bundled APQC-PCF business-process tree (Category → Process Group → Process → Activity, ~1200 entries) and import selected entries as `BusinessProcess` cards in bulk. Subtypes are derived from the catalogue level; hierarchy is preserved through `parent_id`. On import, `relProcessToBC` (supports) relations are auto-created to every existing `BusinessCapability` whose ID appears in the process's `realizes_capability_ids` (skipped silently when the target card hasn't been imported yet).
 - **Value Stream Catalogue** at `/value-stream-catalogue` — browse the bundled value-stream library (Acquire-to-Retire, Order-to-Cash, Hire-to-Retire, …) and import streams + stages as `BusinessContext` cards (subtype Value Stream). Stages land as children of their parent stream; selecting a stage alone automatically pulls in the parent. On import, `relBizCtxToBC` (stage → capability) and `relProcessToBizCtx` (process → stage) relations are auto-created to every existing target.
