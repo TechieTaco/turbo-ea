@@ -223,7 +223,23 @@ export default function ArchiveDeleteDialog(props: Props) {
                 await api.delete(`/cards/${id}`, body);
               }
             } catch (err) {
-              failures.push({ id, error: err });
+              // Cascade race: archiving a parent server-side cascades to its
+              // descendants in one transaction, so a sibling worker that
+              // reaches one of those descendants a moment later sees it
+              // already in the desired end state — backend returns 400
+              // "already archived" / 404 "not found". The user's intent is
+              // satisfied either way, so treat as a no-op rather than a
+              // failure (otherwise the dialog reports false negatives like
+              // "243 of 1050 failed" when the data is in fact all archived).
+              const detail =
+                err instanceof ApiError && typeof err.detail === "string" ? err.detail : "";
+              const idempotent =
+                err instanceof ApiError &&
+                ((mode === "archive" && err.status === 400 && /already archived/i.test(detail)) ||
+                  (mode === "delete" && err.status === 404));
+              if (!idempotent) {
+                failures.push({ id, error: err });
+              }
             }
             done += 1;
             setBulkProgress({ done, total: cardIds.length, failed: failures.length });
