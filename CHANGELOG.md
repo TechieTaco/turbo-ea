@@ -5,6 +5,15 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.6.2] - 2026-05-10
+
+### Fixed
+- **Catalogue imports no longer crash on large selections.** Importing more than 2000 entries from the Capability / Process / Value Stream catalogue used to fail with a 422 (the backend caps `catalogue_ids` at 2000 per request, and the UI sent everything in one shot — when you "select all" against the bundled 9329-entry capability catalogue, the dialog blanked out and the React error boundary kicked in). The frontend now batches the selection into chunks of 500 and POSTs them sequentially, with a per-batch progress bar in the import dialog. On a partial failure (network blip mid-import), batches that already committed are preserved, and the dialog reports how many items landed before the error so the user can resume against the remaining selection.
+- **`BusinessProcess` card type built-in colour restored to `#028f00`.** The seed default had drifted to `#e65100` (orange); existing installs on the original colour were unaffected, but any reseed picked up the wrong default. Migration `072` performs a guarded `UPDATE` on the `card_types` row only if its colour still matches the drifted value, so customers with the original colour or with admin-customised colours are left untouched. Hardcoded `#e65100` / `#8e24aa` fallbacks in `ProcessNavigator` and the dashboard activity stream were realigned to the new token, and the `CLAUDE.md` metamodel reference table (which had been wrong since the relationship-rework commit) plus `frontend/UI_GUIDELINES.md` were corrected.
+
+### Changed
+- **Built-in metamodel default convention.** `CLAUDE.md` now documents that editing a built-in card type's `color` / `icon` / `label` in `seed.py` has zero effect on existing installs (the seed only inserts missing rows), and that any such change must be paired with a guarded `UPDATE` migration. `072_restore_business_process_color.py` is the canonical pattern.
+
 ## [1.6.1] - 2026-05-10
 
 ### Performance

@@ -94,7 +94,7 @@ Runtime-canonical values come from the per-type metamodel config (admin-editable
 | `Organization` | `#2889ff` | `ITComponent` | `#d29270` |
 | `BusinessCapability` | `#003399` | `TechCategory` | `#a6566d` |
 | `BusinessContext` | `#fe6690` | `Provider` | `#ffa31f` |
-| `BusinessProcess` | `#e65100` | `System` | `#5B738B` |
+| `BusinessProcess` | `#028f00` | `System` | `#5B738B` |
 
 In components, prefer `useMetamodel().getType(typeKey)?.color` for runtime accuracy.
 

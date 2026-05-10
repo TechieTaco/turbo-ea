@@ -17,6 +17,7 @@ import DialogContent from "@mui/material/DialogContent";
 import DialogActions from "@mui/material/DialogActions";
 import Alert from "@mui/material/Alert";
 import CircularProgress from "@mui/material/CircularProgress";
+import LinearProgress from "@mui/material/LinearProgress";
 import Snackbar from "@mui/material/Snackbar";
 import { api } from "@/api/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -33,6 +34,11 @@ import type {
 interface Props {
   config: CatalogueKindConfig;
 }
+
+// Backend caps `catalogue_ids` at 2000 per request. We chunk well below that
+// so each batch finishes in a couple of seconds, giving useful per-batch
+// progress feedback for full-catalogue imports (~9k items → ~19 batches).
+const IMPORT_BATCH_SIZE = 500;
 
 export default function CataloguePage({ config }: Props) {
   const { t, i18n } = useTranslation(["cards", "common"]);
@@ -59,6 +65,9 @@ export default function CataloguePage({ config }: Props) {
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
+  const [importProgress, setImportProgress] = useState<{ done: number; total: number } | null>(
+    null,
+  );
 
   const [updateStatus, setUpdateStatus] = useState<UpdateStatus | null>(null);
   const [updateChecking, setUpdateChecking] = useState(false);
@@ -148,18 +157,64 @@ export default function CataloguePage({ config }: Props) {
     if (selectedCaps.length === 0) return;
     setImporting(true);
     setImportError(null);
+    setImportResult(null);
+
+    const ids = selectedCaps.map((c) => c.id);
+    const batches: string[][] = [];
+    for (let i = 0; i < ids.length; i += IMPORT_BATCH_SIZE) {
+      batches.push(ids.slice(i, i + IMPORT_BATCH_SIZE));
+    }
+    setImportProgress({ done: 0, total: batches.length });
+
+    const aggregate: ImportResult = {
+      created: [],
+      skipped: [],
+      relinked: [],
+      catalogue_version: null,
+      auto_relations_created: 0,
+    };
+
     try {
-      const r = await api.post<ImportResult>(`${config.basePath}/import`, {
-        catalogue_ids: selectedCaps.map((c) => c.id),
-        locale: activeLocale,
-      });
-      setImportResult(r);
+      for (let i = 0; i < batches.length; i++) {
+        const r = await api.post<ImportResult>(`${config.basePath}/import`, {
+          catalogue_ids: batches[i],
+          locale: activeLocale,
+        });
+        aggregate.created.push(...r.created);
+        aggregate.skipped.push(...r.skipped);
+        aggregate.relinked.push(...r.relinked);
+        aggregate.catalogue_version = r.catalogue_version;
+        if (r.auto_relations_created) {
+          aggregate.auto_relations_created =
+            (aggregate.auto_relations_created ?? 0) + r.auto_relations_created;
+        }
+        setImportProgress({ done: i + 1, total: batches.length });
+      }
+      setImportResult(aggregate);
       setSelected(new Set());
       await reload();
     } catch (e: any) {
-      setImportError(e?.detail || e?.message || "Import failed");
+      const baseMsg = e?.detail || e?.message || "Import failed";
+      // Surface partial progress so the user knows successful batches were
+      // committed before the failure (server-side commits per request).
+      const succeeded = aggregate.created.length + aggregate.skipped.length;
+      setImportError(
+        succeeded > 0
+          ? t(`cards:${ns}.importPartialFailure`, {
+              succeeded,
+              total: ids.length,
+              error: baseMsg,
+            })
+          : baseMsg,
+      );
+      // Retain whatever did land so the user can see partial results in the
+      // dialog and still navigate to the inventory.
+      if (aggregate.created.length > 0 || aggregate.relinked.length > 0) {
+        setImportResult(aggregate);
+      }
     } finally {
       setImporting(false);
+      setImportProgress(null);
     }
   };
 
@@ -328,6 +383,21 @@ export default function CataloguePage({ config }: Props) {
               <Typography variant="caption" color="text.secondary">
                 {t(`cards:${ns}.importConfirmHint`)}
               </Typography>
+              {importing && importProgress && importProgress.total > 1 && (
+                <Box sx={{ mt: 2 }}>
+                  <Typography variant="caption" color="text.secondary">
+                    {t(`cards:${ns}.importingProgress`, {
+                      done: importProgress.done,
+                      total: importProgress.total,
+                    })}
+                  </Typography>
+                  <LinearProgress
+                    variant="determinate"
+                    value={(importProgress.done / importProgress.total) * 100}
+                    sx={{ mt: 0.5 }}
+                  />
+                </Box>
+              )}
               {importError && (
                 <Alert severity="error" sx={{ mt: 2 }}>
                   {importError}
