@@ -5,6 +5,13 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.6.3] - 2026-05-10
+
+### Performance
+- **Inventory boot is materially faster — second pass.** Real-world HAR capture revealed that even after the 1.6.1 bootstrap work, navigating to `/inventory` still fanned out to ~13 boot-time GETs. Two follow-up fixes close that:
+  - **`/ai/status` is now a singleton hook.** Four components (`CardDetailSidePanel`, `CreateCardDialog`, `CardDetail`, `PortfolioReport`) used to each fire their own `api.get("/ai/status")` from a bare `useEffect`; on Inventory all three concurrent mounts produced three duplicate requests per page load. They now share `useAiStatus()` with the same `_cache` + `_inflight` + `_listeners` pattern as the sibling singleton hooks, so all consumers attach to one fetch. Top-level `invalidateAiStatus(value?)` export mirrors the sibling hooks for cache invalidation after admin edits.
+  - **`primeBootstrap()` is now awaited** in `useAuth.loadUser` before the authenticated UI mounts. Previously it was fire-and-forget, so every per-hook fallback fetch (`/settings/date-format`, `/settings/app-title`, `/settings/bpm-enabled`, `/settings/ppm-enabled`, `/settings/enabled-locales`, `/settings/currency`) raced bootstrap and fired its own `GET` because the singleton cache was still empty when the component mounted. Awaiting bootstrap adds one round-trip to first paint after login but eliminates seven redundant boot fetches that race on every page navigation. On a slow-DB instance this is a large net win; on a healthy backend it's invisible.
+
 ## [1.6.2] - 2026-05-10
 
 This release is a stress-test pass: shaking out a real-world large-dataset workflow (the bundled 9329-entry capability catalogue plus thousands of demo cards on a real Unraid install) surfaced two unrelated UI regressions where bulk frontend operations fanned out an unbounded number of parallel HTTP requests. Both are fixed here, plus a third unrelated regression to the `BusinessProcess` card-type colour spotted along the way.

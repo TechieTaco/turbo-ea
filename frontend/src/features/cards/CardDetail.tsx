@@ -23,13 +23,13 @@ import ArchiveDeleteDialog from "@/features/cards/ArchiveDeleteDialog";
 import RestoreDialog from "@/features/cards/RestoreDialog";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useResolveLabel, useResolveMetaLabel } from "@/hooks/useResolveLabel";
+import { useAiStatus } from "@/hooks/useAiStatus";
 import { api, ApiError } from "@/api/client";
 import { DataQualityPill } from "@/features/cards/sections";
 import CardDetailContent from "@/features/cards/CardDetailContent";
 import type {
   Card,
   CardEffectivePermissions,
-  AiStatus,
   AiSuggestResponse,
 } from "@/types";
 
@@ -93,7 +93,7 @@ export default function CardDetail() {
   const [ppmHasCosts, setPpmHasCosts] = useState(false);
 
   // AI suggestions state
-  const [aiStatus, setAiStatus] = useState<AiStatus | null>(null);
+  const { aiStatus } = useAiStatus();
   const [aiResponse, setAiResponse] = useState<AiSuggestResponse | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState("");
@@ -111,14 +111,6 @@ export default function CardDetail() {
       .then((res) => setPerms(res.effective))
       .catch(() => {}); // keep defaults on error
   }, [id]);
-
-  // Fetch AI status (once)
-  useEffect(() => {
-    api
-      .get<AiStatus>("/ai/status")
-      .then(setAiStatus)
-      .catch(() => {}); // AI feature simply won't show
-  }, []);
 
   // Fetch PPM cost existence for Initiative cards
   useEffect(() => {
@@ -326,8 +318,8 @@ export default function CardDetail() {
 
   // ── AI suggestions ──────────────────────────────────────────
   const aiEnabled =
-    !!aiStatus?.enabled &&
-    !!aiStatus?.configured &&
+    aiStatus.enabled &&
+    aiStatus.configured &&
     aiStatus.enabled_types.includes(card.type);
 
   const handleAiSuggest = async () => {
