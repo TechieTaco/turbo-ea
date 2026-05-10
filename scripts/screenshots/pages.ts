@@ -1110,6 +1110,78 @@ export const DOC_PAGES: PageDef[] = [
     },
   },
 
+  // ── Reference Catalogues — Process Catalogue ────────────────────────────
+  {
+    id: "48_process_catalogue",
+    route: "/process-catalogue",
+    waitFor: ".MuiPaper-root",
+    actions: [{ type: "wait", ms: 1200 }],
+    filenames: {
+      en: "48_process_catalogue",
+      de: "48_prozesskatalog",
+      fr: "48_catalogue_processus",
+      es: "48_catalogo_procesos",
+      it: "48_catalogo_processi",
+      pt: "48_catalogo_processos",
+      zh: "48_process_catalogue",
+      ru: "48_katalog_protsessov",
+    },
+  },
+
+  // ── Reference Catalogues — Value Stream Catalogue ────────────────────────
+  {
+    id: "49_value_stream_catalogue",
+    route: "/value-stream-catalogue",
+    waitFor: ".MuiPaper-root",
+    actions: [{ type: "wait", ms: 1200 }],
+    filenames: {
+      en: "49_value_stream_catalogue",
+      de: "49_wertstrom_katalog",
+      fr: "49_catalogue_chaines_valeur",
+      es: "49_catalogo_cadenas_valor",
+      it: "49_catalogo_flussi_valore",
+      pt: "49_catalogo_cadeias_valor",
+      zh: "49_value_stream_catalogue",
+      ru: "49_katalog_potokov_tsennosti",
+    },
+  },
+
+  // ── Reference Catalogues — Principles Catalogue ──────────────────────────
+  {
+    id: "50_principles_catalogue",
+    route: "/principles-catalogue",
+    waitFor: ".MuiPaper-root",
+    actions: [{ type: "wait", ms: 1200 }],
+    filenames: {
+      en: "50_principles_catalogue",
+      de: "50_prinzipienkatalog",
+      fr: "50_catalogue_principes",
+      es: "50_catalogo_principios",
+      it: "50_catalogo_principi",
+      pt: "50_catalogo_principios",
+      zh: "50_principles_catalogue",
+      ru: "50_katalog_printsipov",
+    },
+  },
+
+  // ── Reference Catalogues — Capability Catalogue ──────────────────────────
+  {
+    id: "51_capability_catalogue",
+    route: "/capability-catalogue",
+    waitFor: ".MuiPaper-root",
+    actions: [{ type: "wait", ms: 1200 }],
+    filenames: {
+      en: "51_capability_catalogue",
+      de: "51_capability_katalog",
+      fr: "51_catalogue_capacites",
+      es: "51_catalogo_capacidades",
+      it: "51_catalogo_capacita",
+      pt: "51_catalogo_capacidades",
+      zh: "51_capability_catalogue",
+      ru: "51_katalog_vozmozhnostey",
+    },
+  },
+
 ];
 
 // ---------------------------------------------------------------------------

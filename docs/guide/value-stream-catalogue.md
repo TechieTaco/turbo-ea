@@ -4,6 +4,8 @@ Turbo EA ships with the **Value Stream Reference Catalogue** — a curated set o
 
 The Value Stream Catalogue page lets you browse this reference and create matching `BusinessContext` cards (subtype **Value Stream**) in bulk.
 
+![Value Stream Catalogue](../assets/img/en/49_value_stream_catalogue.png)
+
 ## Opening the page
 
 Click the user icon in the top-right corner of the app, expand **Reference Catalogues** in the menu (the section is collapsed by default to keep the menu compact), then click **Value Stream Catalogue**. The page is available to anyone with the `inventory.view` permission.
