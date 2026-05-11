@@ -297,7 +297,12 @@ function buildTree(
     }
   }
 
-  // Set levels & sort children
+  // Set levels & sort children. Macro Capabilities (cards with
+  // attributes.capabilityLevel === "Macro") sit above L1 and must start at
+  // level 0 so their L1 children resolve to level 1 — otherwise the level
+  // dropdown ("Level 1" / "Level 2" / …) silently labels every tier one
+  // off when macros are present. Mixed roots are OK: only the macro roots
+  // start at 0; non-macro roots keep starting at 1.
   function setLevel(nodes: CapNode[], lvl: number) {
     for (const n of nodes) {
       n.level = lvl;
@@ -306,7 +311,10 @@ function buildTree(
     }
   }
   roots.sort((a, b) => a.name.localeCompare(b.name));
-  setLevel(roots, 1);
+  const macroRoots = roots.filter((r) => r.attributes?.capabilityLevel === "Macro");
+  const nonMacroRoots = roots.filter((r) => r.attributes?.capabilityLevel !== "Macro");
+  setLevel(macroRoots, 0);
+  setLevel(nonMacroRoots, 1);
 
   // Propagate unique apps upward (bottom-up) and compute deep metrics.
   function propagate(n: CapNode): Map<string, AppData> {

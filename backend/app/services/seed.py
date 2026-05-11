@@ -1815,6 +1815,20 @@ TYPES = [
                         "readonly": True,
                         "options": [
                             {
+                                "key": "Macro",
+                                "label": "Macro",
+                                "color": "#8e24aa",
+                                "translations": {
+                                    "de": "Makro",
+                                    "fr": "Macro",
+                                    "es": "Macro",
+                                    "it": "Macro",
+                                    "pt": "Macro",
+                                    "zh": "宏能力",
+                                    "ru": "Макро",
+                                },
+                            },
+                            {
                                 "key": "L1",
                                 "label": "Level 1",
                                 "color": "#1565c0",

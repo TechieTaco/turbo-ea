@@ -182,25 +182,58 @@ async def _max_descendant_depth(db: AsyncSession, card_id: uuid.UUID) -> int:
     return max_depth
 
 
+MACRO_CAPABILITY_LEVEL_KEY: str = "Macro"
+
+
+async def _walk_ancestor_chain(
+    db: AsyncSession, start_id: uuid.UUID | None, *, exclude: set[uuid.UUID]
+) -> tuple[int, bool]:
+    """Walk up the parent chain from ``start_id``.
+
+    Returns ``(depth, root_is_macro)`` where ``depth`` is the number of
+    parents traversed and ``root_is_macro`` is True if the topmost ancestor
+    (the one whose own parent_id is NULL) carries
+    ``attributes.capabilityLevel == "Macro"``. Macro-rooted chains get
+    special treatment in level math and depth checks: the macro itself
+    occupies position 0 and doesn't count toward the L1..L5 limit.
+    """
+    depth = 0
+    root_is_macro = False
+    current_id = start_id
+    seen: set[uuid.UUID] = set(exclude)
+    last_attrs: dict | None = None
+    while current_id and current_id not in seen:
+        seen.add(current_id)
+        depth += 1
+        res = await db.execute(select(Card.parent_id, Card.attributes).where(Card.id == current_id))
+        row = res.first()
+        if row is None:
+            break
+        parent_id, attrs = row[0], row[1]
+        if parent_id is None:
+            last_attrs = attrs
+        current_id = parent_id
+    if last_attrs is not None and (last_attrs or {}).get("capabilityLevel") == (
+        MACRO_CAPABILITY_LEVEL_KEY
+    ):
+        root_is_macro = True
+    return depth, root_is_macro
+
+
 async def _check_hierarchy_depth(
     db: AsyncSession, card: Card, new_parent_id: uuid.UUID | None
 ) -> None:
-    """Raise HTTPException if setting new_parent_id would push any descendant beyond level 5."""
+    """Raise HTTPException if setting new_parent_id would push any descendant beyond level 5.
+
+    Macros sit at "level 0" above L1, so chains rooted at a macro are
+    allowed to be one level deeper (Macro → L1 → L2 → L3 → L4 → L5).
+    """
     if card.type != "BusinessCapability":
         return
     if new_parent_id is None:
         return  # removing parent always safe
 
-    # Compute ancestor depth from new parent
-    ancestor_depth = 0
-    current_id = new_parent_id
-    seen: set[uuid.UUID] = {card.id}
-    while current_id and current_id not in seen:
-        seen.add(current_id)
-        ancestor_depth += 1
-        res = await db.execute(select(Card.parent_id).where(Card.id == current_id))
-        row = res.first()
-        current_id = row[0] if row else None
+    ancestor_depth, root_is_macro = await _walk_ancestor_chain(db, new_parent_id, exclude={card.id})
 
     # card itself would be at level = ancestor_depth + 1
     own_level = ancestor_depth + 1
@@ -208,10 +241,11 @@ async def _check_hierarchy_depth(
     desc_depth = await _max_descendant_depth(db, card.id)
     deepest = own_level + desc_depth
 
-    if deepest > 5:
+    max_depth = 6 if root_is_macro else 5
+    if deepest > max_depth:
         raise HTTPException(
             400,
-            f"Cannot set parent: hierarchy would exceed maximum depth of 5 levels "
+            f"Cannot set parent: hierarchy would exceed maximum depth of {max_depth} levels "
             f"(this item would be L{own_level}, deepest descendant would be L{deepest})",
         )
 
@@ -219,24 +253,31 @@ async def _check_hierarchy_depth(
 async def _sync_capability_level(db: AsyncSession, card: Card) -> None:
     """Auto-compute capabilityLevel for BusinessCapability based on parent depth.
 
+    Macros are pinned: a card whose own ``capabilityLevel`` is ``"Macro"``
+    keeps that value regardless of where it sits. For everyone else, if the
+    chain root is a macro, we subtract one from the depth so the macro
+    occupies position 0 and its children correctly resolve to L1, L2, …
     Cascades to children recursively.
     """
     if card.type != "BusinessCapability":
         return
 
-    # Walk up to compute depth
-    depth = 0
-    current_id = card.parent_id
-    seen: set[uuid.UUID] = {card.id}
-    while current_id and current_id not in seen:
-        seen.add(current_id)
-        depth += 1
-        res = await db.execute(select(Card.parent_id).where(Card.id == current_id))
-        row = res.first()
-        current_id = row[0] if row else None
+    own_attrs = card.attributes or {}
+    if own_attrs.get("capabilityLevel") == MACRO_CAPABILITY_LEVEL_KEY:
+        # Macros are roots — refresh nothing, but still cascade so children
+        # that just got re-parented to this macro pick up the right level.
+        children_result = await db.execute(
+            select(Card).where(Card.parent_id == card.id, Card.status == "ACTIVE")
+        )
+        for child in children_result.scalars().all():
+            await _sync_capability_level(db, child)
+        return
 
-    level_key = f"L{min(depth + 1, 5)}"
-    attrs = dict(card.attributes or {})
+    depth, root_is_macro = await _walk_ancestor_chain(db, card.parent_id, exclude={card.id})
+
+    logical_depth = max(depth - 1, 0) if root_is_macro else depth
+    level_key = f"L{min(logical_depth + 1, 5)}"
+    attrs = dict(own_attrs)
     if attrs.get("capabilityLevel") != level_key:
         attrs["capabilityLevel"] = level_key
         card.attributes = attrs

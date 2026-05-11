@@ -5,6 +5,18 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.7.0] - 2026-05-11
+
+### Added
+- **Macro Capabilities — a new executive-level tier above L1.** The Capability Catalogue now consumes the `_macro-capabilities` artefact introduced in [`turbo-ea-capabilities` PR #85](https://github.com/vincentmakes/turbo-ea-capabilities/pull/85) (wheel `2026.5.11.505`). Cross-Industry ships 9 macros (MC-10 … MC-90) that partition its 41 L1s; any industry that adds macros later is picked up automatically. Macros render as a top tier above L1 in the catalogue browser, can be imported into the inventory as parent BusinessCapability cards, and their `capability_ids` rewrite the `parent_id` of the L1s they group so the import lands an instant Macro → L1 → L2 → L3 hierarchy. Existing standalone L1 imports are auto-relinked under the new macro on a subsequent macro import — surfaced in the existing `relinked` bucket of the import response.
+- **`Macro` option on the BusinessCapability `capabilityLevel` enum**, with translations for all 8 locales. New imports get `capabilityLevel="Macro"`; pre-existing L1s keep `"L1"` even after relink. Migration `073` adds the option to existing installs.
+
+### Changed
+- **`BusinessCapability` hierarchy depth limit is now 6 for macro-rooted chains** (Macro → L1 → L2 → L3 → L4 → L5). Non-macro chains keep the prior 5-level cap unchanged. The macro-aware depth math in `cards._sync_capability_level` and `cards._check_hierarchy_depth` subtracts 1 from the chain depth when the root carries `capabilityLevel="Macro"`, so an L1 reparented under a macro stays `"L1"` and a 5-level descendant subtree under a macro still passes the depth gate.
+- **Capability catalogue sort is now prefix-family-aware.** `MC-` ids always sort before `BC-` ids inside the catalogue browser; numeric ordering inside each family is unchanged (`BC-1.10` after `BC-1.9`, `MC-90` before `MC-100`). Without this the old comparator NaN-sorted any non-`BC-` id.
+- **`CapabilityMapReport` recognises macros as level-0 roots,** so the "Level 1" / "Level 2" dropdown labels each tier correctly when macros are present (without this, every label would silently shift one slot).
+- **Pinned `turbo-ea-capabilities>=2026.5.11.505`** in `backend/pyproject.toml` so installs pick up the macro artefact.
+
 ## [1.6.3] - 2026-05-10
 
 ### Performance

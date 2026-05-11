@@ -564,3 +564,153 @@ class TestCapabilityLevelSync:
             headers=auth_headers(admin),
         )
         assert resp_gc2.json()["attributes"]["capabilityLevel"] == "L3"
+
+
+# ---------------------------------------------------------------------------
+# Macro Capability tier — additive above L1 (consumed from PR #85 upstream).
+# ---------------------------------------------------------------------------
+
+
+class TestMacroCapabilityTier:
+    """Regression tests for the macro-aware depth math in cards.py.
+
+    Macros sit at chain root with `capabilityLevel="Macro"`. Without the
+    macro-aware branches in `_sync_capability_level` and
+    `_check_hierarchy_depth`, every edit of a relinked L1 would flip its
+    level to L2, the macro itself would flip to L1, and 6-level chains
+    rooted at a macro would be rejected.
+    """
+
+    async def test_macro_card_preserves_macro_level_on_create(self, client, db, biz_env):
+        """A BusinessCapability created with capabilityLevel="Macro" keeps it
+        — the sync must not overwrite an explicit Macro designation.
+        """
+        admin = biz_env["admin"]
+        resp = await client.post(
+            "/api/v1/cards",
+            json={
+                "type": "BusinessCapability",
+                "name": "Customer Experience",
+                "attributes": {"capabilityLevel": "Macro"},
+            },
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 201
+        assert resp.json()["attributes"]["capabilityLevel"] == "Macro"
+
+    async def test_l1_under_macro_stays_l1(self, client, db, biz_env):
+        """An L1 capability reparented under a macro must keep its L1 level —
+        the macro root subtracts 1 from depth, so depth-1 maps to L1 (not L2).
+        """
+        admin = biz_env["admin"]
+        macro = await client.post(
+            "/api/v1/cards",
+            json={
+                "type": "BusinessCapability",
+                "name": "Macro Group",
+                "attributes": {"capabilityLevel": "Macro"},
+            },
+            headers=auth_headers(admin),
+        )
+        macro_id = macro.json()["id"]
+
+        l1 = await client.post(
+            "/api/v1/cards",
+            json={
+                "type": "BusinessCapability",
+                "name": "L1 Capability",
+                "parent_id": macro_id,
+            },
+            headers=auth_headers(admin),
+        )
+        assert l1.status_code == 201
+        assert l1.json()["attributes"]["capabilityLevel"] == "L1"
+
+    async def test_l2_under_macro_resolves_correctly(self, client, db, biz_env):
+        """Macro → L1 → L2 chain: the L2 must be labelled L2 (depth 2 minus 1
+        macro offset = logical depth 1 → "L2")."""
+        admin = biz_env["admin"]
+        macro = await client.post(
+            "/api/v1/cards",
+            json={
+                "type": "BusinessCapability",
+                "name": "Macro",
+                "attributes": {"capabilityLevel": "Macro"},
+            },
+            headers=auth_headers(admin),
+        )
+        l1 = await client.post(
+            "/api/v1/cards",
+            json={
+                "type": "BusinessCapability",
+                "name": "L1",
+                "parent_id": macro.json()["id"],
+            },
+            headers=auth_headers(admin),
+        )
+        l2 = await client.post(
+            "/api/v1/cards",
+            json={
+                "type": "BusinessCapability",
+                "name": "L2",
+                "parent_id": l1.json()["id"],
+            },
+            headers=auth_headers(admin),
+        )
+        assert l2.status_code == 201
+        assert l2.json()["attributes"]["capabilityLevel"] == "L2"
+
+    async def test_six_level_chain_rooted_at_macro_is_allowed(self, client, db, biz_env):
+        """A chain Macro → L1 → L2 → L3 → L4 → L5 is 6 levels deep. Without
+        the macro-aware depth check this would be rejected with HTTP 400
+        ("hierarchy would exceed maximum depth of 5")."""
+        admin = biz_env["admin"]
+        macro = await client.post(
+            "/api/v1/cards",
+            json={
+                "type": "BusinessCapability",
+                "name": "Macro",
+                "attributes": {"capabilityLevel": "Macro"},
+            },
+            headers=auth_headers(admin),
+        )
+        parent_id = macro.json()["id"]
+        for label in ["L1", "L2", "L3", "L4", "L5"]:
+            resp = await client.post(
+                "/api/v1/cards",
+                json={
+                    "type": "BusinessCapability",
+                    "name": label,
+                    "parent_id": parent_id,
+                },
+                headers=auth_headers(admin),
+            )
+            assert resp.status_code == 201, f"chain broke at {label}: {resp.text}"
+            assert resp.json()["attributes"]["capabilityLevel"] == label
+            parent_id = resp.json()["id"]
+
+    async def test_macro_card_keeps_macro_level_after_unrelated_edit(self, client, db, biz_env):
+        """Editing a macro's description must not flip it from Macro to L1.
+        The sync is invoked on parent_id changes — but if the level is
+        missing or the card itself is Macro, the function must preserve."""
+        admin = biz_env["admin"]
+        macro = await client.post(
+            "/api/v1/cards",
+            json={
+                "type": "BusinessCapability",
+                "name": "Macro",
+                "description": "first",
+                "attributes": {"capabilityLevel": "Macro"},
+            },
+            headers=auth_headers(admin),
+        )
+        macro_id = macro.json()["id"]
+
+        # Patch description only — no parent_id change.
+        resp = await client.patch(
+            f"/api/v1/cards/{macro_id}",
+            json={"description": "second"},
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 200
+        assert resp.json()["attributes"]["capabilityLevel"] == "Macro"
