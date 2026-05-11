@@ -7,8 +7,14 @@ import IconButton from "@mui/material/IconButton";
 import Divider from "@mui/material/Divider";
 import Chip from "@mui/material/Chip";
 import Tooltip from "@mui/material/Tooltip";
+import Checkbox from "@mui/material/Checkbox";
+import FormControlLabel from "@mui/material/FormControlLabel";
 import CircularProgress from "@mui/material/CircularProgress";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import type {
+  RemovedCardTombstone,
+  RemovedRelationTombstone,
+} from "./drawio-shapes";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -49,6 +55,9 @@ interface Props {
   onClose: () => void;
   pendingCards: PendingCard[];
   pendingRels: PendingRelation[];
+  pendingCardRemovals: RemovedCardTombstone[];
+  pendingRelRemovals: RemovedRelationTombstone[];
+  archiveOnSync: Set<string>;
   staleItems: StaleItem[];
   syncing: boolean;
   onSyncAll: () => void;
@@ -56,6 +65,11 @@ interface Props {
   onSyncRel: (edgeCellId: string) => void;
   onRemoveFS: (cellId: string) => void;
   onRemoveRel: (edgeCellId: string) => void;
+  onSyncCardRemoval: (cellId: string) => void;
+  onSyncRelRemoval: (edgeCellId: string) => void;
+  onDiscardCardRemoval: (cellId: string) => void;
+  onDiscardRelRemoval: (edgeCellId: string) => void;
+  onToggleArchive: (cellId: string) => void;
   onAcceptStale: (cellId: string) => void;
   onCheckUpdates: () => void;
   checkingUpdates: boolean;
@@ -70,6 +84,9 @@ export default function DiagramSyncPanel({
   onClose,
   pendingCards,
   pendingRels,
+  pendingCardRemovals,
+  pendingRelRemovals,
+  archiveOnSync,
   staleItems,
   syncing,
   onSyncAll,
@@ -77,12 +94,18 @@ export default function DiagramSyncPanel({
   onSyncRel,
   onRemoveFS,
   onRemoveRel,
+  onSyncCardRemoval,
+  onSyncRelRemoval,
+  onDiscardCardRemoval,
+  onDiscardRelRemoval,
+  onToggleArchive,
   onAcceptStale,
   onCheckUpdates,
   checkingUpdates,
 }: Props) {
   const { t } = useTranslation(["diagrams", "common"]);
-  const totalPending = pendingCards.length + pendingRels.length;
+  const totalPending =
+    pendingCards.length + pendingRels.length + pendingCardRemovals.length + pendingRelRemovals.length;
 
   return (
     <Drawer anchor="right" open={open} onClose={onClose} PaperProps={{ sx: { width: 360 } }}>
@@ -192,6 +215,123 @@ export default function DiagramSyncPanel({
           </>
         )}
 
+        {/* ---- Removed relations (canvas → inventory deletions) ---- */}
+        {pendingRelRemovals.length > 0 && (
+          <>
+            <SectionTitle
+              icon="link_off"
+              label={t("sync.removedRelations")}
+              count={pendingRelRemovals.length}
+            />
+            {pendingRelRemovals.map((rel) => (
+              <ItemRow key={rel.edgeCellId}>
+                <Box sx={{ flex: 1, minWidth: 0 }}>
+                  <Typography variant="body2" noWrap>
+                    <s style={{ opacity: 0.6 }}>
+                      {t("sync.relationLabel", { label: rel.relationLabel })}
+                    </s>
+                  </Typography>
+                  <Typography variant="caption" color="text.disabled">
+                    {t("sync.willDeleteRelation")}
+                  </Typography>
+                </Box>
+                <Tooltip title={t("sync.applyDeletion")}>
+                  <IconButton
+                    size="small"
+                    onClick={() => onSyncRelRemoval(rel.edgeCellId)}
+                    disabled={syncing}
+                  >
+                    <MaterialSymbol icon="cloud_upload" size={16} />
+                  </IconButton>
+                </Tooltip>
+                <Tooltip title={t("sync.keepInInventory")}>
+                  <IconButton
+                    size="small"
+                    onClick={() => onDiscardRelRemoval(rel.edgeCellId)}
+                    disabled={syncing}
+                  >
+                    <MaterialSymbol icon="undo" size={16} />
+                  </IconButton>
+                </Tooltip>
+              </ItemRow>
+            ))}
+          </>
+        )}
+
+        {/* ---- Removed cards (canvas removals; optional archive in inventory) ---- */}
+        {pendingCardRemovals.length > 0 && (
+          <>
+            <SectionTitle
+              icon="delete_sweep"
+              label={t("sync.removedCards")}
+              count={pendingCardRemovals.length}
+            />
+            {pendingCardRemovals.map((card) => {
+              const willArchive = archiveOnSync.has(card.cellId);
+              return (
+                <Box
+                  key={card.cellId}
+                  sx={{ py: 0.75, px: 1, borderRadius: 1, "&:hover": { bgcolor: "action.hover" } }}
+                >
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                    <Box
+                      sx={{
+                        width: 8,
+                        height: 8,
+                        borderRadius: "50%",
+                        bgcolor: "#9e9e9e",
+                        flexShrink: 0,
+                      }}
+                    />
+                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                      <Typography variant="body2" noWrap fontWeight={500}>
+                        <s style={{ opacity: 0.6 }}>{card.name}</s>
+                      </Typography>
+                      <Typography variant="caption" color="text.disabled">
+                        {willArchive ? t("sync.willArchive") : t("sync.willKeepInInventory")}
+                      </Typography>
+                    </Box>
+                    <Tooltip title={willArchive ? t("sync.archiveNow") : t("sync.removeNow")}>
+                      <IconButton
+                        size="small"
+                        onClick={() => onSyncCardRemoval(card.cellId)}
+                        disabled={syncing}
+                      >
+                        <MaterialSymbol icon="cloud_upload" size={16} />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title={t("sync.keepInInventory")}>
+                      <IconButton
+                        size="small"
+                        onClick={() => onDiscardCardRemoval(card.cellId)}
+                        disabled={syncing}
+                      >
+                        <MaterialSymbol icon="undo" size={16} />
+                      </IconButton>
+                    </Tooltip>
+                  </Box>
+                  <FormControlLabel
+                    sx={{ ml: 2.5, mt: -0.25 }}
+                    control={
+                      <Checkbox
+                        size="small"
+                        checked={willArchive}
+                        onChange={() => onToggleArchive(card.cellId)}
+                        disabled={syncing}
+                      />
+                    }
+                    label={
+                      <Typography variant="caption" color="text.secondary">
+                        {t("sync.alsoArchive")}
+                      </Typography>
+                    }
+                  />
+                </Box>
+              );
+            })}
+          </>
+        )}
+
         {/* ---- Stale / out-of-sync items ---- */}
         {staleItems.length > 0 && (
           <>
@@ -218,7 +358,8 @@ export default function DiagramSyncPanel({
         )}
 
         {/* ---- Empty state ---- */}
-        {totalPending === 0 && staleItems.length === 0 && (
+        {totalPending === 0 &&
+          staleItems.length === 0 && (
           <Box sx={{ textAlign: "center", py: 4 }}>
             <MaterialSymbol icon="check_circle" size={36} color="#66bb6a" />
             <Typography variant="body2" color="text.disabled" sx={{ mt: 1 }}>

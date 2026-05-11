@@ -304,11 +304,14 @@ export function markCellSynced(
 
 /**
  * Mark a pending relation edge as synced (remove dashed style).
+ * Optionally stamps the edge with the real backend relation id so that
+ * canvas deletions can fire a DELETE /relations/{id}.
  */
 export function markEdgeSynced(
   iframe: HTMLIFrameElement,
   edgeCellId: string,
   color: string,
+  relationId?: string,
 ): boolean {
   const ctx = getMxGraph(iframe);
   if (!ctx) return false;
@@ -322,6 +325,7 @@ export function markEdgeSynced(
   try {
     const obj = edge.value;
     if (obj?.removeAttribute) obj.removeAttribute("pending");
+    if (relationId && obj?.setAttribute) obj.setAttribute("relationId", relationId);
     const style =
       `edgeStyle=entityRelationEdgeStyle;strokeColor=${color};strokeWidth=1.5;` +
       `endArrow=none;startArrow=none;fontSize=10;fontColor=#666;`;
@@ -791,5 +795,353 @@ export function addResyncOverlay(
   overlay.addListener(win.mxEvent.CLICK, () => onClick());
 
   graph.addCellOverlay(cell, overlay);
+  return true;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Cell lifecycle (paste/duplicate dedup + deletion tombstones)       */
+/* ------------------------------------------------------------------ */
+
+export interface RemovedCardTombstone {
+  kind: "card";
+  cellId: string;
+  cardId: string;
+  cardType: string;
+  name: string;
+  /** True if the cell was the original (still synced) or a pending one. */
+  wasPending: boolean;
+}
+
+export interface RemovedRelationTombstone {
+  kind: "relation";
+  edgeCellId: string;
+  relationId: string;
+  relationType: string;
+  relationLabel: string;
+  sourceName: string;
+  targetName: string;
+}
+
+export type RemovedTombstone = RemovedCardTombstone | RemovedRelationTombstone;
+
+export interface CellLifecycleHandlers {
+  onDuplicate: (cellId: string, sharedCardId: string, wasPending: boolean) => void;
+  onRemoved: (tombstones: RemovedTombstone[]) => void;
+}
+
+/**
+ * Hook the graph model so we can:
+ *   - detect copy/paste/duplicate adding a cell that reuses an existing
+ *     cardId, and call onDuplicate so the parent can either regenerate the
+ *     temp id (pending clone) or strip the cardId (synced clone)
+ *   - detect cell removals carrying a real cardId / relationId so the parent
+ *     can tombstone them for the next sync.
+ *
+ * Returns a cleanup function that removes the listeners.
+ */
+export function attachCellLifecycleListeners(
+  iframe: HTMLIFrameElement,
+  handlers: CellLifecycleHandlers,
+): () => void {
+  const ctx = getMxGraph(iframe);
+  if (!ctx) return () => {};
+  const { win, graph } = ctx;
+  const model = graph.getModel();
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const addedListener = (_sender: unknown, evt: any) => {
+    const cells = evt.getProperty("cells") || [];
+    if (cells.length === 0) return;
+    // Build a map cardId -> cellIds across the whole graph so we can decide
+    // which freshly-added cells are duplicates.
+    const allCells = model.cells || {};
+    const cardCells = new Map<string, string[]>();
+    for (const k of Object.keys(allCells)) {
+      const c = allCells[k];
+      const cid = c?.value?.getAttribute?.("cardId");
+      if (cid) {
+        if (!cardCells.has(cid)) cardCells.set(cid, []);
+        cardCells.get(cid)!.push(c.id);
+      }
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    for (const cell of cells as any[]) {
+      const cardId = cell?.value?.getAttribute?.("cardId");
+      if (!cardId) continue;
+      const peers = cardCells.get(cardId) || [];
+      // If another cell already owned this cardId before the paste, this
+      // cell is the clone. Compare against the cell that was added — peers
+      // includes the freshly-added cell, so duplicates means peers.length > 1.
+      if (peers.length > 1 && peers.indexOf(cell.id) > 0) {
+        const wasPending = cell.value.getAttribute("pending") === "1";
+        handlers.onDuplicate(cell.id, cardId, wasPending);
+      }
+    }
+  };
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const removedListener = (_sender: unknown, evt: any) => {
+    const cells = evt.getProperty("cells") || [];
+    if (cells.length === 0) return;
+    const tombstones: RemovedTombstone[] = [];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    for (const cell of cells as any[]) {
+      const value = cell?.value;
+      if (!value?.getAttribute) continue;
+      const relationId = value.getAttribute("relationId");
+      const cardId = value.getAttribute("cardId");
+      const isPending = value.getAttribute("pending") === "1";
+      const isChild = !!value.getAttribute("parentGroupCell");
+
+      if (relationId) {
+        tombstones.push({
+          kind: "relation",
+          edgeCellId: cell.id,
+          relationId,
+          relationType: value.getAttribute("relationType") || "",
+          relationLabel: value.getAttribute("label") || value.getAttribute("relationType") || "",
+          sourceName: "",
+          targetName: "",
+        });
+      } else if (cardId && !isPending && !isChild && !cardId.startsWith("pending-")) {
+        // Only tombstone top-level synced cards. Expanded children disappear
+        // and reappear regularly via collapse/expand — they don't represent
+        // a user intent to remove the underlying card.
+        tombstones.push({
+          kind: "card",
+          cellId: cell.id,
+          cardId,
+          cardType: value.getAttribute("cardType") || "",
+          name: value.getAttribute("label") || "",
+          wasPending: false,
+        });
+      }
+    }
+    if (tombstones.length > 0) handlers.onRemoved(tombstones);
+  };
+
+  model.addListener(win.mxEvent.CELLS_ADDED, addedListener);
+  model.addListener(win.mxEvent.CELLS_REMOVED, removedListener);
+
+  return () => {
+    try {
+      model.removeListener(addedListener);
+      model.removeListener(removedListener);
+    } catch {
+      // graph may have been torn down already
+    }
+  };
+}
+
+/**
+ * Dedup a duplicate (pasted) card cell.
+ *   - If the clone was pending, give it a fresh temp id so users can sync it
+ *     as a separate card.
+ *   - If the clone was synced, strip the cardId so it becomes an unlinked
+ *     shape — the user can then re-link it via the context menu.
+ *
+ * Returns the new temp id for pending clones, "unlinked" for synced clones,
+ * or null on failure.
+ */
+export function dedupClonedCell(
+  iframe: HTMLIFrameElement,
+  cellId: string,
+  wasPending: boolean,
+): { mode: "regenerated"; tempId: string } | { mode: "unlinked" } | null {
+  const ctx = getMxGraph(iframe);
+  if (!ctx) return null;
+  const { graph } = ctx;
+
+  const model = graph.getModel();
+  const cell = model.getCell(cellId);
+  if (!cell?.value?.setAttribute) return null;
+
+  model.beginUpdate();
+  try {
+    // Children we don't dedupe — they're expansion artifacts.
+    if (cell.value.getAttribute("parentGroupCell")) return null;
+
+    if (wasPending) {
+      const tempId = `pending-${Math.random().toString(36).slice(2)}${Date.now().toString(36)}`;
+      cell.value.setAttribute("cardId", tempId);
+      return { mode: "regenerated", tempId };
+    }
+
+    cell.value.removeAttribute("cardId");
+    if (cell.value.removeAttribute) {
+      cell.value.removeAttribute("expanded");
+      cell.value.removeAttribute("childCellIds");
+    }
+    // Repaint as an "unlinked" stub: solid grey dashed border.
+    model.setStyle(cell, buildUnlinkedStyle());
+    graph.removeCellOverlays(cell);
+    return { mode: "unlinked" };
+  } finally {
+    model.endUpdate();
+  }
+}
+
+/** Visual style for an unlinked (was-synced) stub after copy/paste. */
+function buildUnlinkedStyle(): string {
+  return [
+    "rounded=1",
+    "whiteSpace=wrap",
+    "html=1",
+    "fillColor=#f5f5f5",
+    "fontColor=#616161",
+    "strokeColor=#9e9e9e",
+    "fontSize=12",
+    "fontStyle=0",
+    "arcSize=12",
+    "dashed=1",
+    "dashPattern=4 3",
+  ].join(";");
+}
+
+/* ------------------------------------------------------------------ */
+/*  Link / unlink / relink helpers (Phase 2)                           */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Strip a synced cell's link to its card. The shape stays on the canvas
+ * but becomes a plain unlinked stub. Returns the previous cardId so the
+ * editor can offer "undo" feedback.
+ */
+export function unlinkCell(
+  iframe: HTMLIFrameElement,
+  cellId: string,
+): string | null {
+  const ctx = getMxGraph(iframe);
+  if (!ctx) return null;
+  const { graph } = ctx;
+
+  const model = graph.getModel();
+  const cell = model.getCell(cellId);
+  if (!cell?.value?.getAttribute) return null;
+  const previousId = cell.value.getAttribute("cardId");
+  if (!previousId) return null;
+
+  model.beginUpdate();
+  try {
+    cell.value.removeAttribute("cardId");
+    if (cell.value.removeAttribute) {
+      cell.value.removeAttribute("pending");
+      cell.value.removeAttribute("expanded");
+      cell.value.removeAttribute("childCellIds");
+      cell.value.removeAttribute("relationId");
+    }
+    model.setStyle(cell, buildUnlinkedStyle());
+    graph.removeCellOverlays(cell);
+  } finally {
+    model.endUpdate();
+  }
+  return previousId;
+}
+
+/**
+ * Re-link a cell (synced or unlinked) to a different card. Rewrites cardId,
+ * cardType, label, and repaints with the target card type's color.
+ */
+export function relinkCell(
+  iframe: HTMLIFrameElement,
+  cellId: string,
+  opts: { cardId: string; cardType: string; name: string; color: string },
+): boolean {
+  const ctx = getMxGraph(iframe);
+  if (!ctx) return false;
+  const { graph } = ctx;
+
+  const model = graph.getModel();
+  const cell = model.getCell(cellId);
+  if (!cell?.value?.setAttribute) return false;
+
+  model.beginUpdate();
+  try {
+    cell.value.setAttribute("cardId", opts.cardId);
+    cell.value.setAttribute("cardType", opts.cardType);
+    cell.value.setAttribute("label", opts.name);
+    if (cell.value.removeAttribute) {
+      cell.value.removeAttribute("pending");
+      cell.value.removeAttribute("expanded");
+      cell.value.removeAttribute("childCellIds");
+    }
+    model.setStyle(cell, buildSyncedStyle(opts.color));
+    graph.refresh(cell);
+  } finally {
+    model.endUpdate();
+  }
+  return true;
+}
+
+/**
+ * Identify the kind of cell under the right-click for the context menu.
+ * Returns one of: "synced", "pending", "unlinked", "plain", or null.
+ */
+export function classifyCell(
+  iframe: HTMLIFrameElement,
+  cellId: string,
+): "synced" | "pending" | "unlinked" | "plain" | null {
+  const ctx = getMxGraph(iframe);
+  if (!ctx) return null;
+  const { graph } = ctx;
+  const cell = graph.getModel().getCell(cellId);
+  if (!cell) return null;
+  // Edges are out of scope for link/unlink classification.
+  if (cell.edge) return null;
+
+  const cardId = cell.value?.getAttribute?.("cardId");
+  const pending = cell.value?.getAttribute?.("pending") === "1";
+  if (cardId && pending) return "pending";
+  if (cardId) return "synced";
+  if (cell.value?.getAttribute) return "unlinked";
+  return "plain";
+}
+
+/**
+ * Read a cell's label — used when "Convert to Card" pre-fills the create
+ * dialog from a plain DrawIO shape's label.
+ */
+export function getCellLabel(iframe: HTMLIFrameElement, cellId: string): string {
+  const ctx = getMxGraph(iframe);
+  if (!ctx) return "";
+  const cell = ctx.graph.getModel().getCell(cellId);
+  if (!cell) return "";
+  const v = cell.value;
+  if (typeof v === "string") return v;
+  return v?.getAttribute?.("label") || "";
+}
+
+/**
+ * Convert a plain DrawIO shape into a pending card cell. Keeps the cell's
+ * geometry, but replaces its user object with a pending card user object
+ * and re-styles it with the card-type color (dashed border).
+ */
+export function convertShapeToPendingCard(
+  iframe: HTMLIFrameElement,
+  cellId: string,
+  opts: { tempId: string; type: string; name: string; color: string },
+): boolean {
+  const ctx = getMxGraph(iframe);
+  if (!ctx) return false;
+  const { win, graph } = ctx;
+
+  const model = graph.getModel();
+  const cell = model.getCell(cellId);
+  if (!cell) return false;
+
+  model.beginUpdate();
+  try {
+    const xmlDoc = win.mxUtils.createXmlDocument();
+    const obj = xmlDoc.createElement("object");
+    obj.setAttribute("label", opts.name);
+    obj.setAttribute("cardId", opts.tempId);
+    obj.setAttribute("cardType", opts.type);
+    obj.setAttribute("pending", "1");
+    model.setValue(cell, obj);
+    model.setStyle(cell, buildPendingStyle(opts.color));
+    graph.refresh(cell);
+  } finally {
+    model.endUpdate();
+  }
   return true;
 }

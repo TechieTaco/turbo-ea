@@ -37,8 +37,19 @@ import {
   updateCellLabel,
   removeDiagramCell,
   scanDiagramItems,
+  attachCellLifecycleListeners,
+  dedupClonedCell,
+  unlinkCell,
+  relinkCell,
+  getCellLabel,
+  convertShapeToPendingCard,
 } from "./drawio-shapes";
-import type { ExpandChildData } from "./drawio-shapes";
+import type {
+  ExpandChildData,
+  RemovedTombstone,
+  RemovedCardTombstone,
+  RemovedRelationTombstone,
+} from "./drawio-shapes";
 import CardDetailSidePanel from "@/components/CardDetailSidePanel";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useResolveMetaLabel } from "@/hooks/useResolveLabel";
@@ -89,13 +100,17 @@ interface DrawIOMessage {
     | "insertCard"
     | "createCard"
     | "edgeConnected"
-    | "cardClicked";
+    | "cardClicked"
+    | "unlinkCell"
+    | "relinkCell"
+    | "convertCell";
   xml?: string;
   data?: string;
   modified?: boolean;
   x?: number;
   y?: number;
   cardId?: string;
+  cellId?: string;
   edgeCellId?: string;
   sourceCardId?: string;
   targetCardId?: string;
@@ -165,6 +180,11 @@ function bootstrapDrawIO(iframe: HTMLIFrameElement) {
             cardCell = cardCell.parent;
           }
           const cardId = cardCell?.value?.getAttribute?.("cardId");
+          const isPending = cardCell?.value?.getAttribute?.("pending") === "1";
+          const isSyncedCard = !!cardId && !isPending && !cardId.startsWith("pending-");
+          const isVertex = cell && !cell.edge;
+          const hasNoCardId = isVertex && !cardId;
+
           if (cardId) {
             menu.addItem("View Card Details\u2026", null, () => {
               win.parent.postMessage(
@@ -172,8 +192,36 @@ function bootstrapDrawIO(iframe: HTMLIFrameElement) {
                 "*",
               );
             });
-            menu.addSeparator();
           }
+          if (isSyncedCard && cardCell) {
+            menu.addItem("Change Linked Card\u2026", null, () => {
+              win.parent.postMessage(
+                JSON.stringify({ event: "relinkCell", cellId: cardCell.id }),
+                "*",
+              );
+            });
+            menu.addItem("Unlink Card", null, () => {
+              win.parent.postMessage(
+                JSON.stringify({ event: "unlinkCell", cellId: cardCell.id }),
+                "*",
+              );
+            });
+          }
+          if (hasNoCardId && cell) {
+            menu.addItem("Link to Existing Card\u2026", null, () => {
+              win.parent.postMessage(
+                JSON.stringify({ event: "relinkCell", cellId: cell.id }),
+                "*",
+              );
+            });
+            menu.addItem("Convert to Card\u2026", null, () => {
+              win.parent.postMessage(
+                JSON.stringify({ event: "convertCell", cellId: cell.id }),
+                "*",
+              );
+            });
+          }
+          if (cardId || hasNoCardId) menu.addSeparator();
 
           menu.addItem("Insert Existing Card\u2026", null, () => {
             win.parent.postMessage(
@@ -297,12 +345,51 @@ export default function DiagramEditor() {
   const [syncing, setSyncing] = useState(false);
   const [checkingUpdates, setCheckingUpdates] = useState(false);
 
+  // Deletion tombstones — populated when the user removes a synced card cell
+  // or a synced relation edge on the canvas. Kept in component state so the
+  // sync panel can surface them and Sync All can issue the API deletes.
+  const [pendingCardRemovals, setPendingCardRemovals] = useState<RemovedCardTombstone[]>([]);
+  const [pendingRelRemovals, setPendingRelRemovals] = useState<RemovedRelationTombstone[]>([]);
+  // Cells the user has opted in to also archive (default: remove from
+  // diagram only — keeps the card in inventory).
+  const [archiveOnSync, setArchiveOnSync] = useState<Set<string>>(new Set());
+
+  // Phase 2 context-menu actions
+  const [relinkTargetCellId, setRelinkTargetCellId] = useState<string | null>(null);
+  const [convertTargetCellId, setConvertTargetCellId] = useState<string | null>(null);
+  const [convertPrefillName, setConvertPrefillName] = useState<string>("");
+
+  // Local autosave restore prompt
+  const [restoreBanner, setRestoreBanner] = useState<{ xml: string; savedAt: string } | null>(null);
+  const restoreCheckedRef = useRef(false);
+
   /* ---------- Load diagram ---------- */
   useEffect(() => {
     if (!id) return;
     api
       .get<DiagramData>(`/diagrams/${id}`)
-      .then(setDiagram)
+      .then((d) => {
+        setDiagram(d);
+        // Check for a newer locally-autosaved draft once per mount.
+        if (!restoreCheckedRef.current) {
+          restoreCheckedRef.current = true;
+          try {
+            const raw = localStorage.getItem(`turbo-ea-diagram-draft-${id}`);
+            if (raw) {
+              const draft = JSON.parse(raw) as { xml: string; savedAt: string };
+              // Only prompt when the autosave is non-trivially different from
+              // what's already persisted on the server.
+              if (draft.xml && draft.xml !== d.data?.xml) {
+                setRestoreBanner({ xml: draft.xml, savedAt: draft.savedAt });
+              } else {
+                localStorage.removeItem(`turbo-ea-diagram-draft-${id}`);
+              }
+            }
+          } catch {
+            // Corrupt JSON — ignore
+          }
+        }
+      })
       .catch(() => setSnackMsg(t("editor.errors.loadFailed")))
       .finally(() => setLoading(false));
   }, [id]);
@@ -326,6 +413,13 @@ export default function DiagramEditor() {
         setDiagram((prev) =>
           prev ? { ...prev, data: { ...prev.data, xml, ...(thumbnail ? { thumbnail } : {}) } } : prev,
         );
+        // Persisted on the server — drop the local autosave snapshot so we
+        // don't keep prompting to restore an older draft on reload.
+        try {
+          localStorage.removeItem(`turbo-ea-diagram-draft-${diagram.id}`);
+        } catch {
+          // localStorage may be disabled — non-fatal.
+        }
         setSnackMsg(t("editor.saved"));
       } catch {
         setSnackMsg(t("editor.errors.saveFailed"));
@@ -502,11 +596,91 @@ export default function DiagramEditor() {
     [doExpand],
   );
 
+  /* ---------- Cell lifecycle (dedup paste + tombstone deletes) ---------- */
+
+  const lifecycleAttachedRef = useRef(false);
+
+  const handleDuplicate = useCallback(
+    (cellId: string, sharedCardId: string, wasPending: boolean) => {
+      const frame = iframeRef.current;
+      if (!frame) return;
+      // Defer one tick so mxGraph finishes its transaction before we mutate.
+      setTimeout(() => {
+        const result = dedupClonedCell(frame, cellId, wasPending);
+        if (!result) return;
+        if (result.mode === "regenerated") {
+          setSnackMsg(t("editor.duplicate.pendingRegen"));
+        } else {
+          setSnackMsg(t("editor.duplicate.unlinked"));
+        }
+        // sharedCardId is intentionally not surfaced to the user — the snackbar
+        // covers the user-facing explanation.
+        void sharedCardId;
+        refreshSyncPanel();
+      }, 0);
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
+
+  const handleTombstones = useCallback((tombstones: RemovedTombstone[]) => {
+    if (tombstones.length === 0) return;
+    setPendingCardRemovals((prev) => {
+      const next = [...prev];
+      for (const t of tombstones) {
+        if (t.kind !== "card") continue;
+        // De-duplicate by cellId — undo + redo can fire repeated events.
+        if (!next.some((existing) => existing.cellId === t.cellId)) next.push(t);
+      }
+      return next;
+    });
+    setPendingRelRemovals((prev) => {
+      const next = [...prev];
+      for (const t of tombstones) {
+        if (t.kind !== "relation") continue;
+        if (!next.some((existing) => existing.edgeCellId === t.edgeCellId)) next.push(t);
+      }
+      return next;
+    });
+  }, []);
+
+  const attachLifecycleListenersOnce = useCallback(
+    (frame: HTMLIFrameElement) => {
+      if (lifecycleAttachedRef.current) return;
+      lifecycleAttachedRef.current = true;
+      attachCellLifecycleListeners(frame, {
+        onDuplicate: handleDuplicate,
+        onRemoved: handleTombstones,
+      });
+    },
+    [handleDuplicate, handleTombstones],
+  );
+
   /* ---------- Insert existing card ---------- */
   const handleInsertCard = useCallback(
     (card: Card, cardTypeKey: CardType) => {
       const frame = iframeRef.current;
       if (!frame) return;
+
+      // Relink mode: rewrite the target cell instead of inserting a new one.
+      if (relinkTargetCellId) {
+        const ok = relinkCell(frame, relinkTargetCellId, {
+          cardId: card.id,
+          cardType: card.type,
+          name: card.name,
+          color: cardTypeKey.color,
+        });
+        if (ok) {
+          addExpandOverlay(frame, relinkTargetCellId, false, () =>
+            handleToggleGroup(relinkTargetCellId, card.id, false),
+          );
+          setSnackMsg(t("editor.linkedTo", { name: card.name }));
+        } else {
+          setSnackMsg(t("editor.errors.editorNotReady"));
+        }
+        setRelinkTargetCellId(null);
+        return;
+      }
 
       let x: number, y: number;
       if (contextInsertPosRef.current) {
@@ -537,8 +711,41 @@ export default function DiagramEditor() {
         setSnackMsg(t("editor.errors.editorNotReady"));
       }
     },
-    [handleToggleGroup],
+    [handleToggleGroup, relinkTargetCellId],
   );
+
+  /* ---------- Unlink / Convert handlers (Phase 2) ---------- */
+
+  const handleUnlinkRequest = useCallback(
+    (cellId: string) => {
+      const frame = iframeRef.current;
+      if (!frame) return;
+      const previousId = unlinkCell(frame, cellId);
+      if (previousId) {
+        setSnackMsg(t("editor.unlinked"));
+        refreshSyncPanel();
+      }
+    },
+    // refreshSyncPanel is a stable useCallback; declared later in the file —
+    // ESLint warns about exhaustive deps but TS would also block referencing
+    // it here before its declaration line, so we capture it via closure only.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [t],
+  );
+
+  const handleRelinkRequest = useCallback((cellId: string) => {
+    setRelinkTargetCellId(cellId);
+    setPickerOpen(true);
+  }, []);
+
+  const handleConvertRequest = useCallback((cellId: string) => {
+    const frame = iframeRef.current;
+    if (!frame) return;
+    const label = getCellLabel(frame, cellId);
+    setConvertTargetCellId(cellId);
+    setConvertPrefillName(label);
+    setCreateOpen(true);
+  }, []);
 
   /* ---------- Sync panel helpers ---------- */
   const refreshSyncPanel = useCallback(() => {
@@ -586,6 +793,30 @@ export default function DiagramEditor() {
       const frame = iframeRef.current;
       if (!frame) return;
 
+      const typeInfo = fsTypesRef.current.find((t) => t.key === data.type);
+      const color = typeInfo?.color || "#999";
+      const tempId = `pending-${Math.random().toString(36).slice(2)}${Date.now().toString(36)}`;
+
+      // Convert mode: replace an existing plain shape rather than create a
+      // new one. Keeps the user's geometry intact so the shape they laid out
+      // becomes the card.
+      if (convertTargetCellId) {
+        const ok = convertShapeToPendingCard(frame, convertTargetCellId, {
+          tempId,
+          type: data.type,
+          name: data.name,
+          color,
+        });
+        if (ok) {
+          setSnackMsg(t("editor.convertedPending", { name: data.name }));
+          refreshSyncPanel();
+        }
+        setConvertTargetCellId(null);
+        setConvertPrefillName("");
+        setCreateOpen(false);
+        return;
+      }
+
       let x: number, y: number;
       if (contextInsertPosRef.current) {
         ({ x, y } = contextInsertPosRef.current);
@@ -595,10 +826,6 @@ export default function DiagramEditor() {
         x = center ? center.x - 90 : 100;
         y = center ? center.y - 30 : 100;
       }
-
-      const typeInfo = fsTypesRef.current.find((t) => t.key === data.type);
-      const color = typeInfo?.color || "#999";
-      const tempId = `pending-${Math.random().toString(36).slice(2)}${Date.now().toString(36)}`;
 
       const cellId = insertPendingCard(frame, {
         tempId,
@@ -615,7 +842,7 @@ export default function DiagramEditor() {
       }
       setCreateOpen(false);
     },
-    [refreshSyncPanel],
+    [refreshSyncPanel, convertTargetCellId],
   );
 
   /* ---------- Relation picker result ---------- */
@@ -709,13 +936,13 @@ export default function DiagramEditor() {
           return;
         }
 
-        await api.post("/relations", {
+        const created = await api.post<Relation>("/relations", {
           type: rel.relationType,
           source_id: rel.sourceCardId,
           target_id: rel.targetCardId,
         });
 
-        markEdgeSynced(frame, edgeCellId, "#666");
+        markEdgeSynced(frame, edgeCellId, "#666", created.id);
         setSnackMsg(t("editor.relationPushed", { label: rel.relationLabel }));
         refreshSyncPanel();
       } catch {
@@ -758,15 +985,42 @@ export default function DiagramEditor() {
           continue; // skip if endpoints still pending
         }
         try {
-          await api.post("/relations", {
+          const created = await api.post<Relation>("/relations", {
             type: r.relationType,
             source_id: r.sourceCardId,
             target_id: r.targetCardId,
           });
-          markEdgeSynced(frame, r.edgeCellId, "#666");
+          markEdgeSynced(frame, r.edgeCellId, "#666", created.id);
         } catch {
           setSnackMsg(t("editor.errors.syncRelationFailed", { label: r.relationLabel }));
         }
+      }
+
+      // 3. Process relation deletions (canvas edges that were removed)
+      const relRemovals = pendingRelRemovals;
+      for (const r of relRemovals) {
+        try {
+          await api.delete(`/relations/${r.relationId}`);
+        } catch {
+          setSnackMsg(t("editor.errors.deleteRelationFailed", { label: r.relationLabel }));
+        }
+      }
+      if (relRemovals.length > 0) setPendingRelRemovals([]);
+
+      // 4. Process card removals — archive only when the user opted in.
+      const cardRemovals = pendingCardRemovals;
+      for (const c of cardRemovals) {
+        if (archiveOnSync.has(c.cellId)) {
+          try {
+            await api.delete(`/cards/${c.cardId}`);
+          } catch {
+            setSnackMsg(t("editor.errors.archiveCardFailed", { name: c.name }));
+          }
+        }
+      }
+      if (cardRemovals.length > 0) {
+        setPendingCardRemovals([]);
+        setArchiveOnSync(new Set());
       }
 
       refreshSyncPanel();
@@ -774,7 +1028,7 @@ export default function DiagramEditor() {
     } finally {
       setSyncing(false);
     }
-  }, [handleToggleGroup, refreshSyncPanel]);
+  }, [handleToggleGroup, refreshSyncPanel, pendingRelRemovals, pendingCardRemovals, archiveOnSync]);
 
   const handleRemoveFS = useCallback(
     (cellId: string) => {
@@ -792,6 +1046,80 @@ export default function DiagramEditor() {
       refreshSyncPanel();
     },
     [refreshSyncPanel],
+  );
+
+  /** Discard a tombstoned card removal (keeps the card in inventory). */
+  const handleDiscardCardRemoval = useCallback((cellId: string) => {
+    setPendingCardRemovals((prev) => prev.filter((c) => c.cellId !== cellId));
+    setArchiveOnSync((prev) => {
+      if (!prev.has(cellId)) return prev;
+      const next = new Set(prev);
+      next.delete(cellId);
+      return next;
+    });
+  }, []);
+
+  /** Discard a tombstoned relation removal (keeps the relation in inventory). */
+  const handleDiscardRelRemoval = useCallback((edgeCellId: string) => {
+    setPendingRelRemovals((prev) => prev.filter((r) => r.edgeCellId !== edgeCellId));
+  }, []);
+
+  /** Toggle whether a tombstoned card removal should also archive the card. */
+  const handleToggleArchive = useCallback((cellId: string) => {
+    setArchiveOnSync((prev) => {
+      const next = new Set(prev);
+      if (next.has(cellId)) next.delete(cellId);
+      else next.add(cellId);
+      return next;
+    });
+  }, []);
+
+  /** Sync a single relation deletion immediately. */
+  const handleSyncRelRemoval = useCallback(
+    async (edgeCellId: string) => {
+      const target = pendingRelRemovals.find((r) => r.edgeCellId === edgeCellId);
+      if (!target) return;
+      setSyncing(true);
+      try {
+        await api.delete(`/relations/${target.relationId}`);
+        setPendingRelRemovals((prev) => prev.filter((r) => r.edgeCellId !== edgeCellId));
+        setSnackMsg(t("editor.relationDeleted", { label: target.relationLabel }));
+      } catch {
+        setSnackMsg(t("editor.errors.deleteRelationFailed", { label: target.relationLabel }));
+      } finally {
+        setSyncing(false);
+      }
+    },
+    [pendingRelRemovals, t],
+  );
+
+  /** Sync a single card removal immediately (archive if opted in). */
+  const handleSyncCardRemoval = useCallback(
+    async (cellId: string) => {
+      const target = pendingCardRemovals.find((c) => c.cellId === cellId);
+      if (!target) return;
+      setSyncing(true);
+      try {
+        if (archiveOnSync.has(cellId)) {
+          await api.delete(`/cards/${target.cardId}`);
+          setSnackMsg(t("editor.cardArchived", { name: target.name }));
+        } else {
+          setSnackMsg(t("editor.removedFromDiagram", { name: target.name }));
+        }
+        setPendingCardRemovals((prev) => prev.filter((c) => c.cellId !== cellId));
+        setArchiveOnSync((prev) => {
+          if (!prev.has(cellId)) return prev;
+          const next = new Set(prev);
+          next.delete(cellId);
+          return next;
+        });
+      } catch {
+        setSnackMsg(t("editor.errors.archiveCardFailed", { name: target.name }));
+      } finally {
+        setSyncing(false);
+      }
+    },
+    [pendingCardRemovals, archiveOnSync, t],
   );
 
   const handleCheckUpdates = useCallback(async () => {
@@ -870,6 +1198,7 @@ export default function DiagramEditor() {
               setTimeout(() => {
                 if (iframeRef.current) {
                   refreshCardOverlays(iframeRef.current, handleToggleGroup);
+                  attachLifecycleListenersOnce(iframeRef.current);
                 }
               }, 200);
             } else if (attempt < 50) {
@@ -931,6 +1260,18 @@ export default function DiagramEditor() {
           }
           break;
 
+        case "unlinkCell":
+          if (msg.cellId) handleUnlinkRequest(msg.cellId);
+          break;
+
+        case "relinkCell":
+          if (msg.cellId) handleRelinkRequest(msg.cellId);
+          break;
+
+        case "convertCell":
+          if (msg.cellId) handleConvertRequest(msg.cellId);
+          break;
+
         default:
           break;
       }
@@ -938,7 +1279,16 @@ export default function DiagramEditor() {
 
     window.addEventListener("message", handler);
     return () => window.removeEventListener("message", handler);
-  }, [diagram, postToDrawIO, saveDiagram, navigate, handleToggleGroup]);
+  }, [
+    diagram,
+    postToDrawIO,
+    saveDiagram,
+    navigate,
+    handleToggleGroup,
+    handleUnlinkRequest,
+    handleRelinkRequest,
+    handleConvertRequest,
+  ]);
 
   // Refresh sync panel counts whenever it opens
   useEffect(() => {
@@ -946,7 +1296,60 @@ export default function DiagramEditor() {
   }, [syncOpen, refreshSyncPanel]);
 
   /* ---------- Derived ---------- */
-  const totalPending = pendingCards.length + pendingRels.length;
+  const totalPending =
+    pendingCards.length + pendingRels.length + pendingCardRemovals.length + pendingRelRemovals.length;
+
+  /* ---------- Warn on unload when there are unsynced changes ---------- */
+  useEffect(() => {
+    if (totalPending === 0) return;
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      // Modern browsers ignore the message but still display a generic
+      // confirmation dialog when returnValue is set.
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [totalPending]);
+
+  /* ---------- Local autosave of the in-flight XML ---------- */
+  useEffect(() => {
+    if (!id) return;
+    const intervalId = window.setInterval(() => {
+      const frame = iframeRef.current;
+      if (!frame) return;
+      // Pull current XML from DrawIO via its event-driven export — but for a
+      // lightweight autosave we just read the serialised model directly via
+      // mxGraph's codec. This avoids round-tripping through postMessage.
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const win = frame.contentWindow as any;
+        if (!win?.__turboGraph || !win.mxUtils || !win.mxCodec) return;
+        const enc = new win.mxCodec();
+        const node = enc.encode(win.__turboGraph.getModel());
+        const xml = win.mxUtils.getXml(node);
+        if (!xml) return;
+        const draft = { xml, savedAt: new Date().toISOString() };
+        localStorage.setItem(`turbo-ea-diagram-draft-${id}`, JSON.stringify(draft));
+      } catch {
+        // Editor not ready — try next tick
+      }
+    }, 5000);
+    return () => window.clearInterval(intervalId);
+  }, [id]);
+
+  /* ---------- Restore banner: replace the XML with the locally-saved draft ---------- */
+  const acceptRestore = useCallback(() => {
+    if (!restoreBanner) return;
+    postToDrawIO({ action: "load", xml: restoreBanner.xml, autosave: 0 });
+    setRestoreBanner(null);
+    setSnackMsg(t("editor.restored"));
+  }, [restoreBanner, postToDrawIO, t]);
+
+  const dismissRestore = useCallback(() => {
+    if (id) localStorage.removeItem(`turbo-ea-diagram-draft-${id}`);
+    setRestoreBanner(null);
+  }, [id]);
 
   /* ---------- Render ---------- */
   if (!canManage) {
@@ -1002,20 +1405,76 @@ export default function DiagramEditor() {
         </Typography>
         {saving && <CircularProgress size={16} sx={{ ml: 1 }} />}
 
-        {/* Sync button */}
-        <Tooltip title={t("editor.toolbar.syncTooltip")}>
+        {/* Sync button — louder when there are unsynced changes so users
+            don't accidentally walk away with pending work. */}
+        <Tooltip
+          title={
+            totalPending > 0
+              ? t("editor.toolbar.syncTooltipPending", { count: totalPending })
+              : t("editor.toolbar.syncTooltip")
+          }
+        >
           <Button
             size="small"
             variant={totalPending > 0 ? "contained" : "outlined"}
             color={totalPending > 0 ? "warning" : "inherit"}
-            startIcon={<MaterialSymbol icon="sync" size={18} />}
+            startIcon={
+              <MaterialSymbol
+                icon={totalPending > 0 ? "warning" : "sync"}
+                size={18}
+              />
+            }
             onClick={() => setSyncOpen(true)}
-            sx={{ textTransform: "none", minWidth: 0, px: 1.5, py: 0.25, fontSize: "0.8rem" }}
+            sx={{
+              textTransform: "none",
+              minWidth: 0,
+              px: 1.5,
+              py: 0.25,
+              fontSize: "0.8rem",
+              fontWeight: totalPending > 0 ? 700 : 500,
+              animation:
+                totalPending > 0 ? "turboea-pulse 1.6s ease-in-out infinite" : "none",
+              "@keyframes turboea-pulse": {
+                "0%,100%": { boxShadow: "0 0 0 0 rgba(237,108,2,0.5)" },
+                "50%": { boxShadow: "0 0 0 6px rgba(237,108,2,0)" },
+              },
+            }}
           >
-            {totalPending > 0 ? t("editor.toolbar.syncCount", { count: totalPending }) : t("editor.toolbar.sync")}
+            {totalPending > 0
+              ? t("editor.toolbar.unsyncedCount", { count: totalPending })
+              : t("editor.toolbar.sync")}
           </Button>
         </Tooltip>
       </Box>
+
+      {restoreBanner && (
+        <Box
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            gap: 1,
+            px: 2,
+            py: 1,
+            bgcolor: "warning.light",
+            color: "warning.contrastText",
+            borderBottom: "1px solid",
+            borderColor: "divider",
+          }}
+        >
+          <MaterialSymbol icon="history" size={20} />
+          <Typography variant="body2" sx={{ flex: 1 }}>
+            {t("editor.restore.banner", {
+              when: new Date(restoreBanner.savedAt).toLocaleString(),
+            })}
+          </Typography>
+          <Button size="small" variant="contained" onClick={acceptRestore}>
+            {t("editor.restore.accept")}
+          </Button>
+          <Button size="small" onClick={dismissRestore}>
+            {t("editor.restore.discard")}
+          </Button>
+        </Box>
+      )}
 
       {/* DrawIO canvas */}
       <Box sx={{ flex: 1, display: "flex", overflow: "hidden" }}>
@@ -1032,14 +1491,24 @@ export default function DiagramEditor() {
       {/* Dialogs */}
       <CardPickerDialog
         open={pickerOpen}
-        onClose={() => { setPickerOpen(false); contextInsertPosRef.current = null; }}
+        onClose={() => {
+          setPickerOpen(false);
+          contextInsertPosRef.current = null;
+          setRelinkTargetCellId(null);
+        }}
         onInsert={handleInsertCard}
       />
 
       <CreateOnDiagramDialog
         open={createOpen}
         types={fsTypes}
-        onClose={() => { setCreateOpen(false); contextInsertPosRef.current = null; }}
+        prefillName={convertPrefillName}
+        onClose={() => {
+          setCreateOpen(false);
+          contextInsertPosRef.current = null;
+          setConvertTargetCellId(null);
+          setConvertPrefillName("");
+        }}
         onCreate={handleCreateCard}
       />
 
@@ -1056,6 +1525,9 @@ export default function DiagramEditor() {
         onClose={() => setSyncOpen(false)}
         pendingCards={pendingCards}
         pendingRels={pendingRels}
+        pendingCardRemovals={pendingCardRemovals}
+        pendingRelRemovals={pendingRelRemovals}
+        archiveOnSync={archiveOnSync}
         staleItems={staleItems}
         syncing={syncing}
         onSyncAll={handleSyncAll}
@@ -1063,6 +1535,11 @@ export default function DiagramEditor() {
         onSyncRel={handleSyncRel}
         onRemoveFS={handleRemoveFS}
         onRemoveRel={handleRemoveRel}
+        onSyncCardRemoval={handleSyncCardRemoval}
+        onSyncRelRemoval={handleSyncRelRemoval}
+        onDiscardCardRemoval={handleDiscardCardRemoval}
+        onDiscardRelRemoval={handleDiscardRelRemoval}
+        onToggleArchive={handleToggleArchive}
         onAcceptStale={handleAcceptStale}
         onCheckUpdates={handleCheckUpdates}
         checkingUpdates={checkingUpdates}

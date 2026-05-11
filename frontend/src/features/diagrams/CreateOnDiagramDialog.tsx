@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import Dialog from "@mui/material/Dialog";
 import DialogTitle from "@mui/material/DialogTitle";
@@ -16,6 +16,8 @@ import type { CardType } from "@/types";
 interface Props {
   open: boolean;
   types: CardType[];
+  /** Optional initial name — used when converting an existing DrawIO shape. */
+  prefillName?: string;
   onClose: () => void;
   onCreate: (data: { type: string; name: string; description?: string }) => void;
 }
@@ -25,12 +27,23 @@ interface Props {
  * Only asks for type + name (+ optional description).  The actual API call is
  * deferred until the user synchronises from the sync panel.
  */
-export default function CreateOnDiagramDialog({ open, types, onClose, onCreate }: Props) {
+export default function CreateOnDiagramDialog({
+  open,
+  types,
+  prefillName,
+  onClose,
+  onCreate,
+}: Props) {
   const { t } = useTranslation(["diagrams", "common"]);
   const rml = useResolveMetaLabel();
   const [selectedType, setSelectedType] = useState("");
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+
+  // Seed the name when the dialog opens with a prefill (Convert-to-Card flow).
+  useEffect(() => {
+    if (open && prefillName) setName(prefillName);
+  }, [open, prefillName]);
 
   const visibleTypes = types.filter((t) => !t.is_hidden);
   const typeInfo = visibleTypes.find((t) => t.key === selectedType);

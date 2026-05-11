@@ -5,6 +5,19 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.8.0] - 2026-05-11
+
+### Added
+- **Diagram editor — paste/duplicate dedup.** Copying a card cell on the canvas no longer leaves two shapes pointing at the same backend card. Pending clones get a fresh temp id (so they sync as separate cards); synced clones are turned into "unlinked" stubs (grey dashed border) that the user can re-link via the context menu.
+- **Diagram editor — beforeunload warning.** Closing the tab or navigating away with unsynced cards, relations, or queued deletions now triggers the browser's standard "leave page?" prompt.
+- **Diagram editor — local autosave + restore prompt.** The current canvas XML is written to `localStorage` every 5 seconds; on reopen, if a newer local draft exists than the server's saved version, a banner offers to restore it.
+- **Diagram editor — deletion sync.** Removing a synced card cell or a synced relation edge from the canvas now lands in dedicated "Removed cards" / "Removed relations" buckets in the sync panel. Card removals default to *diagram-only* (the card stays in inventory) with an explicit "Also archive the card" checkbox; relation removals issue `DELETE /relations/{id}` on next Sync All.
+- **Diagram editor — context menu link/unlink/convert actions.** Right-click on a synced card now offers *Change Linked Card…* and *Unlink Card*. Right-click on a plain DrawIO shape offers *Link to Existing Card…* and *Convert to Card…* — the latter keeps the shape's geometry and turns it into a pending card.
+- **Diagram editor — louder unsynced indicator.** The toolbar Sync button switches to a pulsing warning pill labelled "N unsynced" whenever pending work exists.
+
+### Changed
+- **Synced relation edges now persist their backend `relationId`** as an XML attribute so canvas deletions can issue the corresponding `DELETE /relations/{id}` call.
+
 ## [1.7.0] - 2026-05-11
 
 ### Added
