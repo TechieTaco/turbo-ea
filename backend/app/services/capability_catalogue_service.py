@@ -34,6 +34,15 @@ logger = logging.getLogger(__name__)
 BUSINESS_CAPABILITY_TYPE: str = "BusinessCapability"
 SETTINGS_KEY: str = common.CAPABILITY_CACHE_KEY
 
+# Macro capabilities sit above L1 in the rendered tree but stay flat in the
+# wheel — they reference L1s by id via ``capability_ids``. We surface them
+# in the same flat payload as synthetic ``level=0`` entries so the existing
+# tree-render and BFS-import code handles the new tier with no structural
+# change.
+MACRO_LEVEL: int = 0
+MACRO_CAPABILITY_LEVEL_KEY: str = "Macro"
+MACRO_ID_PREFIX: str = "MC-"
+
 
 # ---------------------------------------------------------------------------
 # Loading: bundled vs cached-remote
@@ -90,6 +99,106 @@ def _localize_via_bundled_package(
     return common.localize_flat_with_table(flat, table)
 
 
+def _macro_to_capability_entry(macro: dict[str, Any]) -> dict[str, Any]:
+    """Project a macro definition into the same shape as a flat capability
+    entry so it can sit alongside L1s in the payload.
+
+    Macro-only fields (``in_scope``, ``out_of_scope``, ``framework_refs``,
+    ``references``, ``capability_ids``) are passed through verbatim — the
+    frontend can render them in the detail panel, and ``localize_flat_with_table``
+    already knows how to overlay ``in_scope`` / ``out_of_scope``.
+    """
+    entry: dict[str, Any] = {
+        "id": macro["id"],
+        "name": macro["name"],
+        "level": MACRO_LEVEL,
+        "parent_id": None,
+        "description": macro.get("description"),
+        "industry": macro.get("industry"),
+        "deprecated": bool(macro.get("deprecated", False)),
+    }
+    if macro.get("in_scope"):
+        entry["in_scope"] = list(macro["in_scope"])
+    if macro.get("out_of_scope"):
+        entry["out_of_scope"] = list(macro["out_of_scope"])
+    if macro.get("framework_refs"):
+        entry["framework_refs"] = list(macro["framework_refs"])
+    if macro.get("references"):
+        entry["references"] = list(macro["references"])
+    if macro.get("successor_id"):
+        entry["successor_id"] = macro["successor_id"]
+    return entry
+
+
+def _inject_macros(
+    flat: list[dict[str, Any]],
+    macros: list[dict[str, Any]],
+) -> tuple[list[dict[str, Any]], list[str]]:
+    """Return a flat payload with macros prepended and L1.parent_id rewritten.
+
+    For every macro, each id in ``capability_ids`` has its corresponding
+    capability's ``parent_id`` rewritten to the macro's id. MECE invariant:
+    a capability should be claimed by at most one macro. If two macros
+    claim the same capability the *first* macro wins (matches the order
+    macros appear in the wheel artefact) and a warning string is returned
+    — the catalogue endpoints surface warnings rather than failing because
+    upstream CI checks MECE separately and we should not 5xx on a
+    misconfigured wheel.
+    """
+    if not macros:
+        return flat, []
+
+    macro_entries = [_macro_to_capability_entry(m) for m in macros]
+    macro_ids: set[str] = {m["id"] for m in macro_entries}
+
+    claimed_by: dict[str, str] = {}
+    warnings: list[str] = []
+    for macro in macros:
+        macro_id = macro.get("id")
+        if not macro_id:
+            continue
+        for cap_id in macro.get("capability_ids") or []:
+            if cap_id in claimed_by:
+                warnings.append(
+                    f"capability {cap_id} claimed by macros {claimed_by[cap_id]} "
+                    f"and {macro_id}; ignoring {macro_id}"
+                )
+                continue
+            claimed_by[cap_id] = macro_id
+
+    rewritten: list[dict[str, Any]] = []
+    for cap in flat:
+        cap_id = cap.get("id")
+        # Skip any stray macro entries already present in `flat` to keep the
+        # prepended-then-flat-list shape unambiguous.
+        if cap_id in macro_ids:
+            continue
+        if cap_id in claimed_by:
+            rewritten.append({**cap, "parent_id": claimed_by[cap_id]})
+        else:
+            rewritten.append(cap)
+
+    return macro_entries + rewritten, warnings
+
+
+def _bundled_macros() -> list[dict[str, Any]]:
+    """Bundled macros — graceful empty list on older wheels."""
+    return common.load_bundled_macros_raw()
+
+
+def _resolve_active_macros(cached: dict[str, Any] | None) -> list[dict[str, Any]]:
+    """Pick macros from the cached remote when active, else the bundled wheel.
+
+    Mirrors `_resolve_active_catalogue` selection logic so macros stay in
+    sync with the capabilities payload they group.
+    """
+    if cached is not None:
+        cached_macros = cached.get("macros")
+        if isinstance(cached_macros, list):
+            return cached_macros
+    return _bundled_macros()
+
+
 async def _resolve_active_catalogue(
     db: AsyncSession,
     *,
@@ -100,9 +209,18 @@ async def _resolve_active_catalogue(
     Cached remote wins only if its version is strictly greater than bundled.
     Localization tables come from the cached i18n blob (newer caches), or
     fall back to the bundled package's `localized()` (older caches).
+
+    Macros are injected here — once at the single source of truth — so the
+    GET payload and `import_capabilities` see the same flat list with the
+    same parent_id rewriting. Doing it anywhere else (e.g. only in
+    `get_catalogue_payload`) would silently no-op the auto-relink path of
+    pre-existing L1 cards on macro import.
     """
     bundled_flat, bundled_meta = _bundled_payload(locale=locale)
     cached = await common.get_cached_remote(db, SETTINGS_KEY)
+    macros = _resolve_active_macros(cached)
+    # Localize macros via the same i18n table — entries are keyed by id, so
+    # macro ids (``MC-*``) and capability ids (``BC-*``) coexist cleanly.
     if cached and common.version_tuple(cached.get("catalogue_version", "0")) > common.version_tuple(
         bundled_meta["catalogue_version"]
     ):
@@ -112,25 +230,42 @@ async def _resolve_active_catalogue(
         bundled_locales = set(_bundled_available_locales())
         available = sorted({"en"} | cached_locales | bundled_locales)
         effective = common.resolve_effective_locale(locale, available)
+        macros_localized = macros
         if effective != "en":
             table = cached_i18n.get(effective)
             if table:
                 cached_data = common.localize_flat_with_table(cached_data, table)
+                macros_localized = common.localize_flat_with_table(macros, table)
             else:
                 cached_data = _localize_via_bundled_package(cached_data, locale=effective)
-        return cached_data, {
+                macros_localized = _localize_via_bundled_package(macros, locale=effective)
+        merged, warnings = _inject_macros(cached_data, macros_localized)
+        return merged, {
             "catalogue_version": cached["catalogue_version"],
             "schema_version": str(cached.get("schema_version", "")),
             "generated_at": cached.get("generated_at"),
             "node_count": cached.get("node_count", len(cached["data"])),
+            "macro_count": len(macros_localized),
+            "macro_warnings": warnings,
             "source": "remote",
             "fetched_at": cached.get("fetched_at"),
             "bundled_version": bundled_meta["catalogue_version"],
             "available_locales": available,
             "active_locale": effective,
         }
-    return bundled_flat, {
+    # Bundled path — macros come from the wheel; localize via the same
+    # bundled i18n table that handled the capabilities flat above.
+    effective_locale = bundled_meta.get("active_locale", "en")
+    macros_localized = macros
+    if effective_locale != "en" and macros:
+        table = common.bundled_i18n_table(effective_locale)
+        if table:
+            macros_localized = common.localize_flat_with_table(macros, table)
+    merged, warnings = _inject_macros(bundled_flat, macros_localized)
+    return merged, {
         **bundled_meta,
+        "macro_count": len(macros_localized),
+        "macro_warnings": warnings,
         "source": "bundled",
         "bundled_version": bundled_meta["catalogue_version"],
     }
@@ -165,8 +300,16 @@ async def get_catalogue_payload(
         english_names = {c["id"]: c["name"] for c in english_flat}
     annotated: list[dict[str, Any]] = []
     for cap in flat:
-        match_name = (english_names or {}).get(cap["id"], cap["name"])
-        existing = cat_id_index.get(cap["id"]) or name_index.get(common.normalize_name(match_name))
+        cap_id = cap["id"]
+        # Macros: match by catalogueId only. A customer might already have a
+        # card named e.g. "Enterprise Governance & Risk" that has nothing to
+        # do with macro MC-10; falling back to name-match would silently
+        # re-link unrelated L1s under it on the next macro import.
+        if cap_id.startswith(MACRO_ID_PREFIX):
+            existing = cat_id_index.get(cap_id)
+        else:
+            match_name = (english_names or {}).get(cap_id, cap["name"])
+            existing = cat_id_index.get(cap_id) or name_index.get(common.normalize_name(match_name))
         annotated.append({**cap, "existing_card_id": existing})
     return {"version": meta, "capabilities": annotated}
 
@@ -206,12 +349,17 @@ async def import_capabilities(
 
     catalogue_id_to_card_id: dict[str, str] = {}
     for cap in flat:
-        english_name = english_by_id.get(cap["id"], cap)["name"]
-        existing_card_id = cat_id_index.get(cap["id"]) or name_index.get(
-            common.normalize_name(english_name)
-        )
+        cap_id = cap["id"]
+        # Macros: match by catalogueId only (see get_catalogue_payload for why).
+        if cap_id.startswith(MACRO_ID_PREFIX):
+            existing_card_id = cat_id_index.get(cap_id)
+        else:
+            english_name = english_by_id.get(cap_id, cap)["name"]
+            existing_card_id = cat_id_index.get(cap_id) or name_index.get(
+                common.normalize_name(english_name)
+            )
         if existing_card_id:
-            catalogue_id_to_card_id[cap["id"]] = existing_card_id
+            catalogue_id_to_card_id[cap_id] = existing_card_id
     pre_existing_ids: set[str] = set(catalogue_id_to_card_id.keys())
 
     requested = {cid for cid in catalogue_ids if cid in by_id}
@@ -240,11 +388,14 @@ async def import_capabilities(
         if cat_parent and cat_parent in catalogue_id_to_card_id:
             parent_card_id = catalogue_id_to_card_id[cat_parent]
 
+        level_key = (
+            MACRO_CAPABILITY_LEVEL_KEY if cap["level"] == MACRO_LEVEL else f"L{cap['level']}"
+        )
         attrs: dict[str, Any] = {
             "catalogueId": cap["id"],
             "catalogueVersion": meta.get("catalogue_version"),
             "catalogueImportedAt": now,
-            "capabilityLevel": f"L{cap['level']}",
+            "capabilityLevel": level_key,
         }
         if meta.get("active_locale", "en") != "en":
             attrs["catalogueLocale"] = meta["active_locale"]
@@ -301,11 +452,13 @@ async def import_capabilities(
         )
 
     await db.commit()
+    macro_warnings = list(meta.get("macro_warnings") or [])
     return {
         "created": created,
         "skipped": skipped,
         "relinked": relinked,
         "catalogue_version": meta.get("catalogue_version"),
+        "warnings": macro_warnings,
     }
 
 

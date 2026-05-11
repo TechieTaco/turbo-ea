@@ -13,7 +13,10 @@ const config: CatalogueKindConfig = {
   // catalog.turbo-ea.org).
   accentColor: "#003399",
   selectionColor: "#D63384",
-  levelLabel: (level) => `L${level}`,
+  // Level 0 represents Macro Capabilities — an executive-level grouping
+  // above L1. Cross-Industry currently ships 9 macros (MC-10..MC-90); other
+  // industries may add their own later.
+  levelLabel: (level) => (level === 0 ? "Macro" : `L${level}`),
   heroIcon: "account_tree",
 };
 

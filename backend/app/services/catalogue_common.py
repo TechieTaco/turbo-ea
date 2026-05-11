@@ -61,6 +61,7 @@ WHEEL_VERSION_PATH: str = "turbo_ea_capabilities/data/version.json"
 WHEEL_CAPABILITIES_PATH: str = "turbo_ea_capabilities/data/capabilities.json"
 WHEEL_PROCESSES_PATH: str = "turbo_ea_capabilities/data/business-processes.json"
 WHEEL_VALUE_STREAMS_PATH: str = "turbo_ea_capabilities/data/value-streams.json"
+WHEEL_MACROS_PATH: str = "turbo_ea_capabilities/data/macro-capabilities.json"
 WHEEL_I18N_DIR: str = "turbo_ea_capabilities/data/i18n/"
 
 # Subset of fields that translation tables may carry. Same shape as the
@@ -278,6 +279,19 @@ def load_bundled_value_streams_raw() -> list[dict[str, Any]]:
     return list(raw)
 
 
+def load_bundled_macros_raw() -> list[dict[str, Any]]:
+    """Flat list of bundled macro capabilities as plain dicts.
+
+    Macros are an additive overlay above L1 capabilities (executive-level
+    grouping). Older wheels pre-date the artefact and the file is absent —
+    we return ``[]`` so the catalogue endpoints continue to work unchanged.
+    """
+    raw = read_bundled_json("macro-capabilities.json")
+    if not isinstance(raw, list):
+        return []
+    return list(raw)
+
+
 def bundled_i18n_table(locale: str) -> dict[str, dict[str, Any]] | None:
     """Read ``data/i18n/<locale>.json`` (returns None for ``en`` or missing)."""
     if locale == "en":
@@ -399,6 +413,8 @@ def extract_all_catalogues_from_wheel(
           wheel has shipped this since the very first release.
         - `processes`: flat list — None if the wheel pre-dates schema_version 2.
         - `value_streams`: nested list of stream + stages — None if old wheel.
+        - `macros`: flat list of macro capabilities — None if the wheel
+          pre-dates the macro artefact.
         - `i18n`: `{locale: {entry_id: {field: value, ...}}}`
 
     The flat-form `capabilities.json` and `business-processes.json` files
@@ -406,12 +422,16 @@ def extract_all_catalogues_from_wheel(
     `children` field to keep cached payloads compact (downstream code
     rebuilds hierarchy from `parent_id`). Value streams are tiny by
     comparison and ship as a nested list, so we cache them as-is.
+
+    Macros are stored as a flat list and never carry `children` — they
+    reference L1 capabilities by id (``capability_ids``) instead.
     """
     out: dict[str, Any] = {
         "version": None,
         "capabilities": None,
         "processes": None,
         "value_streams": None,
+        "macros": None,
         "i18n": {},
     }
     with zipfile.ZipFile(io.BytesIO(wheel_bytes)) as zf:
@@ -442,6 +462,12 @@ def extract_all_catalogues_from_wheel(
                 vs_raw = json.loads(vsf.read().decode("utf-8"))
             if isinstance(vs_raw, list):
                 out["value_streams"] = vs_raw
+
+        if WHEEL_MACROS_PATH in names:
+            with zf.open(WHEEL_MACROS_PATH) as mf:
+                macros_raw = json.loads(mf.read().decode("utf-8"))
+            if isinstance(macros_raw, list):
+                out["macros"] = list(macros_raw)
 
         i18n_tables: dict[str, dict[str, Any]] = {}
         for name in names:
@@ -551,8 +577,10 @@ async def fetch_and_cache_all(db: AsyncSession) -> dict[str, Any]:
 
     if artefacts.get("capabilities") is not None:
         caps = artefacts["capabilities"]
+        macros = artefacts.get("macros") or []
         updates[CAPABILITY_CACHE_KEY] = {
             "data": caps,
+            "macros": macros,
             "i18n": i18n,
             "catalogue_version": catalogue_version,
             "schema_version": schema_version,

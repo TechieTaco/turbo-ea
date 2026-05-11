@@ -132,7 +132,11 @@ class _FakeCap:
         return clone
 
 
-def _install_fake_pkg(monkeypatch: pytest.MonkeyPatch) -> None:
+def _install_fake_pkg(
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    macros: list[dict[str, Any]] | None = None,
+) -> None:
     """Patch the bundled-data readers + the catalogue_pkg constants.
 
     The service no longer goes through the upstream Pydantic loader (the
@@ -142,6 +146,9 @@ def _install_fake_pkg(monkeypatch: pytest.MonkeyPatch) -> None:
     ``common.load_bundled_capabilities_raw``. Tests have to swap out
     those helpers, plus the i18n table reader, instead of patching
     ``catalogue_pkg.load_all``.
+
+    `macros` defaults to an empty list — pre-PR-#85 wheels ship no macro
+    artefact. Tests that exercise the macro tier pass an explicit list.
     """
     fake = types.ModuleType("turbo_ea_capabilities")
     fake.VERSION = "1.2.3"
@@ -154,6 +161,7 @@ def _install_fake_pkg(monkeypatch: pytest.MonkeyPatch) -> None:
 
     monkeypatch.setattr(svc, "catalogue_pkg", fake)
     monkeypatch.setattr(common, "load_bundled_capabilities_raw", lambda: list(_FAKE_CATALOGUE))
+    monkeypatch.setattr(common, "load_bundled_macros_raw", lambda: list(macros) if macros else [])
     monkeypatch.setattr(
         common, "bundled_i18n_table", lambda locale: _FAKE_FR if locale == "fr" else None
     )
@@ -1197,4 +1205,308 @@ async def test_extract_catalogue_from_wheel_handles_missing_i18n_dir():
     assert len(artefacts["capabilities"]) == 2
     assert artefacts["processes"] is None
     assert artefacts["value_streams"] is None
+    assert artefacts["macros"] is None
     assert artefacts["i18n"] == {}
+
+
+# ---------------------------------------------------------------------------
+# Macro Capabilities — the executive grouping above L1 (PR #85 upstream).
+# ---------------------------------------------------------------------------
+
+
+_FAKE_MACROS: list[dict[str, Any]] = [
+    {
+        "id": "MC-10",
+        "name": "Customer Experience",
+        "industry": "Cross-Industry",
+        "description": "Grouping for everything customer-facing.",
+        "in_scope": ["Customer journeys"],
+        "out_of_scope": ["Internal operations"],
+        "capability_ids": ["BC-1"],  # claims BC-1 (Customer Management)
+    },
+    {
+        "id": "MC-20",
+        "name": "Finance & Risk",
+        "industry": "Cross-Industry",
+        "description": "Grouping for finance.",
+        "capability_ids": ["BC-2"],  # claims BC-2 (Finance)
+    },
+]
+
+
+@pytest.mark.asyncio
+async def test_payload_emits_macros_and_rewrites_l1_parent(db, monkeypatch):
+    """With macros loaded, the flat payload prepends synthetic level-0
+    entries for each macro and rewrites the `parent_id` of every L1 listed
+    in a macro's `capability_ids`."""
+    _install_fake_pkg(monkeypatch, macros=_FAKE_MACROS)
+    from app.services import capability_catalogue_service as svc
+
+    payload = await svc.get_catalogue_payload(db)
+    by_id = {c["id"]: c for c in payload["capabilities"]}
+
+    assert by_id["MC-10"]["level"] == 0
+    assert by_id["MC-10"]["parent_id"] is None
+    assert by_id["MC-10"]["name"] == "Customer Experience"
+    assert by_id["MC-20"]["level"] == 0
+
+    # L1s claimed by macros get their parent rewritten to the macro id.
+    assert by_id["BC-1"]["parent_id"] == "MC-10"
+    assert by_id["BC-2"]["parent_id"] == "MC-20"
+    # Deeper levels keep their original parent.
+    assert by_id["BC-1.1"]["parent_id"] == "BC-1"
+    assert by_id["BC-1.1.1"]["parent_id"] == "BC-1.1"
+
+    assert payload["version"]["macro_count"] == 2
+    assert payload["version"]["macro_warnings"] == []
+
+
+@pytest.mark.asyncio
+async def test_payload_with_no_macros_in_wheel_is_unchanged(db, monkeypatch):
+    """Older wheels that ship no macros produce a payload identical in shape
+    to today's — no level-0 entries, no parent rewriting, no macro keys."""
+    _install_fake_pkg(monkeypatch)  # no macros argument → empty
+    from app.services import capability_catalogue_service as svc
+
+    payload = await svc.get_catalogue_payload(db)
+    levels = {c["level"] for c in payload["capabilities"]}
+    assert 0 not in levels
+    # Original parent_ids preserved.
+    by_id = {c["id"]: c for c in payload["capabilities"]}
+    assert by_id["BC-1"]["parent_id"] is None
+    assert by_id["BC-2"]["parent_id"] is None
+    assert payload["version"]["macro_count"] == 0
+
+
+@pytest.mark.asyncio
+async def test_import_creates_macro_card_with_capability_level_macro(db, monkeypatch):
+    _install_fake_pkg(monkeypatch, macros=_FAKE_MACROS)
+    from app.services import capability_catalogue_service as svc
+
+    user = await create_user(db, email="u@x.com")
+    result = await svc.import_capabilities(db, user=user, catalogue_ids=["MC-10"])
+    assert len(result["created"]) == 1
+    assert result["created"][0]["catalogue_id"] == "MC-10"
+
+    row = (
+        (await db.execute(select(Card).where(Card.attributes["catalogueId"].astext == "MC-10")))
+        .scalars()
+        .one()
+    )
+    assert row.parent_id is None
+    assert row.attributes["capabilityLevel"] == "Macro"
+    assert row.attributes["catalogueId"] == "MC-10"
+    assert row.name == "Customer Experience"
+
+
+@pytest.mark.asyncio
+async def test_import_relinks_pre_existing_l1_under_new_macro(db, monkeypatch):
+    """An L1 imported (or hand-created) before macros existed sits at the top
+    level with parent_id=NULL. Importing the macro that claims it should
+    re-parent the L1 under the macro and report it in `relinked`."""
+    _install_fake_pkg(monkeypatch, macros=_FAKE_MACROS)
+    from app.services import capability_catalogue_service as svc
+
+    user = await create_user(db, email="u@x.com")
+    pre_existing_l1 = await create_card(
+        db,
+        card_type="BusinessCapability",
+        name="Customer Management",
+        user_id=user.id,
+        attributes={"capabilityLevel": "L1"},
+    )
+    assert pre_existing_l1.parent_id is None
+
+    result = await svc.import_capabilities(db, user=user, catalogue_ids=["MC-10"])
+
+    assert len(result["created"]) == 1  # macro
+    assert len(result["relinked"]) == 1
+    assert result["relinked"][0]["catalogue_id"] == "BC-1"
+
+    macro_card = (
+        (await db.execute(select(Card).where(Card.attributes["catalogueId"].astext == "MC-10")))
+        .scalars()
+        .one()
+    )
+    await db.refresh(pre_existing_l1)
+    assert str(pre_existing_l1.parent_id) == str(macro_card.id)
+    # CRITICAL: relinked L1's capabilityLevel must remain "L1", NOT shift to "L2"
+    # despite the new parent (the macro-aware sync in cards._sync_capability_level
+    # subtracts 1 when the chain root is a macro). The relink path goes via raw
+    # SQL UPDATE and doesn't run sync — but a subsequent edit would, and that
+    # path is covered by test_cards.py.
+    assert pre_existing_l1.attributes["capabilityLevel"] == "L1"
+
+
+@pytest.mark.asyncio
+async def test_import_macro_with_l1_in_same_batch_creates_hierarchy(db, monkeypatch):
+    """Selecting macro + its L1 in the same batch must create both cards and
+    wire the L1's parent_id to the macro card."""
+    _install_fake_pkg(monkeypatch, macros=_FAKE_MACROS)
+    from app.services import capability_catalogue_service as svc
+
+    user = await create_user(db, email="u@x.com")
+    result = await svc.import_capabilities(db, user=user, catalogue_ids=["MC-10", "BC-1"])
+
+    assert len(result["created"]) == 2
+    rows = {
+        r.attributes["catalogueId"]: r
+        for r in (
+            await db.execute(
+                select(Card).where(Card.type == "BusinessCapability", Card.status == "ACTIVE")
+            )
+        )
+        .scalars()
+        .all()
+    }
+    assert rows["MC-10"].parent_id is None
+    assert str(rows["BC-1"].parent_id) == str(rows["MC-10"].id)
+    assert rows["MC-10"].attributes["capabilityLevel"] == "Macro"
+    assert rows["BC-1"].attributes["capabilityLevel"] == "L1"
+
+
+@pytest.mark.asyncio
+async def test_macro_matched_by_catalogue_id_only_not_by_name(db, monkeypatch):
+    """A customer might already have a BusinessCapability named
+    "Customer Experience" that has nothing to do with macro MC-10. Macros
+    must not green-tick or skip-import based on the name index — only on
+    `catalogueId`. Otherwise the next macro import would silently re-parent
+    every unrelated L1 (whose capability_ids include "BC-1") under the
+    customer's pre-existing card.
+    """
+    _install_fake_pkg(monkeypatch, macros=_FAKE_MACROS)
+    from app.services import capability_catalogue_service as svc
+
+    user = await create_user(db, email="u@x.com")
+    unrelated_card = await create_card(
+        db,
+        card_type="BusinessCapability",
+        name="Customer Experience",  # collides by name with MC-10
+        user_id=user.id,
+    )
+
+    # GET payload must show MC-10 as creatable (no existing_card_id) so the
+    # UI offers the import action.
+    payload = await svc.get_catalogue_payload(db)
+    by_id = {c["id"]: c for c in payload["capabilities"]}
+    assert by_id["MC-10"]["existing_card_id"] is None
+
+    # POST import must create the macro as a NEW card, not skip on the
+    # name match.
+    result = await svc.import_capabilities(db, user=user, catalogue_ids=["MC-10"])
+    assert len(result["created"]) == 1
+    macro_card = (
+        (await db.execute(select(Card).where(Card.attributes["catalogueId"].astext == "MC-10")))
+        .scalars()
+        .one()
+    )
+    assert macro_card.id != unrelated_card.id
+
+
+@pytest.mark.asyncio
+async def test_macro_matched_by_catalogue_id_when_already_imported(db, monkeypatch):
+    """Re-importing a macro must be idempotent — match its `catalogueId`,
+    skip creation."""
+    _install_fake_pkg(monkeypatch, macros=_FAKE_MACROS)
+    from app.services import capability_catalogue_service as svc
+
+    user = await create_user(db, email="u@x.com")
+    first = await svc.import_capabilities(db, user=user, catalogue_ids=["MC-10"])
+    assert len(first["created"]) == 1
+
+    second = await svc.import_capabilities(db, user=user, catalogue_ids=["MC-10"])
+    assert second["created"] == []
+    assert len(second["skipped"]) == 1
+    assert second["skipped"][0]["catalogue_id"] == "MC-10"
+
+
+@pytest.mark.asyncio
+async def test_mece_conflict_first_macro_wins_with_warning(db, monkeypatch):
+    """Two macros claiming the same L1 violates the MECE invariant. CI checks
+    enforce this upstream, but a malformed wheel must not 5xx the catalogue
+    endpoints. The first macro wins; a warning is surfaced."""
+    conflicting = [
+        {
+            "id": "MC-10",
+            "name": "First",
+            "industry": "Cross-Industry",
+            "capability_ids": ["BC-1"],
+        },
+        {
+            "id": "MC-20",
+            "name": "Second",
+            "industry": "Cross-Industry",
+            "capability_ids": ["BC-1"],  # conflict
+        },
+    ]
+    _install_fake_pkg(monkeypatch, macros=conflicting)
+    from app.services import capability_catalogue_service as svc
+
+    payload = await svc.get_catalogue_payload(db)
+    by_id = {c["id"]: c for c in payload["capabilities"]}
+    # First macro wins — BC-1 is parented to MC-10, not MC-20.
+    assert by_id["BC-1"]["parent_id"] == "MC-10"
+    assert by_id["MC-20"]["level"] == 0
+    warnings = payload["version"]["macro_warnings"]
+    assert len(warnings) == 1
+    assert "BC-1" in warnings[0]
+    assert "MC-20" in warnings[0]
+
+
+@pytest.mark.asyncio
+async def test_import_surfaces_macro_warnings_in_response(db, monkeypatch):
+    """A macro import call must surface MECE warnings on the import response
+    so the UI can display them, even though the import itself proceeds."""
+    conflicting = [
+        {"id": "MC-10", "name": "First", "industry": "Cross-Industry", "capability_ids": ["BC-1"]},
+        {"id": "MC-20", "name": "Second", "industry": "Cross-Industry", "capability_ids": ["BC-1"]},
+    ]
+    _install_fake_pkg(monkeypatch, macros=conflicting)
+    from app.services import capability_catalogue_service as svc
+
+    user = await create_user(db, email="u@x.com")
+    result = await svc.import_capabilities(db, user=user, catalogue_ids=["MC-10"])
+    assert result["warnings"] != []
+    assert "BC-1" in result["warnings"][0]
+
+
+@pytest.mark.asyncio
+async def test_macro_localized_via_existing_i18n_table(db, monkeypatch):
+    """Macros share the per-locale i18n table with capabilities — entries are
+    keyed by id, so macro ids (MC-*) and capability ids (BC-*) coexist
+    cleanly. A French fetch must translate macro `name` / `description`."""
+    monkeypatch.setattr(
+        common,
+        "bundled_i18n_table",
+        lambda locale: (
+            {
+                **_FAKE_FR,
+                "MC-10": {"name": "Expérience client", "description": "Regroupement client"},
+            }
+            if locale == "fr"
+            else None
+        ),
+    )
+    _install_fake_pkg(monkeypatch, macros=_FAKE_MACROS)
+    # Re-patch the i18n table because _install_fake_pkg overrides it.
+    monkeypatch.setattr(
+        common,
+        "bundled_i18n_table",
+        lambda locale: (
+            {
+                **_FAKE_FR,
+                "MC-10": {"name": "Expérience client", "description": "Regroupement client"},
+            }
+            if locale == "fr"
+            else None
+        ),
+    )
+
+    from app.services import capability_catalogue_service as svc
+
+    payload = await svc.get_catalogue_payload(db, locale="fr")
+    by_id = {c["id"]: c for c in payload["capabilities"]}
+    assert by_id["MC-10"]["name"] == "Expérience client"
+    assert by_id["MC-10"]["description"] == "Regroupement client"
+    # And the capability claimed by the macro still gets its parent rewritten.
+    assert by_id["BC-1"]["parent_id"] == "MC-10"

@@ -16,18 +16,29 @@ import IndustryFilter from "./IndustryFilter";
 import type { CatalogueNode, CatalogueKindConfig } from "./types";
 import "./referenceCatalogue.css";
 
-/** Stable hierarchy sort key. Strips the catalogue's id prefix so the
- *  numeric segments compare correctly: BC-1.10 must sort *after* BC-1.9. */
-function makeCompareIds(idPrefix: string) {
+/** Stable hierarchy sort key. Parses ids of the form ``<FAMILY>-<digits>(.<digits>)*``
+ *  (e.g. BC-1.10, MC-10). Different prefix families sort in their own
+ *  partitions — Macro Capabilities (``MC-``) always lead, then everything
+ *  else alphabetically — so BC-1.10 sorts *after* BC-1.9, while MC-90 still
+ *  sorts before BC-100. */
+function makeCompareIds() {
+  const parse = (s: string) => {
+    const m = /^([A-Z]+)-(\d+(?:\.\d+)*)$/.exec(s);
+    if (!m) return { fam: "~", parts: [Number.MAX_SAFE_INTEGER] };
+    return { fam: m[1], parts: m[2].split(".").map(Number) };
+  };
   return (a: string, b: string): number => {
-    const stripPrefix = (s: string) =>
-      s.startsWith(idPrefix) ? s.slice(idPrefix.length) : s;
-    const sa = stripPrefix(a).split(".").map(Number);
-    const sb = stripPrefix(b).split(".").map(Number);
-    const len = Math.max(sa.length, sb.length);
+    const A = parse(a);
+    const B = parse(b);
+    if (A.fam !== B.fam) {
+      if (A.fam === "MC") return -1;
+      if (B.fam === "MC") return 1;
+      return A.fam.localeCompare(B.fam);
+    }
+    const len = Math.max(A.parts.length, B.parts.length);
     for (let i = 0; i < len; i++) {
-      const av = sa[i] ?? -1;
-      const bv = sb[i] ?? -1;
+      const av = A.parts[i] ?? -1;
+      const bv = B.parts[i] ?? -1;
       if (av !== bv) return av - bv;
     }
     return 0;
@@ -57,7 +68,7 @@ export default function CatalogueBrowser({
   const { t } = useTranslation(["cards", "common"]);
   const isDark = useTheme().palette.mode === "dark";
   const ns = config.i18nNamespace;
-  const compareIds = useMemo(() => makeCompareIds(config.idPrefix), [config.idPrefix]);
+  const compareIds = useMemo(() => makeCompareIds(), []);
 
   // Indexes ----------------------------------------------------------------
   const byId = useMemo(() => {
@@ -111,8 +122,13 @@ export default function CatalogueBrowser({
   const [industries, setIndustries] = useState<Set<string>>(new Set());
   const [showDeprecated, setShowDeprecated] = useState(false);
   const [expanded, setExpanded] = useState<Set<string>>(() => {
+    // Macros (level 0) become the new root tier when present — expand them
+    // so their L1 children are visible on load. When no macros are loaded
+    // (older wheels, non-Cross industries), fall back to expanding L1.
+    const hasMacros = data.some((c) => c.level === 0);
+    const rootLevel = hasMacros ? 0 : 1;
     const s = new Set<string>();
-    for (const c of data) if (c.level === 1) s.add(c.id);
+    for (const c of data) if (c.level === rootLevel) s.add(c.id);
     return s;
   });
 
