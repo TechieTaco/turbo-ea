@@ -198,6 +198,34 @@ function bootstrapDrawIO(iframe: HTMLIFrameElement) {
             graph.setExtendParents(true);
             graph.setExtendParentsOnAdd(true);
           }
+          // Force-enable drag-out-of-parent. DrawIO's default
+          // mxGraphHandler.shouldRemoveCellsFromParent returns false for
+          // edges and is sometimes overridden to false outright, which
+          // means dragging a child OUT of a swimlane just translates it
+          // without re-parenting — no model change, no listener fire.
+          // We restore the documented mxGraph default: when the drop
+          // lands outside the parent's bounding box, the cell is
+          // re-parented to the graph's default parent.
+          if (graph.graphHandler) {
+            graph.graphHandler.removeCellsFromParent = true;
+            graph.graphHandler.shouldRemoveCellsFromParent = function (
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              parent: any,
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              _cells: any[],
+              evt: MouseEvent,
+            ) {
+              if (!parent || !this.graph.getModel().isVertex(parent)) return false;
+              const pState = this.graph.view.getState(parent);
+              if (!pState) return false;
+              const pt = win.mxUtils.convertPoint(
+                this.graph.container,
+                win.mxEvent.getClientX(evt),
+                win.mxEvent.getClientY(evt),
+              );
+              return !win.mxUtils.contains(pState, pt.x, pt.y);
+            };
+          }
         } catch {
           // Defensive: some DrawIO versions don't expose every setter.
         }
@@ -413,12 +441,34 @@ export default function DiagramEditor() {
     registeredCellIdsRef.current.add(cellId);
   }, []);
 
-  // Authoritative cellId → relation metadata side-table. DrawIO/mxGraph
-  // sometimes drops user-object attributes on edges inserted inside an
-  // open transaction, so we keep our own map populated on every
-  // expansion + every manual-draw sync. The lifecycle listener consults
-  // this whenever the user-object lookup comes back empty so canvas
-  // deletions of "Show Dependency" edges still reach Sync All.
+  // Set true while we're INTENTIONALLY re-parenting cells in code
+  // (rollUpInto, drillDownInto, etc.). The diff-based parent-change
+  // listener can't tell our own model.add() apart from a user drag,
+  // so we explicitly suppress it during these helpers — otherwise
+  // every roll-up would prompt "Add «card» as a child of «container»?"
+  // for the cell we just re-parented into the new container ourselves.
+  const suppressHierarchyEventsRef = useRef(false);
+
+  /** Run an mxGraph mutation while suppressing the parent-change
+   *  dialog. Clears the suppression on the next tick so the safety-net
+   *  mouseup diff (which uses setTimeout(0)) still sees it. */
+  const withSuppressedHierarchy = useCallback(
+    <T,>(fn: () => T): T => {
+      suppressHierarchyEventsRef.current = true;
+      try {
+        return fn();
+      } finally {
+        // 50 ms is conservative — long enough to cover the mouseup
+        // safety net and any deferred re-emission, short enough that a
+        // real drag immediately after a programmatic re-parent isn't
+        // missed.
+        window.setTimeout(() => {
+          suppressHierarchyEventsRef.current = false;
+        }, 50);
+      }
+    },
+    [],
+  );
   const edgeRelationMapRef = useRef<Map<string, ResolvedRelationMeta>>(
     new Map(),
   );
@@ -890,7 +940,12 @@ export default function DiagramEditor() {
           setSnackMsg(t("editor.allChildrenAlreadyOnCanvas"));
           return;
         }
-        const inserted = drillDownInto(frame, target.cellId, hChildren);
+        // drillDownInto re-parents nothing (children are fresh
+        // first-sight cells), but we wrap anyway so any future move
+        // hooks DrawIO adds don't surprise us.
+        const inserted = withSuppressedHierarchy(() =>
+          drillDownInto(frame, target.cellId, hChildren),
+        );
         if (inserted.length === 0) {
           setSnackMsg(t("editor.noChildren"));
           return;
@@ -940,16 +995,21 @@ export default function DiagramEditor() {
               color: colorForType(s.type),
             },
           }));
-        const result = rollUpInto(
-          frame,
-          target.cellId,
-          {
-            id: pick.parent.id,
-            name: pick.parent.name,
-            type: pick.parent.type,
-            color: parentColor,
-          },
-          siblings,
+        // Roll-up re-parents the current cell into the new container.
+        // Suppress the parent-change dialog so we don't prompt the user
+        // to confirm an operation they just explicitly requested.
+        const result = withSuppressedHierarchy(() =>
+          rollUpInto(
+            frame,
+            target.cellId,
+            {
+              id: pick.parent.id,
+              name: pick.parent.name,
+              type: pick.parent.type,
+              color: parentColor,
+            },
+            siblings,
+          ),
         );
         if (!result) {
           setSnackMsg(t("editor.errors.editorNotReady"));
@@ -1134,7 +1194,10 @@ export default function DiagramEditor() {
       newParentType: ev.newParentType,
       oldParentName: ev.oldParentName,
       oldParentType: ev.oldParentType,
+      suppressed: suppressHierarchyEventsRef.current,
+      restoring: restoreInProgressRef.current,
     });
+    if (suppressHierarchyEventsRef.current) return;
     if (restoreInProgressRef.current) return;
     // Pending cells don't have a real cardId yet — we can't PATCH them,
     // and re-parenting their visual cell is harmless. Ignore so the
@@ -1154,7 +1217,12 @@ export default function DiagramEditor() {
       // anyway, and the user usually drops by accident.
       if (ev.newParentType && ev.newParentType !== ev.cardType) {
         const frame = iframeRef.current;
-        if (frame) revertParentChange(frame, ev.cellId, ev.oldParentCellId);
+        if (frame) {
+          // Suppress so the revert itself doesn't re-fire the dialog.
+          withSuppressedHierarchy(() =>
+            revertParentChange(frame, ev.cellId, ev.oldParentCellId),
+          );
+        }
         setSnackMsg(t("editor.errors.parentTypeMismatch"));
         return;
       }
@@ -1193,7 +1261,7 @@ export default function DiagramEditor() {
         },
       ]);
     }
-  }, [t]);
+  }, [t, withSuppressedHierarchy]);
 
   /** Confirm: persist the hierarchy change at the next Sync All. */
   const handleConfirmParentChange = useCallback(() => {
@@ -1217,11 +1285,15 @@ export default function DiagramEditor() {
       const [head, ...rest] = prev;
       const frame = iframeRef.current;
       if (frame) {
-        revertParentChange(frame, head.cellId, head.oldParentCellId);
+        // Suppress so the diff listener doesn't fire the dialog for
+        // our own corrective re-parent.
+        withSuppressedHierarchy(() =>
+          revertParentChange(frame, head.cellId, head.oldParentCellId),
+        );
       }
       return rest;
     });
-  }, []);
+  }, [withSuppressedHierarchy]);
 
   /** Drop a single hierarchy change from the Sync drawer (user
    *  decides they don't want to PATCH after all). */
