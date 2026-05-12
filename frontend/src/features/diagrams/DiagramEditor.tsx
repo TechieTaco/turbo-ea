@@ -1604,7 +1604,13 @@ export default function DiagramEditor() {
    *
    *  We DON'T suppress the parent-change listener here — we WANT it
    *  to fire so the user gets the "Detach from parent?" confirmation
-   *  dialog and the resulting parent_id PATCH gets queued. */
+   *  dialog and the resulting parent_id PATCH gets queued.
+   *
+   *  Critically, we ALSO strip the `drillDownChild` / `rollUpChild`
+   *  markers before the re-parent. Those markers cause the diff
+   *  listener's `isManaged` filter to suppress the parent-change
+   *  event entirely, so without this the cell would move visually
+   *  but no dialog would open and no PATCH would queue. */
   const handleDetachRequest = useCallback((cellId: string) => {
     const frame = iframeRef.current;
     if (!frame) return;
@@ -1623,6 +1629,15 @@ export default function DiagramEditor() {
     const parentGeo = parent.getGeometry();
     model.beginUpdate();
     try {
+      // Strip management markers — the user has just promoted this
+      // cell to a stand-alone card, so the container no longer owns
+      // it. Without this clear, the listener's isManaged filter
+      // silently swallows the parent-change event.
+      const value = cell.value;
+      if (value?.removeAttribute) {
+        value.removeAttribute("drillDownChild");
+        value.removeAttribute("rollUpChild");
+      }
       if (cellGeo && parentGeo) {
         const newGeo = new win.mxGeometry(
           (parentGeo.x ?? 0) + (cellGeo.x ?? 0) + 40, // slight offset

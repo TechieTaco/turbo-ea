@@ -1971,7 +1971,13 @@ export function attachParentChangeListener(
         if (!cell?.value?.getAttribute) continue;
         if (cell.edge) continue;
         if (!cell.value.getAttribute("cardId")) continue;
-        if (isManaged(cell)) continue;
+        // Expansion-group children (parentGroupCell) are still
+        // skipped — those are temporary visual artefacts owned by
+        // the group's expand/collapse cycle and shouldn't be
+        // detachable via drag. Drill-down / roll-up children, on
+        // the other hand, ARE legitimately detachable: the user
+        // promoting one into a stand-alone card is a real edit.
+        if (cell.value.getAttribute("parentGroupCell")) continue;
         const parent = cell.parent;
         if (!parent || parent === defaultParent) continue;
         // Parent must be a swimlane (not the root layer cells "0"/"1").
@@ -2003,6 +2009,16 @@ export function attachParentChangeListener(
           for (let i = 0; i < toDetach.length; i++) {
             const cell = toDetach[i];
             const offset = toDetachOffsets[i];
+            // Strip management markers so the subsequent diff fires
+            // the parent-change event. Without this clear, the
+            // `isManaged` filter below silently swallows the event
+            // and the user's force-detach gesture goes unnoticed
+            // by the confirmation flow.
+            const v = cell.value;
+            if (v?.removeAttribute) {
+              v.removeAttribute("drillDownChild");
+              v.removeAttribute("rollUpChild");
+            }
             const existing = cell.getGeometry();
             const newGeo = new win.mxGeometry(
               offset.x,
