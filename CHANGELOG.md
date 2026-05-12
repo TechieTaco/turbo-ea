@@ -7,58 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [1.8.0] - 2026-05-12
 
-Diagramming functionality overhaul. All changes below belong to the same minor release — diagrams now match (and in places exceed) the LeanIX Free-Draw UX.
+Diagramming overhaul — LeanIX-inspired UX on top of the embedded DrawIO editor.
 
-### Added — Hierarchy on the canvas
-- **Drag-into-container prompts a parent_id change.** Dragging a card into a same-type container (drilled-down card, rolled-up parent, or a shape manually converted to a container) opens *"Add «child» as a child of «parent»?"*. **Yes** queues a `PATCH /cards/{id}` with the new `parent_id` for the next Sync All; **No** reverts the move back to the cell's previous mxGraph parent.
-- **Drag-out-of-container prompts to detach.** Dragging a card OUT of a container queues a `parent_id = null` PATCH after confirmation (same dialog, mirror wording). Cancelling puts the card back inside.
-- **Cross-type drops snap back silently** to match the backend's strict same-type-only hierarchy.
-- **"Hierarchy Changes" bucket in the Sync drawer** — every confirmed move stacks here with *Apply* (sync now) and *Discard* (drop the queued PATCH) actions. Sync All processes them alongside the other tombstones.
-- **"Convert to Container" right-click action.** Turns a plain DrawIO shape (or any cell with no card link) into a swimlane container so other cards can be nested inside.
+### Added
+- **Insert Cards dialog** with type chips, counts, search, and multi-select (with *Insert all* confirm past 50 results).
+- **Per-relation-type Expand menu** on every card with three sections: *Show Dependency* (multi-select), *Drill-Down*, *Roll-Up*. Counts come from one `GET /cards/{id}/relation-summary` round-trip.
+- **Drill-Down** turns a card into a swimlane container holding its picked children.
+- **Roll-Up** wraps the current card + selected siblings inside a new parent container.
+- **Right-click actions**: *Change Linked Card*, *Unlink Card*, *Link to Existing Card*, *Convert to Card*, *Convert to Container*.
+- **View perspective dropdown** that recolors cells by card type (default), approval status, or any single-select field on the types currently on the canvas. Persists in `diagram.data.view` with a floating legend.
+- **Hierarchy on canvas**: drag-in/drag-out of a same-type container prompts to attach/detach via `parent_id`; cross-type drops snap back; confirmed moves queue in a *Hierarchy Changes* bucket in the Sync drawer.
+- **Robustness**: beforeunload warning when work is unsynced, local autosave every 5 s with restore prompt on reopen, louder "N unsynced" toolbar pill.
+- **Edge-delete confirmation dialog** for edges carrying a real `relationId`. *No* re-inserts the edge in place.
 
-### Added — Insert / Link / Convert
-- **Insert Cards dialog — multi-select with type chips and counts.** Replaces the old single-select Card Picker. Left rail: type chips with `GET /cards/counts` totals. Right rail: search results with checkboxes. Footer: *Insert selected* and *Insert all* (with a confirm step past 50 results). Same dialog opens in single-select mode for *Change Linked Card* and *Link to Existing Card*.
-- **Right-click link/unlink/convert actions.** Synced cards: *Change Linked Card…* / *Unlink Card*. Plain DrawIO shapes: *Link to Existing Card…* / *Convert to Card…* (keeps the shape's geometry, turns it into a pending card seeded with the shape's label).
-
-### Added — Expand menu (LeanIX-style)
-- **Per-relation-type expand menu.** Each card carries a chevron overlay that opens a menu with three sections — *Show Dependency*, *Drill-Down*, *Roll-Up*. Counts come from a single `GET /cards/{id}/relation-summary` round-trip; greyed entries indicate count=0.
-- **Show Dependency is multi-select.** Each relation type + direction is a checkbox row with one *Insert (N)* commit button at the bottom.
-- **Drill-Down — hierarchy container.** Opens a checklist of `parent_id` children; committing turns the current cell into a swimlane container with the picked children nested inside (header keeps the parent's label + colour). Multi-select via per-child checkboxes; "Drill into all" inserts everything.
-- **Roll-Up — parent container with siblings.** Opens a checklist of parent + siblings (cards sharing the same `parent_id`); committing creates a new swimlane container at the canvas root and re-parents the current cell + picked siblings inside it. Multi-select via per-sibling checkboxes; "Roll up to parent only" wraps just the parent header.
-
-### Added — View perspectives
-- **"View" toolbar dropdown that recolors cells by attribute.** Color by card type (default), approval status, or any single-select field on the card types currently on the canvas. The active perspective + colour mapping persist in `diagram.data.view`; a floating legend in the bottom-left shows the mapping with a one-click reset.
-
-### Changed — Card removal is visual-only
-- **Deleting a card from the canvas no longer prompts to archive or fires a relation-delete dialog for each connected edge.** Removing a card is treated as a visual-only "I don't want to see this here" gesture; the card stays in inventory and its connected edges silently disappear with it. Archival is a job for the Inventory page. Edges that were genuinely deleted on their own still go through the per-edge confirm dialog.
-
-### Added — Robustness
-- **Beforeunload warning** when the user tries to leave a tab with unsynced cards, relations, or queued deletions.
-- **Local autosave + restore prompt.** Canvas XML is written to `localStorage` every 5 seconds; on reopen, if a newer local draft exists than the server's saved version, a banner offers to restore it.
-- **Deletion sync.** Removing a synced card cell or a synced relation edge from the canvas lands in dedicated *Removed cards* / *Removed relations* buckets in the sync drawer. Card removals default to *diagram-only* (card stays in inventory) with an explicit *Also archive the card* checkbox; relation removals issue `DELETE /relations/{id}` on next Sync All.
-- **Edge-deletion confirmation dialog.** Removing an edge that carries a real `relationId` opens *"Delete the relation between SOURCE and TARGET?"*. **Yes** queues the DELETE for next Sync All; **No** re-inserts the edge in place via `restoreRemovedEdge` (captures style + endpoints at removal time).
-- **Louder unsynced indicator.** The toolbar Sync button switches to a pulsing warning pill labelled "N unsynced" whenever pending work exists.
+### Changed
+- **Card removal is visual-only.** Deleting a card from the canvas no longer prompts to archive; the card stays in inventory and its connected relation-edges silently disappear with it. Hand-drawn arrows are never auto-removed.
 
 ### Fixed
-- **Collapse no longer fires the relation-delete confirmation.** Collapsing a Show-Dependency expansion removes the child cells AND their connecting edges; the new diff-based detector mistook those edges for user deletes. `collapseCardGroup` now returns the list of removed cellIds so the editor can scrub matching entries from its `edgeRelationMap` before the next diff tick.
-- **"Keep in inventory" on a tombstoned removed relation now puts the edge back on the canvas.** Previously the discard action only cleared the bucket; the relation lived on in the backend with no visible representation. The edge is re-inserted via `restoreRemovedEdge` and re-registered in the side-table so future deletes still trigger the dialog.
-- **Restoring an autosaved draft no longer leaves cards un-expandable.** DrawIO's `action: load` replaces the canvas, dropping every overlay (including chevrons + collapse minuses). After the restore window closes, the editor now calls `refreshCardOverlays` so the new cells get their chevrons + collapse overlays back.
-- **Edge deletion of a Show-Dependency edge now reliably opens the confirmation dialog.** Earlier rounds relied on the edge's XML user-object preserving `relationId`, but DrawIO drops user-object attributes on edges inserted inside an open `beginUpdate / endUpdate` transaction. The editor now also maintains an authoritative cellId → relation-meta side-table, populated on every expansion and after every manual-draw sync; the `CELLS_REMOVED` handler falls back to this map when the user-object check returns nothing. The side-table is re-seeded on bootstrap from existing edges' XML user-objects so saved diagrams keep working.
-- **"Link to Existing Card" no longer fails on plain DrawIO shapes.** `relinkCell` now lazily wraps a cell's plain-string value in an XML user-object before stamping `cardId / cardType`, so shapes the user drew themselves (rectangle, ellipse, etc. from the DrawIO toolbar) can be turned into linked cards just like any other.
-- **Restoring an autosaved draft no longer falsely grey-stubs cards.** The Restore action now pre-seeds the registered-cells set + edge relation map from the draft XML *before* asking DrawIO to load it (otherwise the synchronous `CELLS_ADDED` events would see the restored cards as paste candidates and silently strip their `cardId`). A 300 ms suppression flag also swallows the `CELLS_REMOVED` events fired as DrawIO swaps the old canvas out, so the user doesn't end up with phantom tombstones for cards they never deleted.
-- **Copy/paste of a synced card actually dedupes now.** Switched from "is this cardId duplicated in the model" detection (which races with DrawIO's custom clipboard) to a registered-cellIds set seeded on bootstrap from the loaded XML. Every helper that inserts a card registers its cellId, and a periodic safety scan catches anything that slips past the synchronous `CELLS_ADDED` listener. Clones become unlinked stubs (synced original) or get fresh temp ids (pending original).
-- **Deleting an edge between an expanded card and its child is now picked up.** Edges created by `expandCardGroup` / `expandCardGroupAt` persist the backend `relationId` via `model.setValue` after insertion (mxGraph silently coerces XML user-objects passed directly to `insertEdge`); the existing `CELLS_REMOVED` handler then tombstones them and the confirmation dialog appears.
-- **Roll-up no longer duplicates the parent container.** Trying to roll up a cell that already lives inside a swimlane container is blocked + explained via snackbar. Same guard prevents drilling into a cell that's already a container, and rolling up to a parent that's already on the canvas as a top-level cell.
-- **Drill-down children / roll-up siblings already on the canvas are skipped** instead of being inserted as duplicate cardIds (which would trigger our paste-dedup and silently unlink one of them). Show Dependency picks up the same protection — neighbours already on the diagram are skipped with a count snackbar.
-- **`CELLS_REMOVED` no longer tombstones drill-down or roll-up children.** Deleting a container used to file an "archive card?" tombstone for every nested cell; now those nested cells are correctly treated as visual artefacts of the container.
-- **`handleDuplicate` re-checks the registered set before deduping** so the synchronous `CELLS_ADDED` race (helper inserts cell → listener fires before caller calls `registerCellId`) doesn't silently unlink fresh inserts.
-- **"View Card Details" is hidden on unsynced cells.** The right-click action used to open a side panel that 404'd against the backend because the cell carried a `pending-xxx` temp id.
+- Copy/paste of a synced card now deduplicates reliably.
+- Edge deletions between expanded cards now open the confirm dialog.
+- Restoring an autosaved draft no longer grey-stubs cards or strips chevron overlays.
+- Drill-Down / Roll-Up / Show Dependency skip neighbours already on the canvas instead of duplicating them.
+- Roll-up / drill-down are blocked when they would create a duplicate parent container.
+- Collapse, restore, and container-delete no longer trigger stray "delete this relation?" dialogs.
+- *Link to Existing Card* now works on plain DrawIO shapes drawn from the toolbar.
+- *View Card Details* is hidden on unsynced cells.
 
 ### Backend
-- **`GET /cards/{id}/relation-summary`** — per-relation-type / direction neighbour counts plus a `hierarchy` block (`children_count`, `parent_id`, `parent_name`, `parent_type`) so the Expand menu can render in one round-trip.
-- **`GET /cards/counts`** — per-card-type ACTIVE counts (hidden types excluded) for the Insert Cards dialog's type chips.
-- **`GET /cards` accepts an `ids` query param** for batch fetching by UUID list. Used by the view-perspective feature to recolor cells in a single round-trip; invalid UUIDs are silently skipped so a stale cell id never 500s a batch. Archived cards are still returned for diagrams that reference them.
-- **Synced relation edges persist `relationId`** as an XML attribute; `markEdgeSynced(..., relationId)` is the new signature. Required for canvas-side relation deletions to issue the right `DELETE /relations/{id}`.
+- `GET /cards/{id}/relation-summary` — per-relation-type counts + hierarchy block for the Expand menu.
+- `GET /cards/counts` — per-card-type ACTIVE counts for the Insert dialog's type chips.
+- `GET /cards?ids=…` — batch fetch by UUID list (used by the view-perspective recolor pass).
+- Synced relation edges persist `relationId` so canvas-side deletes can issue the right `DELETE /relations/{id}`.
 
 ## [1.7.0] - 2026-05-11
 

@@ -1,61 +1,84 @@
 # Diagrammi
 
-Il modulo **Diagrammi** consente di creare **diagrammi architetturali visivi** utilizzando un editor [DrawIO](https://www.drawio.com/ integrato — completamente integrato con il vostro inventario di card. Potete trascinare card sulla tela, connetterle con relazioni e mantenere il diagramma sincronizzato con i dati EA.
+Il modulo **Diagrammi** consente di creare **diagrammi di architettura visivi** utilizzando un editor [DrawIO](https://www.drawio.com/) integrato -- completamente collegato all'inventario delle schede. Trascinate le schede sulla tela, collegatele con relazioni, scendete nelle gerarchie e ricolorate per qualsiasi attributo -- il diagramma resta sincronizzato con i dati EA.
 
-![Galleria dei diagrammi](../assets/img/it/16_diagrammi.png)
+![Galleria diagrammi](../assets/img/it/16_diagrammi.png)
 
-## Galleria dei diagrammi
+## Galleria diagrammi
 
-La galleria mostra tutti i diagrammi come **schede con miniatura** o in una **vista elenco** (alternabile tramite l'icona vista nella barra degli strumenti). Ogni diagramma mostra il nome, il tipo e un'anteprima visiva del contenuto.
-
-**Azioni dalla galleria:**
-
-- **Crea** — Cliccate su **+ Nuovo diagramma** per creare un diagramma con un nome e una descrizione opzionale
-- **Apri** — Cliccate su qualsiasi diagramma per avviare l'editor
-- **Modifica dettagli** — Rinominate o aggiornate la descrizione
-- **Elimina** — Rimuovete un diagramma (con conferma)
+La galleria elenca ogni diagramma con una miniatura, nome, tipo e le schede che referenzia. Da qui potete **Creare**, **Aprire**, **Modificare i dettagli** o **Eliminare** qualsiasi diagramma.
 
 ## L'editor di diagrammi
 
-Aprendo un diagramma si avvia un editor **DrawIO** a schermo intero in un iframe same-origin. La barra degli strumenti standard DrawIO è disponibile per forme, connettori, testo, formattazione e layout.
+Aprire un diagramma avvia l'editor DrawIO a schermo intero in un iframe della stessa origine. La barra degli strumenti nativa di DrawIO è disponibile per forme, connettori, testo e layout -- ogni azione propria di Turbo EA è esposta tramite il menu contestuale del clic destro, il pulsante Sync della barra strumenti e il chevron sopra ogni scheda.
 
-### Inserimento di card
+### Inserire schede
 
-Utilizzate la **Barra laterale card** (attivabile tramite l'icona della barra laterale) per sfogliare il vostro inventario. Potete:
+Usate la finestra **Inserisci schede** (dalla barra strumenti o dal menu contestuale) per aggiungere schede alla tela:
 
-- **Cercare** card per nome
-- **Filtrare** per tipo di card
-- **Trascinare una card** sulla tela — appare come una forma stilizzata con il nome e l'icona del tipo della card
-- Utilizzare la **Finestra di selezione card** per ricerca avanzata e selezione multipla
+- I **chip di tipo con contatori in tempo reale** nella colonna sinistra filtrano i risultati.
+- Cercate per nome nella colonna destra; ogni riga ha una casella di selezione.
+- **Inserisci selezionate** aggiunge le schede scelte in una griglia; **Inserisci tutte** aggiunge ogni scheda che corrisponde al filtro corrente (con conferma oltre 50 risultati).
 
-### Creazione di card dal diagramma
+La stessa finestra si apre in modalità a selezione singola per **Cambia scheda collegata** e **Collega a scheda esistente**.
 
-Se disegnate una forma che non corrisponde a una card esistente, potete crearne una direttamente:
+### Azioni del clic destro
 
-1. Selezionate la forma non collegata
-2. Cliccate su **Crea card** nel pannello di sincronizzazione
-3. Compilate il tipo, il nome e i campi opzionali
-4. La forma viene automaticamente collegata alla nuova card
+- **Schede sincronizzate**: *Apri scheda*, *Cambia scheda collegata*, *Scollega scheda*, *Rimuovi dal diagramma*.
+- **Forme semplici / celle non collegate**: *Collega a scheda esistente*, *Converti in scheda* (mantiene la geometria e trasforma la forma in una scheda in sospeso con la sua etichetta), *Converti in contenitore* (trasforma la forma in uno swimlane in cui annidare altre schede).
 
-### Creazione di relazioni dagli archi
+### Il menu di espansione
 
-Quando disegnate un connettore tra due forme card:
+Ogni scheda sincronizzata porta un piccolo chevron. Un clic apre un menu con tre sezioni, ciascuna caricata in un unico round-trip:
 
-1. Selezionate l'arco
-2. Appare la finestra di dialogo **Selettore relazione**
-3. Scegliete il tipo di relazione (vengono mostrati solo i tipi validi per i tipi di card collegati)
-4. La relazione viene creata nell'inventario e l'arco viene contrassegnato come sincronizzato
+- **Mostra dipendenze** -- vicini tramite relazioni uscenti o entranti, raggruppati per tipo di relazione con contatori. Ogni riga è una casella; confermate con **Inserisci (N)**.
+- **Drill-Down** -- trasforma la scheda corrente in un contenitore swimlane con i suoi figli `parent_id` annidati. Scegliete quali figli includere o *Approfondisci tutti*.
+- **Roll-Up** -- racchiude la scheda corrente e i fratelli selezionati (schede che condividono lo stesso `parent_id`) in un nuovo contenitore padre.
 
-### Sincronizzazione delle card
+Le righe con contatore = 0 sono in grigio, e i vicini / figli già presenti sulla tela sono saltati automaticamente.
 
-Il **Pannello di sincronizzazione** mantiene il diagramma e l'inventario sincronizzati:
+### La gerarchia sulla tela
 
-- **Card sincronizzate** — Le forme collegate alle card dell'inventario mostrano un indicatore verde di sincronizzazione
-- **Forme non sincronizzate** — Le forme non ancora collegate a card sono segnalate per l'intervento
-- **Espandi/comprimi gruppi** — Navigate i gruppi gerarchici di card direttamente sulla tela
+I contenitori corrispondono al `parent_id` di una scheda:
 
-### Collegare diagrammi alle card
+- **Trascinare una scheda dentro** un contenitore dello stesso tipo apre «Aggiungere «figlio» come figlio di «genitore»?». **Sì** mette in coda una modifica gerarchica; **No** riporta la scheda alla posizione precedente.
+- **Trascinare una scheda fuori** da un contenitore richiede il distacco (impostare `parent_id = null`).
+- I **rilasci tra tipi diversi** tornano silenziosamente alla posizione -- la gerarchia è limitata a schede dello stesso tipo.
+- Tutti i movimenti confermati finiscono nel bucket **Modifiche gerarchiche** del pannello Sync con azioni *Applica* e *Scarta*.
 
-I diagrammi possono essere collegati a **qualsiasi card** dalla scheda **Risorse** della card (vedi [Dettaglio card](card-details.it.md#scheda-risorse)). Questo consente di associare diagrammi architetturali ai componenti che descrivono — ad esempio, collegare un diagramma di topologia di rete a un'Applicazione o una mappa delle capacità a una Business Capability.
+### Rimuovere schede dal diagramma
 
-Quando un diagramma è collegato a una card **Initiative**, appare anche nel modulo [EA Delivery](delivery.md) insieme ai documenti SoAW, fornendo una vista completa di tutti gli artefatti architetturali per quella iniziativa.
+Eliminare una scheda dalla tela è trattato come un gesto **puramente visivo** -- «Non voglio vederla qui». La scheda resta nell'inventario; i suoi archi di relazione connessi scompaiono silenziosamente con essa. Le frecce disegnate a mano che non sono relazioni EA registrate non vengono mai rimosse automaticamente. **L'archiviazione è compito della pagina Inventario**, non del diagramma.
+
+### Cancellazione di archi
+
+Rimuovere un arco che porta una relazione reale apre «Eliminare la relazione tra ORIGINE e DESTINAZIONE?»:
+
+- **Sì** mette in coda l'eliminazione nel pannello Sync; **Sincronizza tutto** invia il `DELETE /relations/{id}` al backend.
+- **No** ripristina l'arco al suo posto (stile ed estremità preservati).
+
+### Prospettive di visualizzazione
+
+Il menu a tendina **Vista** nella barra strumenti ricolora ogni scheda sulla tela in base a un attributo:
+
+- **Colori delle schede** (predefinito) -- ogni scheda usa il colore del proprio tipo.
+- **Stato di approvazione** -- ricolora per `approvata` / `in attesa` / `rotta`.
+- **Valori di campo** -- scegliete qualsiasi campo a selezione singola sui tipi di scheda presenti sulla tela (es. *Ciclo di vita*, *Stato*). Le celle senza valore cadono su un grigio neutro.
+
+Una legenda fluttuante in basso a sinistra mostra la mappatura attiva. La vista scelta viene salvata col diagramma.
+
+### Pannello Sync
+
+Il pulsante **Sync** della barra strumenti apre il pannello laterale con tutto ciò che è in coda per la prossima sincronizzazione:
+
+- **Nuove schede** -- forme convertite in schede in sospeso, pronte per essere inviate all'inventario.
+- **Nuove relazioni** -- archi disegnati tra schede, pronti per essere creati nell'inventario.
+- **Relazioni rimosse** -- archi di relazione cancellati dalla tela, in coda per `DELETE /relations/{id}`. *Mantieni in inventario* reinserisce l'arco.
+- **Modifiche gerarchiche** -- spostamenti di trascinamento dentro / fuori dai contenitori confermati, in coda come aggiornamenti di `parent_id`.
+- **Inventario modificato** -- schede aggiornate nell'inventario dall'apertura del diagramma, pronte per essere riportate sulla tela.
+
+Il pulsante Sync della barra strumenti mostra una pillola pulsante «N non sincronizzate» finché esiste lavoro in sospeso. Lasciare la scheda con modifiche non sincronizzate attiva un avviso del browser, e la tela viene salvata automaticamente nello storage locale ogni cinque secondi per poter essere ripristinata dopo un aggiornamento accidentale.
+
+### Collegare diagrammi alle schede
+
+I diagrammi possono essere collegati a **qualsiasi scheda** dalla scheda **Risorse** della scheda stessa (vedi [Dettaglio scheda](card-details.it.md#scheda-risorse)). Quando un diagramma è collegato a una scheda **Iniziativa**, appare anche nel modulo [EA Delivery](delivery.md) accanto ai documenti SoAW.
