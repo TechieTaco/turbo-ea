@@ -6,6 +6,12 @@ nonexistent emails, invalid tokens, expired tokens, and SSO config.
 
 from __future__ import annotations
 
+from sqlalchemy import select
+
+from app.models.sso_invitation import SsoInvitation
+from app.models.user import User
+from tests.conftest import auth_headers
+
 # ---------------------------------------------------------------
 # POST /auth/register  (validation edge cases)
 # ---------------------------------------------------------------
@@ -259,3 +265,58 @@ class TestSetPasswordEdgeCases:
         )
         # Password validation or token-not-found -- either is acceptable
         assert resp.status_code in (400, 404)
+
+    async def test_set_password_clears_pending_invitation(
+        self, client, db, admin_user, member_role
+    ):
+        """Accepting an invite via set-password removes the SsoInvitation row.
+
+        Regression test for #539: when an admin invites a user and the user
+        clicks the email link to set their password, the invitation should
+        disappear from the Users & Roles "Pending Invitations" list.
+        """
+        # Admin invites a new user. With no password supplied, the endpoint
+        # creates the User with a one-time setup_token AND a paired
+        # SsoInvitation row (so SSO logins later resolve to the right role).
+        resp = await client.post(
+            "/api/v1/users",
+            json={
+                "email": "invited@test.com",
+                "display_name": "Invited",
+                "role": "member",
+                "send_email": False,
+            },
+            headers=auth_headers(admin_user),
+        )
+        assert resp.status_code == 201
+
+        # The invitation is present in the pending list.
+        resp = await client.get("/api/v1/users/invitations", headers=auth_headers(admin_user))
+        assert resp.status_code == 200
+        assert any(inv["email"] == "invited@test.com" for inv in resp.json())
+
+        # Fetch the setup token the user would receive in the email.
+        result = await db.execute(select(User).where(User.email == "invited@test.com"))
+        user = result.scalar_one()
+        assert user.password_setup_token is not None
+        setup_token = user.password_setup_token
+
+        # User accepts the invite by setting a password.
+        resp = await client.post(
+            "/api/v1/auth/set-password",
+            json={"token": setup_token, "password": "StrongPass1"},
+        )
+        assert resp.status_code == 200
+
+        # The invitation should now be gone from the pending list.
+        resp = await client.get("/api/v1/users/invitations", headers=auth_headers(admin_user))
+        assert resp.status_code == 200
+        assert not any(inv["email"] == "invited@test.com" for inv in resp.json()), (
+            "Invitation should disappear from /users/invitations once the user accepts"
+        )
+
+        # And the underlying row is gone from the database.
+        result = await db.execute(
+            select(SsoInvitation).where(SsoInvitation.email == "invited@test.com")
+        )
+        assert result.scalar_one_or_none() is None

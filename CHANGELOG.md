@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.9.1] - 2026-05-12
+
+### Fixed
+- **Invitations now disappear from the Users & Roles list when the user accepts them** (#539). When an admin invited a new user via *Invite new user*, both a `users` row (carrying a one-time `password_setup_token`) and a paired `sso_invitations` row were created. `POST /auth/set-password` cleared the User's setup token but never removed the matching SsoInvitation, so the row kept showing in *Pending invitations* indefinitely. The SSO callback path that links an SSO subject to a pre-invited User row had the same gap. Both endpoints now delete the matching SsoInvitation when the user accepts, matching the pattern already used by the new-user SSO branch and by `DELETE /users/{id}`. Pre-existing leftover invitations from before this fix can be cleared with the existing *Revoke* button in the admin UI.
+
 ## [1.9.0] - 2026-05-12
 
 **Provider / Consumer roles on Application↔Interface relations.** An

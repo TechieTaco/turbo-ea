@@ -9,7 +9,7 @@ import jwt
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from jwt import PyJWKClient
 from pydantic import BaseModel
-from sqlalchemy import func, select, text
+from sqlalchemy import delete, func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
@@ -615,6 +615,9 @@ async def sso_callback(
             user.display_name = display_name
         user.password_setup_token = None
         user.last_login = datetime.now(timezone.utc)
+        # The user has now accepted the invite via SSO; clear any pending
+        # SsoInvitation row for this email (#539).
+        await db.execute(delete(SsoInvitation).where(SsoInvitation.email == email))
         await db.commit()
         if not user.is_active:
             raise HTTPException(403, "Account disabled")
@@ -699,6 +702,9 @@ async def set_password(
     user.password_setup_token = None
     if user.auth_provider != "sso":
         user.auth_provider = "local"
+    # The user has now accepted the invite; clear any pending SsoInvitation row
+    # for this email so the Users & Roles admin list reflects reality (#539).
+    await db.execute(delete(SsoInvitation).where(SsoInvitation.email == user.email))
     await db.commit()
 
     token = create_access_token(user.id, user.role)
