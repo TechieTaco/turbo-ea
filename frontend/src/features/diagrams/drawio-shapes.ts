@@ -1023,19 +1023,31 @@ export function attachCellLifecycleListeners(
   const removedListener = (_sender: unknown, evt: any) => {
     const cells = evt.getProperty("cells") || [];
     if (cells.length === 0) return;
+    // eslint-disable-next-line no-console
+    console.debug("[turbo-ea] CELLS_REMOVED", {
+      count: cells.length,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      cells: (cells as any[]).map((c) => ({
+        id: c?.id,
+        edge: !!c?.edge,
+        cardId: c?.value?.getAttribute?.("cardId"),
+        label: c?.value?.getAttribute?.("label"),
+      })),
+    });
 
-    // Pre-pass: collect cellIds of every card vertex being removed in
-    // THIS batch. Used to recognise edges whose endpoint disappeared
-    // alongside them — those edges go through onIncidentalEdgeRemoval
-    // (silent side-table cleanup) instead of the confirm dialog,
-    // because the user is removing the card to declutter the diagram
-    // and doesn't want a modal for every dangling edge.
-    const removedCardCellIds = new Set<string>();
+    // Pre-pass: collect cellIds of every VERTEX being removed in this
+    // batch (not just card vertices). Unlinked stubs + plain DrawIO
+    // shapes connected to cards should also cascade-clean their
+    // dangling edges; if they don't carry a cardId we still want
+    // their connected edges to disappear with them.
+    const removedVertexCellIds = new Set<string>();
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     for (const cell of cells as any[]) {
       if (cell?.edge) continue;
-      if (!cell?.value?.getAttribute?.("cardId")) continue;
-      removedCardCellIds.add(cell.id);
+      // Skip layer / root cells.
+      const cid = cell?.id;
+      if (cid === "0" || cid === "1") continue;
+      removedVertexCellIds.add(cid);
     }
 
     const tombstones: RemovedRelationTombstone[] = [];
@@ -1100,8 +1112,8 @@ export function attachCellLifecycleListeners(
       const srcCell = cell.source;
       const tgtCell = cell.target;
       const incidental =
-        (srcCell?.id && removedCardCellIds.has(srcCell.id)) ||
-        (tgtCell?.id && removedCardCellIds.has(tgtCell.id));
+        (srcCell?.id && removedVertexCellIds.has(srcCell.id)) ||
+        (tgtCell?.id && removedVertexCellIds.has(tgtCell.id));
       if (incidental) {
         handlers.onIncidentalEdgeRemoval?.(cell.id);
         continue;
@@ -1137,14 +1149,12 @@ export function attachCellLifecycleListeners(
     if (tombstones.length > 0) handlers.onRemoved(tombstones);
 
     // Post-pass: cascade edge removal when DrawIO removed ONLY the
-    // card cell and left its connected edges dangling in the model.
-    // mxGraph's `removeCells(cells, includeEdges=true)` should
-    // normally cascade, but DrawIO sometimes routes deletes through
-    // a path that doesn't include edges — leaving the edges visible
-    // but pointing at a non-existent card. We detect that here by
-    // scanning the model for edges whose endpoint is in the just-
-    // removed batch, then schedule their removal in the next tick.
-    if (removedCardCellIds.size > 0) {
+    // vertex cells and left their connected edges dangling. mxGraph's
+    // `removeCells(cells, includeEdges=true)` should normally cascade,
+    // but DrawIO sometimes routes deletes through a path that doesn't
+    // include edges — leaving the edges visible but pointing at a
+    // non-existent vertex.
+    if (removedVertexCellIds.size > 0) {
       const allCells = model.cells || {};
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const dangling: any[] = [];
@@ -1153,16 +1163,22 @@ export function attachCellLifecycleListeners(
         if (!c?.edge) continue;
         // Edge references its source/target via mxCell.source /
         // .target — those object refs still point at the just-
-        // removed card cells (their .id is what we matched on).
+        // removed vertex cells (their .id is what we matched on).
         const srcId = c.source?.id;
         const tgtId = c.target?.id;
         if (
-          (srcId && removedCardCellIds.has(srcId)) ||
-          (tgtId && removedCardCellIds.has(tgtId))
+          (srcId && removedVertexCellIds.has(srcId)) ||
+          (tgtId && removedVertexCellIds.has(tgtId))
         ) {
           dangling.push(c);
         }
       }
+      // eslint-disable-next-line no-console
+      console.debug("[turbo-ea] post-pass dangling-edge scan", {
+        removedVertexCellIds: Array.from(removedVertexCellIds),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        dangling: dangling.map((d) => ({ id: d.id, src: d.source?.id, tgt: d.target?.id })),
+      });
       if (dangling.length > 0) {
         // Mark each as pending-incidental so the cascade's own
         // CELLS_REMOVED stays silent + drop their side-table entries
@@ -1179,10 +1195,33 @@ export function attachCellLifecycleListeners(
           const stillThere = dangling.filter(
             (d) => model.getCell(d.id) === d,
           );
+          // eslint-disable-next-line no-console
+          console.debug("[turbo-ea] cascade-removing edges", {
+            count: stillThere.length,
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            ids: stillThere.map((s) => s.id),
+          });
           if (stillThere.length === 0) return;
           model.beginUpdate();
           try {
-            graph.removeCells(stillThere, false);
+            // graph.removeCells should work, but try model.remove
+            // directly as a belt-and-braces fallback in case DrawIO
+            // intercepts graph.removeCells in a way that no-ops.
+            try {
+              graph.removeCells(stillThere, false);
+            } catch {
+              // Fall through to direct model.remove below.
+            }
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            for (const e of stillThere) {
+              if (model.getCell(e.id) === e) {
+                try {
+                  model.remove(e);
+                } catch {
+                  // ignore
+                }
+              }
+            }
           } finally {
             model.endUpdate();
           }
