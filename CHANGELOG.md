@@ -29,6 +29,9 @@ Diagramming functionality overhaul. All changes below belong to the same minor r
 ### Added — View perspectives
 - **"View" toolbar dropdown that recolors cells by attribute.** Color by card type (default), approval status, or any single-select field on the card types currently on the canvas. The active perspective + colour mapping persist in `diagram.data.view`; a floating legend in the bottom-left shows the mapping with a one-click reset.
 
+### Changed — Card removal is visual-only
+- **Deleting a card from the canvas no longer prompts to archive or fires a relation-delete dialog for each connected edge.** Removing a card is treated as a visual-only "I don't want to see this here" gesture; the card stays in inventory and its connected edges silently disappear with it. Archival is a job for the Inventory page. Edges that were genuinely deleted on their own still go through the per-edge confirm dialog.
+
 ### Added — Robustness
 - **Beforeunload warning** when the user tries to leave a tab with unsynced cards, relations, or queued deletions.
 - **Local autosave + restore prompt.** Canvas XML is written to `localStorage` every 5 seconds; on reopen, if a newer local draft exists than the server's saved version, a banner offers to restore it.

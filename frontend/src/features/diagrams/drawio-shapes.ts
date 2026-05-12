@@ -883,16 +883,11 @@ export function addResyncOverlay(
 /*  Cell lifecycle (paste/duplicate dedup + deletion tombstones)       */
 /* ------------------------------------------------------------------ */
 
-export interface RemovedCardTombstone {
-  kind: "card";
-  cellId: string;
-  cardId: string;
-  cardType: string;
-  name: string;
-  /** True if the cell was the original (still synced) or a pending one. */
-  wasPending: boolean;
-}
-
+/** Tombstone surfaced by the lifecycle listener for an INTENTIONAL
+ *  user removal of a relation edge. Card removals are not tombstoned
+ *  any more — deleting a card from the canvas is treated as a
+ *  visual-only "I don't want to see this here" gesture; real
+ *  inventory archival is done from the Inventory page. */
 export interface RemovedRelationTombstone {
   kind: "relation";
   edgeCellId: string;
@@ -911,7 +906,10 @@ export interface RemovedRelationTombstone {
   edgeLabel?: string;
 }
 
-export type RemovedTombstone = RemovedCardTombstone | RemovedRelationTombstone;
+/** Backwards-compat alias kept so consumers don't need to be edited
+ *  in lock-step. New code should reference RemovedRelationTombstone
+ *  directly. */
+export type RemovedTombstone = RemovedRelationTombstone;
 
 export interface ResolvedRelationMeta {
   relationId: string;
@@ -938,7 +936,14 @@ export interface ResolvedRelationMeta {
 
 export interface CellLifecycleHandlers {
   onDuplicate: (cellId: string, sharedCardId: string, wasPending: boolean) => void;
-  onRemoved: (tombstones: RemovedTombstone[]) => void;
+  /** Fired for EVERY relation edge the user intentionally removed.
+   *  Card removals are NOT surfaced — they're treated as visual-only
+   *  "remove from this diagram" gestures; archival is an inventory
+   *  responsibility. Edges whose endpoint card was removed in the
+   *  same batch (incidental removal) go through onIncidentalEdgeRemoval
+   *  instead so the editor's side-table is cleaned without prompting
+   *  the user for each hanging edge. */
+  onRemoved: (tombstones: RemovedRelationTombstone[]) => void;
   /** Returns the set of cellIds we have deliberately inserted ourselves.
    *  Any cell with a cardId attribute whose cellId is NOT in this set is
    *  treated as a paste/clone and routed through onDuplicate. */
@@ -949,6 +954,12 @@ export interface CellLifecycleHandlers {
    *  `beginUpdate / endUpdate` transaction — the editor maintains its own
    *  cellId → metadata map so deletion sync stays reliable. */
   getRelationIdForEdge?: (cellId: string) => ResolvedRelationMeta | null;
+  /** Called once per edge that was removed alongside its endpoint card
+   *  in the same batch (the edge was "incidental" to a card removal).
+   *  The editor uses this to clean its cellId → relation-meta side-
+   *  table so the periodic diff scan doesn't later re-surface the edge
+   *  as a fresh tombstone the user would have to dismiss. */
+  onIncidentalEdgeRemoval?: (edgeCellId: string) => void;
 }
 
 /**
@@ -1005,103 +1016,106 @@ export function attachCellLifecycleListeners(
   const removedListener = (_sender: unknown, evt: any) => {
     const cells = evt.getProperty("cells") || [];
     if (cells.length === 0) return;
-    const tombstones: RemovedTombstone[] = [];
+
+    // Pre-pass: collect cellIds of every card vertex being removed in
+    // THIS batch. Used to recognise edges whose endpoint disappeared
+    // alongside them — those edges go through onIncidentalEdgeRemoval
+    // (silent side-table cleanup) instead of the confirm dialog,
+    // because the user is removing the card to declutter the diagram
+    // and doesn't want a modal for every dangling edge.
+    const removedCardCellIds = new Set<string>();
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     for (const cell of cells as any[]) {
-      // ---- Edge branch ----
-      // Edges are checked separately so we can fall back to the editor's
-      // cellId → relation-meta side-table when the XML user-object lookup
-      // returns nothing (DrawIO drops user-object attributes on some edge
-      // insertion paths, esp. ones nested inside an open transaction).
-      if (cell.edge) {
-        const value = cell.value;
-        let relationId: string | null = null;
-        let relationType = "";
-        let relationLabel = "";
-        let edgeLabel: string | undefined;
-        let metaSrcCellId: string | null = null;
-        let metaTgtCellId: string | null = null;
-        let metaStyle: string | undefined;
-        if (value?.getAttribute) {
-          relationId = value.getAttribute("relationId");
-          relationType = value.getAttribute("relationType") || "";
-          edgeLabel = value.getAttribute("label") || "";
-          relationLabel = edgeLabel || relationType;
+      if (cell?.edge) continue;
+      if (!cell?.value?.getAttribute?.("cardId")) continue;
+      removedCardCellIds.add(cell.id);
+    }
+
+    const tombstones: RemovedRelationTombstone[] = [];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    for (const cell of cells as any[]) {
+      // Card vertices are intentionally NOT tombstoned. Removing a card
+      // from the diagram is treated as a visual-only "I don't want to
+      // see this here" gesture; inventory archival is a job for the
+      // Inventory page.
+      if (!cell?.edge) continue;
+
+      // Resolve relation metadata via the XML user-object first, then
+      // the editor's side-table fallback.
+      const value = cell.value;
+      let relationId: string | null = null;
+      let relationType = "";
+      let relationLabel = "";
+      let edgeLabel: string | undefined;
+      let metaSrcCellId: string | null = null;
+      let metaTgtCellId: string | null = null;
+      let metaStyle: string | undefined;
+      if (value?.getAttribute) {
+        relationId = value.getAttribute("relationId");
+        relationType = value.getAttribute("relationType") || "";
+        edgeLabel = value.getAttribute("label") || "";
+        relationLabel = edgeLabel || relationType;
+      }
+      let srcName = "";
+      let tgtName = "";
+      if (!relationId && handlers.getRelationIdForEdge) {
+        const meta = handlers.getRelationIdForEdge(cell.id);
+        if (meta) {
+          relationId = meta.relationId;
+          relationType = meta.relationType;
+          relationLabel = meta.relationLabel;
+          srcName = meta.sourceName;
+          tgtName = meta.targetName;
+          edgeLabel = meta.edgeLabel;
+          metaSrcCellId = meta.sourceCellId ?? null;
+          metaTgtCellId = meta.targetCellId ?? null;
+          metaStyle = meta.style;
         }
-        let srcName = "";
-        let tgtName = "";
-        if (!relationId && handlers.getRelationIdForEdge) {
-          const meta = handlers.getRelationIdForEdge(cell.id);
-          if (meta) {
-            relationId = meta.relationId;
-            relationType = meta.relationType;
-            relationLabel = meta.relationLabel;
-            srcName = meta.sourceName;
-            tgtName = meta.targetName;
-            edgeLabel = meta.edgeLabel;
-            metaSrcCellId = meta.sourceCellId ?? null;
-            metaTgtCellId = meta.targetCellId ?? null;
-            metaStyle = meta.style;
-          }
-        }
-        if (!relationId) continue;
-        const src = cell.source;
-        const tgt = cell.target;
-        const srcLabel: string =
-          srcName ||
-          src?.value?.getAttribute?.("label") ||
-          (typeof src?.value === "string" ? src.value : "") ||
-          "";
-        const tgtLabel: string =
-          tgtName ||
-          tgt?.value?.getAttribute?.("label") ||
-          (typeof tgt?.value === "string" ? tgt.value : "") ||
-          "";
-        const liveStyle = String(model.getStyle(cell) || "");
-        tombstones.push({
-          kind: "relation",
-          edgeCellId: cell.id,
-          relationId,
-          relationType,
-          relationLabel,
-          sourceName: String(srcLabel),
-          targetName: String(tgtLabel),
-          sourceCellId: src?.id ?? metaSrcCellId,
-          targetCellId: tgt?.id ?? metaTgtCellId,
-          // Prefer the live style (still on the cell at removal time);
-          // fall back to whatever the side-table captured at register.
-          style: liveStyle || metaStyle || "",
-          edgeLabel,
-        });
+      }
+      if (!relationId) continue;
+
+      // Incidental: an endpoint of this edge was also removed in the
+      // same batch. The user clearly meant "remove this card from my
+      // view" rather than "delete this relation from inventory" — so
+      // we silently drop the side-table entry without surfacing the
+      // confirm dialog. The relation stays alive in the backend, the
+      // card stays in inventory; only the canvas is decluttered.
+      const srcCell = cell.source;
+      const tgtCell = cell.target;
+      const incidental =
+        (srcCell?.id && removedCardCellIds.has(srcCell.id)) ||
+        (tgtCell?.id && removedCardCellIds.has(tgtCell.id));
+      if (incidental) {
+        handlers.onIncidentalEdgeRemoval?.(cell.id);
         continue;
       }
-      // ---- Vertex branch ----
-      const value = cell?.value;
-      if (!value?.getAttribute) continue;
-      const cardId = value.getAttribute("cardId");
-      const isPending = value.getAttribute("pending") === "1";
-      const isChild = !!value.getAttribute("parentGroupCell");
 
-      if (cardId && !isPending && !isChild && !cardId.startsWith("pending-")) {
-        // Only tombstone top-level synced cards. Expanded children, drill-
-        // down children, and roll-up children disappear when their parent
-        // container is removed — they don't represent a user intent to
-        // remove the underlying card from inventory.
-        if (
-          value.getAttribute("drillDownChild") === "1" ||
-          value.getAttribute("rollUpChild") === "1"
-        ) {
-          continue;
-        }
-        tombstones.push({
-          kind: "card",
-          cellId: cell.id,
-          cardId,
-          cardType: value.getAttribute("cardType") || "",
-          name: value.getAttribute("label") || "",
-          wasPending: false,
-        });
-      }
+      const srcLabel: string =
+        srcName ||
+        srcCell?.value?.getAttribute?.("label") ||
+        (typeof srcCell?.value === "string" ? srcCell.value : "") ||
+        "";
+      const tgtLabel: string =
+        tgtName ||
+        tgtCell?.value?.getAttribute?.("label") ||
+        (typeof tgtCell?.value === "string" ? tgtCell.value : "") ||
+        "";
+      const liveStyle = String(model.getStyle(cell) || "");
+      tombstones.push({
+        kind: "relation",
+        edgeCellId: cell.id,
+        relationId,
+        relationType,
+        relationLabel,
+        sourceName: String(srcLabel),
+        targetName: String(tgtLabel),
+        sourceCellId: srcCell?.id ?? metaSrcCellId,
+        targetCellId: tgtCell?.id ?? metaTgtCellId,
+        // Prefer the live style (still on the cell at removal time);
+        // fall back to whatever the side-table captured at register.
+        style: liveStyle || metaStyle || "",
+        edgeLabel,
+      });
     }
     if (tombstones.length > 0) handlers.onRemoved(tombstones);
   };
@@ -2003,19 +2017,6 @@ export function attachParentChangeListener(
           cellGeo.x >= 0 && cellGeo.x + cellGeo.width <= parentGeo.width;
         const insideY =
           cellGeo.y >= 0 && cellGeo.y + cellGeo.height <= parentGeo.height;
-        // eslint-disable-next-line no-console
-        console.debug("[turbo-ea] detach-scan", {
-          cellId: cell.id,
-          cardName: cell.value.getAttribute("label"),
-          drillDownChild: cell.value.getAttribute("drillDownChild"),
-          rollUpChild: cell.value.getAttribute("rollUpChild"),
-          parentId,
-          cellGeo: { x: cellGeo.x, y: cellGeo.y, w: cellGeo.width, h: cellGeo.height },
-          parentGeo: { w: parentGeo.width, h: parentGeo.height },
-          insideX,
-          insideY,
-          willDetach: !(insideX && insideY),
-        });
         if (insideX && insideY) continue;
         // Escaped the parent — convert the cell's geometry to absolute
         // coordinates so it lands where the user dropped it after we

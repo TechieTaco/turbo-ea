@@ -77,8 +77,6 @@ import type {
 } from "./drawio-shapes";
 import type {
   ExpandChildData,
-  RemovedTombstone,
-  RemovedCardTombstone,
   RemovedRelationTombstone,
 } from "./drawio-shapes";
 import ExpandMenu from "./ExpandMenu";
@@ -525,14 +523,12 @@ export default function DiagramEditor() {
   const [syncing, setSyncing] = useState(false);
   const [checkingUpdates, setCheckingUpdates] = useState(false);
 
-  // Deletion tombstones — populated when the user removes a synced card cell
-  // or a synced relation edge on the canvas. Kept in component state so the
-  // sync panel can surface them and Sync All can issue the API deletes.
-  const [pendingCardRemovals, setPendingCardRemovals] = useState<RemovedCardTombstone[]>([]);
+  // Relation-deletion tombstones — populated when the user removes a
+  // synced relation edge on the canvas. Sync All issues DELETE /relations/{id}
+  // for each entry. Card-cell removals are intentionally NOT tombstoned:
+  // removing a card from the diagram is treated as a visual-only "I don't
+  // want to see this here" gesture; archival happens from the Inventory page.
   const [pendingRelRemovals, setPendingRelRemovals] = useState<RemovedRelationTombstone[]>([]);
-  // Cells the user has opted in to also archive (default: remove from
-  // diagram only — keeps the card in inventory).
-  const [archiveOnSync, setArchiveOnSync] = useState<Set<string>>(new Set());
 
   // Phase 2 context-menu actions
   const [relinkTargetCellId, setRelinkTargetCellId] = useState<string | null>(null);
@@ -1178,57 +1174,33 @@ export default function DiagramEditor() {
     [],
   );
 
-  const handleTombstones = useCallback((tombstones: RemovedTombstone[]) => {
-    if (tombstones.length === 0) return;
-    // Restore-from-draft replaces the canvas, which fires CELLS_REMOVED
-    // for every previously-loaded cell. Those aren't user-initiated
-    // deletes — swallow them.
-    if (restoreInProgressRef.current) return;
-    setPendingCardRemovals((prev) => {
-      const next = [...prev];
-      for (const t of tombstones) {
-        if (t.kind !== "card") continue;
-        // De-duplicate by cellId — undo + redo can fire repeated events.
-        if (!next.some((existing) => existing.cellId === t.cellId)) next.push(t);
-      }
-      return next;
-    });
-    // Relations get the explicit confirmation step instead of dropping
-    // straight into the tombstone bucket. The dialog lets the user abort
-    // (re-insert the edge) before the relation is touched in inventory.
-    const relTombstones = tombstones.filter(
-      (t): t is RemovedRelationTombstone => t.kind === "relation",
-    );
-    if (relTombstones.length > 0) {
+  const handleTombstones = useCallback(
+    (tombstones: RemovedRelationTombstone[]) => {
+      if (tombstones.length === 0) return;
+      // Restore-from-draft replaces the canvas, which fires
+      // CELLS_REMOVED for every previously-loaded edge. Those aren't
+      // user-initiated deletes — swallow them.
+      if (restoreInProgressRef.current) return;
+      // Relations get the explicit confirmation step. The dialog lets
+      // the user abort (re-insert the edge) before the relation is
+      // touched in inventory.
       setDeleteRelationQueue((prev) => {
         const next = [...prev];
-        for (const t of relTombstones) {
+        for (const t of tombstones) {
           if (!next.some((existing) => existing.edgeCellId === t.edgeCellId)) {
             next.push(t);
           }
         }
         return next;
       });
-    }
-  }, []);
+    },
+    [],
+  );
 
   /** Listener entry point — fires whenever a card cell's parent
    *  changes in mxGraph. Decides whether to surface a confirm dialog
    *  (same-type re-parent) or silently revert (cross-type drop). */
   const handleParentChanged = useCallback((ev: ParentChangeEvent) => {
-    // Diagnostic: surfaces the raw event in the browser console so
-    // failing-listener bug reports include the actual fields seen.
-    console.debug("[turbo-ea] parent change", {
-      cellId: ev.cellId,
-      cardName: ev.cardName,
-      cardType: ev.cardType,
-      newParentName: ev.newParentName,
-      newParentType: ev.newParentType,
-      oldParentName: ev.oldParentName,
-      oldParentType: ev.oldParentType,
-      suppressed: suppressHierarchyEventsRef.current,
-      restoring: restoreInProgressRef.current,
-    });
     if (suppressHierarchyEventsRef.current) return;
     if (restoreInProgressRef.current) return;
     // Pending cells don't have a real cardId yet — we can't PATCH them,
@@ -1421,6 +1393,12 @@ export default function DiagramEditor() {
         isRegistered: (cellId) => registeredCellIdsRef.current.has(cellId),
         getRelationIdForEdge: (cellId) =>
           edgeRelationMapRef.current.get(cellId) ?? null,
+        // Card-removal-with-edges: the edge's confirm dialog is
+        // suppressed, but we still need to clean the side-table so
+        // the diff scan doesn't fire a phantom tombstone 750ms later.
+        onIncidentalEdgeRemoval: (edgeCellId) => {
+          edgeRelationMapRef.current.delete(edgeCellId);
+        },
       });
       // Parent-change listener: catches drag-into-container /
       // drag-out-of-container gestures and routes them through the
@@ -1977,23 +1955,7 @@ export default function DiagramEditor() {
       }
       if (relRemovals.length > 0) setPendingRelRemovals([]);
 
-      // 4. Process card removals — archive only when the user opted in.
-      const cardRemovals = pendingCardRemovals;
-      for (const c of cardRemovals) {
-        if (archiveOnSync.has(c.cellId)) {
-          try {
-            await api.delete(`/cards/${c.cardId}`);
-          } catch {
-            setSnackMsg(t("editor.errors.archiveCardFailed", { name: c.name }));
-          }
-        }
-      }
-      if (cardRemovals.length > 0) {
-        setPendingCardRemovals([]);
-        setArchiveOnSync(new Set());
-      }
-
-      // 5. Process hierarchy changes (drag-into / drag-out of containers).
+      // 4. Process hierarchy changes (drag-into / drag-out of containers).
       // For `attach`, parent_id becomes the target parent's cardId.
       // For `detach`, parent_id becomes null (root card).
       const parentChanges = pendingParentChanges;
@@ -2019,9 +1981,7 @@ export default function DiagramEditor() {
     handleToggleGroup,
     refreshSyncPanel,
     pendingRelRemovals,
-    pendingCardRemovals,
     pendingParentChanges,
-    archiveOnSync,
   ]);
 
   const handleRemoveFS = useCallback(
@@ -2041,17 +2001,6 @@ export default function DiagramEditor() {
     },
     [refreshSyncPanel],
   );
-
-  /** Discard a tombstoned card removal (keeps the card in inventory). */
-  const handleDiscardCardRemoval = useCallback((cellId: string) => {
-    setPendingCardRemovals((prev) => prev.filter((c) => c.cellId !== cellId));
-    setArchiveOnSync((prev) => {
-      if (!prev.has(cellId)) return prev;
-      const next = new Set(prev);
-      next.delete(cellId);
-      return next;
-    });
-  }, []);
 
   /** Discard a tombstoned relation removal — keep the relation in
    *  inventory AND restore the edge on the canvas. Without the restore
@@ -2088,16 +2037,6 @@ export default function DiagramEditor() {
     [pendingRelRemovals, registerEdgeRelation, t],
   );
 
-  /** Toggle whether a tombstoned card removal should also archive the card. */
-  const handleToggleArchive = useCallback((cellId: string) => {
-    setArchiveOnSync((prev) => {
-      const next = new Set(prev);
-      if (next.has(cellId)) next.delete(cellId);
-      else next.add(cellId);
-      return next;
-    });
-  }, []);
-
   /** Sync a single relation deletion immediately. */
   const handleSyncRelRemoval = useCallback(
     async (edgeCellId: string) => {
@@ -2117,34 +2056,6 @@ export default function DiagramEditor() {
     [pendingRelRemovals, t],
   );
 
-  /** Sync a single card removal immediately (archive if opted in). */
-  const handleSyncCardRemoval = useCallback(
-    async (cellId: string) => {
-      const target = pendingCardRemovals.find((c) => c.cellId === cellId);
-      if (!target) return;
-      setSyncing(true);
-      try {
-        if (archiveOnSync.has(cellId)) {
-          await api.delete(`/cards/${target.cardId}`);
-          setSnackMsg(t("editor.cardArchived", { name: target.name }));
-        } else {
-          setSnackMsg(t("editor.removedFromDiagram", { name: target.name }));
-        }
-        setPendingCardRemovals((prev) => prev.filter((c) => c.cellId !== cellId));
-        setArchiveOnSync((prev) => {
-          if (!prev.has(cellId)) return prev;
-          const next = new Set(prev);
-          next.delete(cellId);
-          return next;
-        });
-      } catch {
-        setSnackMsg(t("editor.errors.archiveCardFailed", { name: target.name }));
-      } finally {
-        setSyncing(false);
-      }
-    },
-    [pendingCardRemovals, archiveOnSync, t],
-  );
 
   const handleCheckUpdates = useCallback(async () => {
     const frame = iframeRef.current;
@@ -2337,7 +2248,6 @@ export default function DiagramEditor() {
   const totalPending =
     pendingCards.length +
     pendingRels.length +
-    pendingCardRemovals.length +
     pendingRelRemovals.length +
     pendingParentChanges.length;
 
@@ -2500,10 +2410,8 @@ export default function DiagramEditor() {
     // (their source/target cells have already been removed).
     registeredCellIdsRef.current.clear();
     edgeRelationMapRef.current.clear();
-    setPendingCardRemovals([]);
     setPendingRelRemovals([]);
     setDeleteRelationQueue([]);
-    setArchiveOnSync(new Set());
     // Pre-seed the registered-cells set + edge → relation side-table
     // from the draft XML BEFORE handing it to DrawIO. Without this, the
     // synchronous CELLS_ADDED events fired by the load would see the
@@ -2775,10 +2683,8 @@ export default function DiagramEditor() {
         onClose={() => setSyncOpen(false)}
         pendingCards={pendingCards}
         pendingRels={pendingRels}
-        pendingCardRemovals={pendingCardRemovals}
         pendingRelRemovals={pendingRelRemovals}
         pendingParentChanges={pendingParentChanges}
-        archiveOnSync={archiveOnSync}
         staleItems={staleItems}
         syncing={syncing}
         onSyncAll={handleSyncAll}
@@ -2786,13 +2692,10 @@ export default function DiagramEditor() {
         onSyncRel={handleSyncRel}
         onRemoveFS={handleRemoveFS}
         onRemoveRel={handleRemoveRel}
-        onSyncCardRemoval={handleSyncCardRemoval}
         onSyncRelRemoval={handleSyncRelRemoval}
-        onDiscardCardRemoval={handleDiscardCardRemoval}
         onDiscardRelRemoval={handleDiscardRelRemoval}
         onSyncParentChange={handleSyncParentChange}
         onDiscardParentChange={handleDiscardParentChange}
-        onToggleArchive={handleToggleArchive}
         onAcceptStale={handleAcceptStale}
         onCheckUpdates={handleCheckUpdates}
         checkingUpdates={checkingUpdates}
