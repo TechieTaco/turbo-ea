@@ -1124,6 +1124,17 @@ export default function DiagramEditor() {
    *  changes in mxGraph. Decides whether to surface a confirm dialog
    *  (same-type re-parent) or silently revert (cross-type drop). */
   const handleParentChanged = useCallback((ev: ParentChangeEvent) => {
+    // Diagnostic: surfaces the raw event in the browser console so
+    // failing-listener bug reports include the actual fields seen.
+    console.debug("[turbo-ea] parent change", {
+      cellId: ev.cellId,
+      cardName: ev.cardName,
+      cardType: ev.cardType,
+      newParentName: ev.newParentName,
+      newParentType: ev.newParentType,
+      oldParentName: ev.oldParentName,
+      oldParentType: ev.oldParentType,
+    });
     if (restoreInProgressRef.current) return;
     // Pending cells don't have a real cardId yet — we can't PATCH them,
     // and re-parenting their visual cell is harmless. Ignore so the

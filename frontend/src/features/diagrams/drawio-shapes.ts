@@ -1778,6 +1778,14 @@ export interface ParentChangeEvent {
  * editor uses this to prompt the user to persist the change as a
  * `parent_id` update on the underlying Card.
  *
+ * Implementation: on every model CHANGE we walk every card cell and
+ * diff its current parent against the last-known one we recorded.
+ * Detecting via the change-list itself (`mxChildChange`) was unreliable
+ * — DrawIO's bundled mxGraph can be minified, so `instanceof` /
+ * `constructor.name` checks don't match — and several DrawIO drag
+ * paths skip the standard child-change emission entirely. The diff is
+ * O(N) per change which is fine for diagram-sized graphs.
+ *
  * Returns a cleanup function that removes the listener.
  */
 export function attachParentChangeListener(
@@ -1788,14 +1796,6 @@ export function attachParentChangeListener(
   if (!ctx) return () => {};
   const { win, graph } = ctx;
   const model = graph.getModel();
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const describe = (cell: any) => {
-    if (!cell) return null;
-    if (cell === graph.getDefaultParent()) return null;
-    if (typeof cell.getId === "function" && cell.getId() === "0") return null;
-    return cell;
-  };
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const cardOf = (cell: any) => {
@@ -1810,58 +1810,85 @@ export function attachParentChangeListener(
     };
   };
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const listener = (_sender: unknown, evt: any) => {
-    const edit = evt.getProperty("edit");
-    if (!edit) return;
-    const changes = edit.changes || [];
+  /** parentCellId of every card cell at last observation. `null` =
+   *  graph default parent. Cells we haven't seen before are added
+   *  silently so the first sighting doesn't fire a spurious event. */
+  const knownParents = new Map<string, string | null>();
+  const seedKnown = () => {
+    const cells = model.cells || {};
+    for (const k of Object.keys(cells)) {
+      const cell = cells[k];
+      if (!cardOf(cell)) continue;
+      knownParents.set(cell.id, cell.parent?.id ?? null);
+    }
+  };
+  seedKnown();
+
+  const isManaged = (
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    for (const change of changes as any[]) {
-      // mxChildChange is the only mxGraph change type that carries a
-      // truthy `child` + a `parent` AND `previous` pair. We detect by
-      // duck-typing rather than `instanceof mxChildChange` or
-      // constructor.name because DrawIO's bundled mxGraph can be
-      // minified, breaking class-name lookups.
-      if (
-        !change ||
-        !change.child ||
-        change.parent === undefined ||
-        change.previous === undefined
-      ) {
-        continue;
-      }
-      // No actual parent change (same parent before and after).
-      if (change.parent === change.previous) continue;
-      const cell = change.child;
-      const newParent = describe(change.parent);
-      const oldParent = describe(change.previous);
-      // Same-cell no-op
-      if (newParent === oldParent) continue;
-      // The cell itself must be a card; ignore container-internal
-      // shuffling of plain DrawIO shapes.
+    cell: any,
+  ) =>
+    cell.value.getAttribute("drillDownChild") === "1" ||
+    cell.value.getAttribute("rollUpChild") === "1" ||
+    !!cell.value.getAttribute("parentGroupCell");
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const isMeaningfulParent = (cell: any) => {
+    if (!cell) return false;
+    if (cell === graph.getDefaultParent()) return false;
+    const id = typeof cell.getId === "function" ? cell.getId() : cell.id;
+    if (id === "0" || id === "1") return false;
+    return true;
+  };
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const listener = () => {
+    const cells = model.cells || {};
+    for (const k of Object.keys(cells)) {
+      const cell = cells[k];
       const cardInfo = cardOf(cell);
       if (!cardInfo) continue;
-      // The child-cells produced by drillDown / rollUp / expansion are
-      // intentional artefacts of those features and shouldn't trigger
-      // the parent-change prompt — they already represent the right
-      // hierarchy visually but don't need a separate parent_id PATCH.
-      const isManaged =
-        cell.value.getAttribute("drillDownChild") === "1" ||
-        cell.value.getAttribute("rollUpChild") === "1" ||
-        !!cell.value.getAttribute("parentGroupCell");
-      if (isManaged) continue;
-      const newParentCard = cardOf(newParent);
-      const oldParentCard = cardOf(oldParent);
+
+      // Drill-down children, roll-up children, and expansion-group
+      // children are intentional artefacts of those features. We still
+      // record their parent so we can detect a real future move, but
+      // never raise a parent-change event for them — their cardId →
+      // parent_id mapping is owned by the container itself.
+      if (isManaged(cell)) {
+        knownParents.set(cell.id, cell.parent?.id ?? null);
+        continue;
+      }
+
+      const newParentId = cell.parent?.id ?? null;
+      // First sighting: record silently.
+      if (!knownParents.has(cell.id)) {
+        knownParents.set(cell.id, newParentId);
+        continue;
+      }
+      const oldParentId = knownParents.get(cell.id) ?? null;
+      if (oldParentId === newParentId) continue;
+
+      // Parent actually changed — resolve both sides + fire.
+      const newParentCell = isMeaningfulParent(cell.parent)
+        ? cell.parent
+        : null;
+      const oldParentCell =
+        oldParentId && oldParentId !== "0" && oldParentId !== "1"
+          ? model.getCell(oldParentId)
+          : null;
+      const newParentCard = cardOf(newParentCell);
+      const oldParentCard = cardOf(oldParentCell);
+      knownParents.set(cell.id, newParentId);
       onParentChanged({
         cellId: cardInfo.cellId,
         cardId: cardInfo.cardId,
         cardName: cardInfo.label,
         cardType: cardInfo.cardType,
-        newParentCellId: newParent?.id ?? null,
+        newParentCellId: newParentCell?.id ?? null,
         newParentCardId: newParentCard?.cardId ?? null,
         newParentName: newParentCard?.label ?? "",
         newParentType: newParentCard?.cardType ?? "",
-        oldParentCellId: oldParent?.id ?? null,
+        oldParentCellId: oldParentCell?.id ?? null,
         oldParentCardId: oldParentCard?.cardId ?? null,
         oldParentName: oldParentCard?.label ?? "",
         oldParentType: oldParentCard?.cardType ?? "",
@@ -1870,11 +1897,42 @@ export function attachParentChangeListener(
   };
 
   model.addListener(win.mxEvent.CHANGE, listener);
+  // Belt-and-braces: also re-run the diff after every mxGraph move and
+  // after every mouse-up inside the canvas. DrawIO's drag pipeline can
+  // skip the model's CHANGE event for some gestures (esp. when the
+  // graph's `cellsMoved` is overridden). The redundant triggers are
+  // cheap and cover those cases.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const moveCellsListener = () => listener();
+  try {
+    graph.addListener(win.mxEvent.MOVE_CELLS, moveCellsListener);
+  } catch {
+    // ignore — older mxGraph builds without MOVE_CELLS
+  }
+  const onMouseUp = () => {
+    // Defer one tick so any open transaction has settled.
+    setTimeout(() => listener(), 0);
+  };
+  try {
+    graph.container?.addEventListener?.("mouseup", onMouseUp);
+  } catch {
+    // ignore
+  }
   return () => {
     try {
       model.removeListener(listener);
     } catch {
       // graph torn down
+    }
+    try {
+      graph.removeListener(moveCellsListener);
+    } catch {
+      // ignore
+    }
+    try {
+      graph.container?.removeEventListener?.("mouseup", onMouseUp);
+    } catch {
+      // ignore
     }
   };
 }
