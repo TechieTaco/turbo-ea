@@ -114,23 +114,22 @@ async def list_invitations(
 ):
     """Admin only — list pending invitations.
 
-    Excludes invitations where a User with the same email already exists in an
-    active state (has a password hash or a linked SSO subject_id). This way the
-    list reflects the truth regardless of which path the user took to accept —
-    set-password link, admin-set password via PATCH /users/{id}, or SSO sign-in
-    (#539). The lifecycle endpoints that consume invitations still delete the
-    underlying rows so the DB stays tidy; the filter here is a defensive net.
+    «Pending» means the invited user has not yet actually used the system. The
+    criterion is `users.last_login IS NULL` — an admin who has set a password
+    on behalf of the user (PATCH /users/{id}) hasn't *accepted* anything, so
+    the invitation stays on the list until the user signs in for the first
+    time. This is what powers the «resend invite» UX (#539).
     """
     await PermissionService.require_permission(db, current_user, "admin.users")
-    accepted_user_exists = (
+    has_logged_in = (
         select(User.id)
         .where(
             User.email == SsoInvitation.email,
-            (User.password_hash.is_not(None)) | (User.sso_subject_id.is_not(None)),
+            User.last_login.is_not(None),
         )
         .exists()
     )
-    stmt = select(SsoInvitation).where(~accepted_user_exists).order_by(SsoInvitation.email)
+    stmt = select(SsoInvitation).where(~has_logged_in).order_by(SsoInvitation.email)
     result = await db.execute(stmt)
     return [_invitation_response(inv) for inv in result.scalars().all()]
 
@@ -485,12 +484,14 @@ async def update_user(
         if u.auth_provider == "sso":
             raise HTTPException(400, "Cannot set password for SSO users")
         u.password_hash = hash_password(data.pop("password"))
-        # Setting a password completes the invitation: clear the one-time
-        # setup token (so the "Pending Setup" badge clears and the setup link
-        # can no longer be used to overwrite the password) and drop any
-        # paired SsoInvitation row (#539).
+        # Setting a password from the admin side invalidates the one-time
+        # setup link (so the legacy email link can no longer overwrite the
+        # admin-chosen password). The matching SsoInvitation row is NOT
+        # deleted here: the *user* hasn't accepted yet — admin merely set
+        # their credentials on their behalf. The invitation stays on the
+        # Pending list so admin can still resend it, and disappears once
+        # the user signs in for the first time (#539).
         u.password_setup_token = None
-        await db.execute(delete(SsoInvitation).where(SsoInvitation.email == u.email))
 
     for field, value in data.items():
         setattr(u, field, value)

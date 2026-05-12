@@ -305,7 +305,13 @@ async def login(
     # Reset failed attempts on successful login
     user.failed_login_attempts = 0
     user.locked_until = None
+    first_login = user.last_login is None
     user.last_login = datetime.now(timezone.utc)
+    # First login = invitation consumed. Drop any matching SsoInvitation so
+    # the row disappears from the Pending Invitations admin list (#539).
+    # Idempotent for subsequent logins — deletes nothing.
+    if first_login:
+        await db.execute(delete(SsoInvitation).where(SsoInvitation.email == user.email))
     await db.commit()
 
     token = create_access_token(user.id, user.role)
@@ -700,8 +706,11 @@ async def set_password(
     user.password_setup_token = None
     if user.auth_provider != "sso":
         user.auth_provider = "local"
-    # The user has now accepted the invite; clear any pending SsoInvitation row
-    # for this email so the Users & Roles admin list reflects reality (#539).
+    # The user has now accepted the invite (set-password effectively logs them
+    # in by returning a token). Mark last_login so they no longer count as
+    # «pending» in the admin invitations list, and drop the SsoInvitation
+    # row for tidiness (#539).
+    user.last_login = datetime.now(timezone.utc)
     await db.execute(delete(SsoInvitation).where(SsoInvitation.email == user.email))
     await db.commit()
 

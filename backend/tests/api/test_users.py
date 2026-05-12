@@ -227,11 +227,13 @@ class TestUpdateUser:
         assert resp.status_code == 400
         assert "password" in resp.json()["detail"].lower()
 
-    async def test_admin_setting_password_clears_invitation_state(self, client, db, users_env):
-        """When admin sets a password on an invited user via PATCH /users/{id},
-        the one-time setup token is cleared AND the paired SsoInvitation row
-        is dropped — so the "Pending Setup" badge clears and the user no
-        longer shows in the Pending Invitations list (#539, second pass).
+    async def test_admin_setting_password_keeps_invitation_visible_until_login(
+        self, client, db, users_env
+    ):
+        """Setting a password admin-side is NOT acceptance. The user hasn't
+        logged in yet, so the invitation stays on the Pending list (so the
+        admin can resend it) — but the legacy email setup link is
+        invalidated so it can't overwrite the admin-chosen password (#539).
         """
         from sqlalchemy import select
 
@@ -240,10 +242,9 @@ class TestUpdateUser:
 
         admin = users_env["admin"]
 
-        # Inject the legacy "invited but not yet accepted" state directly:
-        # a User row with a one-time setup_token + a paired SsoInvitation row.
-        # We bypass POST /users because that endpoint now rejects no-password
-        # invites when SSO is disabled (test env has SSO off by default).
+        # Inject the "invited but not yet accepted" state directly. We bypass
+        # POST /users because that endpoint now rejects no-password invites
+        # when SSO is disabled (test env has SSO off by default).
         invited = User(
             email="admin-set@test.com",
             display_name="Admin-Set",
@@ -265,49 +266,67 @@ class TestUpdateUser:
         )
         assert resp.status_code == 200
 
-        # Setup token cleared (so the "Pending Setup" badge goes away).
+        # Setup token cleared (the legacy email link can no longer overwrite
+        # the admin-chosen password).
         await db.refresh(invited)
         assert invited.password_setup_token is None
         assert invited.password_hash is not None
+        # Admin-side password set does NOT log the user in.
+        assert invited.last_login is None
 
-        # SsoInvitation row deleted.
+        # The SsoInvitation row IS NOT deleted — admin can still resend.
         result = await db.execute(
             select(SsoInvitation).where(SsoInvitation.email == "admin-set@test.com")
         )
-        assert result.scalar_one_or_none() is None
+        assert result.scalar_one_or_none() is not None
 
-        # And the list endpoint reflects it.
+        # And the list endpoint keeps showing it as pending.
         resp = await client.get("/api/v1/users/invitations", headers=auth_headers(admin))
         assert resp.status_code == 200
-        assert not any(inv["email"] == "admin-set@test.com" for inv in resp.json())
+        assert any(inv["email"] == "admin-set@test.com" for inv in resp.json())
 
-    async def test_invitation_list_hides_already_accepted_users(self, client, db, users_env):
-        """Defensive filter: even if a stale SsoInvitation row exists for an
-        email whose User already has a password_hash, the list endpoint hides
-        it (#539). Covers the case where an invitation was created by an
-        older code path that didn't clean up on acceptance.
+    async def test_invitation_hidden_once_user_has_logged_in(self, client, db, users_env):
+        """An invitation is hidden from the Pending list once the matching
+        user has signed in at least once (last_login is set). The User row
+        existing alone (admin set up the account but user never logged in)
+        is NOT enough to be considered «accepted» (#539).
         """
+        from datetime import datetime, timezone
+
         from app.core.security import hash_password as _hash
         from app.models.sso_invitation import SsoInvitation
         from app.models.user import User
 
         admin = users_env["admin"]
 
-        # Simulate a legacy state: an active User (password set) plus a
-        # leftover SsoInvitation row for the same email.
-        active_user = User(
-            email="legacy-leftover@test.com",
-            display_name="Legacy",
+        # User who has logged in at least once: invitation should be hidden.
+        logged_in = User(
+            email="logged-in@test.com",
+            display_name="Logged In",
             password_hash=_hash("SomePass1234"),
             role="member",
+            last_login=datetime.now(timezone.utc),
         )
-        db.add(active_user)
-        db.add(SsoInvitation(email="legacy-leftover@test.com", role="member"))
+        db.add(logged_in)
+        db.add(SsoInvitation(email="logged-in@test.com", role="member"))
+
+        # User whose password was set by admin but who has never logged in:
+        # invitation should be VISIBLE so admin can resend.
+        never_logged_in = User(
+            email="never-logged-in@test.com",
+            display_name="Never Logged In",
+            password_hash=_hash("AnotherPass1"),
+            role="member",
+        )
+        db.add(never_logged_in)
+        db.add(SsoInvitation(email="never-logged-in@test.com", role="member"))
         await db.commit()
 
         resp = await client.get("/api/v1/users/invitations", headers=auth_headers(admin))
         assert resp.status_code == 200
-        assert not any(inv["email"] == "legacy-leftover@test.com" for inv in resp.json())
+        emails = [inv["email"] for inv in resp.json()]
+        assert "logged-in@test.com" not in emails
+        assert "never-logged-in@test.com" in emails
 
 
 # -------------------------------------------------------------------

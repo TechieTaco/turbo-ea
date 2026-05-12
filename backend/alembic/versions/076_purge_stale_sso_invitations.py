@@ -1,22 +1,21 @@
-"""Purge SsoInvitation rows whose user has already accepted.
+"""Purge SsoInvitation rows whose user has already signed in at least once.
 
 Pre-fix-#539 code paths created an ``sso_invitations`` row alongside every
-new User and never deleted it on acceptance: the email link path
-(``POST /auth/set-password``), the admin password-set path
-(``PATCH /users/{id}``), and the SSO callback "link existing user" branch
-all left the row in place. Result: the *Pending Invitations* admin list
-filled up with rows for users who were already active.
+new User and never deleted it on acceptance: every acceptance path
+(``POST /auth/set-password``, ``POST /auth/login`` for invited users, the
+SSO callback "link existing user" branch) left the row in place. Result:
+the *Pending Invitations* admin list filled up with rows for users who
+had already logged in.
 
-The list endpoint now hides these defensively (filter on the GET side),
-but the underlying rows still bloat the table. This migration deletes
-rows where the user has clearly accepted: a User with the same email
-exists with a `password_hash` set or with a linked `sso_subject_id`.
+«Accepted» here means «the user has actually signed in at least once» —
+i.e. ``users.last_login IS NOT NULL``. An admin who has set a password
+on behalf of a user but where the user has not yet logged in is *not*
+considered accepted: that user belongs on the Pending list so admin can
+resend the invite. This matches the new ``GET /users/invitations``
+filter exactly.
 
-Idempotent: running it twice deletes nothing the second time. Safe to
-re-run after future code regressions because the criterion always
-matches accepted users.
-
-The downgrade is a no-op — deleted invitations cannot be reconstructed
+Idempotent: running it twice deletes nothing the second time. The
+downgrade is a no-op — deleted invitations cannot be reconstructed
 from the User row (we don't know who originally invited them) and
 re-creating them would just put the bug back.
 
@@ -44,8 +43,7 @@ def upgrade() -> None:
             DELETE FROM sso_invitations
             WHERE email IN (
                 SELECT email FROM users
-                WHERE password_hash IS NOT NULL
-                   OR sso_subject_id IS NOT NULL
+                WHERE last_login IS NOT NULL
             )
             """
         )
