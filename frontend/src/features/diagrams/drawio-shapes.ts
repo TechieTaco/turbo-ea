@@ -885,6 +885,15 @@ export interface ResolvedRelationMeta {
   relationLabel: string;
   sourceName: string;
   targetName: string;
+  /** Endpoint cellIds captured at registration time so the
+   *  abort-deletion path can re-insert the edge between the same
+   *  vertices, even when the deletion was detected via the periodic
+   *  side-table diff instead of a live CELLS_REMOVED event. */
+  sourceCellId?: string | null;
+  targetCellId?: string | null;
+  /** Style captured at registration time; falls back to a sane
+   *  default in restoreRemovedEdge when missing. */
+  style?: string;
 }
 
 export interface CellLifecycleHandlers {
@@ -1128,6 +1137,47 @@ export function restoreRemovedEdge(
   return true;
 }
 
+/** Return the set of cellIds currently present in the model that are
+ *  edges. Used by the editor's periodic diff against its side-table —
+ *  any edge that was registered as a relation but is no longer in the
+ *  model has been deleted and should land in the confirm-dialog queue.
+ *  This is more reliable than the synchronous `CELLS_REMOVED` listener,
+ *  which DrawIO doesn't always fire for the deletion paths a user can
+ *  trigger (keyboard Delete, right-click → Delete, edge tool, …). */
+export function collectLiveEdgeCellIds(iframe: HTMLIFrameElement): Set<string> {
+  const out = new Set<string>();
+  const ctx = getMxGraph(iframe);
+  if (!ctx) return out;
+  const cells = ctx.graph.getModel().cells || {};
+  for (const k of Object.keys(cells)) {
+    if (cells[k]?.edge) out.add(k);
+  }
+  return out;
+}
+
+/** Snapshot a single edge before deletion — used to surface human-
+ *  readable source/target names in the confirmation dialog. */
+export function describeEdgeEndpoints(
+  iframe: HTMLIFrameElement,
+  edgeCellId: string,
+): { sourceName: string; targetName: string; sourceCellId: string | null; targetCellId: string | null } {
+  const ctx = getMxGraph(iframe);
+  if (!ctx) return { sourceName: "", targetName: "", sourceCellId: null, targetCellId: null };
+  const cell = ctx.graph.getModel().getCell(edgeCellId);
+  if (!cell) return { sourceName: "", targetName: "", sourceCellId: null, targetCellId: null };
+  const labelOf = (c: { value?: { getAttribute?: (k: string) => string | null } | string | null } | null | undefined) => {
+    if (!c?.value) return "";
+    if (typeof c.value === "string") return c.value;
+    return c.value.getAttribute?.("label") || "";
+  };
+  return {
+    sourceName: labelOf(cell.source),
+    targetName: labelOf(cell.target),
+    sourceCellId: cell.source?.id ?? null,
+    targetCellId: cell.target?.id ?? null,
+  };
+}
+
 /** Scan the in-memory graph for every edge that already carries a
  *  relationId attribute on its XML user-object, returning a list of
  *  metadata records the editor can drop into its side-table. Used on
@@ -1360,13 +1410,18 @@ export function unlinkCell(
 
 /**
  * Re-link a cell (synced, unlinked, or plain DrawIO shape) to a different
- * card. Rewrites cardId, cardType, label, and repaints with the target
- * card type's color.
+ * card. Rewrites cardId, cardType, label so the cell points at the new
+ * backend card.
  *
- * Plain DrawIO shapes inserted from the toolbar carry a plain-string value
- * (the label text) rather than an XML user-object, so we lazily wrap them
- * before stamping the card metadata. Without this the "Link to Existing
- * Card" right-click action fails on shapes the user drew themselves.
+ * For cells that were already card-shaped (currently linked or previously
+ * unlinked), we swap to the target card type's full `buildSyncedStyle` so
+ * the visual is consistent with cards inserted via the picker.
+ *
+ * For plain DrawIO shapes — rectangles, ellipses, swimlanes the user drew
+ * from the toolbar — we KEEP the user's original shape style and only
+ * update fillColor + strokeColor + fontColor so the shape they drew gains
+ * the card-type colour without losing its geometry. This is what users
+ * expect from "Link to Existing Card" on a hand-drawn shape.
  */
 export function relinkCell(
   iframe: HTMLIFrameElement,
@@ -1384,6 +1439,13 @@ export function relinkCell(
   model.beginUpdate();
   try {
     let value = cell.value;
+    // Was this cell previously associated with a card? If so we treat it
+    // as card-shaped and replace the visual style entirely.
+    const wasCardShaped =
+      !!value?.getAttribute && (
+        !!value.getAttribute("cardId") || !!value.getAttribute("cardType")
+      );
+
     if (!value?.setAttribute) {
       // Plain shape with a string label (or null) — wrap it in an XML
       // user-object so we have somewhere to write cardId / cardType.
@@ -1401,7 +1463,31 @@ export function relinkCell(
       value.removeAttribute("expanded");
       value.removeAttribute("childCellIds");
     }
-    model.setStyle(cell, buildSyncedStyle(opts.color));
+    if (wasCardShaped) {
+      model.setStyle(cell, buildSyncedStyle(opts.color));
+    } else {
+      // Preserve the user's shape — only update fill + stroke + font
+      // colour so the cell visibly belongs to the target card type
+      // without losing the rectangle / ellipse / swimlane shape.
+      const current = (model.getStyle(cell) || "") as string;
+      const stroke = darken(opts.color);
+      const next = current
+        .split(";")
+        .filter(Boolean)
+        .filter(
+          (p) =>
+            !p.startsWith("fillColor=") &&
+            !p.startsWith("strokeColor=") &&
+            !p.startsWith("fontColor="),
+        )
+        .concat([
+          `fillColor=${opts.color}`,
+          `strokeColor=${stroke}`,
+          "fontColor=#ffffff",
+        ])
+        .join(";");
+      model.setStyle(cell, next);
+    }
     graph.refresh(cell);
   } finally {
     model.endUpdate();

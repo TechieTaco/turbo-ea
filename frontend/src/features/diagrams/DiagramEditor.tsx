@@ -48,6 +48,8 @@ import {
   scanForDuplicateCells,
   collectExistingCardCellIds,
   collectExistingEdgeRelations,
+  collectLiveEdgeCellIds,
+  describeEdgeEndpoints,
   extractCardCellIdsFromXml,
   extractEdgeRelationsFromXml,
   restoreRemovedEdge,
@@ -747,6 +749,8 @@ export default function DiagramEditor() {
                 relationLabel: child.relationType || "",
                 sourceName,
                 targetName: childNameById.get(child.cardId) || "",
+                sourceCellId: target.cellId,
+                targetCellId: child.cellId,
               });
             }
             addChevronOverlay(frame, child.cellId, (anchor) =>
@@ -961,6 +965,14 @@ export default function DiagramEditor() {
         // single microtask and would be silently unlinked here if we didn't
         // check again now that the queue is drained.
         if (registeredCellIdsRef.current.has(cellId)) return;
+        // Restore-from-draft replaces the canvas in a single
+        // transaction — CELLS_ADDED fires for every restored cell. Even
+        // with pre-seeding, edge cases (cell renames, mxGraph collision
+        // re-numbering) can leave a few cellIds out of the registered
+        // set. Suppressing dedup during the restore window means the
+        // post-load re-seed gets the chance to fix things up before any
+        // dedup runs.
+        if (restoreInProgressRef.current) return;
         const result = dedupClonedCell(frame, cellId, wasPending);
         if (!result) return;
         if (result.mode === "regenerated") {
@@ -1025,7 +1037,9 @@ export default function DiagramEditor() {
     });
   }, []);
 
-  /** "No, abort" — re-insert the edge in place and forget the tombstone. */
+  /** "No, abort" — re-insert the edge in place and forget the tombstone.
+   *  Also re-populates the side-table so the next deletion of the same
+   *  edge still fires the confirmation dialog. */
   const handleCancelDeleteRelation = useCallback(() => {
     setDeleteRelationQueue((prev) => {
       if (prev.length === 0) return prev;
@@ -1038,11 +1052,25 @@ export default function DiagramEditor() {
           // edge back. Tell the user; the relation stays in inventory
           // either way because we never queued the tombstone.
           setSnackMsg(t("editor.errors.restoreEdgeFailed"));
+        } else {
+          // Edge is back — re-register so the next delete is caught
+          // again. We deliberately drop it from the side-table in the
+          // diff scan to avoid re-firing the dialog every tick.
+          registerEdgeRelation(head.edgeCellId, {
+            relationId: head.relationId,
+            relationType: head.relationType,
+            relationLabel: head.relationLabel,
+            sourceName: head.sourceName,
+            targetName: head.targetName,
+            sourceCellId: head.sourceCellId,
+            targetCellId: head.targetCellId,
+            style: head.style,
+          });
         }
       }
       return rest;
     });
-  }, [t]);
+  }, [t, registerEdgeRelation]);
 
   const attachLifecycleListenersOnce = useCallback(
     (frame: HTMLIFrameElement) => {
@@ -1075,15 +1103,53 @@ export default function DiagramEditor() {
         getRelationIdForEdge: (cellId) =>
           edgeRelationMapRef.current.get(cellId) ?? null,
       });
-      // Safety-net periodic scan — covers DrawIO clipboard paths that
-      // don't surface through CELLS_ADDED to our listener.
+      // Safety-net periodic scan. Does two things:
+      //   (1) Detect cells inserted via DrawIO clipboard paths that don't
+      //       surface through CELLS_ADDED to our listener.
+      //   (2) Diff the edge → relation side-table against the live graph:
+      //       any registered edge that's no longer in the model has been
+      //       deleted. We don't trust mxGraph's CELLS_REMOVED to fire
+      //       reliably for every deletion path DrawIO exposes (keyboard
+      //       Delete, right-click Delete, edge tool, …), so this diff
+      //       is the authoritative source for the confirm-dialog queue.
       const scanId = window.setInterval(() => {
         const f = iframeRef.current;
         if (!f) return;
+        if (restoreInProgressRef.current) return;
         scanForDuplicateCells(
           f,
           (cellId) => registeredCellIdsRef.current.has(cellId),
           handleDuplicate,
+        );
+        // ── Edge-deletion diff ──
+        const liveEdgeIds = collectLiveEdgeCellIds(f);
+        // Collect ids to remove + corresponding tombstones so we don't
+        // mutate the Map while iterating.
+        const removed: Array<{ edgeCellId: string; meta: ResolvedRelationMeta }> = [];
+        edgeRelationMapRef.current.forEach((meta, edgeCellId) => {
+          if (!liveEdgeIds.has(edgeCellId)) {
+            removed.push({ edgeCellId, meta });
+          }
+        });
+        if (removed.length === 0) return;
+        for (const { edgeCellId } of removed) {
+          edgeRelationMapRef.current.delete(edgeCellId);
+        }
+        // Fire tombstones through the same handler as the live listener
+        // so the existing dedup-by-edgeCellId logic keeps working.
+        handleTombstones(
+          removed.map(({ edgeCellId, meta }) => ({
+            kind: "relation" as const,
+            edgeCellId,
+            relationId: meta.relationId,
+            relationType: meta.relationType,
+            relationLabel: meta.relationLabel,
+            sourceName: meta.sourceName,
+            targetName: meta.targetName,
+            sourceCellId: meta.sourceCellId ?? null,
+            targetCellId: meta.targetCellId ?? null,
+            style: meta.style ?? "",
+          })),
         );
       }, 750);
       // Stash the interval id on the ref so we never start two.
@@ -1424,13 +1490,18 @@ export default function DiagramEditor() {
 
         markEdgeSynced(frame, edgeCellId, "#666", created.id);
         // Mirror the new relation into the side-table so a later canvas
-        // delete still reaches the confirm dialog.
+        // delete still reaches the confirm dialog. The endpoint cellIds
+        // come from the live cell so the abort-deletion path can
+        // re-insert the edge between the same vertices.
+        const endpoints = describeEdgeEndpoints(frame, edgeCellId);
         registerEdgeRelation(edgeCellId, {
           relationId: created.id,
           relationType: rel.relationType,
           relationLabel: rel.relationLabel,
           sourceName: rel.sourceName,
           targetName: rel.targetName,
+          sourceCellId: endpoints.sourceCellId,
+          targetCellId: endpoints.targetCellId,
         });
         setSnackMsg(t("editor.relationPushed", { label: rel.relationLabel }));
         refreshSyncPanel();
@@ -1486,12 +1557,15 @@ export default function DiagramEditor() {
             target_id: r.targetCardId,
           });
           markEdgeSynced(frame, r.edgeCellId, "#666", created.id);
+          const endpoints = describeEdgeEndpoints(frame, r.edgeCellId);
           registerEdgeRelation(r.edgeCellId, {
             relationId: created.id,
             relationType: r.relationType,
             relationLabel: r.relationLabel,
             sourceName: r.sourceName,
             targetName: r.targetName,
+            sourceCellId: endpoints.sourceCellId,
+            targetCellId: endpoints.targetCellId,
           });
         } catch {
           setSnackMsg(t("editor.errors.syncRelationFailed", { label: r.relationLabel }));
@@ -1941,17 +2015,36 @@ export default function DiagramEditor() {
         targetName: "",
       });
     }
-    // Suppress tombstones during the load — DrawIO will fire
+    // Suppress tombstones + dedup during the load — DrawIO will fire
     // CELLS_REMOVED for every old cell as it replaces the canvas, and
     // those aren't user-initiated deletes.
     restoreInProgressRef.current = true;
     postToDrawIO({ action: "load", xml: restoreBanner.xml, autosave: 0 });
-    // 300 ms gives DrawIO enough time to complete the swap on slow
+    // 400 ms gives DrawIO enough time to complete the swap on slow
     // browsers while keeping the suppression tight enough that a real
-    // user deletion right after won't be missed.
+    // user deletion right after won't be missed. After the window
+    // closes we re-seed from the LIVE model — pre-seed from the XML
+    // is best-effort, this is the authoritative pass.
     window.setTimeout(() => {
+      const f = iframeRef.current;
+      if (f) {
+        for (const id of collectExistingCardCellIds(f)) {
+          registeredCellIdsRef.current.add(id);
+        }
+        for (const meta of collectExistingEdgeRelations(f)) {
+          if (!edgeRelationMapRef.current.has(meta.edgeCellId)) {
+            edgeRelationMapRef.current.set(meta.edgeCellId, {
+              relationId: meta.relationId,
+              relationType: meta.relationType,
+              relationLabel: meta.relationLabel,
+              sourceName: "",
+              targetName: "",
+            });
+          }
+        }
+      }
       restoreInProgressRef.current = false;
-    }, 300);
+    }, 400);
     setRestoreBanner(null);
     setSnackMsg(t("editor.restored"));
   }, [restoreBanner, postToDrawIO, t]);
