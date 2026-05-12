@@ -328,7 +328,18 @@ LdvGroup.displayName = "LdvGroup";
 /* ------------------------------------------------------------------ */
 
 const LdvEdgeComponent = (
-  { id, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, data, markerEnd }: EdgeProps,
+  {
+    id,
+    sourceX,
+    sourceY,
+    targetX,
+    targetY,
+    sourcePosition,
+    targetPosition,
+    data,
+    markerEnd,
+    markerStart,
+  }: EdgeProps,
 ) => {
     const theme = useTheme();
     const edgeData = data as LdvEdgeData | undefined;
@@ -476,6 +487,7 @@ const LdvEdgeComponent = (
           id={id}
           path={path}
           markerEnd={markerEnd}
+          markerStart={markerStart}
           style={{
             stroke: color,
             strokeWidth: active ? 2 : 1.2,

@@ -36,6 +36,7 @@ export interface GEdge {
   label?: string;
   reverse_label?: string;
   description?: string;
+  attributes?: Record<string, unknown>;
 }
 
 /* ------------------------------------------------------------------ */
@@ -347,10 +348,22 @@ export function buildLdvFlow(
   // Deduplicate edges: merge multiple edges between the same pair into one.
   // Track labels per-direction so we can pick the correct label when the
   // visual arrow is flipped for top-to-bottom layout.
+  type FlowDir = "bidirectional" | "forward" | "reverse";
   const edgePairMap = new Map<
     string,
-    { fwdLabels: string[]; revLabels: string[]; description?: string }
+    {
+      fwdLabels: string[];
+      revLabels: string[];
+      description?: string;
+      // flowDirection captured per pair, in pair-normalised orientation
+      // (i.e. relative to lo→hi, not the relation's metamodel direction).
+      flowDirection?: FlowDir;
+    }
   >();
+  const readFlowDir = (attrs: Record<string, unknown> | undefined): FlowDir | undefined => {
+    const v = attrs?.flowDirection;
+    return v === "bidirectional" || v === "forward" || v === "reverse" ? v : undefined;
+  };
   for (const e of validEdges) {
     const isNormalized = e.source < e.target;
     const [lo, hi] = isNormalized ? [e.source, e.target] : [e.target, e.source];
@@ -363,15 +376,29 @@ export function buildLdvFlow(
       ? (e.reverse_label || e.label || e.type)
       : (e.label || e.type);
 
+    // Re-orient flowDirection to the pair-normalised lo→hi axis so different
+    // relation types between the same pair don't fight each other.
+    let fd = readFlowDir(e.attributes);
+    if (fd && !isNormalized) {
+      if (fd === "forward") fd = "reverse";
+      else if (fd === "reverse") fd = "forward";
+    }
+
     const existing = edgePairMap.get(key);
     if (existing) {
       if (!existing.fwdLabels.includes(fwdLbl)) existing.fwdLabels.push(fwdLbl);
       if (!existing.revLabels.includes(revLbl)) existing.revLabels.push(revLbl);
+      // If existing pair has no direction yet, adopt this one. If they
+      // disagree (e.g. one forward + one reverse), upgrade to bidirectional.
+      if (fd && existing.flowDirection !== fd) {
+        existing.flowDirection = existing.flowDirection ? "bidirectional" : fd;
+      }
     } else {
       edgePairMap.set(key, {
         fwdLabels: [fwdLbl],
         revLabels: [revLbl],
         description: e.description,
+        flowDirection: fd,
       });
     }
   }
@@ -398,6 +425,8 @@ export function buildLdvFlow(
     description?: string;
     /** true when the target is visually above the source (arrow goes upward) */
     flipped: boolean;
+    /** flowDirection re-oriented to the relation's metamodel source→target axis */
+    flowDirection?: FlowDir;
   }
   const oriented: OrientedEdge[] = dedupedEdges.map((e) => {
     const [lo, hi] = e.source < e.target ? [e.source, e.target] : [e.target, e.source];
@@ -409,12 +438,30 @@ export function buildLdvFlow(
     // Labels always match the original metamodel direction (source→target)
     const isNormalized = e.source < e.target;
     const labels = isNormalized ? merged.fwdLabels : merged.revLabels;
+    // Re-orient the pair-normalised flowDirection back onto the metamodel
+    // source→target axis. When this edge is the "reverse" of the
+    // normalisation pair, swap forward ↔ reverse so the marker logic below
+    // reads relative to (e.source, e.target).
+    let fd = merged.flowDirection;
+    if (fd && !isNormalized) {
+      if (fd === "forward") fd = "reverse";
+      else if (fd === "reverse") fd = "forward";
+    }
+    // Prefix the label with a direction glyph so the meaning is readable
+    // even at distance / on print. Arrows on the edge convey the same info
+    // but the glyph makes the textual label self-describing.
+    const labelText = labels.join(" / ");
+    let relLabel = labelText;
+    if (fd === "bidirectional") relLabel = `↔ ${labelText}`;
+    else if (fd === "forward") relLabel = `→ ${labelText}`;
+    else if (fd === "reverse") relLabel = `← ${labelText}`;
     return {
       source: e.source,
       target: e.target,
-      relLabel: labels.join(" / "),
+      relLabel,
       description: merged.description,
       flipped,
+      flowDirection: fd,
     };
   });
 
@@ -783,24 +830,37 @@ export function buildLdvFlow(
     labelTs[i] = t;
   }
 
-  const rfEdges: Edge[] = oriented.map((e, i) => ({
-    id: `ldve-${i}`,
-    source: e.source,
-    target: e.target,
-    sourceHandle: edgeHandles[i].src,
-    targetHandle: edgeHandles[i].tgt,
-    type: "ldvEdge",
-    label: e.relLabel,
-    data: {
-      relLabel: e.relLabel,
-      description: e.description,
-      pathOffset: pathOffsets[i],
-      minOffset: edgeHandles[i].minOffset,
-      labelT: labelTs[i],
-    } satisfies LdvEdgeData,
-    animated: false,
-    markerEnd: { type: "arrowclosed" as const, color: "#888" },
-  }));
+  const rfEdges: Edge[] = oriented.map((e, i) => {
+    // Arrowheads encode flow direction:
+    //  - forward (default semantics): arrow at target end only
+    //  - reverse: arrow at source end only — data flows target → source
+    //  - bidirectional: arrows on both ends
+    //  - unset: keep the historical default (markerEnd only)
+    const arrow = { type: "arrowclosed" as const, color: "#888" };
+    const markerStart =
+      e.flowDirection === "reverse" || e.flowDirection === "bidirectional" ? arrow : undefined;
+    const markerEnd =
+      e.flowDirection === "reverse" ? undefined : arrow;
+    return {
+      id: `ldve-${i}`,
+      source: e.source,
+      target: e.target,
+      sourceHandle: edgeHandles[i].src,
+      targetHandle: edgeHandles[i].tgt,
+      type: "ldvEdge",
+      label: e.relLabel,
+      data: {
+        relLabel: e.relLabel,
+        description: e.description,
+        pathOffset: pathOffsets[i],
+        minOffset: edgeHandles[i].minOffset,
+        labelT: labelTs[i],
+      } satisfies LdvEdgeData,
+      animated: false,
+      ...(markerStart ? { markerStart } : {}),
+      ...(markerEnd ? { markerEnd } : {}),
+    };
+  });
 
   // Inject used handles into ldvNode data (handle selection happens after node creation)
   for (const n of rfNodes) {

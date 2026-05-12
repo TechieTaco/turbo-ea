@@ -23,12 +23,18 @@ import DialogContent from "@mui/material/DialogContent";
 import DialogActions from "@mui/material/DialogActions";
 import Autocomplete from "@mui/material/Autocomplete";
 import Tooltip from "@mui/material/Tooltip";
+import Popover from "@mui/material/Popover";
 import { useTranslation } from "react-i18next";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useResolveMetaLabel } from "@/hooks/useResolveLabel";
 import { api } from "@/api/client";
 import type { Relation, RelationType } from "@/types";
+import RelationAttributesEditor, {
+  flowDirectionBadge,
+  hasRelationAttributes,
+  type RelationAttributes,
+} from "./RelationAttributesEditor";
 
 /* ── helpers ────────────────────────────────────────────────── */
 
@@ -40,6 +46,87 @@ function sideFlags(rt: RelationType, cardTypeKey: string) {
     visible: isSource ? rt.source_visible : rt.target_visible,
     mandatory: isSource ? rt.source_mandatory : rt.target_mandatory,
   };
+}
+
+/* ── Relation Attributes Popover ────────────────────────────── */
+function RelationAttrsPopover({
+  anchorEl,
+  open,
+  onClose,
+  rt,
+  relation,
+  onSaved,
+}: {
+  anchorEl: HTMLElement | null;
+  open: boolean;
+  onClose: () => void;
+  rt: RelationType;
+  relation: Relation;
+  onSaved: (updated: Relation) => void;
+}) {
+  const { t } = useTranslation(["cards", "common"]);
+  const [draft, setDraft] = useState<RelationAttributes>(
+    (relation.attributes as RelationAttributes) ?? {},
+  );
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (open) {
+      setDraft((relation.attributes as RelationAttributes) ?? {});
+      setError("");
+    }
+  }, [open, relation.attributes]);
+
+  const handleSave = async () => {
+    setSaving(true);
+    setError("");
+    try {
+      const updated = await api.patch<Relation>(`/relations/${relation.id}`, {
+        attributes: draft,
+      });
+      onSaved(updated);
+      onClose();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t("relations.errors.create"));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Popover
+      open={open}
+      anchorEl={anchorEl}
+      onClose={onClose}
+      anchorOrigin={{ vertical: "bottom", horizontal: "left" }}
+      slotProps={{ paper: { sx: { p: 2, minWidth: 280 } } }}
+    >
+      <Typography variant="caption" fontWeight={600} sx={{ display: "block", mb: 1 }}>
+        {t("relations.optionalDetails")}
+      </Typography>
+      {error && (
+        <Alert severity="error" sx={{ mb: 1 }} onClose={() => setError("")}>
+          {error}
+        </Alert>
+      )}
+      <RelationAttributesEditor
+        relationType={rt}
+        value={draft}
+        onChange={setDraft}
+        compact
+        disabled={saving}
+      />
+      <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 1, mt: 1.5 }}>
+        <Button size="small" onClick={onClose} disabled={saving}>
+          {t("common:actions.cancel")}
+        </Button>
+        <Button size="small" variant="contained" onClick={handleSave} disabled={saving}>
+          {t("common:actions.save")}
+        </Button>
+      </Box>
+    </Popover>
+  );
 }
 
 /* ── Inline Add Row ─────────────────────────────────────────── */
@@ -216,6 +303,7 @@ function RelationGroup({
   fsId,
   canManageRelations,
   onReload,
+  onRelationUpdated,
 }: {
   rt: RelationType;
   isSource: boolean;
@@ -224,12 +312,17 @@ function RelationGroup({
   fsId: string;
   canManageRelations: boolean;
   onReload: () => void;
+  onRelationUpdated: (updated: Relation) => void;
 }) {
   const { t } = useTranslation(["cards", "common"]);
   const rml = useResolveMetaLabel();
   const { getType } = useMetamodel();
   const navigate = useNavigate();
   const [inlineAddOpen, setInlineAddOpen] = useState(false);
+  const [attrsAnchor, setAttrsAnchor] = useState<HTMLElement | null>(null);
+  const [attrsRelation, setAttrsRelation] = useState<Relation | null>(null);
+
+  const rtHasAttributes = hasRelationAttributes(rt);
 
   const otherTypeKey = isSource ? rt.target_type_key : rt.source_type_key;
   const otherType = getType(otherTypeKey);
@@ -240,6 +333,143 @@ function RelationGroup({
   const handleDelete = async (relId: string) => {
     await api.delete(`/relations/${relId}`);
     onReload();
+  };
+
+  const openAttrs = (event: React.MouseEvent<HTMLElement>, rel: Relation) => {
+    event.stopPropagation();
+    setAttrsAnchor(event.currentTarget);
+    setAttrsRelation(rel);
+  };
+  const closeAttrs = () => {
+    setAttrsAnchor(null);
+    setAttrsRelation(null);
+  };
+
+  // Bucket relations by role when the relation type carries a
+  // `flowDirection` attribute. We surface Provider / Consumer roles
+  // because the EA convention for an Interface is to have two roles:
+  // a Provider and a Consumer (bidirectional apps act as both).
+  const hasFlowDirection = (rt.attributes_schema ?? []).some((f) => f.key === "flowDirection");
+  const readFlow = (r: Relation): string | undefined => {
+    const v = (r.attributes as RelationAttributes | undefined)?.flowDirection;
+    return typeof v === "string" ? v : undefined;
+  };
+  const providerRels = hasFlowDirection
+    ? rels.filter((r) => {
+        const v = readFlow(r);
+        return v === "forward" || v === "bidirectional";
+      })
+    : [];
+  const consumerRels = hasFlowDirection
+    ? rels.filter((r) => {
+        const v = readFlow(r);
+        return v === "reverse" || v === "bidirectional";
+      })
+    : [];
+  const unspecifiedRels = hasFlowDirection ? rels.filter((r) => !readFlow(r)) : [];
+
+  const otherTypeLabel = rml(otherType?.key ?? "", otherType?.translations, "label") || otherTypeKey;
+
+  const renderRow = (r: Relation) => {
+    const other = r.source_id === fsId ? r.target : r.source;
+    const oType = getType(other?.type ?? "");
+    const badge = flowDirectionBadge(rt, r.attributes as RelationAttributes | undefined);
+    return (
+      <ListItem
+        key={r.id}
+        secondaryAction={
+          <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+            {rtHasAttributes && canManageRelations && (
+              <Tooltip
+                title={t(
+                  badge
+                    ? `relations.flowDirection.${badge.value}`
+                    : "relations.setFlowDirection",
+                )}
+              >
+                <IconButton
+                  size="small"
+                  onClick={(e) => openAttrs(e, r)}
+                  sx={{
+                    color: badge ? "primary.main" : "text.disabled",
+                    border: badge ? "none" : "1px dashed",
+                    borderColor: "divider",
+                    borderRadius: 1,
+                    px: 0.5,
+                  }}
+                >
+                  <MaterialSymbol icon={badge ? badge.icon : "swap_horiz"} size={20} />
+                </IconButton>
+              </Tooltip>
+            )}
+            {canManageRelations && (
+              <IconButton size="small" onClick={() => handleDelete(r.id)}>
+                <MaterialSymbol icon="close" size={16} />
+              </IconButton>
+            )}
+          </Box>
+        }
+        sx={{ py: 0.25 }}
+      >
+        <Box
+          component="div"
+          onClick={() => other && navigate(`/cards/${other.id}`)}
+          sx={{ cursor: "pointer", display: "flex", alignItems: "center", gap: 1, "&:hover": { textDecoration: "underline" } }}
+        >
+          {oType && <Box sx={{ width: 8, height: 8, borderRadius: "50%", bgcolor: oType.color, flexShrink: 0 }} />}
+          <ListItemText primary={other?.name || t("relations.unknown")} />
+        </Box>
+      </ListItem>
+    );
+  };
+
+  const renderBucket = (
+    icon: string,
+    headerKey: string,
+    bucketRels: Relation[],
+    showWhenEmpty: boolean,
+  ) => {
+    if (bucketRels.length === 0 && !showWhenEmpty) return null;
+    return (
+      <Box key={headerKey}>
+        <Box
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            gap: 0.75,
+            px: 1.5,
+            py: 0.5,
+            bgcolor: "background.default",
+            borderTop: "1px solid",
+            borderColor: "divider",
+          }}
+        >
+          <MaterialSymbol icon={icon} size={16} />
+          <Typography variant="caption" fontWeight={600} color="text.secondary">
+            {t(headerKey, { type: otherTypeLabel })}
+          </Typography>
+          <Chip
+            size="small"
+            label={bucketRels.length}
+            variant="outlined"
+            sx={{ height: 18, fontSize: "0.65rem" }}
+          />
+        </Box>
+        {bucketRels.length > 0 ? (
+          <List dense disablePadding sx={{ px: 0.5 }}>
+            {bucketRels.map(renderRow)}
+          </List>
+        ) : (
+          <Typography
+            variant="caption"
+            color="text.disabled"
+            sx={{ px: 1.5, py: 0.5, fontStyle: "italic", display: "block" }}
+          >
+            {t("relations.role.emptyBucket")}
+          </Typography>
+        )}
+      </Box>
+    );
   };
 
   return (
@@ -306,36 +536,45 @@ function RelationGroup({
         )}
       </Box>
 
-      {/* Related cards list */}
-      {rels.length > 0 && (
+      {/* Related cards list — bucketed by role when the relation type
+          carries flowDirection, otherwise a flat list. */}
+      {rels.length > 0 && !hasFlowDirection && (
         <List dense disablePadding sx={{ px: 0.5 }}>
-          {rels.map((r) => {
-            const other = r.source_id === fsId ? r.target : r.source;
-            const oType = getType(other?.type ?? "");
-            return (
-              <ListItem
-                key={r.id}
-                secondaryAction={
-                  canManageRelations ? (
-                    <IconButton size="small" onClick={() => handleDelete(r.id)}>
-                      <MaterialSymbol icon="close" size={16} />
-                    </IconButton>
-                  ) : undefined
-                }
-                sx={{ py: 0.25 }}
-              >
-                <Box
-                  component="div"
-                  onClick={() => other && navigate(`/cards/${other.id}`)}
-                  sx={{ cursor: "pointer", display: "flex", alignItems: "center", gap: 1, "&:hover": { textDecoration: "underline" } }}
-                >
-                  {oType && <Box sx={{ width: 8, height: 8, borderRadius: "50%", bgcolor: oType.color, flexShrink: 0 }} />}
-                  <ListItemText primary={other?.name || t("relations.unknown")} />
-                </Box>
-              </ListItem>
-            );
-          })}
+          {rels.map(renderRow)}
         </List>
+      )}
+      {hasFlowDirection && rels.length > 0 && (
+        <>
+          {renderBucket(
+            "arrow_forward",
+            isSource ? "relations.role.providedHeader" : "relations.role.providerHeader",
+            providerRels,
+            true,
+          )}
+          {renderBucket(
+            "arrow_back",
+            isSource ? "relations.role.consumedHeader" : "relations.role.consumerHeader",
+            consumerRels,
+            true,
+          )}
+          {renderBucket(
+            "help_outline",
+            "relations.role.unspecifiedHeader",
+            unspecifiedRels,
+            false,
+          )}
+        </>
+      )}
+
+      {rtHasAttributes && attrsRelation && (
+        <RelationAttrsPopover
+          anchorEl={attrsAnchor}
+          open={Boolean(attrsAnchor)}
+          onClose={closeAttrs}
+          rt={rt}
+          relation={attrsRelation}
+          onSaved={onRelationUpdated}
+        />
       )}
 
       {/* Empty state for mandatory/visible relations */}
@@ -396,11 +635,29 @@ function RelationsSection({
   const [createName, setCreateName] = useState("");
   const [createLoading, setCreateLoading] = useState(false);
 
+  // Optional attributes captured in the dialog (when relation type declares a schema)
+  const [dialogAttributes, setDialogAttributes] = useState<RelationAttributes>({});
+
   const load = useCallback(() => {
     api.get<Relation[]>(`/relations?card_id=${fsId}`).then(setRelations).catch(() => {});
   }, [fsId]);
 
   useEffect(load, [load, refreshKey]);
+
+  const handleRelationUpdated = useCallback((updated: Relation) => {
+    // Only overlay the mutable fields the PATCH response actually updates.
+    // Spreading `updated` wholesale risks clobbering the eagerly-loaded
+    // `source`/`target` card refs if the PATCH response ever returns them
+    // shallower than the GET (we've seen rows render as "Unknown" after
+    // editing direction). The id-keyed merge here keeps the existing refs.
+    setRelations((prev) =>
+      prev.map((r) =>
+        r.id === updated.id
+          ? { ...r, attributes: updated.attributes, description: updated.description }
+          : r,
+      ),
+    );
+  }, []);
 
   // All relevant (non-hidden) relation types for this card type
   // Successor relations are excluded — they are handled by SuccessorsSection
@@ -465,16 +722,21 @@ function RelationsSection({
     if (!selectedRT || !selectedTarget) return;
     setAddError("");
     try {
-      await api.post("/relations", {
+      const payload: Record<string, unknown> = {
         type: selectedRT.key,
         source_id: dialogIsSource ? fsId : selectedTarget.id,
         target_id: dialogIsSource ? selectedTarget.id : fsId,
-      });
+      };
+      if (Object.keys(dialogAttributes).length > 0) {
+        payload.attributes = dialogAttributes;
+      }
+      await api.post("/relations", payload);
       load();
       setAddDialogOpen(false);
       setAddRelType("");
       setSelectedTarget(null);
       setTargetSearch("");
+      setDialogAttributes({});
     } catch (e) {
       setAddError(e instanceof Error ? e.message : t("relations.errors.create"));
     }
@@ -521,6 +783,7 @@ function RelationsSection({
             fsId={fsId}
             canManageRelations={canManageRelations}
             onReload={load}
+            onRelationUpdated={handleRelationUpdated}
           />
         ))}
 
@@ -544,6 +807,7 @@ function RelationsSection({
                 fsId={fsId}
                 canManageRelations={canManageRelations}
                 onReload={load}
+                onRelationUpdated={handleRelationUpdated}
               />
             );
           })}
@@ -590,6 +854,7 @@ function RelationsSection({
                 setSelectedTarget(null);
                 setTargetSearch("");
                 setCreateOpen(false);
+                setDialogAttributes({});
               }}
             >
               {hiddenRTs.map((rt) => {
@@ -661,6 +926,19 @@ function RelationsSection({
                   type: rml(dialogTargetConfig?.key ?? "", dialogTargetConfig?.translations, "label") || dialogTargetTypeKey,
                 })}
               </Button>
+              {selectedRT && hasRelationAttributes(selectedRT) && (
+                <Box sx={{ mt: 2, p: 1.5, border: "1px dashed", borderColor: "divider", borderRadius: 1 }}>
+                  <Typography variant="caption" fontWeight={600} sx={{ display: "block", mb: 1 }}>
+                    {t("relations.optionalDetails")}
+                  </Typography>
+                  <RelationAttributesEditor
+                    relationType={selectedRT}
+                    value={dialogAttributes}
+                    onChange={setDialogAttributes}
+                    compact
+                  />
+                </Box>
+              )}
             </>
           )}
           {addRelType && createOpen && (

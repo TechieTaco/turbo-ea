@@ -177,6 +177,71 @@ describe("buildLdvFlow", () => {
     }
   });
 
+  describe("flowDirection on edges", () => {
+    const nodes: GNode[] = [
+      { id: "a1", name: "App 1", type: "Application" },
+      { id: "it1", name: "Server 1", type: "ITComponent" },
+    ];
+
+    it("renders markerEnd only when flowDirection=forward (or unset)", () => {
+      const edges: GEdge[] = [
+        {
+          source: "a1",
+          target: "it1",
+          type: "runs_on",
+          label: "Runs On",
+          attributes: { flowDirection: "forward" },
+        },
+      ];
+      const result = buildLdvFlow(nodes, edges, TYPES);
+      expect(result.edges[0].markerEnd).toBeDefined();
+      expect(result.edges[0].markerStart).toBeUndefined();
+      expect(result.edges[0].label).toBe("→ Runs On");
+    });
+
+    it("renders markerStart only when flowDirection=reverse", () => {
+      const edges: GEdge[] = [
+        {
+          source: "a1",
+          target: "it1",
+          type: "runs_on",
+          label: "Runs On",
+          attributes: { flowDirection: "reverse" },
+        },
+      ];
+      const result = buildLdvFlow(nodes, edges, TYPES);
+      expect(result.edges[0].markerEnd).toBeUndefined();
+      expect(result.edges[0].markerStart).toBeDefined();
+      expect(result.edges[0].label).toBe("← Runs On");
+    });
+
+    it("renders both markers when flowDirection=bidirectional", () => {
+      const edges: GEdge[] = [
+        {
+          source: "a1",
+          target: "it1",
+          type: "runs_on",
+          label: "Runs On",
+          attributes: { flowDirection: "bidirectional" },
+        },
+      ];
+      const result = buildLdvFlow(nodes, edges, TYPES);
+      expect(result.edges[0].markerEnd).toBeDefined();
+      expect(result.edges[0].markerStart).toBeDefined();
+      expect(result.edges[0].label).toBe("↔ Runs On");
+    });
+
+    it("falls back to markerEnd only when attribute is absent", () => {
+      const edges: GEdge[] = [
+        { source: "a1", target: "it1", type: "runs_on", label: "Runs On" },
+      ];
+      const result = buildLdvFlow(nodes, edges, TYPES);
+      expect(result.edges[0].markerEnd).toBeDefined();
+      expect(result.edges[0].markerStart).toBeUndefined();
+      expect(result.edges[0].label).toBe("Runs On");
+    });
+  });
+
   it("orders categories according to the fixed EA layer order", () => {
     const nodes: GNode[] = [
       { id: "it1", name: "Server 1", type: "ITComponent" },
