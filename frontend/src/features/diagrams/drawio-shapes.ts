@@ -1231,12 +1231,108 @@ export function attachCellLifecycleListeners(
   };
 
   model.addListener(win.mxEvent.CELLS_ADDED, addedListener);
+  // Attach CELLS_REMOVED on BOTH model and graph. mxGraph fires it on the
+  // graph via `cellsRemoved()`; DrawIO sometimes also routes deletes
+  // through the model. Card deletes in DrawIO go through the graph path
+  // and never reach a model-level listener, so we listen on both.
   model.addListener(win.mxEvent.CELLS_REMOVED, removedListener);
+  try {
+    graph.addListener(win.mxEvent.CELLS_REMOVED, removedListener);
+  } catch {
+    // older mxGraph builds without graph-level CELLS_REMOVED
+  }
+
+  // Diff-based fallback. Some DrawIO delete paths fire neither
+  // model.CELLS_REMOVED nor graph.CELLS_REMOVED in a form our handlers
+  // see. We track every card / shape vertex we've seen and, on every
+  // model CHANGE, detect which ones disappeared since last tick. The
+  // synthesised removal then routes through the same `removedListener`
+  // so cascade-edge-removal works for these paths too.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const knownVertexCells = new Map<string, any>();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const knownEdgeCells = new Map<string, any>();
+  const seedKnownCells = () => {
+    const allCells = model.cells || {};
+    for (const k of Object.keys(allCells)) {
+      const c = allCells[k];
+      if (!c || c.id === "0" || c.id === "1") continue;
+      if (c.edge) knownEdgeCells.set(c.id, c);
+      else knownVertexCells.set(c.id, c);
+    }
+  };
+  seedKnownCells();
+
+  const synthesiseRemoval = () => {
+    const allCells = model.cells || {};
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const goneVertices: any[] = [];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const goneEdges: any[] = [];
+    for (const [id, cell] of knownVertexCells) {
+      if (!allCells[id]) {
+        goneVertices.push(cell);
+      }
+    }
+    // Also detect edges that disappeared (their model entry is gone)
+    // so we cover the case where DrawIO removed only the edge.
+    // We need a known-edge map too — maintain it inline.
+    for (const [id, cell] of knownEdgeCells) {
+      if (!allCells[id]) {
+        goneEdges.push(cell);
+      }
+    }
+    if (goneVertices.length === 0 && goneEdges.length === 0) {
+      // Refresh known sets to pick up any new cells added since last tick.
+      for (const k of Object.keys(allCells)) {
+        const c = allCells[k];
+        if (!c || c.id === "0" || c.id === "1") continue;
+        if (c.edge) knownEdgeCells.set(c.id, c);
+        else knownVertexCells.set(c.id, c);
+      }
+      return;
+    }
+    // eslint-disable-next-line no-console
+    console.debug("[turbo-ea] diff-detected removals", {
+      vertices: goneVertices.map((v) => ({
+        id: v?.id,
+        cardId: v?.value?.getAttribute?.("cardId"),
+        label: v?.value?.getAttribute?.("label"),
+      })),
+      edges: goneEdges.map((e) => ({ id: e?.id })),
+    });
+    // Update known sets first so the listener invocation can't see
+    // these cells anymore.
+    for (const v of goneVertices) knownVertexCells.delete(v.id);
+    for (const e of goneEdges) knownEdgeCells.delete(e.id);
+    // Refresh with newly-added cells too.
+    for (const k of Object.keys(allCells)) {
+      const c = allCells[k];
+      if (!c || c.id === "0" || c.id === "1") continue;
+      if (c.edge) knownEdgeCells.set(c.id, c);
+      else knownVertexCells.set(c.id, c);
+    }
+    // Fake an mxEvent-shaped object the listener expects.
+    const fakeEvt = {
+      getProperty: (k: string) =>
+        k === "cells" ? [...goneVertices, ...goneEdges] : null,
+    };
+    removedListener(null, fakeEvt);
+  };
+
+  const changeListener = () => synthesiseRemoval();
+  model.addListener(win.mxEvent.CHANGE, changeListener);
 
   return () => {
     try {
       model.removeListener(addedListener);
       model.removeListener(removedListener);
+      model.removeListener(changeListener);
+      try {
+        graph.removeListener(removedListener);
+      } catch {
+        // ignore
+      }
     } catch {
       // graph may have been torn down already
     }
