@@ -64,23 +64,38 @@ class TestSeedRelationTypes:
         expected = {r["key"] for r in RELATIONS}
         assert expected.issubset(keys)
 
-    async def test_interface_relations_have_flow_direction(self, db):
-        """relAppToInterface and relInterfaceToDataObj declare the
-        single-select `flowDirection` attribute (bidirectional / forward /
-        reverse) so the UI can capture data-flow direction without
-        splitting into multiple relation types."""
+    async def test_app_to_interface_has_flow_direction(self, db):
+        """relAppToInterface declares the single-select `flowDirection`
+        attribute so the UI can capture which Application is the
+        Provider vs. Consumer of the Interface (bidirectional = both)."""
         await seed_metamodel(db)
 
-        for key in ("relAppToInterface", "relInterfaceToDataObj"):
-            result = await db.execute(select(RelationType).where(RelationType.key == key))
-            rt = result.scalar_one()
-            schema = rt.attributes_schema or []
-            flow_fields = [f for f in schema if f.get("key") == "flowDirection"]
-            assert len(flow_fields) == 1, f"{key} missing flowDirection attribute"
-            field = flow_fields[0]
-            assert field["type"] == "single_select"
-            option_keys = {opt["key"] for opt in field.get("options", [])}
-            assert option_keys == {"bidirectional", "forward", "reverse"}
+        result = await db.execute(
+            select(RelationType).where(RelationType.key == "relAppToInterface")
+        )
+        rt = result.scalar_one()
+        schema = rt.attributes_schema or []
+        flow_fields = [f for f in schema if f.get("key") == "flowDirection"]
+        assert len(flow_fields) == 1, "relAppToInterface missing flowDirection attribute"
+        field = flow_fields[0]
+        assert field["type"] == "single_select"
+        option_keys = {opt["key"] for opt in field.get("options", [])}
+        assert option_keys == {"bidirectional", "forward", "reverse"}
+
+    async def test_interface_to_dataobj_has_no_flow_direction(self, db):
+        """A DataObject is the payload an Interface carries, not a
+        direction-bearing endpoint, so relInterfaceToDataObj must NOT
+        declare flowDirection."""
+        await seed_metamodel(db)
+
+        result = await db.execute(
+            select(RelationType).where(RelationType.key == "relInterfaceToDataObj")
+        )
+        rt = result.scalar_one()
+        schema = rt.attributes_schema or []
+        assert all(f.get("key") != "flowDirection" for f in schema), (
+            "relInterfaceToDataObj should not carry flowDirection"
+        )
 
 
 # ---------------------------------------------------------------------------

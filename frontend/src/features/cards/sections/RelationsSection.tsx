@@ -345,6 +345,133 @@ function RelationGroup({
     setAttrsRelation(null);
   };
 
+  // Bucket relations by role when the relation type carries a
+  // `flowDirection` attribute. We surface Provider / Consumer roles
+  // because the EA convention for an Interface is to have two roles:
+  // a Provider and a Consumer (bidirectional apps act as both).
+  const hasFlowDirection = (rt.attributes_schema ?? []).some((f) => f.key === "flowDirection");
+  const readFlow = (r: Relation): string | undefined => {
+    const v = (r.attributes as RelationAttributes | undefined)?.flowDirection;
+    return typeof v === "string" ? v : undefined;
+  };
+  const providerRels = hasFlowDirection
+    ? rels.filter((r) => {
+        const v = readFlow(r);
+        return v === "forward" || v === "bidirectional";
+      })
+    : [];
+  const consumerRels = hasFlowDirection
+    ? rels.filter((r) => {
+        const v = readFlow(r);
+        return v === "reverse" || v === "bidirectional";
+      })
+    : [];
+  const unspecifiedRels = hasFlowDirection ? rels.filter((r) => !readFlow(r)) : [];
+
+  const otherTypeLabel = rml(otherType?.key ?? "", otherType?.translations, "label") || otherTypeKey;
+
+  const renderRow = (r: Relation) => {
+    const other = r.source_id === fsId ? r.target : r.source;
+    const oType = getType(other?.type ?? "");
+    const badge = flowDirectionBadge(rt, r.attributes as RelationAttributes | undefined);
+    return (
+      <ListItem
+        key={r.id}
+        secondaryAction={
+          <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+            {rtHasAttributes && canManageRelations && (
+              <Tooltip
+                title={t(
+                  badge
+                    ? `relations.flowDirection.${badge.value}`
+                    : "relations.setFlowDirection",
+                )}
+              >
+                <IconButton
+                  size="small"
+                  onClick={(e) => openAttrs(e, r)}
+                  sx={{
+                    color: badge ? "primary.main" : "text.disabled",
+                    border: badge ? "none" : "1px dashed",
+                    borderColor: "divider",
+                    borderRadius: 1,
+                    px: 0.5,
+                  }}
+                >
+                  <MaterialSymbol icon={badge ? badge.icon : "swap_horiz"} size={20} />
+                </IconButton>
+              </Tooltip>
+            )}
+            {canManageRelations && (
+              <IconButton size="small" onClick={() => handleDelete(r.id)}>
+                <MaterialSymbol icon="close" size={16} />
+              </IconButton>
+            )}
+          </Box>
+        }
+        sx={{ py: 0.25 }}
+      >
+        <Box
+          component="div"
+          onClick={() => other && navigate(`/cards/${other.id}`)}
+          sx={{ cursor: "pointer", display: "flex", alignItems: "center", gap: 1, "&:hover": { textDecoration: "underline" } }}
+        >
+          {oType && <Box sx={{ width: 8, height: 8, borderRadius: "50%", bgcolor: oType.color, flexShrink: 0 }} />}
+          <ListItemText primary={other?.name || t("relations.unknown")} />
+        </Box>
+      </ListItem>
+    );
+  };
+
+  const renderBucket = (
+    icon: string,
+    headerKey: string,
+    bucketRels: Relation[],
+    showWhenEmpty: boolean,
+  ) => {
+    if (bucketRels.length === 0 && !showWhenEmpty) return null;
+    return (
+      <Box key={headerKey}>
+        <Box
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            gap: 0.75,
+            px: 1.5,
+            py: 0.5,
+            bgcolor: "background.default",
+            borderTop: "1px solid",
+            borderColor: "divider",
+          }}
+        >
+          <MaterialSymbol icon={icon} size={16} />
+          <Typography variant="caption" fontWeight={600} color="text.secondary">
+            {t(headerKey, { type: otherTypeLabel })}
+          </Typography>
+          <Chip
+            size="small"
+            label={bucketRels.length}
+            variant="outlined"
+            sx={{ height: 18, fontSize: "0.65rem" }}
+          />
+        </Box>
+        {bucketRels.length > 0 ? (
+          <List dense disablePadding sx={{ px: 0.5 }}>
+            {bucketRels.map(renderRow)}
+          </List>
+        ) : (
+          <Typography
+            variant="caption"
+            color="text.disabled"
+            sx={{ px: 1.5, py: 0.5, fontStyle: "italic", display: "block" }}
+          >
+            {t("relations.role.emptyBucket")}
+          </Typography>
+        )}
+      </Box>
+    );
+  };
+
   return (
     <Box
       sx={{
@@ -409,61 +536,34 @@ function RelationGroup({
         )}
       </Box>
 
-      {/* Related cards list */}
-      {rels.length > 0 && (
+      {/* Related cards list — bucketed by role when the relation type
+          carries flowDirection, otherwise a flat list. */}
+      {rels.length > 0 && !hasFlowDirection && (
         <List dense disablePadding sx={{ px: 0.5 }}>
-          {rels.map((r) => {
-            const other = r.source_id === fsId ? r.target : r.source;
-            const oType = getType(other?.type ?? "");
-            const badge = flowDirectionBadge(rt, r.attributes as RelationAttributes | undefined);
-            return (
-              <ListItem
-                key={r.id}
-                secondaryAction={
-                  <Box sx={{ display: "flex", alignItems: "center", gap: 0.25 }}>
-                    {rtHasAttributes && canManageRelations && (
-                      <Tooltip
-                        title={t(
-                          badge
-                            ? "relations.editAttributes"
-                            : "relations.setFlowDirection",
-                        )}
-                      >
-                        <IconButton size="small" onClick={(e) => openAttrs(e, r)}>
-                          {badge ? (
-                            <Typography
-                              component="span"
-                              sx={{ fontSize: 14, lineHeight: 1, fontWeight: 700, color: "primary.main" }}
-                            >
-                              {badge.icon}
-                            </Typography>
-                          ) : (
-                            <MaterialSymbol icon="tune" size={14} />
-                          )}
-                        </IconButton>
-                      </Tooltip>
-                    )}
-                    {canManageRelations && (
-                      <IconButton size="small" onClick={() => handleDelete(r.id)}>
-                        <MaterialSymbol icon="close" size={16} />
-                      </IconButton>
-                    )}
-                  </Box>
-                }
-                sx={{ py: 0.25 }}
-              >
-                <Box
-                  component="div"
-                  onClick={() => other && navigate(`/cards/${other.id}`)}
-                  sx={{ cursor: "pointer", display: "flex", alignItems: "center", gap: 1, "&:hover": { textDecoration: "underline" } }}
-                >
-                  {oType && <Box sx={{ width: 8, height: 8, borderRadius: "50%", bgcolor: oType.color, flexShrink: 0 }} />}
-                  <ListItemText primary={other?.name || t("relations.unknown")} />
-                </Box>
-              </ListItem>
-            );
-          })}
+          {rels.map(renderRow)}
         </List>
+      )}
+      {hasFlowDirection && rels.length > 0 && (
+        <>
+          {renderBucket(
+            "arrow_forward",
+            isSource ? "relations.role.providedHeader" : "relations.role.providerHeader",
+            providerRels,
+            true,
+          )}
+          {renderBucket(
+            "arrow_back",
+            isSource ? "relations.role.consumedHeader" : "relations.role.consumerHeader",
+            consumerRels,
+            true,
+          )}
+          {renderBucket(
+            "help_outline",
+            "relations.role.unspecifiedHeader",
+            unspecifiedRels,
+            false,
+          )}
+        </>
       )}
 
       {rtHasAttributes && attrsRelation && (
@@ -545,7 +645,18 @@ function RelationsSection({
   useEffect(load, [load, refreshKey]);
 
   const handleRelationUpdated = useCallback((updated: Relation) => {
-    setRelations((prev) => prev.map((r) => (r.id === updated.id ? { ...r, ...updated } : r)));
+    // Only overlay the mutable fields the PATCH response actually updates.
+    // Spreading `updated` wholesale risks clobbering the eagerly-loaded
+    // `source`/`target` card refs if the PATCH response ever returns them
+    // shallower than the GET (we've seen rows render as "Unknown" after
+    // editing direction). The id-keyed merge here keeps the existing refs.
+    setRelations((prev) =>
+      prev.map((r) =>
+        r.id === updated.id
+          ? { ...r, attributes: updated.attributes, description: updated.description }
+          : r,
+      ),
+    );
   }, []);
 
   // All relevant (non-hidden) relation types for this card type

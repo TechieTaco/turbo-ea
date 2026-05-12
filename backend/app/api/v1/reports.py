@@ -1603,6 +1603,7 @@ async def dependencies(
                         "label": rt_info.get("label", r.type),
                         "reverse_label": rt_info.get("reverse_label"),
                         "description": r.description,
+                        "attributes": r.attributes,
                     }
                 )
 

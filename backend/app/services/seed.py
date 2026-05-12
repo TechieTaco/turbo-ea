@@ -4217,7 +4217,6 @@ RELATIONS = [
         "target_type_key": "DataObject",
         "cardinality": "n:m",
         "sort_order": 25,
-        "attributes_schema": [FLOW_DIRECTION_FIELD],
         "translations": {
             "label": {
                 "de": "überträgt",

@@ -7,28 +7,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [1.9.0] - 2026-05-12
 
-Flow direction on Interface relations — capture which way data flows
-between an Application and an Interface (and between an Interface and a
-DataObject) without splitting the relation into two types.
+**Provider / Consumer roles on Application↔Interface relations.** An
+Interface is a contract between two Applications — a Provider and a
+Consumer (with Bidirectional as the peer case). Turbo EA now models
+this explicitly without splitting the metamodel.
 
 ### Added
-- **Flow direction attribute** (`bidirectional` / `forward` / `reverse`)
-  on the `relAppToInterface` and `relInterfaceToDataObj` relation types.
-  The forward / reverse options are rendered with the relation's own
-  labels — e.g. "→ provides" vs. "← consumes" — so the wording stays
-  natural.
-- **Inline editor** on every relation row in the card detail Relations
-  section: a directional badge (↔ → ←) appears once set, click to edit
-  in a popover. Available on all relation types that declare an
-  `attributes_schema`.
+- **Application role attribute** on `relAppToInterface`
+  (Provider / Consumer / Bidirectional). Stored in
+  `relations.attributes.flowDirection` to keep the storage schema
+  neutral; surfaced in the UI as canonical EA role terminology.
+- **Role-bucketed relation list** on the Interface card detail:
+  `relAppToInterface` relations are split into "Provider Applications"
+  and "Consumer Applications" sub-sections (Bidirectional apps appear
+  in both). The same split applies in reverse on the Application card
+  ("Provided Interfaces" / "Consumed Interfaces"). Unspecified
+  relations get their own bucket so existing data isn't hidden.
+- **Inline editor** on every relation row: a directional Material
+  Symbol (`arrow_forward`, `arrow_back`, `sync_alt`) appears once a
+  role is set; an unset dashed placeholder invites the user to assign
+  one. Click to edit in a popover.
 - **Optional details section** in the Add Relation dialog and in the
   diagram-side Relation Picker — appears only when the chosen relation
   type carries a schema, never blocks creation.
+- **Dependency diagram (LDV) honours direction**: each
+  Application↔Interface edge renders with arrowheads matching the
+  Provider / Consumer / Bidirectional role, and the edge label is
+  prefixed with `→`, `←`, or `↔` so the meaning is readable on
+  monochrome print.
+
+### Changed
+- `relInterfaceToDataObj` no longer carries the flow-direction
+  attribute. A DataObject is the payload an Interface transfers, not
+  a direction-bearing endpoint.
 
 ### Backend
-- Migration `074_relation_flow_direction.py` seeds the schema on the two
-  Interface-bearing relation types using the guarded-UPDATE pattern, so
+- Migration `074_relation_flow_direction.py` seeds the attribute on
+  `relAppToInterface` using the guarded-UPDATE pattern, so
   admin-customised relation types are not overwritten.
+- Migration `075_drop_flow_direction_from_interface_dataobj.py`
+  reverses the equivalent change on `relInterfaceToDataObj`, again
+  guarded so admin additions are preserved.
+- `/reports/dependencies` edges now include `attributes` so the LDV
+  can read `flowDirection` per edge.
 
 ## [1.8.0] - 2026-05-12
 

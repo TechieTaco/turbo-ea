@@ -5,6 +5,7 @@ import Select from "@mui/material/Select";
 import MenuItem from "@mui/material/MenuItem";
 import Typography from "@mui/material/Typography";
 import { useTranslation } from "react-i18next";
+import MaterialSymbol from "@/components/MaterialSymbol";
 import { useResolveLabel, useResolveMetaLabel } from "@/hooks/useResolveLabel";
 import type { FieldDef, RelationType } from "@/types";
 
@@ -125,35 +126,64 @@ function renderOptionLabel(
   if (field.key !== "flowDirection") {
     return rl(optionLabel, optionTranslations);
   }
-  if (optionKey === "bidirectional") {
-    return `↔ ${t("cards:relations.flowDirection.bidirectional")}`;
+  // For Application↔Interface specifically, use the canonical EA
+  // Provider / Consumer / Bidirectional wording. For any other
+  // relation type that declares flowDirection (none in core today)
+  // fall back to the relation type's own forward / reverse labels.
+  const isAppToInterface = relationType.key === "relAppToInterface";
+  let icon = "sync_alt";
+  let text: string;
+  if (isAppToInterface) {
+    if (optionKey === "forward") {
+      icon = "arrow_forward";
+      text = t("cards:relations.role.provider");
+    } else if (optionKey === "reverse") {
+      icon = "arrow_back";
+      text = t("cards:relations.role.consumer");
+    } else {
+      text = t("cards:relations.role.bidirectional");
+    }
+  } else {
+    const fwd = rml(relationType.key, relationType.translations, "label") || relationType.label;
+    const rev =
+      rml(relationType.key, relationType.translations, "reverse_label") ||
+      relationType.reverse_label ||
+      fwd;
+    if (optionKey === "forward") {
+      icon = "arrow_forward";
+      text = fwd;
+    } else if (optionKey === "reverse") {
+      icon = "arrow_back";
+      text = rev;
+    } else {
+      text = t("cards:relations.flowDirection.bidirectional");
+    }
   }
-  const fwd = rml(relationType.key, relationType.translations, "label") || relationType.label;
-  const rev =
-    rml(relationType.key, relationType.translations, "reverse_label") ||
-    relationType.reverse_label ||
-    fwd;
-  if (optionKey === "forward") return `→ ${fwd}`;
-  if (optionKey === "reverse") return `← ${rev}`;
-  return rl(optionLabel, optionTranslations);
+  return (
+    <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+      <MaterialSymbol icon={icon} size={18} />
+      <Typography variant="body2">{text}</Typography>
+    </Box>
+  );
 }
 
 /**
  * Helper used by callers to render a compact directional badge for a
  * relation row. Returns null if the relation type does not declare
  * `flowDirection` or the relation has no value set.
+ * `icon` is a Material Symbol name (consumed by `<MaterialSymbol/>`).
  */
 export function flowDirectionBadge(
   relationType: RelationType | undefined,
   attributes: RelationAttributes | undefined,
-): { icon: string; tooltip: string } | null {
+): { icon: string; value: "bidirectional" | "forward" | "reverse" } | null {
   if (!relationType) return null;
   const hasField = (relationType.attributes_schema ?? []).some((f) => f.key === "flowDirection");
   if (!hasField) return null;
   const v = attributes?.flowDirection;
-  if (v === "bidirectional") return { icon: "↔", tooltip: "bidirectional" };
-  if (v === "forward") return { icon: "→", tooltip: "forward" };
-  if (v === "reverse") return { icon: "←", tooltip: "reverse" };
+  if (v === "bidirectional") return { icon: "sync_alt", value: "bidirectional" };
+  if (v === "forward") return { icon: "arrow_forward", value: "forward" };
+  if (v === "reverse") return { icon: "arrow_back", value: "reverse" };
   return null;
 }
 
