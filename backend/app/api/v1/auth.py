@@ -9,7 +9,7 @@ import jwt
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from jwt import PyJWKClient
 from pydantic import BaseModel
-from sqlalchemy import func, select, text
+from sqlalchemy import delete, func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
@@ -282,11 +282,9 @@ async def login(
     if user.auth_provider == "sso":
         raise HTTPException(403, "This account uses SSO authentication. Please sign in via SSO.")
     if not user.password_hash:
-        if user.password_setup_token:
-            raise HTTPException(
-                403,
-                "Password not set yet. Check your email for the setup link.",
-            )
+        # Local account with no password — shouldn't happen for new accounts (password
+        # is mandatory at creation when SSO is disabled) but legacy data can have it.
+        # Don't leak any detail beyond the standard 401 response.
         raise HTTPException(401, "Invalid credentials")
 
     # ── M5: Account lockout check ──
@@ -307,7 +305,13 @@ async def login(
     # Reset failed attempts on successful login
     user.failed_login_attempts = 0
     user.locked_until = None
+    first_login = user.last_login is None
     user.last_login = datetime.now(timezone.utc)
+    # First login = invitation consumed. Drop any matching SsoInvitation so
+    # the row disappears from the Pending Invitations admin list (#539).
+    # Idempotent for subsequent logins — deletes nothing.
+    if first_login:
+        await db.execute(delete(SsoInvitation).where(SsoInvitation.email == user.email))
     await db.commit()
 
     token = create_access_token(user.id, user.role)
@@ -615,6 +619,9 @@ async def sso_callback(
             user.display_name = display_name
         user.password_setup_token = None
         user.last_login = datetime.now(timezone.utc)
+        # The user has now accepted the invite via SSO; clear any pending
+        # SsoInvitation row for this email (#539).
+        await db.execute(delete(SsoInvitation).where(SsoInvitation.email == email))
         await db.commit()
         if not user.is_active:
             raise HTTPException(403, "Account disabled")
@@ -699,6 +706,12 @@ async def set_password(
     user.password_setup_token = None
     if user.auth_provider != "sso":
         user.auth_provider = "local"
+    # The user has now accepted the invite (set-password effectively logs them
+    # in by returning a token). Mark last_login so they no longer count as
+    # «pending» in the admin invitations list, and drop the SsoInvitation
+    # row for tidiness (#539).
+    user.last_login = datetime.now(timezone.utc)
+    await db.execute(delete(SsoInvitation).where(SsoInvitation.email == user.email))
     await db.commit()
 
     token = create_access_token(user.id, user.role)

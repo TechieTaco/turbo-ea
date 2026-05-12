@@ -27060,7 +27060,7 @@
     },
     "/api/v1/users/invitations": {
       "get": {
-        "description": "Admin only \u2014 list all pending invitations.",
+        "description": "Admin only \u2014 list pending invitations.\n\n\u00abPending\u00bb means the invited user has not yet actually used the system. The\ncriterion is `users.last_login IS NULL` \u2014 an admin who has set a password\non behalf of the user (PATCH /users/{id}) hasn't *accepted* anything, so\nthe invitation stays on the list until the user signs in for the first\ntime. This is what powers the \u00abresend invite\u00bb UX (#539).",
         "operationId": "list_invitations_api_v1_users_invitations_get",
         "responses": {
           "200": {

@@ -5,6 +5,25 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.9.1] - 2026-05-12
+
+### Fixed
+- **Pending Invitations list now tracks who has actually accepted the invite** (#539). Pre-fix, the row never went away — every install accumulated stale invitations for active users. The new semantics: an invitation is *pending* until the user signs in for the first time (`users.last_login IS NULL`). Three cooperating changes close the gap:
+  1. **`GET /users/invitations` filter** uses `last_login IS NULL` as the «pending» criterion. An admin who has set a password on the user's behalf (`PATCH /users/{id}`) has not *accepted* anything — the row stays on the list so admin can still resend. Once the user signs in, the row disappears.
+  2. **`POST /auth/login`** marks the user's `last_login` (existing behavior) and now also drops the matching SsoInvitation row on first login.
+  3. **`POST /auth/set-password`** (legacy email-link path) now sets `last_login` in addition to deleting the matching SsoInvitation — set-password effectively logs the user in by returning a token. The SSO callback was already deleting on the relevant branches.
+
+### Changed
+- **`PATCH /users/{id}` no longer drops the SsoInvitation when admin sets a password.** Admin setting credentials on the user's behalf is *not* acceptance — the user still has to sign in. The endpoint continues to clear `password_setup_token` so the legacy email setup link can no longer overwrite the admin-chosen password.
+- **Password is mandatory when creating a local account** (SSO disabled). `POST /users` now returns 400 if `password` is omitted and SSO is not enabled. The old "leave password blank to send a setup link by email" flow was a footgun: it created a User in a pending-setup state with no clean acceptance path. SSO-enabled installs are unaffected — admins can still invite a user without a password and let them sign in via SSO.
+- **Login error no longer points to a non-existent email setup link.** When a local account has no `password_hash`, `POST /auth/login` now returns a generic 401 (instead of *"Password not set yet. Check your email for the setup link."*, which referenced a flow that no longer exists for new accounts).
+- **Invite email template simplified.** The branch that sent a "click here to set your password" link is removed — when SSO is enabled the email points users to sign in, when SSO is disabled it confirms the password has been set by the admin.
+- **Frontend invite dialog requires a password when SSO is disabled** — the password field is marked required, blocks submit on empty, and the help text reflects the new flow in all 8 supported locales.
+- **SSO-mode invites without a password now set `auth_provider="sso"` on the new User** (was `"local"` by default). Without this, the SSO callback's "link existing user" branch refused to attach a `sso_subject_id` with the `auth_provider == "local"` guard, so invited users could never actually accept the invitation. Local-mode invites (password supplied) still get `auth_provider="local"` as before.
+
+### Backend
+- **Migration `076_purge_stale_sso_invitations`** — one-shot cleanup that deletes `sso_invitations` rows whose email matches a User who has actually signed in at least once (`last_login IS NOT NULL`). Removes the bloat accumulated by every install that ran on the pre-fix code paths, while keeping invitations visible for users whose accounts admin pre-provisioned but who never logged in. Idempotent (re-running drops nothing the second time); downgrade is a no-op since deleted invitations can't be reconstructed.
+
 ## [1.9.0] - 2026-05-12
 
 **Provider / Consumer roles on Application↔Interface relations.** An
