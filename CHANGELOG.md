@@ -5,6 +5,40 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.8.0] - 2026-05-12
+
+Diagramming overhaul — LeanIX-inspired UX on top of the embedded DrawIO editor.
+
+### Added
+- **Insert Cards dialog** with type chips, counts, search, and multi-select (with *Insert all* confirm past 50 results).
+- **Per-relation-type Expand menu** on every card with three sections: *Show Dependency* (multi-select), *Drill-Down*, *Roll-Up*. Counts come from one `GET /cards/{id}/relation-summary` round-trip.
+- **Drill-Down** turns a card into a swimlane container holding its picked children.
+- **Roll-Up** wraps the current card + selected siblings inside a new parent container.
+- **Right-click actions**: *Change Linked Card*, *Unlink Card*, *Link to Existing Card*, *Convert to Card*, *Convert to Container*.
+- **View perspective dropdown** that recolors cells by card type (default), approval status, or any single-select field on the types currently on the canvas. Persists in `diagram.data.view` with a floating legend.
+- **Hierarchy on canvas**: drag-in/drag-out of a same-type container prompts to attach/detach via `parent_id`; cross-type drops snap back; confirmed moves queue in a *Hierarchy Changes* bucket in the Sync drawer.
+- **Robustness**: beforeunload warning when work is unsynced, local autosave every 5 s with restore prompt on reopen, louder "N unsynced" toolbar pill.
+- **Edge-delete confirmation dialog** for edges carrying a real `relationId`. *No* re-inserts the edge in place.
+
+### Changed
+- **Card removal is visual-only.** Deleting a card from the canvas no longer prompts to archive; the card stays in inventory and its connected relation-edges silently disappear with it. Hand-drawn arrows are never auto-removed.
+
+### Fixed
+- Copy/paste of a synced card now deduplicates reliably.
+- Edge deletions between expanded cards now open the confirm dialog.
+- Restoring an autosaved draft no longer grey-stubs cards or strips chevron overlays.
+- Drill-Down / Roll-Up / Show Dependency skip neighbours already on the canvas instead of duplicating them.
+- Roll-up / drill-down are blocked when they would create a duplicate parent container.
+- Collapse, restore, and container-delete no longer trigger stray "delete this relation?" dialogs.
+- *Link to Existing Card* now works on plain DrawIO shapes drawn from the toolbar.
+- *View Card Details* is hidden on unsynced cells.
+
+### Backend
+- `GET /cards/{id}/relation-summary` — per-relation-type counts + hierarchy block for the Expand menu.
+- `GET /cards/counts` — per-card-type ACTIVE counts for the Insert dialog's type chips.
+- `GET /cards?ids=…` — batch fetch by UUID list (used by the view-perspective recolor pass).
+- Synced relation edges persist `relationId` so canvas-side deletes can issue the right `DELETE /relations/{id}`.
+
 ## [1.7.0] - 2026-05-11
 
 ### Added

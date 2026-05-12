@@ -9,6 +9,10 @@ import Chip from "@mui/material/Chip";
 import Tooltip from "@mui/material/Tooltip";
 import CircularProgress from "@mui/material/CircularProgress";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import type {
+  PendingParentChange,
+  RemovedRelationTombstone,
+} from "./drawio-shapes";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -49,6 +53,8 @@ interface Props {
   onClose: () => void;
   pendingCards: PendingCard[];
   pendingRels: PendingRelation[];
+  pendingRelRemovals: RemovedRelationTombstone[];
+  pendingParentChanges: PendingParentChange[];
   staleItems: StaleItem[];
   syncing: boolean;
   onSyncAll: () => void;
@@ -56,6 +62,10 @@ interface Props {
   onSyncRel: (edgeCellId: string) => void;
   onRemoveFS: (cellId: string) => void;
   onRemoveRel: (edgeCellId: string) => void;
+  onSyncRelRemoval: (edgeCellId: string) => void;
+  onDiscardRelRemoval: (edgeCellId: string) => void;
+  onSyncParentChange: (cellId: string) => void;
+  onDiscardParentChange: (cellId: string) => void;
   onAcceptStale: (cellId: string) => void;
   onCheckUpdates: () => void;
   checkingUpdates: boolean;
@@ -70,6 +80,8 @@ export default function DiagramSyncPanel({
   onClose,
   pendingCards,
   pendingRels,
+  pendingRelRemovals,
+  pendingParentChanges,
   staleItems,
   syncing,
   onSyncAll,
@@ -77,12 +89,20 @@ export default function DiagramSyncPanel({
   onSyncRel,
   onRemoveFS,
   onRemoveRel,
+  onSyncRelRemoval,
+  onDiscardRelRemoval,
+  onSyncParentChange,
+  onDiscardParentChange,
   onAcceptStale,
   onCheckUpdates,
   checkingUpdates,
 }: Props) {
   const { t } = useTranslation(["diagrams", "common"]);
-  const totalPending = pendingCards.length + pendingRels.length;
+  const totalPending =
+    pendingCards.length +
+    pendingRels.length +
+    pendingRelRemovals.length +
+    pendingParentChanges.length;
 
   return (
     <Drawer anchor="right" open={open} onClose={onClose} PaperProps={{ sx: { width: 360 } }}>
@@ -192,6 +212,93 @@ export default function DiagramSyncPanel({
           </>
         )}
 
+        {/* ---- Removed relations (canvas → inventory deletions) ---- */}
+        {pendingRelRemovals.length > 0 && (
+          <>
+            <SectionTitle
+              icon="link_off"
+              label={t("sync.removedRelations")}
+              count={pendingRelRemovals.length}
+            />
+            {pendingRelRemovals.map((rel) => (
+              <ItemRow key={rel.edgeCellId}>
+                <Box sx={{ flex: 1, minWidth: 0 }}>
+                  <Typography variant="body2" noWrap>
+                    <s style={{ opacity: 0.6 }}>
+                      {t("sync.relationLabel", { label: rel.relationLabel })}
+                    </s>
+                  </Typography>
+                  <Typography variant="caption" color="text.disabled">
+                    {t("sync.willDeleteRelation")}
+                  </Typography>
+                </Box>
+                <Tooltip title={t("sync.applyDeletion")}>
+                  <IconButton
+                    size="small"
+                    onClick={() => onSyncRelRemoval(rel.edgeCellId)}
+                    disabled={syncing}
+                  >
+                    <MaterialSymbol icon="cloud_upload" size={16} />
+                  </IconButton>
+                </Tooltip>
+                <Tooltip title={t("sync.keepInInventory")}>
+                  <IconButton
+                    size="small"
+                    onClick={() => onDiscardRelRemoval(rel.edgeCellId)}
+                    disabled={syncing}
+                  >
+                    <MaterialSymbol icon="undo" size={16} />
+                  </IconButton>
+                </Tooltip>
+              </ItemRow>
+            ))}
+          </>
+        )}
+
+
+        {/* ---- Hierarchy changes (parent_id updates) ---- */}
+        {pendingParentChanges.length > 0 && (
+          <>
+            <SectionTitle
+              icon="account_tree"
+              label={t("sync.hierarchyChanges")}
+              count={pendingParentChanges.length}
+            />
+            {pendingParentChanges.map((p) => (
+              <ItemRow key={p.cellId}>
+                <Box sx={{ flex: 1, minWidth: 0 }}>
+                  <Typography variant="body2" noWrap fontWeight={500}>
+                    {p.cardName || "?"}
+                  </Typography>
+                  <Typography variant="caption" color="text.disabled">
+                    {p.kind === "attach"
+                      ? t("sync.parentAttach", { parent: p.parentCardName || "?" })
+                      : t("sync.parentDetach", { parent: p.parentCardName || "?" })}
+                  </Typography>
+                </Box>
+                <Tooltip title={t("sync.applyHierarchy")}>
+                  <IconButton
+                    size="small"
+                    onClick={() => onSyncParentChange(p.cellId)}
+                    disabled={syncing}
+                  >
+                    <MaterialSymbol icon="cloud_upload" size={16} />
+                  </IconButton>
+                </Tooltip>
+                <Tooltip title={t("sync.discardHierarchy")}>
+                  <IconButton
+                    size="small"
+                    onClick={() => onDiscardParentChange(p.cellId)}
+                    disabled={syncing}
+                  >
+                    <MaterialSymbol icon="undo" size={16} />
+                  </IconButton>
+                </Tooltip>
+              </ItemRow>
+            ))}
+          </>
+        )}
+
         {/* ---- Stale / out-of-sync items ---- */}
         {staleItems.length > 0 && (
           <>
@@ -218,7 +325,8 @@ export default function DiagramSyncPanel({
         )}
 
         {/* ---- Empty state ---- */}
-        {totalPending === 0 && staleItems.length === 0 && (
+        {totalPending === 0 &&
+          staleItems.length === 0 && (
           <Box sx={{ textAlign: "center", py: 4 }}>
             <MaterialSymbol icon="check_circle" size={36} color="#66bb6a" />
             <Typography variant="body2" color="text.disabled" sx={{ mt: 1 }}>

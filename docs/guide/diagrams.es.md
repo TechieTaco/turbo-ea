@@ -1,61 +1,84 @@
 # Diagramas
 
-El módulo de **Diagramas** permite crear **diagramas de arquitectura visual** utilizando un editor [DrawIO](https://www.drawio.com/) integrado — completamente conectado con el inventario de fichas. Puede arrastrar fichas al lienzo, conectarlas con relaciones y mantener el diagrama sincronizado con los datos de su arquitectura.
+El módulo **Diagramas** permite crear **diagramas visuales de arquitectura** usando un editor [DrawIO](https://www.drawio.com/) integrado -- totalmente conectado a su inventario de tarjetas. Arrastre tarjetas al lienzo, conéctelas con relaciones, navegue por jerarquías y recoloréelas según cualquier atributo -- el diagrama permanece sincronizado con sus datos EA.
 
-![Galería de Diagramas](../assets/img/es/16_diagramas.png)
+![Galería de diagramas](../assets/img/es/16_diagramas.png)
 
-## Galería de Diagramas
+## Galería de diagramas
 
-La galería muestra todos los diagramas como **tarjetas con miniatura** o en una **vista de lista** (alterne mediante el icono de vista en la barra de herramientas). Cada diagrama muestra su nombre, tipo y una vista previa visual de su contenido.
+La galería lista cada diagrama con una miniatura, su nombre, su tipo y las tarjetas a las que hace referencia. Desde aquí puede **Crear**, **Abrir**, **Editar detalles** o **Eliminar** cualquier diagrama.
 
-**Acciones desde la galería:**
+## El editor de diagramas
 
-- **Crear** — Haga clic en **+ Nuevo Diagrama** para crear un diagrama con nombre y descripción opcional
-- **Abrir** — Haga clic en cualquier diagrama para abrir el editor
-- **Editar detalles** — Renombrar o actualizar la descripción
-- **Eliminar** — Eliminar un diagrama (con confirmación)
+Abrir un diagrama lanza el editor DrawIO a pantalla completa en un iframe del mismo origen. La barra de herramientas nativa de DrawIO está disponible para formas, conectores, texto y diseño -- cada acción propia de Turbo EA está expuesta vía el menú contextual del clic derecho, el botón Sync de la barra de herramientas y el chevrón que aparece encima de cada tarjeta.
 
-## El Editor de Diagramas
+### Insertar tarjetas
 
-Al abrir un diagrama se inicia un editor **DrawIO** a pantalla completa en un iframe. La barra de herramientas estándar de DrawIO está disponible para formas, conectores, texto, formato y diseño.
+Use el diálogo **Insertar tarjetas** (desde la barra de herramientas o el menú contextual) para añadir tarjetas al lienzo:
 
-### Insertar Fichas
+- Las **fichas de tipo con contadores en directo** en la columna izquierda filtran los resultados.
+- Busque por nombre en la columna derecha; cada fila lleva una casilla.
+- **Insertar seleccionadas** añade las tarjetas elegidas en una cuadrícula; **Insertar todas** añade cada tarjeta que coincida con el filtro actual (con confirmación si supera 50 resultados).
 
-Use la **Barra Lateral de Fichas** (alterne mediante el icono de barra lateral) para explorar su inventario:
+El mismo diálogo se abre en modo de selección única para **Cambiar tarjeta vinculada** y **Vincular a tarjeta existente**.
 
-- **Buscar** fichas por nombre
-- **Filtrar** por tipo de ficha
-- **Arrastrar una ficha** al lienzo — aparece como una forma estilizada con el nombre y el icono de tipo de la ficha
-- Use el **Diálogo de Selección de Fichas** para búsqueda avanzada y selección múltiple
+### Acciones del clic derecho
 
-### Crear Fichas desde el Diagrama
+- **Tarjetas sincronizadas**: *Abrir tarjeta*, *Cambiar tarjeta vinculada*, *Desvincular tarjeta*, *Quitar del diagrama*.
+- **Formas simples / celdas no vinculadas**: *Vincular a tarjeta existente*, *Convertir en tarjeta* (conserva la geometría y convierte la forma en una tarjeta pendiente con su etiqueta), *Convertir en contenedor* (transforma la forma en un swimlane para anidar otras tarjetas).
 
-Si dibuja una forma que no corresponde a una ficha existente, puede crear una directamente:
+### El menú de expansión
 
-1. Seleccione la forma no vinculada
-2. Haga clic en **Crear Ficha** en el panel de sincronización
-3. Complete el tipo, nombre y campos opcionales
-4. La forma se vincula automáticamente a la nueva ficha
+Cada tarjeta sincronizada lleva un pequeño chevrón. Un clic abre un menú con tres secciones, cada una cargada en un único viaje de ida y vuelta:
 
-### Crear Relaciones desde Conectores
+- **Mostrar dependencias** -- vecinos vía relaciones salientes o entrantes, agrupados por tipo de relación con contadores. Cada fila es una casilla; confirme con **Insertar (N)**.
+- **Drill-Down** -- convierte la tarjeta actual en un contenedor swimlane con sus hijos por `parent_id` anidados. Elija qué hijos incluir o *Profundizar en todos*.
+- **Roll-Up** -- envuelve la tarjeta actual y los hermanos seleccionados (tarjetas que comparten el mismo `parent_id`) en un nuevo contenedor padre.
 
-Cuando dibuja un conector entre dos formas de fichas:
+Las filas con contador a cero aparecen en gris, y los vecinos / hijos ya presentes en el lienzo se omiten automáticamente.
 
-1. Seleccione el conector
-2. Aparece el diálogo del **Selector de Relaciones**
-3. Elija el tipo de relación (solo se muestran los tipos válidos para los tipos de fichas conectados)
-4. La relación se crea en el inventario y el conector se marca como sincronizado
+### La jerarquía en el lienzo
 
-### Sincronización de Fichas
+Los contenedores corresponden al `parent_id` de una tarjeta:
 
-El **Panel de Sincronización** mantiene su diagrama e inventario sincronizados:
+- **Arrastrar una tarjeta dentro de** un contenedor del mismo tipo abre «¿Añadir «hijo» como hijo de «padre»?». **Sí** pone en cola un cambio jerárquico; **No** devuelve la tarjeta a su posición.
+- **Arrastrar una tarjeta fuera de** un contenedor solicita la separación (poner `parent_id = null`).
+- **Arrastres entre tipos** vuelven en silencio a su posición -- la jerarquía está restringida a tarjetas del mismo tipo.
+- Todos los movimientos confirmados aterrizan en el cubo **Cambios de jerarquía** del panel de Sync con acciones *Aplicar* y *Descartar*.
 
-- **Fichas sincronizadas** — Las formas vinculadas a fichas del inventario muestran un indicador verde de sincronización
-- **Formas no sincronizadas** — Las formas aún no vinculadas a fichas se marcan para acción
-- **Expandir/contraer grupos** — Navegue por grupos jerárquicos de fichas directamente en el lienzo
+### Quitar tarjetas del diagrama
 
-### Vincular diagramas a fichas
+Eliminar una tarjeta del lienzo se trata como un gesto **puramente visual** -- «No quiero verla aquí». La tarjeta permanece en el inventario; sus aristas de relación conectadas desaparecen en silencio con ella. Las flechas dibujadas a mano que no sean relaciones EA registradas nunca se eliminan automáticamente. **El archivado es tarea de la página Inventario**, no del diagrama.
 
-Los diagramas pueden vincularse a **cualquier ficha** desde la pestaña de **Recursos** de la ficha (consulte [Detalle de Fichas](card-details.es.md#pestaña-de-recursos)). Esto permite asociar diagramas de arquitectura con los componentes que describen — por ejemplo, vincular un diagrama de topología de red a una Aplicación o un mapa de capacidades a una Capacidad de Negocio.
+### Borrado de aristas
 
-Cuando un diagrama está vinculado a una ficha de **Iniciativa**, también aparece en el módulo de [Entrega EA](delivery.es.md) junto con los documentos SoAW, proporcionando una vista completa de todos los artefactos de arquitectura para esa iniciativa.
+Eliminar una arista que lleva una relación real abre «¿Eliminar la relación entre ORIGEN y DESTINO?»:
+
+- **Sí** pone la eliminación en cola en el panel de Sync; **Sincronizar todo** emite el `DELETE /relations/{id}` del backend.
+- **No** restaura la arista en su sitio (estilo y extremos preservados).
+
+### Perspectivas de vista
+
+El desplegable **Vista** de la barra de herramientas recolorea cada tarjeta del lienzo según un atributo:
+
+- **Colores de tarjetas** (predeterminado) -- cada tarjeta usa el color de su tipo.
+- **Estado de aprobación** -- recolorea por `aprobada` / `pendiente` / `rota`.
+- **Valores de campo** -- elija cualquier campo de selección única en los tipos de tarjeta presentes en el lienzo (p. ej. *Ciclo de vida*, *Estado*). Las celdas sin valor caen a un gris neutro.
+
+Una leyenda flotante en la esquina inferior izquierda del lienzo muestra la asignación activa. La vista elegida se guarda con el diagrama.
+
+### Panel de Sync
+
+El botón **Sync** de la barra de herramientas abre el panel lateral con todo lo que está en cola para la próxima sincronización:
+
+- **Nuevas tarjetas** -- formas convertidas en tarjetas pendientes, listas para enviarse al inventario.
+- **Nuevas relaciones** -- aristas dibujadas entre tarjetas, listas para crearse en el inventario.
+- **Relaciones eliminadas** -- aristas de relación borradas del lienzo, en cola para `DELETE /relations/{id}`. *Mantener en inventario* reinserta la arista.
+- **Cambios de jerarquía** -- movimientos arrastrar-dentro / arrastrar-fuera de contenedores confirmados, en cola como actualizaciones de `parent_id`.
+- **Inventario cambiado** -- tarjetas actualizadas en el inventario desde la apertura del diagrama, listas para volver al lienzo.
+
+El botón Sync de la barra de herramientas muestra una pastilla pulsante «N sin sincronizar» mientras haya trabajo pendiente. Salir de la pestaña con cambios sin sincronizar dispara un aviso del navegador, y el lienzo se autoguarda en almacenamiento local cada cinco segundos para poder restaurarse tras un refresco accidental.
+
+### Vincular diagramas a tarjetas
+
+Los diagramas pueden vincularse a **cualquier tarjeta** desde la pestaña **Recursos** de la tarjeta (ver [Detalle de tarjetas](card-details.es.md#pestaña-recursos)). Cuando un diagrama está vinculado a una tarjeta **Iniciativa**, también aparece en el módulo [EA Delivery](delivery.md) junto a los documentos SoAW.

@@ -142,6 +142,44 @@ class CardListResponse(BaseModel):
     page_size: int
 
 
+class CardRelationSummaryEntry(BaseModel):
+    """One row of the relation-summary endpoint — counts neighbours per
+    relation-type / direction so the diagram editor can render LeanIX-style
+    Show Dependency / Drill-Down / Roll-Up submenus with live counts."""
+
+    relation_type_key: str
+    label: str
+    direction: str  # "outgoing" or "incoming"
+    peer_type_key: str | None = None
+    count: int
+
+
+class CardRelationSummaryHierarchy(BaseModel):
+    """Hierarchy snapshot returned alongside relation counts so the diagram
+    editor can enable/disable the Drill-Down + Roll-Up menu sections without
+    a second fetch."""
+
+    children_count: int
+    parent_id: str | None = None
+    parent_name: str | None = None
+    parent_type: str | None = None
+
+
+class CardRelationSummaryResponse(BaseModel):
+    by_type: list[CardRelationSummaryEntry]
+    hierarchy: CardRelationSummaryHierarchy
+
+
+class CardTypeCount(BaseModel):
+    type: str
+    count: int
+
+
+class CardCountsResponse(BaseModel):
+    by_type: list[CardTypeCount]
+    total: int
+
+
 ChildStrategy = Literal["cascade", "disconnect", "reparent"]
 
 

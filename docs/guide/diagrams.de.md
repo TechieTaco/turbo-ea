@@ -1,61 +1,84 @@
 # Diagramme
 
-Das **Diagramme**-Modul ermöglicht die Erstellung **visueller Architekturdiagramme** mit einem eingebetteten [DrawIO](https://www.drawio.com/)-Editor — vollständig integriert mit Ihrem Karteninventar. Sie können Karten auf die Zeichenfläche ziehen, sie mit Beziehungen verbinden und das Diagramm mit Ihren EA-Daten synchron halten.
+Das Modul **Diagramme** ermöglicht es Ihnen, **visuelle Architekturdiagramme** mit einem eingebetteten [DrawIO](https://www.drawio.com/)-Editor zu erstellen -- vollständig integriert mit Ihrem Karteninventar. Ziehen Sie Karten auf die Leinwand, verbinden Sie sie mit Beziehungen, navigieren Sie durch Hierarchien und färben Sie nach beliebigen Attributen ein -- das Diagramm bleibt mit Ihren EA-Daten synchronisiert.
 
 ![Diagramm-Galerie](../assets/img/de/16_diagramme.png)
 
 ## Diagramm-Galerie
 
-Die Galerie zeigt alle Diagramme als **Miniaturkarten** oder in einer **Listenansicht** (umschaltbar über das Ansichtssymbol in der Werkzeugleiste). Jedes Diagramm zeigt seinen Namen, Typ und eine visuelle Vorschau seines Inhalts.
-
-**Aktionen aus der Galerie:**
-
-- **Erstellen** — Klicken Sie auf **+ Neues Diagramm**, um ein Diagramm mit Name und optionaler Beschreibung zu erstellen
-- **Öffnen** — Klicken Sie auf ein beliebiges Diagramm, um den Editor zu starten
-- **Details bearbeiten** — Umbenennen oder Beschreibung aktualisieren
-- **Löschen** — Ein Diagramm entfernen (mit Bestätigung)
+Die Galerie listet jedes Diagramm mit einer Miniaturansicht, dem Namen, dem Typ und den referenzierten Karten auf. Von hier aus können Sie jedes Diagramm **Erstellen**, **Öffnen**, **Details bearbeiten** oder **Löschen**.
 
 ## Der Diagramm-Editor
 
-Das Öffnen eines Diagramms startet einen Vollbild-**DrawIO-Editor** in einem Same-Origin-Iframe. Die Standard-DrawIO-Werkzeugleiste steht für Formen, Verbinder, Text, Formatierung und Layout zur Verfügung.
+Beim Öffnen eines Diagramms startet der DrawIO-Editor im Vollbildmodus in einem Same-Origin-iframe. Die native DrawIO-Symbolleiste steht für Formen, Verbinder, Text und Layout zur Verfügung -- jede Turbo-EA-Aktion ist über das Rechtsklick-Kontextmenü, die Sync-Schaltfläche in der Symbolleiste und das Chevron-Overlay über jeder Karte erreichbar.
 
 ### Karten einfügen
 
-Verwenden Sie die **Karten-Seitenleiste** (umschaltbar über das Seitenleistensymbol), um Ihr Inventar zu durchsuchen. Sie können:
+Verwenden Sie den Dialog **Karten einfügen** (aus der Symbolleiste oder dem Kontextmenü), um Karten zur Leinwand hinzuzufügen:
 
-- Nach Karten nach Namen **suchen**
-- Nach Kartentyp **filtern**
-- Eine **Karte auf die Zeichenfläche ziehen** — sie erscheint als stilisierte Form mit dem Kartennamen und Typsymbol
-- Den **Kartenauswahl-Dialog** für erweiterte Suche und Mehrfachauswahl verwenden
+- **Typen-Chips mit Live-Zählern** in der linken Spalte filtern die Ergebnisse.
+- Suchen Sie rechts nach Namen; jede Zeile hat ein Kontrollkästchen.
+- **Ausgewählte einfügen** fügt die markierten Karten als Raster ein; **Alle einfügen** fügt jede Karte ein, die dem aktuellen Filter entspricht (mit Bestätigung ab 50 Ergebnissen).
 
-### Karten aus dem Diagramm erstellen
+Derselbe Dialog öffnet sich im Einzelauswahlmodus für **Verknüpfte Karte ändern** und **Mit bestehender Karte verknüpfen**.
 
-Wenn Sie eine Form zeichnen, die keiner bestehenden Karte entspricht, können Sie direkt eine erstellen:
+### Rechtsklick-Aktionen
 
-1. Wählen Sie die nicht verknüpfte Form
-2. Klicken Sie auf **Karte erstellen** im Synchronisierungspanel
-3. Füllen Sie Typ, Name und optionale Felder aus
-4. Die Form wird automatisch mit der neuen Karte verknüpft
+- **Synchronisierte Karten**: *Karte öffnen*, *Verknüpfte Karte ändern*, *Karte trennen*, *Aus Diagramm entfernen*.
+- **Einfache Formen / nicht verknüpfte Zellen**: *Mit bestehender Karte verknüpfen*, *In Karte umwandeln* (behält die Geometrie und macht aus der Form eine ausstehende Karte mit dem Form-Label), *In Container umwandeln* (verwandelt die Form in ein Swimlane, in dem andere Karten verschachtelt werden können).
 
-### Beziehungen aus Kanten erstellen
+### Das Erweiterungsmenü
 
-Wenn Sie einen Verbinder zwischen zwei Kartenformen zeichnen:
+Jede synchronisierte Karte trägt ein kleines Chevron-Overlay. Ein Klick öffnet ein Menü mit drei Abschnitten, die jeweils in einem einzigen Roundtrip geladen werden:
 
-1. Wählen Sie die Kante
-2. Der **Beziehungsauswahl**-Dialog erscheint
-3. Wählen Sie den Beziehungstyp (nur gültige Typen für die verbundenen Kartentypen werden angezeigt)
-4. Die Beziehung wird im Inventar erstellt und die Kante als synchronisiert markiert
+- **Abhängigkeiten anzeigen** -- Nachbarn über ausgehende oder eingehende Beziehungen, gruppiert nach Beziehungstyp mit Zählern. Jede Zeile ist ein Kontrollkästchen; bestätigen Sie mit **Einfügen (N)**.
+- **Drill-Down** -- macht die aktuelle Karte zu einem Swimlane-Container mit ihren `parent_id`-Kindern verschachtelt. Wählen Sie welche Kinder einbezogen werden sollen oder *Alle Kinder einbeziehen*.
+- **Roll-Up** -- umschließt die aktuelle Karte und ausgewählte Geschwister (Karten mit gleicher `parent_id`) in einem neuen übergeordneten Container.
 
-### Kartensynchronisierung
+Zeilen mit Zähler = 0 sind ausgegraut, und Nachbarn oder Kinder, die bereits auf der Leinwand sind, werden automatisch übersprungen.
 
-Das **Synchronisierungspanel** hält Ihr Diagramm und Inventar synchron:
+### Hierarchie auf der Leinwand
 
-- **Synchronisierte Karten** — Mit Inventarkarten verknüpfte Formen zeigen einen grünen Synchronisierungsindikator
-- **Nicht synchronisierte Formen** — Noch nicht mit Karten verknüpfte Formen werden zur Bearbeitung markiert
-- **Gruppen erweitern/reduzieren** — Hierarchische Kartengruppen direkt auf der Zeichenfläche navigieren
+Container entsprechen der `parent_id` einer Karte:
+
+- **Eine Karte in** einen gleichtypigen Container ziehen öffnet «Kind» als Kind von «Eltern» hinzufügen?. **Ja** stellt eine Hierarchie-Änderung in die Warteschlange; **Nein** lässt die Karte zurückspringen.
+- **Eine Karte aus** einem Container ziehen fragt nach dem Lösen (Setzen von `parent_id = null`).
+- **Typenübergreifende Drops** springen still zurück -- die Hierarchie ist auf Karten desselben Typs beschränkt.
+- Alle bestätigten Bewegungen landen im Bucket **Hierarchie-Änderungen** im Sync-Drawer mit *Anwenden*- und *Verwerfen*-Aktionen.
+
+### Karten aus dem Diagramm entfernen
+
+Das Löschen einer Karte von der Leinwand wird als rein **visuelle Geste** behandelt -- «Ich möchte sie hier nicht sehen». Die Karte bleibt im Inventar; ihre verbundenen Beziehungs-Kanten verschwinden still mit ihr. Handgezeichnete Pfeile, die keine registrierten EA-Beziehungen sind, werden niemals automatisch entfernt. **Die Archivierung ist Aufgabe der Inventar-Seite**, nicht des Diagramms.
+
+### Kanten löschen
+
+Das Entfernen einer Kante, die eine echte Beziehung trägt, öffnet «Beziehung zwischen QUELLE und ZIEL löschen?»:
+
+- **Ja** stellt die Löschung in den Sync-Drawer; **Alle synchronisieren** sendet das Backend-`DELETE /relations/{id}`.
+- **Nein** stellt die Kante an Ort und Stelle wieder her (Stil und Endpunkte erhalten).
+
+### Ansichts-Perspektiven
+
+Das Dropdown **Ansicht** in der Symbolleiste färbt jede Karte auf der Leinwand nach einem Attribut um:
+
+- **Kartenfarben** (Standard) -- jede Karte nutzt ihre Kartentyp-Farbe.
+- **Genehmigungsstatus** -- färbt nach `genehmigt` / `ausstehend` / `defekt`.
+- **Feldwerte** -- wählen Sie ein beliebiges Einzelauswahl-Feld der aktuell auf der Leinwand vorhandenen Kartentypen (z. B. *Lebenszyklus*, *Status*). Zellen ohne Wert fallen auf neutrales Grau zurück.
+
+Eine schwebende Legende unten links auf der Leinwand zeigt die aktive Zuordnung. Die gewählte Ansicht wird mit dem Diagramm gespeichert.
+
+### Sync-Drawer
+
+Die **Sync**-Schaltfläche in der Symbolleiste öffnet den Seiten-Drawer mit allem, was für die nächste Synchronisierung in der Warteschlange steht:
+
+- **Neue Karten** -- in ausstehende Karten umgewandelte Formen, bereit zum Push ins Inventar.
+- **Neue Beziehungen** -- zwischen Karten gezeichnete Kanten, bereit zur Anlage im Inventar.
+- **Entfernte Beziehungen** -- von der Leinwand gelöschte Beziehungs-Kanten, in der Warteschlange für `DELETE /relations/{id}`. *Im Inventar behalten* setzt die Kante wieder ein.
+- **Hierarchie-Änderungen** -- bestätigte Drag-In- / Drag-Out-Container-Bewegungen, in der Warteschlange als `parent_id`-Aktualisierungen.
+- **Inventar geändert** -- Karten, die seit dem Öffnen des Diagramms im Inventar aktualisiert wurden, bereit zur Übernahme auf die Leinwand.
+
+Die Sync-Schaltfläche der Symbolleiste zeigt eine pulsierende «N unsynchron»-Pille, sobald ausstehende Arbeit existiert. Das Verlassen des Tabs mit nicht synchronisierten Änderungen löst eine Browser-Warnung aus, und die Leinwand wird alle fünf Sekunden im lokalen Speicher gespeichert, damit ein versehentlicher Refresh beim erneuten Öffnen wiederhergestellt werden kann.
 
 ### Diagramme mit Karten verknüpfen
 
-Diagramme können über die **Ressourcen**-Registerkarte der Karte mit **jeder beliebigen Karte** verknüpft werden (siehe [Kartendetails](card-details.de.md#registerkarte-ressourcen)). So können Sie Architekturdiagramme den Komponenten zuordnen, die sie beschreiben — zum Beispiel ein Netzwerktopologie-Diagramm mit einer Anwendung oder eine Fähigkeitskarte mit einer Geschäftsfähigkeit.
-
-Wenn ein Diagramm mit einer **Initiative**-Karte verknüpft ist, erscheint es auch im [EA-Delivery](delivery.de.md)-Modul neben SoAW-Dokumenten und bietet eine vollständige Ansicht aller Architekturartefakte für diese Initiative.
+Diagramme können von der Registerkarte **Ressourcen** einer Karte aus mit **jeder beliebigen Karte** verknüpft werden (siehe [Karten-Details](card-details.de.md#registerkarte-ressourcen)). Wenn ein Diagramm mit einer **Initiative**-Karte verknüpft ist, erscheint es auch im Modul [EA Delivery](delivery.md) zusammen mit SoAW-Dokumenten.

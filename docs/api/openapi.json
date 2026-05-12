@@ -1528,6 +1528,27 @@
         "title": "CardBulkUpdate",
         "type": "object"
       },
+      "CardCountsResponse": {
+        "properties": {
+          "by_type": {
+            "items": {
+              "$ref": "#/components/schemas/CardTypeCount"
+            },
+            "title": "By Type",
+            "type": "array"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "by_type",
+          "total"
+        ],
+        "title": "CardCountsResponse",
+        "type": "object"
+      },
       "CardCreate": {
         "properties": {
           "alias": {
@@ -1744,6 +1765,113 @@
           "name"
         ],
         "title": "CardRef",
+        "type": "object"
+      },
+      "CardRelationSummaryEntry": {
+        "description": "One row of the relation-summary endpoint \u2014 counts neighbours per\nrelation-type / direction so the diagram editor can render LeanIX-style\nShow Dependency / Drill-Down / Roll-Up submenus with live counts.",
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "direction": {
+            "title": "Direction",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "peer_type_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Peer Type Key"
+          },
+          "relation_type_key": {
+            "title": "Relation Type Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "relation_type_key",
+          "label",
+          "direction",
+          "count"
+        ],
+        "title": "CardRelationSummaryEntry",
+        "type": "object"
+      },
+      "CardRelationSummaryHierarchy": {
+        "description": "Hierarchy snapshot returned alongside relation counts so the diagram\neditor can enable/disable the Drill-Down + Roll-Up menu sections without\na second fetch.",
+        "properties": {
+          "children_count": {
+            "title": "Children Count",
+            "type": "integer"
+          },
+          "parent_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Id"
+          },
+          "parent_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Name"
+          },
+          "parent_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Type"
+          }
+        },
+        "required": [
+          "children_count"
+        ],
+        "title": "CardRelationSummaryHierarchy",
+        "type": "object"
+      },
+      "CardRelationSummaryResponse": {
+        "properties": {
+          "by_type": {
+            "items": {
+              "$ref": "#/components/schemas/CardRelationSummaryEntry"
+            },
+            "title": "By Type",
+            "type": "array"
+          },
+          "hierarchy": {
+            "$ref": "#/components/schemas/CardRelationSummaryHierarchy"
+          }
+        },
+        "required": [
+          "by_type",
+          "hierarchy"
+        ],
+        "title": "CardRelationSummaryResponse",
         "type": "object"
       },
       "CardResponse": {
@@ -1969,6 +2097,24 @@
           "restored_passenger_ids"
         ],
         "title": "CardRestoreResponse",
+        "type": "object"
+      },
+      "CardTypeCount": {
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "count"
+        ],
+        "title": "CardTypeCount",
         "type": "object"
       },
       "CardUpdate": {
@@ -13627,6 +13773,24 @@
             }
           },
           {
+            "description": "Comma-separated UUIDs to fetch in one round trip. Used by the diagram editor's view perspectives to recolor cells.",
+            "in": "query",
+            "name": "ids",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Comma-separated UUIDs to fetch in one round trip. Used by the diagram editor's view perspectives to recolor cells.",
+              "title": "Ids"
+            }
+          },
+          {
             "in": "query",
             "name": "page",
             "required": false,
@@ -13903,6 +14067,28 @@
           }
         },
         "summary": "Bulk Restore Cards",
+        "tags": [
+          "cards"
+        ]
+      }
+    },
+    "/api/v1/cards/counts": {
+      "get": {
+        "description": "Per-card-type counts of ACTIVE cards. Powers the type chips with\ncounts in the diagram editor's Insert Cards dialog (LeanIX-style).\nHidden types are excluded so the dialog never offers them.\n\nDeclared above /{card_id} so the literal `counts` segment isn't shadowed\nby the UUID-typed catch-all and parsed as a (broken) UUID.",
+        "operationId": "cards_counts_api_v1_cards_counts_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CardCountsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Cards Counts",
         "tags": [
           "cards"
         ]
@@ -14827,6 +15013,49 @@
           }
         },
         "summary": "My Permissions",
+        "tags": [
+          "cards"
+        ]
+      }
+    },
+    "/api/v1/cards/{card_id}/relation-summary": {
+      "get": {
+        "description": "Per-relation-type / per-direction neighbour counts for one card.\n\nThe diagram editor renders this as LeanIX-style Show Dependency /\nDrill-Down / Roll-Up submenus where each entry shows\n\"<label> (<count>)\" and is greyed out when count is 0.\n\n\"outgoing\" rows: card is the relation source \u2014 i.e. its `relations`.\n\"incoming\" rows: card is the relation target \u2014 i.e. its `reverse_label`\nrelations.",
+        "operationId": "relation_summary_api_v1_cards__card_id__relation_summary_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "card_id",
+            "required": true,
+            "schema": {
+              "title": "Card Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CardRelationSummaryResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Relation Summary",
         "tags": [
           "cards"
         ]

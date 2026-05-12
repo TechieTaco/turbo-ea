@@ -1,61 +1,84 @@
 # Diagrammes
 
-Le module **Diagrammes** vous permet de créer des **diagrammes d'architecture visuels** en utilisant un éditeur [DrawIO](https://www.drawio.com/ intégré -- entièrement connecté à votre inventaire de fiches. Vous pouvez glisser des fiches sur le canevas, les relier avec des relations, et maintenir le diagramme synchronisé avec vos données EA.
+Le module **Diagrammes** vous permet de créer des **diagrammes d'architecture visuels** en utilisant un éditeur [DrawIO](https://www.drawio.com/) intégré -- entièrement connecté à votre inventaire de fiches. Glissez des fiches sur le canevas, reliez-les par des relations, descendez dans les hiérarchies, et recolorez selon n'importe quel attribut -- le diagramme reste synchronisé avec vos données EA.
 
 ![Galerie de diagrammes](../assets/img/fr/16_diagrammes.png)
 
 ## Galerie de diagrammes
 
-La galerie affiche tous les diagrammes sous forme de **cartes miniatures** ou en **vue liste** (bascule via l'icône de vue dans la barre d'outils). Chaque diagramme affiche son nom, son type et un aperçu visuel de son contenu.
-
-**Actions depuis la galerie :**
-
-- **Créer** -- Cliquez sur **+ Nouveau diagramme** pour créer un diagramme avec un nom et une description optionnelle
-- **Ouvrir** -- Cliquez sur n'importe quel diagramme pour lancer l'éditeur
-- **Modifier les détails** -- Renommer ou mettre à jour la description
-- **Supprimer** -- Supprimer un diagramme (avec confirmation)
+La galerie liste chaque diagramme avec une miniature, son nom, son type et les fiches qu'il référence. Depuis ici, vous pouvez **Créer**, **Ouvrir**, **Modifier les détails** ou **Supprimer** n'importe quel diagramme.
 
 ## L'éditeur de diagrammes
 
-Ouvrir un diagramme lance un **éditeur DrawIO** plein écran dans une iframe de même origine. La barre d'outils DrawIO standard est disponible pour les formes, connecteurs, texte, mise en forme et disposition.
+Ouvrir un diagramme lance l'éditeur DrawIO plein écran dans une iframe de même origine. La barre d'outils native de DrawIO est disponible pour les formes, connecteurs, texte et mise en page -- chaque action propre à Turbo EA est exposée via le menu contextuel (clic droit), le bouton Sync de la barre d'outils, et la pastille en chevron qui surmonte chaque fiche.
 
 ### Insertion de fiches
 
-Utilisez la **Barre latérale des fiches** (bascule via l'icône de barre latérale) pour parcourir votre inventaire. Vous pouvez :
+Utilisez le dialogue **Insérer des fiches** (depuis la barre d'outils ou le menu contextuel) pour ajouter des fiches au canevas :
 
-- **Rechercher** des fiches par nom
-- **Filtrer** par type de fiche
-- **Glisser une fiche** sur le canevas -- elle apparaît comme une forme stylisée avec le nom et l'icône du type de la fiche
-- Utiliser le **Dialogue de sélection de fiches** pour une recherche avancée et une sélection multiple
+- Les **puces de types avec compteurs en direct** dans le rail gauche filtrent les résultats.
+- Recherchez par nom dans le rail droit ; chaque ligne porte une case à cocher.
+- **Insérer la sélection** ajoute les fiches choisies en grille ; **Tout insérer** ajoute toutes les fiches du filtre actif (avec une confirmation au-delà de 50 résultats).
 
-### Création de fiches depuis le diagramme
+Le même dialogue s'ouvre en mode sélection unique pour **Changer la fiche liée** et **Lier à une fiche existante**.
 
-Si vous dessinez une forme qui ne correspond pas à une fiche existante, vous pouvez en créer une directement :
+### Actions du clic droit
 
-1. Sélectionnez la forme non liée
-2. Cliquez sur **Créer une fiche** dans le panneau de synchronisation
-3. Remplissez le type, le nom et les champs optionnels
-4. La forme est automatiquement liée à la nouvelle fiche
+- **Fiches synchronisées** : *Ouvrir la fiche*, *Changer la fiche liée*, *Délier la fiche*, *Retirer du diagramme*.
+- **Formes simples / cellules déliées** : *Lier à une fiche existante*, *Convertir en fiche* (conserve la géométrie, transforme la forme en fiche en attente avec son libellé), *Convertir en conteneur* (transforme la forme en swimlane pour y imbriquer d'autres fiches).
 
-### Création de relations à partir d'arêtes
+### Le menu d'expansion
 
-Lorsque vous dessinez un connecteur entre deux formes de fiches :
+Chaque fiche synchronisée porte une petite pastille en chevron. Un clic ouvre un menu avec trois sections, chacune chargée en un seul aller-retour :
 
-1. Sélectionnez l'arête
-2. Le dialogue **Sélecteur de relation** apparaît
-3. Choisissez le type de relation (seuls les types valides pour les types de fiches connectés sont affichés)
-4. La relation est créée dans l'inventaire et l'arête est marquée comme synchronisée
+- **Afficher les dépendances** -- voisins via relations sortantes ou entrantes, groupés par type de relation avec compteurs. Chaque ligne est une case à cocher ; validez avec **Insérer (N)**.
+- **Descente (Drill-Down)** -- transforme la fiche courante en conteneur swimlane avec ses enfants `parent_id` imbriqués. Choisissez les enfants à inclure ou *Descendre dans tous*.
+- **Remontée (Roll-Up)** -- englobe la fiche courante + les frères sélectionnés (fiches partageant le même `parent_id`) dans un nouveau conteneur parent.
 
-### Synchronisation des fiches
+Les lignes avec un compteur à zéro sont grisées, et les voisins / enfants déjà présents sur le canevas sont automatiquement ignorés.
 
-Le **Panneau de synchronisation** maintient votre diagramme et votre inventaire en phase :
+### La hiérarchie sur le canevas
 
-- **Fiches synchronisées** -- Les formes liées aux fiches de l'inventaire affichent un indicateur de synchronisation vert
-- **Formes non synchronisées** -- Les formes pas encore liées à des fiches sont signalées pour action
-- **Développer/réduire les groupes** -- Naviguez dans les groupes de fiches hiérarchiques directement sur le canevas
+Les conteneurs correspondent au `parent_id` d'une fiche :
+
+- **Glisser une fiche dans** un conteneur de même type ouvre *« Ajouter «enfant» comme enfant de «parent» ? »*. **Oui** met en file une modification hiérarchique ; **Non** ramène la fiche à sa position.
+- **Glisser une fiche hors** d'un conteneur propose le détachement (mise à `parent_id = null`).
+- Les **glisser-déposer entre types** retournent silencieusement à la position d'origine -- la hiérarchie est restreinte aux fiches du même type.
+- Tous les mouvements confirmés atterrissent dans le bucket **Modifications hiérarchiques** du tiroir de synchronisation avec les actions *Appliquer* et *Annuler*.
+
+### Retirer une fiche du diagramme
+
+Supprimer une fiche du canevas est traité comme un geste **purement visuel** -- *« Je ne veux plus la voir ici »*. La fiche reste dans l'inventaire ; ses arêtes de relation connectées disparaissent silencieusement avec elle. Les flèches dessinées à la main qui ne sont pas des relations EA enregistrées ne sont jamais supprimées automatiquement. **L'archivage est une tâche de la page Inventaire**, pas du diagramme.
+
+### Suppression d'arêtes
+
+Supprimer une arête portant une vraie relation ouvre *« Supprimer la relation entre SOURCE et CIBLE ? »* :
+
+- **Oui** met la suppression en file dans le tiroir Sync ; **Tout synchroniser** émet le `DELETE /relations/{id}` côté backend.
+- **Non** restaure l'arête en place (style et extrémités préservés).
+
+### Perspectives de vue
+
+Le menu déroulant **Vue** dans la barre d'outils recolore chaque fiche du canevas selon un attribut :
+
+- **Couleurs des fiches** (par défaut) -- chaque fiche utilise la couleur de son type.
+- **Statut d'approbation** -- recolore par `approuvée` / `en attente` / `cassée`.
+- **Valeurs de champ** -- choisissez n'importe quel champ à sélection unique sur les types de fiches présents sur le canevas (p. ex. *Cycle de vie*, *Statut*). Les cellules sans valeur retombent sur un gris neutre.
+
+Une légende flottante en bas à gauche du canevas affiche la correspondance active. La vue choisie est enregistrée avec le diagramme.
+
+### Tiroir de synchronisation
+
+Le bouton **Sync** de la barre d'outils ouvre le tiroir latéral avec tout ce qui est en file pour la prochaine synchronisation :
+
+- **Nouvelles fiches** -- formes converties en fiches en attente, prêtes à être poussées vers l'inventaire.
+- **Nouvelles relations** -- arêtes dessinées entre fiches, prêtes à être créées dans l'inventaire.
+- **Relations supprimées** -- arêtes de relation supprimées du canevas, en file pour `DELETE /relations/{id}`. *Conserver dans l'inventaire* réinsère l'arête.
+- **Modifications hiérarchiques** -- déplacements glisser-dans / glisser-hors confirmés, en file comme mises à jour de `parent_id`.
+- **Inventaire modifié** -- fiches mises à jour dans l'inventaire depuis l'ouverture du diagramme, prêtes à être ramenées sur le canevas.
+
+Le bouton Sync de la barre d'outils affiche une pastille pulsée « N non synchronisé(s) » dès qu'un travail est en attente. Quitter l'onglet avec des changements non synchronisés déclenche un avertissement navigateur, et le canevas est sauvegardé localement toutes les cinq secondes pour pouvoir être restauré après un rafraîchissement accidentel.
 
 ### Lier des diagrammes aux fiches
 
-Les diagrammes peuvent être liés à **n'importe quelle fiche** depuis l'onglet **Ressources** de la fiche (voir [Détail des fiches](card-details.fr.md#onglet-ressources)). Cela permet d'associer des diagrammes d'architecture aux composants qu'ils décrivent -- par exemple, lier un diagramme de topologie réseau à une Application ou une carte de capacités à une Capacité Métier.
-
-Lorsqu'un diagramme est lié à une fiche **Initiative**, il apparaît également dans le module [EA Delivery](delivery.md) aux côtés des documents SoAW, fournissant une vue complète de tous les artefacts d'architecture pour cette initiative.
+Les diagrammes peuvent être liés à **n'importe quelle fiche** depuis l'onglet **Ressources** de la fiche (voir [Détail des fiches](card-details.fr.md#onglet-ressources)). Lorsqu'un diagramme est lié à une fiche **Initiative**, il apparaît également dans le module [EA Delivery](delivery.md) aux côtés des documents SoAW.
