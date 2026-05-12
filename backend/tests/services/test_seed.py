@@ -64,6 +64,24 @@ class TestSeedRelationTypes:
         expected = {r["key"] for r in RELATIONS}
         assert expected.issubset(keys)
 
+    async def test_interface_relations_have_flow_direction(self, db):
+        """relAppToInterface and relInterfaceToDataObj declare the
+        single-select `flowDirection` attribute (bidirectional / forward /
+        reverse) so the UI can capture data-flow direction without
+        splitting into multiple relation types."""
+        await seed_metamodel(db)
+
+        for key in ("relAppToInterface", "relInterfaceToDataObj"):
+            result = await db.execute(select(RelationType).where(RelationType.key == key))
+            rt = result.scalar_one()
+            schema = rt.attributes_schema or []
+            flow_fields = [f for f in schema if f.get("key") == "flowDirection"]
+            assert len(flow_fields) == 1, f"{key} missing flowDirection attribute"
+            field = flow_fields[0]
+            assert field["type"] == "single_select"
+            option_keys = {opt["key"] for opt in field.get("options", [])}
+            assert option_keys == {"bidirectional", "forward", "reverse"}
+
 
 # ---------------------------------------------------------------------------
 # RBAC roles

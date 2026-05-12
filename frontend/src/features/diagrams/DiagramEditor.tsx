@@ -516,6 +516,9 @@ export default function DiagramEditor() {
   const [createOpen, setCreateOpen] = useState(false);
   const [relPickerOpen, setRelPickerOpen] = useState(false);
   const pendingEdgeRef = useRef<EdgeEndpoints | null>(null);
+  // Attributes captured in the relation picker for not-yet-synced edges.
+  // Keyed by edgeCellId, drained by handleSyncRel on backend creation.
+  const pendingEdgeAttributesRef = useRef<Map<string, Record<string, unknown>>>(new Map());
 
   // Sync panel
   const [syncOpen, setSyncOpen] = useState(false);
@@ -1791,7 +1794,11 @@ export default function DiagramEditor() {
 
   /* ---------- Relation picker result ---------- */
   const handleRelationPicked = useCallback(
-    (relType: RelationType, direction: "as-is" | "reversed") => {
+    (
+      relType: RelationType,
+      direction: "as-is" | "reversed",
+      attributes?: Record<string, unknown>,
+    ) => {
       const frame = iframeRef.current;
       const ep = pendingEdgeRef.current;
       if (!frame || !ep) return;
@@ -1799,6 +1806,12 @@ export default function DiagramEditor() {
       const color = direction === "as-is" ? ep.sourceColor : ep.targetColor;
 
       stampEdgeAsRelation(frame, ep.edgeCellId, relType.key, relType.label, color, true);
+
+      if (attributes && Object.keys(attributes).length > 0) {
+        pendingEdgeAttributesRef.current.set(ep.edgeCellId, attributes);
+      } else {
+        pendingEdgeAttributesRef.current.delete(ep.edgeCellId);
+      }
 
       setRelPickerOpen(false);
       pendingEdgeRef.current = null;
@@ -1814,6 +1827,7 @@ export default function DiagramEditor() {
     const ep = pendingEdgeRef.current;
     if (frame && ep) {
       removeDiagramCell(frame, ep.edgeCellId);
+      pendingEdgeAttributesRef.current.delete(ep.edgeCellId);
     }
     setRelPickerOpen(false);
     pendingEdgeRef.current = null;
@@ -1881,11 +1895,17 @@ export default function DiagramEditor() {
           return;
         }
 
-        const created = await api.post<Relation>("/relations", {
+        const stashedAttrs = pendingEdgeAttributesRef.current.get(edgeCellId);
+        const payload: Record<string, unknown> = {
           type: rel.relationType,
           source_id: rel.sourceCardId,
           target_id: rel.targetCardId,
-        });
+        };
+        if (stashedAttrs && Object.keys(stashedAttrs).length > 0) {
+          payload.attributes = stashedAttrs;
+        }
+        const created = await api.post<Relation>("/relations", payload);
+        pendingEdgeAttributesRef.current.delete(edgeCellId);
 
         markEdgeSynced(frame, edgeCellId, "#666", created.id);
         // Mirror the new relation into the side-table so a later canvas

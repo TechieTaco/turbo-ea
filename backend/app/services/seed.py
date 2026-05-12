@@ -3423,6 +3423,73 @@ TYPES = [
 
 # ── Relations (from Meta_Model.xml — verbs are the edge labels) ────────
 
+# Flow direction attribute shared by Interface-bearing relations
+# (relAppToInterface, relInterfaceToDataObj). The option keys are
+# direction-agnostic at the storage layer — the UI substitutes the
+# relation type's label/reverse_label so users see concrete wording
+# (e.g. "provides" vs. "consumes") for forward/reverse.
+FLOW_DIRECTION_OPTIONS = [
+    {
+        "key": "bidirectional",
+        "label": "Bidirectional",
+        "color": "#7e57c2",
+        "translations": {
+            "de": "Bidirektional",
+            "fr": "Bidirectionnel",
+            "es": "Bidireccional",
+            "it": "Bidirezionale",
+            "pt": "Bidirecional",
+            "zh": "双向",
+            "ru": "Двунаправленный",
+        },
+    },
+    {
+        "key": "forward",
+        "label": "Source → Target",
+        "color": "#2196f3",
+        "translations": {
+            "de": "Quelle → Ziel",
+            "fr": "Source → Cible",
+            "es": "Origen → Destino",
+            "it": "Sorgente → Destinazione",
+            "pt": "Origem → Destino",
+            "zh": "源 → 目标",
+            "ru": "Источник → Цель",
+        },
+    },
+    {
+        "key": "reverse",
+        "label": "Target → Source",
+        "color": "#26a69a",
+        "translations": {
+            "de": "Ziel → Quelle",
+            "fr": "Cible → Source",
+            "es": "Destino → Origen",
+            "it": "Destinazione → Sorgente",
+            "pt": "Destino → Origem",
+            "zh": "目标 → 源",
+            "ru": "Цель → Источник",
+        },
+    },
+]
+
+FLOW_DIRECTION_FIELD = {
+    "key": "flowDirection",
+    "label": "Flow direction",
+    "type": "single_select",
+    "options": FLOW_DIRECTION_OPTIONS,
+    "translations": {
+        "de": "Flussrichtung",
+        "fr": "Sens du flux",
+        "es": "Dirección del flujo",
+        "it": "Direzione del flusso",
+        "pt": "Direção do fluxo",
+        "zh": "流向",
+        "ru": "Направление потока",
+    },
+}
+
+
 RELATIONS = [
     # Strategy & Transformation connections
     {
@@ -3979,6 +4046,7 @@ RELATIONS = [
         "target_type_key": "Interface",
         "cardinality": "n:m",
         "sort_order": 19,
+        "attributes_schema": [FLOW_DIRECTION_FIELD],
         "translations": {
             "label": {
                 "de": "stellt bereit / konsumiert",
@@ -4149,6 +4217,7 @@ RELATIONS = [
         "target_type_key": "DataObject",
         "cardinality": "n:m",
         "sort_order": 25,
+        "attributes_schema": [FLOW_DIRECTION_FIELD],
         "translations": {
             "label": {
                 "de": "überträgt",

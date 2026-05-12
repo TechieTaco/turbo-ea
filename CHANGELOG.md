@@ -5,6 +5,31 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.9.0] - 2026-05-12
+
+Flow direction on Interface relations — capture which way data flows
+between an Application and an Interface (and between an Interface and a
+DataObject) without splitting the relation into two types.
+
+### Added
+- **Flow direction attribute** (`bidirectional` / `forward` / `reverse`)
+  on the `relAppToInterface` and `relInterfaceToDataObj` relation types.
+  The forward / reverse options are rendered with the relation's own
+  labels — e.g. "→ provides" vs. "← consumes" — so the wording stays
+  natural.
+- **Inline editor** on every relation row in the card detail Relations
+  section: a directional badge (↔ → ←) appears once set, click to edit
+  in a popover. Available on all relation types that declare an
+  `attributes_schema`.
+- **Optional details section** in the Add Relation dialog and in the
+  diagram-side Relation Picker — appears only when the chosen relation
+  type carries a schema, never blocks creation.
+
+### Backend
+- Migration `074_relation_flow_direction.py` seeds the schema on the two
+  Interface-bearing relation types using the guarded-UPDATE pattern, so
+  admin-customised relation types are not overwritten.
+
 ## [1.8.0] - 2026-05-12
 
 Diagramming overhaul — LeanIX-inspired UX on top of the embedded DrawIO editor.
