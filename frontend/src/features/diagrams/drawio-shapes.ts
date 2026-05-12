@@ -1752,6 +1752,9 @@ export interface PendingParentChange {
   /** Cell ids captured at the moment of the move so the abort path can
    *  put the cell back under its previous mxGraph parent. */
   oldParentCellId: string | null;
+  /** Cell geometry at the moment of the move so revert can restore
+   *  the visual position too (model.add re-parents but doesn't move). */
+  oldGeometry?: { x: number; y: number; width: number; height: number };
 }
 
 export interface ParentChangeEvent {
@@ -1770,6 +1773,11 @@ export interface ParentChangeEvent {
   oldParentCardId: string | null;
   oldParentName: string;
   oldParentType: string;
+  /** Cell geometry at the moment of the LAST recorded sighting
+   *  (i.e. before this parent change). Restored on revert so the
+   *  cell lands back where the user grabbed it from rather than at
+   *  (0, 0) of the destination parent. */
+  oldGeometry?: { x: number; y: number; width: number; height: number };
 }
 
 /**
@@ -1810,16 +1818,36 @@ export function attachParentChangeListener(
     };
   };
 
-  /** parentCellId of every card cell at last observation. `null` =
-   *  graph default parent. Cells we haven't seen before are added
-   *  silently so the first sighting doesn't fire a spurious event. */
-  const knownParents = new Map<string, string | null>();
+  /** parentCellId + geometry of every card cell at last observation.
+   *  `parentId = null` = graph default parent. Cells we haven't seen
+   *  before are added silently so the first sighting doesn't fire a
+   *  spurious event. We capture geometry too so revert can put the
+   *  cell back at its visual pre-move location. */
+  interface KnownState {
+    parentId: string | null;
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  }
+  const knownState = new Map<string, KnownState>();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const snapshotState = (cell: any): KnownState => {
+    const geo = cell.getGeometry ? cell.getGeometry() : null;
+    return {
+      parentId: cell.parent?.id ?? null,
+      x: geo?.x ?? 0,
+      y: geo?.y ?? 0,
+      width: geo?.width ?? 0,
+      height: geo?.height ?? 0,
+    };
+  };
   const seedKnown = () => {
     const cells = model.cells || {};
     for (const k of Object.keys(cells)) {
       const cell = cells[k];
       if (!cardOf(cell)) continue;
-      knownParents.set(cell.id, cell.parent?.id ?? null);
+      knownState.set(cell.id, snapshotState(cell));
     }
   };
   seedKnown();
@@ -1855,18 +1883,24 @@ export function attachParentChangeListener(
       // never raise a parent-change event for them — their cardId →
       // parent_id mapping is owned by the container itself.
       if (isManaged(cell)) {
-        knownParents.set(cell.id, cell.parent?.id ?? null);
+        knownState.set(cell.id, snapshotState(cell));
         continue;
       }
 
       const newParentId = cell.parent?.id ?? null;
       // First sighting: record silently.
-      if (!knownParents.has(cell.id)) {
-        knownParents.set(cell.id, newParentId);
+      if (!knownState.has(cell.id)) {
+        knownState.set(cell.id, snapshotState(cell));
         continue;
       }
-      const oldParentId = knownParents.get(cell.id) ?? null;
-      if (oldParentId === newParentId) continue;
+      const prior = knownState.get(cell.id)!;
+      const oldParentId = prior.parentId;
+      if (oldParentId === newParentId) {
+        // No parent change — refresh geometry so the next change has
+        // an up-to-date "before" snapshot.
+        knownState.set(cell.id, snapshotState(cell));
+        continue;
+      }
 
       // Parent actually changed — resolve both sides + fire.
       const newParentCell = isMeaningfulParent(cell.parent)
@@ -1878,7 +1912,7 @@ export function attachParentChangeListener(
           : null;
       const newParentCard = cardOf(newParentCell);
       const oldParentCard = cardOf(oldParentCell);
-      knownParents.set(cell.id, newParentId);
+      knownState.set(cell.id, snapshotState(cell));
       onParentChanged({
         cellId: cardInfo.cellId,
         cardId: cardInfo.cardId,
@@ -1892,6 +1926,12 @@ export function attachParentChangeListener(
         oldParentCardId: oldParentCard?.cardId ?? null,
         oldParentName: oldParentCard?.label ?? "",
         oldParentType: oldParentCard?.cardType ?? "",
+        oldGeometry: {
+          x: prior.x,
+          y: prior.y,
+          width: prior.width,
+          height: prior.height,
+        },
       });
     }
   };
@@ -1911,7 +1951,77 @@ export function attachParentChangeListener(
   }
   const onMouseUp = () => {
     // Defer one tick so any open transaction has settled.
-    setTimeout(() => listener(), 0);
+    setTimeout(() => {
+      // Force-detach: walk every card cell and check whether its visual
+      // bounds escape its parent's bounds. mxGraph's
+      // `shouldRemoveCellsFromParent` override sometimes fails in
+      // DrawIO's drag pipeline, so we do the check ourselves and
+      // re-parent the cell to the default parent when a user
+      // unmistakably dragged it out. The model change here triggers
+      // the diff listener immediately, which fires onParentChanged
+      // for the editor to surface the detach dialog.
+      const cells = model.cells || {};
+      const defaultParent = graph.getDefaultParent();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const toDetach: any[] = [];
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const toDetachOffsets: Array<{ x: number; y: number }> = [];
+      for (const k of Object.keys(cells)) {
+        const cell = cells[k];
+        if (!cell?.value?.getAttribute) continue;
+        if (cell.edge) continue;
+        if (!cell.value.getAttribute("cardId")) continue;
+        if (isManaged(cell)) continue;
+        const parent = cell.parent;
+        if (!parent || parent === defaultParent) continue;
+        // Parent must be a swimlane (not the root layer cells "0"/"1").
+        const parentId =
+          typeof parent.getId === "function" ? parent.getId() : parent.id;
+        if (parentId === "0" || parentId === "1") continue;
+        const cellGeo = cell.getGeometry ? cell.getGeometry() : null;
+        const parentGeo = parent.getGeometry ? parent.getGeometry() : null;
+        if (!cellGeo || !parentGeo) continue;
+        // mxGraph children's geometry is RELATIVE to their parent.
+        // "Inside the parent" means 0 ≤ x and x + width ≤ parent.width.
+        const insideX =
+          cellGeo.x >= 0 && cellGeo.x + cellGeo.width <= parentGeo.width;
+        const insideY =
+          cellGeo.y >= 0 && cellGeo.y + cellGeo.height <= parentGeo.height;
+        if (insideX && insideY) continue;
+        // Escaped the parent — convert the cell's geometry to absolute
+        // coordinates so it lands where the user dropped it after we
+        // re-parent to root.
+        toDetach.push(cell);
+        toDetachOffsets.push({
+          x: (parentGeo.x ?? 0) + (cellGeo.x ?? 0),
+          y: (parentGeo.y ?? 0) + (cellGeo.y ?? 0),
+        });
+      }
+      if (toDetach.length > 0) {
+        model.beginUpdate();
+        try {
+          for (let i = 0; i < toDetach.length; i++) {
+            const cell = toDetach[i];
+            const offset = toDetachOffsets[i];
+            const existing = cell.getGeometry();
+            const newGeo = new win.mxGeometry(
+              offset.x,
+              offset.y,
+              existing?.width ?? 0,
+              existing?.height ?? 0,
+            );
+            model.setGeometry(cell, newGeo);
+            model.add(defaultParent, cell);
+          }
+        } finally {
+          model.endUpdate();
+        }
+      }
+      // Now run the standard diff pass which catches both the force-
+      // detached cells we just re-parented AND any other parent
+      // changes mxGraph applied during the drag.
+      listener();
+    }, 0);
   };
   try {
     graph.container?.addEventListener?.("mouseup", onMouseUp);
@@ -1939,18 +2049,22 @@ export function attachParentChangeListener(
 
 /**
  * Revert a single parent change by re-parenting the cell back under the
- * old parent. Used by the "No, don't move this card" branch of the
- * confirmation dialog. Falls back to the graph's default parent if the
- * captured old-parent cellId no longer exists.
+ * old parent and restoring its geometry. Without the geometry
+ * restoration the cell snaps to (0, 0) of the destination parent
+ * after re-parent — which is rarely where the user grabbed it from.
+ *
+ * Falls back to the graph's default parent if the captured old-parent
+ * cellId no longer exists.
  */
 export function revertParentChange(
   iframe: HTMLIFrameElement,
   cellId: string,
   oldParentCellId: string | null,
+  oldGeometry?: { x: number; y: number; width: number; height: number },
 ): boolean {
   const ctx = getMxGraph(iframe);
   if (!ctx) return false;
-  const { graph } = ctx;
+  const { win, graph } = ctx;
   const model = graph.getModel();
   const cell = model.getCell(cellId);
   if (!cell) return false;
@@ -1960,6 +2074,16 @@ export function revertParentChange(
   model.beginUpdate();
   try {
     model.add(oldParent, cell);
+    if (oldGeometry) {
+      const geo = new win.mxGeometry(
+        oldGeometry.x,
+        oldGeometry.y,
+        oldGeometry.width,
+        oldGeometry.height,
+      );
+      model.setGeometry(cell, geo);
+    }
+    graph.refresh(cell);
   } finally {
     model.endUpdate();
   }

@@ -144,7 +144,8 @@ interface DrawIOMessage {
     | "unlinkCell"
     | "relinkCell"
     | "convertCell"
-    | "containerizeCell";
+    | "containerizeCell"
+    | "detachCell";
   xml?: string;
   data?: string;
   modified?: boolean;
@@ -294,6 +295,27 @@ function bootstrapDrawIO(iframe: HTMLIFrameElement) {
                 "*",
               );
             });
+            // Move-out-of-container: only show when this cell is
+            // currently nested inside another vertex (i.e. lives in a
+            // drilled-down / rolled-up container). DrawIO drag-out
+            // detection is unreliable so this is a guaranteed UX path
+            // to fire the detach confirmation dialog.
+            const parent = cardCell.parent;
+            const parentIsContainer =
+              parent &&
+              parent.value?.getAttribute &&
+              parent !== graph.getDefaultParent() &&
+              typeof parent.getId === "function" &&
+              parent.getId() !== "0" &&
+              parent.getId() !== "1";
+            if (parentIsContainer) {
+              menu.addItem("Move out of container", null, () => {
+                win.parent.postMessage(
+                  JSON.stringify({ event: "detachCell", cellId: cardCell.id }),
+                  "*",
+                );
+              });
+            }
           }
           if (hasNoCardId && cell) {
             menu.addItem("Link to Existing Card\u2026", null, () => {
@@ -1220,7 +1242,7 @@ export default function DiagramEditor() {
         if (frame) {
           // Suppress so the revert itself doesn't re-fire the dialog.
           withSuppressedHierarchy(() =>
-            revertParentChange(frame, ev.cellId, ev.oldParentCellId),
+            revertParentChange(frame, ev.cellId, ev.oldParentCellId, ev.oldGeometry),
           );
         }
         setSnackMsg(t("editor.errors.parentTypeMismatch"));
@@ -1238,6 +1260,7 @@ export default function DiagramEditor() {
           parentCardId: attachingTo,
           parentCardName: ev.newParentName,
           oldParentCellId: ev.oldParentCellId,
+          oldGeometry: ev.oldGeometry,
         },
       ]);
       return;
@@ -1258,6 +1281,7 @@ export default function DiagramEditor() {
           parentCardId: detachingFrom,
           parentCardName: ev.oldParentName,
           oldParentCellId: ev.oldParentCellId,
+          oldGeometry: ev.oldGeometry,
         },
       ]);
     }
@@ -1288,7 +1312,12 @@ export default function DiagramEditor() {
         // Suppress so the diff listener doesn't fire the dialog for
         // our own corrective re-parent.
         withSuppressedHierarchy(() =>
-          revertParentChange(frame, head.cellId, head.oldParentCellId),
+          revertParentChange(
+            frame,
+            head.cellId,
+            head.oldParentCellId,
+            head.oldGeometry,
+          ),
         );
       }
       return rest;
@@ -1566,6 +1595,47 @@ export default function DiagramEditor() {
     setConvertTargetCellId(cellId);
     setConvertPrefillName(label);
     setCreateOpen(true);
+  }, []);
+
+  /** Right-click → Move out of container. Force-detaches a nested
+   *  child cell from its swimlane parent back to the canvas root.
+   *  Guarantees the detach flow even when DrawIO's drag pipeline
+   *  swallows the parent change.
+   *
+   *  We DON'T suppress the parent-change listener here — we WANT it
+   *  to fire so the user gets the "Detach from parent?" confirmation
+   *  dialog and the resulting parent_id PATCH gets queued. */
+  const handleDetachRequest = useCallback((cellId: string) => {
+    const frame = iframeRef.current;
+    if (!frame) return;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const win = frame.contentWindow as any;
+    const graph = win?.__turboGraph;
+    if (!graph) return;
+    const model = graph.getModel();
+    const cell = model.getCell(cellId);
+    if (!cell) return;
+    const parent = cell.parent;
+    if (!parent || parent === graph.getDefaultParent()) return;
+    // Move the cell to absolute coordinates of its current visual
+    // position so it stays where the user sees it after re-parenting.
+    const cellGeo = cell.getGeometry();
+    const parentGeo = parent.getGeometry();
+    model.beginUpdate();
+    try {
+      if (cellGeo && parentGeo) {
+        const newGeo = new win.mxGeometry(
+          (parentGeo.x ?? 0) + (cellGeo.x ?? 0) + 40, // slight offset
+          (parentGeo.y ?? 0) + (cellGeo.y ?? 0) + 40,
+          cellGeo.width,
+          cellGeo.height,
+        );
+        model.setGeometry(cell, newGeo);
+      }
+      model.add(graph.getDefaultParent(), cell);
+    } finally {
+      model.endUpdate();
+    }
   }, []);
 
   /** Right-click → Convert to Container. Restyles the picked cell as a
@@ -2209,6 +2279,10 @@ export default function DiagramEditor() {
           if (msg.cellId) handleContainerizeRequest(msg.cellId);
           break;
 
+        case "detachCell":
+          if (msg.cellId) handleDetachRequest(msg.cellId);
+          break;
+
         default:
           break;
       }
@@ -2226,6 +2300,7 @@ export default function DiagramEditor() {
     handleRelinkRequest,
     handleConvertRequest,
     handleContainerizeRequest,
+    handleDetachRequest,
   ]);
 
   // Refresh sync panel counts whenever it opens
