@@ -5,6 +5,17 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.9.0] - 2026-05-12
+
+### Added
+- **Diagram editor — per-relation-type expand menu (LeanIX-style).** Each card now carries a chevron overlay that opens a menu with three sections — **Show Dependency**, **Drill-Down**, **Roll-Up** — each listing one entry per (relation type, direction) pair with live counts. Picking an entry inserts only the matching neighbours: Show Dependency to the right, Drill-Down below, Roll-Up above. Counts come from a single `GET /cards/{id}/relation-summary` round-trip; entries with zero matches are greyed out so the menu doesn't lie about what's behind it.
+- **Insert Cards dialog — multi-select with type chips and counts.** Replaces the old single-select Card Picker. Left rail: type chips with `GET /cards/counts` totals. Right rail: virtualised search results with checkboxes. Footer: *Insert selected* and *Insert all* (with a confirm step past 50 results). The same dialog opens in single-select mode for *Change Linked Card* and *Link to Existing Card*.
+- **Diagram editor — view perspectives (color cells by attribute).** New "View" toolbar dropdown that recolors every synced card cell by one of: card type (default), approval status, or any single-select field defined on the card types currently on the canvas. The active perspective and its colour mapping persist in `diagram.data.view`; a floating legend in the bottom-left shows the value→colour mapping with a one-click reset.
+
+### Changed
+- **`GET /cards` now accepts an `ids` query param** for batch fetching by UUID list. Used by the diagram view-perspective feature to recolor cells in a single round-trip; invalid UUIDs are silently skipped so a stale cell id never 500s a batch.
+- **Synced relation edges now persist `relationId`** on the XML user object (introduced in 1.8.0) and are picked up by the new `markEdgeSynced(..., relationId)` signature. Required for canvas-side relation deletions to issue the right `DELETE /relations/{id}`.
+
 ## [1.8.0] - 2026-05-11
 
 ### Added

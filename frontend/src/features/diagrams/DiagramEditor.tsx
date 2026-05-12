@@ -10,7 +10,7 @@ import Tooltip from "@mui/material/Tooltip";
 import CircularProgress from "@mui/material/CircularProgress";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
-import CardPickerDialog from "./CardPickerDialog";
+import InsertCardsDialog from "./InsertCardsDialog";
 import CreateOnDiagramDialog from "./CreateOnDiagramDialog";
 import RelationPickerDialog from "./RelationPickerDialog";
 import type { EdgeEndpoints } from "./RelationPickerDialog";
@@ -26,7 +26,9 @@ import {
   getVisibleCenter,
   addExpandOverlay,
   addResyncOverlay,
+  addChevronOverlay,
   expandCardGroup,
+  expandCardGroupAt,
   collapseCardGroup,
   getGroupChildCardIds,
   refreshCardOverlays,
@@ -43,6 +45,8 @@ import {
   relinkCell,
   getCellLabel,
   convertShapeToPendingCard,
+  applyViewToGraph,
+  resetViewColors,
 } from "./drawio-shapes";
 import type {
   ExpandChildData,
@@ -50,6 +54,15 @@ import type {
   RemovedCardTombstone,
   RemovedRelationTombstone,
 } from "./drawio-shapes";
+import ExpandMenu from "./ExpandMenu";
+import type {
+  ExpandMenuTarget,
+  ExpandMode,
+  RelationSummaryEntry,
+} from "./ExpandMenu";
+import ViewSelector, { buildColorMap, extractCardValue } from "./ViewSelector";
+import type { ColorEntry, ViewSource } from "./ViewSelector";
+import DiagramViewLegend from "./DiagramViewLegend";
 import CardDetailSidePanel from "@/components/CardDetailSidePanel";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useResolveMetaLabel } from "@/hooks/useResolveLabel";
@@ -87,7 +100,7 @@ interface DiagramData {
   id: string;
   name: string;
   type: string;
-  data: { xml?: string; thumbnail?: string };
+  data: { xml?: string; thumbnail?: string; view?: ViewSource };
 }
 
 interface DrawIOMessage {
@@ -359,6 +372,15 @@ export default function DiagramEditor() {
   const [convertTargetCellId, setConvertTargetCellId] = useState<string | null>(null);
   const [convertPrefillName, setConvertPrefillName] = useState<string>("");
 
+  // Phase 3 — chevron expand menu
+  const [expandMenuTarget, setExpandMenuTarget] = useState<ExpandMenuTarget | null>(null);
+
+  // Phase 5 — view perspectives (color cells by attribute)
+  const [view, setView] = useState<ViewSource>({ kind: "card_type" });
+  const [viewLegendEntries, setViewLegendEntries] = useState<ColorEntry[]>([]);
+  const [viewAppliedCount, setViewAppliedCount] = useState(0);
+  const [activeTypeKeys, setActiveTypeKeys] = useState<string[]>([]);
+
   // Local autosave restore prompt
   const [restoreBanner, setRestoreBanner] = useState<{ xml: string; savedAt: string } | null>(null);
   const restoreCheckedRef = useRef(false);
@@ -370,6 +392,7 @@ export default function DiagramEditor() {
       .get<DiagramData>(`/diagrams/${id}`)
       .then((d) => {
         setDiagram(d);
+        if (d.data?.view) setView(d.data.view);
         // Check for a newer locally-autosaved draft once per mount.
         if (!restoreCheckedRef.current) {
           restoreCheckedRef.current = true;
@@ -407,11 +430,26 @@ export default function DiagramEditor() {
       setSaving(true);
       try {
         const payload: Record<string, unknown> = {
-          data: { ...diagram.data, xml, ...(thumbnail ? { thumbnail } : {}) },
+          data: {
+            ...diagram.data,
+            xml,
+            ...(thumbnail ? { thumbnail } : {}),
+            view,
+          },
         };
         await api.patch(`/diagrams/${diagram.id}`, payload);
         setDiagram((prev) =>
-          prev ? { ...prev, data: { ...prev.data, xml, ...(thumbnail ? { thumbnail } : {}) } } : prev,
+          prev
+            ? {
+                ...prev,
+                data: {
+                  ...prev.data,
+                  xml,
+                  ...(thumbnail ? { thumbnail } : {}),
+                  view,
+                },
+              }
+            : prev,
         );
         // Persisted on the server — drop the local autosave snapshot so we
         // don't keep prompting to restore an older draft on reload.
@@ -427,7 +465,7 @@ export default function DiagramEditor() {
         setSaving(false);
       }
     },
-    [diagram],
+    [diagram, view],
   );
 
   /* ---------- Expand / collapse ---------- */
@@ -447,7 +485,7 @@ export default function DiagramEditor() {
 
       const inserted = expandCardGroup(frame, cellId, visible);
       addExpandOverlay(frame, cellId, true, () =>
-        handleToggleGroup(cellId, cardId, true),
+        handleCollapseGroup(cellId, cardId),
       );
       // If some children were locally removed, show resync icon
       if (deleted?.size) {
@@ -455,9 +493,11 @@ export default function DiagramEditor() {
           handleResync(cellId, cardId),
         );
       }
+      // Each newly-inserted child gets its own chevron so the user can
+      // recursively explore the dependency graph from any node.
       for (const child of inserted) {
-        addExpandOverlay(frame, child.cellId, false, () =>
-          handleToggleGroup(child.cellId, child.cardId, false),
+        addChevronOverlay(frame, child.cellId, (anchor) =>
+          setExpandMenuTarget({ cellId: child.cellId, cardId: child.cardId, anchor }),
         );
       }
     },
@@ -465,79 +505,162 @@ export default function DiagramEditor() {
     [],
   );
 
-  const handleToggleGroup = useCallback(
-    (cellId: string, cardId: string, currentlyExpanded: boolean) => {
+  /** Collapse an expanded card group; called from the minus overlay. */
+  const handleCollapseGroup = useCallback(
+    (cellId: string, cardId: string) => {
       const frame = iframeRef.current;
       if (!frame) return;
 
-      if (currentlyExpanded) {
-        // Before collapsing, detect children the user removed while expanded
-        const cached = expandCacheRef.current.get(cellId);
-        if (cached) {
-          const stillPresent = getGroupChildCardIds(frame, cellId);
-          const nowDeleted = cached.filter((c) => !stillPresent.has(c.id)).map((c) => c.id);
-          if (nowDeleted.length > 0) {
-            const existing = deletedChildrenRef.current.get(cellId) ?? new Set<string>();
-            nowDeleted.forEach((id) => existing.add(id));
-            deletedChildrenRef.current.set(cellId, existing);
-          }
+      // Before collapsing, detect children the user removed while expanded.
+      const cached = expandCacheRef.current.get(cellId);
+      if (cached) {
+        const stillPresent = getGroupChildCardIds(frame, cellId);
+        const nowDeleted = cached.filter((c) => !stillPresent.has(c.id)).map((c) => c.id);
+        if (nowDeleted.length > 0) {
+          const existing = deletedChildrenRef.current.get(cellId) ?? new Set<string>();
+          nowDeleted.forEach((id) => existing.add(id));
+          deletedChildrenRef.current.set(cellId, existing);
         }
+      }
 
-        collapseCardGroup(frame, cellId);
-        addExpandOverlay(frame, cellId, false, () =>
-          handleToggleGroup(cellId, cardId, false),
-        );
-        // Keep resync icon if there are local deletions
-        if (deletedChildrenRef.current.get(cellId)?.size) {
-          addResyncOverlay(frame, cellId, () =>
-            handleResync(cellId, cardId),
-          );
-        }
-      } else {
-        // Use cached children if available, otherwise fetch from API
-        const cached = expandCacheRef.current.get(cellId);
-        if (cached) {
-          doExpand(frame, cellId, cardId, cached);
-        } else {
-          api
-            .get<Relation[]>(`/relations?card_id=${cardId}`)
-            .then((rels) => {
-              if (!iframeRef.current) return;
-              const seen = new Set<string>();
-              const children: ExpandChildData[] = [];
-              for (const r of rels) {
-                const other = r.source_id === cardId ? r.target : r.source;
-                if (!other || seen.has(other.id)) continue;
-                seen.add(other.id);
-                const ct = fsTypesRef.current.find((tp) => tp.key === other.type);
-                children.push({
-                  id: other.id,
-                  name: other.name,
-                  type: other.type,
-                  color: ct?.color || "#999",
-                  relationType: r.type,
-                });
-              }
-              if (children.length === 0) {
-                setSnackMsg(t("editor.noRelatedCards"));
-                return;
-              }
-              children.sort((a, b) => {
-                const sa = fsTypesRef.current.find((tp) => tp.key === a.type)?.sort_order ?? 99;
-                const sb = fsTypesRef.current.find((tp) => tp.key === b.type)?.sort_order ?? 99;
-                if (sa !== sb) return sa - sb;
-                return a.name.localeCompare(b.name);
-              });
-              // Cache the full API result
-              expandCacheRef.current.set(cellId, children);
-              doExpand(iframeRef.current!, cellId, cardId, children);
-            })
-            .catch(() => setSnackMsg(t("editor.errors.loadRelationsFailed")));
-        }
+      collapseCardGroup(frame, cellId);
+      // Switch back to chevron so the user can pick a different relation
+      // type or direction for the next expansion.
+      addChevronOverlay(frame, cellId, (anchor) =>
+        setExpandMenuTarget({ cellId, cardId, anchor }),
+      );
+      if (deletedChildrenRef.current.get(cellId)?.size) {
+        addResyncOverlay(frame, cellId, () => handleResync(cellId, cardId));
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [doExpand],
+    [],
+  );
+
+  /** Backwards-compatible signature still passed around as `handleToggleGroup`
+   *  so callers that ask "expand from a fresh state" keep working. New code
+   *  should use the chevron overlay route which opens the ExpandMenu. */
+  const handleToggleGroup = useCallback(
+    (cellId: string, cardId: string, currentlyExpanded: boolean) => {
+      if (currentlyExpanded) {
+        handleCollapseGroup(cellId, cardId);
+        return;
+      }
+      // Default expand falls back to "all relations" — used by the
+      // resync path. Newly-inserted cells get the chevron instead so the
+      // user always sees the per-relation-type picker first.
+      const frame = iframeRef.current;
+      if (!frame) return;
+      const cached = expandCacheRef.current.get(cellId);
+      if (cached) {
+        doExpand(frame, cellId, cardId, cached);
+        return;
+      }
+      api
+        .get<Relation[]>(`/relations?card_id=${cardId}`)
+        .then((rels) => {
+          if (!iframeRef.current) return;
+          const seen = new Set<string>();
+          const children: ExpandChildData[] = [];
+          for (const r of rels) {
+            const other = r.source_id === cardId ? r.target : r.source;
+            if (!other || seen.has(other.id)) continue;
+            seen.add(other.id);
+            const ct = fsTypesRef.current.find((tp) => tp.key === other.type);
+            children.push({
+              id: other.id,
+              name: other.name,
+              type: other.type,
+              color: ct?.color || "#999",
+              relationType: r.type,
+            });
+          }
+          if (children.length === 0) {
+            setSnackMsg(t("editor.noRelatedCards"));
+            return;
+          }
+          children.sort((a, b) => {
+            const sa = fsTypesRef.current.find((tp) => tp.key === a.type)?.sort_order ?? 99;
+            const sb = fsTypesRef.current.find((tp) => tp.key === b.type)?.sort_order ?? 99;
+            if (sa !== sb) return sa - sb;
+            return a.name.localeCompare(b.name);
+          });
+          expandCacheRef.current.set(cellId, children);
+          doExpand(iframeRef.current!, cellId, cardId, children);
+        })
+        .catch(() => setSnackMsg(t("editor.errors.loadRelationsFailed")));
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [doExpand, handleCollapseGroup],
+  );
+
+  /** Open the per-relation-type ExpandMenu for a card. Wired to the
+   *  chevron overlay on every collapsed synced cell. */
+  const handleChevron = useCallback(
+    (cellId: string, cardId: string, anchor: { x: number; y: number }) => {
+      setExpandMenuTarget({ cellId, cardId, anchor });
+    },
+    [],
+  );
+
+  /** User picked a relation type + direction from the ExpandMenu. Fetch
+   *  matching neighbours and insert them with placement that reflects the
+   *  chosen mode (Show Dependency = right, Drill-Down = below, Roll-Up =
+   *  above). Skips peers that are already on the canvas to avoid
+   *  duplicates. */
+  const handleExpandPick = useCallback(
+    async (mode: ExpandMode, entry: RelationSummaryEntry, target: ExpandMenuTarget) => {
+      const frame = iframeRef.current;
+      if (!frame) return;
+      try {
+        const params = new URLSearchParams({
+          card_id: target.cardId,
+          type: entry.relation_type_key,
+        });
+        const rels = await api.get<Relation[]>(`/relations?${params}`);
+        const seen = new Set<string>();
+        const children: ExpandChildData[] = [];
+        for (const r of rels) {
+          // Filter to the user's chosen direction so the picked menu row
+          // matches what they actually see.
+          const isOutgoing = r.source_id === target.cardId;
+          if (entry.direction === "outgoing" && !isOutgoing) continue;
+          if (entry.direction === "incoming" && isOutgoing) continue;
+          const other = isOutgoing ? r.target : r.source;
+          if (!other || seen.has(other.id)) continue;
+          seen.add(other.id);
+          const ct = fsTypesRef.current.find((tp) => tp.key === other.type);
+          children.push({
+            id: other.id,
+            name: other.name,
+            type: other.type,
+            color: ct?.color || "#999",
+            relationType: r.type,
+          });
+        }
+        if (children.length === 0) {
+          setSnackMsg(t("editor.noRelatedCards"));
+          return;
+        }
+        children.sort((a, b) => a.name.localeCompare(b.name));
+        const placement =
+          mode === "show" ? "right" : mode === "drill_down" ? "below" : "above";
+        const inserted = expandCardGroupAt(frame, target.cellId, children, placement);
+        // Bind chevrons + collapse on the parent + new neighbours so the
+        // user can keep exploring.
+        addExpandOverlay(frame, target.cellId, true, () =>
+          handleCollapseGroup(target.cellId, target.cardId),
+        );
+        for (const child of inserted) {
+          addChevronOverlay(frame, child.cellId, (anchor) =>
+            setExpandMenuTarget({ cellId: child.cellId, cardId: child.cardId, anchor }),
+          );
+        }
+      } catch {
+        setSnackMsg(t("editor.errors.loadRelationsFailed"));
+      }
+    },
+    [t, handleCollapseGroup],
   );
 
   /** Clear local caches and re-fetch relations from inventory. */
@@ -656,23 +779,31 @@ export default function DiagramEditor() {
     [handleDuplicate, handleTombstones],
   );
 
-  /* ---------- Insert existing card ---------- */
+  /* ---------- Insert existing card(s) ---------- */
   const handleInsertCard = useCallback(
-    (card: Card, cardTypeKey: CardType) => {
+    (cards: Card[], cardTypeKeysByCardId: Map<string, CardType>) => {
       const frame = iframeRef.current;
-      if (!frame) return;
+      if (!frame || cards.length === 0) return;
 
-      // Relink mode: rewrite the target cell instead of inserting a new one.
+      // Relink mode: rewrite the target cell instead of inserting new ones.
+      // The dialog opens in mode="single" so we only ever see one card here.
       if (relinkTargetCellId) {
+        const card = cards[0];
+        const ct = cardTypeKeysByCardId.get(card.id);
+        if (!ct) {
+          setRelinkTargetCellId(null);
+          return;
+        }
         const ok = relinkCell(frame, relinkTargetCellId, {
           cardId: card.id,
           cardType: card.type,
           name: card.name,
-          color: cardTypeKey.color,
+          color: ct.color,
         });
         if (ok) {
-          addExpandOverlay(frame, relinkTargetCellId, false, () =>
-            handleToggleGroup(relinkTargetCellId, card.id, false),
+          const targetCellId = relinkTargetCellId;
+          addChevronOverlay(frame, targetCellId, (anchor) =>
+            setExpandMenuTarget({ cellId: targetCellId, cardId: card.id, anchor }),
           );
           setSnackMsg(t("editor.linkedTo", { name: card.name }));
         } else {
@@ -682,33 +813,59 @@ export default function DiagramEditor() {
         return;
       }
 
-      let x: number, y: number;
+      // Multi-card insert: lay them out in a grid centered on the insertion
+      // point so they don't overlap. The 4-cell-wide grid mirrors LeanIX's
+      // "Insert selected" behaviour for batches.
+      let baseX: number;
+      let baseY: number;
       if (contextInsertPosRef.current) {
-        ({ x, y } = contextInsertPosRef.current);
+        baseX = contextInsertPosRef.current.x;
+        baseY = contextInsertPosRef.current.y;
         contextInsertPosRef.current = null;
       } else {
         const center = getVisibleCenter(frame);
-        x = center ? center.x - 90 : 100;
-        y = center ? center.y - 30 : 100;
+        baseX = center ? center.x - 90 : 100;
+        baseY = center ? center.y - 30 : 100;
       }
 
-      const data = buildCardCellData({
-        cardId: card.id,
-        cardType: card.type,
-        name: card.name,
-        color: cardTypeKey.color,
-        x,
-        y,
-      });
-
-      const ok = insertCardIntoGraph(frame, data);
-      if (ok) {
-        addExpandOverlay(frame, data.cellId, false, () =>
-          handleToggleGroup(data.cellId, card.id, false),
-        );
-        setSnackMsg(t("editor.inserted", { name: card.name }));
-      } else {
+      const cols = Math.min(4, cards.length);
+      const cellW = 200;
+      const cellH = 80;
+      let insertedCount = 0;
+      for (let i = 0; i < cards.length; i++) {
+        const c = cards[i];
+        const ct = cardTypeKeysByCardId.get(c.id);
+        if (!ct) continue;
+        const x = baseX + (i % cols) * cellW;
+        const y = baseY + Math.floor(i / cols) * cellH;
+        const data = buildCardCellData({
+          cardId: c.id,
+          cardType: c.type,
+          name: c.name,
+          color: ct.color,
+          x,
+          y,
+        });
+        const ok = insertCardIntoGraph(frame, data);
+        if (ok) {
+          const insertedCellId = data.cellId;
+          const insertedCardId = c.id;
+          addChevronOverlay(frame, insertedCellId, (anchor) =>
+            setExpandMenuTarget({
+              cellId: insertedCellId,
+              cardId: insertedCardId,
+              anchor,
+            }),
+          );
+          insertedCount += 1;
+        }
+      }
+      if (insertedCount === 0) {
         setSnackMsg(t("editor.errors.editorNotReady"));
+      } else if (insertedCount === 1) {
+        setSnackMsg(t("editor.inserted", { name: cards[0].name }));
+      } else {
+        setSnackMsg(t("editor.insertedMany", { count: insertedCount }));
       }
     },
     [handleToggleGroup, relinkTargetCellId],
@@ -891,9 +1048,10 @@ export default function DiagramEditor() {
           name: item.name,
         });
         markCellSynced(frame, cellId, resp.id, item.typeColor);
-        // Attach expand overlay now that it has a real ID
-        addExpandOverlay(frame, cellId, false, () =>
-          handleToggleGroup(cellId, resp.id, false),
+        // Attach chevron now that it has a real ID and the per-relation
+        // expand menu can resolve its neighbours.
+        addChevronOverlay(frame, cellId, (anchor) =>
+          setExpandMenuTarget({ cellId, cardId: resp.id, anchor }),
         );
         // Update any pending relations that reference the old temp ID
         const tempId = raw?.tempId;
@@ -970,8 +1128,14 @@ export default function DiagramEditor() {
             name: p.name,
           });
           markCellSynced(frame, p.cellId, resp.id, typeInfo?.color || "#999");
-          addExpandOverlay(frame, p.cellId, false, () =>
-            handleToggleGroup(p.cellId, resp.id, false),
+          const insertedCellId = p.cellId;
+          const insertedCardId = resp.id;
+          addChevronOverlay(frame, insertedCellId, (anchor) =>
+            setExpandMenuTarget({
+              cellId: insertedCellId,
+              cardId: insertedCardId,
+              anchor,
+            }),
           );
         } catch {
           setSnackMsg(t("editor.errors.syncFailed", { name: p.name }));
@@ -1197,7 +1361,11 @@ export default function DiagramEditor() {
               bootstrapDrawIO(frame);
               setTimeout(() => {
                 if (iframeRef.current) {
-                  refreshCardOverlays(iframeRef.current, handleToggleGroup);
+                  refreshCardOverlays(
+                    iframeRef.current,
+                    handleCollapseGroup,
+                    handleChevron,
+                  );
                   attachLifecycleListenersOnce(iframeRef.current);
                 }
               }, 200);
@@ -1338,6 +1506,83 @@ export default function DiagramEditor() {
     return () => window.clearInterval(intervalId);
   }, [id]);
 
+  /* ---------- Phase 5 — apply view perspective to the canvas ---------- */
+
+  /** Snapshot the synced card cells so we know which ids to fetch + recolor. */
+  const collectCanvasCards = useCallback(():
+    | { ids: string[]; types: Set<string> }
+    | null => {
+    const frame = iframeRef.current;
+    if (!frame) return null;
+    const { syncedFS } = scanDiagramItems(frame);
+    return {
+      ids: syncedFS.map((c) => c.cardId),
+      types: new Set(syncedFS.map((c) => c.type)),
+    };
+  }, []);
+
+  /** Recompute and apply the active view to the canvas. Pulls a batch
+   *  card payload via /cards?ids=... so a single round-trip recolors
+   *  every cell. */
+  const applyView = useCallback(async () => {
+    const frame = iframeRef.current;
+    if (!frame) return;
+    const snapshot = collectCanvasCards();
+    if (!snapshot) return;
+    setActiveTypeKeys(Array.from(snapshot.types));
+
+    if (view.kind === "card_type") {
+      // Reset to per-type colours, then drop the legend.
+      const colorByType = new Map(
+        fsTypesRef.current.map((tp) => [tp.key, tp.color] as const),
+      );
+      const touched = resetViewColors(frame, colorByType, "#999");
+      setViewLegendEntries([]);
+      setViewAppliedCount(touched);
+      return;
+    }
+
+    if (snapshot.ids.length === 0) {
+      setViewLegendEntries(Array.from(buildColorMap(view, fsTypesRef.current).values()));
+      setViewAppliedCount(0);
+      return;
+    }
+
+    try {
+      const params = new URLSearchParams({ ids: snapshot.ids.join(",") });
+      const resp = await api.get<{ items: Card[] }>(`/cards?${params.toString()}`);
+      const cardById = new Map(resp.items.map((c) => [c.id, c] as const));
+      const colorMap = buildColorMap(view, fsTypesRef.current);
+      const colorByCardId = new Map<string, string>();
+      let coverable = 0;
+      for (const id of snapshot.ids) {
+        const c = cardById.get(id);
+        if (!c) continue;
+        const value = extractCardValue(view, c);
+        if (value == null) continue;
+        const entry = colorMap.get(value);
+        if (!entry) continue;
+        colorByCardId.set(id, entry.color);
+        coverable += 1;
+      }
+      const touched = applyViewToGraph(frame, colorByCardId, "#cbd5e1");
+      setViewLegendEntries(Array.from(colorMap.values()));
+      // Show how many cells the user can see colored vs total — helps debug
+      // when a field isn't populated on most cards.
+      setViewAppliedCount(coverable > 0 ? coverable : touched);
+    } catch {
+      setSnackMsg(t("editor.errors.applyViewFailed"));
+    }
+  }, [view, collectCanvasCards, t]);
+
+  // Re-apply the view whenever the user picks a new perspective or the
+  // diagram object changes (xml loaded / saved). Synced-cell additions
+  // also trigger re-application via syncOpen / refreshSyncPanel hooks.
+  useEffect(() => {
+    if (!diagram) return;
+    void applyView();
+  }, [diagram, view, applyView]);
+
   /* ---------- Restore banner: replace the XML with the locally-saved draft ---------- */
   const acceptRestore = useCallback(() => {
     if (!restoreBanner) return;
@@ -1404,6 +1649,14 @@ export default function DiagramEditor() {
           {diagram.name}
         </Typography>
         {saving && <CircularProgress size={16} sx={{ ml: 1 }} />}
+
+        {/* View perspective dropdown (Phase 5) */}
+        <ViewSelector
+          activeTypeKeys={activeTypeKeys}
+          types={fsTypes}
+          current={view}
+          onChange={setView}
+        />
 
         {/* Sync button — louder when there are unsynced changes so users
             don't accidentally walk away with pending work. */}
@@ -1485,12 +1738,33 @@ export default function DiagramEditor() {
             style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", border: "none" }}
             title={t("editor.title")}
           />
+          {view.kind !== "card_type" && (
+            <DiagramViewLegend
+              title={
+                view.kind === "approval_status"
+                  ? t("viewSelector.approvalStatus")
+                  : (() => {
+                      const tp = fsTypes.find((x) => x.key === view.type_key);
+                      const f = (tp?.fields_schema ?? [])
+                        .flatMap((s) => s.fields ?? [])
+                        .find((x) => x.key === view.field_key);
+                      return tp && f ? `${tp.label} · ${f.label}` : t("viewSelector.cardType");
+                    })()
+              }
+              entries={viewLegendEntries}
+              appliedCount={viewAppliedCount}
+              onReset={() => setView({ kind: "card_type" })}
+            />
+          )}
         </Box>
       </Box>
 
       {/* Dialogs */}
-      <CardPickerDialog
+      <InsertCardsDialog
         open={pickerOpen}
+        // Change Linked Card / Link to Existing Card open this dialog with a
+        // relink target set — pick a single card and apply it immediately.
+        mode={relinkTargetCellId ? "single" : "multi"}
         onClose={() => {
           setPickerOpen(false);
           contextInsertPosRef.current = null;
@@ -1549,6 +1823,12 @@ export default function DiagramEditor() {
         cardId={selectedCardId}
         open={!!selectedCardId}
         onClose={() => setSelectedCardId(null)}
+      />
+
+      <ExpandMenu
+        target={expandMenuTarget}
+        onClose={() => setExpandMenuTarget(null)}
+        onPick={handleExpandPick}
       />
 
       <Snackbar

@@ -18,6 +18,7 @@ from app.models.card_type import CardType
 from app.models.event import Event
 from app.models.ppm_cost_line import PpmBudgetLine, PpmCostLine
 from app.models.relation import Relation
+from app.models.relation_type import RelationType
 from app.models.stakeholder import Stakeholder
 from app.models.stakeholder_role_definition import StakeholderRoleDefinition
 from app.models.tag import Tag
@@ -39,13 +40,17 @@ from app.schemas.card import (
     CardBulkRestoreSkippedEntry,
     CardBulkSkippedEntry,
     CardBulkUpdate,
+    CardCountsResponse,
     CardCreate,
     CardDeleteRequest,
     CardDeleteResponse,
     CardListResponse,
+    CardRelationSummaryEntry,
+    CardRelationSummaryResponse,
     CardResponse,
     CardRestoreRequest,
     CardRestoreResponse,
+    CardTypeCount,
     CardUpdate,
     RestoreImpactPassenger,
     RestoreImpactResponse,
@@ -400,6 +405,13 @@ async def list_cards(
     search: str | None = Query(None, max_length=200),
     parent_id: str | None = Query(None),
     approval_status: str | None = Query(None),
+    ids: str | None = Query(
+        None,
+        description=(
+            "Comma-separated UUIDs to fetch in one round trip. Used by the "
+            "diagram editor's view perspectives to recolor cells."
+        ),
+    ),
     page: int = Query(1, ge=1),
     page_size: int = Query(10000, ge=1, le=10000),
     sort_by: str = Query("name"),
@@ -414,6 +426,22 @@ async def list_cards(
     q = q.where(Card.type.not_in(hidden_types_sq))
     count_q = count_q.where(Card.type.not_in(hidden_types_sq))
 
+    if ids:
+        # Skip silently-malformed UUIDs so a single bad id doesn't 500 a batch.
+        id_list: list[uuid.UUID] = []
+        for raw in ids.split(","):
+            raw = raw.strip()
+            if not raw:
+                continue
+            try:
+                id_list.append(uuid.UUID(raw))
+            except ValueError:
+                continue
+        if not id_list:
+            return CardListResponse(items=[], total=0, page=page, page_size=page_size)
+        q = q.where(Card.id.in_(id_list))
+        count_q = count_q.where(Card.id.in_(id_list))
+
     if type:
         q = q.where(Card.type == type)
         count_q = count_q.where(Card.type == type)
@@ -425,7 +453,10 @@ async def list_cards(
         else:
             q = q.where(Card.status.in_(statuses))
             count_q = count_q.where(Card.status.in_(statuses))
-    else:
+    elif not ids:
+        # When fetching specific ids, callers expect to receive what they
+        # asked for regardless of status (e.g. a saved diagram referencing an
+        # archived card should still surface the card so the view can flag it).
         q = q.where(Card.status == "ACTIVE")
         count_q = count_q.where(Card.status == "ACTIVE")
     if search:
@@ -675,6 +706,30 @@ async def create_card(
     return await _card_response_with_cost_check(db, user, card)
 
 
+@router.get("/counts", response_model=CardCountsResponse)
+async def cards_counts(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Per-card-type counts of ACTIVE cards. Powers the type chips with
+    counts in the diagram editor's Insert Cards dialog (LeanIX-style).
+    Hidden types are excluded so the dialog never offers them.
+
+    Declared above /{card_id} so the literal `counts` segment isn't shadowed
+    by the UUID-typed catch-all and parsed as a (broken) UUID.
+    """
+    await PermissionService.require_permission(db, user, "inventory.view")
+    hidden_types_sq = select(CardType.key).where(CardType.is_hidden == True)  # noqa: E712
+    rows = await db.execute(
+        select(Card.type, func.count(Card.id))
+        .where(Card.status == "ACTIVE", Card.type.not_in(hidden_types_sq))
+        .group_by(Card.type)
+    )
+    by_type = [CardTypeCount(type=tp, count=int(cnt)) for tp, cnt in rows.all()]
+    total = sum(entry.count for entry in by_type)
+    return CardCountsResponse(by_type=by_type, total=total)
+
+
 @router.get("/{card_id}", response_model=CardResponse)
 async def get_card(
     card_id: str, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)
@@ -731,6 +786,95 @@ async def get_hierarchy(
         "children": children,
         "level": len(ancestors) + 1,
     }
+
+
+@router.get("/{card_id}/relation-summary", response_model=CardRelationSummaryResponse)
+async def relation_summary(
+    card_id: str,
+    db: AsyncSession = Depends(get_db),
+    _user: User = Depends(get_current_user),
+):
+    """Per-relation-type / per-direction neighbour counts for one card.
+
+    The diagram editor renders this as LeanIX-style Show Dependency /
+    Drill-Down / Roll-Up submenus where each entry shows
+    "<label> (<count>)" and is greyed out when count is 0.
+
+    "outgoing" rows: card is the relation source — i.e. its `relations`.
+    "incoming" rows: card is the relation target — i.e. its `reverse_label`
+    relations.
+    """
+    uid = uuid.UUID(card_id)
+    card = await db.get(Card, uid)
+    if not card:
+        raise HTTPException(404, "Card not found")
+
+    # Same hidden-type / archived filter rules as GET /relations so counts
+    # match what the user would actually see if they clicked through.
+    hidden_types_sq = select(CardType.key).where(CardType.is_hidden == True)  # noqa: E712
+    excluded_card_sq = select(Card.id).where(
+        or_(Card.type.in_(hidden_types_sq), Card.status == "ARCHIVED")
+    )
+
+    out_rows = await db.execute(
+        select(Relation.type, Card.type.label("peer_type"), func.count(Relation.id))
+        .join(Card, Card.id == Relation.target_id)
+        .where(
+            Relation.source_id == uid,
+            Relation.target_id.not_in(excluded_card_sq),
+        )
+        .group_by(Relation.type, Card.type)
+    )
+    in_rows = await db.execute(
+        select(Relation.type, Card.type.label("peer_type"), func.count(Relation.id))
+        .join(Card, Card.id == Relation.source_id)
+        .where(
+            Relation.target_id == uid,
+            Relation.source_id.not_in(excluded_card_sq),
+        )
+        .group_by(Relation.type, Card.type)
+    )
+
+    rt_keys: set[str] = set()
+    raw: list[tuple[str, str, str, int]] = []  # (rel_type, direction, peer_type, count)
+    for rel_type, peer_type, cnt in out_rows.all():
+        raw.append((rel_type, "outgoing", peer_type, int(cnt)))
+        rt_keys.add(rel_type)
+    for rel_type, peer_type, cnt in in_rows.all():
+        raw.append((rel_type, "incoming", peer_type, int(cnt)))
+        rt_keys.add(rel_type)
+
+    # Resolve labels (forward + reverse) for each relation type in one shot.
+    labels: dict[str, tuple[str, str | None]] = {}
+    if rt_keys:
+        rt_rows = await db.execute(
+            select(RelationType.key, RelationType.label, RelationType.reverse_label).where(
+                RelationType.key.in_(rt_keys)
+            )
+        )
+        for k, fwd, rev in rt_rows.all():
+            labels[k] = (fwd, rev)
+
+    entries: list[CardRelationSummaryEntry] = []
+    for rel_type, direction, peer_type, count in raw:
+        fwd, rev = labels.get(rel_type, (rel_type, None))
+        # Use the reverse_label for incoming rows when the metamodel defines
+        # one; otherwise fall back to the forward label so the menu still has
+        # a readable string.
+        label = fwd if direction == "outgoing" else (rev or fwd)
+        entries.append(
+            CardRelationSummaryEntry(
+                relation_type_key=rel_type,
+                label=label,
+                direction=direction,
+                peer_type_key=peer_type,
+                count=count,
+            )
+        )
+
+    # Stable order: by direction (outgoing first), then by label.
+    entries.sort(key=lambda e: (0 if e.direction == "outgoing" else 1, e.label.lower()))
+    return CardRelationSummaryResponse(by_type=entries)
 
 
 @router.patch("/bulk", response_model=list[CardResponse])

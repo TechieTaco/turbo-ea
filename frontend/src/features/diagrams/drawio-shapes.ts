@@ -491,6 +491,14 @@ const MINUS_OVERLAY = `data:image/svg+xml,${encodeURIComponent(
     '</svg>',
 )}`;
 
+/** SVG data URI for the chevron overlay (replaces +/− with a richer menu) */
+const CHEVRON_OVERLAY = `data:image/svg+xml,${encodeURIComponent(
+  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">' +
+    '<circle cx="10" cy="10" r="9" fill="rgba(255,255,255,0.95)" stroke="rgba(0,0,0,0.3)" stroke-width="1"/>' +
+    '<path d="M6 8l4 4 4-4" stroke="rgba(0,0,0,0.65)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>' +
+    '</svg>',
+)}`;
+
 const CHILD_CARD_W = 160;
 const CHILD_CARD_H = 40;
 const CHILD_GAP_Y = 10;
@@ -696,10 +704,15 @@ export function collapseCardGroup(
 /**
  * Scan all cells and add expand/collapse overlays to every card cell
  * (including children from previous expansions).
+ *
+ * For collapsed cells we render a chevron that opens the per-relation-type
+ * ExpandMenu (Phase 3). For already-expanded cells we keep the minus icon
+ * so the user can collapse with one click.
  */
 export function refreshCardOverlays(
   iframe: HTMLIFrameElement,
-  onToggle: (cellId: string, cardId: string, currentlyExpanded: boolean) => void,
+  onCollapse: (cellId: string, cardId: string) => void,
+  onChevron: (cellId: string, cardId: string, anchor: { x: number; y: number }) => void,
 ): void {
   const ctx = getMxGraph(iframe);
   if (!ctx) return;
@@ -720,14 +733,17 @@ export function refreshCardOverlays(
 
     const fsId = cell.value.getAttribute("cardId");
     if (!fsId) continue;
+    if (fsId.startsWith("pending-")) continue; // pending cells get the chevron only after sync
 
     let expanded = cell.value.getAttribute("expanded") === "1";
     // If marked expanded but children were deleted, treat as collapsed
     if (expanded && !parentsWithChildren.has(cell.id)) expanded = false;
 
-    addExpandOverlay(iframe, cell.id, expanded, () => {
-      onToggle(cell.id, fsId, expanded);
-    });
+    if (expanded) {
+      addExpandOverlay(iframe, cell.id, true, () => onCollapse(cell.id, fsId));
+    } else {
+      addChevronOverlay(iframe, cell.id, (anchor) => onChevron(cell.id, fsId, anchor));
+    }
   }
 }
 
@@ -1144,4 +1160,304 @@ export function convertShapeToPendingCard(
     model.endUpdate();
   }
   return true;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Phase 3 — chevron expand menu (per relation type)                  */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Replace the +/- overlay with a chevron that opens an MUI Menu in the
+ * parent window. Click position is captured so the menu can anchor near the
+ * overlay regardless of canvas zoom/scroll.
+ */
+export function addChevronOverlay(
+  iframe: HTMLIFrameElement,
+  cellId: string,
+  onClick: (anchor: { x: number; y: number }) => void,
+): boolean {
+  const ctx = getMxGraph(iframe);
+  if (!ctx) return false;
+  const { win, graph } = ctx;
+  const cell = graph.getModel().getCell(cellId);
+  if (!cell) return false;
+
+  graph.removeCellOverlays(cell);
+  const overlay = new win.mxCellOverlay(
+    new win.mxImage(CHEVRON_OVERLAY, 20, 20),
+    "Expand related cards",
+    win.mxConstants.ALIGN_RIGHT,
+    win.mxConstants.ALIGN_MIDDLE,
+    new win.mxPoint(0, 0),
+  );
+  overlay.cursor = "pointer";
+  overlay.addListener(win.mxEvent.CLICK, (_s: unknown, evt: { properties?: { event?: MouseEvent } }) => {
+    // mxCellOverlay's CLICK fires with the wrapped DOM event in
+    // `properties.event` (mxGraph's own event abstraction). Fall back to
+    // the cell's screen position when the event isn't surfaced.
+    const e = evt?.properties?.event;
+    let x = 0;
+    let y = 0;
+    if (e && typeof e.clientX === "number") {
+      // The overlay lives inside the iframe; translate to the parent's
+      // viewport so the MUI Menu anchor lands where the user clicked.
+      const rect = iframe.getBoundingClientRect();
+      x = rect.left + e.clientX;
+      y = rect.top + e.clientY;
+    } else {
+      const rect = iframe.getBoundingClientRect();
+      const geo = graph.getCellGeometry(cell);
+      const s = graph.view.scale;
+      const tr = graph.view.translate;
+      const container = graph.container as HTMLElement;
+      if (geo) {
+        x = rect.left + ((geo.x + geo.width + tr.x) * s - container.scrollLeft);
+        y = rect.top + ((geo.y + geo.height / 2 + tr.y) * s - container.scrollTop);
+      } else {
+        x = rect.left + 100;
+        y = rect.top + 100;
+      }
+    }
+    onClick({ x, y });
+  });
+  graph.addCellOverlay(cell, overlay);
+  return true;
+}
+
+export type ExpandPlacement = "right" | "below" | "above";
+
+/**
+ * Insert child cells around a parent. Variant of expandCardGroup that
+ * accepts a placement direction so the same helper backs Show Dependency
+ * (right), Drill-Down (below) and Roll-Up (above).
+ */
+export function expandCardGroupAt(
+  iframe: HTMLIFrameElement,
+  parentCellId: string,
+  children: ExpandChildData[],
+  placement: ExpandPlacement,
+): Array<{ cellId: string; cardId: string }> {
+  const ctx = getMxGraph(iframe);
+  if (!ctx) return [];
+  const { win, graph } = ctx;
+
+  const model = graph.getModel();
+  const root = graph.getDefaultParent();
+  const parentCell = model.getCell(parentCellId);
+  if (!parentCell) return [];
+
+  const geo = graph.getCellGeometry(parentCell);
+  if (!geo) return [];
+
+  const inserted: Array<{ cellId: string; cardId: string }> = [];
+  model.beginUpdate();
+  try {
+    if (placement === "right") {
+      // Stack children vertically to the right (matches the original
+      // expandCardGroup behaviour).
+      let totalH = 0;
+      for (let i = 0; i < children.length; i++) {
+        if (i > 0) {
+          totalH +=
+            children[i].type !== children[i - 1].type ? TYPE_GROUP_GAP : CHILD_GAP_Y;
+        }
+        totalH += CHILD_CARD_H;
+      }
+      const startX = geo.x + geo.width + CHILD_GAP_X;
+      const startY = geo.y + geo.height / 2 - totalH / 2;
+      let yOff = 0;
+      for (let i = 0; i < children.length; i++) {
+        if (i > 0) {
+          yOff += children[i].type !== children[i - 1].type ? TYPE_GROUP_GAP : CHILD_GAP_Y;
+        }
+        const ch = children[i];
+        inserted.push(
+          insertChildVertex(win, graph, root, parentCell, parentCellId, ch, startX, startY + yOff, i),
+        );
+        yOff += CHILD_CARD_H;
+      }
+    } else {
+      // Below or above: tile children in rows, centered horizontally on the
+      // parent. We use simple wrapping so wide expansions don't run off the
+      // canvas.
+      const perRow = Math.max(1, Math.floor((geo.width + CHILD_GAP_X) / (CHILD_CARD_W + CHILD_GAP_X)));
+      const cols = Math.min(perRow, Math.max(1, Math.ceil(Math.sqrt(children.length))));
+      const rowCount = Math.ceil(children.length / cols);
+      const rowH = CHILD_CARD_H + CHILD_GAP_Y;
+      const totalH = rowCount * rowH - CHILD_GAP_Y;
+      const totalW = cols * CHILD_CARD_W + (cols - 1) * CHILD_GAP_X;
+      const startX = geo.x + geo.width / 2 - totalW / 2;
+      const startY =
+        placement === "below"
+          ? geo.y + geo.height + CHILD_GAP_X
+          : geo.y - CHILD_GAP_X - totalH;
+      for (let i = 0; i < children.length; i++) {
+        const r = Math.floor(i / cols);
+        const c = i % cols;
+        const x = startX + c * (CHILD_CARD_W + CHILD_GAP_X);
+        const y = startY + r * rowH;
+        inserted.push(
+          insertChildVertex(win, graph, root, parentCell, parentCellId, children[i], x, y, i),
+        );
+      }
+    }
+
+    const pv = parentCell.value;
+    if (pv?.setAttribute) {
+      pv.setAttribute("expanded", "1");
+      pv.setAttribute("childCellIds", inserted.map((c) => c.cellId).join(","));
+    }
+  } finally {
+    model.endUpdate();
+  }
+
+  return inserted;
+}
+
+function insertChildVertex(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  win: any,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  graph: any,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  root: any,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  parentCell: any,
+  parentCellId: string,
+  ch: ExpandChildData,
+  x: number,
+  y: number,
+  index: number,
+): { cellId: string; cardId: string } {
+  const cid = `fsg-${ch.id.slice(0, 8)}-${Date.now()}-${index}`;
+  const stroke = darken(ch.color);
+  const style = [
+    "rounded=1",
+    "whiteSpace=wrap",
+    "html=1",
+    `fillColor=${ch.color}`,
+    "fontColor=#ffffff",
+    `strokeColor=${stroke}`,
+    "fontSize=11",
+    "fontStyle=1",
+    "arcSize=12",
+  ].join(";");
+
+  const xmlDoc = win.mxUtils.createXmlDocument();
+  const obj = xmlDoc.createElement("object");
+  obj.setAttribute("label", ch.name);
+  obj.setAttribute("cardId", ch.id);
+  obj.setAttribute("cardType", ch.type);
+  obj.setAttribute("parentGroupCell", parentCellId);
+
+  const vertex = graph.insertVertex(
+    root,
+    cid,
+    obj,
+    x,
+    y,
+    CHILD_CARD_W,
+    CHILD_CARD_H,
+    style,
+  );
+  graph.insertEdge(
+    root,
+    `fse-${cid}`,
+    "",
+    parentCell,
+    vertex,
+    `edgeStyle=entityRelationEdgeStyle;strokeColor=${ch.color};strokeWidth=1.5;endArrow=none;startArrow=none`,
+  );
+  return { cellId: cid, cardId: ch.id };
+}
+
+/* ------------------------------------------------------------------ */
+/*  Phase 5 — view perspectives (color cells by attribute)             */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Iterate over every synced card cell and apply a fill color taken from
+ * `colorByCardId`. Falls back to `defaultColor` when a card id is missing
+ * or has no entry in the map. Used by the View Selector to recolor cells
+ * by an attribute (lifecycle, criticality, …).
+ */
+export function applyViewToGraph(
+  iframe: HTMLIFrameElement,
+  colorByCardId: Map<string, string>,
+  defaultColor: string,
+): number {
+  const ctx = getMxGraph(iframe);
+  if (!ctx) return 0;
+  const { graph } = ctx;
+  const model = graph.getModel();
+  const cells = model.cells || {};
+
+  let touched = 0;
+  model.beginUpdate();
+  try {
+    for (const k of Object.keys(cells)) {
+      const cell = cells[k];
+      if (!cell?.value?.getAttribute) continue;
+      // Skip edges + child group cells (they take the parent's color anyway).
+      if (cell.edge) continue;
+      const cardId = cell.value.getAttribute("cardId");
+      if (!cardId || cardId.startsWith("pending-")) continue;
+      const color = colorByCardId.get(cardId) || defaultColor;
+      const stroke = darken(color);
+      const styleStr = (model.getStyle(cell) || "") as string;
+      const next = styleStr
+        .split(";")
+        .filter(Boolean)
+        .filter((p) => !p.startsWith("fillColor=") && !p.startsWith("strokeColor="))
+        .concat([`fillColor=${color}`, `strokeColor=${stroke}`])
+        .join(";");
+      model.setStyle(cell, next);
+      touched += 1;
+    }
+  } finally {
+    model.endUpdate();
+  }
+  return touched;
+}
+
+/**
+ * Restore each synced cell's style to its card-type color. Called when the
+ * user switches the view back to "Card colors".
+ */
+export function resetViewColors(
+  iframe: HTMLIFrameElement,
+  colorByType: Map<string, string>,
+  fallback: string,
+): number {
+  const ctx = getMxGraph(iframe);
+  if (!ctx) return 0;
+  const { graph } = ctx;
+  const model = graph.getModel();
+  const cells = model.cells || {};
+  let touched = 0;
+  model.beginUpdate();
+  try {
+    for (const k of Object.keys(cells)) {
+      const cell = cells[k];
+      if (!cell?.value?.getAttribute) continue;
+      if (cell.edge) continue;
+      const cardId = cell.value.getAttribute("cardId");
+      if (!cardId) continue;
+      const cardType = cell.value.getAttribute("cardType") || "";
+      const color = colorByType.get(cardType) || fallback;
+      const stroke = darken(color);
+      const styleStr = (model.getStyle(cell) || "") as string;
+      const next = styleStr
+        .split(";")
+        .filter(Boolean)
+        .filter((p) => !p.startsWith("fillColor=") && !p.startsWith("strokeColor="))
+        .concat([`fillColor=${color}`, `strokeColor=${stroke}`])
+        .join(";");
+      model.setStyle(cell, next);
+      touched += 1;
+    }
+  } finally {
+    model.endUpdate();
+  }
+  return touched;
 }

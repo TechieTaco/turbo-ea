@@ -15,6 +15,8 @@ from tests.conftest import (
     auth_headers,
     create_card,
     create_card_type,
+    create_relation,
+    create_relation_type,
     create_role,
     create_user,
 )
@@ -438,3 +440,179 @@ class TestApprovalStatus:
         )
         assert response.status_code == 200
         assert response.json()["approval_status"] == "DRAFT"
+
+
+# ---------------------------------------------------------------------------
+# GET /cards/counts  (per-card-type counts for the diagram Insert dialog)
+# ---------------------------------------------------------------------------
+
+
+class TestCardCounts:
+    async def test_counts_groups_by_type_and_excludes_archived(self, client, db, cards_env):
+        admin = cards_env["admin"]
+        await create_card_type(db, key="ITComponent", label="IT Component")
+        await create_card(db, card_type="Application", name="App A", user_id=admin.id)
+        await create_card(db, card_type="Application", name="App B", user_id=admin.id)
+        archived = await create_card(db, card_type="Application", name="App C", user_id=admin.id)
+        archived.status = "ARCHIVED"
+        await create_card(db, card_type="ITComponent", name="ITC One", user_id=admin.id)
+        await db.flush()
+
+        response = await client.get("/api/v1/cards/counts", headers=auth_headers(admin))
+        assert response.status_code == 200
+        body = response.json()
+        by_type = {entry["type"]: entry["count"] for entry in body["by_type"]}
+        assert by_type.get("Application") == 2
+        assert by_type.get("ITComponent") == 1
+        assert body["total"] == 3
+
+    async def test_counts_excludes_hidden_types(self, client, db, cards_env):
+        admin = cards_env["admin"]
+        await create_card_type(db, key="HiddenType", label="Hidden", is_hidden=True)
+        await create_card(db, card_type="Application", name="Visible", user_id=admin.id)
+        await create_card(db, card_type="HiddenType", name="Stealth", user_id=admin.id)
+        await db.flush()
+
+        response = await client.get("/api/v1/cards/counts", headers=auth_headers(admin))
+        assert response.status_code == 200
+        keys = {entry["type"] for entry in response.json()["by_type"]}
+        assert "Application" in keys
+        assert "HiddenType" not in keys
+
+
+# ---------------------------------------------------------------------------
+# GET /cards?ids=...  (batch fetch for diagram view perspectives)
+# ---------------------------------------------------------------------------
+
+
+class TestCardsBatchByIds:
+    async def test_returns_only_requested_ids(self, client, db, cards_env):
+        admin = cards_env["admin"]
+        kept = await create_card(db, card_type="Application", name="Kept", user_id=admin.id)
+        await create_card(db, card_type="Application", name="Skipped", user_id=admin.id)
+        await db.flush()
+
+        response = await client.get(
+            f"/api/v1/cards?ids={kept.id}",
+            headers=auth_headers(admin),
+        )
+        assert response.status_code == 200
+        body = response.json()
+        assert body["total"] == 1
+        assert body["items"][0]["id"] == str(kept.id)
+
+    async def test_invalid_uuid_in_batch_is_silently_skipped(self, client, db, cards_env):
+        admin = cards_env["admin"]
+        good = await create_card(db, card_type="Application", name="Good", user_id=admin.id)
+        await db.flush()
+
+        response = await client.get(
+            f"/api/v1/cards?ids=not-a-uuid,{good.id}",
+            headers=auth_headers(admin),
+        )
+        assert response.status_code == 200
+        body = response.json()
+        assert body["total"] == 1
+        assert body["items"][0]["id"] == str(good.id)
+
+    async def test_batch_returns_archived_cards(self, client, db, cards_env):
+        # Diagrams may carry references to cards that were archived after the
+        # diagram was saved — the view-perspectives feature still wants to
+        # know they exist so the cell can be flagged on the canvas.
+        admin = cards_env["admin"]
+        archived = await create_card(
+            db, card_type="Application", name="Was Archived", user_id=admin.id
+        )
+        archived.status = "ARCHIVED"
+        archived.archived_at = datetime.now(timezone.utc)
+        await db.flush()
+
+        response = await client.get(
+            f"/api/v1/cards?ids={archived.id}",
+            headers=auth_headers(admin),
+        )
+        assert response.status_code == 200
+        assert response.json()["total"] == 1
+
+
+# ---------------------------------------------------------------------------
+# GET /cards/{id}/relation-summary  (diagram editor expand-by-relation menu)
+# ---------------------------------------------------------------------------
+
+
+class TestRelationSummary:
+    async def test_groups_outgoing_and_incoming_relations(self, client, db, cards_env):
+        admin = cards_env["admin"]
+        await create_card_type(db, key="ITComponent", label="IT Component")
+        await create_relation_type(
+            db,
+            key="appUsesItc",
+            label="uses",
+            reverse_label="used by",
+            source_type_key="Application",
+            target_type_key="ITComponent",
+        )
+        app = await create_card(db, card_type="Application", name="ERP", user_id=admin.id)
+        itc1 = await create_card(db, card_type="ITComponent", name="DB", user_id=admin.id)
+        itc2 = await create_card(db, card_type="ITComponent", name="Cache", user_id=admin.id)
+        # Two outgoing relations from the app
+        await create_relation(db, type_key="appUsesItc", source_id=app.id, target_id=itc1.id)
+        await create_relation(db, type_key="appUsesItc", source_id=app.id, target_id=itc2.id)
+        # One incoming (other app uses ERP via the same relation type)
+        other = await create_card(db, card_type="Application", name="CRM", user_id=admin.id)
+        await create_relation(db, type_key="appUsesItc", source_id=other.id, target_id=app.id)
+        await db.flush()
+
+        response = await client.get(
+            f"/api/v1/cards/{app.id}/relation-summary",
+            headers=auth_headers(admin),
+        )
+        assert response.status_code == 200
+        rows = response.json()["by_type"]
+        outgoing = [r for r in rows if r["direction"] == "outgoing"]
+        incoming = [r for r in rows if r["direction"] == "incoming"]
+        assert len(outgoing) == 1
+        assert outgoing[0]["count"] == 2
+        assert outgoing[0]["label"] == "uses"
+        assert outgoing[0]["peer_type_key"] == "ITComponent"
+        assert len(incoming) == 1
+        assert incoming[0]["count"] == 1
+        # Reverse label is used for incoming rows when defined.
+        assert incoming[0]["label"] == "used by"
+        assert incoming[0]["peer_type_key"] == "Application"
+
+    async def test_excludes_archived_neighbours(self, client, db, cards_env):
+        admin = cards_env["admin"]
+        await create_card_type(db, key="ITComponent", label="IT Component")
+        await create_relation_type(
+            db,
+            key="appUsesItc",
+            label="uses",
+            source_type_key="Application",
+            target_type_key="ITComponent",
+        )
+        app = await create_card(db, card_type="Application", name="ERP", user_id=admin.id)
+        live = await create_card(db, card_type="ITComponent", name="Live", user_id=admin.id)
+        gone = await create_card(db, card_type="ITComponent", name="Gone", user_id=admin.id)
+        gone.status = "ARCHIVED"
+        await create_relation(db, type_key="appUsesItc", source_id=app.id, target_id=live.id)
+        await create_relation(db, type_key="appUsesItc", source_id=app.id, target_id=gone.id)
+        await db.flush()
+
+        response = await client.get(
+            f"/api/v1/cards/{app.id}/relation-summary",
+            headers=auth_headers(admin),
+        )
+        assert response.status_code == 200
+        rows = response.json()["by_type"]
+        # The archived target must not contribute to the count, otherwise the
+        # menu would lie about how many neighbours expand.
+        assert sum(r["count"] for r in rows) == 1
+
+    async def test_unknown_card_returns_404(self, client, db, cards_env):
+        admin = cards_env["admin"]
+        response = await client.get(
+            f"/api/v1/cards/{uuid.uuid4()}/relation-summary",
+            headers=auth_headers(admin),
+        )
+        assert response.status_code == 404
