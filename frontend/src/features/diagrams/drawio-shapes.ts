@@ -1993,6 +1993,19 @@ export function attachParentChangeListener(
           cellGeo.x >= 0 && cellGeo.x + cellGeo.width <= parentGeo.width;
         const insideY =
           cellGeo.y >= 0 && cellGeo.y + cellGeo.height <= parentGeo.height;
+        // eslint-disable-next-line no-console
+        console.debug("[turbo-ea] detach-scan", {
+          cellId: cell.id,
+          cardName: cell.value.getAttribute("label"),
+          drillDownChild: cell.value.getAttribute("drillDownChild"),
+          rollUpChild: cell.value.getAttribute("rollUpChild"),
+          parentId,
+          cellGeo: { x: cellGeo.x, y: cellGeo.y, w: cellGeo.width, h: cellGeo.height },
+          parentGeo: { w: parentGeo.width, h: parentGeo.height },
+          insideX,
+          insideY,
+          willDetach: !(insideX && insideY),
+        });
         if (insideX && insideY) continue;
         // Escaped the parent — convert the cell's geometry to absolute
         // coordinates so it lands where the user dropped it after we

@@ -193,11 +193,21 @@ function bootstrapDrawIO(iframe: HTMLIFrameElement) {
         try {
           graph.swimlaneNesting = true;
           graph.dropEnabled = true;
-          // Auto-resize the container when a dropped cell extends past
-          // its bounds, otherwise the new child gets clipped.
+          // IMPORTANT: extendParents must stay OFF on move, otherwise
+          // mxGraph silently grows the container to follow any cell
+          // dragged toward its edge — which defeats the position-based
+          // drag-out safety net (the cell stays "inside" the now-
+          // bigger parent). drillDownInto / rollUpInto already size
+          // their containers up-front to fit the children they insert,
+          // so we don't need extendParents for that path either.
           if (typeof graph.setExtendParents === "function") {
-            graph.setExtendParents(true);
-            graph.setExtendParentsOnAdd(true);
+            graph.setExtendParents(false);
+          }
+          if (typeof graph.setExtendParentsOnAdd === "function") {
+            // Programmatic adds (drillDownInto / rollUpInto) call
+            // graph.resizeCell themselves, so leave this OFF as well
+            // to keep the container's bounds stable.
+            graph.setExtendParentsOnAdd(false);
           }
           // Force-enable drag-out-of-parent. DrawIO's default
           // mxGraphHandler.shouldRemoveCellsFromParent returns false for
