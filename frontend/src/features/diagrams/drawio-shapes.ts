@@ -564,11 +564,22 @@ export function addExpandOverlay(
  * Insert child vertices + edges around a parent card cell.
  * Children are laid out in a column to the right, grouped by type.
  */
+/** Edge metadata threaded back from expansion helpers so the editor can
+ *  populate its cellId → relation-meta side-table. */
+export interface ExpandedEdgeInfo {
+  cellId: string;
+  cardId: string;
+  edgeCellId: string;
+  relationId?: string;
+  relationType?: string;
+  relationLabel?: string;
+}
+
 export function expandCardGroup(
   iframe: HTMLIFrameElement,
   parentCellId: string,
   children: ExpandChildData[],
-): Array<{ cellId: string; cardId: string }> {
+): ExpandedEdgeInfo[] {
   const ctx = getMxGraph(iframe);
   if (!ctx) return [];
   const { win, graph } = ctx;
@@ -593,7 +604,7 @@ export function expandCardGroup(
   const startX = geo.x + geo.width + CHILD_GAP_X;
   const startY = geo.y + geo.height / 2 - totalH / 2;
 
-  const inserted: Array<{ cellId: string; cardId: string }> = [];
+  const inserted: ExpandedEdgeInfo[] = [];
   model.beginUpdate();
   try {
     let yOff = 0;
@@ -603,6 +614,7 @@ export function expandCardGroup(
       }
       const ch = children[i];
       const cid = `fsg-${ch.id.slice(0, 8)}-${Date.now()}-${i}`;
+      const edgeCellId = `fse-${cid}`;
       const stroke = darken(ch.color);
       const style = [
         "rounded=1", "whiteSpace=wrap", "html=1",
@@ -626,8 +638,12 @@ export function expandCardGroup(
       // so canvas-side deletions can fire DELETE /relations/{id}. Insert
       // with an empty value first, then setValue so the XML user-object
       // survives mxGraph's silent string-coercion of the insertEdge value.
+      // The editor also maintains a cellId → relation-meta side-table as
+      // the authoritative source for in-session deletes, since DrawIO
+      // sometimes drops user-object attributes on edges created inside an
+      // open transaction.
       const edge = graph.insertEdge(
-        root, `fse-${cid}`, "",
+        root, edgeCellId, "",
         parentCell, vertex,
         `edgeStyle=entityRelationEdgeStyle;strokeColor=${ch.color};strokeWidth=1.5;endArrow=none;startArrow=none`,
       );
@@ -637,7 +653,13 @@ export function expandCardGroup(
       if (ch.relationId) edgeObj.setAttribute("relationId", ch.relationId);
       model.setValue(edge, edgeObj);
 
-      inserted.push({ cellId: cid, cardId: ch.id });
+      inserted.push({
+        cellId: cid,
+        cardId: ch.id,
+        edgeCellId,
+        relationId: ch.relationId,
+        relationType: ch.relationType,
+      });
       yOff += CHILD_CARD_H;
     }
 
@@ -857,6 +879,14 @@ export interface RemovedRelationTombstone {
 
 export type RemovedTombstone = RemovedCardTombstone | RemovedRelationTombstone;
 
+export interface ResolvedRelationMeta {
+  relationId: string;
+  relationType: string;
+  relationLabel: string;
+  sourceName: string;
+  targetName: string;
+}
+
 export interface CellLifecycleHandlers {
   onDuplicate: (cellId: string, sharedCardId: string, wasPending: boolean) => void;
   onRemoved: (tombstones: RemovedTombstone[]) => void;
@@ -864,6 +894,12 @@ export interface CellLifecycleHandlers {
    *  Any cell with a cardId attribute whose cellId is NOT in this set is
    *  treated as a paste/clone and routed through onDuplicate. */
   isRegistered: (cellId: string) => boolean;
+  /** Optional fallback resolver for edges where the XML user-object
+   *  doesn't expose `relationId`. DrawIO occasionally drops or never
+   *  serialises user-object attributes for edges inserted inside an open
+   *  `beginUpdate / endUpdate` transaction — the editor maintains its own
+   *  cellId → metadata map so deletion sync stays reliable. */
+  getRelationIdForEdge?: (cellId: string) => ResolvedRelationMeta | null;
 }
 
 /**
@@ -923,39 +959,69 @@ export function attachCellLifecycleListeners(
     const tombstones: RemovedTombstone[] = [];
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     for (const cell of cells as any[]) {
-      const value = cell?.value;
-      if (!value?.getAttribute) continue;
-      const relationId = value.getAttribute("relationId");
-      const cardId = value.getAttribute("cardId");
-      const isPending = value.getAttribute("pending") === "1";
-      const isChild = !!value.getAttribute("parentGroupCell");
-
-      if (relationId) {
-        // mxGraph keeps cell.source / cell.target references on the cell
-        // object even after the edge is detached from the model, so we can
-        // capture endpoints + style here for an eventual "No, abort"
-        // confirmation that re-inserts the same edge between the same
-        // vertices.
+      // ---- Edge branch ----
+      // Edges are checked separately so we can fall back to the editor's
+      // cellId → relation-meta side-table when the XML user-object lookup
+      // returns nothing (DrawIO drops user-object attributes on some edge
+      // insertion paths, esp. ones nested inside an open transaction).
+      if (cell.edge) {
+        const value = cell.value;
+        let relationId: string | null = null;
+        let relationType = "";
+        let relationLabel = "";
+        if (value?.getAttribute) {
+          relationId = value.getAttribute("relationId");
+          relationType = value.getAttribute("relationType") || "";
+          relationLabel = value.getAttribute("label") || relationType;
+        }
+        let srcName = "";
+        let tgtName = "";
+        if (!relationId && handlers.getRelationIdForEdge) {
+          const meta = handlers.getRelationIdForEdge(cell.id);
+          if (meta) {
+            relationId = meta.relationId;
+            relationType = meta.relationType;
+            relationLabel = meta.relationLabel;
+            srcName = meta.sourceName;
+            tgtName = meta.targetName;
+          }
+        }
+        if (!relationId) continue;
         const src = cell.source;
         const tgt = cell.target;
         const srcLabel: string =
-          src?.value?.getAttribute?.("label") || src?.value || "";
+          srcName ||
+          src?.value?.getAttribute?.("label") ||
+          (typeof src?.value === "string" ? src.value : "") ||
+          "";
         const tgtLabel: string =
-          tgt?.value?.getAttribute?.("label") || tgt?.value || "";
+          tgtName ||
+          tgt?.value?.getAttribute?.("label") ||
+          (typeof tgt?.value === "string" ? tgt.value : "") ||
+          "";
         const style = model.getStyle(cell) || "";
         tombstones.push({
           kind: "relation",
           edgeCellId: cell.id,
           relationId,
-          relationType: value.getAttribute("relationType") || "",
-          relationLabel: value.getAttribute("label") || value.getAttribute("relationType") || "",
-          sourceName: String(srcLabel || ""),
-          targetName: String(tgtLabel || ""),
+          relationType,
+          relationLabel,
+          sourceName: String(srcLabel),
+          targetName: String(tgtLabel),
           sourceCellId: src?.id ?? null,
           targetCellId: tgt?.id ?? null,
           style: String(style),
         });
-      } else if (cardId && !isPending && !isChild && !cardId.startsWith("pending-")) {
+        continue;
+      }
+      // ---- Vertex branch ----
+      const value = cell?.value;
+      if (!value?.getAttribute) continue;
+      const cardId = value.getAttribute("cardId");
+      const isPending = value.getAttribute("pending") === "1";
+      const isChild = !!value.getAttribute("parentGroupCell");
+
+      if (cardId && !isPending && !isChild && !cardId.startsWith("pending-")) {
         // Only tombstone top-level synced cards. Expanded children, drill-
         // down children, and roll-up children disappear when their parent
         // container is removed — they don't represent a user intent to
@@ -1060,6 +1126,108 @@ export function restoreRemovedEdge(
     model.endUpdate();
   }
   return true;
+}
+
+/** Scan the in-memory graph for every edge that already carries a
+ *  relationId attribute on its XML user-object, returning a list of
+ *  metadata records the editor can drop into its side-table. Used on
+ *  bootstrap to bridge saved diagrams into the in-session cache. */
+export function collectExistingEdgeRelations(
+  iframe: HTMLIFrameElement,
+): Array<{
+  edgeCellId: string;
+  relationId: string;
+  relationType: string;
+  relationLabel: string;
+}> {
+  const ctx = getMxGraph(iframe);
+  if (!ctx) return [];
+  const { graph } = ctx;
+  const cells = graph.getModel().cells || {};
+  const result: Array<{
+    edgeCellId: string;
+    relationId: string;
+    relationType: string;
+    relationLabel: string;
+  }> = [];
+  for (const k of Object.keys(cells)) {
+    const cell = cells[k];
+    if (!cell?.edge) continue;
+    if (!cell.value?.getAttribute) continue;
+    const relationId = cell.value.getAttribute("relationId");
+    if (!relationId) continue;
+    result.push({
+      edgeCellId: cell.id,
+      relationId,
+      relationType: cell.value.getAttribute("relationType") || "",
+      relationLabel: cell.value.getAttribute("label") || "",
+    });
+  }
+  return result;
+}
+
+/** Parse a diagram XML string and extract every card-cell cellId so the
+ *  editor can pre-seed the registered-cells set before loading restored
+ *  draft XML. Without this, the lifecycle listener sees the restored
+ *  cells as "unregistered" and silently dedupes them into grey stubs. */
+export function extractCardCellIdsFromXml(xml: string): string[] {
+  try {
+    const doc = new DOMParser().parseFromString(xml, "text/xml");
+    const ids: string[] = [];
+    const objects = doc.querySelectorAll("object[cardId]");
+    objects.forEach((obj) => {
+      // mxGraph serialises card cells as <object cardId="..."><mxCell id="..." vertex="1"/></object>
+      const inner = obj.querySelector("mxCell");
+      if (!inner) return;
+      // Skip edges — only vertex card cells need registration.
+      if (inner.getAttribute("edge") === "1") return;
+      const id = inner.getAttribute("id");
+      if (id) ids.push(id);
+    });
+    return ids;
+  } catch {
+    return [];
+  }
+}
+
+/** Same as collectExistingEdgeRelations but reads from a raw XML string
+ *  rather than the in-memory graph. Used on restore to seed the side-
+ *  table BEFORE handing the XML to DrawIO — otherwise the brief window
+ *  between load and our post-load scan would leave edge deletions
+ *  un-tombstoneable. */
+export function extractEdgeRelationsFromXml(
+  xml: string,
+): Array<{
+  edgeCellId: string;
+  relationId: string;
+  relationType: string;
+  relationLabel: string;
+}> {
+  try {
+    const doc = new DOMParser().parseFromString(xml, "text/xml");
+    const result: Array<{
+      edgeCellId: string;
+      relationId: string;
+      relationType: string;
+      relationLabel: string;
+    }> = [];
+    const objects = doc.querySelectorAll("object[relationId]");
+    objects.forEach((obj) => {
+      const inner = obj.querySelector("mxCell[edge='1']");
+      if (!inner) return;
+      const edgeCellId = inner.getAttribute("id");
+      if (!edgeCellId) return;
+      result.push({
+        edgeCellId,
+        relationId: obj.getAttribute("relationId") || "",
+        relationType: obj.getAttribute("relationType") || "",
+        relationLabel: obj.getAttribute("label") || "",
+      });
+    });
+    return result;
+  } catch {
+    return [];
+  }
 }
 
 /**
@@ -1191,8 +1359,14 @@ export function unlinkCell(
 }
 
 /**
- * Re-link a cell (synced or unlinked) to a different card. Rewrites cardId,
- * cardType, label, and repaints with the target card type's color.
+ * Re-link a cell (synced, unlinked, or plain DrawIO shape) to a different
+ * card. Rewrites cardId, cardType, label, and repaints with the target
+ * card type's color.
+ *
+ * Plain DrawIO shapes inserted from the toolbar carry a plain-string value
+ * (the label text) rather than an XML user-object, so we lazily wrap them
+ * before stamping the card metadata. Without this the "Link to Existing
+ * Card" right-click action fails on shapes the user drew themselves.
  */
 export function relinkCell(
   iframe: HTMLIFrameElement,
@@ -1201,21 +1375,31 @@ export function relinkCell(
 ): boolean {
   const ctx = getMxGraph(iframe);
   if (!ctx) return false;
-  const { graph } = ctx;
+  const { win, graph } = ctx;
 
   const model = graph.getModel();
   const cell = model.getCell(cellId);
-  if (!cell?.value?.setAttribute) return false;
+  if (!cell) return false;
 
   model.beginUpdate();
   try {
-    cell.value.setAttribute("cardId", opts.cardId);
-    cell.value.setAttribute("cardType", opts.cardType);
-    cell.value.setAttribute("label", opts.name);
-    if (cell.value.removeAttribute) {
-      cell.value.removeAttribute("pending");
-      cell.value.removeAttribute("expanded");
-      cell.value.removeAttribute("childCellIds");
+    let value = cell.value;
+    if (!value?.setAttribute) {
+      // Plain shape with a string label (or null) — wrap it in an XML
+      // user-object so we have somewhere to write cardId / cardType.
+      const xmlDoc = win.mxUtils.createXmlDocument();
+      const obj = xmlDoc.createElement("object");
+      obj.setAttribute("label", typeof value === "string" ? value : "");
+      model.setValue(cell, obj);
+      value = obj;
+    }
+    value.setAttribute("cardId", opts.cardId);
+    value.setAttribute("cardType", opts.cardType);
+    value.setAttribute("label", opts.name);
+    if (value.removeAttribute) {
+      value.removeAttribute("pending");
+      value.removeAttribute("expanded");
+      value.removeAttribute("childCellIds");
     }
     model.setStyle(cell, buildSyncedStyle(opts.color));
     graph.refresh(cell);
@@ -1372,7 +1556,7 @@ export function expandCardGroupAt(
   parentCellId: string,
   children: ExpandChildData[],
   placement: ExpandPlacement,
-): Array<{ cellId: string; cardId: string }> {
+): ExpandedEdgeInfo[] {
   const ctx = getMxGraph(iframe);
   if (!ctx) return [];
   const { win, graph } = ctx;
@@ -1385,7 +1569,7 @@ export function expandCardGroupAt(
   const geo = graph.getCellGeometry(parentCell);
   if (!geo) return [];
 
-  const inserted: Array<{ cellId: string; cardId: string }> = [];
+  const inserted: ExpandedEdgeInfo[] = [];
   model.beginUpdate();
   try {
     if (placement === "right") {
@@ -1464,8 +1648,9 @@ function insertChildVertex(
   x: number,
   y: number,
   index: number,
-): { cellId: string; cardId: string } {
+): ExpandedEdgeInfo {
   const cid = `fsg-${ch.id.slice(0, 8)}-${Date.now()}-${index}`;
+  const edgeCellId = `fse-${cid}`;
   const stroke = darken(ch.color);
   const style = [
     "rounded=1",
@@ -1496,14 +1681,14 @@ function insertChildVertex(
     CHILD_CARD_H,
     style,
   );
-  // Stamp the edge with relationId so canvas deletions can fire
-  // DELETE /relations/{id}. mxGraph's insertEdge silently coerces a raw
-  // XML user-object passed as the value into a string — mirror the
-  // proven stampEdgeAsRelation pattern: insert with an empty value, then
-  // model.setValue afterwards so attributes survive.
+  // Stamp the edge with relationId both on the XML user-object (so saves
+  // serialise correctly) and via the returned info so the editor's
+  // cellId → relation-meta side-table can mirror it. The side-table is
+  // the authoritative source for in-session deletes — see the
+  // `getRelationIdForEdge` resolver in CellLifecycleHandlers.
   const edge = graph.insertEdge(
     root,
-    `fse-${cid}`,
+    edgeCellId,
     "",
     parentCell,
     vertex,
@@ -1514,7 +1699,13 @@ function insertChildVertex(
   if (ch.relationType) edgeObj.setAttribute("relationType", ch.relationType);
   if (ch.relationId) edgeObj.setAttribute("relationId", ch.relationId);
   graph.getModel().setValue(edge, edgeObj);
-  return { cellId: cid, cardId: ch.id };
+  return {
+    cellId: cid,
+    cardId: ch.id,
+    edgeCellId,
+    relationId: ch.relationId,
+    relationType: ch.relationType,
+  };
 }
 
 /* ------------------------------------------------------------------ */

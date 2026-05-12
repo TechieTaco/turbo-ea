@@ -47,6 +47,9 @@ import {
   attachCellLifecycleListeners,
   scanForDuplicateCells,
   collectExistingCardCellIds,
+  collectExistingEdgeRelations,
+  extractCardCellIdsFromXml,
+  extractEdgeRelationsFromXml,
   restoreRemovedEdge,
   dedupClonedCell,
   unlinkCell,
@@ -61,7 +64,10 @@ import {
   applyViewToGraph,
   resetViewColors,
 } from "./drawio-shapes";
-import type { HierarchyChild } from "./drawio-shapes";
+import type {
+  HierarchyChild,
+  ResolvedRelationMeta,
+} from "./drawio-shapes";
 import type {
   ExpandChildData,
   RemovedTombstone,
@@ -367,6 +373,22 @@ export default function DiagramEditor() {
     registeredCellIdsRef.current.add(cellId);
   }, []);
 
+  // Authoritative cellId → relation metadata side-table. DrawIO/mxGraph
+  // sometimes drops user-object attributes on edges inserted inside an
+  // open transaction, so we keep our own map populated on every
+  // expansion + every manual-draw sync. The lifecycle listener consults
+  // this whenever the user-object lookup comes back empty so canvas
+  // deletions of "Show Dependency" edges still reach Sync All.
+  const edgeRelationMapRef = useRef<Map<string, ResolvedRelationMeta>>(
+    new Map(),
+  );
+  const registerEdgeRelation = useCallback(
+    (edgeCellId: string, meta: ResolvedRelationMeta) => {
+      edgeRelationMapRef.current.set(edgeCellId, meta);
+    },
+    [],
+  );
+
   // Dialog states
   const [pickerOpen, setPickerOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
@@ -415,6 +437,10 @@ export default function DiagramEditor() {
   // Local autosave restore prompt
   const [restoreBanner, setRestoreBanner] = useState<{ xml: string; savedAt: string } | null>(null);
   const restoreCheckedRef = useRef(false);
+  // True while DrawIO is mid-replace from a restored draft. CELLS_REMOVED
+  // fires for every cell on the old canvas during this window — we must
+  // not file tombstones for them; the user didn't ask to delete anything.
+  const restoreInProgressRef = useRef(false);
 
   /* ---------- Load diagram ---------- */
   useEffect(() => {
@@ -704,8 +730,25 @@ export default function DiagramEditor() {
           addExpandOverlay(frame, target.cellId, true, () =>
             handleCollapseGroup(target.cellId, target.cardId),
           );
+          // Seed the side-table immediately — DrawIO sometimes drops the
+          // edge's user-object attributes after the open transaction
+          // closes, so this is the authoritative source for the
+          // CELLS_REMOVED → confirm-dialog path.
+          const sourceName = getCellLabel(frame, target.cellId);
+          // Build a cardId → display name map for the children we just
+          // inserted so we don't have to walk the graph again on delete.
+          const childNameById = new Map(children.map((c) => [c.id, c.name]));
           for (const child of inserted) {
             registerCellId(child.cellId);
+            if (child.edgeCellId && child.relationId) {
+              registerEdgeRelation(child.edgeCellId, {
+                relationId: child.relationId,
+                relationType: child.relationType || "",
+                relationLabel: child.relationType || "",
+                sourceName,
+                targetName: childNameById.get(child.cardId) || "",
+              });
+            }
             addChevronOverlay(frame, child.cellId, (anchor) =>
               setExpandMenuTarget({ cellId: child.cellId, cardId: child.cardId, anchor }),
             );
@@ -937,6 +980,10 @@ export default function DiagramEditor() {
 
   const handleTombstones = useCallback((tombstones: RemovedTombstone[]) => {
     if (tombstones.length === 0) return;
+    // Restore-from-draft replaces the canvas, which fires CELLS_REMOVED
+    // for every previously-loaded cell. Those aren't user-initiated
+    // deletes — swallow them.
+    if (restoreInProgressRef.current) return;
     setPendingCardRemovals((prev) => {
       const next = [...prev];
       for (const t of tombstones) {
@@ -1007,10 +1054,26 @@ export default function DiagramEditor() {
       for (const id of collectExistingCardCellIds(frame)) {
         registeredCellIdsRef.current.add(id);
       }
+      // Seed the edge → relation side-table from saved diagrams that
+      // carry relationId on their XML user-objects. Without this, deleting
+      // an edge that was already on the canvas at load time would fall
+      // through both the user-object check (mxGraph drops the attribute
+      // on some round-trips) and the side-table.
+      for (const meta of collectExistingEdgeRelations(frame)) {
+        edgeRelationMapRef.current.set(meta.edgeCellId, {
+          relationId: meta.relationId,
+          relationType: meta.relationType,
+          relationLabel: meta.relationLabel,
+          sourceName: "",
+          targetName: "",
+        });
+      }
       attachCellLifecycleListeners(frame, {
         onDuplicate: handleDuplicate,
         onRemoved: handleTombstones,
         isRegistered: (cellId) => registeredCellIdsRef.current.has(cellId),
+        getRelationIdForEdge: (cellId) =>
+          edgeRelationMapRef.current.get(cellId) ?? null,
       });
       // Safety-net periodic scan — covers DrawIO clipboard paths that
       // don't surface through CELLS_ADDED to our listener.
@@ -1360,6 +1423,15 @@ export default function DiagramEditor() {
         });
 
         markEdgeSynced(frame, edgeCellId, "#666", created.id);
+        // Mirror the new relation into the side-table so a later canvas
+        // delete still reaches the confirm dialog.
+        registerEdgeRelation(edgeCellId, {
+          relationId: created.id,
+          relationType: rel.relationType,
+          relationLabel: rel.relationLabel,
+          sourceName: rel.sourceName,
+          targetName: rel.targetName,
+        });
         setSnackMsg(t("editor.relationPushed", { label: rel.relationLabel }));
         refreshSyncPanel();
       } catch {
@@ -1414,6 +1486,13 @@ export default function DiagramEditor() {
             target_id: r.targetCardId,
           });
           markEdgeSynced(frame, r.edgeCellId, "#666", created.id);
+          registerEdgeRelation(r.edgeCellId, {
+            relationId: created.id,
+            relationType: r.relationType,
+            relationLabel: r.relationLabel,
+            sourceName: r.sourceName,
+            targetName: r.targetName,
+          });
         } catch {
           setSnackMsg(t("editor.errors.syncRelationFailed", { label: r.relationLabel }));
         }
@@ -1845,7 +1924,34 @@ export default function DiagramEditor() {
   /* ---------- Restore banner: replace the XML with the locally-saved draft ---------- */
   const acceptRestore = useCallback(() => {
     if (!restoreBanner) return;
+    // Pre-seed the registered-cells set + edge → relation side-table
+    // from the draft XML BEFORE handing it to DrawIO. Without this, the
+    // synchronous CELLS_ADDED events fired by the load would see the
+    // restored cards as "unregistered" and silently dedupe them into
+    // grey unlinked stubs.
+    for (const id of extractCardCellIdsFromXml(restoreBanner.xml)) {
+      registeredCellIdsRef.current.add(id);
+    }
+    for (const meta of extractEdgeRelationsFromXml(restoreBanner.xml)) {
+      edgeRelationMapRef.current.set(meta.edgeCellId, {
+        relationId: meta.relationId,
+        relationType: meta.relationType,
+        relationLabel: meta.relationLabel,
+        sourceName: "",
+        targetName: "",
+      });
+    }
+    // Suppress tombstones during the load — DrawIO will fire
+    // CELLS_REMOVED for every old cell as it replaces the canvas, and
+    // those aren't user-initiated deletes.
+    restoreInProgressRef.current = true;
     postToDrawIO({ action: "load", xml: restoreBanner.xml, autosave: 0 });
+    // 300 ms gives DrawIO enough time to complete the swap on slow
+    // browsers while keeping the suppression tight enough that a real
+    // user deletion right after won't be missed.
+    window.setTimeout(() => {
+      restoreInProgressRef.current = false;
+    }, 300);
     setRestoreBanner(null);
     setSnackMsg(t("editor.restored"));
   }, [restoreBanner, postToDrawIO, t]);
