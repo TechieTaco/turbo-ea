@@ -175,5 +175,7 @@
   "sync.parentAttach": "将成为「{{parent}}」的子项",
   "sync.parentDetach": "将成为根卡片(当前位于「{{parent}}」中)",
   "sync.applyHierarchy": "应用层级变更",
-  "sync.discardHierarchy": "撤销层级变更"
+  "sync.discardHierarchy": "撤销层级变更",
+  "editor.expandMenu.alreadyInContainer": "已在容器中",
+  "editor.expandMenu.allChildrenInside": "所有子项均已在容器中"
 }

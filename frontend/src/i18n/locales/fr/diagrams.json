@@ -175,5 +175,7 @@
   "sync.parentAttach": "Deviendra un enfant de « {{parent}} »",
   "sync.parentDetach": "Deviendra une fiche racine (actuellement dans « {{parent}} »)",
   "sync.applyHierarchy": "Appliquer le changement de hiérarchie",
-  "sync.discardHierarchy": "Annuler le changement de hiérarchie"
+  "sync.discardHierarchy": "Annuler le changement de hiérarchie",
+  "editor.expandMenu.alreadyInContainer": "Déjà dans le conteneur",
+  "editor.expandMenu.allChildrenInside": "Tous les enfants sont déjà dans le conteneur"
 }

@@ -44,6 +44,11 @@ export interface ExpandMenuTarget {
   cardId: string;
   /** Anchor in viewport coords (clientX/clientY). */
   anchor: { x: number; y: number };
+  /** Card ids currently nested INSIDE this cell as visual drill-down
+   *  children. Lets the menu mark "already in container" rows so the
+   *  user can spot which hierarchy children are missing and only
+   *  selects those for re-insertion. */
+  nestedCardIds?: Set<string>;
 }
 
 export interface ShowDependencyPick {
@@ -219,9 +224,16 @@ export default function ExpandMenu({ target, onClose, onPick }: Props) {
 
   const handleCommitDrillDown = () => {
     if (children.length === 0) return;
-    const picks = selectedChildren.size > 0
-      ? children.filter((c) => selectedChildren.has(c.id))
+    // Always filter out children already nested inside the container —
+    // mxGraph would silently re-parent the duplicate cell and our
+    // dedup logic would strip its cardId.
+    const insertable = target.nestedCardIds
+      ? children.filter((c) => !target.nestedCardIds!.has(c.id))
       : children;
+    const picks = selectedChildren.size > 0
+      ? insertable.filter((c) => selectedChildren.has(c.id))
+      : insertable;
+    if (picks.length === 0) return;
     onPick({ mode: "drill_down", children: picks }, target);
     onClose();
   };
@@ -366,44 +378,68 @@ export default function ExpandMenu({ target, onClose, onPick }: Props) {
             </Box>
           )}
           {children.map((c) => {
+            const alreadyInside = target.nestedCardIds?.has(c.id) ?? false;
             const selected = selectedChildren.has(c.id);
             return (
               <MenuItem
                 key={c.id}
-                onClick={() => toggleChild(c.id)}
+                onClick={() => {
+                  if (alreadyInside) return;
+                  toggleChild(c.id);
+                }}
+                disabled={alreadyInside}
                 sx={{ minWidth: 260 }}
               >
                 <Checkbox
                   size="small"
-                  checked={selected}
+                  checked={alreadyInside || selected}
+                  disabled={alreadyInside}
                   onChange={() => toggleChild(c.id)}
                   onClick={(e) => e.stopPropagation()}
                   sx={{ p: 0.5 }}
                 />
                 <ListItemText
                   primary={c.name}
-                  secondary={c.type}
-                  primaryTypographyProps={{ noWrap: true, fontSize: "0.85rem" }}
+                  secondary={
+                    alreadyInside
+                      ? t("editor.expandMenu.alreadyInContainer")
+                      : c.type
+                  }
+                  primaryTypographyProps={{
+                    noWrap: true,
+                    fontSize: "0.85rem",
+                    sx: alreadyInside
+                      ? { color: "text.disabled", fontStyle: "italic" }
+                      : undefined,
+                  }}
                   secondaryTypographyProps={{ fontSize: "0.7rem" }}
                 />
               </MenuItem>
             );
           })}
-          {children.length > 0 && (
-            <Box sx={{ display: "flex", justifyContent: "flex-end", px: 2, py: 0.75 }}>
-              <Button
-                size="small"
-                variant="contained"
-                onClick={handleCommitDrillDown}
-              >
-                {selectedChildren.size > 0
-                  ? t("editor.expandMenu.drillDownSelected", {
-                      count: selectedChildren.size,
-                    })
-                  : t("editor.expandMenu.drillDownAll", { count: children.length })}
-              </Button>
-            </Box>
-          )}
+          {children.length > 0 && (() => {
+            const missingCount = target.nestedCardIds
+              ? children.filter((c) => !target.nestedCardIds!.has(c.id)).length
+              : children.length;
+            return (
+              <Box sx={{ display: "flex", justifyContent: "flex-end", px: 2, py: 0.75 }}>
+                <Button
+                  size="small"
+                  variant="contained"
+                  disabled={missingCount === 0 && selectedChildren.size === 0}
+                  onClick={handleCommitDrillDown}
+                >
+                  {selectedChildren.size > 0
+                    ? t("editor.expandMenu.drillDownSelected", {
+                        count: selectedChildren.size,
+                      })
+                    : missingCount === 0
+                      ? t("editor.expandMenu.allChildrenInside")
+                      : t("editor.expandMenu.drillDownAll", { count: missingCount })}
+                </Button>
+              </Box>
+            );
+          })()}
 
           {/* ── Roll-Up (parent + siblings) ───────────────────────── */}
           <Divider sx={{ my: 0.5 }} />

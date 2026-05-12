@@ -63,9 +63,9 @@ import {
   convertShapeToContainer,
   drillDownInto,
   rollUpInto,
-  isContainerCell,
   isInsideContainer,
   findExistingCardCellId,
+  getNestedCardIds,
   applyViewToGraph,
   resetViewColors,
 } from "./drawio-shapes";
@@ -184,6 +184,23 @@ function bootstrapDrawIO(iframe: HTMLIFrameElement) {
       const graph = editor?.graph;
       if (graph) {
         win.__turboGraph = graph;
+        // Make sure mxGraph re-parents card cells when the user drops
+        // them onto a swimlane container. DrawIO loads with defaults
+        // that don't always enable this — without it, drag-into-
+        // container has no effect on the model and our parent-change
+        // listener never fires.
+        try {
+          graph.swimlaneNesting = true;
+          graph.dropEnabled = true;
+          // Auto-resize the container when a dropped cell extends past
+          // its bounds, otherwise the new child gets clipped.
+          if (typeof graph.setExtendParents === "function") {
+            graph.setExtendParents(true);
+            graph.setExtendParentsOnAdd(true);
+          }
+        } catch {
+          // Defensive: some DrawIO versions don't expose every setter.
+        }
       }
 
       /* ---------- Right-click context menu ---------- */
@@ -589,7 +606,7 @@ export default function DiagramEditor() {
       // recursively explore the dependency graph from any node.
       for (const child of inserted) {
         addChevronOverlay(frame, child.cellId, (anchor) =>
-          setExpandMenuTarget({ cellId: child.cellId, cardId: child.cardId, anchor }),
+          openExpandMenu(child.cellId, child.cardId, anchor),
         );
       }
     },
@@ -627,7 +644,7 @@ export default function DiagramEditor() {
       // Switch back to chevron so the user can pick a different relation
       // type or direction for the next expansion.
       addChevronOverlay(frame, cellId, (anchor) =>
-        setExpandMenuTarget({ cellId, cardId, anchor }),
+        openExpandMenu(cellId, cardId, anchor),
       );
       if (deletedChildrenRef.current.get(cellId)?.size) {
         addResyncOverlay(frame, cellId, () => handleResync(cellId, cardId));
@@ -695,13 +712,26 @@ export default function DiagramEditor() {
     [doExpand, handleCollapseGroup],
   );
 
-  /** Open the per-relation-type ExpandMenu for a card. Wired to the
-   *  chevron overlay on every collapsed synced cell. */
-  const handleChevron = useCallback(
+  /** Open the per-relation-type ExpandMenu for a card. Snapshots the
+   *  set of cards already nested as visual children of this cell so the
+   *  Drill-Down section can mark them as "already in container" — that
+   *  lets the user spot which hierarchy children are missing and only
+   *  selects those for re-insertion. */
+  const openExpandMenu = useCallback(
     (cellId: string, cardId: string, anchor: { x: number; y: number }) => {
-      setExpandMenuTarget({ cellId, cardId, anchor });
+      const frame = iframeRef.current;
+      const nestedCardIds = frame ? getNestedCardIds(frame, cellId) : undefined;
+      setExpandMenuTarget({ cellId, cardId, anchor, nestedCardIds });
     },
     [],
+  );
+
+  /** Wired to the chevron overlay on every collapsed synced cell. */
+  const handleChevron = useCallback(
+    (cellId: string, cardId: string, anchor: { x: number; y: number }) => {
+      openExpandMenu(cellId, cardId, anchor);
+    },
+    [openExpandMenu],
   );
 
   /** Map a hierarchy reference to the metamodel-derived colour we use for
@@ -815,7 +845,7 @@ export default function DiagramEditor() {
               });
             }
             addChevronOverlay(frame, child.cellId, (anchor) =>
-              setExpandMenuTarget({ cellId: child.cellId, cardId: child.cardId, anchor }),
+              openExpandMenu(child.cellId, child.cardId, anchor),
             );
           }
           if (skippedAlreadyPresent > 0) {
@@ -830,23 +860,26 @@ export default function DiagramEditor() {
       }
 
       if (pick.mode === "drill_down") {
-        // Guard: a cell already rendered as a swimlane container has been
-        // drilled into. Re-drilling would tile a second copy of the
-        // children inside the same container — block + tell the user.
-        if (isContainerCell(frame, target.cellId)) {
-          setSnackMsg(t("editor.alreadyDrilled"));
-          return;
-        }
-        // Container the current cell with the picked hierarchy children
-        // nested inside. The card itself stays linked to its backend card
-        // — only its visual shape changes. Children already on the canvas
-        // as top-level cells are skipped: nesting a second copy of the
-        // same cardId would trigger our dedup and unlink one of them.
-        const onCanvasIds = new Set<string>(
-          pick.children.filter((c) => findExistingCardCellId(frame, c.id)).map((c) => c.id),
+        // Drill-Down is append-aware: re-drilling on a cell that's
+        // already a container backfills any children the user previously
+        // removed. The ExpandMenu has already filtered out children
+        // currently nested inside (via target.nestedCardIds). We still
+        // filter top-level duplicates here: dropping a second copy of
+        // the same cardId at the canvas root would trigger our dedup.
+        const nestedInContainer =
+          target.nestedCardIds ?? new Set<string>();
+        const onCanvasTopLevel = new Set<string>(
+          pick.children
+            .filter((c) => {
+              if (nestedInContainer.has(c.id)) return false;
+              return !!findExistingCardCellId(frame, c.id);
+            })
+            .map((c) => c.id),
         );
         const hChildren: HierarchyChild[] = pick.children
-          .filter((c) => !onCanvasIds.has(c.id))
+          .filter(
+            (c) => !nestedInContainer.has(c.id) && !onCanvasTopLevel.has(c.id),
+          )
           .map((c) => ({
             id: c.id,
             name: c.name,
@@ -867,7 +900,7 @@ export default function DiagramEditor() {
           // Each inner child gets its own chevron so the user can keep
           // exploring downward from the container.
           addChevronOverlay(frame, child.cellId, (anchor) =>
-            setExpandMenuTarget({ cellId: child.cellId, cardId: child.cardId, anchor }),
+            openExpandMenu(child.cellId, child.cardId, anchor),
           );
         }
         return;
@@ -926,16 +959,12 @@ export default function DiagramEditor() {
         // The container itself can still be drilled / rolled — chevron on
         // the header.
         addChevronOverlay(frame, result.parentCellId, (anchor) =>
-          setExpandMenuTarget({
-            cellId: result.parentCellId,
-            cardId: pick.parent.id,
-            anchor,
-          }),
+          openExpandMenu(result.parentCellId, pick.parent.id, anchor),
         );
         for (const child of result.insertedSiblings) {
           registerCellId(child.cellId);
           addChevronOverlay(frame, child.cellId, (anchor) =>
-            setExpandMenuTarget({ cellId: child.cellId, cardId: child.cardId, anchor }),
+            openExpandMenu(child.cellId, child.cardId, anchor),
           );
         }
       }
@@ -1358,7 +1387,7 @@ export default function DiagramEditor() {
           // linked cell as a paste.
           registerCellId(targetCellId);
           addChevronOverlay(frame, targetCellId, (anchor) =>
-            setExpandMenuTarget({ cellId: targetCellId, cardId: card.id, anchor }),
+            openExpandMenu(targetCellId, card.id, anchor),
           );
           setSnackMsg(t("editor.linkedTo", { name: card.name }));
         } else {
@@ -1407,11 +1436,7 @@ export default function DiagramEditor() {
           const insertedCardId = c.id;
           registerCellId(insertedCellId);
           addChevronOverlay(frame, insertedCellId, (anchor) =>
-            setExpandMenuTarget({
-              cellId: insertedCellId,
-              cardId: insertedCardId,
-              anchor,
-            }),
+            openExpandMenu(insertedCellId, insertedCardId, anchor),
           );
           insertedCount += 1;
         }
@@ -1630,7 +1655,7 @@ export default function DiagramEditor() {
         // Attach chevron now that it has a real ID and the per-relation
         // expand menu can resolve its neighbours.
         addChevronOverlay(frame, cellId, (anchor) =>
-          setExpandMenuTarget({ cellId, cardId: resp.id, anchor }),
+          openExpandMenu(cellId, resp.id, anchor),
         );
         // Update any pending relations that reference the old temp ID
         const tempId = raw?.tempId;
@@ -1726,11 +1751,7 @@ export default function DiagramEditor() {
           const insertedCellId = p.cellId;
           const insertedCardId = resp.id;
           addChevronOverlay(frame, insertedCellId, (anchor) =>
-            setExpandMenuTarget({
-              cellId: insertedCellId,
-              cardId: insertedCardId,
-              anchor,
-            }),
+            openExpandMenu(insertedCellId, insertedCardId, anchor),
           );
         } catch {
           setSnackMsg(t("editor.errors.syncFailed", { name: p.name }));

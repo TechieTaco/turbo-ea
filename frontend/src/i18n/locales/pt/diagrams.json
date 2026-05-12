@@ -175,5 +175,7 @@
   "sync.parentAttach": "Será filho de «{{parent}}»",
   "sync.parentDetach": "Será um cartão raiz (atualmente em «{{parent}}»)",
   "sync.applyHierarchy": "Aplicar mudança de hierarquia",
-  "sync.discardHierarchy": "Descartar mudança de hierarquia"
+  "sync.discardHierarchy": "Descartar mudança de hierarquia",
+  "editor.expandMenu.alreadyInContainer": "Já no contêiner",
+  "editor.expandMenu.allChildrenInside": "Todos os filhos já estão no contêiner"
 }

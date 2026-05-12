@@ -175,5 +175,7 @@
   "sync.parentAttach": "Diventerà figlio di «{{parent}}»",
   "sync.parentDetach": "Diventerà scheda radice (attualmente in «{{parent}}»)",
   "sync.applyHierarchy": "Applica la modifica gerarchica",
-  "sync.discardHierarchy": "Scarta la modifica gerarchica"
+  "sync.discardHierarchy": "Scarta la modifica gerarchica",
+  "editor.expandMenu.alreadyInContainer": "Già nel contenitore",
+  "editor.expandMenu.allChildrenInside": "Tutti i figli sono già nel contenitore"
 }

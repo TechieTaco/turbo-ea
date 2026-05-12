@@ -175,5 +175,7 @@
   "sync.parentAttach": "Станет дочерним элементом «{{parent}}»",
   "sync.parentDetach": "Станет корневой карточкой (сейчас внутри «{{parent}}»)",
   "sync.applyHierarchy": "Применить изменение иерархии",
-  "sync.discardHierarchy": "Отменить изменение иерархии"
+  "sync.discardHierarchy": "Отменить изменение иерархии",
+  "editor.expandMenu.alreadyInContainer": "Уже в контейнере",
+  "editor.expandMenu.allChildrenInside": "Все дочерние элементы уже в контейнере"
 }

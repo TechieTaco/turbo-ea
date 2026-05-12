@@ -175,5 +175,7 @@
   "sync.parentAttach": "Wird zum untergeordneten Element von «{{parent}}»",
   "sync.parentDetach": "Wird zur Stammkarte (aktuell verschachtelt unter «{{parent}}»)",
   "sync.applyHierarchy": "Hierarchie-Änderung anwenden",
-  "sync.discardHierarchy": "Hierarchie-Änderung verwerfen"
+  "sync.discardHierarchy": "Hierarchie-Änderung verwerfen",
+  "editor.expandMenu.alreadyInContainer": "Bereits im Container",
+  "editor.expandMenu.allChildrenInside": "Alle Kinder bereits im Container"
 }

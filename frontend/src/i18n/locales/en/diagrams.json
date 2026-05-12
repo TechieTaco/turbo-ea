@@ -107,6 +107,8 @@
   "editor.expandMenu.noChildren": "No children to drill into.",
   "editor.expandMenu.noParent": "No parent to roll up to.",
   "editor.expandMenu.parentLabel": "Parent: {{name}}",
+  "editor.expandMenu.alreadyInContainer": "Already in container",
+  "editor.expandMenu.allChildrenInside": "All children already in container",
   "editor.insertedMany": "Inserted {{count}} cards",
   "editor.expandMenu.title": "Expand related cards",
   "editor.expandMenu.summary_one": "{{count}} relation across all groups",

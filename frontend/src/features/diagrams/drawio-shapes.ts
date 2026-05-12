@@ -1818,17 +1818,20 @@ export function attachParentChangeListener(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     for (const change of changes as any[]) {
       // mxChildChange is the only mxGraph change type that carries a
-      // `child` + `previous` parent pair. Detect by shape rather than
-      // instanceof so we don't have to import the constructor.
+      // truthy `child` + a `parent` AND `previous` pair. We detect by
+      // duck-typing rather than `instanceof mxChildChange` or
+      // constructor.name because DrawIO's bundled mxGraph can be
+      // minified, breaking class-name lookups.
       if (
         !change ||
-        change.child === undefined ||
-        change.previous === undefined ||
+        !change.child ||
         change.parent === undefined ||
-        change.constructor?.name !== "mxChildChange"
+        change.previous === undefined
       ) {
         continue;
       }
+      // No actual parent change (same parent before and after).
+      if (change.parent === change.previous) continue;
       const cell = change.child;
       const newParent = describe(change.parent);
       const oldParent = describe(change.previous);
@@ -2166,6 +2169,34 @@ export function isInsideContainer(iframe: HTMLIFrameElement, cellId: string): bo
   return parentStyle.includes("shape=swimlane");
 }
 
+/** Return the set of cardIds currently nested as direct children of
+ *  the given parent cell. Used by the Expand menu so users can see
+ *  which hierarchy children are already inside a drill-down container
+ *  and which ones are still missing. */
+export function getNestedCardIds(
+  iframe: HTMLIFrameElement,
+  parentCellId: string,
+): Set<string> {
+  const out = new Set<string>();
+  const ctx = getMxGraph(iframe);
+  if (!ctx) return out;
+  const { graph } = ctx;
+  const model = graph.getModel();
+  const parentCell = model.getCell(parentCellId);
+  if (!parentCell) return out;
+  const childCount =
+    typeof model.getChildCount === "function"
+      ? model.getChildCount(parentCell)
+      : 0;
+  for (let i = 0; i < childCount; i++) {
+    const child = model.getChildAt(parentCell, i);
+    if (!child?.value?.getAttribute) continue;
+    const cardId = child.value.getAttribute("cardId");
+    if (cardId) out.add(cardId);
+  }
+  return out;
+}
+
 /** Return the cellId of an existing on-canvas card cell for the given
  *  cardId (top-level, non-container, non-child-of-container). Used to
  *  detect "this card is already on the diagram, don't duplicate". */
@@ -2225,46 +2256,69 @@ export function drillDownInto(
   const CHILD_W = 150;
   const CHILD_H = 50;
   const GAP = 10;
-  const COLS = Math.min(3, Math.max(1, children.length));
-  const ROWS = Math.ceil(children.length / COLS);
-  const containerW = Math.max(geo.width, COLS * CHILD_W + (COLS - 1) * GAP + PAD * 2);
-  const containerH = HEADER + PAD + ROWS * CHILD_H + (ROWS - 1) * GAP + PAD;
+
+  // Is the cell already rendered as a swimlane container? If so, we
+  // APPEND the new children rather than redoing the whole layout — that
+  // preserves the existing children's positions and lets the user
+  // backfill a child they previously removed without rebuilding the
+  // group from scratch.
+  const currentStyle = String(model.getStyle(parentCell) || "");
+  const isAlreadyContainer = currentStyle.includes("shape=swimlane");
+  const existingChildCount =
+    isAlreadyContainer && typeof model.getChildCount === "function"
+      ? model.getChildCount(parentCell)
+      : 0;
+
+  const totalCount = existingChildCount + children.length;
+  const COLS = Math.min(3, Math.max(1, totalCount));
+  const ROWS = Math.ceil(totalCount / COLS);
+  const requiredW = COLS * CHILD_W + (COLS - 1) * GAP + PAD * 2;
+  const requiredH = HEADER + PAD + ROWS * CHILD_H + (ROWS - 1) * GAP + PAD;
+  const containerW = Math.max(geo.width, requiredW);
+  const containerH = Math.max(geo.height, requiredH);
 
   const inserted: Array<{ cellId: string; cardId: string }> = [];
   model.beginUpdate();
   try {
-    // Resize the parent cell + restyle as a swimlane container.
-    const parentColor =
-      /fillColor=([^;]+)/.exec(model.getStyle(parentCell) || "")?.[1] || "#0f7eb5";
     graph.resizeCell(
       parentCell,
       new win.mxRectangle(geo.x, geo.y, containerW, containerH),
     );
-    const stroke = darken(parentColor);
-    model.setStyle(
-      parentCell,
-      [
-        "shape=swimlane",
-        "startSize=" + HEADER,
-        "horizontal=1",
-        `fillColor=${parentColor}`,
-        "fontColor=#ffffff",
-        `strokeColor=${stroke}`,
-        "fontSize=12",
-        "fontStyle=1",
-        "rounded=1",
-        "arcSize=12",
-        "html=1",
-        "whiteSpace=wrap",
-        "swimlaneLine=0",
-      ].join(";"),
-    );
 
-    // Insert each child INSIDE the parent so it moves with the container.
+    // First-time drill-down: convert the cell to a swimlane. Re-drills
+    // leave the existing style alone so we don't lose user-applied
+    // tweaks (custom fill colour from "Convert to Container", for
+    // example).
+    if (!isAlreadyContainer) {
+      const parentColor =
+        /fillColor=([^;]+)/.exec(currentStyle)?.[1] || "#0f7eb5";
+      const stroke = darken(parentColor);
+      model.setStyle(
+        parentCell,
+        [
+          "shape=swimlane",
+          "startSize=" + HEADER,
+          "horizontal=1",
+          `fillColor=${parentColor}`,
+          "fontColor=#ffffff",
+          `strokeColor=${stroke}`,
+          "fontSize=12",
+          "fontStyle=1",
+          "rounded=1",
+          "arcSize=12",
+          "html=1",
+          "whiteSpace=wrap",
+          "swimlaneLine=0",
+        ].join(";"),
+      );
+    }
+
+    // Insert each new child at the next free slot in the grid.
     for (let i = 0; i < children.length; i++) {
       const ch = children[i];
-      const r = Math.floor(i / COLS);
-      const c = i % COLS;
+      const slot = existingChildCount + i;
+      const r = Math.floor(slot / COLS);
+      const c = slot % COLS;
       const x = PAD + c * (CHILD_W + GAP);
       const y = HEADER + PAD + r * (CHILD_H + GAP);
 
@@ -2296,9 +2350,15 @@ export function drillDownInto(
     }
 
     // Stash the inner cell ids on the parent so collapse can find them.
+    // Preserve any existing ids so a backfill doesn't clobber prior
+    // drills.
     const pv = parentCell.value;
     if (pv?.setAttribute) {
-      pv.setAttribute("drillDownChildIds", inserted.map((c) => c.cellId).join(","));
+      const prior = (pv.getAttribute?.("drillDownChildIds") || "")
+        .split(",")
+        .filter(Boolean);
+      const next = [...prior, ...inserted.map((c) => c.cellId)];
+      pv.setAttribute("drillDownChildIds", next.join(","));
     }
   } finally {
     model.endUpdate();
