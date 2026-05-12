@@ -1126,7 +1126,9 @@ export default function DiagramEditor() {
         edgeRelationMapRef.current.set(meta.edgeCellId, {
           relationId: meta.relationId,
           relationType: meta.relationType,
-          relationLabel: meta.relationLabel,
+          // Resolve via the metamodel so the dialog shows "uses"
+          // rather than the raw relation-type key like "appUsesItc".
+          relationLabel: humanRelationLabel(meta.relationType) || meta.relationLabel,
           sourceName: "",
           targetName: "",
         });
@@ -2068,6 +2070,18 @@ export default function DiagramEditor() {
   /* ---------- Restore banner: replace the XML with the locally-saved draft ---------- */
   const acceptRestore = useCallback(() => {
     if (!restoreBanner) return;
+    // First: wipe stale state from the previous canvas. Otherwise the
+    // periodic edge-deletion diff scan would compare the draft's live
+    // edges against a side-table still carrying entries from the
+    // canvas-being-replaced, see those entries as "missing", and fire
+    // false "Delete this relation?" dialogs with empty endpoint names
+    // (their source/target cells have already been removed).
+    registeredCellIdsRef.current.clear();
+    edgeRelationMapRef.current.clear();
+    setPendingCardRemovals([]);
+    setPendingRelRemovals([]);
+    setDeleteRelationQueue([]);
+    setArchiveOnSync(new Set());
     // Pre-seed the registered-cells set + edge → relation side-table
     // from the draft XML BEFORE handing it to DrawIO. Without this, the
     // synchronous CELLS_ADDED events fired by the load would see the
@@ -2080,7 +2094,9 @@ export default function DiagramEditor() {
       edgeRelationMapRef.current.set(meta.edgeCellId, {
         relationId: meta.relationId,
         relationType: meta.relationType,
-        relationLabel: meta.relationLabel,
+        // Resolve to the metamodel's human label so the eventual
+        // delete-confirm dialog says "uses" rather than the raw key.
+        relationLabel: humanRelationLabel(meta.relationType) || meta.relationLabel,
         sourceName: "",
         targetName: "",
       });
@@ -2106,7 +2122,8 @@ export default function DiagramEditor() {
             edgeRelationMapRef.current.set(meta.edgeCellId, {
               relationId: meta.relationId,
               relationType: meta.relationType,
-              relationLabel: meta.relationLabel,
+              relationLabel:
+                humanRelationLabel(meta.relationType) || meta.relationLabel,
               sourceName: "",
               targetName: "",
             });
