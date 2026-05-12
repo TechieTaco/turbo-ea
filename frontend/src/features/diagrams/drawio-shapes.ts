@@ -1852,13 +1852,23 @@ export function attachParentChangeListener(
   };
   seedKnown();
 
+  /**
+   * Cells we should NEVER raise a parent-change event for, even when
+   * their mxGraph parent changes. We used to include drill-down and
+   * roll-up children here, but that silently swallowed real
+   * drag-out / cross-container moves: when mxGraph re-parented a
+   * drilled-down child to the canvas root, the diff saw the parent
+   * change, isManaged returned true (marker still present), the diff
+   * silently refreshed knownState, and onParentChanged never fired.
+   *
+   * Only `parentGroupCell` stays — those are expansion-group cells
+   * that flip in and out as the user collapses / re-expands a group
+   * and don't correspond to a user-intended hierarchy change.
+   */
   const isManaged = (
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     cell: any,
-  ) =>
-    cell.value.getAttribute("drillDownChild") === "1" ||
-    cell.value.getAttribute("rollUpChild") === "1" ||
-    !!cell.value.getAttribute("parentGroupCell");
+  ) => !!cell.value.getAttribute("parentGroupCell");
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const isMeaningfulParent = (cell: any) => {
