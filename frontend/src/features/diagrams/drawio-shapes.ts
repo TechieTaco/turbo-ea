@@ -1111,9 +1111,20 @@ export function attachCellLifecycleListeners(
       // card stays in inventory; only the canvas is decluttered.
       const srcCell = cell.source;
       const tgtCell = cell.target;
+      // Incidental if an endpoint is in the current batch OR if an
+      // endpoint cell is no longer in the model at all (it was
+      // removed in an earlier tick / a separate transaction). Either
+      // way the user clearly meant "remove this card from my view",
+      // not "delete this relation from inventory".
+      const srcMissing =
+        !srcCell?.id || (!removedVertexCellIds.has(srcCell.id) && !model.getCell(srcCell.id));
+      const tgtMissing =
+        !tgtCell?.id || (!removedVertexCellIds.has(tgtCell.id) && !model.getCell(tgtCell.id));
       const incidental =
         (srcCell?.id && removedVertexCellIds.has(srcCell.id)) ||
-        (tgtCell?.id && removedVertexCellIds.has(tgtCell.id));
+        (tgtCell?.id && removedVertexCellIds.has(tgtCell.id)) ||
+        srcMissing ||
+        tgtMissing;
       if (incidental) {
         handlers.onIncidentalEdgeRemoval?.(cell.id);
         continue;
@@ -1432,49 +1443,55 @@ export function collectLiveEdgeCellIds(iframe: HTMLIFrameElement): Set<string> {
 }
 
 /**
- * Cascade-remove any edge whose source or target vertex is no longer
- * in the model. Returns the list of edge cellIds that were removed so
- * the editor can clean up its side-table state (relation map) for them.
- *
- * Why: DrawIO's card-delete path doesn't fire CELLS_REMOVED on any
- * channel we listen to (neither model.CELLS_REMOVED, graph.CELLS_REMOVED,
- * nor model.CHANGE) when a vertex is removed via the keyboard / menu.
- * The connected edges are left dangling — visually still on the canvas,
- * but pointing at a vertex that's no longer in `model.cells`. We sweep
- * for them in the periodic 750ms scan instead.
+ * Snapshot of which cellIds currently exist in the model. Used by the
+ * editor's periodic scan to detect when a card-relation edge has lost
+ * an endpoint vertex (user deleted the connected card from the canvas).
  */
-export function removeDanglingEdges(iframe: HTMLIFrameElement): string[] {
+export function collectLiveCellIds(iframe: HTMLIFrameElement): Set<string> {
+  const out = new Set<string>();
   const ctx = getMxGraph(iframe);
-  if (!ctx) return [];
+  if (!ctx) return out;
+  const cells = ctx.graph.getModel().cells || {};
+  for (const k of Object.keys(cells)) {
+    if (cells[k]) out.add(k);
+  }
+  return out;
+}
+
+/**
+ * Silently remove a specific set of edge cells. Used by the editor's
+ * cascade-on-card-delete path: when a registered relation-edge has lost
+ * a card endpoint, we drop the edge without surfacing the
+ * "delete this relation?" modal. Hand-drawn arrows (no side-table
+ * entry) are NEVER passed to this helper, so they survive.
+ */
+export function removeEdgeCellsByIds(
+  iframe: HTMLIFrameElement,
+  edgeCellIds: string[],
+): void {
+  if (edgeCellIds.length === 0) return;
+  const ctx = getMxGraph(iframe);
+  if (!ctx) return;
   const { graph } = ctx;
   const model = graph.getModel();
-  const allCells = model.cells || {};
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const dangling: any[] = [];
-  for (const k of Object.keys(allCells)) {
-    const c = allCells[k];
-    if (!c?.edge) continue;
-    const srcId = c.source?.id;
-    const tgtId = c.target?.id;
-    // Dangling if either endpoint is missing OR points at an id that
-    // is no longer in the model.
-    const srcMissing = !srcId || !allCells[srcId];
-    const tgtMissing = !tgtId || !allCells[tgtId];
-    if (srcMissing || tgtMissing) dangling.push(c);
+  const cells: any[] = [];
+  for (const id of edgeCellIds) {
+    const c = model.getCell(id);
+    if (c?.edge) cells.push(c);
   }
-  if (dangling.length === 0) return [];
-  const removedIds = dangling.map((d) => d.id as string);
+  if (cells.length === 0) return;
   model.beginUpdate();
   try {
     try {
-      graph.removeCells(dangling, false);
+      graph.removeCells(cells, false);
     } catch {
-      // fall through to model.remove
+      // fall through
     }
-    for (const e of dangling) {
-      if (model.getCell(e.id) === e) {
+    for (const c of cells) {
+      if (model.getCell(c.id) === c) {
         try {
-          model.remove(e);
+          model.remove(c);
         } catch {
           // ignore
         }
@@ -1483,7 +1500,6 @@ export function removeDanglingEdges(iframe: HTMLIFrameElement): string[] {
   } finally {
     model.endUpdate();
   }
-  return removedIds;
 }
 
 /** Snapshot an edge's visible state — endpoints, style, and label —

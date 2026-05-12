@@ -50,7 +50,8 @@ import {
   collectExistingCardCellIds,
   collectExistingEdgeRelations,
   collectLiveEdgeCellIds,
-  removeDanglingEdges,
+  collectLiveCellIds,
+  removeEdgeCellsByIds,
   describeEdgeEndpoints,
   extractCardCellIdsFromXml,
   extractEdgeRelationsFromXml,
@@ -1423,17 +1424,30 @@ export default function DiagramEditor() {
           (cellId) => registeredCellIdsRef.current.has(cellId),
           handleDuplicate,
         );
-        // ── Cascade-remove dangling edges ──
-        // When a card is deleted, DrawIO leaves connected edges
-        // dangling — visually present but pointing at a vertex no
-        // longer in the model. Sweep them here before the edge-
-        // deletion diff runs so users don't have to delete every
-        // edge manually after deleting a card. Also drop their
-        // side-table entries so the diff doesn't surface a phantom
-        // "delete this relation?" dialog.
-        const danglingEdgeIds = removeDanglingEdges(f);
-        for (const id of danglingEdgeIds) {
-          edgeRelationMapRef.current.delete(id);
+        // ── Cascade-remove dangling RELATION edges ──
+        // When a card is deleted, DrawIO leaves connected
+        // relation-edges dangling — visually present but pointing
+        // at a vertex no longer in the model. Detect them via the
+        // side-table (so hand-drawn arrows / loose lines that are
+        // NOT registered relations are left untouched) and drop them
+        // silently. Side-table entries are deleted BEFORE the
+        // edge-deletion diff runs so the "delete this relation?"
+        // modal doesn't fire for these incidental removals.
+        const liveAllCellIds = collectLiveCellIds(f);
+        const cascadeEdgeIds: string[] = [];
+        edgeRelationMapRef.current.forEach((meta, edgeCellId) => {
+          const srcGone =
+            !!meta.sourceCellId && !liveAllCellIds.has(meta.sourceCellId);
+          const tgtGone =
+            !!meta.targetCellId && !liveAllCellIds.has(meta.targetCellId);
+          if (srcGone || tgtGone) cascadeEdgeIds.push(edgeCellId);
+        });
+        if (cascadeEdgeIds.length > 0) {
+          // Drop side-table FIRST so the diff below can't see them.
+          for (const id of cascadeEdgeIds) {
+            edgeRelationMapRef.current.delete(id);
+          }
+          removeEdgeCellsByIds(f, cascadeEdgeIds);
         }
         // ── Edge-deletion diff ──
         const liveEdgeIds = collectLiveEdgeCellIds(f);
