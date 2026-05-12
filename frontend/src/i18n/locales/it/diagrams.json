@@ -150,5 +150,12 @@
   "editor.expandMenu.rollUpSelected_other": "Risali con {{count}} fratelli",
   "editor.expandMenu.noChildren": "Nessun figlio da approfondire.",
   "editor.expandMenu.noParent": "Nessun padre a cui risalire.",
-  "editor.expandMenu.parentLabel": "Padre: {{name}}"
+  "editor.expandMenu.parentLabel": "Padre: {{name}}",
+  "editor.alreadyDrilled": "Questa scheda è già mostrata come contenitore con i suoi figli all'interno.",
+  "editor.alreadyRolledUp": "Questa scheda si trova già dentro un contenitore padre — risalire creerebbe un duplicato.",
+  "editor.parentAlreadyOnCanvas": "La scheda padre è già sul canvas — rimuovi prima quella cella se la vuoi come contenitore.",
+  "editor.allChildrenAlreadyOnCanvas": "Tutti i figli selezionati sono già sul canvas; niente da approfondire.",
+  "editor.allNeighboursAlreadyOnCanvas": "Tutti i vicini corrispondenti sono già sul canvas; niente da inserire.",
+  "editor.someNeighboursSkipped_one": "Ignorato {{count}} vicino già sul canvas.",
+  "editor.someNeighboursSkipped_other": "Ignorati {{count}} vicini già sul canvas."
 }

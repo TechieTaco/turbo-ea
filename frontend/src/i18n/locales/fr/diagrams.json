@@ -150,5 +150,12 @@
   "editor.expandMenu.rollUpSelected_other": "Remonter avec {{count}} frères/sœurs",
   "editor.expandMenu.noChildren": "Aucun enfant à explorer.",
   "editor.expandMenu.noParent": "Aucun parent vers lequel remonter.",
-  "editor.expandMenu.parentLabel": "Parent : {{name}}"
+  "editor.expandMenu.parentLabel": "Parent : {{name}}",
+  "editor.alreadyDrilled": "Cette fiche est déjà affichée comme conteneur avec ses enfants à l'intérieur.",
+  "editor.alreadyRolledUp": "Cette fiche est déjà dans un conteneur parent — remonter créerait un doublon.",
+  "editor.parentAlreadyOnCanvas": "La fiche parent est déjà sur le canevas — supprimez d'abord cette cellule si vous la voulez comme conteneur.",
+  "editor.allChildrenAlreadyOnCanvas": "Tous les enfants sélectionnés sont déjà sur le canevas ; rien à explorer.",
+  "editor.allNeighboursAlreadyOnCanvas": "Tous les voisins correspondants sont déjà sur le canevas ; rien à insérer.",
+  "editor.someNeighboursSkipped_one": "{{count}} voisin déjà sur le canevas a été ignoré.",
+  "editor.someNeighboursSkipped_other": "{{count}} voisins déjà sur le canevas ont été ignorés."
 }

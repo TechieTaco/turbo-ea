@@ -150,5 +150,12 @@
   "editor.expandMenu.rollUpSelected_other": "Mit {{count}} Geschwistern hochzoomen",
   "editor.expandMenu.noChildren": "Keine Kinder zum Aufschlüsseln.",
   "editor.expandMenu.noParent": "Kein Elternteil zum Hochzoomen.",
-  "editor.expandMenu.parentLabel": "Elternteil: {{name}}"
+  "editor.expandMenu.parentLabel": "Elternteil: {{name}}",
+  "editor.alreadyDrilled": "Diese Karte wird bereits als Container mit ihren Kindern innen angezeigt.",
+  "editor.alreadyRolledUp": "Diese Karte befindet sich bereits in einem übergeordneten Container — Hochzoomen würde ein Duplikat erzeugen.",
+  "editor.parentAlreadyOnCanvas": "Die übergeordnete Karte ist bereits auf der Leinwand — entfernen Sie diese Zelle zuerst, wenn Sie sie als Container möchten.",
+  "editor.allChildrenAlreadyOnCanvas": "Alle ausgewählten Kinder sind bereits auf der Leinwand; nichts zum Aufschlüsseln.",
+  "editor.allNeighboursAlreadyOnCanvas": "Alle passenden Nachbarn sind bereits auf der Leinwand; nichts einzufügen.",
+  "editor.someNeighboursSkipped_one": "{{count}} Nachbar übersprungen, der bereits auf der Leinwand ist.",
+  "editor.someNeighboursSkipped_other": "{{count}} Nachbarn übersprungen, die bereits auf der Leinwand sind."
 }

@@ -55,6 +55,9 @@ import {
   convertShapeToPendingCard,
   drillDownInto,
   rollUpInto,
+  isContainerCell,
+  isInsideContainer,
+  findExistingCardCellId,
   applyViewToGraph,
   resetViewColors,
 } from "./drawio-shapes";
@@ -653,10 +656,14 @@ export default function DiagramEditor() {
 
       if (pick.mode === "show") {
         // Multi-select Show Dependency: load relations for each picked
-        // (type, direction) pair, dedupe by neighbour, insert as a group.
+        // (type, direction) pair, dedupe by neighbour, and skip any
+        // neighbour that's already on the canvas (inserting a second
+        // cell with the same cardId would trigger our dedup logic and
+        // unlink one of them).
         try {
           const seen = new Set<string>();
           const children: ExpandChildData[] = [];
+          let skippedAlreadyPresent = 0;
           for (const entry of pick.entries) {
             const params = new URLSearchParams({
               card_id: target.cardId,
@@ -670,6 +677,10 @@ export default function DiagramEditor() {
               const other = isOutgoing ? r.target : r.source;
               if (!other || seen.has(other.id)) continue;
               seen.add(other.id);
+              if (findExistingCardCellId(frame, other.id)) {
+                skippedAlreadyPresent += 1;
+                continue;
+              }
               children.push({
                 id: other.id,
                 name: other.name,
@@ -681,7 +692,11 @@ export default function DiagramEditor() {
             }
           }
           if (children.length === 0) {
-            setSnackMsg(t("editor.noRelatedCards"));
+            setSnackMsg(
+              skippedAlreadyPresent > 0
+                ? t("editor.allNeighboursAlreadyOnCanvas")
+                : t("editor.noRelatedCards"),
+            );
             return;
           }
           children.sort((a, b) => a.name.localeCompare(b.name));
@@ -695,6 +710,11 @@ export default function DiagramEditor() {
               setExpandMenuTarget({ cellId: child.cellId, cardId: child.cardId, anchor }),
             );
           }
+          if (skippedAlreadyPresent > 0) {
+            setSnackMsg(
+              t("editor.someNeighboursSkipped", { count: skippedAlreadyPresent }),
+            );
+          }
         } catch {
           setSnackMsg(t("editor.errors.loadRelationsFailed"));
         }
@@ -702,15 +722,33 @@ export default function DiagramEditor() {
       }
 
       if (pick.mode === "drill_down") {
+        // Guard: a cell already rendered as a swimlane container has been
+        // drilled into. Re-drilling would tile a second copy of the
+        // children inside the same container — block + tell the user.
+        if (isContainerCell(frame, target.cellId)) {
+          setSnackMsg(t("editor.alreadyDrilled"));
+          return;
+        }
         // Container the current cell with the picked hierarchy children
         // nested inside. The card itself stays linked to its backend card
-        // — only its visual shape changes.
-        const hChildren: HierarchyChild[] = pick.children.map((c) => ({
-          id: c.id,
-          name: c.name,
-          type: c.type,
-          color: colorForType(c.type),
-        }));
+        // — only its visual shape changes. Children already on the canvas
+        // as top-level cells are skipped: nesting a second copy of the
+        // same cardId would trigger our dedup and unlink one of them.
+        const onCanvasIds = new Set<string>(
+          pick.children.filter((c) => findExistingCardCellId(frame, c.id)).map((c) => c.id),
+        );
+        const hChildren: HierarchyChild[] = pick.children
+          .filter((c) => !onCanvasIds.has(c.id))
+          .map((c) => ({
+            id: c.id,
+            name: c.name,
+            type: c.type,
+            color: colorForType(c.type),
+          }));
+        if (hChildren.length === 0) {
+          setSnackMsg(t("editor.allChildrenAlreadyOnCanvas"));
+          return;
+        }
         const inserted = drillDownInto(frame, target.cellId, hChildren);
         if (inserted.length === 0) {
           setSnackMsg(t("editor.noChildren"));
@@ -728,16 +766,39 @@ export default function DiagramEditor() {
       }
 
       if (pick.mode === "roll_up") {
+        // Guard 1: the cell already lives inside a container — rolling
+        // up would create a second parent container on top of the
+        // existing one. Block + explain.
+        if (isInsideContainer(frame, target.cellId)) {
+          setSnackMsg(t("editor.alreadyRolledUp"));
+          return;
+        }
+        // Guard 2: the picked parent is already on the canvas as a
+        // top-level card. Creating a fresh container with the same
+        // cardId would either (a) cause our paste-dedup to fire and
+        // unlink one of them, or (b) leave the user with two cells
+        // claiming the same backend card. Block + tell the user to
+        // delete the existing parent cell first.
+        if (findExistingCardCellId(frame, pick.parent.id)) {
+          setSnackMsg(t("editor.parentAlreadyOnCanvas"));
+          return;
+        }
         const parentColor = colorForType(pick.parent.type);
-        const siblings = pick.siblings.map((s) => ({
-          cellId: null,
-          card: {
-            id: s.id,
-            name: s.name,
-            type: s.type,
-            color: colorForType(s.type),
-          },
-        }));
+        // Skip siblings already on the canvas — nesting a second cell
+        // with the same cardId would trigger our dedup. The user can
+        // remove the existing cell first if they want it inside the
+        // container.
+        const siblings = pick.siblings
+          .filter((s) => !findExistingCardCellId(frame, s.id))
+          .map((s) => ({
+            cellId: null,
+            card: {
+              id: s.id,
+              name: s.name,
+              type: s.type,
+              color: colorForType(s.type),
+            },
+          }));
         const result = rollUpInto(
           frame,
           target.cellId,
@@ -850,6 +911,13 @@ export default function DiagramEditor() {
       if (!frame) return;
       // Defer one tick so mxGraph finishes its transaction before we mutate.
       setTimeout(() => {
+        // Re-check the registered set: the synchronous CELLS_ADDED listener
+        // fires *during* the helper's beginUpdate/endUpdate transaction, but
+        // callers like handleInsertCard only call registerCellId AFTER the
+        // helper returns. So a brand-new card looks "unregistered" for a
+        // single microtask and would be silently unlinked here if we didn't
+        // check again now that the queue is drained.
+        if (registeredCellIdsRef.current.has(cellId)) return;
         const result = dedupClonedCell(frame, cellId, wasPending);
         if (!result) return;
         if (result.mode === "regenerated") {

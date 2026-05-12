@@ -150,5 +150,12 @@
   "editor.expandMenu.rollUpSelected_other": "Subir con {{count}} hermanos",
   "editor.expandMenu.noChildren": "Sin hijos para explorar.",
   "editor.expandMenu.noParent": "Sin padre al que subir.",
-  "editor.expandMenu.parentLabel": "Padre: {{name}}"
+  "editor.expandMenu.parentLabel": "Padre: {{name}}",
+  "editor.alreadyDrilled": "Esta tarjeta ya se muestra como contenedor con sus hijos dentro.",
+  "editor.alreadyRolledUp": "Esta tarjeta ya está dentro de un contenedor padre — subir crearía un duplicado.",
+  "editor.parentAlreadyOnCanvas": "La tarjeta padre ya está en el lienzo — elimine primero esa celda si la quiere como contenedor.",
+  "editor.allChildrenAlreadyOnCanvas": "Todos los hijos elegidos ya están en el lienzo; nada que explorar.",
+  "editor.allNeighboursAlreadyOnCanvas": "Todos los vecinos coincidentes ya están en el lienzo; nada que insertar.",
+  "editor.someNeighboursSkipped_one": "Se omitió {{count}} vecino que ya está en el lienzo.",
+  "editor.someNeighboursSkipped_other": "Se omitieron {{count}} vecinos que ya están en el lienzo."
 }

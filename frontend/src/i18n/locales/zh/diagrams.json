@@ -150,5 +150,12 @@
   "editor.expandMenu.rollUpSelected_other": "与 {{count}} 个同级一起上卷",
   "editor.expandMenu.noChildren": "没有可下钻的子项。",
   "editor.expandMenu.noParent": "没有可上卷的父级。",
-  "editor.expandMenu.parentLabel": "父级:{{name}}"
+  "editor.expandMenu.parentLabel": "父级:{{name}}",
+  "editor.alreadyDrilled": "此卡片已显示为包含其子项的容器。",
+  "editor.alreadyRolledUp": "此卡片已在父容器中 — 上卷将创建重复项。",
+  "editor.parentAlreadyOnCanvas": "父卡片已在画布上 — 如果要把它作为容器,请先删除该单元。",
+  "editor.allChildrenAlreadyOnCanvas": "所选的所有子项都已在画布上;没有可下钻的内容。",
+  "editor.allNeighboursAlreadyOnCanvas": "所有匹配的相邻卡片都已在画布上;无可插入。",
+  "editor.someNeighboursSkipped_one": "已跳过画布上已存在的 {{count}} 个相邻卡片。",
+  "editor.someNeighboursSkipped_other": "已跳过画布上已存在的 {{count}} 个相邻卡片。"
 }

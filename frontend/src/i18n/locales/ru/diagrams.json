@@ -150,5 +150,12 @@
   "editor.expandMenu.rollUpSelected_other": "Свернуть с соседями: {{count}}",
   "editor.expandMenu.noChildren": "Нет дочерних элементов для детализации.",
   "editor.expandMenu.noParent": "Нет родителя для свёртки.",
-  "editor.expandMenu.parentLabel": "Родитель: {{name}}"
+  "editor.expandMenu.parentLabel": "Родитель: {{name}}",
+  "editor.alreadyDrilled": "Эта карточка уже показана как контейнер с дочерними элементами внутри.",
+  "editor.alreadyRolledUp": "Эта карточка уже находится внутри родительского контейнера — свёртка создаст дубликат.",
+  "editor.parentAlreadyOnCanvas": "Родительская карточка уже на холсте — сначала удалите её, если хотите использовать как контейнер.",
+  "editor.allChildrenAlreadyOnCanvas": "Все выбранные дочерние элементы уже на холсте; нечего детализировать.",
+  "editor.allNeighboursAlreadyOnCanvas": "Все подходящие соседи уже на холсте; нечего вставлять.",
+  "editor.someNeighboursSkipped_one": "Пропущен {{count}} сосед, уже находящийся на холсте.",
+  "editor.someNeighboursSkipped_other": "Пропущено соседей: {{count}}, уже на холсте."
 }

@@ -31,7 +31,11 @@ Diagramming functionality overhaul. All changes below belong to the same minor r
 
 ### Fixed
 - **Copy/paste of a synced card actually dedupes now.** Switched from "is this cardId duplicated in the model" detection (which races with DrawIO's custom clipboard) to a registered-cellIds set seeded on bootstrap from the loaded XML. Every helper that inserts a card registers its cellId, and a periodic safety scan catches anything that slips past the synchronous `CELLS_ADDED` listener. Clones become unlinked stubs (synced original) or get fresh temp ids (pending original).
-- **Deleting an edge between an expanded card and its child is now picked up.** Edges created by `expandCardGroup` / `expandCardGroupAt` persist the backend `relationId` on their XML user-object, so the existing `CELLS_REMOVED` handler tombstones them.
+- **Deleting an edge between an expanded card and its child is now picked up.** Edges created by `expandCardGroup` / `expandCardGroupAt` persist the backend `relationId` via `model.setValue` after insertion (mxGraph silently coerces XML user-objects passed directly to `insertEdge`); the existing `CELLS_REMOVED` handler then tombstones them and the confirmation dialog appears.
+- **Roll-up no longer duplicates the parent container.** Trying to roll up a cell that already lives inside a swimlane container is blocked + explained via snackbar. Same guard prevents drilling into a cell that's already a container, and rolling up to a parent that's already on the canvas as a top-level cell.
+- **Drill-down children / roll-up siblings already on the canvas are skipped** instead of being inserted as duplicate cardIds (which would trigger our paste-dedup and silently unlink one of them). Show Dependency picks up the same protection — neighbours already on the diagram are skipped with a count snackbar.
+- **`CELLS_REMOVED` no longer tombstones drill-down or roll-up children.** Deleting a container used to file an "archive card?" tombstone for every nested cell; now those nested cells are correctly treated as visual artefacts of the container.
+- **`handleDuplicate` re-checks the registered set before deduping** so the synchronous `CELLS_ADDED` race (helper inserts cell → listener fires before caller calls `registerCellId`) doesn't silently unlink fresh inserts.
 - **"View Card Details" is hidden on unsynced cells.** The right-click action used to open a side panel that 404'd against the backend because the cell carried a `pending-xxx` temp id.
 
 ### Backend

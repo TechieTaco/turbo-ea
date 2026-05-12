@@ -623,18 +623,19 @@ export function expandCardGroup(
       );
 
       // Stamp the connecting edge with the backend relation id (when known)
-      // so canvas-side deletions can fire DELETE /relations/{id}. Without
-      // this the edge looks like an unsynced ornament and deletes silently.
+      // so canvas-side deletions can fire DELETE /relations/{id}. Insert
+      // with an empty value first, then setValue so the XML user-object
+      // survives mxGraph's silent string-coercion of the insertEdge value.
+      const edge = graph.insertEdge(
+        root, `fse-${cid}`, "",
+        parentCell, vertex,
+        `edgeStyle=entityRelationEdgeStyle;strokeColor=${ch.color};strokeWidth=1.5;endArrow=none;startArrow=none`,
+      );
       const edgeObj = xmlDoc.createElement("object");
       edgeObj.setAttribute("label", "");
       if (ch.relationType) edgeObj.setAttribute("relationType", ch.relationType);
       if (ch.relationId) edgeObj.setAttribute("relationId", ch.relationId);
-      const edge = graph.insertEdge(
-        root, `fse-${cid}`, edgeObj,
-        parentCell, vertex,
-        `edgeStyle=entityRelationEdgeStyle;strokeColor=${ch.color};strokeWidth=1.5;endArrow=none;startArrow=none`,
-      );
-      void edge;
+      model.setValue(edge, edgeObj);
 
       inserted.push({ cellId: cid, cardId: ch.id });
       yOff += CHILD_CARD_H;
@@ -894,9 +895,12 @@ export function attachCellLifecycleListeners(
   const checkCell = (cell: any) => {
     if (!cell?.value?.getAttribute) return;
     if (cell.edge) return;
-    // Expanded-child cells live inside groups and are managed by their
-    // parent's expand state — never treat them as paste candidates.
+    // Cells nested inside containers (expansion / drill-down / roll-up)
+    // are managed by their parent and must not be treated as paste
+    // candidates — their cardId is intentional, not a clone.
     if (cell.value.getAttribute("parentGroupCell")) return;
+    if (cell.value.getAttribute("drillDownChild") === "1") return;
+    if (cell.value.getAttribute("rollUpChild") === "1") return;
     const cardId = cell.value.getAttribute("cardId");
     if (!cardId) return;
     if (handlers.isRegistered(cell.id)) return;
@@ -952,9 +956,16 @@ export function attachCellLifecycleListeners(
           style: String(style),
         });
       } else if (cardId && !isPending && !isChild && !cardId.startsWith("pending-")) {
-        // Only tombstone top-level synced cards. Expanded children disappear
-        // and reappear regularly via collapse/expand — they don't represent
-        // a user intent to remove the underlying card.
+        // Only tombstone top-level synced cards. Expanded children, drill-
+        // down children, and roll-up children disappear when their parent
+        // container is removed — they don't represent a user intent to
+        // remove the underlying card from inventory.
+        if (
+          value.getAttribute("drillDownChild") === "1" ||
+          value.getAttribute("rollUpChild") === "1"
+        ) {
+          continue;
+        }
         tombstones.push({
           kind: "card",
           cellId: cell.id,
@@ -1485,26 +1496,84 @@ function insertChildVertex(
     CHILD_CARD_H,
     style,
   );
-  // Same pattern as expandCardGroup — stamp the edge with relationId so
-  // canvas deletions can fire DELETE /relations/{id}.
-  const edgeObj = xmlDoc.createElement("object");
-  edgeObj.setAttribute("label", "");
-  if (ch.relationType) edgeObj.setAttribute("relationType", ch.relationType);
-  if (ch.relationId) edgeObj.setAttribute("relationId", ch.relationId);
-  graph.insertEdge(
+  // Stamp the edge with relationId so canvas deletions can fire
+  // DELETE /relations/{id}. mxGraph's insertEdge silently coerces a raw
+  // XML user-object passed as the value into a string — mirror the
+  // proven stampEdgeAsRelation pattern: insert with an empty value, then
+  // model.setValue afterwards so attributes survive.
+  const edge = graph.insertEdge(
     root,
     `fse-${cid}`,
-    edgeObj,
+    "",
     parentCell,
     vertex,
     `edgeStyle=entityRelationEdgeStyle;strokeColor=${ch.color};strokeWidth=1.5;endArrow=none;startArrow=none`,
   );
+  const edgeObj = xmlDoc.createElement("object");
+  edgeObj.setAttribute("label", "");
+  if (ch.relationType) edgeObj.setAttribute("relationType", ch.relationType);
+  if (ch.relationId) edgeObj.setAttribute("relationId", ch.relationId);
+  graph.getModel().setValue(edge, edgeObj);
   return { cellId: cid, cardId: ch.id };
 }
 
 /* ------------------------------------------------------------------ */
 /*  Hierarchy container rendering — Drill-Down + Roll-Up               */
 /* ------------------------------------------------------------------ */
+
+/** Return true when the cell already renders as a swimlane container —
+ *  i.e. the user previously drilled down into it. */
+export function isContainerCell(iframe: HTMLIFrameElement, cellId: string): boolean {
+  const ctx = getMxGraph(iframe);
+  if (!ctx) return false;
+  const { graph } = ctx;
+  const cell = graph.getModel().getCell(cellId);
+  if (!cell) return false;
+  const style = String(graph.getModel().getStyle(cell) || "");
+  return style.includes("shape=swimlane");
+}
+
+/** Return true when the cell currently lives INSIDE another swimlane
+ *  container — i.e. the user previously rolled it up or drilled into its
+ *  parent. Used to block double-roll-ups that would create a phantom
+ *  duplicate container on top. */
+export function isInsideContainer(iframe: HTMLIFrameElement, cellId: string): boolean {
+  const ctx = getMxGraph(iframe);
+  if (!ctx) return false;
+  const { graph } = ctx;
+  const cell = graph.getModel().getCell(cellId);
+  if (!cell) return false;
+  const parent = cell.getParent ? cell.getParent() : cell.parent;
+  if (!parent) return false;
+  // Default parent / layer cells are not containers.
+  if (parent === graph.getDefaultParent()) return false;
+  if (!parent.value?.getAttribute) return false;
+  const parentStyle = String(graph.getModel().getStyle(parent) || "");
+  return parentStyle.includes("shape=swimlane");
+}
+
+/** Return the cellId of an existing on-canvas card cell for the given
+ *  cardId (top-level, non-container, non-child-of-container). Used to
+ *  detect "this card is already on the diagram, don't duplicate". */
+export function findExistingCardCellId(
+  iframe: HTMLIFrameElement,
+  cardId: string,
+): string | null {
+  const ctx = getMxGraph(iframe);
+  if (!ctx) return null;
+  const { graph } = ctx;
+  const cells = graph.getModel().cells || {};
+  for (const k of Object.keys(cells)) {
+    const cell = cells[k];
+    if (!cell?.value?.getAttribute) continue;
+    if (cell.edge) continue;
+    if (cell.value.getAttribute("cardId") !== cardId) continue;
+    if (cell.value.getAttribute("parentGroupCell")) continue;
+    return cell.id;
+  }
+  return null;
+}
+
 
 export interface HierarchyChild {
   id: string;
