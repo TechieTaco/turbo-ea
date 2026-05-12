@@ -616,3 +616,45 @@ class TestRelationSummary:
             headers=auth_headers(admin),
         )
         assert response.status_code == 404
+
+    async def test_hierarchy_block_reports_children_and_parent(self, client, db, cards_env):
+        # Parent / child / grandchild chain — the middle card should report
+        # 1 child + 1 parent so the diagram editor can enable Drill-Down +
+        # Roll-Up in one fetch.
+        admin = cards_env["admin"]
+        parent = await create_card(db, card_type="Application", name="Parent", user_id=admin.id)
+        middle = await create_card(db, card_type="Application", name="Middle", user_id=admin.id)
+        middle.parent_id = parent.id
+        child = await create_card(db, card_type="Application", name="Child", user_id=admin.id)
+        child.parent_id = middle.id
+        await db.flush()
+
+        response = await client.get(
+            f"/api/v1/cards/{middle.id}/relation-summary",
+            headers=auth_headers(admin),
+        )
+        assert response.status_code == 200
+        body = response.json()
+        assert body["hierarchy"]["children_count"] == 1
+        assert body["hierarchy"]["parent_id"] == str(parent.id)
+        assert body["hierarchy"]["parent_name"] == "Parent"
+        assert body["hierarchy"]["parent_type"] == "Application"
+
+    async def test_hierarchy_block_excludes_archived_children(self, client, db, cards_env):
+        admin = cards_env["admin"]
+        parent = await create_card(db, card_type="Application", name="P", user_id=admin.id)
+        active = await create_card(db, card_type="Application", name="Active", user_id=admin.id)
+        active.parent_id = parent.id
+        archived = await create_card(db, card_type="Application", name="Archived", user_id=admin.id)
+        archived.parent_id = parent.id
+        archived.status = "ARCHIVED"
+        await db.flush()
+
+        response = await client.get(
+            f"/api/v1/cards/{parent.id}/relation-summary",
+            headers=auth_headers(admin),
+        )
+        assert response.status_code == 200
+        # The Drill-Down menu must not lie about the number of children
+        # it can actually fetch through /hierarchy.
+        assert response.json()["hierarchy"]["children_count"] == 1

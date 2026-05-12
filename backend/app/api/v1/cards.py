@@ -46,6 +46,7 @@ from app.schemas.card import (
     CardDeleteResponse,
     CardListResponse,
     CardRelationSummaryEntry,
+    CardRelationSummaryHierarchy,
     CardRelationSummaryResponse,
     CardResponse,
     CardRestoreRequest,
@@ -874,7 +875,29 @@ async def relation_summary(
 
     # Stable order: by direction (outgoing first), then by label.
     entries.sort(key=lambda e: (0 if e.direction == "outgoing" else 1, e.label.lower()))
-    return CardRelationSummaryResponse(by_type=entries)
+
+    # Hierarchy snapshot — children count + parent info. ACTIVE children
+    # only, matching what the diagram editor would actually drill into.
+    children_count = await db.scalar(
+        select(func.count(Card.id)).where(Card.parent_id == uid, Card.status == "ACTIVE")
+    )
+    parent_id_str: str | None = None
+    parent_name: str | None = None
+    parent_type: str | None = None
+    if card.parent_id is not None:
+        parent = await db.get(Card, card.parent_id)
+        if parent and parent.status == "ACTIVE":
+            parent_id_str = str(parent.id)
+            parent_name = parent.name
+            parent_type = parent.type
+
+    hierarchy = CardRelationSummaryHierarchy(
+        children_count=int(children_count or 0),
+        parent_id=parent_id_str,
+        parent_name=parent_name,
+        parent_type=parent_type,
+    )
+    return CardRelationSummaryResponse(by_type=entries, hierarchy=hierarchy)
 
 
 @router.patch("/bulk", response_model=list[CardResponse])

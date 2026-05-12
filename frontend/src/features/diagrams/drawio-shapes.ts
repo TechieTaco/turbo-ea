@@ -523,6 +523,9 @@ export interface ExpandChildData {
   type: string;
   color: string;
   relationType: string;
+  /** Backend relation id, when known. Stamped onto the connecting edge so
+   *  canvas deletions can fire `DELETE /relations/{id}`. */
+  relationId?: string;
 }
 
 /**
@@ -619,11 +622,19 @@ export function expandCardGroup(
         root, cid, obj, startX, startY + yOff, CHILD_CARD_W, CHILD_CARD_H, style,
       );
 
-      graph.insertEdge(
-        root, `fse-${cid}`, "",
+      // Stamp the connecting edge with the backend relation id (when known)
+      // so canvas-side deletions can fire DELETE /relations/{id}. Without
+      // this the edge looks like an unsynced ornament and deletes silently.
+      const edgeObj = xmlDoc.createElement("object");
+      edgeObj.setAttribute("label", "");
+      if (ch.relationType) edgeObj.setAttribute("relationType", ch.relationType);
+      if (ch.relationId) edgeObj.setAttribute("relationId", ch.relationId);
+      const edge = graph.insertEdge(
+        root, `fse-${cid}`, edgeObj,
         parentCell, vertex,
         `edgeStyle=entityRelationEdgeStyle;strokeColor=${ch.color};strokeWidth=1.5;endArrow=none;startArrow=none`,
       );
+      void edge;
 
       inserted.push({ cellId: cid, cardId: ch.id });
       yOff += CHILD_CARD_H;
@@ -836,6 +847,11 @@ export interface RemovedRelationTombstone {
   relationLabel: string;
   sourceName: string;
   targetName: string;
+  /** Captured at removal time so a "No, abort" confirmation can re-insert
+   *  the edge between the same vertices with the same style. */
+  sourceCellId: string | null;
+  targetCellId: string | null;
+  style: string;
 }
 
 export type RemovedTombstone = RemovedCardTombstone | RemovedRelationTombstone;
@@ -843,13 +859,22 @@ export type RemovedTombstone = RemovedCardTombstone | RemovedRelationTombstone;
 export interface CellLifecycleHandlers {
   onDuplicate: (cellId: string, sharedCardId: string, wasPending: boolean) => void;
   onRemoved: (tombstones: RemovedTombstone[]) => void;
+  /** Returns the set of cellIds we have deliberately inserted ourselves.
+   *  Any cell with a cardId attribute whose cellId is NOT in this set is
+   *  treated as a paste/clone and routed through onDuplicate. */
+  isRegistered: (cellId: string) => boolean;
 }
 
 /**
  * Hook the graph model so we can:
  *   - detect copy/paste/duplicate adding a cell that reuses an existing
  *     cardId, and call onDuplicate so the parent can either regenerate the
- *     temp id (pending clone) or strip the cardId (synced clone)
+ *     temp id (pending clone) or strip the cardId (synced clone). We use
+ *     a "is this cellId one we deliberately inserted" check rather than
+ *     "is this cardId duplicated in the model" — DrawIO's clipboard goes
+ *     through paths that don't always end up in CELLS_ADDED, and the
+ *     registered-set check stays correct even when our listener missed
+ *     the synchronous event.
  *   - detect cell removals carrying a real cardId / relationId so the parent
  *     can tombstone them for the next sync.
  *
@@ -864,35 +889,27 @@ export function attachCellLifecycleListeners(
   const { win, graph } = ctx;
   const model = graph.getModel();
 
+  /** Fire onDuplicate for any card cell whose cellId we don't recognise. */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const checkCell = (cell: any) => {
+    if (!cell?.value?.getAttribute) return;
+    if (cell.edge) return;
+    // Expanded-child cells live inside groups and are managed by their
+    // parent's expand state — never treat them as paste candidates.
+    if (cell.value.getAttribute("parentGroupCell")) return;
+    const cardId = cell.value.getAttribute("cardId");
+    if (!cardId) return;
+    if (handlers.isRegistered(cell.id)) return;
+    const wasPending = cell.value.getAttribute("pending") === "1";
+    handlers.onDuplicate(cell.id, cardId, wasPending);
+  };
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const addedListener = (_sender: unknown, evt: any) => {
     const cells = evt.getProperty("cells") || [];
     if (cells.length === 0) return;
-    // Build a map cardId -> cellIds across the whole graph so we can decide
-    // which freshly-added cells are duplicates.
-    const allCells = model.cells || {};
-    const cardCells = new Map<string, string[]>();
-    for (const k of Object.keys(allCells)) {
-      const c = allCells[k];
-      const cid = c?.value?.getAttribute?.("cardId");
-      if (cid) {
-        if (!cardCells.has(cid)) cardCells.set(cid, []);
-        cardCells.get(cid)!.push(c.id);
-      }
-    }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    for (const cell of cells as any[]) {
-      const cardId = cell?.value?.getAttribute?.("cardId");
-      if (!cardId) continue;
-      const peers = cardCells.get(cardId) || [];
-      // If another cell already owned this cardId before the paste, this
-      // cell is the clone. Compare against the cell that was added — peers
-      // includes the freshly-added cell, so duplicates means peers.length > 1.
-      if (peers.length > 1 && peers.indexOf(cell.id) > 0) {
-        const wasPending = cell.value.getAttribute("pending") === "1";
-        handlers.onDuplicate(cell.id, cardId, wasPending);
-      }
-    }
+    for (const cell of cells as any[]) checkCell(cell);
   };
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -910,14 +927,29 @@ export function attachCellLifecycleListeners(
       const isChild = !!value.getAttribute("parentGroupCell");
 
       if (relationId) {
+        // mxGraph keeps cell.source / cell.target references on the cell
+        // object even after the edge is detached from the model, so we can
+        // capture endpoints + style here for an eventual "No, abort"
+        // confirmation that re-inserts the same edge between the same
+        // vertices.
+        const src = cell.source;
+        const tgt = cell.target;
+        const srcLabel: string =
+          src?.value?.getAttribute?.("label") || src?.value || "";
+        const tgtLabel: string =
+          tgt?.value?.getAttribute?.("label") || tgt?.value || "";
+        const style = model.getStyle(cell) || "";
         tombstones.push({
           kind: "relation",
           edgeCellId: cell.id,
           relationId,
           relationType: value.getAttribute("relationType") || "",
           relationLabel: value.getAttribute("label") || value.getAttribute("relationType") || "",
-          sourceName: "",
-          targetName: "",
+          sourceName: String(srcLabel || ""),
+          targetName: String(tgtLabel || ""),
+          sourceCellId: src?.id ?? null,
+          targetCellId: tgt?.id ?? null,
+          style: String(style),
         });
       } else if (cardId && !isPending && !isChild && !cardId.startsWith("pending-")) {
         // Only tombstone top-level synced cards. Expanded children disappear
@@ -947,6 +979,99 @@ export function attachCellLifecycleListeners(
       // graph may have been torn down already
     }
   };
+}
+
+/**
+ * Walk every cell in the graph and route any unregistered card cell through
+ * `onDuplicate`. Used as a periodic safety net because DrawIO's clipboard
+ * sometimes inserts cells via paths that don't fire `CELLS_ADDED` on the
+ * model in a way our listener sees (e.g. cross-tab paste deserialises XML
+ * and skips the standard transaction batching).
+ */
+export function scanForDuplicateCells(
+  iframe: HTMLIFrameElement,
+  isRegistered: (cellId: string) => boolean,
+  onDuplicate: (cellId: string, sharedCardId: string, wasPending: boolean) => void,
+): void {
+  const ctx = getMxGraph(iframe);
+  if (!ctx) return;
+  const { graph } = ctx;
+  const cells = graph.getModel().cells || {};
+  for (const k of Object.keys(cells)) {
+    const cell = cells[k];
+    if (!cell?.value?.getAttribute) continue;
+    if (cell.edge) continue;
+    if (cell.value.getAttribute("parentGroupCell")) continue;
+    const cardId = cell.value.getAttribute("cardId");
+    if (!cardId) continue;
+    if (isRegistered(cell.id)) continue;
+    const wasPending = cell.value.getAttribute("pending") === "1";
+    onDuplicate(cell.id, cardId, wasPending);
+  }
+}
+
+/**
+ * Re-insert an edge that was just removed from the canvas (used for the
+ * "No, abort" path of the relation-deletion confirmation). Re-creates a
+ * fresh edge between the original source/target cells with the captured
+ * style + relationId. Falls back to a no-op if either endpoint has since
+ * disappeared (e.g. the user also removed the source card).
+ */
+export function restoreRemovedEdge(
+  iframe: HTMLIFrameElement,
+  tombstone: RemovedRelationTombstone,
+): boolean {
+  const ctx = getMxGraph(iframe);
+  if (!ctx) return false;
+  const { win, graph } = ctx;
+  const model = graph.getModel();
+  const src = tombstone.sourceCellId ? model.getCell(tombstone.sourceCellId) : null;
+  const tgt = tombstone.targetCellId ? model.getCell(tombstone.targetCellId) : null;
+  if (!src || !tgt) return false;
+
+  model.beginUpdate();
+  try {
+    const xmlDoc = win.mxUtils.createXmlDocument();
+    const obj = xmlDoc.createElement("object");
+    obj.setAttribute("label", tombstone.relationLabel);
+    if (tombstone.relationType) obj.setAttribute("relationType", tombstone.relationType);
+    obj.setAttribute("relationId", tombstone.relationId);
+    graph.insertEdge(
+      graph.getDefaultParent(),
+      tombstone.edgeCellId,
+      obj,
+      src,
+      tgt,
+      tombstone.style ||
+        "edgeStyle=entityRelationEdgeStyle;strokeColor=#666;strokeWidth=1.5;endArrow=none;startArrow=none;",
+    );
+  } finally {
+    model.endUpdate();
+  }
+  return true;
+}
+
+/**
+ * Seed the registered-cells set with every card cellId currently in the
+ * graph. Call this once on bootstrap right after the diagram XML loads,
+ * before attaching the lifecycle listener — otherwise the listener will
+ * see the loaded cells as "unregistered" and mistakenly dedupe them.
+ */
+export function collectExistingCardCellIds(iframe: HTMLIFrameElement): string[] {
+  const ctx = getMxGraph(iframe);
+  if (!ctx) return [];
+  const { graph } = ctx;
+  const cells = graph.getModel().cells || {};
+  const ids: string[] = [];
+  for (const k of Object.keys(cells)) {
+    const cell = cells[k];
+    if (!cell?.value?.getAttribute) continue;
+    if (cell.edge) continue;
+    if (cell.value.getAttribute("parentGroupCell")) continue;
+    const cardId = cell.value.getAttribute("cardId");
+    if (cardId) ids.push(cell.id);
+  }
+  return ids;
 }
 
 /**
@@ -1360,15 +1485,275 @@ function insertChildVertex(
     CHILD_CARD_H,
     style,
   );
+  // Same pattern as expandCardGroup — stamp the edge with relationId so
+  // canvas deletions can fire DELETE /relations/{id}.
+  const edgeObj = xmlDoc.createElement("object");
+  edgeObj.setAttribute("label", "");
+  if (ch.relationType) edgeObj.setAttribute("relationType", ch.relationType);
+  if (ch.relationId) edgeObj.setAttribute("relationId", ch.relationId);
   graph.insertEdge(
     root,
     `fse-${cid}`,
-    "",
+    edgeObj,
     parentCell,
     vertex,
     `edgeStyle=entityRelationEdgeStyle;strokeColor=${ch.color};strokeWidth=1.5;endArrow=none;startArrow=none`,
   );
   return { cellId: cid, cardId: ch.id };
+}
+
+/* ------------------------------------------------------------------ */
+/*  Hierarchy container rendering — Drill-Down + Roll-Up               */
+/* ------------------------------------------------------------------ */
+
+export interface HierarchyChild {
+  id: string;
+  name: string;
+  type: string;
+  color: string;
+}
+
+/**
+ * Turn the current card cell into a swimlane container holding the given
+ * hierarchy children inside it. The header bar keeps the parent's label
+ * and colour; children are tiled in a 3-wide grid below the header.
+ *
+ * Returns the inserted child cellIds + cardIds (registered by the caller
+ * so the periodic dedup scan ignores them).
+ */
+export function drillDownInto(
+  iframe: HTMLIFrameElement,
+  parentCellId: string,
+  children: HierarchyChild[],
+): Array<{ cellId: string; cardId: string }> {
+  const ctx = getMxGraph(iframe);
+  if (!ctx) return [];
+  const { win, graph } = ctx;
+  const model = graph.getModel();
+  const parentCell = model.getCell(parentCellId);
+  if (!parentCell) return [];
+
+  const geo = graph.getCellGeometry(parentCell);
+  if (!geo) return [];
+
+  // Layout constants tuned to feel like LeanIX's container drill-down.
+  const HEADER = 28;
+  const PAD = 12;
+  const CHILD_W = 150;
+  const CHILD_H = 50;
+  const GAP = 10;
+  const COLS = Math.min(3, Math.max(1, children.length));
+  const ROWS = Math.ceil(children.length / COLS);
+  const containerW = Math.max(geo.width, COLS * CHILD_W + (COLS - 1) * GAP + PAD * 2);
+  const containerH = HEADER + PAD + ROWS * CHILD_H + (ROWS - 1) * GAP + PAD;
+
+  const inserted: Array<{ cellId: string; cardId: string }> = [];
+  model.beginUpdate();
+  try {
+    // Resize the parent cell + restyle as a swimlane container.
+    const parentColor =
+      /fillColor=([^;]+)/.exec(model.getStyle(parentCell) || "")?.[1] || "#0f7eb5";
+    graph.resizeCell(
+      parentCell,
+      new win.mxRectangle(geo.x, geo.y, containerW, containerH),
+    );
+    const stroke = darken(parentColor);
+    model.setStyle(
+      parentCell,
+      [
+        "shape=swimlane",
+        "startSize=" + HEADER,
+        "horizontal=1",
+        `fillColor=${parentColor}`,
+        "fontColor=#ffffff",
+        `strokeColor=${stroke}`,
+        "fontSize=12",
+        "fontStyle=1",
+        "rounded=1",
+        "arcSize=12",
+        "html=1",
+        "whiteSpace=wrap",
+        "swimlaneLine=0",
+      ].join(";"),
+    );
+
+    // Insert each child INSIDE the parent so it moves with the container.
+    for (let i = 0; i < children.length; i++) {
+      const ch = children[i];
+      const r = Math.floor(i / COLS);
+      const c = i % COLS;
+      const x = PAD + c * (CHILD_W + GAP);
+      const y = HEADER + PAD + r * (CHILD_H + GAP);
+
+      const cellId = `dd-${ch.id.slice(0, 8)}-${Date.now()}-${i}`;
+      const childStroke = darken(ch.color);
+      const childStyle = [
+        "rounded=1",
+        "whiteSpace=wrap",
+        "html=1",
+        `fillColor=${ch.color}`,
+        "fontColor=#ffffff",
+        `strokeColor=${childStroke}`,
+        "fontSize=11",
+        "fontStyle=1",
+        "arcSize=12",
+      ].join(";");
+
+      const xmlDoc = win.mxUtils.createXmlDocument();
+      const obj = xmlDoc.createElement("object");
+      obj.setAttribute("label", ch.name);
+      obj.setAttribute("cardId", ch.id);
+      obj.setAttribute("cardType", ch.type);
+      // Mark as a drill-down child so future scans don't mistake the inner
+      // cells for top-level cards.
+      obj.setAttribute("drillDownChild", "1");
+
+      graph.insertVertex(parentCell, cellId, obj, x, y, CHILD_W, CHILD_H, childStyle);
+      inserted.push({ cellId, cardId: ch.id });
+    }
+
+    // Stash the inner cell ids on the parent so collapse can find them.
+    const pv = parentCell.value;
+    if (pv?.setAttribute) {
+      pv.setAttribute("drillDownChildIds", inserted.map((c) => c.cellId).join(","));
+    }
+  } finally {
+    model.endUpdate();
+  }
+
+  return inserted;
+}
+
+/**
+ * Roll-Up — wrap the current card cell + selected siblings inside a new
+ * parent container. The container goes to the canvas root and the existing
+ * cells are re-parented inside it. The original cells keep their identity
+ * (cardId, cellId) so the dedup scan stays happy.
+ */
+export function rollUpInto(
+  iframe: HTMLIFrameElement,
+  currentCellId: string,
+  parent: { id: string; name: string; type: string; color: string },
+  siblings: Array<{ cellId: string | null; card: HierarchyChild }>,
+): { parentCellId: string; insertedSiblings: Array<{ cellId: string; cardId: string }> } | null {
+  const ctx = getMxGraph(iframe);
+  if (!ctx) return null;
+  const { win, graph } = ctx;
+  const model = graph.getModel();
+  const current = model.getCell(currentCellId);
+  if (!current) return null;
+  const currentGeo = graph.getCellGeometry(current);
+  if (!currentGeo) return null;
+
+  // Build the list of vertices to nest: the current card + a vertex per
+  // sibling. Siblings that already exist on the canvas keep their cell;
+  // missing ones are freshly inserted.
+  const HEADER = 28;
+  const PAD = 12;
+  const CHILD_W = 150;
+  const CHILD_H = 50;
+  const GAP = 10;
+  const count = 1 + siblings.length;
+  const COLS = Math.min(3, Math.max(1, count));
+  const ROWS = Math.ceil(count / COLS);
+  const containerW = COLS * CHILD_W + (COLS - 1) * GAP + PAD * 2;
+  const containerH = HEADER + PAD + ROWS * CHILD_H + (ROWS - 1) * GAP + PAD;
+
+  const parentStroke = darken(parent.color);
+  const parentCellId = `ru-${parent.id.slice(0, 8)}-${Date.now()}`;
+
+  const inserted: Array<{ cellId: string; cardId: string }> = [];
+
+  model.beginUpdate();
+  try {
+    // Insert the new container at the canvas root, anchored near the
+    // current card so the user sees the relationship.
+    const xmlDoc = win.mxUtils.createXmlDocument();
+    const parentObj = xmlDoc.createElement("object");
+    parentObj.setAttribute("label", parent.name);
+    parentObj.setAttribute("cardId", parent.id);
+    parentObj.setAttribute("cardType", parent.type);
+
+    const containerX = Math.max(0, currentGeo.x - PAD);
+    const containerY = Math.max(0, currentGeo.y - HEADER - PAD);
+    const containerVertex = graph.insertVertex(
+      graph.getDefaultParent(),
+      parentCellId,
+      parentObj,
+      containerX,
+      containerY,
+      containerW,
+      containerH,
+      [
+        "shape=swimlane",
+        "startSize=" + HEADER,
+        "horizontal=1",
+        `fillColor=${parent.color}`,
+        "fontColor=#ffffff",
+        `strokeColor=${parentStroke}`,
+        "fontSize=12",
+        "fontStyle=1",
+        "rounded=1",
+        "arcSize=12",
+        "html=1",
+        "whiteSpace=wrap",
+        "swimlaneLine=0",
+      ].join(";"),
+    );
+
+    // Reposition + reparent the current card as the first child.
+    graph.resizeCell(
+      current,
+      new win.mxRectangle(PAD, HEADER + PAD, CHILD_W, CHILD_H),
+    );
+    model.add(containerVertex, current);
+
+    // Insert one cell per sibling. We always create a fresh cell — the
+    // sibling may not be on the canvas yet, and even if it is, the user
+    // explicitly asked to see it nested here.
+    siblings.forEach(({ card }, i) => {
+      const slot = i + 1;
+      const r = Math.floor(slot / COLS);
+      const c = slot % COLS;
+      const x = PAD + c * (CHILD_W + GAP);
+      const y = HEADER + PAD + r * (CHILD_H + GAP);
+      const cellId = `ruc-${card.id.slice(0, 8)}-${Date.now()}-${i}`;
+      const childStroke = darken(card.color);
+      const childStyle = [
+        "rounded=1",
+        "whiteSpace=wrap",
+        "html=1",
+        `fillColor=${card.color}`,
+        "fontColor=#ffffff",
+        `strokeColor=${childStroke}`,
+        "fontSize=11",
+        "fontStyle=1",
+        "arcSize=12",
+      ].join(";");
+
+      const childObj = xmlDoc.createElement("object");
+      childObj.setAttribute("label", card.name);
+      childObj.setAttribute("cardId", card.id);
+      childObj.setAttribute("cardType", card.type);
+      childObj.setAttribute("rollUpChild", "1");
+
+      graph.insertVertex(
+        containerVertex,
+        cellId,
+        childObj,
+        x,
+        y,
+        CHILD_W,
+        CHILD_H,
+        childStyle,
+      );
+      inserted.push({ cellId, cardId: card.id });
+    });
+  } finally {
+    model.endUpdate();
+  }
+
+  return { parentCellId, insertedSiblings: inserted };
 }
 
 /* ------------------------------------------------------------------ */

@@ -154,8 +154,20 @@ class CardRelationSummaryEntry(BaseModel):
     count: int
 
 
+class CardRelationSummaryHierarchy(BaseModel):
+    """Hierarchy snapshot returned alongside relation counts so the diagram
+    editor can enable/disable the Drill-Down + Roll-Up menu sections without
+    a second fetch."""
+
+    children_count: int
+    parent_id: str | None = None
+    parent_name: str | None = None
+    parent_type: str | None = None
+
+
 class CardRelationSummaryResponse(BaseModel):
     by_type: list[CardRelationSummaryEntry]
+    hierarchy: CardRelationSummaryHierarchy
 
 
 class CardTypeCount(BaseModel):

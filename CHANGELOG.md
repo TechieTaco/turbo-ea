@@ -5,6 +5,20 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.10.0] - 2026-05-12
+
+### Fixed
+- **Diagram editor — copy/paste of a synced card now actually dedupes.** Switched from "is this cardId duplicated in the model" detection (which races with DrawIO's custom clipboard) to a registered-cellIds set seeded on bootstrap from the loaded XML. Every helper that inserts a card registers its cellId, and a periodic safety scan catches anything that slips past the synchronous `CELLS_ADDED` listener. The clone is now reliably turned into an unlinked stub (synced original) or assigned a fresh temp id (pending original).
+- **Deleting an edge between an expanded card and its child is now picked up.** Edges created by `expandCardGroup` / `expandCardGroupAt` now persist the backend `relationId` on their XML user-object, so the existing `CELLS_REMOVED` handler can tombstone them.
+- **"View Card Details" is hidden on unsynced cells.** The right-click action used to open a side panel that 404'd against the backend because the cell still carried a `pending-xxx` temp id.
+
+### Added
+- **Edge-deletion confirmation dialog.** Removing an edge that carries a real `relationId` now opens a "Delete the relation between SOURCE and TARGET?" modal: **Yes** queues a `DELETE /relations/{id}` for the next Sync All, **No** re-inserts the edge in place via `restoreRemovedEdge` (captures style + endpoints at removal time).
+- **Show Dependency — multi-select.** The Expand menu's Show Dependency section is now a checklist of relation types with a single **Insert (N)** commit button. Drill-Down and Roll-Up are no longer relation-based.
+- **Drill-Down — hierarchy container.** Picking *Drill-Down* on a card turns the cell into a swimlane container with the user-picked hierarchy children (via `parent_id`) nested inside it. The header keeps the parent's label + colour. Multi-select via per-child checkboxes; "Drill into all" inserts everything.
+- **Roll-Up — parent container with siblings.** Picking *Roll-Up* on a card creates a new swimlane container at the canvas root with the parent's label + colour, re-parents the current card into it, and inserts the user-picked siblings alongside (cards under the same `parent_id`). Multi-select via per-sibling checkboxes; "Roll up to parent only" works when the user just wants the parent header.
+- **`GET /cards/{id}/relation-summary` now includes a `hierarchy` block** (`children_count`, `parent_id`, `parent_name`, `parent_type`) so the diagram Expand menu can enable / disable the Drill-Down + Roll-Up sections in one round-trip.
+
 ## [1.9.0] - 2026-05-12
 
 ### Added

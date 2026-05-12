@@ -8,6 +8,11 @@ import Snackbar from "@mui/material/Snackbar";
 import Button from "@mui/material/Button";
 import Tooltip from "@mui/material/Tooltip";
 import CircularProgress from "@mui/material/CircularProgress";
+import Dialog from "@mui/material/Dialog";
+import DialogTitle from "@mui/material/DialogTitle";
+import DialogContent from "@mui/material/DialogContent";
+import DialogContentText from "@mui/material/DialogContentText";
+import DialogActions from "@mui/material/DialogActions";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import InsertCardsDialog from "./InsertCardsDialog";
@@ -40,14 +45,20 @@ import {
   removeDiagramCell,
   scanDiagramItems,
   attachCellLifecycleListeners,
+  scanForDuplicateCells,
+  collectExistingCardCellIds,
+  restoreRemovedEdge,
   dedupClonedCell,
   unlinkCell,
   relinkCell,
   getCellLabel,
   convertShapeToPendingCard,
+  drillDownInto,
+  rollUpInto,
   applyViewToGraph,
   resetViewColors,
 } from "./drawio-shapes";
+import type { HierarchyChild } from "./drawio-shapes";
 import type {
   ExpandChildData,
   RemovedTombstone,
@@ -56,9 +67,8 @@ import type {
 } from "./drawio-shapes";
 import ExpandMenu from "./ExpandMenu";
 import type {
+  ExpandMenuPick,
   ExpandMenuTarget,
-  ExpandMode,
-  RelationSummaryEntry,
 } from "./ExpandMenu";
 import ViewSelector, { buildColorMap, extractCardValue } from "./ViewSelector";
 import type { ColorEntry, ViewSource } from "./ViewSelector";
@@ -198,7 +208,9 @@ function bootstrapDrawIO(iframe: HTMLIFrameElement) {
           const isVertex = cell && !cell.edge;
           const hasNoCardId = isVertex && !cardId;
 
-          if (cardId) {
+          // Only synced cards can be looked up in the inventory \u2014 pending
+          // cells reference a temp id that the backend doesn't know about.
+          if (isSyncedCard) {
             menu.addItem("View Card Details\u2026", null, () => {
               win.parent.postMessage(
                 JSON.stringify({ event: "cardClicked", cardId }),
@@ -344,6 +356,14 @@ export default function DiagramEditor() {
   const expandCacheRef = useRef<Map<string, ExpandChildData[]>>(new Map());
   const deletedChildrenRef = useRef<Map<string, Set<string>>>(new Map());
 
+  // Set of cellIds we deliberately inserted ourselves. Drives the
+  // copy/paste dedup: anything in the model with a cardId attribute but a
+  // cellId we don't recognise must have come in via DrawIO's clipboard.
+  const registeredCellIdsRef = useRef<Set<string>>(new Set());
+  const registerCellId = useCallback((cellId: string) => {
+    registeredCellIdsRef.current.add(cellId);
+  }, []);
+
   // Dialog states
   const [pickerOpen, setPickerOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
@@ -374,6 +394,14 @@ export default function DiagramEditor() {
 
   // Phase 3 — chevron expand menu
   const [expandMenuTarget, setExpandMenuTarget] = useState<ExpandMenuTarget | null>(null);
+
+  // Relation-deletion confirmation queue. Each canvas-side edge removal
+  // that carries a real relationId surfaces a "delete from inventory?"
+  // dialog. Confirming queues the tombstone for the next sync; cancelling
+  // re-inserts the edge in place via restoreRemovedEdge.
+  const [deleteRelationQueue, setDeleteRelationQueue] = useState<
+    RemovedRelationTombstone[]
+  >([]);
 
   // Phase 5 — view perspectives (color cells by attribute)
   const [view, setView] = useState<ViewSource>({ kind: "card_type" });
@@ -573,6 +601,7 @@ export default function DiagramEditor() {
               type: other.type,
               color: ct?.color || "#999",
               relationType: r.type,
+              relationId: r.id,
             });
           }
           if (children.length === 0) {
@@ -603,64 +632,146 @@ export default function DiagramEditor() {
     [],
   );
 
-  /** User picked a relation type + direction from the ExpandMenu. Fetch
-   *  matching neighbours and insert them with placement that reflects the
-   *  chosen mode (Show Dependency = right, Drill-Down = below, Roll-Up =
-   *  above). Skips peers that are already on the canvas to avoid
-   *  duplicates. */
+  /** Map a hierarchy reference to the metamodel-derived colour we use for
+   *  drill-down / roll-up child cells. */
+  const colorForType = useCallback((typeKey: string): string => {
+    return fsTypesRef.current.find((tp) => tp.key === typeKey)?.color || "#999";
+  }, []);
+
+  /** Handle a commit from the ExpandMenu. Three branches:
+   *    - show     : pick one or many relation types; insert matching
+   *                 neighbours to the right of the current card.
+   *    - drill_down: turn the current cell into a swimlane container with
+   *                  the picked hierarchy children inside.
+   *    - roll_up  : wrap the current cell + picked siblings inside a new
+   *                 parent container.
+   */
   const handleExpandPick = useCallback(
-    async (mode: ExpandMode, entry: RelationSummaryEntry, target: ExpandMenuTarget) => {
+    async (pick: ExpandMenuPick, target: ExpandMenuTarget) => {
       const frame = iframeRef.current;
       if (!frame) return;
-      try {
-        const params = new URLSearchParams({
-          card_id: target.cardId,
-          type: entry.relation_type_key,
-        });
-        const rels = await api.get<Relation[]>(`/relations?${params}`);
-        const seen = new Set<string>();
-        const children: ExpandChildData[] = [];
-        for (const r of rels) {
-          // Filter to the user's chosen direction so the picked menu row
-          // matches what they actually see.
-          const isOutgoing = r.source_id === target.cardId;
-          if (entry.direction === "outgoing" && !isOutgoing) continue;
-          if (entry.direction === "incoming" && isOutgoing) continue;
-          const other = isOutgoing ? r.target : r.source;
-          if (!other || seen.has(other.id)) continue;
-          seen.add(other.id);
-          const ct = fsTypesRef.current.find((tp) => tp.key === other.type);
-          children.push({
-            id: other.id,
-            name: other.name,
-            type: other.type,
-            color: ct?.color || "#999",
-            relationType: r.type,
-          });
+
+      if (pick.mode === "show") {
+        // Multi-select Show Dependency: load relations for each picked
+        // (type, direction) pair, dedupe by neighbour, insert as a group.
+        try {
+          const seen = new Set<string>();
+          const children: ExpandChildData[] = [];
+          for (const entry of pick.entries) {
+            const params = new URLSearchParams({
+              card_id: target.cardId,
+              type: entry.relation_type_key,
+            });
+            const rels = await api.get<Relation[]>(`/relations?${params}`);
+            for (const r of rels) {
+              const isOutgoing = r.source_id === target.cardId;
+              if (entry.direction === "outgoing" && !isOutgoing) continue;
+              if (entry.direction === "incoming" && isOutgoing) continue;
+              const other = isOutgoing ? r.target : r.source;
+              if (!other || seen.has(other.id)) continue;
+              seen.add(other.id);
+              children.push({
+                id: other.id,
+                name: other.name,
+                type: other.type,
+                color: colorForType(other.type),
+                relationType: r.type,
+                relationId: r.id,
+              });
+            }
+          }
+          if (children.length === 0) {
+            setSnackMsg(t("editor.noRelatedCards"));
+            return;
+          }
+          children.sort((a, b) => a.name.localeCompare(b.name));
+          const inserted = expandCardGroupAt(frame, target.cellId, children, "right");
+          addExpandOverlay(frame, target.cellId, true, () =>
+            handleCollapseGroup(target.cellId, target.cardId),
+          );
+          for (const child of inserted) {
+            registerCellId(child.cellId);
+            addChevronOverlay(frame, child.cellId, (anchor) =>
+              setExpandMenuTarget({ cellId: child.cellId, cardId: child.cardId, anchor }),
+            );
+          }
+        } catch {
+          setSnackMsg(t("editor.errors.loadRelationsFailed"));
         }
-        if (children.length === 0) {
-          setSnackMsg(t("editor.noRelatedCards"));
+        return;
+      }
+
+      if (pick.mode === "drill_down") {
+        // Container the current cell with the picked hierarchy children
+        // nested inside. The card itself stays linked to its backend card
+        // — only its visual shape changes.
+        const hChildren: HierarchyChild[] = pick.children.map((c) => ({
+          id: c.id,
+          name: c.name,
+          type: c.type,
+          color: colorForType(c.type),
+        }));
+        const inserted = drillDownInto(frame, target.cellId, hChildren);
+        if (inserted.length === 0) {
+          setSnackMsg(t("editor.noChildren"));
           return;
         }
-        children.sort((a, b) => a.name.localeCompare(b.name));
-        const placement =
-          mode === "show" ? "right" : mode === "drill_down" ? "below" : "above";
-        const inserted = expandCardGroupAt(frame, target.cellId, children, placement);
-        // Bind chevrons + collapse on the parent + new neighbours so the
-        // user can keep exploring.
-        addExpandOverlay(frame, target.cellId, true, () =>
-          handleCollapseGroup(target.cellId, target.cardId),
-        );
         for (const child of inserted) {
+          registerCellId(child.cellId);
+          // Each inner child gets its own chevron so the user can keep
+          // exploring downward from the container.
           addChevronOverlay(frame, child.cellId, (anchor) =>
             setExpandMenuTarget({ cellId: child.cellId, cardId: child.cardId, anchor }),
           );
         }
-      } catch {
-        setSnackMsg(t("editor.errors.loadRelationsFailed"));
+        return;
+      }
+
+      if (pick.mode === "roll_up") {
+        const parentColor = colorForType(pick.parent.type);
+        const siblings = pick.siblings.map((s) => ({
+          cellId: null,
+          card: {
+            id: s.id,
+            name: s.name,
+            type: s.type,
+            color: colorForType(s.type),
+          },
+        }));
+        const result = rollUpInto(
+          frame,
+          target.cellId,
+          {
+            id: pick.parent.id,
+            name: pick.parent.name,
+            type: pick.parent.type,
+            color: parentColor,
+          },
+          siblings,
+        );
+        if (!result) {
+          setSnackMsg(t("editor.errors.editorNotReady"));
+          return;
+        }
+        registerCellId(result.parentCellId);
+        // The container itself can still be drilled / rolled — chevron on
+        // the header.
+        addChevronOverlay(frame, result.parentCellId, (anchor) =>
+          setExpandMenuTarget({
+            cellId: result.parentCellId,
+            cardId: pick.parent.id,
+            anchor,
+          }),
+        );
+        for (const child of result.insertedSiblings) {
+          registerCellId(child.cellId);
+          addChevronOverlay(frame, child.cellId, (anchor) =>
+            setExpandMenuTarget({ cellId: child.cellId, cardId: child.cardId, anchor }),
+          );
+        }
       }
     },
-    [t, handleCollapseGroup],
+    [t, handleCollapseGroup, colorForType, registerCellId],
   );
 
   /** Clear local caches and re-fetch relations from inventory. */
@@ -694,6 +805,7 @@ export default function DiagramEditor() {
               type: other.type,
               color: ct?.color || "#999",
               relationType: r.type,
+              relationId: r.id,
             });
           }
           if (children.length === 0) {
@@ -722,6 +834,15 @@ export default function DiagramEditor() {
   /* ---------- Cell lifecycle (dedup paste + tombstone deletes) ---------- */
 
   const lifecycleAttachedRef = useRef(false);
+  const lifecycleScanIdRef = useRef<number | null>(null);
+  useEffect(() => {
+    return () => {
+      if (lifecycleScanIdRef.current != null) {
+        window.clearInterval(lifecycleScanIdRef.current);
+        lifecycleScanIdRef.current = null;
+      }
+    };
+  }, []);
 
   const handleDuplicate = useCallback(
     (cellId: string, sharedCardId: string, wasPending: boolean) => {
@@ -757,24 +878,85 @@ export default function DiagramEditor() {
       }
       return next;
     });
-    setPendingRelRemovals((prev) => {
-      const next = [...prev];
-      for (const t of tombstones) {
-        if (t.kind !== "relation") continue;
-        if (!next.some((existing) => existing.edgeCellId === t.edgeCellId)) next.push(t);
-      }
-      return next;
+    // Relations get the explicit confirmation step instead of dropping
+    // straight into the tombstone bucket. The dialog lets the user abort
+    // (re-insert the edge) before the relation is touched in inventory.
+    const relTombstones = tombstones.filter(
+      (t): t is RemovedRelationTombstone => t.kind === "relation",
+    );
+    if (relTombstones.length > 0) {
+      setDeleteRelationQueue((prev) => {
+        const next = [...prev];
+        for (const t of relTombstones) {
+          if (!next.some((existing) => existing.edgeCellId === t.edgeCellId)) {
+            next.push(t);
+          }
+        }
+        return next;
+      });
+    }
+  }, []);
+
+  /** "Yes, also delete from inventory" — drop the relation into the
+   *  pending-deletions bucket so Sync All fires DELETE /relations/{id}. */
+  const handleConfirmDeleteRelation = useCallback(() => {
+    setDeleteRelationQueue((prev) => {
+      if (prev.length === 0) return prev;
+      const [head, ...rest] = prev;
+      setPendingRelRemovals((curr) =>
+        curr.some((c) => c.edgeCellId === head.edgeCellId) ? curr : [...curr, head],
+      );
+      return rest;
     });
   }, []);
+
+  /** "No, abort" — re-insert the edge in place and forget the tombstone. */
+  const handleCancelDeleteRelation = useCallback(() => {
+    setDeleteRelationQueue((prev) => {
+      if (prev.length === 0) return prev;
+      const [head, ...rest] = prev;
+      const frame = iframeRef.current;
+      if (frame) {
+        const ok = restoreRemovedEdge(frame, head);
+        if (!ok) {
+          // Endpoints no longer exist on the canvas — we can't put the
+          // edge back. Tell the user; the relation stays in inventory
+          // either way because we never queued the tombstone.
+          setSnackMsg(t("editor.errors.restoreEdgeFailed"));
+        }
+      }
+      return rest;
+    });
+  }, [t]);
 
   const attachLifecycleListenersOnce = useCallback(
     (frame: HTMLIFrameElement) => {
       if (lifecycleAttachedRef.current) return;
       lifecycleAttachedRef.current = true;
+      // Seed the registered-cells set from whatever was in the saved XML —
+      // those cells are NOT pastes even though we didn't insert them this
+      // session.
+      for (const id of collectExistingCardCellIds(frame)) {
+        registeredCellIdsRef.current.add(id);
+      }
       attachCellLifecycleListeners(frame, {
         onDuplicate: handleDuplicate,
         onRemoved: handleTombstones,
+        isRegistered: (cellId) => registeredCellIdsRef.current.has(cellId),
       });
+      // Safety-net periodic scan — covers DrawIO clipboard paths that
+      // don't surface through CELLS_ADDED to our listener.
+      const scanId = window.setInterval(() => {
+        const f = iframeRef.current;
+        if (!f) return;
+        scanForDuplicateCells(
+          f,
+          (cellId) => registeredCellIdsRef.current.has(cellId),
+          handleDuplicate,
+        );
+      }, 750);
+      // Stash the interval id on the ref so we never start two.
+      lifecycleScanIdRef.current = scanId;
     },
     [handleDuplicate, handleTombstones],
   );
@@ -802,6 +984,9 @@ export default function DiagramEditor() {
         });
         if (ok) {
           const targetCellId = relinkTargetCellId;
+          // Register so the periodic dedup-scan doesn't treat this newly
+          // linked cell as a paste.
+          registerCellId(targetCellId);
           addChevronOverlay(frame, targetCellId, (anchor) =>
             setExpandMenuTarget({ cellId: targetCellId, cardId: card.id, anchor }),
           );
@@ -850,6 +1035,7 @@ export default function DiagramEditor() {
         if (ok) {
           const insertedCellId = data.cellId;
           const insertedCardId = c.id;
+          registerCellId(insertedCellId);
           addChevronOverlay(frame, insertedCellId, (anchor) =>
             setExpandMenuTarget({
               cellId: insertedCellId,
@@ -965,6 +1151,10 @@ export default function DiagramEditor() {
           color,
         });
         if (ok) {
+          // The shape was previously a plain DrawIO vertex with no cardId,
+          // so the periodic dedup scan ignored it. Now that it owns a temp
+          // cardId we must register it so paste-detection doesn't fire.
+          registerCellId(convertTargetCellId);
           setSnackMsg(t("editor.convertedPending", { name: data.name }));
           refreshSyncPanel();
         }
@@ -994,6 +1184,7 @@ export default function DiagramEditor() {
       });
 
       if (cellId) {
+        registerCellId(cellId);
         setSnackMsg(t("editor.addedPending", { name: data.name }));
         refreshSyncPanel();
       }
@@ -1830,6 +2021,45 @@ export default function DiagramEditor() {
         onClose={() => setExpandMenuTarget(null)}
         onPick={handleExpandPick}
       />
+
+      {/* Edge-deletion confirmation. One dialog per queued tombstone — we
+          process them serially so the user sees a clear "this one"
+          decision rather than a bulk dropdown. */}
+      <Dialog
+        open={deleteRelationQueue.length > 0}
+        onClose={handleCancelDeleteRelation}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle>{t("editor.deleteRelation.title")}</DialogTitle>
+        <DialogContent>
+          {deleteRelationQueue.length > 0 && (
+            <DialogContentText>
+              {t("editor.deleteRelation.body", {
+                source: deleteRelationQueue[0].sourceName || "?",
+                target: deleteRelationQueue[0].targetName || "?",
+                label:
+                  deleteRelationQueue[0].relationLabel ||
+                  deleteRelationQueue[0].relationType ||
+                  "—",
+              })}
+            </DialogContentText>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCancelDeleteRelation}>
+            {t("editor.deleteRelation.no")}
+          </Button>
+          <Button
+            variant="contained"
+            color="warning"
+            onClick={handleConfirmDeleteRelation}
+            autoFocus
+          >
+            {t("editor.deleteRelation.yes")}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <Snackbar
         open={!!snackMsg}

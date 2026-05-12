@@ -5,6 +5,8 @@ import MenuItem from "@mui/material/MenuItem";
 import ListItemIcon from "@mui/material/ListItemIcon";
 import ListItemText from "@mui/material/ListItemText";
 import Box from "@mui/material/Box";
+import Button from "@mui/material/Button";
+import Checkbox from "@mui/material/Checkbox";
 import Chip from "@mui/material/Chip";
 import Divider from "@mui/material/Divider";
 import CircularProgress from "@mui/material/CircularProgress";
@@ -19,8 +21,22 @@ export interface RelationSummaryEntry {
   count: number;
 }
 
+export interface RelationSummaryHierarchy {
+  children_count: number;
+  parent_id: string | null;
+  parent_name: string | null;
+  parent_type: string | null;
+}
+
 interface RelationSummaryResponse {
   by_type: RelationSummaryEntry[];
+  hierarchy: RelationSummaryHierarchy;
+}
+
+export interface HierarchyChildRef {
+  id: string;
+  name: string;
+  type: string;
 }
 
 export interface ExpandMenuTarget {
@@ -30,36 +46,73 @@ export interface ExpandMenuTarget {
   anchor: { x: number; y: number };
 }
 
-export type ExpandMode = "show" | "drill_down" | "roll_up";
+export interface ShowDependencyPick {
+  mode: "show";
+  entries: RelationSummaryEntry[];
+}
+
+export interface DrillDownPick {
+  mode: "drill_down";
+  /** Selected children to nest inside the current card. */
+  children: HierarchyChildRef[];
+}
+
+export interface RollUpPick {
+  mode: "roll_up";
+  parent: { id: string; name: string; type: string };
+  /** Selected siblings (cards under the same parent) to nest alongside
+   *  the current card. */
+  siblings: HierarchyChildRef[];
+}
+
+export type ExpandMenuPick = ShowDependencyPick | DrillDownPick | RollUpPick;
 
 interface Props {
   target: ExpandMenuTarget | null;
   onClose: () => void;
-  /** Fired when the user picks a relation type. The editor handles the
-   *  fetch + insertion based on the chosen mode (right/below/above). */
-  onPick: (
-    mode: ExpandMode,
-    entry: RelationSummaryEntry,
-    target: ExpandMenuTarget,
-  ) => void;
+  /** Fired when the user commits one of the three sections. The editor
+   *  decides how to render based on `mode`. */
+  onPick: (pick: ExpandMenuPick, target: ExpandMenuTarget) => void;
 }
 
 /**
- * LeanIX-style expand menu. Shows three sections — Show Dependency,
- * Drill-Down, Roll-Up — each with one entry per (relation_type, direction)
- * pair carrying a live count from /cards/{id}/relation-summary.
+ * LeanIX-style expand menu rewritten for the new semantics:
  *
- * Entries with count 0 are greyed out (no neighbours to expand).
+ *   - **Show Dependency** is a checklist of relation types; the user picks
+ *     one or many and clicks Insert.
+ *   - **Drill-Down** is a checklist of the card's hierarchy children. The
+ *     editor turns the current cell into a container holding the picked
+ *     children.
+ *   - **Roll-Up** is a checklist of the card's parent + siblings (cards
+ *     sharing the same parent). The editor wraps the current cell + picked
+ *     siblings inside a new parent container.
+ *
+ * Counts come from `GET /cards/{id}/relation-summary` and Drill-Down/Roll-Up
+ * details from `GET /cards/{id}/hierarchy` + `GET /cards?parent_id=…`.
  */
 export default function ExpandMenu({ target, onClose, onPick }: Props) {
   const { t } = useTranslation(["diagrams", "common"]);
   const [loading, setLoading] = useState(false);
   const [entries, setEntries] = useState<RelationSummaryEntry[] | null>(null);
+  const [hierarchy, setHierarchy] = useState<RelationSummaryHierarchy | null>(null);
+  const [children, setChildren] = useState<HierarchyChildRef[]>([]);
+  const [siblings, setSiblings] = useState<HierarchyChildRef[]>([]);
   const [error, setError] = useState<string | null>(null);
+
+  // Per-section selections.
+  const [selectedDeps, setSelectedDeps] = useState<Set<string>>(new Set());
+  const [selectedChildren, setSelectedChildren] = useState<Set<string>>(new Set());
+  const [selectedSiblings, setSelectedSiblings] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (!target) {
       setEntries(null);
+      setHierarchy(null);
+      setChildren([]);
+      setSiblings([]);
+      setSelectedDeps(new Set());
+      setSelectedChildren(new Set());
+      setSelectedSiblings(new Set());
       setError(null);
       return;
     }
@@ -68,9 +121,43 @@ export default function ExpandMenu({ target, onClose, onPick }: Props) {
     setError(null);
     api
       .get<RelationSummaryResponse>(`/cards/${target.cardId}/relation-summary`)
-      .then((r) => {
+      .then(async (r) => {
         if (cancelled) return;
         setEntries(r.by_type);
+        setHierarchy(r.hierarchy);
+
+        // Fetch children + siblings in parallel when relevant — keeps the
+        // menu snappy even on cards with deep hierarchies.
+        const fetches: Promise<unknown>[] = [];
+        if (r.hierarchy.children_count > 0) {
+          fetches.push(
+            api
+              .get<{
+                ancestors: HierarchyChildRef[];
+                children: HierarchyChildRef[];
+                level: number;
+              }>(`/cards/${target.cardId}/hierarchy`)
+              .then((h) => {
+                if (cancelled) return;
+                setChildren(h.children);
+              }),
+          );
+        }
+        if (r.hierarchy.parent_id) {
+          fetches.push(
+            api
+              .get<{ items: HierarchyChildRef[] }>(
+                `/cards?parent_id=${r.hierarchy.parent_id}&page_size=200`,
+              )
+              .then((resp) => {
+                if (cancelled) return;
+                // The endpoint returns every child under the parent —
+                // exclude the current card so the user sees only siblings.
+                setSiblings(resp.items.filter((c) => c.id !== target.cardId));
+              }),
+          );
+        }
+        await Promise.all(fetches);
       })
       .catch(() => {
         if (cancelled) return;
@@ -84,55 +171,73 @@ export default function ExpandMenu({ target, onClose, onPick }: Props) {
     };
   }, [target, t]);
 
-  const total = useMemo(
+  const totalDeps = useMemo(
     () => entries?.reduce((sum, e) => sum + e.count, 0) ?? 0,
     [entries],
   );
 
   if (!target) return null;
 
-  const renderRow = (mode: ExpandMode, entry: RelationSummaryEntry) => {
-    const disabled = entry.count === 0;
-    return (
-      <MenuItem
-        key={`${mode}-${entry.direction}-${entry.relation_type_key}`}
-        disabled={disabled}
-        onClick={() => {
-          onPick(mode, entry, target);
-          onClose();
-        }}
-        sx={{ minWidth: 240 }}
-      >
-        <ListItemIcon sx={{ minWidth: 28 }}>
-          <MaterialSymbol
-            icon={
-              entry.direction === "outgoing" ? "arrow_outward" : "arrow_downward"
-            }
-            size={16}
-            color={disabled ? "#bbb" : "#1976d2"}
-          />
-        </ListItemIcon>
-        <ListItemText
-          primary={entry.label}
-          secondary={
-            entry.peer_type_key
-              ? t("editor.expandMenu.viaType", { type: entry.peer_type_key })
-              : undefined
-          }
-        />
-        <Chip
-          size="small"
-          label={entry.count}
-          sx={{
-            ml: 1,
-            height: 20,
-            fontSize: "0.7rem",
-            bgcolor: disabled ? "transparent" : "primary.light",
-            color: disabled ? "text.disabled" : "primary.contrastText",
-          }}
-        />
-      </MenuItem>
+  const toggleDep = (entry: RelationSummaryEntry) => {
+    if (entry.count === 0) return;
+    const k = `${entry.direction}:${entry.relation_type_key}`;
+    setSelectedDeps((prev) => {
+      const next = new Set(prev);
+      if (next.has(k)) next.delete(k);
+      else next.add(k);
+      return next;
+    });
+  };
+
+  const toggleChild = (id: string) => {
+    setSelectedChildren((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSibling = (id: string) => {
+    setSelectedSiblings((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const handleCommitDeps = () => {
+    if (!entries || selectedDeps.size === 0) return;
+    const picks = entries.filter((e) =>
+      selectedDeps.has(`${e.direction}:${e.relation_type_key}`),
     );
+    if (picks.length === 0) return;
+    onPick({ mode: "show", entries: picks }, target);
+    onClose();
+  };
+
+  const handleCommitDrillDown = () => {
+    if (children.length === 0) return;
+    const picks = selectedChildren.size > 0
+      ? children.filter((c) => selectedChildren.has(c.id))
+      : children;
+    onPick({ mode: "drill_down", children: picks }, target);
+    onClose();
+  };
+
+  const handleCommitRollUp = () => {
+    if (!hierarchy?.parent_id || !hierarchy.parent_name) return;
+    const parent = {
+      id: hierarchy.parent_id,
+      name: hierarchy.parent_name,
+      type: hierarchy.parent_type || "",
+    };
+    const picks = selectedSiblings.size > 0
+      ? siblings.filter((s) => selectedSiblings.has(s.id))
+      : siblings;
+    onPick({ mode: "roll_up", parent, siblings: picks }, target);
+    onClose();
   };
 
   return (
@@ -141,16 +246,21 @@ export default function ExpandMenu({ target, onClose, onPick }: Props) {
       onClose={onClose}
       anchorReference="anchorPosition"
       anchorPosition={{ top: target.anchor.y, left: target.anchor.x }}
-      slotProps={{
-        paper: { sx: { maxHeight: 480, overflow: "auto" } },
-      }}
+      slotProps={{ paper: { sx: { width: 320, maxHeight: 560, overflow: "auto" } } }}
     >
-      <Box sx={{ px: 2, py: 1.25, borderBottom: "1px solid", borderColor: "divider" }}>
+      <Box
+        sx={{
+          px: 2,
+          py: 1.25,
+          borderBottom: "1px solid",
+          borderColor: "divider",
+        }}
+      >
         <Box sx={{ fontWeight: 700, fontSize: "0.85rem" }}>
           {t("editor.expandMenu.title")}
         </Box>
         <Box sx={{ fontSize: "0.72rem", color: "text.secondary" }}>
-          {t("editor.expandMenu.summary", { count: total })}
+          {t("editor.expandMenu.summary", { count: totalDeps })}
         </Box>
       </Box>
 
@@ -166,37 +276,204 @@ export default function ExpandMenu({ target, onClose, onPick }: Props) {
         </Box>
       )}
 
-      {!loading && !error && entries && entries.length === 0 && (
-        <Box sx={{ px: 2, py: 1.5, color: "text.disabled", fontSize: "0.8rem" }}>
-          {t("editor.expandMenu.empty")}
-        </Box>
-      )}
-
-      {!loading && !error && entries && entries.length > 0 && (
+      {!loading && !error && (
         <>
-          <SectionHeader
-            icon="hub"
-            label={t("editor.expandMenu.showDependency")}
-          />
-          {entries.map((e) => renderRow("show", e))}
+          {/* ── Show Dependency (multi-select) ────────────────────── */}
+          <SectionHeader icon="hub" label={t("editor.expandMenu.showDependency")} />
+          {entries && entries.length === 0 && (
+            <Box sx={{ px: 2, py: 1, color: "text.disabled", fontSize: "0.8rem" }}>
+              {t("editor.expandMenu.empty")}
+            </Box>
+          )}
+          {entries?.map((entry) => {
+            const k = `${entry.direction}:${entry.relation_type_key}`;
+            const disabled = entry.count === 0;
+            const selected = selectedDeps.has(k);
+            return (
+              <MenuItem
+                key={k}
+                disabled={disabled}
+                onClick={() => toggleDep(entry)}
+                sx={{ minWidth: 260 }}
+              >
+                <Checkbox
+                  size="small"
+                  checked={selected}
+                  disabled={disabled}
+                  onChange={() => toggleDep(entry)}
+                  onClick={(e) => e.stopPropagation()}
+                  sx={{ p: 0.5 }}
+                />
+                <ListItemIcon sx={{ minWidth: 24 }}>
+                  <MaterialSymbol
+                    icon={
+                      entry.direction === "outgoing"
+                        ? "arrow_outward"
+                        : "arrow_downward"
+                    }
+                    size={14}
+                    color={disabled ? "#bbb" : "#1976d2"}
+                  />
+                </ListItemIcon>
+                <ListItemText
+                  primary={entry.label}
+                  secondary={
+                    entry.peer_type_key
+                      ? t("editor.expandMenu.viaType", { type: entry.peer_type_key })
+                      : undefined
+                  }
+                />
+                <Chip
+                  size="small"
+                  label={entry.count}
+                  sx={{
+                    ml: 1,
+                    height: 20,
+                    fontSize: "0.7rem",
+                    bgcolor: disabled ? "transparent" : "primary.light",
+                    color: disabled ? "text.disabled" : "primary.contrastText",
+                  }}
+                />
+              </MenuItem>
+            );
+          })}
+          <Box sx={{ display: "flex", justifyContent: "flex-end", px: 2, py: 0.75 }}>
+            <Button
+              size="small"
+              variant="contained"
+              disabled={selectedDeps.size === 0}
+              onClick={handleCommitDeps}
+            >
+              {t("editor.expandMenu.insertDeps", { count: selectedDeps.size })}
+            </Button>
+          </Box>
 
+          {/* ── Drill-Down (children) ─────────────────────────────── */}
           <Divider sx={{ my: 0.5 }} />
           <SectionHeader
             icon="south"
             label={t("editor.expandMenu.drillDown")}
+            badge={hierarchy?.children_count}
           />
-          {entries.map((e) => renderRow("drill_down", e))}
+          {hierarchy && hierarchy.children_count === 0 && (
+            <Box sx={{ px: 2, py: 1, color: "text.disabled", fontSize: "0.8rem" }}>
+              {t("editor.expandMenu.noChildren")}
+            </Box>
+          )}
+          {hierarchy && hierarchy.children_count > 0 && children.length === 0 && (
+            <Box sx={{ display: "flex", justifyContent: "center", py: 1 }}>
+              <CircularProgress size={14} />
+            </Box>
+          )}
+          {children.map((c) => {
+            const selected = selectedChildren.has(c.id);
+            return (
+              <MenuItem
+                key={c.id}
+                onClick={() => toggleChild(c.id)}
+                sx={{ minWidth: 260 }}
+              >
+                <Checkbox
+                  size="small"
+                  checked={selected}
+                  onChange={() => toggleChild(c.id)}
+                  onClick={(e) => e.stopPropagation()}
+                  sx={{ p: 0.5 }}
+                />
+                <ListItemText
+                  primary={c.name}
+                  secondary={c.type}
+                  primaryTypographyProps={{ noWrap: true, fontSize: "0.85rem" }}
+                  secondaryTypographyProps={{ fontSize: "0.7rem" }}
+                />
+              </MenuItem>
+            );
+          })}
+          {children.length > 0 && (
+            <Box sx={{ display: "flex", justifyContent: "flex-end", px: 2, py: 0.75 }}>
+              <Button
+                size="small"
+                variant="contained"
+                onClick={handleCommitDrillDown}
+              >
+                {selectedChildren.size > 0
+                  ? t("editor.expandMenu.drillDownSelected", {
+                      count: selectedChildren.size,
+                    })
+                  : t("editor.expandMenu.drillDownAll", { count: children.length })}
+              </Button>
+            </Box>
+          )}
 
+          {/* ── Roll-Up (parent + siblings) ───────────────────────── */}
           <Divider sx={{ my: 0.5 }} />
           <SectionHeader icon="north" label={t("editor.expandMenu.rollUp")} />
-          {entries.map((e) => renderRow("roll_up", e))}
+          {!hierarchy?.parent_id && (
+            <Box sx={{ px: 2, py: 1, color: "text.disabled", fontSize: "0.8rem" }}>
+              {t("editor.expandMenu.noParent")}
+            </Box>
+          )}
+          {hierarchy?.parent_id && (
+            <Box sx={{ px: 2, py: 0.5, fontSize: "0.78rem", color: "text.secondary" }}>
+              {t("editor.expandMenu.parentLabel", {
+                name: hierarchy.parent_name || "?",
+              })}
+            </Box>
+          )}
+          {siblings.map((s) => {
+            const selected = selectedSiblings.has(s.id);
+            return (
+              <MenuItem
+                key={s.id}
+                onClick={() => toggleSibling(s.id)}
+                sx={{ minWidth: 260 }}
+              >
+                <Checkbox
+                  size="small"
+                  checked={selected}
+                  onChange={() => toggleSibling(s.id)}
+                  onClick={(e) => e.stopPropagation()}
+                  sx={{ p: 0.5 }}
+                />
+                <ListItemText
+                  primary={s.name}
+                  secondary={s.type}
+                  primaryTypographyProps={{ noWrap: true, fontSize: "0.85rem" }}
+                  secondaryTypographyProps={{ fontSize: "0.7rem" }}
+                />
+              </MenuItem>
+            );
+          })}
+          {hierarchy?.parent_id && (
+            <Box sx={{ display: "flex", justifyContent: "flex-end", px: 2, py: 0.75 }}>
+              <Button
+                size="small"
+                variant="contained"
+                onClick={handleCommitRollUp}
+              >
+                {selectedSiblings.size > 0
+                  ? t("editor.expandMenu.rollUpSelected", {
+                      count: selectedSiblings.size,
+                    })
+                  : t("editor.expandMenu.rollUpAlone")}
+              </Button>
+            </Box>
+          )}
         </>
       )}
     </Menu>
   );
 }
 
-function SectionHeader({ icon, label }: { icon: string; label: string }) {
+function SectionHeader({
+  icon,
+  label,
+  badge,
+}: {
+  icon: string;
+  label: string;
+  badge?: number;
+}) {
   return (
     <Box
       sx={{
@@ -213,6 +490,13 @@ function SectionHeader({ icon, label }: { icon: string; label: string }) {
     >
       <MaterialSymbol icon={icon} size={14} color="#666" />
       {label}
+      {badge != null && badge > 0 && (
+        <Chip
+          size="small"
+          label={badge}
+          sx={{ ml: "auto", height: 18, fontSize: "0.65rem" }}
+        />
+      )}
     </Box>
   );
 }
