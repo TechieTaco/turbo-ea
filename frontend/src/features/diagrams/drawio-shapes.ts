@@ -898,6 +898,7 @@ export interface RemovedRelationTombstone {
   edgeCellId: string;
   relationId: string;
   relationType: string;
+  /** Human-readable label for the confirmation dialog. */
   relationLabel: string;
   sourceName: string;
   targetName: string;
@@ -906,6 +907,8 @@ export interface RemovedRelationTombstone {
   sourceCellId: string | null;
   targetCellId: string | null;
   style: string;
+  /** Actual visible text on the edge before deletion. */
+  edgeLabel?: string;
 }
 
 export type RemovedTombstone = RemovedCardTombstone | RemovedRelationTombstone;
@@ -913,6 +916,7 @@ export type RemovedTombstone = RemovedCardTombstone | RemovedRelationTombstone;
 export interface ResolvedRelationMeta {
   relationId: string;
   relationType: string;
+  /** Human-readable label for the confirmation dialog (e.g. "uses"). */
   relationLabel: string;
   sourceName: string;
   targetName: string;
@@ -925,6 +929,11 @@ export interface ResolvedRelationMeta {
   /** Style captured at registration time; falls back to a sane
    *  default in restoreRemovedEdge when missing. */
   style?: string;
+  /** The actual visible text on the edge at registration time. Used
+   *  by restoreRemovedEdge so the re-inserted edge looks identical to
+   *  the original — Show-Dependency edges normally have label="" and
+   *  shouldn't suddenly show the relation type key after a restore. */
+  edgeLabel?: string;
 }
 
 export interface CellLifecycleHandlers {
@@ -1009,10 +1018,15 @@ export function attachCellLifecycleListeners(
         let relationId: string | null = null;
         let relationType = "";
         let relationLabel = "";
+        let edgeLabel: string | undefined;
+        let metaSrcCellId: string | null = null;
+        let metaTgtCellId: string | null = null;
+        let metaStyle: string | undefined;
         if (value?.getAttribute) {
           relationId = value.getAttribute("relationId");
           relationType = value.getAttribute("relationType") || "";
-          relationLabel = value.getAttribute("label") || relationType;
+          edgeLabel = value.getAttribute("label") || "";
+          relationLabel = edgeLabel || relationType;
         }
         let srcName = "";
         let tgtName = "";
@@ -1024,6 +1038,10 @@ export function attachCellLifecycleListeners(
             relationLabel = meta.relationLabel;
             srcName = meta.sourceName;
             tgtName = meta.targetName;
+            edgeLabel = meta.edgeLabel;
+            metaSrcCellId = meta.sourceCellId ?? null;
+            metaTgtCellId = meta.targetCellId ?? null;
+            metaStyle = meta.style;
           }
         }
         if (!relationId) continue;
@@ -1039,7 +1057,7 @@ export function attachCellLifecycleListeners(
           tgt?.value?.getAttribute?.("label") ||
           (typeof tgt?.value === "string" ? tgt.value : "") ||
           "";
-        const style = model.getStyle(cell) || "";
+        const liveStyle = String(model.getStyle(cell) || "");
         tombstones.push({
           kind: "relation",
           edgeCellId: cell.id,
@@ -1048,9 +1066,12 @@ export function attachCellLifecycleListeners(
           relationLabel,
           sourceName: String(srcLabel),
           targetName: String(tgtLabel),
-          sourceCellId: src?.id ?? null,
-          targetCellId: tgt?.id ?? null,
-          style: String(style),
+          sourceCellId: src?.id ?? metaSrcCellId,
+          targetCellId: tgt?.id ?? metaTgtCellId,
+          // Prefer the live style (still on the cell at removal time);
+          // fall back to whatever the side-table captured at register.
+          style: liveStyle || metaStyle || "",
+          edgeLabel,
         });
         continue;
       }
@@ -1150,7 +1171,11 @@ export function restoreRemovedEdge(
   try {
     const xmlDoc = win.mxUtils.createXmlDocument();
     const obj = xmlDoc.createElement("object");
-    obj.setAttribute("label", tombstone.relationLabel);
+    // The visible edge label is the one captured at registration time,
+    // NOT the human-readable relationLabel used by the dialog. Show-
+    // Dependency edges have label="" and shouldn't suddenly show the
+    // relation type key on restore.
+    obj.setAttribute("label", tombstone.edgeLabel ?? "");
     if (tombstone.relationType) obj.setAttribute("relationType", tombstone.relationType);
     obj.setAttribute("relationId", tombstone.relationId);
     graph.insertEdge(
@@ -1186,16 +1211,41 @@ export function collectLiveEdgeCellIds(iframe: HTMLIFrameElement): Set<string> {
   return out;
 }
 
-/** Snapshot a single edge before deletion — used to surface human-
- *  readable source/target names in the confirmation dialog. */
+/** Snapshot an edge's visible state — endpoints, style, and label —
+ *  so the editor can restore the same edge later via
+ *  `restoreRemovedEdge`. Returns empty defaults if the edge has been
+ *  detached from the model already. */
 export function describeEdgeEndpoints(
   iframe: HTMLIFrameElement,
   edgeCellId: string,
-): { sourceName: string; targetName: string; sourceCellId: string | null; targetCellId: string | null } {
+): {
+  sourceName: string;
+  targetName: string;
+  sourceCellId: string | null;
+  targetCellId: string | null;
+  style: string;
+  label: string;
+} {
   const ctx = getMxGraph(iframe);
-  if (!ctx) return { sourceName: "", targetName: "", sourceCellId: null, targetCellId: null };
+  if (!ctx)
+    return {
+      sourceName: "",
+      targetName: "",
+      sourceCellId: null,
+      targetCellId: null,
+      style: "",
+      label: "",
+    };
   const cell = ctx.graph.getModel().getCell(edgeCellId);
-  if (!cell) return { sourceName: "", targetName: "", sourceCellId: null, targetCellId: null };
+  if (!cell)
+    return {
+      sourceName: "",
+      targetName: "",
+      sourceCellId: null,
+      targetCellId: null,
+      style: "",
+      label: "",
+    };
   const labelOf = (c: { value?: { getAttribute?: (k: string) => string | null } | string | null } | null | undefined) => {
     if (!c?.value) return "";
     if (typeof c.value === "string") return c.value;
@@ -1206,6 +1256,8 @@ export function describeEdgeEndpoints(
     targetName: labelOf(cell.target),
     sourceCellId: cell.source?.id ?? null,
     targetCellId: cell.target?.id ?? null,
+    style: String(ctx.graph.getModel().getStyle(cell) || ""),
+    label: labelOf(cell),
   };
 }
 

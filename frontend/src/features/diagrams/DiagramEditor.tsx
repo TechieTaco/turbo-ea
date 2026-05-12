@@ -677,6 +677,18 @@ export default function DiagramEditor() {
     return fsTypesRef.current.find((tp) => tp.key === typeKey)?.color || "#999";
   }, []);
 
+  /** Resolve a relation-type key (e.g. "appUsesItc") to its human-readable
+   *  label (e.g. "uses") for the delete-confirmation dialog. Falls back
+   *  to the raw key when the metamodel hasn't loaded yet. */
+  const humanRelationLabel = useCallback(
+    (relationTypeKey: string): string => {
+      if (!relationTypeKey) return "";
+      const rt = relTypesRef.current.find((x) => x.key === relationTypeKey);
+      return rt?.label || relationTypeKey;
+    },
+    [],
+  );
+
   /** Handle a commit from the ExpandMenu. Three branches:
    *    - show     : pick one or many relation types; insert matching
    *                 neighbours to the right of the current card.
@@ -751,14 +763,22 @@ export default function DiagramEditor() {
           for (const child of inserted) {
             registerCellId(child.cellId);
             if (child.edgeCellId && child.relationId) {
+              // Snapshot the live edge state so a future delete +
+              // restore puts the edge back with the same colour and
+              // label. Show-Dependency edges have label="" so the
+              // restored edge won't grow phantom text either.
+              const live = describeEdgeEndpoints(frame, child.edgeCellId);
+              const humanLabel = humanRelationLabel(child.relationType || "");
               registerEdgeRelation(child.edgeCellId, {
                 relationId: child.relationId,
                 relationType: child.relationType || "",
-                relationLabel: child.relationType || "",
+                relationLabel: humanLabel,
                 sourceName,
                 targetName: childNameById.get(child.cardId) || "",
                 sourceCellId: target.cellId,
                 targetCellId: child.cellId,
+                style: live.style,
+                edgeLabel: live.label,
               });
             }
             addChevronOverlay(frame, child.cellId, (anchor) =>
@@ -1079,6 +1099,7 @@ export default function DiagramEditor() {
             sourceCellId: head.sourceCellId,
             targetCellId: head.targetCellId,
             style: head.style,
+            edgeLabel: head.edgeLabel,
           });
         }
       }
@@ -1163,6 +1184,7 @@ export default function DiagramEditor() {
             sourceCellId: meta.sourceCellId ?? null,
             targetCellId: meta.targetCellId ?? null,
             style: meta.style ?? "",
+            edgeLabel: meta.edgeLabel,
           })),
         );
       }, 750);
@@ -1504,18 +1526,20 @@ export default function DiagramEditor() {
 
         markEdgeSynced(frame, edgeCellId, "#666", created.id);
         // Mirror the new relation into the side-table so a later canvas
-        // delete still reaches the confirm dialog. The endpoint cellIds
-        // come from the live cell so the abort-deletion path can
-        // re-insert the edge between the same vertices.
+        // delete still reaches the confirm dialog. The endpoint cellIds,
+        // live style and visible label come from the cell so the
+        // abort-deletion path can re-insert the edge identically.
         const endpoints = describeEdgeEndpoints(frame, edgeCellId);
         registerEdgeRelation(edgeCellId, {
           relationId: created.id,
           relationType: rel.relationType,
-          relationLabel: rel.relationLabel,
+          relationLabel: humanRelationLabel(rel.relationType) || rel.relationLabel,
           sourceName: rel.sourceName,
           targetName: rel.targetName,
           sourceCellId: endpoints.sourceCellId,
           targetCellId: endpoints.targetCellId,
+          style: endpoints.style,
+          edgeLabel: endpoints.label,
         });
         setSnackMsg(t("editor.relationPushed", { label: rel.relationLabel }));
         refreshSyncPanel();
@@ -1575,11 +1599,13 @@ export default function DiagramEditor() {
           registerEdgeRelation(r.edgeCellId, {
             relationId: created.id,
             relationType: r.relationType,
-            relationLabel: r.relationLabel,
+            relationLabel: humanRelationLabel(r.relationType) || r.relationLabel,
             sourceName: r.sourceName,
             targetName: r.targetName,
             sourceCellId: endpoints.sourceCellId,
             targetCellId: endpoints.targetCellId,
+            style: endpoints.style,
+            edgeLabel: endpoints.label,
           });
         } catch {
           setSnackMsg(t("editor.errors.syncRelationFailed", { label: r.relationLabel }));
@@ -1672,6 +1698,7 @@ export default function DiagramEditor() {
           sourceCellId: target.sourceCellId,
           targetCellId: target.targetCellId,
           style: target.style,
+          edgeLabel: target.edgeLabel,
         });
         setSnackMsg(t("editor.edgeRestored"));
       } else {
