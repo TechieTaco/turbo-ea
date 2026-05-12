@@ -27060,7 +27060,7 @@
     },
     "/api/v1/users/invitations": {
       "get": {
-        "description": "Admin only \u2014 list all pending invitations.",
+        "description": "Admin only \u2014 list pending invitations.\n\nExcludes invitations where a User with the same email already exists in an\nactive state (has a password hash or a linked SSO subject_id). This way the\nlist reflects the truth regardless of which path the user took to accept \u2014\nset-password link, admin-set password via PATCH /users/{id}, or SSO sign-in\n(#539). The lifecycle endpoints that consume invitations still delete the\nunderlying rows so the DB stays tidy; the filter here is a defensive net.",
         "operationId": "list_invitations_api_v1_users_invitations_get",
         "responses": {
           "200": {

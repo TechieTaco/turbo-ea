@@ -318,12 +318,19 @@ async def create_user(
         )
 
     pw_hash = hash_password(body.password) if body.password else None
+    # When SSO is enabled and the admin invites without a password, the user
+    # will sign in via SSO. Mark the User as auth_provider="sso" up front so
+    # the SSO callback's "link existing user" branch can attach the
+    # `sso_subject_id` on first sign-in — otherwise the callback would hit
+    # the auth_provider=="local" guard and refuse with 409.
+    auth_provider = "sso" if not body.password else "local"
 
     u = User(
         email=email,
         display_name=body.display_name,
         password_hash=pw_hash,
         role=body.role,
+        auth_provider=auth_provider,
     )
     db.add(u)
 

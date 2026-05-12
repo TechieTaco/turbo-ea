@@ -18,6 +18,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - **Login error no longer points to a non-existent email setup link.** When a local account has no `password_hash`, `POST /auth/login` now returns a generic 401 (instead of *"Password not set yet. Check your email for the setup link."*, which referenced a flow that no longer exists for new accounts).
 - **Invite email template simplified.** The branch that sent a "click here to set your password" link is removed — when SSO is enabled the email points users to sign in, when SSO is disabled it confirms the password has been set by the admin.
 - **Frontend invite dialog requires a password when SSO is disabled** — the password field is marked required, blocks submit on empty, and the help text reflects the new flow in all 8 supported locales.
+- **SSO-mode invites without a password now set `auth_provider="sso"` on the new User** (was `"local"` by default). Without this, the SSO callback's "link existing user" branch refused to attach a `sso_subject_id` with the `auth_provider == "local"` guard, so invited users could never actually accept the invitation. Local-mode invites (password supplied) still get `auth_provider="local"` as before.
+
+### Backend
+- **Migration `076_purge_stale_sso_invitations`** — one-shot cleanup that deletes `sso_invitations` rows whose email matches a User that already has a `password_hash` or a linked `sso_subject_id`. Removes the bloat accumulated by every install that ran on the pre-fix code paths. Idempotent (re-running drops nothing the second time); downgrade is a no-op since deleted invitations can't be reconstructed.
 
 ## [1.9.0] - 2026-05-12
 
