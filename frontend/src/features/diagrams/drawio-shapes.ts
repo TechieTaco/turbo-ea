@@ -1012,6 +1012,13 @@ export function attachCellLifecycleListeners(
     for (const cell of cells as any[]) checkCell(cell);
   };
 
+  // Edge cellIds we've programmatically scheduled to remove as a
+  // cascade of a card removal. The next CELLS_REMOVED for them is
+  // treated as silent (no confirm dialog, no tombstone, side-table
+  // cleaned), because the user already explicitly removed the card
+  // and we shouldn't pester them about every connected edge.
+  const pendingIncidentalEdgeRemovals = new Set<string>();
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const removedListener = (_sender: unknown, evt: any) => {
     const cells = evt.getProperty("cells") || [];
@@ -1039,6 +1046,16 @@ export function attachCellLifecycleListeners(
       // see this here" gesture; inventory archival is a job for the
       // Inventory page.
       if (!cell?.edge) continue;
+
+      // Cascade-removed edges that we scheduled ourselves get the
+      // silent treatment. Without this, the second CELLS_REMOVED wave
+      // (when the cascade actually executes) would re-fire the confirm
+      // dialog because the card is no longer in this batch.
+      if (pendingIncidentalEdgeRemovals.has(cell.id)) {
+        pendingIncidentalEdgeRemovals.delete(cell.id);
+        handlers.onIncidentalEdgeRemoval?.(cell.id);
+        continue;
+      }
 
       // Resolve relation metadata via the XML user-object first, then
       // the editor's side-table fallback.
@@ -1118,6 +1135,60 @@ export function attachCellLifecycleListeners(
       });
     }
     if (tombstones.length > 0) handlers.onRemoved(tombstones);
+
+    // Post-pass: cascade edge removal when DrawIO removed ONLY the
+    // card cell and left its connected edges dangling in the model.
+    // mxGraph's `removeCells(cells, includeEdges=true)` should
+    // normally cascade, but DrawIO sometimes routes deletes through
+    // a path that doesn't include edges — leaving the edges visible
+    // but pointing at a non-existent card. We detect that here by
+    // scanning the model for edges whose endpoint is in the just-
+    // removed batch, then schedule their removal in the next tick.
+    if (removedCardCellIds.size > 0) {
+      const allCells = model.cells || {};
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const dangling: any[] = [];
+      for (const k of Object.keys(allCells)) {
+        const c = allCells[k];
+        if (!c?.edge) continue;
+        // Edge references its source/target via mxCell.source /
+        // .target — those object refs still point at the just-
+        // removed card cells (their .id is what we matched on).
+        const srcId = c.source?.id;
+        const tgtId = c.target?.id;
+        if (
+          (srcId && removedCardCellIds.has(srcId)) ||
+          (tgtId && removedCardCellIds.has(tgtId))
+        ) {
+          dangling.push(c);
+        }
+      }
+      if (dangling.length > 0) {
+        // Mark each as pending-incidental so the cascade's own
+        // CELLS_REMOVED stays silent + drop their side-table entries
+        // early so the diff scan can't fire phantom tombstones in the
+        // window between this pre-clean and the actual removal.
+        for (const e of dangling) {
+          pendingIncidentalEdgeRemovals.add(e.id);
+          handlers.onIncidentalEdgeRemoval?.(e.id);
+        }
+        setTimeout(() => {
+          // Defensive: filter to only edges still in the model. The
+          // user might have manually removed some in the meantime.
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const stillThere = dangling.filter(
+            (d) => model.getCell(d.id) === d,
+          );
+          if (stillThere.length === 0) return;
+          model.beginUpdate();
+          try {
+            graph.removeCells(stillThere, false);
+          } finally {
+            model.endUpdate();
+          }
+        }, 0);
+      }
+    }
   };
 
   model.addListener(win.mxEvent.CELLS_ADDED, addedListener);
