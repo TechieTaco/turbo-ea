@@ -158,5 +158,22 @@
   "editor.allNeighboursAlreadyOnCanvas": "Alle passenden Nachbarn sind bereits auf der Leinwand; nichts einzufügen.",
   "editor.someNeighboursSkipped_one": "{{count}} Nachbar übersprungen, der bereits auf der Leinwand ist.",
   "editor.someNeighboursSkipped_other": "{{count}} Nachbarn übersprungen, die bereits auf der Leinwand sind.",
-  "editor.edgeRestored": "Kante wiederhergestellt — Beziehung im Inventar erhalten"
+  "editor.edgeRestored": "Kante wiederhergestellt — Beziehung im Inventar erhalten",
+  "editor.containerized": "Form in einen Container umgewandelt — ziehen Sie Karten hinein, um sie zu verschachteln.",
+  "editor.container.defaultName": "Container",
+  "editor.errors.parentTypeMismatch": "Die Hierarchie ist auf Karten desselben Typs beschränkt — der Schritt wurde rückgängig gemacht.",
+  "editor.errors.hierarchyPatchFailed": "Übergeordnetes Element von «{{name}}» konnte nicht aktualisiert werden",
+  "editor.parentChange.attachTitle": "Zu einem untergeordneten Element machen?",
+  "editor.parentChange.detachTitle": "Vom übergeordneten Element trennen?",
+  "editor.parentChange.attachBody": "«{{child}}» als untergeordnetes Element von «{{parent}}» hinzufügen? Bei «Nein» wird die Karte zurückgesetzt.",
+  "editor.parentChange.detachBody": "«{{child}}» von «{{parent}}» trennen? Beim nächsten Sync wird sie zu einer Stammkarte. Bei «Nein» bleibt sie im Container.",
+  "editor.parentChange.yes": "Ja",
+  "editor.parentChange.no": "Nein, zurücksetzen",
+  "editor.parentChange.attachSynced": "«{{child}}» ist jetzt ein untergeordnetes Element von «{{parent}}»",
+  "editor.parentChange.detachSynced": "«{{child}}» ist jetzt eine Stammkarte",
+  "sync.hierarchyChanges": "Hierarchie-Änderungen",
+  "sync.parentAttach": "Wird zum untergeordneten Element von «{{parent}}»",
+  "sync.parentDetach": "Wird zur Stammkarte (aktuell verschachtelt unter «{{parent}}»)",
+  "sync.applyHierarchy": "Hierarchie-Änderung anwenden",
+  "sync.discardHierarchy": "Hierarchie-Änderung verwerfen"
 }

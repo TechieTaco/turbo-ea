@@ -12,6 +12,7 @@ import FormControlLabel from "@mui/material/FormControlLabel";
 import CircularProgress from "@mui/material/CircularProgress";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import type {
+  PendingParentChange,
   RemovedCardTombstone,
   RemovedRelationTombstone,
 } from "./drawio-shapes";
@@ -57,6 +58,7 @@ interface Props {
   pendingRels: PendingRelation[];
   pendingCardRemovals: RemovedCardTombstone[];
   pendingRelRemovals: RemovedRelationTombstone[];
+  pendingParentChanges: PendingParentChange[];
   archiveOnSync: Set<string>;
   staleItems: StaleItem[];
   syncing: boolean;
@@ -69,6 +71,8 @@ interface Props {
   onSyncRelRemoval: (edgeCellId: string) => void;
   onDiscardCardRemoval: (cellId: string) => void;
   onDiscardRelRemoval: (edgeCellId: string) => void;
+  onSyncParentChange: (cellId: string) => void;
+  onDiscardParentChange: (cellId: string) => void;
   onToggleArchive: (cellId: string) => void;
   onAcceptStale: (cellId: string) => void;
   onCheckUpdates: () => void;
@@ -86,6 +90,7 @@ export default function DiagramSyncPanel({
   pendingRels,
   pendingCardRemovals,
   pendingRelRemovals,
+  pendingParentChanges,
   archiveOnSync,
   staleItems,
   syncing,
@@ -98,6 +103,8 @@ export default function DiagramSyncPanel({
   onSyncRelRemoval,
   onDiscardCardRemoval,
   onDiscardRelRemoval,
+  onSyncParentChange,
+  onDiscardParentChange,
   onToggleArchive,
   onAcceptStale,
   onCheckUpdates,
@@ -105,7 +112,11 @@ export default function DiagramSyncPanel({
 }: Props) {
   const { t } = useTranslation(["diagrams", "common"]);
   const totalPending =
-    pendingCards.length + pendingRels.length + pendingCardRemovals.length + pendingRelRemovals.length;
+    pendingCards.length +
+    pendingRels.length +
+    pendingCardRemovals.length +
+    pendingRelRemovals.length +
+    pendingParentChanges.length;
 
   return (
     <Drawer anchor="right" open={open} onClose={onClose} PaperProps={{ sx: { width: 360 } }}>
@@ -329,6 +340,49 @@ export default function DiagramSyncPanel({
                 </Box>
               );
             })}
+          </>
+        )}
+
+        {/* ---- Hierarchy changes (parent_id updates) ---- */}
+        {pendingParentChanges.length > 0 && (
+          <>
+            <SectionTitle
+              icon="account_tree"
+              label={t("sync.hierarchyChanges")}
+              count={pendingParentChanges.length}
+            />
+            {pendingParentChanges.map((p) => (
+              <ItemRow key={p.cellId}>
+                <Box sx={{ flex: 1, minWidth: 0 }}>
+                  <Typography variant="body2" noWrap fontWeight={500}>
+                    {p.cardName || "?"}
+                  </Typography>
+                  <Typography variant="caption" color="text.disabled">
+                    {p.kind === "attach"
+                      ? t("sync.parentAttach", { parent: p.parentCardName || "?" })
+                      : t("sync.parentDetach", { parent: p.parentCardName || "?" })}
+                  </Typography>
+                </Box>
+                <Tooltip title={t("sync.applyHierarchy")}>
+                  <IconButton
+                    size="small"
+                    onClick={() => onSyncParentChange(p.cellId)}
+                    disabled={syncing}
+                  >
+                    <MaterialSymbol icon="cloud_upload" size={16} />
+                  </IconButton>
+                </Tooltip>
+                <Tooltip title={t("sync.discardHierarchy")}>
+                  <IconButton
+                    size="small"
+                    onClick={() => onDiscardParentChange(p.cellId)}
+                    disabled={syncing}
+                  >
+                    <MaterialSymbol icon="undo" size={16} />
+                  </IconButton>
+                </Tooltip>
+              </ItemRow>
+            ))}
           </>
         )}
 

@@ -158,5 +158,22 @@
   "editor.allNeighboursAlreadyOnCanvas": "Tutti i vicini corrispondenti sono già sul canvas; niente da inserire.",
   "editor.someNeighboursSkipped_one": "Ignorato {{count}} vicino già sul canvas.",
   "editor.someNeighboursSkipped_other": "Ignorati {{count}} vicini già sul canvas.",
-  "editor.edgeRestored": "Bordo ripristinato — relazione mantenuta nell'inventario"
+  "editor.edgeRestored": "Bordo ripristinato — relazione mantenuta nell'inventario",
+  "editor.containerized": "Forma convertita in contenitore — trascina le schede al suo interno per annidarle.",
+  "editor.container.defaultName": "Contenitore",
+  "editor.errors.parentTypeMismatch": "La gerarchia è limitata a schede dello stesso tipo — lo spostamento è stato annullato.",
+  "editor.errors.hierarchyPatchFailed": "Impossibile aggiornare il padre di «{{name}}»",
+  "editor.parentChange.attachTitle": "Trasformare in figlio?",
+  "editor.parentChange.detachTitle": "Scollegare dal padre?",
+  "editor.parentChange.attachBody": "Aggiungere «{{child}}» come figlio di «{{parent}}»? «No» riporta la scheda dov'era.",
+  "editor.parentChange.detachBody": "Scollegare «{{child}}» da «{{parent}}»? Alla prossima sincronizzazione diventerà una scheda radice. «No» la rimette nel contenitore.",
+  "editor.parentChange.yes": "Sì",
+  "editor.parentChange.no": "No, annulla",
+  "editor.parentChange.attachSynced": "«{{child}}» è ora figlio di «{{parent}}»",
+  "editor.parentChange.detachSynced": "«{{child}}» è ora una scheda radice",
+  "sync.hierarchyChanges": "Modifiche gerarchia",
+  "sync.parentAttach": "Diventerà figlio di «{{parent}}»",
+  "sync.parentDetach": "Diventerà scheda radice (attualmente in «{{parent}}»)",
+  "sync.applyHierarchy": "Applica la modifica gerarchica",
+  "sync.discardHierarchy": "Scarta la modifica gerarchica"
 }

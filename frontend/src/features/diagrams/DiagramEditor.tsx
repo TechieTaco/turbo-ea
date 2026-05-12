@@ -45,6 +45,7 @@ import {
   removeDiagramCell,
   scanDiagramItems,
   attachCellLifecycleListeners,
+  attachParentChangeListener,
   scanForDuplicateCells,
   collectExistingCardCellIds,
   collectExistingEdgeRelations,
@@ -53,11 +54,13 @@ import {
   extractCardCellIdsFromXml,
   extractEdgeRelationsFromXml,
   restoreRemovedEdge,
+  revertParentChange,
   dedupClonedCell,
   unlinkCell,
   relinkCell,
   getCellLabel,
   convertShapeToPendingCard,
+  convertShapeToContainer,
   drillDownInto,
   rollUpInto,
   isContainerCell,
@@ -68,6 +71,8 @@ import {
 } from "./drawio-shapes";
 import type {
   HierarchyChild,
+  ParentChangeEvent,
+  PendingParentChange,
   ResolvedRelationMeta,
 } from "./drawio-shapes";
 import type {
@@ -124,6 +129,7 @@ interface DiagramData {
   data: { xml?: string; thumbnail?: string; view?: ViewSource };
 }
 
+
 interface DrawIOMessage {
   event:
     | "init"
@@ -137,7 +143,8 @@ interface DrawIOMessage {
     | "cardClicked"
     | "unlinkCell"
     | "relinkCell"
-    | "convertCell";
+    | "convertCell"
+    | "containerizeCell";
   xml?: string;
   data?: string;
   modified?: boolean;
@@ -253,6 +260,20 @@ function bootstrapDrawIO(iframe: HTMLIFrameElement) {
             menu.addItem("Convert to Card\u2026", null, () => {
               win.parent.postMessage(
                 JSON.stringify({ event: "convertCell", cellId: cell.id }),
+                "*",
+              );
+            });
+            menu.addItem("Convert to Container", null, () => {
+              win.parent.postMessage(
+                JSON.stringify({ event: "containerizeCell", cellId: cell.id }),
+                "*",
+              );
+            });
+          }
+          if (isSyncedCard && cardCell) {
+            menu.addItem("Convert to Container", null, () => {
+              win.parent.postMessage(
+                JSON.stringify({ event: "containerizeCell", cellId: cardCell.id }),
                 "*",
               );
             });
@@ -428,6 +449,18 @@ export default function DiagramEditor() {
   // re-inserts the edge in place via restoreRemovedEdge.
   const [deleteRelationQueue, setDeleteRelationQueue] = useState<
     RemovedRelationTombstone[]
+  >([]);
+
+  // Parent-change confirmation queue. Each time the user drags a card
+  // INTO a container of the same card type (or OUT of one) we surface a
+  // dialog so the user can confirm whether to persist the hierarchy
+  // change to the backend. Confirming queues a `parent_id` PATCH for the
+  // next Sync All; cancelling reverts the cell to its old parent.
+  const [parentChangeQueue, setParentChangeQueue] = useState<
+    PendingParentChange[]
+  >([]);
+  const [pendingParentChanges, setPendingParentChanges] = useState<
+    PendingParentChange[]
   >([]);
 
   // Phase 5 — view perspectives (color cells by attribute)
@@ -1058,6 +1091,104 @@ export default function DiagramEditor() {
     }
   }, []);
 
+  /** Listener entry point — fires whenever a card cell's parent
+   *  changes in mxGraph. Decides whether to surface a confirm dialog
+   *  (same-type re-parent) or silently revert (cross-type drop). */
+  const handleParentChanged = useCallback((ev: ParentChangeEvent) => {
+    if (restoreInProgressRef.current) return;
+    // Pending cells don't have a real cardId yet — we can't PATCH them,
+    // and re-parenting their visual cell is harmless. Ignore so the
+    // user can re-arrange in-flight cards freely.
+    if (!ev.cardId || ev.cardId.startsWith("pending-")) return;
+
+    // Determine "into" vs "out of".
+    const attachingTo = ev.newParentCardId;
+    const detachingFrom = ev.oldParentCardId;
+    // No-op when the move stayed at the graph root or shuffled between
+    // non-card parents.
+    if (!attachingTo && !detachingFrom) return;
+
+    if (attachingTo) {
+      // Cross-type drops snap back silently. This matches the backend's
+      // strict same-type parent_id contract: we'd just get a 4xx
+      // anyway, and the user usually drops by accident.
+      if (ev.newParentType && ev.newParentType !== ev.cardType) {
+        const frame = iframeRef.current;
+        if (frame) revertParentChange(frame, ev.cellId, ev.oldParentCellId);
+        setSnackMsg(t("editor.errors.parentTypeMismatch"));
+        return;
+      }
+      // Same-type attach — queue the confirmation.
+      setParentChangeQueue((prev) => [
+        ...prev,
+        {
+          kind: "attach",
+          cellId: ev.cellId,
+          cardId: ev.cardId!,
+          cardName: ev.cardName,
+          cardType: ev.cardType,
+          parentCardId: attachingTo,
+          parentCardName: ev.newParentName,
+          oldParentCellId: ev.oldParentCellId,
+        },
+      ]);
+      return;
+    }
+
+    // Detaching: child moved out of a card-shaped container back to
+    // the graph root. Only meaningful when the OLD parent was a card
+    // of the same type (mirrors the attach gate).
+    if (detachingFrom && ev.oldParentType === ev.cardType) {
+      setParentChangeQueue((prev) => [
+        ...prev,
+        {
+          kind: "detach",
+          cellId: ev.cellId,
+          cardId: ev.cardId!,
+          cardName: ev.cardName,
+          cardType: ev.cardType,
+          parentCardId: detachingFrom,
+          parentCardName: ev.oldParentName,
+          oldParentCellId: ev.oldParentCellId,
+        },
+      ]);
+    }
+  }, [t]);
+
+  /** Confirm: persist the hierarchy change at the next Sync All. */
+  const handleConfirmParentChange = useCallback(() => {
+    setParentChangeQueue((prev) => {
+      if (prev.length === 0) return prev;
+      const [head, ...rest] = prev;
+      setPendingParentChanges((curr) => {
+        // Dedup by cellId so successive drag-into / drag-out gestures
+        // on the same cell don't pile up — keep the latest decision.
+        const filtered = curr.filter((c) => c.cellId !== head.cellId);
+        return [...filtered, head];
+      });
+      return rest;
+    });
+  }, []);
+
+  /** Cancel: revert the mxGraph parent change so the cell goes back. */
+  const handleCancelParentChange = useCallback(() => {
+    setParentChangeQueue((prev) => {
+      if (prev.length === 0) return prev;
+      const [head, ...rest] = prev;
+      const frame = iframeRef.current;
+      if (frame) {
+        revertParentChange(frame, head.cellId, head.oldParentCellId);
+      }
+      return rest;
+    });
+  }, []);
+
+  /** Drop a single hierarchy change from the Sync drawer (user
+   *  decides they don't want to PATCH after all). */
+  const handleDiscardParentChange = useCallback((cellId: string) => {
+    setPendingParentChanges((prev) => prev.filter((p) => p.cellId !== cellId));
+  }, []);
+
   /** "Yes, also delete from inventory" — drop the relation into the
    *  pending-deletions bucket so Sync All fires DELETE /relations/{id}. */
   const handleConfirmDeleteRelation = useCallback(() => {
@@ -1140,6 +1271,10 @@ export default function DiagramEditor() {
         getRelationIdForEdge: (cellId) =>
           edgeRelationMapRef.current.get(cellId) ?? null,
       });
+      // Parent-change listener: catches drag-into-container /
+      // drag-out-of-container gestures and routes them through the
+      // hierarchy confirm dialog + Sync drawer.
+      attachParentChangeListener(frame, handleParentChanged);
       // Safety-net periodic scan. Does two things:
       //   (1) Detect cells inserted via DrawIO clipboard paths that don't
       //       surface through CELLS_ADDED to our listener.
@@ -1193,7 +1328,7 @@ export default function DiagramEditor() {
       // Stash the interval id on the ref so we never start two.
       lifecycleScanIdRef.current = scanId;
     },
-    [handleDuplicate, handleTombstones],
+    [handleDuplicate, handleTombstones, handleParentChanged],
   );
 
   /* ---------- Insert existing card(s) ---------- */
@@ -1324,6 +1459,24 @@ export default function DiagramEditor() {
     setConvertPrefillName(label);
     setCreateOpen(true);
   }, []);
+
+  /** Right-click → Convert to Container. Restyles the picked cell as a
+   *  swimlane container so other cards can be dragged into it. The
+   *  parent-change listener picks up subsequent drops and prompts to
+   *  persist them as `parent_id` updates. */
+  const handleContainerizeRequest = useCallback(
+    (cellId: string) => {
+      const frame = iframeRef.current;
+      if (!frame) return;
+      const ok = convertShapeToContainer(frame, cellId, t("editor.container.defaultName"));
+      if (ok) {
+        setSnackMsg(t("editor.containerized"));
+      } else {
+        setSnackMsg(t("editor.errors.editorNotReady"));
+      }
+    },
+    [t],
+  );
 
   /* ---------- Sync panel helpers ---------- */
   const refreshSyncPanel = useCallback(() => {
@@ -1641,12 +1794,36 @@ export default function DiagramEditor() {
         setArchiveOnSync(new Set());
       }
 
+      // 5. Process hierarchy changes (drag-into / drag-out of containers).
+      // For `attach`, parent_id becomes the target parent's cardId.
+      // For `detach`, parent_id becomes null (root card).
+      const parentChanges = pendingParentChanges;
+      for (const p of parentChanges) {
+        try {
+          await api.patch(`/cards/${p.cardId}`, {
+            parent_id: p.kind === "attach" ? p.parentCardId : null,
+          });
+        } catch {
+          setSnackMsg(
+            t("editor.errors.hierarchyPatchFailed", { name: p.cardName }),
+          );
+        }
+      }
+      if (parentChanges.length > 0) setPendingParentChanges([]);
+
       refreshSyncPanel();
       setSnackMsg(t("editor.syncComplete"));
     } finally {
       setSyncing(false);
     }
-  }, [handleToggleGroup, refreshSyncPanel, pendingRelRemovals, pendingCardRemovals, archiveOnSync]);
+  }, [
+    handleToggleGroup,
+    refreshSyncPanel,
+    pendingRelRemovals,
+    pendingCardRemovals,
+    pendingParentChanges,
+    archiveOnSync,
+  ]);
 
   const handleRemoveFS = useCallback(
     (cellId: string) => {
@@ -1924,6 +2101,10 @@ export default function DiagramEditor() {
           if (msg.cellId) handleConvertRequest(msg.cellId);
           break;
 
+        case "containerizeCell":
+          if (msg.cellId) handleContainerizeRequest(msg.cellId);
+          break;
+
         default:
           break;
       }
@@ -1940,6 +2121,7 @@ export default function DiagramEditor() {
     handleUnlinkRequest,
     handleRelinkRequest,
     handleConvertRequest,
+    handleContainerizeRequest,
   ]);
 
   // Refresh sync panel counts whenever it opens
@@ -1949,7 +2131,43 @@ export default function DiagramEditor() {
 
   /* ---------- Derived ---------- */
   const totalPending =
-    pendingCards.length + pendingRels.length + pendingCardRemovals.length + pendingRelRemovals.length;
+    pendingCards.length +
+    pendingRels.length +
+    pendingCardRemovals.length +
+    pendingRelRemovals.length +
+    pendingParentChanges.length;
+
+  /** Sync one queued hierarchy change (PATCH /cards/{id} parent_id). */
+  const handleSyncParentChange = useCallback(
+    async (cellId: string) => {
+      const target = pendingParentChanges.find((p) => p.cellId === cellId);
+      if (!target) return;
+      setSyncing(true);
+      try {
+        await api.patch(`/cards/${target.cardId}`, {
+          parent_id: target.kind === "attach" ? target.parentCardId : null,
+        });
+        setPendingParentChanges((prev) => prev.filter((p) => p.cellId !== cellId));
+        setSnackMsg(
+          target.kind === "attach"
+            ? t("editor.parentChange.attachSynced", {
+                child: target.cardName,
+                parent: target.parentCardName,
+              })
+            : t("editor.parentChange.detachSynced", {
+                child: target.cardName,
+              }),
+        );
+      } catch {
+        setSnackMsg(
+          t("editor.errors.hierarchyPatchFailed", { name: target.cardName }),
+        );
+      } finally {
+        setSyncing(false);
+      }
+    },
+    [pendingParentChanges, t],
+  );
 
   /* ---------- Warn on unload when there are unsynced changes ---------- */
   useEffect(() => {
@@ -2355,6 +2573,7 @@ export default function DiagramEditor() {
         pendingRels={pendingRels}
         pendingCardRemovals={pendingCardRemovals}
         pendingRelRemovals={pendingRelRemovals}
+        pendingParentChanges={pendingParentChanges}
         archiveOnSync={archiveOnSync}
         staleItems={staleItems}
         syncing={syncing}
@@ -2367,6 +2586,8 @@ export default function DiagramEditor() {
         onSyncRelRemoval={handleSyncRelRemoval}
         onDiscardCardRemoval={handleDiscardCardRemoval}
         onDiscardRelRemoval={handleDiscardRelRemoval}
+        onSyncParentChange={handleSyncParentChange}
+        onDiscardParentChange={handleDiscardParentChange}
         onToggleArchive={handleToggleArchive}
         onAcceptStale={handleAcceptStale}
         onCheckUpdates={handleCheckUpdates}
@@ -2384,6 +2605,50 @@ export default function DiagramEditor() {
         onClose={() => setExpandMenuTarget(null)}
         onPick={handleExpandPick}
       />
+
+      {/* Parent-change confirmation. Fires when a card is dragged
+          into / out of a same-type container; one dialog per event so
+          the user sees a clean "this child / that parent" decision. */}
+      <Dialog
+        open={parentChangeQueue.length > 0}
+        onClose={handleCancelParentChange}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle>
+          {parentChangeQueue.length > 0 && parentChangeQueue[0].kind === "attach"
+            ? t("editor.parentChange.attachTitle")
+            : t("editor.parentChange.detachTitle")}
+        </DialogTitle>
+        <DialogContent>
+          {parentChangeQueue.length > 0 && (
+            <DialogContentText>
+              {parentChangeQueue[0].kind === "attach"
+                ? t("editor.parentChange.attachBody", {
+                    child: parentChangeQueue[0].cardName || "?",
+                    parent: parentChangeQueue[0].parentCardName || "?",
+                  })
+                : t("editor.parentChange.detachBody", {
+                    child: parentChangeQueue[0].cardName || "?",
+                    parent: parentChangeQueue[0].parentCardName || "?",
+                  })}
+            </DialogContentText>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCancelParentChange}>
+            {t("editor.parentChange.no")}
+          </Button>
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={handleConfirmParentChange}
+            autoFocus
+          >
+            {t("editor.parentChange.yes")}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* Edge-deletion confirmation. One dialog per queued tombstone — we
           process them serially so the user sees a clear "this one"

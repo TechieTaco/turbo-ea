@@ -158,5 +158,22 @@
   "editor.allNeighboursAlreadyOnCanvas": "Todos os vizinhos correspondentes já estão na tela; nada para inserir.",
   "editor.someNeighboursSkipped_one": "{{count}} vizinho já na tela foi ignorado.",
   "editor.someNeighboursSkipped_other": "{{count}} vizinhos já na tela foram ignorados.",
-  "editor.edgeRestored": "Aresta restaurada — relação mantida no inventário"
+  "editor.edgeRestored": "Aresta restaurada — relação mantida no inventário",
+  "editor.containerized": "Forma convertida em contêiner — arraste cartões para dentro para aninhá-los.",
+  "editor.container.defaultName": "Contêiner",
+  "editor.errors.parentTypeMismatch": "A hierarquia é restrita a cartões do mesmo tipo — o movimento foi revertido.",
+  "editor.errors.hierarchyPatchFailed": "Falha ao atualizar o pai de «{{name}}»",
+  "editor.parentChange.attachTitle": "Tornar um filho?",
+  "editor.parentChange.detachTitle": "Desanexar do pai?",
+  "editor.parentChange.attachBody": "Adicionar «{{child}}» como filho de «{{parent}}»? Com «Não» o cartão volta para o seu lugar.",
+  "editor.parentChange.detachBody": "Desanexar «{{child}}» de «{{parent}}»? Ao sincronizar tornar-se-á um cartão raiz. «Não» o mantém no contêiner.",
+  "editor.parentChange.yes": "Sim",
+  "editor.parentChange.no": "Não, reverter",
+  "editor.parentChange.attachSynced": "«{{child}}» agora é filho de «{{parent}}»",
+  "editor.parentChange.detachSynced": "«{{child}}» agora é um cartão raiz",
+  "sync.hierarchyChanges": "Mudanças de hierarquia",
+  "sync.parentAttach": "Será filho de «{{parent}}»",
+  "sync.parentDetach": "Será um cartão raiz (atualmente em «{{parent}}»)",
+  "sync.applyHierarchy": "Aplicar mudança de hierarquia",
+  "sync.discardHierarchy": "Descartar mudança de hierarquia"
 }

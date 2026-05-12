@@ -158,5 +158,22 @@
   "editor.allNeighboursAlreadyOnCanvas": "所有匹配的相邻卡片都已在画布上;无可插入。",
   "editor.someNeighboursSkipped_one": "已跳过画布上已存在的 {{count}} 个相邻卡片。",
   "editor.someNeighboursSkipped_other": "已跳过画布上已存在的 {{count}} 个相邻卡片。",
-  "editor.edgeRestored": "已恢复连线 — 关系保留在库存中"
+  "editor.edgeRestored": "已恢复连线 — 关系保留在库存中",
+  "editor.containerized": "形状已转换为容器 — 将卡片拖入其中以嵌套。",
+  "editor.container.defaultName": "容器",
+  "editor.errors.parentTypeMismatch": "层级仅限相同类型的卡片 — 操作已撤销。",
+  "editor.errors.hierarchyPatchFailed": "无法更新「{{name}}」的父级",
+  "editor.parentChange.attachTitle": "设为子项吗?",
+  "editor.parentChange.detachTitle": "从父级分离?",
+  "editor.parentChange.attachBody": "将「{{child}}」设为「{{parent}}」的子项吗?选择「否」会将卡片放回原位。",
+  "editor.parentChange.detachBody": "将「{{child}}」从「{{parent}}」中分离吗?同步后将变为根卡片。选择「否」会保留在容器中。",
+  "editor.parentChange.yes": "是",
+  "editor.parentChange.no": "否,撤销",
+  "editor.parentChange.attachSynced": "「{{child}}」现在是「{{parent}}」的子项",
+  "editor.parentChange.detachSynced": "「{{child}}」现在是根卡片",
+  "sync.hierarchyChanges": "层级变更",
+  "sync.parentAttach": "将成为「{{parent}}」的子项",
+  "sync.parentDetach": "将成为根卡片(当前位于「{{parent}}」中)",
+  "sync.applyHierarchy": "应用层级变更",
+  "sync.discardHierarchy": "撤销层级变更"
 }

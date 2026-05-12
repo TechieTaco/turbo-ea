@@ -1651,6 +1651,260 @@ export function convertShapeToPendingCard(
   return true;
 }
 
+/**
+ * Convert any cell into a swimlane container. Used by the "Convert to
+ * Container" context-menu action so a hand-drawn shape (or any existing
+ * cell) becomes a drop target for other cards. The cell keeps its
+ * cardId / cardType if it had any — only the style + minimum size
+ * change. Other card cells dragged onto a container are automatically
+ * re-parented by mxGraph; the editor's parent-change listener picks up
+ * the move and prompts to persist it as a `parent_id` update.
+ */
+export function convertShapeToContainer(
+  iframe: HTMLIFrameElement,
+  cellId: string,
+  fallbackLabel: string,
+): boolean {
+  const ctx = getMxGraph(iframe);
+  if (!ctx) return false;
+  const { win, graph } = ctx;
+
+  const model = graph.getModel();
+  const cell = model.getCell(cellId);
+  if (!cell) return false;
+
+  model.beginUpdate();
+  try {
+    // Ensure the cell carries an XML user-object so the swimlane header
+    // can show a label.
+    let value = cell.value;
+    if (!value?.setAttribute) {
+      const xmlDoc = win.mxUtils.createXmlDocument();
+      const obj = xmlDoc.createElement("object");
+      const seedLabel =
+        typeof value === "string" && value ? value : fallbackLabel;
+      obj.setAttribute("label", seedLabel || fallbackLabel);
+      model.setValue(cell, obj);
+      value = obj;
+    } else if (!value.getAttribute("label")) {
+      value.setAttribute("label", fallbackLabel);
+    }
+
+    // Make sure the container is big enough to hold cells — 320×220 is
+    // wide enough for a 3×2 grid of standard cards with padding.
+    const geo = graph.getCellGeometry(cell);
+    if (geo) {
+      const w = Math.max(geo.width || 0, 320);
+      const h = Math.max(geo.height || 0, 220);
+      if (w !== geo.width || h !== geo.height) {
+        graph.resizeCell(cell, new win.mxRectangle(geo.x, geo.y, w, h));
+      }
+    }
+
+    // Preserve any existing fill colour so the user's earlier choice
+    // doesn't disappear; default to a neutral grey-blue.
+    const currentStyle = String(model.getStyle(cell) || "");
+    const fillMatch = /fillColor=([^;]+)/.exec(currentStyle);
+    const fill = fillMatch?.[1] || "#90a4ae";
+    const stroke = darken(fill);
+    model.setStyle(
+      cell,
+      [
+        "shape=swimlane",
+        "startSize=28",
+        "horizontal=1",
+        `fillColor=${fill}`,
+        "fontColor=#ffffff",
+        `strokeColor=${stroke}`,
+        "fontSize=12",
+        "fontStyle=1",
+        "rounded=1",
+        "arcSize=12",
+        "html=1",
+        "whiteSpace=wrap",
+        "swimlaneLine=0",
+      ].join(";"),
+    );
+    graph.refresh(cell);
+  } finally {
+    model.endUpdate();
+  }
+  return true;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Parent-change listener (drag-into-container / drag-out)             */
+/* ------------------------------------------------------------------ */
+
+/** Awaiting / queued parent_id change captured from a drag-into-container
+ *  or drag-out-of-container gesture. `kind = "attach"` flips parent_id to
+ *  `parentCardId`; `kind = "detach"` clears it (makes the card a root). */
+export interface PendingParentChange {
+  kind: "attach" | "detach";
+  cellId: string;
+  cardId: string;
+  cardName: string;
+  cardType: string;
+  /** Target parent for `attach`. For `detach`, the parent the user just
+   *  removed the card from (used by the dialog text only). */
+  parentCardId: string | null;
+  parentCardName: string;
+  /** Cell ids captured at the moment of the move so the abort path can
+   *  put the cell back under its previous mxGraph parent. */
+  oldParentCellId: string | null;
+}
+
+export interface ParentChangeEvent {
+  cellId: string;
+  cardId: string | null;
+  cardName: string;
+  cardType: string;
+  /** Cell id of the new parent, or null when the cell moved back to
+   *  the graph's default parent (became a top-level vertex again). */
+  newParentCellId: string | null;
+  newParentCardId: string | null;
+  newParentName: string;
+  newParentType: string;
+  /** Same shape for the old parent. */
+  oldParentCellId: string | null;
+  oldParentCardId: string | null;
+  oldParentName: string;
+  oldParentType: string;
+}
+
+/**
+ * Hook the model so we get a callback whenever a card cell's parent
+ * changes — i.e. it was dragged INTO a container or OUT of one. The
+ * editor uses this to prompt the user to persist the change as a
+ * `parent_id` update on the underlying Card.
+ *
+ * Returns a cleanup function that removes the listener.
+ */
+export function attachParentChangeListener(
+  iframe: HTMLIFrameElement,
+  onParentChanged: (ev: ParentChangeEvent) => void,
+): () => void {
+  const ctx = getMxGraph(iframe);
+  if (!ctx) return () => {};
+  const { win, graph } = ctx;
+  const model = graph.getModel();
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const describe = (cell: any) => {
+    if (!cell) return null;
+    if (cell === graph.getDefaultParent()) return null;
+    if (typeof cell.getId === "function" && cell.getId() === "0") return null;
+    return cell;
+  };
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const cardOf = (cell: any) => {
+    if (!cell?.value?.getAttribute) return null;
+    const cardId = cell.value.getAttribute("cardId");
+    if (!cardId) return null;
+    return {
+      cellId: cell.id,
+      cardId,
+      cardType: cell.value.getAttribute("cardType") || "",
+      label: cell.value.getAttribute("label") || "",
+    };
+  };
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const listener = (_sender: unknown, evt: any) => {
+    const edit = evt.getProperty("edit");
+    if (!edit) return;
+    const changes = edit.changes || [];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    for (const change of changes as any[]) {
+      // mxChildChange is the only mxGraph change type that carries a
+      // `child` + `previous` parent pair. Detect by shape rather than
+      // instanceof so we don't have to import the constructor.
+      if (
+        !change ||
+        change.child === undefined ||
+        change.previous === undefined ||
+        change.parent === undefined ||
+        change.constructor?.name !== "mxChildChange"
+      ) {
+        continue;
+      }
+      const cell = change.child;
+      const newParent = describe(change.parent);
+      const oldParent = describe(change.previous);
+      // Same-cell no-op
+      if (newParent === oldParent) continue;
+      // The cell itself must be a card; ignore container-internal
+      // shuffling of plain DrawIO shapes.
+      const cardInfo = cardOf(cell);
+      if (!cardInfo) continue;
+      // The child-cells produced by drillDown / rollUp / expansion are
+      // intentional artefacts of those features and shouldn't trigger
+      // the parent-change prompt — they already represent the right
+      // hierarchy visually but don't need a separate parent_id PATCH.
+      const isManaged =
+        cell.value.getAttribute("drillDownChild") === "1" ||
+        cell.value.getAttribute("rollUpChild") === "1" ||
+        !!cell.value.getAttribute("parentGroupCell");
+      if (isManaged) continue;
+      const newParentCard = cardOf(newParent);
+      const oldParentCard = cardOf(oldParent);
+      onParentChanged({
+        cellId: cardInfo.cellId,
+        cardId: cardInfo.cardId,
+        cardName: cardInfo.label,
+        cardType: cardInfo.cardType,
+        newParentCellId: newParent?.id ?? null,
+        newParentCardId: newParentCard?.cardId ?? null,
+        newParentName: newParentCard?.label ?? "",
+        newParentType: newParentCard?.cardType ?? "",
+        oldParentCellId: oldParent?.id ?? null,
+        oldParentCardId: oldParentCard?.cardId ?? null,
+        oldParentName: oldParentCard?.label ?? "",
+        oldParentType: oldParentCard?.cardType ?? "",
+      });
+    }
+  };
+
+  model.addListener(win.mxEvent.CHANGE, listener);
+  return () => {
+    try {
+      model.removeListener(listener);
+    } catch {
+      // graph torn down
+    }
+  };
+}
+
+/**
+ * Revert a single parent change by re-parenting the cell back under the
+ * old parent. Used by the "No, don't move this card" branch of the
+ * confirmation dialog. Falls back to the graph's default parent if the
+ * captured old-parent cellId no longer exists.
+ */
+export function revertParentChange(
+  iframe: HTMLIFrameElement,
+  cellId: string,
+  oldParentCellId: string | null,
+): boolean {
+  const ctx = getMxGraph(iframe);
+  if (!ctx) return false;
+  const { graph } = ctx;
+  const model = graph.getModel();
+  const cell = model.getCell(cellId);
+  if (!cell) return false;
+  const oldParent =
+    (oldParentCellId && model.getCell(oldParentCellId)) ||
+    graph.getDefaultParent();
+  model.beginUpdate();
+  try {
+    model.add(oldParent, cell);
+  } finally {
+    model.endUpdate();
+  }
+  return true;
+}
+
 /* ------------------------------------------------------------------ */
 /*  Phase 3 — chevron expand menu (per relation type)                  */
 /* ------------------------------------------------------------------ */

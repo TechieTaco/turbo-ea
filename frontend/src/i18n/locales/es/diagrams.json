@@ -158,5 +158,22 @@
   "editor.allNeighboursAlreadyOnCanvas": "Todos los vecinos coincidentes ya están en el lienzo; nada que insertar.",
   "editor.someNeighboursSkipped_one": "Se omitió {{count}} vecino que ya está en el lienzo.",
   "editor.someNeighboursSkipped_other": "Se omitieron {{count}} vecinos que ya están en el lienzo.",
-  "editor.edgeRestored": "Borde restaurado — relación conservada en el inventario"
+  "editor.edgeRestored": "Borde restaurado — relación conservada en el inventario",
+  "editor.containerized": "Forma convertida en contenedor — arrastra tarjetas adentro para anidarlas.",
+  "editor.container.defaultName": "Contenedor",
+  "editor.errors.parentTypeMismatch": "La jerarquía se limita a tarjetas del mismo tipo — el movimiento se revirtió.",
+  "editor.errors.hierarchyPatchFailed": "No se pudo actualizar el padre de «{{name}}»",
+  "editor.parentChange.attachTitle": "¿Convertir en hijo?",
+  "editor.parentChange.detachTitle": "¿Separar del padre?",
+  "editor.parentChange.attachBody": "¿Añadir «{{child}}» como hijo de «{{parent}}»? «No» devuelve la tarjeta a su lugar.",
+  "editor.parentChange.detachBody": "¿Separar «{{child}}» de «{{parent}}»? Se convertirá en tarjeta raíz al sincronizar. «No» la deja en el contenedor.",
+  "editor.parentChange.yes": "Sí",
+  "editor.parentChange.no": "No, revertir",
+  "editor.parentChange.attachSynced": "«{{child}}» ahora es hijo de «{{parent}}»",
+  "editor.parentChange.detachSynced": "«{{child}}» ahora es tarjeta raíz",
+  "sync.hierarchyChanges": "Cambios de jerarquía",
+  "sync.parentAttach": "Será hijo de «{{parent}}»",
+  "sync.parentDetach": "Será tarjeta raíz (actualmente en «{{parent}}»)",
+  "sync.applyHierarchy": "Aplicar cambio de jerarquía",
+  "sync.discardHierarchy": "Descartar cambio de jerarquía"
 }

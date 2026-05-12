@@ -158,5 +158,22 @@
   "editor.allNeighboursAlreadyOnCanvas": "Все подходящие соседи уже на холсте; нечего вставлять.",
   "editor.someNeighboursSkipped_one": "Пропущен {{count}} сосед, уже находящийся на холсте.",
   "editor.someNeighboursSkipped_other": "Пропущено соседей: {{count}}, уже на холсте.",
-  "editor.edgeRestored": "Связь восстановлена — отношение сохранено в инвентаре"
+  "editor.edgeRestored": "Связь восстановлена — отношение сохранено в инвентаре",
+  "editor.containerized": "Фигура преобразована в контейнер — перетаскивайте карточки внутрь, чтобы вложить их.",
+  "editor.container.defaultName": "Контейнер",
+  "editor.errors.parentTypeMismatch": "Иерархия ограничена карточками одного типа — перемещение отменено.",
+  "editor.errors.hierarchyPatchFailed": "Не удалось обновить родителя «{{name}}»",
+  "editor.parentChange.attachTitle": "Сделать дочерним элементом?",
+  "editor.parentChange.detachTitle": "Отсоединить от родителя?",
+  "editor.parentChange.attachBody": "Добавить «{{child}}» как дочерний элемент «{{parent}}»? При «Нет» карточка возвращается на место.",
+  "editor.parentChange.detachBody": "Отсоединить «{{child}}» от «{{parent}}»? После синхронизации станет корневой карточкой. При «Нет» останется в контейнере.",
+  "editor.parentChange.yes": "Да",
+  "editor.parentChange.no": "Нет, отменить",
+  "editor.parentChange.attachSynced": "«{{child}}» теперь дочерний элемент «{{parent}}»",
+  "editor.parentChange.detachSynced": "«{{child}}» теперь корневая карточка",
+  "sync.hierarchyChanges": "Изменения иерархии",
+  "sync.parentAttach": "Станет дочерним элементом «{{parent}}»",
+  "sync.parentDetach": "Станет корневой карточкой (сейчас внутри «{{parent}}»)",
+  "sync.applyHierarchy": "Применить изменение иерархии",
+  "sync.discardHierarchy": "Отменить изменение иерархии"
 }

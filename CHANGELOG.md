@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 Diagramming functionality overhaul. All changes below belong to the same minor release — diagrams now match (and in places exceed) the LeanIX Free-Draw UX.
 
+### Added — Hierarchy on the canvas
+- **Drag-into-container prompts a parent_id change.** Dragging a card into a same-type container (drilled-down card, rolled-up parent, or a shape manually converted to a container) opens *"Add «child» as a child of «parent»?"*. **Yes** queues a `PATCH /cards/{id}` with the new `parent_id` for the next Sync All; **No** reverts the move back to the cell's previous mxGraph parent.
+- **Drag-out-of-container prompts to detach.** Dragging a card OUT of a container queues a `parent_id = null` PATCH after confirmation (same dialog, mirror wording). Cancelling puts the card back inside.
+- **Cross-type drops snap back silently** to match the backend's strict same-type-only hierarchy.
+- **"Hierarchy Changes" bucket in the Sync drawer** — every confirmed move stacks here with *Apply* (sync now) and *Discard* (drop the queued PATCH) actions. Sync All processes them alongside the other tombstones.
+- **"Convert to Container" right-click action.** Turns a plain DrawIO shape (or any cell with no card link) into a swimlane container so other cards can be nested inside.
+
 ### Added — Insert / Link / Convert
 - **Insert Cards dialog — multi-select with type chips and counts.** Replaces the old single-select Card Picker. Left rail: type chips with `GET /cards/counts` totals. Right rail: search results with checkboxes. Footer: *Insert selected* and *Insert all* (with a confirm step past 50 results). Same dialog opens in single-select mode for *Change Linked Card* and *Link to Existing Card*.
 - **Right-click link/unlink/convert actions.** Synced cards: *Change Linked Card…* / *Unlink Card*. Plain DrawIO shapes: *Link to Existing Card…* / *Convert to Card…* (keeps the shape's geometry, turns it into a pending card seeded with the shape's label).

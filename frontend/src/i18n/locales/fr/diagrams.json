@@ -158,5 +158,22 @@
   "editor.allNeighboursAlreadyOnCanvas": "Tous les voisins correspondants sont déjà sur le canevas ; rien à insérer.",
   "editor.someNeighboursSkipped_one": "{{count}} voisin déjà sur le canevas a été ignoré.",
   "editor.someNeighboursSkipped_other": "{{count}} voisins déjà sur le canevas ont été ignorés.",
-  "editor.edgeRestored": "Lien restauré — relation conservée dans l'inventaire"
+  "editor.edgeRestored": "Lien restauré — relation conservée dans l'inventaire",
+  "editor.containerized": "Forme convertie en conteneur — glissez des fiches dedans pour les imbriquer.",
+  "editor.container.defaultName": "Conteneur",
+  "editor.errors.parentTypeMismatch": "La hiérarchie est restreinte aux fiches de même type — le déplacement a été annulé.",
+  "editor.errors.hierarchyPatchFailed": "Impossible de mettre à jour le parent de « {{name}} »",
+  "editor.parentChange.attachTitle": "En faire un enfant ?",
+  "editor.parentChange.detachTitle": "Détacher du parent ?",
+  "editor.parentChange.attachBody": "Ajouter « {{child}} » comme enfant de « {{parent}} » ? « Non » remet la fiche à sa place d'origine.",
+  "editor.parentChange.detachBody": "Détacher « {{child}} » de « {{parent}} » ? Elle deviendra une fiche racine à la prochaine synchronisation. « Non » la remet dans le conteneur.",
+  "editor.parentChange.yes": "Oui",
+  "editor.parentChange.no": "Non, annuler",
+  "editor.parentChange.attachSynced": "« {{child}} » est désormais un enfant de « {{parent}} »",
+  "editor.parentChange.detachSynced": "« {{child}} » est désormais une fiche racine",
+  "sync.hierarchyChanges": "Changements de hiérarchie",
+  "sync.parentAttach": "Deviendra un enfant de « {{parent}} »",
+  "sync.parentDetach": "Deviendra une fiche racine (actuellement dans « {{parent}} »)",
+  "sync.applyHierarchy": "Appliquer le changement de hiérarchie",
+  "sync.discardHierarchy": "Annuler le changement de hiérarchie"
 }
