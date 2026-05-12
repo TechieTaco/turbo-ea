@@ -282,11 +282,9 @@ async def login(
     if user.auth_provider == "sso":
         raise HTTPException(403, "This account uses SSO authentication. Please sign in via SSO.")
     if not user.password_hash:
-        if user.password_setup_token:
-            raise HTTPException(
-                403,
-                "Password not set yet. Check your email for the setup link.",
-            )
+        # Local account with no password — shouldn't happen for new accounts (password
+        # is mandatory at creation when SSO is disabled) but legacy data can have it.
+        # Don't leak any detail beyond the standard 401 response.
         raise HTTPException(401, "Invalid credentials")
 
     # ── M5: Account lockout check ──

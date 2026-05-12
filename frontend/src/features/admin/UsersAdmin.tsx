@@ -195,6 +195,10 @@ export default function UsersAdmin() {
       setInviteError(t("users.invite.requiredFields"));
       return;
     }
+    if (!ssoEnabled && !inviteForm.password) {
+      setInviteError(t("users.invite.passwordRequiredLocal"));
+      return;
+    }
     try {
       setInviteSubmitting(true);
       setInviteError(null);
@@ -666,7 +670,11 @@ export default function UsersAdmin() {
               size="small"
             />
             <TextField
-              label={t("users.invite.passwordOptional")}
+              label={
+                ssoEnabled
+                  ? t("users.invite.passwordOptional")
+                  : t("users.invite.password")
+              }
               type="password"
               value={inviteForm.password}
               onChange={(e) =>
@@ -674,6 +682,7 @@ export default function UsersAdmin() {
               }
               fullWidth
               size="small"
+              required={!ssoEnabled}
               helperText={
                 ssoEnabled
                   ? t("users.invite.passwordSsoHelperText")

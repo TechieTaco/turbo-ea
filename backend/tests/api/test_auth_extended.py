@@ -269,37 +269,33 @@ class TestSetPasswordEdgeCases:
     async def test_set_password_clears_pending_invitation(
         self, client, db, admin_user, member_role
     ):
-        """Accepting an invite via set-password removes the SsoInvitation row.
+        """Accepting an invite via /auth/set-password removes the SsoInvitation row.
 
-        Regression test for #539: when an admin invites a user and the user
-        clicks the email link to set their password, the invitation should
-        disappear from the Users & Roles "Pending Invitations" list.
+        Regression test for #539: legacy users carrying a `password_setup_token`
+        (created before this fix or while SSO was enabled) who accept via the
+        email link should have their invitation row dropped from the list.
         """
-        # Admin invites a new user. With no password supplied, the endpoint
-        # creates the User with a one-time setup_token AND a paired
-        # SsoInvitation row (so SSO logins later resolve to the right role).
-        resp = await client.post(
-            "/api/v1/users",
-            json={
-                "email": "invited@test.com",
-                "display_name": "Invited",
-                "role": "member",
-                "send_email": False,
-            },
-            headers=auth_headers(admin_user),
+        # Inject the legacy "invited but not yet accepted" state directly:
+        # a User row with a one-time setup_token + a paired SsoInvitation row.
+        # We bypass POST /users because that endpoint now rejects no-password
+        # invites when SSO is disabled (test env has SSO off by default).
+        setup_token = "test-setup-token-acceptme"
+        db.add(
+            User(
+                email="invited@test.com",
+                display_name="Invited",
+                password_hash=None,
+                role="member",
+                password_setup_token=setup_token,
+            )
         )
-        assert resp.status_code == 201
+        db.add(SsoInvitation(email="invited@test.com", role="member"))
+        await db.commit()
 
-        # The invitation is present in the pending list.
+        # Sanity: the invitation appears in the pending list.
         resp = await client.get("/api/v1/users/invitations", headers=auth_headers(admin_user))
         assert resp.status_code == 200
         assert any(inv["email"] == "invited@test.com" for inv in resp.json())
-
-        # Fetch the setup token the user would receive in the email.
-        result = await db.execute(select(User).where(User.email == "invited@test.com"))
-        user = result.scalar_one()
-        assert user.password_setup_token is not None
-        setup_token = user.password_setup_token
 
         # User accepts the invite by setting a password.
         resp = await client.post(

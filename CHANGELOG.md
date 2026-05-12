@@ -8,7 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ## [1.9.1] - 2026-05-12
 
 ### Fixed
-- **Invitations now disappear from the Users & Roles list when the user accepts them** (#539). When an admin invited a new user via *Invite new user*, both a `users` row (carrying a one-time `password_setup_token`) and a paired `sso_invitations` row were created. `POST /auth/set-password` cleared the User's setup token but never removed the matching SsoInvitation, so the row kept showing in *Pending invitations* indefinitely. The SSO callback path that links an SSO subject to a pre-invited User row had the same gap. Both endpoints now delete the matching SsoInvitation when the user accepts, matching the pattern already used by the new-user SSO branch and by `DELETE /users/{id}`. Pre-existing leftover invitations from before this fix can be cleared with the existing *Revoke* button in the admin UI.
+- **Invitations now disappear from the Users & Roles list once the user is active** (#539). The pre-fix flow created both a `users` row (carrying a one-time `password_setup_token`) and a paired `sso_invitations` row at invite time; no acceptance path cleaned the latter up. Three cooperating fixes close the gap on every path:
+  1. **`GET /users/invitations` filters defensively** — it now hides any invitation whose email matches a User that already has a `password_hash` or a linked `sso_subject_id`. Legacy stale rows from before this fix stop appearing in the admin list automatically.
+  2. **`POST /auth/set-password`** clears the matching SsoInvitation in the same transaction as the User update (the original fix, kept for hygiene).
+  3. **`PATCH /users/{id}` with `password` set** now also clears the `password_setup_token` (so the *Pending Setup* badge disappears) and drops the matching SsoInvitation — this is the admin "set password for invited user" path that the first round missed. The SSO-callback "link existing user" branch already cleans up too.
+
+### Changed
+- **Password is mandatory when creating a local account** (SSO disabled). `POST /users` now returns 400 if `password` is omitted and SSO is not enabled. The old "leave password blank to send a setup link by email" flow was a footgun: it created a User in a pending-setup state with no clean acceptance path and left the paired SsoInvitation in the admin list with no way for the user to resolve it. SSO-enabled installs are unaffected — admins can still invite a user without a password and let them sign in via SSO.
+- **Login error no longer points to a non-existent email setup link.** When a local account has no `password_hash`, `POST /auth/login` now returns a generic 401 (instead of *"Password not set yet. Check your email for the setup link."*, which referenced a flow that no longer exists for new accounts).
+- **Invite email template simplified.** The branch that sent a "click here to set your password" link is removed — when SSO is enabled the email points users to sign in, when SSO is disabled it confirms the password has been set by the admin.
+- **Frontend invite dialog requires a password when SSO is disabled** — the password field is marked required, blocks submit on empty, and the help text reflects the new flow in all 8 supported locales.
 
 ## [1.9.0] - 2026-05-12
 

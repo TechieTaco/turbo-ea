@@ -204,6 +204,111 @@ class TestUpdateUser:
         )
         assert resp.status_code == 404
 
+    async def test_create_user_without_password_rejected_when_sso_disabled(
+        self, client, db, users_env
+    ):
+        """Creating a local account requires a password when SSO is not enabled.
+
+        Replaces the pre-fix flow where an admin could invite a user without a
+        password and expect an emailed setup link — that flow leaked stale
+        SsoInvitation rows into the admin list with no clean way to recover.
+        """
+        admin = users_env["admin"]
+        resp = await client.post(
+            "/api/v1/users",
+            json={
+                "email": "no-pass@test.com",
+                "display_name": "No Pass",
+                "role": "member",
+                "send_email": False,
+            },
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 400
+        assert "password" in resp.json()["detail"].lower()
+
+    async def test_admin_setting_password_clears_invitation_state(self, client, db, users_env):
+        """When admin sets a password on an invited user via PATCH /users/{id},
+        the one-time setup token is cleared AND the paired SsoInvitation row
+        is dropped — so the "Pending Setup" badge clears and the user no
+        longer shows in the Pending Invitations list (#539, second pass).
+        """
+        from sqlalchemy import select
+
+        from app.models.sso_invitation import SsoInvitation
+        from app.models.user import User
+
+        admin = users_env["admin"]
+
+        # Inject the legacy "invited but not yet accepted" state directly:
+        # a User row with a one-time setup_token + a paired SsoInvitation row.
+        # We bypass POST /users because that endpoint now rejects no-password
+        # invites when SSO is disabled (test env has SSO off by default).
+        invited = User(
+            email="admin-set@test.com",
+            display_name="Admin-Set",
+            password_hash=None,
+            role="member",
+            password_setup_token="legacy-setup-token-XYZ",
+        )
+        db.add(invited)
+        db.add(SsoInvitation(email="admin-set@test.com", role="member"))
+        await db.commit()
+        await db.refresh(invited)
+        user_id = str(invited.id)
+
+        # Admin sets a password via PATCH /users/{id}.
+        resp = await client.patch(
+            f"/api/v1/users/{user_id}",
+            json={"password": "AdminSetsPass1"},
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 200
+
+        # Setup token cleared (so the "Pending Setup" badge goes away).
+        await db.refresh(invited)
+        assert invited.password_setup_token is None
+        assert invited.password_hash is not None
+
+        # SsoInvitation row deleted.
+        result = await db.execute(
+            select(SsoInvitation).where(SsoInvitation.email == "admin-set@test.com")
+        )
+        assert result.scalar_one_or_none() is None
+
+        # And the list endpoint reflects it.
+        resp = await client.get("/api/v1/users/invitations", headers=auth_headers(admin))
+        assert resp.status_code == 200
+        assert not any(inv["email"] == "admin-set@test.com" for inv in resp.json())
+
+    async def test_invitation_list_hides_already_accepted_users(self, client, db, users_env):
+        """Defensive filter: even if a stale SsoInvitation row exists for an
+        email whose User already has a password_hash, the list endpoint hides
+        it (#539). Covers the case where an invitation was created by an
+        older code path that didn't clean up on acceptance.
+        """
+        from app.core.security import hash_password as _hash
+        from app.models.sso_invitation import SsoInvitation
+        from app.models.user import User
+
+        admin = users_env["admin"]
+
+        # Simulate a legacy state: an active User (password set) plus a
+        # leftover SsoInvitation row for the same email.
+        active_user = User(
+            email="legacy-leftover@test.com",
+            display_name="Legacy",
+            password_hash=_hash("SomePass1234"),
+            role="member",
+        )
+        db.add(active_user)
+        db.add(SsoInvitation(email="legacy-leftover@test.com", role="member"))
+        await db.commit()
+
+        resp = await client.get("/api/v1/users/invitations", headers=auth_headers(admin))
+        assert resp.status_code == 200
+        assert not any(inv["email"] == "legacy-leftover@test.com" for inv in resp.json())
+
 
 # -------------------------------------------------------------------
 # DELETE /users/{id}  (hard delete — row is removed)

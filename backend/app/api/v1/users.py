@@ -9,7 +9,7 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
-from app.api.v1.auth import _get_sso_config, generate_setup_token
+from app.api.v1.auth import _get_sso_config
 from app.core.security import hash_password
 from app.database import get_db
 from app.models.role import Role
@@ -112,9 +112,26 @@ async def list_invitations(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Admin only — list all pending invitations."""
+    """Admin only — list pending invitations.
+
+    Excludes invitations where a User with the same email already exists in an
+    active state (has a password hash or a linked SSO subject_id). This way the
+    list reflects the truth regardless of which path the user took to accept —
+    set-password link, admin-set password via PATCH /users/{id}, or SSO sign-in
+    (#539). The lifecycle endpoints that consume invitations still delete the
+    underlying rows so the DB stays tidy; the filter here is a defensive net.
+    """
     await PermissionService.require_permission(db, current_user, "admin.users")
-    result = await db.execute(select(SsoInvitation).order_by(SsoInvitation.email))
+    accepted_user_exists = (
+        select(User.id)
+        .where(
+            User.email == SsoInvitation.email,
+            (User.password_hash.is_not(None)) | (User.sso_subject_id.is_not(None)),
+        )
+        .exists()
+    )
+    stmt = select(SsoInvitation).where(~accepted_user_exists).order_by(SsoInvitation.email)
+    result = await db.execute(stmt)
     return [_invitation_response(inv) for inv in result.scalars().all()]
 
 
@@ -285,19 +302,28 @@ async def create_user(
     if existing_inv.scalar_one_or_none():
         raise HTTPException(409, "An invitation for this email already exists")
 
-    setup_token = None
-    pw_hash = None
-    if body.password:
-        pw_hash = hash_password(body.password)
-    else:
-        setup_token = generate_setup_token()
+    # Password is required when SSO is not enabled — local accounts cannot exist
+    # in a pending-setup state (the email-link flow was a footgun: the User row
+    # showed «Pending Setup» and the paired SsoInvitation lingered in the admin
+    # list with no way for the user to actually complete setup). SSO-enabled
+    # mode still allows creating users without a password since they'll
+    # authenticate via SSO.
+    sso_cfg = await _get_sso_config(db)
+    sso_enabled = sso_cfg.get("enabled", False)
+    if not body.password and not sso_enabled:
+        raise HTTPException(
+            400,
+            "A password is required when creating a local account. "
+            "Enable SSO or set a password for the new user.",
+        )
+
+    pw_hash = hash_password(body.password) if body.password else None
 
     u = User(
         email=email,
         display_name=body.display_name,
         password_hash=pw_hash,
         role=body.role,
-        password_setup_token=setup_token,
     )
     db.add(u)
 
@@ -320,29 +346,20 @@ async def create_user(
     if body.send_email:
         from app.services.email_service import _get_app_title, send_notification_email
 
-        sso_cfg = await _get_sso_config(db)
-        sso_enabled = sso_cfg.get("enabled", False)
         app_title = _get_app_title()
         invite_title = f"You've been invited to {app_title}"
 
-        if setup_token and not sso_enabled:
-            invite_message = (
-                f"You have been invited to join {app_title}. "
-                "Click the button below to set your password and get started."
-            )
-            invite_link = f"/auth/set-password?token={setup_token}"
-        elif sso_enabled:
+        if sso_enabled:
             invite_message = (
                 f"You have been invited to join {app_title}. Click the button below to sign in."
             )
-            invite_link = "/"
         else:
             invite_message = (
                 f"You have been invited to join {app_title}. "
                 "A password has been set for your account. "
                 "Click the button below to sign in."
             )
-            invite_link = "/"
+        invite_link = "/"
 
         try:
             sent = await send_notification_email(
@@ -461,6 +478,12 @@ async def update_user(
         if u.auth_provider == "sso":
             raise HTTPException(400, "Cannot set password for SSO users")
         u.password_hash = hash_password(data.pop("password"))
+        # Setting a password completes the invitation: clear the one-time
+        # setup token (so the "Pending Setup" badge clears and the setup link
+        # can no longer be used to overwrite the password) and drop any
+        # paired SsoInvitation row (#539).
+        u.password_setup_token = None
+        await db.execute(delete(SsoInvitation).where(SsoInvitation.email == u.email))
 
     for field, value in data.items():
         setattr(u, field, value)
