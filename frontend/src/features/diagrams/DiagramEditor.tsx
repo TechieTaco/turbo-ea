@@ -582,7 +582,15 @@ export default function DiagramEditor() {
         }
       }
 
-      collapseCardGroup(frame, cellId);
+      const { removedCellIds } = collapseCardGroup(frame, cellId);
+      // Scrub the side-table for every cellId we just intentionally
+      // removed. Otherwise the diff-based edge-deletion detector would
+      // fire a "Delete the relation?" dialog for every connecting edge
+      // that disappeared as part of the collapse.
+      for (const id of removedCellIds) {
+        edgeRelationMapRef.current.delete(id);
+        registeredCellIdsRef.current.delete(id);
+      }
       // Switch back to chevron so the user can pick a different relation
       // type or direction for the next expansion.
       addChevronOverlay(frame, cellId, (anchor) =>
@@ -892,8 +900,14 @@ export default function DiagramEditor() {
       expandCacheRef.current.delete(cellId);
       deletedChildrenRef.current.delete(cellId);
 
-      // Collapse first if currently expanded
-      collapseCardGroup(frame, cellId);
+      // Collapse first if currently expanded — also scrub the side-
+      // table so the diff scan doesn't tombstone the edges we just
+      // intentionally removed.
+      const { removedCellIds } = collapseCardGroup(frame, cellId);
+      for (const id of removedCellIds) {
+        edgeRelationMapRef.current.delete(id);
+        registeredCellIdsRef.current.delete(id);
+      }
 
       // Re-fetch and expand
       api
@@ -1635,10 +1649,39 @@ export default function DiagramEditor() {
     });
   }, []);
 
-  /** Discard a tombstoned relation removal (keeps the relation in inventory). */
-  const handleDiscardRelRemoval = useCallback((edgeCellId: string) => {
-    setPendingRelRemovals((prev) => prev.filter((r) => r.edgeCellId !== edgeCellId));
-  }, []);
+  /** Discard a tombstoned relation removal — keep the relation in
+   *  inventory AND restore the edge on the canvas. Without the restore
+   *  the user is left with a relation in the backend but no visual on
+   *  the diagram, which is confusing. Also re-registers the edge in the
+   *  side-table so the next deletion attempt still hits the dialog. */
+  const handleDiscardRelRemoval = useCallback(
+    (edgeCellId: string) => {
+      const target = pendingRelRemovals.find((r) => r.edgeCellId === edgeCellId);
+      setPendingRelRemovals((prev) => prev.filter((r) => r.edgeCellId !== edgeCellId));
+      if (!target) return;
+      const frame = iframeRef.current;
+      if (!frame) return;
+      const ok = restoreRemovedEdge(frame, target);
+      if (ok) {
+        registerEdgeRelation(target.edgeCellId, {
+          relationId: target.relationId,
+          relationType: target.relationType,
+          relationLabel: target.relationLabel,
+          sourceName: target.sourceName,
+          targetName: target.targetName,
+          sourceCellId: target.sourceCellId,
+          targetCellId: target.targetCellId,
+          style: target.style,
+        });
+        setSnackMsg(t("editor.edgeRestored"));
+      } else {
+        // Endpoints disappeared too — relation stays in inventory but
+        // we can't put the edge back.
+        setSnackMsg(t("editor.errors.restoreEdgeFailed"));
+      }
+    },
+    [pendingRelRemovals, registerEdgeRelation, t],
+  );
 
   /** Toggle whether a tombstoned card removal should also archive the card. */
   const handleToggleArchive = useCallback((cellId: string) => {
@@ -2042,11 +2085,20 @@ export default function DiagramEditor() {
             });
           }
         }
+        // Re-attach chevron + collapse overlays. DrawIO's load action
+        // replaces the canvas, so the overlays we hung off the previous
+        // cells are gone — without this re-attach the user has no way
+        // to expand any card in the restored diagram.
+        refreshCardOverlays(f, handleCollapseGroup, handleChevron);
       }
       restoreInProgressRef.current = false;
     }, 400);
     setRestoreBanner(null);
     setSnackMsg(t("editor.restored"));
+    // handleCollapseGroup + handleChevron are stable useCallbacks; we'd
+    // include them here but doing so creates a forward-ref cycle in TS
+    // because acceptRestore is declared earlier in the function body.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [restoreBanner, postToDrawIO, t]);
 
   const dismissRestore = useCallback(() => {

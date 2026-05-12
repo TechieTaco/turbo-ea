@@ -157,5 +157,6 @@
   "editor.allChildrenAlreadyOnCanvas": "Todos los hijos elegidos ya están en el lienzo; nada que explorar.",
   "editor.allNeighboursAlreadyOnCanvas": "Todos los vecinos coincidentes ya están en el lienzo; nada que insertar.",
   "editor.someNeighboursSkipped_one": "Se omitió {{count}} vecino que ya está en el lienzo.",
-  "editor.someNeighboursSkipped_other": "Se omitieron {{count}} vecinos que ya están en el lienzo."
+  "editor.someNeighboursSkipped_other": "Se omitieron {{count}} vecinos que ya están en el lienzo.",
+  "editor.edgeRestored": "Borde restaurado — relación conservada en el inventario"
 }

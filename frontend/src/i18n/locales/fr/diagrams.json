@@ -157,5 +157,6 @@
   "editor.allChildrenAlreadyOnCanvas": "Tous les enfants sélectionnés sont déjà sur le canevas ; rien à explorer.",
   "editor.allNeighboursAlreadyOnCanvas": "Tous les voisins correspondants sont déjà sur le canevas ; rien à insérer.",
   "editor.someNeighboursSkipped_one": "{{count}} voisin déjà sur le canevas a été ignoré.",
-  "editor.someNeighboursSkipped_other": "{{count}} voisins déjà sur le canevas ont été ignorés."
+  "editor.someNeighboursSkipped_other": "{{count}} voisins déjà sur le canevas ont été ignorés.",
+  "editor.edgeRestored": "Lien restauré — relation conservée dans l'inventaire"
 }

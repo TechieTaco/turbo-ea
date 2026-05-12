@@ -157,5 +157,6 @@
   "editor.allChildrenAlreadyOnCanvas": "Alle ausgewählten Kinder sind bereits auf der Leinwand; nichts zum Aufschlüsseln.",
   "editor.allNeighboursAlreadyOnCanvas": "Alle passenden Nachbarn sind bereits auf der Leinwand; nichts einzufügen.",
   "editor.someNeighboursSkipped_one": "{{count}} Nachbar übersprungen, der bereits auf der Leinwand ist.",
-  "editor.someNeighboursSkipped_other": "{{count}} Nachbarn übersprungen, die bereits auf der Leinwand sind."
+  "editor.someNeighboursSkipped_other": "{{count}} Nachbarn übersprungen, die bereits auf der Leinwand sind.",
+  "editor.edgeRestored": "Kante wiederhergestellt — Beziehung im Inventar erhalten"
 }

@@ -71,6 +71,7 @@
   "editor.errors.applyViewFailed": "Failed to apply the selected view",
   "editor.errors.restoreEdgeFailed": "Could not restore the edge — the endpoints are no longer on the canvas.",
   "editor.noChildren": "This card has no children to drill into.",
+  "editor.edgeRestored": "Edge restored — relation kept in inventory",
   "editor.alreadyDrilled": "This card is already shown as a container with its children inside.",
   "editor.alreadyRolledUp": "This card already lives inside a parent container — roll-up would create a duplicate.",
   "editor.parentAlreadyOnCanvas": "The parent card is already on the canvas — remove that cell first if you want it as a container.",

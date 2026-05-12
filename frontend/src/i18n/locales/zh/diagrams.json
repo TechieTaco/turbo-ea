@@ -157,5 +157,6 @@
   "editor.allChildrenAlreadyOnCanvas": "所选的所有子项都已在画布上;没有可下钻的内容。",
   "editor.allNeighboursAlreadyOnCanvas": "所有匹配的相邻卡片都已在画布上;无可插入。",
   "editor.someNeighboursSkipped_one": "已跳过画布上已存在的 {{count}} 个相邻卡片。",
-  "editor.someNeighboursSkipped_other": "已跳过画布上已存在的 {{count}} 个相邻卡片。"
+  "editor.someNeighboursSkipped_other": "已跳过画布上已存在的 {{count}} 个相邻卡片。",
+  "editor.edgeRestored": "已恢复连线 — 关系保留在库存中"
 }

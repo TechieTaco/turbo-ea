@@ -157,5 +157,6 @@
   "editor.allChildrenAlreadyOnCanvas": "Все выбранные дочерние элементы уже на холсте; нечего детализировать.",
   "editor.allNeighboursAlreadyOnCanvas": "Все подходящие соседи уже на холсте; нечего вставлять.",
   "editor.someNeighboursSkipped_one": "Пропущен {{count}} сосед, уже находящийся на холсте.",
-  "editor.someNeighboursSkipped_other": "Пропущено соседей: {{count}}, уже на холсте."
+  "editor.someNeighboursSkipped_other": "Пропущено соседей: {{count}}, уже на холсте.",
+  "editor.edgeRestored": "Связь восстановлена — отношение сохранено в инвентаре"
 }

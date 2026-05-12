@@ -157,5 +157,6 @@
   "editor.allChildrenAlreadyOnCanvas": "Tutti i figli selezionati sono già sul canvas; niente da approfondire.",
   "editor.allNeighboursAlreadyOnCanvas": "Tutti i vicini corrispondenti sono già sul canvas; niente da inserire.",
   "editor.someNeighboursSkipped_one": "Ignorato {{count}} vicino già sul canvas.",
-  "editor.someNeighboursSkipped_other": "Ignorati {{count}} vicini già sul canvas."
+  "editor.someNeighboursSkipped_other": "Ignorati {{count}} vicini già sul canvas.",
+  "editor.edgeRestored": "Bordo ripristinato — relazione mantenuta nell'inventario"
 }

@@ -157,5 +157,6 @@
   "editor.allChildrenAlreadyOnCanvas": "Todos os filhos escolhidos já estão na tela; nada para explorar.",
   "editor.allNeighboursAlreadyOnCanvas": "Todos os vizinhos correspondentes já estão na tela; nada para inserir.",
   "editor.someNeighboursSkipped_one": "{{count}} vizinho já na tela foi ignorado.",
-  "editor.someNeighboursSkipped_other": "{{count}} vizinhos já na tela foram ignorados."
+  "editor.someNeighboursSkipped_other": "{{count}} vizinhos já na tela foram ignorados.",
+  "editor.edgeRestored": "Aresta restaurada — relação mantida no inventário"
 }

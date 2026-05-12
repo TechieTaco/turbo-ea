@@ -680,17 +680,29 @@ export function expandCardGroup(
  * Recurses into children that are themselves expanded, so nested expansions
  * are cleaned up correctly.
  */
+/**
+ * Remove all descendant cells (and their edges) belonging to a parent group.
+ * Recurses into children that are themselves expanded, so nested expansions
+ * are cleaned up correctly.
+ *
+ * Returns the cellIds of every cell that was actually removed (vertices
+ * AND their connecting edges). Callers need this so they can scrub
+ * matching entries from their own side-tables (e.g. the editor's
+ * edgeRelationMap) — otherwise the diff-based edge-deletion detector
+ * would mistake a collapse for a user delete and prompt the confirm
+ * dialog for every edge that disappeared.
+ */
 export function collapseCardGroup(
   iframe: HTMLIFrameElement,
   parentCellId: string,
-): boolean {
+): { removedCellIds: string[] } {
   const ctx = getMxGraph(iframe);
-  if (!ctx) return false;
+  if (!ctx) return { removedCellIds: [] };
   const { graph } = ctx;
 
   const model = graph.getModel();
   const parentCell = model.getCell(parentCellId);
-  if (!parentCell) return false;
+  if (!parentCell) return { removedCellIds: [] };
 
   const cells = model.cells || {};
 
@@ -718,7 +730,26 @@ export function collapseCardGroup(
     }
   }
 
-  if (toRemove.length === 0) return false;
+  if (toRemove.length === 0) return { removedCellIds: [] };
+
+  // Compute the full set of cellIds that mxGraph will actually remove —
+  // `removeCells(toRemove, true)` also collects every edge connected to
+  // any cell in `toRemove`. We need those edge cellIds to scrub the
+  // editor's side-table.
+  const removedSet = new Set<string>();
+  const collectEdges = (
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    cell: any,
+  ) => {
+    if (!cell?.edges) return;
+    for (const e of cell.edges) {
+      if (e?.id) removedSet.add(e.id);
+    }
+  };
+  for (const c of toRemove) {
+    if (c.id) removedSet.add(c.id);
+    collectEdges(c);
+  }
 
   model.beginUpdate();
   try {
@@ -732,7 +763,7 @@ export function collapseCardGroup(
     model.endUpdate();
   }
 
-  return true;
+  return { removedCellIds: Array.from(removedSet) };
 }
 
 /**
