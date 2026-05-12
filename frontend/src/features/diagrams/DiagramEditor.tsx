@@ -50,6 +50,7 @@ import {
   collectExistingCardCellIds,
   collectExistingEdgeRelations,
   collectLiveEdgeCellIds,
+  removeDanglingEdges,
   describeEdgeEndpoints,
   extractCardCellIdsFromXml,
   extractEdgeRelationsFromXml,
@@ -1422,6 +1423,18 @@ export default function DiagramEditor() {
           (cellId) => registeredCellIdsRef.current.has(cellId),
           handleDuplicate,
         );
+        // ── Cascade-remove dangling edges ──
+        // When a card is deleted, DrawIO leaves connected edges
+        // dangling — visually present but pointing at a vertex no
+        // longer in the model. Sweep them here before the edge-
+        // deletion diff runs so users don't have to delete every
+        // edge manually after deleting a card. Also drop their
+        // side-table entries so the diff doesn't surface a phantom
+        // "delete this relation?" dialog.
+        const danglingEdgeIds = removeDanglingEdges(f);
+        for (const id of danglingEdgeIds) {
+          edgeRelationMapRef.current.delete(id);
+        }
         // ── Edge-deletion diff ──
         const liveEdgeIds = collectLiveEdgeCellIds(f);
         // Collect ids to remove + corresponding tombstones so we don't

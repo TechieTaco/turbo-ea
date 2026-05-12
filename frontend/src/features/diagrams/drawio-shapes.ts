@@ -1431,6 +1431,61 @@ export function collectLiveEdgeCellIds(iframe: HTMLIFrameElement): Set<string> {
   return out;
 }
 
+/**
+ * Cascade-remove any edge whose source or target vertex is no longer
+ * in the model. Returns the list of edge cellIds that were removed so
+ * the editor can clean up its side-table state (relation map) for them.
+ *
+ * Why: DrawIO's card-delete path doesn't fire CELLS_REMOVED on any
+ * channel we listen to (neither model.CELLS_REMOVED, graph.CELLS_REMOVED,
+ * nor model.CHANGE) when a vertex is removed via the keyboard / menu.
+ * The connected edges are left dangling — visually still on the canvas,
+ * but pointing at a vertex that's no longer in `model.cells`. We sweep
+ * for them in the periodic 750ms scan instead.
+ */
+export function removeDanglingEdges(iframe: HTMLIFrameElement): string[] {
+  const ctx = getMxGraph(iframe);
+  if (!ctx) return [];
+  const { graph } = ctx;
+  const model = graph.getModel();
+  const allCells = model.cells || {};
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const dangling: any[] = [];
+  for (const k of Object.keys(allCells)) {
+    const c = allCells[k];
+    if (!c?.edge) continue;
+    const srcId = c.source?.id;
+    const tgtId = c.target?.id;
+    // Dangling if either endpoint is missing OR points at an id that
+    // is no longer in the model.
+    const srcMissing = !srcId || !allCells[srcId];
+    const tgtMissing = !tgtId || !allCells[tgtId];
+    if (srcMissing || tgtMissing) dangling.push(c);
+  }
+  if (dangling.length === 0) return [];
+  const removedIds = dangling.map((d) => d.id as string);
+  model.beginUpdate();
+  try {
+    try {
+      graph.removeCells(dangling, false);
+    } catch {
+      // fall through to model.remove
+    }
+    for (const e of dangling) {
+      if (model.getCell(e.id) === e) {
+        try {
+          model.remove(e);
+        } catch {
+          // ignore
+        }
+      }
+    }
+  } finally {
+    model.endUpdate();
+  }
+  return removedIds;
+}
+
 /** Snapshot an edge's visible state — endpoints, style, and label —
  *  so the editor can restore the same edge later via
  *  `restoreRemovedEdge`. Returns empty defaults if the edge has been
