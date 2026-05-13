@@ -1480,6 +1480,29 @@ async def update_compliance_finding_decision(
     )
 
 
+@router.delete("/security/compliance-findings/{finding_id}", status_code=204)
+async def delete_compliance_finding(
+    finding_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Permanently delete a compliance finding.
+
+    Admin-grade action gated by ``security_compliance.manage`` (granted
+    only to the admin role by default). The linked Risk (if any) is
+    NOT cascaded — risks are independent records once promoted; the
+    finding's row is simply removed. The next compliance scan will
+    re-emit the finding if the LLM still reports it for the same
+    card+regulation+article+requirement.
+    """
+    await PermissionService.require_permission(db, user, "security_compliance.manage")
+    row = await db.get(TurboLensComplianceFinding, uuid.UUID(finding_id))
+    if not row:
+        raise HTTPException(404, "Finding not found")
+    await db.delete(row)
+    await db.commit()
+
+
 @router.post("/security/compliance-findings/{finding_id}/ai-verdict")
 async def submit_ai_verdict(
     finding_id: str,

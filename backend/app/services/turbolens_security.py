@@ -1183,6 +1183,7 @@ def compliance_to_dict(
         "auto_resolved": row.auto_resolved,
         "last_seen_run_id": (str(row.last_seen_run_id) if row.last_seen_run_id else None),
         "created_at": row.created_at.isoformat() if row.created_at else None,
+        "updated_at": row.updated_at.isoformat() if row.updated_at else None,
     }
 
 

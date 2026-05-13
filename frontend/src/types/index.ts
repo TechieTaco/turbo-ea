@@ -1444,6 +1444,7 @@ export interface TurboLensComplianceFinding {
   auto_resolved: boolean;
   last_seen_run_id: string | null;
   created_at: string | null;
+  updated_at: string | null;
 }
 
 // ── Risk Register ──────────────────────────────────────────────────────

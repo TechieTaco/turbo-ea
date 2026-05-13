@@ -1355,6 +1355,23 @@ export default function TurboLensSecurity() {
           onExport={() =>
             exportComplianceToCsv(filteredComplianceFindings, t, tCards)
           }
+          onDelete={async (f) => {
+            try {
+              await api.delete(`/turbolens/security/compliance-findings/${f.id}`);
+              setCompliance((prev) =>
+                prev.map((b) =>
+                  b.regulation === f.regulation
+                    ? {
+                        ...b,
+                        findings: b.findings.filter((x) => x.id !== f.id),
+                      }
+                    : b,
+                ),
+              );
+            } catch (e) {
+              if (e instanceof ApiError) setError(e.message);
+            }
+          }}
         />
       </Stack>
     );

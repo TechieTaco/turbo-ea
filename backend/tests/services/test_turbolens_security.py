@@ -250,6 +250,7 @@ def test_compliance_to_dict_handles_landscape_scope():
         auto_resolved=False,
         last_seen_run_id=None,
         created_at=datetime.now(timezone.utc),
+        updated_at=datetime.now(timezone.utc),
     )
     d = compliance_to_dict(row, None)
     assert d["card_id"] is None

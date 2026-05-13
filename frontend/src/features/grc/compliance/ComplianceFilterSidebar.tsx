@@ -60,6 +60,8 @@ export const COMPLIANCE_GRID_COLUMNS: Array<{ id: string; labelKey: string }> = 
   { id: "requirement", labelKey: "compliance.grid.col.requirement" },
   { id: "decision", labelKey: "compliance.grid.col.lifecycle" },
   { id: "ai_detected", labelKey: "compliance.grid.col.ai" },
+  { id: "created_at", labelKey: "compliance.grid.col.created" },
+  { id: "updated_at", labelKey: "compliance.grid.col.modified" },
 ];
 
 /** Columns that always render — the user can't hide these because they

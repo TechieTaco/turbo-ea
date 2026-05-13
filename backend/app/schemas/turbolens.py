@@ -309,6 +309,7 @@ class ComplianceFindingOut(BaseModel):
     auto_resolved: bool = False
     last_seen_run_id: str | None = None
     created_at: datetime | None = None
+    updated_at: datetime | None = None
 
     model_config = {"from_attributes": True}
 

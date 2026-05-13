@@ -40,12 +40,18 @@ import "ag-grid-community/styles/ag-theme-quartz.css";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
+import Dialog from "@mui/material/Dialog";
+import DialogActions from "@mui/material/DialogActions";
+import DialogContent from "@mui/material/DialogContent";
+import DialogTitle from "@mui/material/DialogTitle";
+import IconButton from "@mui/material/IconButton";
 import Stack from "@mui/material/Stack";
 import ToggleButton from "@mui/material/ToggleButton";
 import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import { useDateFormat } from "@/hooks/useDateFormat";
 import { useThemeMode } from "@/hooks/useThemeMode";
 import { useTheme } from "@mui/material/styles";
 import type {
@@ -74,6 +80,7 @@ interface Props {
   onPromoteToRisk?: (finding: TurboLensComplianceFinding) => void;
   onOpenRisk?: (riskId: string) => void;
   onRequestAccept?: (finding: TurboLensComplianceFinding) => void;
+  onDelete?: (finding: TurboLensComplianceFinding) => Promise<void> | void;
   canManage?: boolean;
   /** Render AG Grid's native loading overlay while findings refresh. */
   loading?: boolean;
@@ -163,6 +170,7 @@ export default function ComplianceGrid({
   onPromoteToRisk,
   onOpenRisk,
   onRequestAccept,
+  onDelete,
   canManage = true,
   loading = false,
   onCreate,
@@ -173,6 +181,11 @@ export default function ComplianceGrid({
   const { t: tCommon } = useTranslation("common");
   const theme = useTheme();
   const { mode } = useThemeMode();
+  const { formatDate } = useDateFormat();
+
+  const [deleteConfirm, setDeleteConfirm] =
+    useState<TurboLensComplianceFinding | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const initialPrefs = useMemo(loadPrefs, []);
   const [groupMode, setGroupModeRaw] = useState<GroupMode>(initialPrefs.groupMode);
@@ -375,7 +388,55 @@ export default function ComplianceGrid({
           </Tooltip>
         ) : null,
     },
-  ], [t, tCards, theme, groupMode, sortedFindings]); // eslint-disable-line react-hooks/exhaustive-deps
+    {
+      headerName: tCards("compliance.grid.col.created"),
+      field: "created_at",
+      width: 130,
+      filter: "agDateColumnFilter",
+      valueFormatter: (p) => (p.value ? formatDate(p.value as string) : ""),
+    },
+    {
+      headerName: tCards("compliance.grid.col.modified"),
+      field: "updated_at",
+      width: 130,
+      filter: "agDateColumnFilter",
+      valueFormatter: (p) => (p.value ? formatDate(p.value as string) : ""),
+    },
+    // Delete action — admin-grade (canManage gates rendering, the
+    // endpoint additionally enforces security_compliance.manage).
+    ...(canManage && onDelete
+      ? [
+          {
+            headerName: "",
+            colId: "delete_action",
+            width: 56,
+            sortable: false,
+            filter: false,
+            resizable: false,
+            suppressMovable: true,
+            // Don't let a click inside the action cell open the finding
+            // drawer (the row click handler bubbles otherwise).
+            cellStyle: { cursor: "default" },
+            cellRenderer: (
+              p: ICellRendererParams<TurboLensComplianceFinding>,
+            ) =>
+              p.data ? (
+                <Tooltip title={tCommon("actions.delete")}>
+                  <IconButton
+                    size="small"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setDeleteConfirm(p.data ?? null);
+                    }}
+                  >
+                    <MaterialSymbol icon="delete" size={18} />
+                  </IconButton>
+                </Tooltip>
+              ) : null,
+          } as ColDef<TurboLensComplianceFinding>,
+        ]
+      : []),
+  ], [t, tCards, tCommon, theme, groupMode, sortedFindings, formatDate, canManage, onDelete]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Apply column visibility from prefs without rebuilding the colDef
   // factory closure on every toggle.
@@ -412,6 +473,9 @@ export default function ComplianceGrid({
 
   const onCellClicked = (e: CellClickedEvent<TurboLensComplianceFinding>) => {
     if (!e.data) return;
+    // Action cells (currently just delete) handle their own click and
+    // must not also open the finding drawer.
+    if (e.colDef.colId === "delete_action") return;
     // Click on the Card cell → open card panel only (single-drawer
     // discipline). Click anywhere else on the row → open finding drawer.
     if (e.colDef.field === "card_name") {
@@ -419,6 +483,17 @@ export default function ComplianceGrid({
       return;
     }
     setFindingDrawer(e.data);
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteConfirm || !onDelete) return;
+    setDeleting(true);
+    try {
+      await onDelete(deleteConfirm);
+      setDeleteConfirm(null);
+    } finally {
+      setDeleting(false);
+    }
   };
 
   const getRowStyle = (params: { data?: TurboLensComplianceFinding }) =>
@@ -596,6 +671,42 @@ export default function ComplianceGrid({
           setFindingDrawer(updated);
         }}
       />
+
+      <Dialog
+        open={!!deleteConfirm}
+        onClose={() => !deleting && setDeleteConfirm(null)}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle>{tCards("compliance.delete.title")}</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" sx={{ mt: 1 }}>
+            {tCards("compliance.delete.confirm", {
+              card: deleteConfirm?.card_name || tCards("compliance.delete.landscapeScope"),
+            })}
+          </Typography>
+          {deleteConfirm?.risk_id && (
+            <Typography variant="caption" color="warning.main" sx={{ display: "block", mt: 1 }}>
+              {tCards("compliance.delete.riskWarning", {
+                ref: deleteConfirm.risk_reference || "",
+              })}
+            </Typography>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteConfirm(null)} disabled={deleting}>
+            {tCommon("actions.cancel")}
+          </Button>
+          <Button
+            variant="contained"
+            color="error"
+            onClick={confirmDelete}
+            disabled={deleting}
+          >
+            {tCommon("actions.delete")}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }

@@ -2647,6 +2647,18 @@
             "default": "review_needed",
             "title": "Status",
             "type": "string"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
           }
         },
         "required": [
@@ -27106,6 +27118,40 @@
       }
     },
     "/api/v1/turbolens/security/compliance-findings/{finding_id}": {
+      "delete": {
+        "description": "Permanently delete a compliance finding.\n\nAdmin-grade action gated by ``security_compliance.manage`` (granted\nonly to the admin role by default). The linked Risk (if any) is\nNOT cascaded \u2014 risks are independent records once promoted; the\nfinding's row is simply removed. The next compliance scan will\nre-emit the finding if the LLM still reports it for the same\ncard+regulation+article+requirement.",
+        "operationId": "delete_compliance_finding_api_v1_turbolens_security_compliance_findings__finding_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "finding_id",
+            "required": true,
+            "schema": {
+              "title": "Finding Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Compliance Finding",
+        "tags": [
+          "TurboLens"
+        ]
+      },
       "patch": {
         "description": "Transition a compliance finding's lifecycle state.\n\nAllowed transitions follow ``compliance_lifecycle_allowed`` in\n``services.turbolens_security``. ``accepted`` requires a\n``review_note``. ``risk_tracked`` is set by\n``POST /risks/promote/compliance/{id}`` (not here) and once a\nfinding is risk-tracked, manual transitions are blocked until the\nlinked Risk closes \u2014 the Risk lifecycle drives the finding via\n``compliance_risk_sync.propagate_risk_to_findings``.",
         "operationId": "update_compliance_finding_decision_api_v1_turbolens_security_compliance_findings__finding_id__patch",
