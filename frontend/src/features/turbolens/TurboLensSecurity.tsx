@@ -37,7 +37,6 @@ import TablePagination from "@mui/material/TablePagination";
 import TableRow from "@mui/material/TableRow";
 import Tabs from "@mui/material/Tabs";
 import TextField from "@mui/material/TextField";
-import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import CardDetailSidePanel from "@/components/CardDetailSidePanel";
@@ -57,10 +56,11 @@ import type {
   TurboLensSecurityOverview,
 } from "@/types";
 import ComplianceHeatmap from "./ComplianceHeatmap";
+import ComplianceGrid from "@/features/grc/compliance/ComplianceGrid";
+import type { ComplianceFilters } from "@/features/grc/compliance/ComplianceFilterSidebar";
 import CreateRiskDialog from "@/features/grc/risk/CreateRiskDialog";
 import {
   RiskDialogSeed,
-  seedFromCompliance,
   seedFromCve,
 } from "@/features/grc/risk/riskDefaults";
 import { useNavigate } from "react-router-dom";
@@ -69,8 +69,6 @@ import SecurityFindingDrawer from "./SecurityFindingDrawer";
 import SecurityScanCard from "./SecurityScanCard";
 import { useAnalysisPolling } from "./useAnalysisPolling";
 import {
-  complianceDecisionColor,
-  complianceStatusColor,
   cveSeverityColor,
   cveStatusColor,
   priorityColor,
@@ -112,22 +110,8 @@ const SEVERITY_LABELS: Array<"critical" | "high" | "medium" | "low" | "unknown">
 
 // ---------------------------------------------------------------------------
 
-/**
- * Humanize a category slug emitted by the compliance LLM
- * (e.g. "risk_tier_classification" → "Risk Tier Classification").
- * The LLM is prompted to return a short slug, so we render it
- * presentably without round-tripping through i18n.
- */
-function humanizeCategory(slug: string): string {
-  return slug
-    .replace(/[_-]+/g, " ")
-    .trim()
-    .replace(/\b\w/g, (c) => c.toUpperCase());
-}
-
 export default function TurboLensSecurity() {
   const { t } = useTranslation("admin");
-  const { t: tDelivery } = useTranslation("delivery");
   const navigate = useNavigate();
   const phaseLabel = useCallback(
     (phase: string) => {
@@ -201,6 +185,9 @@ export default function TurboLensSecurity() {
   const [complianceAiOnly, setComplianceAiOnly] = useState(false);
   const [complianceIncludeResolved, setComplianceIncludeResolved] =
     useState(false);
+  const [complianceCardTypeFilter, setComplianceCardTypeFilter] = useState<
+    Set<"Application" | "ITComponent">
+  >(new Set<"Application" | "ITComponent">(["Application", "ITComponent"]));
 
   // Card side panel triggered from a finding's card-name click.
   const [cardPanelId, setCardPanelId] = useState<string | null>(null);
@@ -450,6 +437,15 @@ export default function TurboLensSecurity() {
     if (complianceAiOnly) items = items.filter((f) => f.ai_detected);
     if (!complianceIncludeResolved)
       items = items.filter((f) => !f.auto_resolved);
+    // Card-type filter: landscape-scoped findings (no card_type) always
+    // pass; otherwise drop findings whose card_type is not in the set.
+    items = items.filter(
+      (f) =>
+        !f.card_type ||
+        complianceCardTypeFilter.has(
+          f.card_type as "Application" | "ITComponent",
+        ),
+    );
     return items;
   }, [
     compliance,
@@ -460,6 +456,7 @@ export default function TurboLensSecurity() {
     complianceDecisionFilter,
     complianceAiOnly,
     complianceIncludeResolved,
+    complianceCardTypeFilter,
   ]);
 
   const setDecision = useCallback(
@@ -498,19 +495,6 @@ export default function TurboLensSecurity() {
     },
     [],
   );
-
-  const toggleSetMember = <T,>(
-    setter: (next: Set<T>) => void,
-    current: Set<T>,
-    value: T,
-  ) => {
-    const next = new Set(current);
-    if (next.has(value)) next.delete(value);
-    else next.add(value);
-    setter(next);
-  };
-
-  const activeBundle = compliance.find((b) => b.regulation === activeRegulation);
 
   // ── Render ────────────────────────────────────────────────────────
   return (
@@ -1095,29 +1079,8 @@ export default function TurboLensSecurity() {
         </Box>
       );
     }
-    const statusOptions: ComplianceStatus[] = [
-      "compliant",
-      "partial",
-      "non_compliant",
-      "not_applicable",
-      "review_needed",
-    ];
-    const severityOptions: TurboLensComplianceFinding["severity"][] = [
-      "critical",
-      "high",
-      "medium",
-      "low",
-      "info",
-    ];
-    const decisionOptions: ComplianceDecision[] = [
-      "open",
-      "acknowledged",
-      "accepted",
-      "risk_tracked",
-      "auto_resolved",
-    ];
     return (
-      <Stack spacing={2}>
+      <Stack spacing={2} sx={{ flex: 1, minHeight: 0, display: "flex" }}>
         <Tabs
           value={activeRegulation}
           onChange={(_, v) => {
@@ -1156,419 +1119,57 @@ export default function TurboLensSecurity() {
           })}
         </Tabs>
 
-        {/* Filter bar — everything is on by default; user opts down. */}
-        <Paper variant="outlined" sx={{ p: 1.5 }}>
-          <Stack spacing={1}>
-            {highlightCell?.status && (
-              <Alert
-                severity="info"
-                sx={{ py: 0 }}
-                onClose={() => setHighlightCell(null)}
-              >
-                {t("turbolens_security_compliance_filter_from_heatmap", {
-                  status: t(
-                    `turbolens_security_compliance_status_${highlightCell.status}`,
-                  ),
-                })}
-              </Alert>
-            )}
-            <Stack
-              direction={{ xs: "column", md: "row" }}
-              spacing={2}
-              alignItems={{ md: "center" }}
-              flexWrap="wrap"
-              useFlexGap
-            >
-              <Box>
-                <Typography variant="caption" color="text.secondary">
-                  {t("turbolens_security_compliance_filter_status")}
-                </Typography>
-                <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
-                  {statusOptions.map((s) => (
-                    <Chip
-                      key={s}
-                      size="small"
-                      label={t(`turbolens_security_compliance_status_${s}`)}
-                      color={
-                        complianceStatusFilter.has(s)
-                          ? complianceStatusColor(s)
-                          : "default"
-                      }
-                      variant={
-                        complianceStatusFilter.has(s) ? "filled" : "outlined"
-                      }
-                      onClick={() =>
-                        toggleSetMember(
-                          setComplianceStatusFilter,
-                          complianceStatusFilter,
-                          s,
-                        )
-                      }
-                    />
-                  ))}
-                </Stack>
-              </Box>
-              <Box>
-                <Typography variant="caption" color="text.secondary">
-                  {t("turbolens_security_compliance_filter_severity")}
-                </Typography>
-                <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
-                  {severityOptions.map((s) => (
-                    <Chip
-                      key={s}
-                      size="small"
-                      label={t(`turbolens_security_severity_${s}`)}
-                      color={
-                        complianceSeverityFilter.has(s)
-                          ? cveSeverityColor(s)
-                          : "default"
-                      }
-                      variant={
-                        complianceSeverityFilter.has(s)
-                          ? "filled"
-                          : "outlined"
-                      }
-                      onClick={() =>
-                        toggleSetMember(
-                          setComplianceSeverityFilter,
-                          complianceSeverityFilter,
-                          s,
-                        )
-                      }
-                    />
-                  ))}
-                </Stack>
-              </Box>
-              <Box>
-                <Typography variant="caption" color="text.secondary">
-                  {t("turbolens_security_compliance_filter_decision")}
-                </Typography>
-                <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
-                  {decisionOptions.map((d) => (
-                    <Chip
-                      key={d}
-                      size="small"
-                      label={t(`turbolens_security_compliance_decision_${d}`)}
-                      color={
-                        complianceDecisionFilter.has(d)
-                          ? complianceDecisionColor(d)
-                          : "default"
-                      }
-                      variant={
-                        complianceDecisionFilter.has(d)
-                          ? "filled"
-                          : "outlined"
-                      }
-                      onClick={() =>
-                        toggleSetMember(
-                          setComplianceDecisionFilter,
-                          complianceDecisionFilter,
-                          d,
-                        )
-                      }
-                    />
-                  ))}
-                </Stack>
-              </Box>
-              <FormControlLabel
-                control={
-                  <Checkbox
-                    size="small"
-                    checked={complianceAiOnly}
-                    onChange={(e) => setComplianceAiOnly(e.target.checked)}
-                  />
-                }
-                label={t("turbolens_security_compliance_filter_ai_only")}
-              />
-              <FormControlLabel
-                control={
-                  <Checkbox
-                    size="small"
-                    checked={complianceIncludeResolved}
-                    onChange={(e) =>
-                      setComplianceIncludeResolved(e.target.checked)
-                    }
-                  />
-                }
-                label={t(
-                  "turbolens_security_compliance_filter_include_resolved",
-                )}
-              />
-            </Stack>
-          </Stack>
-        </Paper>
-
-        {activeBundle && filteredComplianceFindings.length === 0 ? (
-          <Alert severity="info">
-            {t("turbolens_security_compliance_no_findings")}
+        {highlightCell?.status && (
+          <Alert
+            severity="info"
+            sx={{ py: 0 }}
+            onClose={() => setHighlightCell(null)}
+          >
+            {t("turbolens_security_compliance_filter_from_heatmap", {
+              status: t(
+                `turbolens_security_compliance_status_${highlightCell.status}`,
+              ),
+            })}
           </Alert>
-        ) : (
-          <Stack spacing={1.5}>
-            {filteredComplianceFindings.map((f) => (
-              <Paper
-                key={f.id}
-                variant="outlined"
-                sx={{
-                  p: 2,
-                  borderLeft: 4,
-                  borderLeftColor: `${complianceStatusColor(f.status)}.main`,
-                  opacity: f.auto_resolved ? 0.65 : 1,
-                }}
-              >
-                {f.card_name && f.card_id && (
-                  <Stack
-                    direction="row"
-                    spacing={0.5}
-                    alignItems="center"
-                    sx={{
-                      mb: 0.75,
-                      cursor: "pointer",
-                      "&:hover .card-name": { textDecoration: "underline" },
-                    }}
-                    onClick={() => setCardPanelId(f.card_id)}
-                    role="button"
-                    tabIndex={0}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" || e.key === " ") {
-                        e.preventDefault();
-                        setCardPanelId(f.card_id);
-                      }
-                    }}
-                  >
-                    <Typography
-                      className="card-name"
-                      variant="subtitle2"
-                      sx={{ fontWeight: 600, color: "primary.main" }}
-                    >
-                      {f.card_name}
-                    </Typography>
-                    <MaterialSymbol
-                      icon="open_in_new"
-                      size={14}
-                      color="primary"
-                    />
-                  </Stack>
-                )}
-                <Stack
-                  direction="row"
-                  spacing={1}
-                  alignItems="center"
-                  sx={{ mb: 0.5 }}
-                  flexWrap="wrap"
-                  useFlexGap
-                >
-                  <Chip
-                    size="small"
-                    color={complianceStatusColor(f.status)}
-                    label={t(
-                      `turbolens_security_compliance_status_${f.status}`,
-                    )}
-                  />
-                  <Tooltip
-                    title={
-                      f.review_note ||
-                      t(
-                        `turbolens_security_compliance_decision_help_${f.decision}`,
-                      )
-                    }
-                  >
-                    <Chip
-                      size="small"
-                      variant="outlined"
-                      color={complianceDecisionColor(f.decision)}
-                      icon={
-                        <MaterialSymbol
-                          icon={
-                            f.decision === "risk_tracked"
-                              ? "policy"
-                              : f.decision === "accepted"
-                                ? "verified"
-                                : f.decision === "acknowledged"
-                                  ? "visibility"
-                                  : f.decision === "auto_resolved"
-                                    ? "task_alt"
-                                    : "radio_button_unchecked"
-                          }
-                          size={14}
-                        />
-                      }
-                      label={t(
-                        `turbolens_security_compliance_decision_${f.decision}`,
-                      )}
-                    />
-                  </Tooltip>
-                  {f.regulation_article && (
-                    <Chip
-                      size="small"
-                      variant="outlined"
-                      label={`${t("turbolens_security_compliance_article")} · ${f.regulation_article}`}
-                    />
-                  )}
-                  {f.scope_type === "landscape" && (
-                    <Chip
-                      size="small"
-                      variant="outlined"
-                      label={t(
-                        "turbolens_security_compliance_scope_landscape",
-                      )}
-                    />
-                  )}
-                  {f.ai_detected && (
-                    <Tooltip title={t("turbolens_security_ai_detected_hint")}>
-                      <Chip
-                        size="small"
-                        color="secondary"
-                        icon={
-                          <MaterialSymbol icon="auto_awesome" size={14} />
-                        }
-                        label={t("turbolens_security_ai_detected")}
-                      />
-                    </Tooltip>
-                  )}
-                  {f.category && (
-                    <Chip
-                      size="small"
-                      variant="outlined"
-                      label={humanizeCategory(f.category)}
-                    />
-                  )}
-                </Stack>
-                <Typography variant="body2" sx={{ mt: 1 }}>
-                  {f.requirement}
-                </Typography>
-                {f.gap_description && f.status !== "compliant" && (
-                  <Typography
-                    variant="body2"
-                    color="text.secondary"
-                    sx={{ mt: 1 }}
-                  >
-                    <strong>
-                      {t("turbolens_security_compliance_gap")}:
-                    </strong>{" "}
-                    {f.gap_description}
-                  </Typography>
-                )}
-                {f.remediation && (
-                  <Typography
-                    variant="body2"
-                    color="text.secondary"
-                    sx={{ mt: 0.5 }}
-                  >
-                    <strong>
-                      {t("turbolens_security_compliance_remediation")}:
-                    </strong>{" "}
-                    {f.remediation}
-                  </Typography>
-                )}
-                {f.evidence && (
-                  <Typography
-                    variant="caption"
-                    color="text.secondary"
-                    sx={{ mt: 0.5, display: "block" }}
-                  >
-                    {t("turbolens_security_compliance_evidence")}:{" "}
-                    {f.evidence}
-                  </Typography>
-                )}
-                {f.review_note && f.decision === "accepted" && (
-                  <Typography
-                    variant="caption"
-                    color="text.secondary"
-                    sx={{ mt: 0.5, display: "block", fontStyle: "italic" }}
-                  >
-                    {t("turbolens_security_compliance_accepted_by", {
-                      name: f.reviewer_name || "—",
-                    })}
-                    : {f.review_note}
-                  </Typography>
-                )}
-                <Stack
-                  direction="row"
-                  spacing={1}
-                  sx={{ mt: 1 }}
-                  flexWrap="wrap"
-                  useFlexGap
-                >
-                  {f.risk_id ? (
-                    <Button
-                      size="small"
-                      variant="outlined"
-                      startIcon={
-                        <MaterialSymbol icon="open_in_new" size={14} />
-                      }
-                      onClick={() => openRisk(f.risk_id!)}
-                    >
-                      {tDelivery("risks.openRisk", {
-                        reference: f.risk_reference ?? f.risk_id,
-                      })}
-                    </Button>
-                  ) : (
-                    f.status !== "compliant" &&
-                    f.status !== "not_applicable" &&
-                    !f.auto_resolved && (
-                      <Button
-                        size="small"
-                        variant="contained"
-                        startIcon={
-                          <MaterialSymbol icon="policy" size={14} />
-                        }
-                        onClick={() => setRiskSeed(seedFromCompliance(f))}
-                      >
-                        {tDelivery("risks.createRisk")}
-                      </Button>
-                    )
-                  )}
-                  {!f.auto_resolved &&
-                    f.decision !== "risk_tracked" &&
-                    f.decision !== "acknowledged" && (
-                      <Button
-                        size="small"
-                        variant="text"
-                        startIcon={
-                          <MaterialSymbol icon="visibility" size={14} />
-                        }
-                        onClick={() => setDecision(f, "acknowledged")}
-                      >
-                        {t("turbolens_security_compliance_acknowledge")}
-                      </Button>
-                    )}
-                  {!f.auto_resolved &&
-                    f.decision !== "risk_tracked" &&
-                    f.decision !== "accepted" && (
-                      <Button
-                        size="small"
-                        variant="text"
-                        startIcon={
-                          <MaterialSymbol icon="verified" size={14} />
-                        }
-                        onClick={() =>
-                          setAcceptDialog({
-                            finding: f,
-                            note: f.review_note ?? "",
-                            saving: false,
-                          })
-                        }
-                      >
-                        {t("turbolens_security_compliance_accept")}
-                      </Button>
-                    )}
-                  {f.auto_resolved && (
-                    <Button
-                      size="small"
-                      variant="text"
-                      startIcon={
-                        <MaterialSymbol icon="restart_alt" size={14} />
-                      }
-                      onClick={() => setDecision(f, "open")}
-                    >
-                      {t("turbolens_security_compliance_reopen")}
-                    </Button>
-                  )}
-                </Stack>
-              </Paper>
-            ))}
-          </Stack>
         )}
+
+        <ComplianceGrid
+          findings={filteredComplianceFindings}
+          filters={{
+            statuses: complianceStatusFilter,
+            severities: complianceSeverityFilter,
+            decisions: complianceDecisionFilter,
+            cardTypes: complianceCardTypeFilter,
+            aiOnly: complianceAiOnly,
+            includeResolved: complianceIncludeResolved,
+          } as ComplianceFilters}
+          onFiltersChange={(next) => {
+            setComplianceStatusFilter(next.statuses);
+            setComplianceSeverityFilter(next.severities);
+            setComplianceDecisionFilter(next.decisions);
+            setComplianceCardTypeFilter(next.cardTypes);
+            setComplianceAiOnly(next.aiOnly);
+            setComplianceIncludeResolved(next.includeResolved);
+          }}
+          onFindingUpdated={(updated) => {
+            setCompliance((prev) =>
+              prev.map((b) =>
+                b.regulation === updated.regulation
+                  ? {
+                      ...b,
+                      findings: b.findings.map((f) =>
+                        f.id === updated.id ? updated : f,
+                      ),
+                    }
+                  : b,
+              ),
+            );
+          }}
+          onOpenCard={setCardPanelId}
+          onRequestAccept={(f) =>
+            setAcceptDialog({ finding: f, note: "", saving: false })
+          }
+        />
       </Stack>
     );
   }

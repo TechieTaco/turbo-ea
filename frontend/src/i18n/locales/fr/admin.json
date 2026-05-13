@@ -1316,5 +1316,8 @@
   "turbolens_security_compliance_filter_decision": "Décision",
   "turbolens_security_compliance_filter_ai_only": "IA détectée uniquement",
   "turbolens_security_compliance_filter_include_resolved": "Inclure les résolus automatiquement",
-  "turbolens_security_compliance_filter_from_heatmap": "Filtré sur {{status}} depuis la carte thermique. Effacer pour voir tous les constats."
+  "turbolens_security_compliance_filter_from_heatmap": "Filtré sur {{status}} depuis la carte thermique. Effacer pour voir tous les constats.",
+  "turbolens_security_compliance_ai_detected": "IA détectée",
+  "turbolens_security_compliance_ai_detected_help": "Le scanner a identifié cette carte comme intégrant ou fournissant de l'IA. Ouvrez le constat pour confirmer ou rejeter le verdict — votre réponse met à jour l'attribut «Fonctionnalités IA» de la carte.",
+  "turbolens_security_compliance_auto_resolved": "Résolu automatiquement"
 }

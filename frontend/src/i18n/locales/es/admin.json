@@ -1316,5 +1316,8 @@
   "turbolens_security_compliance_filter_decision": "Decisión",
   "turbolens_security_compliance_filter_ai_only": "Solo detectado por IA",
   "turbolens_security_compliance_filter_include_resolved": "Incluir resueltos automáticamente",
-  "turbolens_security_compliance_filter_from_heatmap": "Filtrado a {{status}} desde el mapa de calor. Borre para ver todos los hallazgos."
+  "turbolens_security_compliance_filter_from_heatmap": "Filtrado a {{status}} desde el mapa de calor. Borre para ver todos los hallazgos.",
+  "turbolens_security_compliance_ai_detected": "IA detectada",
+  "turbolens_security_compliance_ai_detected_help": "El escáner ha marcado esta tarjeta como portadora o proveedora de IA. Abra el hallazgo para confirmar o rechazar el veredicto — su respuesta actualiza el atributo «Tiene funciones de IA» de la tarjeta.",
+  "turbolens_security_compliance_auto_resolved": "Resuelto automáticamente"
 }

@@ -1386,6 +1386,7 @@ export interface TurboLensComplianceFinding {
   regulation_article: string | null;
   card_id: string | null;
   card_name: string | null;
+  card_type: string | null;
   scope_type: "card" | "landscape";
   category: string;
   requirement: string;

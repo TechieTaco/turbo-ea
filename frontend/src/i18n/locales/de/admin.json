@@ -1316,5 +1316,8 @@
   "turbolens_security_compliance_filter_decision": "Entscheidung",
   "turbolens_security_compliance_filter_ai_only": "Nur KI-erkannt",
   "turbolens_security_compliance_filter_include_resolved": "Automatisch behobene einbeziehen",
-  "turbolens_security_compliance_filter_from_heatmap": "Nach {{status}} aus der Heatmap gefiltert. Löschen, um alle Befunde zu sehen."
+  "turbolens_security_compliance_filter_from_heatmap": "Nach {{status}} aus der Heatmap gefiltert. Löschen, um alle Befunde zu sehen.",
+  "turbolens_security_compliance_ai_detected": "KI erkannt",
+  "turbolens_security_compliance_ai_detected_help": "Der Scanner hat diese Karte als KI-eingebettet oder KI-bereitstellend markiert. Öffnen Sie den Befund, um das Urteil zu bestätigen oder abzulehnen — die Antwort aktualisiert das Kartenattribut «Hat KI-Funktionen».",
+  "turbolens_security_compliance_auto_resolved": "Automatisch behoben"
 }
