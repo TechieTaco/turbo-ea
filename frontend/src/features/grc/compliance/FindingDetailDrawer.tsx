@@ -29,6 +29,7 @@ import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api, ApiError } from "@/api/client";
+import { useComplianceRegulations } from "@/hooks/useComplianceRegulations";
 import type { TurboLensComplianceFinding } from "@/types";
 import {
   complianceStatusColor,
@@ -74,6 +75,7 @@ export default function FindingDetailDrawer({
   const { t } = useTranslation("admin");
   const { t: tCards } = useTranslation("cards");
   const { t: tDelivery } = useTranslation("delivery");
+  const { byKey: regulationsByKey } = useComplianceRegulations();
 
   const [saving, setSaving] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -149,7 +151,10 @@ export default function FindingDetailDrawer({
 
           {/* Subtitle: regulation + card */}
           <Typography variant="subtitle2" color="text.secondary">
-            {t(`turbolens_security_regulation_${finding.regulation}`)}
+            {regulationsByKey[finding.regulation]?.label ??
+              t(`turbolens_security_regulation_${finding.regulation}`, {
+                defaultValue: finding.regulation,
+              })}
             {finding.card_name && finding.card_id ? ` · ${finding.card_name}` : ""}
           </Typography>
 

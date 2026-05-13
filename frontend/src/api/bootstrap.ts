@@ -23,9 +23,11 @@ import {
 import { invalidateAppTitle } from "@/hooks/useAppTitle";
 import { invalidateCurrency } from "@/hooks/useCurrency";
 import { invalidateBpmEnabled } from "@/hooks/useBpmEnabled";
+import { invalidateComplianceRegulations } from "@/hooks/useComplianceRegulations";
 import { invalidatePpmEnabled } from "@/hooks/usePpmEnabled";
 import { invalidateEnabledLocalesGlobal } from "@/hooks/useEnabledLocales";
 import { SUPPORTED_LOCALES, type SupportedLocale } from "@/i18n";
+import type { ComplianceRegulation } from "@/types";
 
 type BootstrapResponse = {
   currency: string;
@@ -38,6 +40,7 @@ type BootstrapResponse = {
   fiscal_year_start: number;
   bpm_row_order: string[];
   show_principles_tab: boolean;
+  compliance_regulations: ComplianceRegulation[];
 };
 
 let _primed = false;
@@ -72,6 +75,10 @@ export function primeBootstrap(): Promise<void> {
       );
       invalidateEnabledLocalesGlobal(
         validLocales.length > 0 ? validLocales : [...SUPPORTED_LOCALES],
+      );
+
+      invalidateComplianceRegulations(
+        Array.isArray(r.compliance_regulations) ? r.compliance_regulations : [],
       );
 
       _primed = true;

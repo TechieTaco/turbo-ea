@@ -21,6 +21,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import get_current_user
 from app.database import get_db
 from app.models.card import Card
+from app.models.compliance_regulation import ComplianceRegulation
 from app.models.turbolens import (
     TurboLensAnalysisRun,
     TurboLensAssessment,
@@ -33,7 +34,6 @@ from app.models.turbolens import (
 )
 from app.models.user import User
 from app.schemas.turbolens import (
-    SUPPORTED_REGULATIONS,
     ComplianceBundleOut,
     ComplianceFindingAiVerdict,
     ComplianceFindingCreate,
@@ -914,7 +914,10 @@ async def trigger_compliance_scan(
     await PermissionService.require_permission(db, user, "security_compliance.manage")
 
     run = await _create_analysis_run(db, AnalysisType.SECURITY_COMPLIANCE, user)
-    regulations = (body.regulations if body else None) or list(SUPPORTED_REGULATIONS)
+    # When the client doesn't filter, the service loads every enabled
+    # regulation from the DB. We pass the filter through verbatim and let
+    # the service intersect with the enabled set.
+    regulations = body.regulations if body else None
     user_id = str(user.id)
 
     async def _service(db_: AsyncSession) -> dict[str, Any]:
@@ -1026,9 +1029,9 @@ async def security_overview(
     compliance_scores = {reg: compliance_score(rows) for reg, rows in by_regulation.items()}
 
     compliance_by_status: dict[str, dict[str, int]] = {}
-    for reg in SUPPORTED_REGULATIONS:
+    for reg, reg_rows in by_regulation.items():
         status_counts: dict[str, int] = {}
-        for comp_row in by_regulation.get(reg, []):
+        for comp_row in reg_rows:
             status_counts[comp_row.status] = status_counts.get(comp_row.status, 0) + 1
         compliance_by_status[reg] = status_counts
 
@@ -1198,6 +1201,7 @@ async def list_compliance(
     from app.services.turbolens_security import (
         compliance_score,
         compliance_to_dict,
+        load_regulation_meta,
         load_reviewer_names,
         load_risk_references,
     )
@@ -1220,10 +1224,22 @@ async def list_compliance(
     for row in rows:
         grouped.setdefault(row.regulation, []).append(row)
 
+    reg_meta = await load_regulation_meta(db)
+
+    # Order: every known regulation (per the table's sort_order), then any
+    # orphan keys still referenced by findings (regulation deleted but
+    # findings remain — render as a muted "unknown" tab).
+    if regulation:
+        order: list[str] = [regulation]
+    else:
+        known_keys = list(reg_meta.keys())
+        orphan_keys = sorted(k for k in grouped.keys() if k not in reg_meta)
+        order = known_keys + orphan_keys
+
     bundles: list[ComplianceBundleOut] = []
-    order = SUPPORTED_REGULATIONS if not regulation else (regulation,)
     for reg in order:
         reg_rows = grouped.get(reg, [])
+        meta = reg_meta.get(reg)
         items = [
             ComplianceFindingOut.model_validate(
                 compliance_to_dict(
@@ -1243,6 +1259,9 @@ async def list_compliance(
         bundles.append(
             ComplianceBundleOut(
                 regulation=reg,
+                label=meta["label"] if meta else reg,
+                is_enabled=meta["is_enabled"] if meta else False,
+                is_known=meta is not None,
                 score=compliance_score(reg_rows),
                 findings=items,
             )
@@ -1278,8 +1297,20 @@ async def create_compliance_finding_manual(
     """
     await PermissionService.require_permission(db, user, "security_compliance.manage")
 
-    if body.regulation not in SUPPORTED_REGULATIONS:
-        raise HTTPException(400, f"regulation must be one of: {', '.join(SUPPORTED_REGULATIONS)}")
+    reg_key = (body.regulation or "").strip()
+    if not reg_key:
+        raise HTTPException(400, "regulation is required")
+    # The regulation must be known to the system. Both enabled and
+    # disabled regulations are accepted so historical findings can be
+    # re-created against a regulation that's been temporarily disabled.
+    reg_exists = await db.execute(
+        select(ComplianceRegulation).where(ComplianceRegulation.key == reg_key)
+    )
+    if reg_exists.scalar_one_or_none() is None:
+        raise HTTPException(
+            400,
+            f"Unknown regulation '{reg_key}'. Add it under Admin → Metamodel → Regulations first.",
+        )
     if body.status not in _VALID_COMPLIANCE_STATUSES:
         raise HTTPException(
             400,

@@ -233,9 +233,6 @@ class TurboLensAssessmentOut(BaseModel):
 # ---------------------------------------------------------------------------
 
 
-SUPPORTED_REGULATIONS = ("eu_ai_act", "gdpr", "nis2", "dora", "soc2", "iso27001")
-
-
 class SecurityScanRequest(BaseModel):
     """Options for an on-demand security & compliance scan."""
 
@@ -405,5 +402,8 @@ class SecurityOverviewOut(BaseModel):
 
 class ComplianceBundleOut(BaseModel):
     regulation: str
+    label: str | None = None
+    is_enabled: bool = True
+    is_known: bool = True
     score: int = 0
     findings: list[ComplianceFindingOut] = Field(default_factory=list)

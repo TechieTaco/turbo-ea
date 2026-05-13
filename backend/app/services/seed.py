@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import uuid
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -13,6 +15,7 @@ from app.core.permissions import (
     VIEWER_PERMISSIONS,
 )
 from app.models.card_type import CardType
+from app.models.compliance_regulation import ComplianceRegulation
 from app.models.relation_type import RelationType
 from app.models.role import Role
 from app.models.stakeholder_role_definition import StakeholderRoleDefinition
@@ -5289,5 +5292,107 @@ async def seed_metamodel(db: AsyncSession) -> None:
                     translations=sr.get("translations", {}),
                 )
             )
+
+    # ── Built-in compliance regulations ────────────────────────────────
+    #
+    # Idempotent: only inserts a built-in regulation if its key is missing.
+    # Admin edits to existing rows (label, description, sort_order,
+    # translations, is_enabled) are preserved across upgrades. The
+    # Alembic migration handles the same seed on existing DBs that
+    # arrive at this version via migrations; this branch covers fresh
+    # DBs that come up via ``create_all`` and skip migrations.
+    _builtin_regulations = [
+        {
+            "key": "eu_ai_act",
+            "label": "EU AI Act (Regulation (EU) 2024/1689)",
+            "description": (
+                "Assess EU AI Act compliance. For each AI-bearing card classify "
+                "the risk tier (prohibited / high_risk / limited_risk / minimal) "
+                "using use-case signals in the description, and emit findings for "
+                "obligations that apply at that tier: risk management system, "
+                "data governance, technical documentation, transparency, human "
+                "oversight, accuracy / robustness / cybersecurity, logging, "
+                "post-market monitoring, conformity assessment. Also emit "
+                "landscape-level findings (e.g., missing registry of high-risk "
+                "systems, no AI governance role assigned)."
+            ),
+            "sort_order": 10,
+        },
+        {
+            "key": "gdpr",
+            "label": "GDPR (Regulation (EU) 2016/679)",
+            "description": (
+                "Assess GDPR compliance. Flag applications that likely process "
+                "personal data without a documented lawful basis, those that may "
+                "transfer personal data outside the EU without SCCs, and "
+                "high-risk processing that requires a DPIA. Emit landscape findings "
+                "for gaps such as missing DPO assignment or no record of "
+                "processing activities."
+            ),
+            "sort_order": 20,
+        },
+        {
+            "key": "nis2",
+            "label": "NIS2 Directive (Directive (EU) 2022/2555)",
+            "description": (
+                "Assess NIS2 Directive compliance. Consider the cards as the IT "
+                "estate of an essential or important entity. Flag gaps in: "
+                "incident response capability, supply-chain risk concentration "
+                "(single-vendor reliance), business continuity / disaster recovery, "
+                "vulnerability management for essential services."
+            ),
+            "sort_order": 30,
+        },
+        {
+            "key": "dora",
+            "label": "DORA (Regulation (EU) 2022/2554)",
+            "description": (
+                "Assess DORA (Digital Operational Resilience Act) compliance for "
+                "financial-services cards. Flag: ICT third-party concentration, "
+                "missing critical-function mapping, no resilience testing, "
+                "incident classification / reporting gaps."
+            ),
+            "sort_order": 40,
+        },
+        {
+            "key": "soc2",
+            "label": "SOC 2 (Trust Services Criteria)",
+            "description": (
+                "Assess SOC 2 Trust Services Criteria coverage over the landscape. "
+                "Flag: stakeholder / owner assignment gaps (access control), "
+                "change-management gaps (no approval workflow), monitoring / "
+                "availability gaps, confidentiality gaps around sensitive cards."
+            ),
+            "sort_order": 50,
+        },
+        {
+            "key": "iso27001",
+            "label": "ISO/IEC 27001:2022",
+            "description": (
+                "Assess ISO/IEC 27001:2022 Annex A control coverage. Flag: asset "
+                "inventory completeness (data-quality gaps), access control "
+                "ownership, supplier relationships (vendor / provider linkage), "
+                "operations security, incident management."
+            ),
+            "sort_order": 60,
+        },
+    ]
+    existing_regs_result = await db.execute(select(ComplianceRegulation))
+    existing_reg_keys = {r.key for r in existing_regs_result.scalars().all()}
+    for reg in _builtin_regulations:
+        if reg["key"] in existing_reg_keys:
+            continue
+        db.add(
+            ComplianceRegulation(
+                id=uuid.uuid4(),
+                key=reg["key"],
+                label=reg["label"],
+                description=reg["description"],
+                is_enabled=True,
+                built_in=True,
+                sort_order=reg["sort_order"],
+                translations={},
+            )
+        )
 
     await db.commit()

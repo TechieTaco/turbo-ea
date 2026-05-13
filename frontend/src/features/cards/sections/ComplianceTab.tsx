@@ -28,6 +28,7 @@ import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api, ApiError } from "@/api/client";
+import { useComplianceRegulations } from "@/hooks/useComplianceRegulations";
 import { COMPLIANCE_LIFECYCLE_COLORS } from "@/theme/tokens";
 import type {
   ComplianceDecision,
@@ -48,6 +49,7 @@ interface Props {
 export default function ComplianceTab({ cardId }: Props) {
   const { t } = useTranslation("cards");
   const { t: tAdmin } = useTranslation("admin");
+  const { byKey: regulationsByKey } = useComplianceRegulations();
   const navigate = useNavigate();
 
   const [findings, setFindings] = useState<TurboLensComplianceFinding[]>([]);
@@ -165,9 +167,12 @@ export default function ComplianceTab({ cardId }: Props) {
                   <Chip
                     size="small"
                     variant="outlined"
-                    label={tAdmin(
-                      `turbolens_security_regulation_${f.regulation}`,
-                    )}
+                    label={
+                      regulationsByKey[f.regulation]?.label ??
+                      tAdmin(`turbolens_security_regulation_${f.regulation}`, {
+                        defaultValue: f.regulation,
+                      })
+                    }
                   />
                 </TableCell>
                 <TableCell>{f.regulation_article || "—"}</TableCell>

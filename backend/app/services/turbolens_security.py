@@ -30,6 +30,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.card import Card
+from app.models.compliance_regulation import ComplianceRegulation
 from app.models.turbolens import (
     TurboLensAnalysisRun,
     TurboLensComplianceFinding,
@@ -51,14 +52,9 @@ from app.services.turbolens_nvd import (
 
 logger = logging.getLogger("turboea.turbolens.security")
 
-SUPPORTED_REGULATIONS: tuple[str, ...] = (
-    "eu_ai_act",
-    "gdpr",
-    "nis2",
-    "dora",
-    "soc2",
-    "iso27001",
-)
+# Built-in regulation key that triggers the EU AI Act semantic detector
+# pass. Custom regulations don't activate it — only the built-in does.
+EU_AI_ACT_KEY = "eu_ai_act"
 
 AI_SUBTYPES = {"AI Agent", "AI Model", "MCP Server"}
 CVE_PER_CARD_LIMIT = 20
@@ -499,18 +495,41 @@ async def detect_ai_bearing_cards(
 
 
 # ---------------------------------------------------------------------------
-# Compliance prompts
+# Compliance prompts (dynamic — built from the compliance_regulations table)
 # ---------------------------------------------------------------------------
 
 
-REGULATION_LABELS = {
-    "eu_ai_act": "EU AI Act (Regulation (EU) 2024/1689)",
-    "gdpr": "GDPR (Regulation (EU) 2016/679)",
-    "nis2": "NIS2 Directive (Directive (EU) 2022/2555)",
-    "dora": "DORA (Regulation (EU) 2022/2554)",
-    "soc2": "SOC 2 (Trust Services Criteria)",
-    "iso27001": "ISO/IEC 27001:2022",
-}
+async def load_enabled_regulations(
+    db: AsyncSession, keys: list[str] | None = None
+) -> list[ComplianceRegulation]:
+    """Return enabled regulations from the DB, ordered by sort_order.
+
+    If ``keys`` is provided, the result is intersected with that set.
+    Unknown keys are silently dropped — the scan endpoint never raises
+    on a stale client-side regulation key.
+    """
+    stmt = (
+        select(ComplianceRegulation)
+        .where(ComplianceRegulation.is_enabled == True)  # noqa: E712
+        .order_by(ComplianceRegulation.sort_order, ComplianceRegulation.label)
+    )
+    if keys:
+        stmt = stmt.where(ComplianceRegulation.key.in_(keys))
+    return list((await db.execute(stmt)).scalars().all())
+
+
+async def load_regulation_meta(db: AsyncSession) -> dict[str, dict[str, Any]]:
+    """Map of regulation key → {label, is_enabled} for ALL rows (incl. disabled).
+
+    Used by the ``GET /security/compliance`` rollup to surface a finding's
+    regulation label even after the regulation has been disabled, and to
+    render the muted "disabled" chip on the tab.
+    """
+    stmt = select(ComplianceRegulation).order_by(
+        ComplianceRegulation.sort_order, ComplianceRegulation.label
+    )
+    rows = list((await db.execute(stmt)).scalars().all())
+    return {r.key: {"label": r.label, "is_enabled": r.is_enabled} for r in rows}
 
 
 def _landscape_summary(cards: list[ScanCard]) -> dict[str, Any]:
@@ -542,52 +561,12 @@ def _landscape_summary(cards: list[ScanCard]) -> dict[str, Any]:
     }
 
 
-REGULATION_PROMPTS: dict[str, str] = {
-    "eu_ai_act": (
-        "Assess EU AI Act compliance. For each AI-bearing card classify "
-        "the risk tier (prohibited / high_risk / limited_risk / minimal) "
-        "using use-case signals in the description, and emit findings for "
-        "obligations that apply at that tier: risk management system, "
-        "data governance, technical documentation, transparency, human "
-        "oversight, accuracy / robustness / cybersecurity, logging, "
-        "post-market monitoring, conformity assessment. Also emit "
-        "landscape-level findings (e.g., missing registry of high-risk "
-        "systems, no AI governance role assigned)."
-    ),
-    "gdpr": (
-        "Assess GDPR compliance. Flag applications that likely process "
-        "personal data without a documented lawful basis, those that may "
-        "transfer personal data outside the EU without SCCs, and "
-        "high-risk processing that requires a DPIA. Emit landscape findings "
-        "for gaps such as missing DPO assignment or no record of "
-        "processing activities."
-    ),
-    "nis2": (
-        "Assess NIS2 Directive compliance. Consider the cards as the IT "
-        "estate of an essential or important entity. Flag gaps in: "
-        "incident response capability, supply-chain risk concentration "
-        "(single-vendor reliance), business continuity / disaster recovery, "
-        "vulnerability management for essential services."
-    ),
-    "dora": (
-        "Assess DORA (Digital Operational Resilience Act) compliance for "
-        "financial-services cards. Flag: ICT third-party concentration, "
-        "missing critical-function mapping, no resilience testing, "
-        "incident classification / reporting gaps."
-    ),
-    "soc2": (
-        "Assess SOC 2 Trust Services Criteria coverage over the landscape. "
-        "Flag: stakeholder / owner assignment gaps (access control), "
-        "change-management gaps (no approval workflow), monitoring / "
-        "availability gaps, confidentiality gaps around sensitive cards."
-    ),
-    "iso27001": (
-        "Assess ISO/IEC 27001:2022 Annex A control coverage. Flag: asset "
-        "inventory completeness (data-quality gaps), access control "
-        "ownership, supplier relationships (vendor / provider linkage), "
-        "operations security, incident management."
-    ),
-}
+DEFAULT_ASSESSMENT_DIRECTIVE = (
+    "Assess landscape compliance with this regulation. Identify card-level "
+    "gaps where a specific application, IT component, or data object drives "
+    "the non-compliance, and landscape-level gaps where a systemic control "
+    "is missing across the estate."
+)
 
 
 def _compliance_shared_context(
@@ -633,20 +612,26 @@ def _compliance_shared_context(
 
 async def assess_regulation(
     db: AsyncSession,
-    regulation: str,
+    regulation: ComplianceRegulation,
     cards: list[ScanCard],
     ai_scope: dict[str, dict[str, Any]],
 ) -> list[dict[str, Any]]:
     """Run one compliance pass against a single regulation.
 
+    The regulation's ``label`` and ``description`` (stored on the
+    ``compliance_regulations`` row) are composed into the LLM prompt.
+    Admins never enter or see raw prompts — the assessment scope text
+    they edit on the row is what feeds the LLM here.
+
     Returns a list of raw finding dicts ready to be materialised into
     :class:`TurboLensComplianceFinding` rows.
     """
+    reg_key = regulation.key
     ai_config = await get_ai_config(db)
     if not is_ai_configured(ai_config):
         return [
             {
-                "regulation": regulation,
+                "regulation": reg_key,
                 "regulation_article": None,
                 "card_id": None,
                 "scope_type": "landscape",
@@ -664,14 +649,12 @@ async def assess_regulation(
             }
         ]
 
-    directive = REGULATION_PROMPTS.get(regulation)
-    if not directive:
-        return []
+    directive = (regulation.description or "").strip() or DEFAULT_ASSESSMENT_DIRECTIVE
     context_json = _compliance_shared_context(cards, ai_scope)
 
     prompt = (
-        f"Regulation: {REGULATION_LABELS.get(regulation, regulation)}.\n"
-        f"{directive}\n\n"
+        f"Regulation: {regulation.label}.\n"
+        f"Assessment scope: {directive}\n\n"
         "Return ONLY a JSON array of compliance findings. Each finding:\n"
         '{"regulation_article":"<optional article reference>",'
         '"card_id":"<uuid or null for landscape-wide>",'
@@ -703,7 +686,7 @@ async def assess_regulation(
         )
         parsed = parse_json(result["text"])
     except Exception as exc:  # noqa: BLE001
-        logger.warning("Compliance pass %s failed: %s", regulation, exc)
+        logger.warning("Compliance pass %s failed: %s", reg_key, exc)
         return []
 
     if not isinstance(parsed, list):
@@ -730,12 +713,12 @@ async def assess_regulation(
             scope_type = "card" if card_uuid else "landscape"
 
         ai_detected = False
-        if regulation == "eu_ai_act" and card_uuid and str(card_uuid) in ai_ids:
+        if reg_key == EU_AI_ACT_KEY and card_uuid and str(card_uuid) in ai_ids:
             ai_detected = str(card_uuid) in non_subtype_ids
 
         findings.append(
             {
-                "regulation": regulation,
+                "regulation": reg_key,
                 "regulation_article": (item.get("regulation_article") or None),
                 "card_id": card_uuid,
                 "scope_type": scope_type,
@@ -942,20 +925,23 @@ async def run_compliance_scan(
     run_uuid = uuid_mod.UUID(str(run_id))
     progress_cb = _progress_cb(db, run_uuid)
 
-    regs = [r for r in (regulations or list(SUPPORTED_REGULATIONS)) if r in SUPPORTED_REGULATIONS]
-    if not regs:
-        regs = list(SUPPORTED_REGULATIONS)
+    # Load enabled regulations from the DB. The optional ``regulations``
+    # filter (from the request body) narrows the run to the intersection.
+    enabled_regs = await load_enabled_regulations(db, keys=regulations)
+    if not enabled_regs:
+        enabled_regs = await load_enabled_regulations(db)
+    reg_keys = [r.key for r in enabled_regs]
 
     await progress_cb("loading_cards", 0, 0, "")
     cards = await load_scan_targets(db, include_itc=True)
 
     ai_scope: dict[str, dict[str, Any]] = {}
-    if "eu_ai_act" in regs:
+    if EU_AI_ACT_KEY in reg_keys:
         ai_scope = await detect_ai_bearing_cards(db, cards, progress_cb=progress_cb)
 
     compliance_rows: list[dict[str, Any]] = []
-    for idx, reg in enumerate(regs, 1):
-        await progress_cb("regulation", idx, len(regs), reg)
+    for idx, reg in enumerate(enabled_regs, 1):
+        await progress_cb("regulation", idx, len(enabled_regs), reg.key)
         reg_findings = await assess_regulation(db, reg, cards, ai_scope)
         compliance_rows.extend(reg_findings)
 
@@ -966,7 +952,7 @@ async def run_compliance_scan(
         (
             await db.execute(
                 select(TurboLensComplianceFinding).where(
-                    TurboLensComplianceFinding.regulation.in_(regs)
+                    TurboLensComplianceFinding.regulation.in_(reg_keys)
                 )
             )
         )
@@ -1059,12 +1045,12 @@ async def run_compliance_scan(
                 title="Compliance scan finished",
                 message=(
                     f"{len(compliance_rows)} compliance finding(s) across "
-                    f"{len(regs)} regulation(s)."
+                    f"{len(reg_keys)} regulation(s)."
                 ),
                 link="/turbolens?tab=security",
                 data={
                     "compliance_count": len(compliance_rows),
-                    "regulations": regs,
+                    "regulations": reg_keys,
                     "scan": "compliance",
                 },
             )
@@ -1074,7 +1060,7 @@ async def run_compliance_scan(
     summary = {
         "scan": "compliance",
         "compliance_findings": len(compliance_rows),
-        "regulations": regs,
+        "regulations": reg_keys,
         "cards_scanned": len(cards),
         "ai_bearing_cards": len(ai_scope),
         "completed_at": datetime.now(timezone.utc).isoformat(),

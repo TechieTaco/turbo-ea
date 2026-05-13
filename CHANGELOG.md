@@ -5,6 +5,27 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.11.0] - 2026-05-13
+
+The fixed list of 6 compliance regulations is gone. Admins can now CRUD compliance frameworks from a new **Regulations** tab under Admin → Metamodel, enable/disable individual frameworks (defaults can be disabled but not deleted), and add their own (internal control policies, sector regulations like HIPAA, etc.). The Compliance register, manual finding entry, and risk promotion now work even when no AI provider is configured.
+
+### Added
+- **`/metamodel/compliance-regulations` CRUD** (GET / POST / PATCH / DELETE). Backed by a new `compliance_regulations` table (key, label, description, is_enabled, built_in, sort_order, translations JSONB). Built-in regulations can be edited and disabled but never hard-deleted; custom regulations can be deleted. Read access is open to any authenticated user; writes require `admin.metamodel`. Migration `082_compliance_regulations` creates the table and seeds the 6 historical defaults (EU AI Act, GDPR, NIS2, DORA, SOC 2, ISO 27001) with `built_in=True`. `seed_metamodel` mirrors the seed for fresh DBs that come up via `create_all`.
+- **Regulations tab under Admin → Metamodel.** Card-list UI with create / edit dialog, enable / disable switch, per-locale label translations, and a "built-in" chip on the protected defaults. The description field is the assessment-scope text that the AI scanner consumes — admins never write raw prompts.
+- **`useComplianceRegulations` singleton hook** (inflight-promise pattern, mirrors `useBpmEnabled` etc.) with `enabled` / `byKey` selectors and a top-level `invalidateComplianceRegulations` for bootstrap priming.
+- **`/settings/bootstrap` now returns `compliance_regulations`** so the Security tab, manual finding dialog, and compliance register get the dynamic list on first paint, with zero extra round-trips.
+
+### Changed
+- **Compliance scanner reads from the DB**, not hard-coded constants. `assess_regulation()` builds its prompt from the regulation's label + description, and `run_compliance_scan()` iterates the union of enabled regulations × the optional request filter. Adding a new regulation in the admin UI is enough to include it in the next scan.
+- **`GET /security/compliance` rollup is orphan-tolerant.** It now returns one bundle per (enabled regulation ∪ regulations with findings), carrying `label`, `is_enabled`, and `is_known` flags so the frontend can render disabled regulations and orphan findings under muted tabs. Historical findings are never hidden when a regulation gets disabled or deleted.
+- **`POST /turbolens/security/compliance-findings` accepts any DB-known regulation** (enabled or disabled), not just the old 6-key tuple. Adding custom regulations now flows through to manual finding entry automatically.
+- **TurboLens Security tab gates the scan triggers on AI being configured**, but the compliance register, manual create-finding dialog, risk promotion, and CSV export remain available without AI. The page now shows an inline notice instead of pretending scans are runnable.
+- **Compliance heatmap, scan picker, register tabs, manual-create dialog, finding detail drawer, and card-detail Compliance tab** all resolve regulation labels from the singleton hook with i18n fallback for the 6 built-ins, so custom regulations show their admin-set label and any locale translation.
+- **Frontend `RegulationKey` is now a free `string`** instead of a 6-key literal union, reflecting the dynamic nature of the list.
+
+### Removed
+- `SUPPORTED_REGULATIONS`, `REGULATION_LABELS`, `REGULATION_PROMPTS` constants from `app/services/turbolens_security.py` and `app/schemas/turbolens.py`. The hard-coded `REGULATIONS` array on three frontend files (`TurboLensSecurity.tsx`, `CreateComplianceFindingDialog.tsx`, and the inline tab list) is gone.
+
 ## [1.10.0] - 2026-05-12
 
 Full introduction of the **GRC** (Governance, Risk and Compliance) module — a new classically-named top-level home that consolidates governance concerns previously scattered across `/ea-delivery` and TurboLens. The same release dissolves the legacy `/ea-delivery` page, lifts SoAW management onto the Initiative card, relocates the Initiatives workspace under **Reports › EA Delivery**, and makes compliance findings **stateful** with a per-finding decision workflow so reviewer decisions and risk-promotion back-links survive re-scans.

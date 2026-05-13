@@ -22,20 +22,13 @@ import Select from "@mui/material/Select";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import { api, ApiError } from "@/api/client";
+import { useComplianceRegulations } from "@/hooks/useComplianceRegulations";
 import type {
   ComplianceStatus,
   RegulationKey,
   TurboLensComplianceFinding,
 } from "@/types";
 
-const REGULATIONS: RegulationKey[] = [
-  "eu_ai_act",
-  "gdpr",
-  "nis2",
-  "dora",
-  "soc2",
-  "iso27001",
-];
 const STATUSES: ComplianceStatus[] = [
   "compliant",
   "partial",
@@ -74,8 +67,10 @@ export default function CreateComplianceFindingDialog({
   const { t: tCards } = useTranslation("cards");
   const { t: tCommon } = useTranslation("common");
 
+  const { enabled: enabledRegulations } = useComplianceRegulations();
+
   const [regulation, setRegulation] = useState<RegulationKey>(
-    defaultRegulation ?? "eu_ai_act",
+    defaultRegulation ?? enabledRegulations[0]?.key ?? "eu_ai_act",
   );
   const [regulationArticle, setRegulationArticle] = useState("");
   const [cardOptions, setCardOptions] = useState<CardOption[]>([]);
@@ -93,7 +88,9 @@ export default function CreateComplianceFindingDialog({
 
   useEffect(() => {
     if (!open) return;
-    setRegulation(defaultRegulation ?? "eu_ai_act");
+    setRegulation(
+      defaultRegulation ?? enabledRegulations[0]?.key ?? "eu_ai_act",
+    );
     setRegulationArticle("");
     setSelectedCard(null);
     setCategory("");
@@ -118,6 +115,7 @@ export default function CreateComplianceFindingDialog({
         setCardOptions([]);
       }
     })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, defaultRegulation]);
 
   const handleSubmit = async () => {
@@ -163,11 +161,14 @@ export default function CreateComplianceFindingDialog({
               value={regulation}
               label={tCards("compliance.create.regulation")}
               onChange={(e) => setRegulation(e.target.value as RegulationKey)}
-              disabled={submitting}
+              disabled={submitting || enabledRegulations.length === 0}
             >
-              {REGULATIONS.map((r) => (
-                <MenuItem key={r} value={r}>
-                  {t(`turbolens_security_regulation_${r}`)}
+              {enabledRegulations.map((r) => (
+                <MenuItem key={r.key} value={r.key}>
+                  {r.label ||
+                    t(`turbolens_security_regulation_${r.key}`, {
+                      defaultValue: r.key,
+                    })}
                 </MenuItem>
               ))}
             </Select>

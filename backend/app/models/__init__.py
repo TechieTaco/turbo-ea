@@ -7,6 +7,7 @@ from app.models.calculation import Calculation
 from app.models.card import Card
 from app.models.card_type import CardType
 from app.models.comment import Comment
+from app.models.compliance_regulation import ComplianceRegulation
 from app.models.diagram import Diagram
 from app.models.document import Document
 from app.models.ea_principle import EAPrinciple
@@ -84,6 +85,7 @@ __all__ = [
     "Tag",
     "CardTag",
     "Comment",
+    "ComplianceRegulation",
     "SavedReport",
     "Todo",
     "Event",

@@ -1,0 +1,300 @@
+"""Integration tests for admin-managed compliance regulations.
+
+Covers the new ``/metamodel/compliance-regulations`` CRUD surface, the
+built-in-protection rule, and the orphan-tolerant ``/security/compliance``
+rollup.
+"""
+
+from __future__ import annotations
+
+import uuid
+
+import pytest
+
+from app.api.v1.turbolens import AnalysisStatus, AnalysisType
+from app.core.permissions import VIEWER_PERMISSIONS
+from app.models.compliance_regulation import ComplianceRegulation
+from app.models.turbolens import TurboLensAnalysisRun, TurboLensComplianceFinding
+from tests.conftest import auth_headers, create_role, create_user
+
+
+@pytest.fixture
+async def reg_env(db):
+    """Admin + viewer + one built-in regulation to mirror seeded state."""
+    await create_role(db, key="admin", label="Admin", permissions={"*": True})
+    await create_role(db, key="viewer", label="Viewer", permissions=VIEWER_PERMISSIONS)
+    admin = await create_user(db, email="admin@test.com", role="admin")
+    viewer = await create_user(db, email="viewer@test.com", role="viewer")
+
+    builtin = ComplianceRegulation(
+        id=uuid.uuid4(),
+        key="gdpr",
+        label="GDPR (Regulation (EU) 2016/679)",
+        description="Seeded built-in.",
+        is_enabled=True,
+        built_in=True,
+        sort_order=20,
+        translations={},
+    )
+    db.add(builtin)
+    await db.flush()
+    return {"admin": admin, "viewer": viewer, "builtin": builtin}
+
+
+class TestListAndCreate:
+    async def test_list_returns_seeded_builtin(self, client, db, reg_env):
+        admin = reg_env["admin"]
+        r = await client.get(
+            "/api/v1/metamodel/compliance-regulations",
+            headers=auth_headers(admin),
+        )
+        assert r.status_code == 200
+        keys = [reg["key"] for reg in r.json()]
+        assert "gdpr" in keys
+
+    async def test_list_authenticated_read(self, client, db, reg_env):
+        """Read is open to any authenticated user (not just admin)."""
+        viewer = reg_env["viewer"]
+        r = await client.get(
+            "/api/v1/metamodel/compliance-regulations",
+            headers=auth_headers(viewer),
+        )
+        assert r.status_code == 200
+
+    async def test_enabled_only_filter(self, client, db, reg_env):
+        admin = reg_env["admin"]
+        # Add a disabled custom row
+        db.add(
+            ComplianceRegulation(
+                id=uuid.uuid4(),
+                key="custom_a",
+                label="Custom A",
+                is_enabled=False,
+                built_in=False,
+                sort_order=100,
+                translations={},
+            )
+        )
+        await db.flush()
+
+        all_resp = await client.get(
+            "/api/v1/metamodel/compliance-regulations",
+            headers=auth_headers(admin),
+        )
+        enabled_resp = await client.get(
+            "/api/v1/metamodel/compliance-regulations?enabled_only=true",
+            headers=auth_headers(admin),
+        )
+        all_keys = [r["key"] for r in all_resp.json()]
+        enabled_keys = [r["key"] for r in enabled_resp.json()]
+        assert "custom_a" in all_keys
+        assert "custom_a" not in enabled_keys
+
+    async def test_create_custom(self, client, db, reg_env):
+        admin = reg_env["admin"]
+        r = await client.post(
+            "/api/v1/metamodel/compliance-regulations",
+            json={
+                "key": "iso9001",
+                "label": "ISO 9001",
+                "description": "Quality management.",
+                "is_enabled": True,
+                "sort_order": 200,
+            },
+            headers=auth_headers(admin),
+        )
+        assert r.status_code == 201, r.text
+        body = r.json()
+        assert body["key"] == "iso9001"
+        assert body["built_in"] is False
+
+    async def test_create_lowercases_key(self, client, db, reg_env):
+        admin = reg_env["admin"]
+        r = await client.post(
+            "/api/v1/metamodel/compliance-regulations",
+            json={"key": "  HIPAA  ", "label": "HIPAA"},
+            headers=auth_headers(admin),
+        )
+        assert r.status_code == 201
+        assert r.json()["key"] == "hipaa"
+
+    async def test_create_rejects_duplicate_key(self, client, db, reg_env):
+        admin = reg_env["admin"]
+        r = await client.post(
+            "/api/v1/metamodel/compliance-regulations",
+            json={"key": "gdpr", "label": "Duplicate"},
+            headers=auth_headers(admin),
+        )
+        assert r.status_code == 400
+
+    async def test_create_requires_admin(self, client, db, reg_env):
+        viewer = reg_env["viewer"]
+        r = await client.post(
+            "/api/v1/metamodel/compliance-regulations",
+            json={"key": "blocked", "label": "Blocked"},
+            headers=auth_headers(viewer),
+        )
+        assert r.status_code == 403
+
+
+class TestUpdateAndDelete:
+    async def test_disable_builtin_succeeds(self, client, db, reg_env):
+        admin = reg_env["admin"]
+        builtin = reg_env["builtin"]
+        r = await client.patch(
+            f"/api/v1/metamodel/compliance-regulations/{builtin.id}",
+            json={"is_enabled": False},
+            headers=auth_headers(admin),
+        )
+        assert r.status_code == 200
+        assert r.json()["is_enabled"] is False
+
+    async def test_delete_builtin_refused(self, client, db, reg_env):
+        admin = reg_env["admin"]
+        builtin = reg_env["builtin"]
+        r = await client.delete(
+            f"/api/v1/metamodel/compliance-regulations/{builtin.id}",
+            headers=auth_headers(admin),
+        )
+        assert r.status_code == 400
+        # Confirm the row is still there.
+        r2 = await client.get(
+            "/api/v1/metamodel/compliance-regulations",
+            headers=auth_headers(admin),
+        )
+        assert "gdpr" in [reg["key"] for reg in r2.json()]
+
+    async def test_delete_custom_succeeds(self, client, db, reg_env):
+        admin = reg_env["admin"]
+        created = await client.post(
+            "/api/v1/metamodel/compliance-regulations",
+            json={"key": "hipaa", "label": "HIPAA"},
+            headers=auth_headers(admin),
+        )
+        reg_id = created.json()["id"]
+        r = await client.delete(
+            f"/api/v1/metamodel/compliance-regulations/{reg_id}",
+            headers=auth_headers(admin),
+        )
+        assert r.status_code == 204
+
+
+class TestComplianceRollupOrphans:
+    """`/security/compliance` must continue to surface findings whose
+    regulation has been disabled or deleted (orphans) — with metadata
+    flagging the regulation's known/enabled state so the frontend can
+    render a muted tab."""
+
+    async def _make_run_and_finding(self, db, regulation_key: str) -> None:
+        run = TurboLensAnalysisRun(
+            id=uuid.uuid4(),
+            analysis_type=AnalysisType.SECURITY_COMPLIANCE,
+            status=AnalysisStatus.COMPLETED,
+        )
+        db.add(run)
+        await db.flush()
+        db.add(
+            TurboLensComplianceFinding(
+                id=uuid.uuid4(),
+                run_id=run.id,
+                regulation=regulation_key,
+                regulation_article=None,
+                card_id=None,
+                scope_type="landscape",
+                category="test",
+                requirement="Test requirement.",
+                status="non_compliant",
+                severity="high",
+                gap_description="Gap.",
+                evidence=None,
+                remediation=None,
+                ai_detected=False,
+                finding_key=f"k-{regulation_key}-{uuid.uuid4().hex}",
+                decision="new",
+            )
+        )
+        await db.flush()
+
+    async def test_disabled_regulation_still_shows_in_rollup(self, client, db, reg_env):
+        admin = reg_env["admin"]
+        builtin = reg_env["builtin"]
+        await self._make_run_and_finding(db, "gdpr")
+
+        # Disable the regulation
+        builtin.is_enabled = False
+        await db.flush()
+
+        r = await client.get(
+            "/api/v1/turbolens/security/compliance",
+            headers=auth_headers(admin),
+        )
+        assert r.status_code == 200
+        bundles = {b["regulation"]: b for b in r.json()}
+        assert "gdpr" in bundles
+        assert bundles["gdpr"]["is_enabled"] is False
+        assert bundles["gdpr"]["is_known"] is True
+        assert len(bundles["gdpr"]["findings"]) == 1
+
+    async def test_unknown_regulation_orphan_visible(self, client, db, reg_env):
+        admin = reg_env["admin"]
+        # Insert a finding pointing at a regulation that doesn't exist in
+        # the regulations table (e.g. one that was hard-deleted).
+        await self._make_run_and_finding(db, "removed_regulation")
+
+        r = await client.get(
+            "/api/v1/turbolens/security/compliance",
+            headers=auth_headers(admin),
+        )
+        assert r.status_code == 200
+        bundles = {b["regulation"]: b for b in r.json()}
+        assert "removed_regulation" in bundles
+        assert bundles["removed_regulation"]["is_known"] is False
+        assert bundles["removed_regulation"]["is_enabled"] is False
+
+
+class TestManualFindingValidation:
+    async def test_manual_finding_accepts_custom_regulation(self, client, db, reg_env):
+        admin = reg_env["admin"]
+        # Create a custom regulation first
+        await client.post(
+            "/api/v1/metamodel/compliance-regulations",
+            json={"key": "internal_policy", "label": "Internal Policy"},
+            headers=auth_headers(admin),
+        )
+        r = await client.post(
+            "/api/v1/turbolens/security/compliance-findings",
+            json={
+                "regulation": "internal_policy",
+                "requirement": "Must follow internal change-control policy.",
+                "status": "review_needed",
+                "severity": "medium",
+            },
+            headers=auth_headers(admin),
+        )
+        assert r.status_code == 200, r.text
+        assert r.json()["regulation"] == "internal_policy"
+
+    async def test_manual_finding_rejects_unknown_regulation(self, client, db, reg_env):
+        admin = reg_env["admin"]
+        r = await client.post(
+            "/api/v1/turbolens/security/compliance-findings",
+            json={
+                "regulation": "definitely_not_a_real_regulation",
+                "requirement": "Test.",
+                "status": "review_needed",
+                "severity": "medium",
+            },
+            headers=auth_headers(admin),
+        )
+        assert r.status_code == 400
+
+
+class TestBootstrapSurface:
+    async def test_bootstrap_includes_regulations(self, client, db, reg_env):
+        admin = reg_env["admin"]
+        r = await client.get("/api/v1/settings/bootstrap", headers=auth_headers(admin))
+        assert r.status_code == 200
+        body = r.json()
+        assert "compliance_regulations" in body
+        keys = [reg["key"] for reg in body["compliance_regulations"]]
+        assert "gdpr" in keys

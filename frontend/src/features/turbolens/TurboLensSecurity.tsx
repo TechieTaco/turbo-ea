@@ -42,8 +42,11 @@ import MaterialSymbol from "@/components/MaterialSymbol";
 import CardDetailSidePanel from "@/components/CardDetailSidePanel";
 import MetricCard from "@/features/reports/MetricCard";
 import { api, ApiError } from "@/api/client";
+import { useComplianceRegulations } from "@/hooks/useComplianceRegulations";
+import { useTurboLensReady } from "@/hooks/useTurboLensReady";
 import type {
   ComplianceDecision,
+  ComplianceRegulation,
   ComplianceStatus,
   CveStatus,
   CveFindingsPage,
@@ -82,14 +85,27 @@ import {
   riskLevelBackground,
 } from "../grc/risk/riskMatrixColors";
 
-const REGULATIONS: RegulationKey[] = [
-  "eu_ai_act",
-  "gdpr",
-  "nis2",
-  "dora",
-  "soc2",
-  "iso27001",
-];
+/**
+ * Resolve a regulation key to a display label. Order of precedence:
+ *   1. The DB row's `label` (from the singleton hook), so admin edits show.
+ *   2. The i18n key `turbolens_security_regulation_<key>` if it exists
+ *      (covers the 6 built-ins in non-English locales).
+ *   3. The raw key, as a last-resort fallback for orphan findings whose
+ *      regulation was deleted from the table.
+ */
+function resolveRegulationLabel(
+  key: string,
+  byKey: Record<string, ComplianceRegulation>,
+  t: (k: string, opts?: { defaultValue?: string }) => string,
+  fallbackLabel?: string | null,
+): string {
+  const reg = byKey[key];
+  if (reg?.label) return reg.label;
+  if (fallbackLabel) return fallbackLabel;
+  const i18nKey = `turbolens_security_regulation_${key}`;
+  const translated = t(i18nKey, { defaultValue: key });
+  return translated && translated !== i18nKey ? translated : key;
+}
 
 const SEVERITIES = ["critical", "high", "medium", "low"] as const;
 const STATUSES = ["open", "acknowledged", "in_progress", "mitigated", "accepted"] as const;
@@ -152,7 +168,7 @@ function exportComplianceToCsv(
         t(`turbolens_security_compliance_decision_${f.decision}`),
         f.ai_detected ? "Yes" : "No",
         f.auto_resolved ? "Yes" : "No",
-        t(`turbolens_security_regulation_${f.regulation}`),
+        f.regulation,
         f.gap_description ?? "",
         f.evidence ?? "",
         f.remediation ?? "",
@@ -211,6 +227,11 @@ export default function TurboLensSecurity() {
 
   // ── Compliance filter ──────────────────────────────────────────────
   const [activeRegulation, setActiveRegulation] = useState<RegulationKey>("eu_ai_act");
+
+  // If the current activeRegulation doesn't match any returned bundle
+  // (e.g. all built-ins were disabled, or the user is on a fresh
+  // install with no compliance scan yet), pin it to the first bundle.
+  // This avoids MUI Tabs "no matching value" console noise.
   const [highlightCell, setHighlightCell] = useState<{
     regulation: RegulationKey;
     status: ComplianceStatus | null;
@@ -285,10 +306,37 @@ export default function TurboLensSecurity() {
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
 
+  // ── Admin-managed regulations + AI status ─────────────────────────
+  const { enabled: enabledRegulations, byKey: regulationsByKey } =
+    useComplianceRegulations();
+  const { turboLensAiConfigured } = useTurboLensReady();
+
   // ── Compliance regulation picker ──────────────────────────────────
+  // Initially empty; the effect below populates it from the enabled
+  // regulations once the singleton hook resolves. Admins can untick
+  // individual rows to narrow the next scan.
   const [selectedRegs, setSelectedRegs] = useState<Set<RegulationKey>>(
-    new Set(REGULATIONS),
+    new Set(),
   );
+
+  // Keep `selectedRegs` in sync with newly-enabled regulations and drop
+  // keys that have since been disabled, while preserving the admin's
+  // manual unticks within the still-enabled set.
+  useEffect(() => {
+    setSelectedRegs((prev) => {
+      const enabledKeys = new Set(enabledRegulations.map((r) => r.key));
+      if (prev.size === 0) return enabledKeys;
+      const next = new Set<RegulationKey>();
+      for (const k of prev) if (enabledKeys.has(k)) next.add(k);
+      // Auto-select newly added regulations on first appearance.
+      for (const k of enabledKeys) {
+        if (!Array.from(prev).some((existing) => existing === k)) {
+          next.add(k);
+        }
+      }
+      return next;
+    });
+  }, [enabledRegulations]);
 
   // ── Loaders ────────────────────────────────────────────────────────
   const loadOverview = useCallback(async () => {
@@ -349,6 +397,14 @@ export default function TurboLensSecurity() {
   useEffect(() => {
     reloadAll();
   }, [reloadAll]);
+
+  // Pin activeRegulation to a valid bundle whenever the list changes.
+  useEffect(() => {
+    if (compliance.length === 0) return;
+    if (!compliance.some((b) => b.regulation === activeRegulation)) {
+      setActiveRegulation(compliance[0].regulation);
+    }
+  }, [compliance, activeRegulation]);
 
   useEffect(() => {
     loadFindings();
@@ -773,72 +829,89 @@ export default function TurboLensSecurity() {
 
     return (
       <Stack spacing={3}>
-        <Grid container spacing={2}>
-          <Grid item xs={12} md={6}>
-            <SecurityScanCard
-              title={t("turbolens_security_cve_scan_title")}
-              description={t("turbolens_security_cve_scan_description")}
-              icon="shield"
-              run={cveRun}
-              running={cvePolling}
-              onRun={handleCveScan}
-              buttonLabel={t("turbolens_security_run_cve_scan")}
-              runningLabel={t("turbolens_security_scanning")}
-              neverScannedLabel={t("turbolens_security_never_scanned")}
-              phaseLabel={phaseLabel}
-              summaryLabel={(s) =>
-                t("turbolens_security_cve_summary", {
-                  count: (s.cve_findings as number) ?? 0,
-                  scanned: (s.cards_scanned as number) ?? 0,
-                })
-              }
-            />
-          </Grid>
-          <Grid item xs={12} md={6}>
-            <SecurityScanCard
-              title={t("turbolens_security_compliance_scan_title")}
-              description={t("turbolens_security_compliance_scan_description")}
-              icon="verified"
-              run={complianceRun}
-              running={compliancePolling}
-              onRun={handleComplianceScan}
-              buttonLabel={t("turbolens_security_run_compliance_scan")}
-              runningLabel={t("turbolens_security_scanning")}
-              neverScannedLabel={t("turbolens_security_never_scanned")}
-              phaseLabel={phaseLabel}
-              summaryLabel={(s) =>
-                t("turbolens_security_compliance_summary_label", {
-                  count: (s.compliance_findings as number) ?? 0,
-                  regs: Array.isArray(s.regulations) ? s.regulations.length : 0,
-                })
-              }
-              disabled={selectedRegs.size === 0}
-            >
-              <FormGroup row sx={{ gap: 1 }}>
-                {REGULATIONS.map((reg) => (
-                  <FormControlLabel
-                    key={reg}
-                    control={
-                      <Checkbox
-                        size="small"
-                        checked={selectedRegs.has(reg)}
-                        onChange={(e) => {
-                          const next = new Set(selectedRegs);
-                          if (e.target.checked) next.add(reg);
-                          else next.delete(reg);
-                          setSelectedRegs(next);
-                        }}
+        {turboLensAiConfigured ? (
+          <Grid container spacing={2}>
+            <Grid item xs={12} md={6}>
+              <SecurityScanCard
+                title={t("turbolens_security_cve_scan_title")}
+                description={t("turbolens_security_cve_scan_description")}
+                icon="shield"
+                run={cveRun}
+                running={cvePolling}
+                onRun={handleCveScan}
+                buttonLabel={t("turbolens_security_run_cve_scan")}
+                runningLabel={t("turbolens_security_scanning")}
+                neverScannedLabel={t("turbolens_security_never_scanned")}
+                phaseLabel={phaseLabel}
+                summaryLabel={(s) =>
+                  t("turbolens_security_cve_summary", {
+                    count: (s.cve_findings as number) ?? 0,
+                    scanned: (s.cards_scanned as number) ?? 0,
+                  })
+                }
+              />
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <SecurityScanCard
+                title={t("turbolens_security_compliance_scan_title")}
+                description={t("turbolens_security_compliance_scan_description")}
+                icon="verified"
+                run={complianceRun}
+                running={compliancePolling}
+                onRun={handleComplianceScan}
+                buttonLabel={t("turbolens_security_run_compliance_scan")}
+                runningLabel={t("turbolens_security_scanning")}
+                neverScannedLabel={t("turbolens_security_never_scanned")}
+                phaseLabel={phaseLabel}
+                summaryLabel={(s) =>
+                  t("turbolens_security_compliance_summary_label", {
+                    count: (s.compliance_findings as number) ?? 0,
+                    regs: Array.isArray(s.regulations) ? s.regulations.length : 0,
+                  })
+                }
+                disabled={selectedRegs.size === 0 || enabledRegulations.length === 0}
+              >
+                {enabledRegulations.length === 0 ? (
+                  <Alert severity="info" sx={{ mt: 1 }}>
+                    {t("turbolens_security_no_regulations_enabled")}
+                  </Alert>
+                ) : (
+                  <FormGroup row sx={{ gap: 1 }}>
+                    {enabledRegulations.map((reg) => (
+                      <FormControlLabel
+                        key={reg.key}
+                        control={
+                          <Checkbox
+                            size="small"
+                            checked={selectedRegs.has(reg.key)}
+                            onChange={(e) => {
+                              const next = new Set(selectedRegs);
+                              if (e.target.checked) next.add(reg.key);
+                              else next.delete(reg.key);
+                              setSelectedRegs(next);
+                            }}
+                          />
+                        }
+                        label={resolveRegulationLabel(
+                          reg.key,
+                          regulationsByKey,
+                          t,
+                          reg.label,
+                        )}
                       />
-                    }
-                    label={t(`turbolens_security_regulation_${reg}`)}
-                  />
-                ))}
-              </FormGroup>
-            </SecurityScanCard>
+                    ))}
+                  </FormGroup>
+                )}
+              </SecurityScanCard>
+            </Grid>
           </Grid>
-        </Grid>
+        ) : (
+          <Alert severity="info">
+            {t("turbolens_security_ai_not_configured_register_still_available")}
+          </Alert>
+        )}
 
-        {!hasEver && (
+        {!hasEver && turboLensAiConfigured && (
           <Alert severity="info">{t("turbolens_security_never_scanned")}</Alert>
         )}
 
@@ -935,7 +1008,10 @@ export default function TurboLensSecurity() {
             {t("turbolens_security_compliance_summary")}
           </Typography>
           <ComplianceHeatmap
-            regulations={REGULATIONS}
+            regulations={enabledRegulations.map((r) => ({
+              key: r.key,
+              label: resolveRegulationLabel(r.key, regulationsByKey, t, r.label),
+            }))}
             matrix={overview.compliance_by_status}
             scores={overview.compliance_scores}
             onSelect={handleComplianceCellSelect}
@@ -1168,28 +1244,53 @@ export default function TurboLensSecurity() {
           variant="scrollable"
           scrollButtons="auto"
         >
-          {REGULATIONS.map((reg) => {
-            const bundle = compliance.find((b) => b.regulation === reg);
+          {/* Tabs iterate the bundles returned by /security/compliance,
+              which already include enabled regulations + any orphans
+              that still have findings. Disabled/unknown regulations are
+              rendered muted so historical findings remain auditable. */}
+          {compliance.map((bundle) => {
+            const reg = bundle.regulation;
+            const label = resolveRegulationLabel(
+              reg,
+              regulationsByKey,
+              t,
+              bundle.label,
+            );
+            const muted =
+              bundle.is_enabled === false || bundle.is_known === false;
             return (
               <Tab
                 key={reg}
                 value={reg}
+                sx={muted ? { opacity: 0.55 } : undefined}
                 label={
                   <Stack direction="row" spacing={1} alignItems="center">
-                    <span>{t(`turbolens_security_regulation_${reg}`)}</span>
-                    {bundle && (
+                    <span>{label}</span>
+                    {bundle.is_known === false && (
                       <Chip
                         size="small"
-                        label={`${bundle.score}%`}
-                        color={
-                          bundle.score >= 80
-                            ? "success"
-                            : bundle.score >= 60
-                              ? "warning"
-                              : "error"
-                        }
+                        label={t("turbolens_security_regulation_orphan")}
+                        sx={{ height: 18, fontSize: 10 }}
                       />
                     )}
+                    {bundle.is_known !== false && bundle.is_enabled === false && (
+                      <Chip
+                        size="small"
+                        label={t("turbolens_security_regulation_disabled")}
+                        sx={{ height: 18, fontSize: 10 }}
+                      />
+                    )}
+                    <Chip
+                      size="small"
+                      label={`${bundle.score}%`}
+                      color={
+                        bundle.score >= 80
+                          ? "success"
+                          : bundle.score >= 60
+                            ? "warning"
+                            : "error"
+                      }
+                    />
                   </Stack>
                 }
               />

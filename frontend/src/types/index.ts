@@ -1327,13 +1327,38 @@ export type ComplianceStatus =
   | "not_applicable"
   | "review_needed";
 
-export type RegulationKey =
-  | "eu_ai_act"
-  | "gdpr"
-  | "nis2"
-  | "dora"
-  | "soc2"
-  | "iso27001";
+/**
+ * Compliance regulation key — formerly a finite literal union over the 6
+ * built-ins, now any admin-managed slug from the `compliance_regulations`
+ * table. Kept as a named alias for readability and to leave a hook for
+ * narrowing back to a literal in tests if needed.
+ */
+export type RegulationKey = string;
+
+/** The 6 historical built-in regulation keys, used only as a fallback
+ *  when the dynamic list isn't loaded yet (e.g. on initial paint before
+ *  bootstrap arrives). */
+export const BUILTIN_REGULATION_KEYS = [
+  "eu_ai_act",
+  "gdpr",
+  "nis2",
+  "dora",
+  "soc2",
+  "iso27001",
+] as const;
+
+export interface ComplianceRegulation {
+  id: string;
+  key: string;
+  label: string;
+  description: string | null;
+  is_enabled: boolean;
+  built_in: boolean;
+  sort_order: number;
+  translations: TranslationMap;
+  created_at?: string | null;
+  updated_at?: string | null;
+}
 
 export interface CveReference {
   url: string;
@@ -1516,6 +1541,17 @@ export interface RiskMetrics {
 
 export interface TurboLensComplianceBundle {
   regulation: RegulationKey;
+  /** Display label resolved from the DB row, falls back to the raw key
+   *  for orphan findings. */
+  label?: string | null;
+  /** True if the regulation is admin-enabled. False for disabled
+   *  built-ins and disabled custom regulations. Always false for
+   *  `is_known === false`. */
+  is_enabled?: boolean;
+  /** True if the regulation key matches a row in the
+   *  `compliance_regulations` table. False for orphan findings whose
+   *  regulation was hard-deleted. */
+  is_known?: boolean;
   score: number;
   findings: TurboLensComplianceFinding[];
 }
