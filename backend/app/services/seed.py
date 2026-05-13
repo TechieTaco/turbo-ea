@@ -1017,6 +1017,7 @@ PROCESS_FREQUENCY_OPTIONS = [
     },
 ]
 
+
 # ── 14 Card Types (from Meta_Model.xml + BPM) ────────────────────────
 
 TYPES = [

@@ -17,6 +17,7 @@ Runs in a background task triggered from
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import uuid as uuid_mod
@@ -63,6 +64,14 @@ AI_SUBTYPES = {"AI Agent", "AI Model", "MCP Server"}
 CVE_PER_CARD_LIMIT = 20
 AI_BATCH_SIZE = 25
 COMPLIANCE_BATCH_SIZE = 60
+# `detect_ai_bearing_cards` packs each card with a richer payload (name, vendor,
+# product, description, plus an EU AI Act risk-tier verdict per item in the
+# response). With 60-card batches and 2400 output tokens, the JSON array can
+# truncate mid-array and the parser silently drops the whole batch. 30/4000
+# leaves plenty of headroom; if this ever needs to grow, prefer smaller batches
+# over more tokens (latency stays lower).
+AI_DETECTION_BATCH_SIZE = 30
+AI_DETECTION_MAX_TOKENS = 4000
 
 
 # A progress callback receives a ``phase`` label + a ``{current, total, note}``
@@ -400,12 +409,12 @@ async def detect_ai_bearing_cards(
     if not is_ai_configured(ai_config):
         return scoped
 
-    total_batches = max(1, (len(cards) + COMPLIANCE_BATCH_SIZE - 1) // COMPLIANCE_BATCH_SIZE)
-    for start in range(0, len(cards), COMPLIANCE_BATCH_SIZE):
-        batch_index = start // COMPLIANCE_BATCH_SIZE + 1
+    total_batches = max(1, (len(cards) + AI_DETECTION_BATCH_SIZE - 1) // AI_DETECTION_BATCH_SIZE)
+    for start in range(0, len(cards), AI_DETECTION_BATCH_SIZE):
+        batch_index = start // AI_DETECTION_BATCH_SIZE + 1
         if progress_cb:
             await progress_cb("ai_detection", batch_index, total_batches, "")
-        batch = cards[start : start + COMPLIANCE_BATCH_SIZE]
+        batch = cards[start : start + AI_DETECTION_BATCH_SIZE]
         payload = [
             {
                 "id": c.id,
@@ -426,8 +435,20 @@ async def detect_ai_bearing_cards(
             "features hidden inside general-purpose software. Do NOT rely "
             "only on the card's subtype; inspect name, vendor and "
             "description for AI signals.\n\n"
+            "For each AI card, also assess its tentative EU AI Act risk "
+            "tier (Reg. (EU) 2024/1689). Heuristics:\n"
+            "- unacceptable: social scoring, biometric mass surveillance, "
+            "subliminal manipulation (Art. 5).\n"
+            "- high: biometric identification, critical infrastructure, "
+            "education access, employment / HR screening, credit scoring, "
+            "law enforcement, migration, justice administration (Annex III).\n"
+            "- limited: chatbots, emotion recognition, deepfakes, content "
+            "labelling (Art. 50 transparency).\n"
+            "- minimal: spam filters, recommender systems, search ranking, "
+            "general-purpose productivity AI.\n\n"
             'Return ONLY JSON: [{"id":"<uuid>","ai_role":"provider|consumer|embedded",'
-            '"confidence":0.0-1.0,"signal":"<what in the card hinted at AI>"}].\n'
+            '"confidence":0.0-1.0,"signal":"<what in the card hinted at AI>",'
+            '"risk_tier":"unacceptable|high|limited|minimal"}].\n'
             "Omit cards with no AI involvement.\n\n"
             f"Cards:\n{json.dumps(payload)}"
         )
@@ -435,7 +456,7 @@ async def detect_ai_bearing_cards(
             result = await call_ai(
                 db,
                 prompt,
-                max_tokens=2400,
+                max_tokens=AI_DETECTION_MAX_TOKENS,
                 system_prompt=(
                     "You are a governance analyst for the EU AI Act. Return only valid JSON."
                 ),
@@ -452,14 +473,21 @@ async def detect_ai_bearing_cards(
             card_id = item.get("id")
             if not card_id:
                 continue
-            # Never downgrade a subtype match.
+            risk_tier = item.get("risk_tier")
+            if risk_tier not in ("unacceptable", "high", "limited", "minimal"):
+                risk_tier = None
+            # Never downgrade a subtype match — but capture the LLM's
+            # risk-tier verdict so the AI Inventory can surface it.
             if card_id in scoped and scoped[card_id]["subtype_match"]:
+                if risk_tier and not scoped[card_id].get("risk_tier"):
+                    scoped[card_id]["risk_tier"] = risk_tier
                 continue
             scoped[card_id] = {
                 "role": item.get("ai_role", "embedded"),
                 "confidence": float(item.get("confidence", 0.6) or 0.6),
                 "subtype_match": False,
                 "signal": item.get("signal", ""),
+                "risk_tier": risk_tier,
             }
     return scoped
 
@@ -812,6 +840,34 @@ async def run_cve_scan(
     return summary
 
 
+def compute_finding_key(
+    scope_type: str | None,
+    card_id: uuid_mod.UUID | str | None,
+    regulation: str | None,
+    regulation_article: str | None,
+    requirement: str | None,
+) -> str:
+    """Stable identity for a compliance finding across re-scans.
+
+    Used as the upsert key in ``run_compliance_scan`` so human decisions
+    (acknowledge / accept / risk_tracked) and promoted-Risk back-links
+    survive subsequent scans. The recipe is mirrored by migration 078's
+    backfill — keep them in sync.
+    """
+    parts = [
+        (scope_type or "").strip(),
+        str(card_id) if card_id else "",
+        (regulation or "").strip(),
+        (regulation_article or "").strip(),
+        (requirement or "")[:200],
+    ]
+    # MD5 is used as a non-cryptographic fingerprint (idempotent upsert key),
+    # not for security. usedforsecurity=False signals this to CodeQL/Bandit.
+    return hashlib.md5(  # noqa: S324
+        "|".join(parts).encode("utf-8"), usedforsecurity=False
+    ).hexdigest()
+
+
 async def run_compliance_scan(
     db: AsyncSession,
     run_id: uuid_mod.UUID | str,
@@ -821,10 +877,13 @@ async def run_compliance_scan(
 ) -> dict[str, Any]:
     """Compliance pipeline only: per-regulation AI gap analysis.
 
-    Replaces any existing compliance findings for the scanned
-    regulations; findings for unscoped regulations (e.g. the user
-    un-ticked DORA this time) are also cleared so the dashboard never
-    shows stale data from a previous pass.
+    Findings are *upserted* by ``finding_key`` (stable hash of scope +
+    card + regulation + article + requirement) so that human decisions
+    and any linked Risks survive re-scans. Findings that the new pass no
+    longer reports — within the scanned regulations — are flagged
+    ``auto_resolved=True`` instead of deleted; their ``risk_id`` is
+    preserved so the owner can verify / close any open Risk manually.
+    Findings under regulations not in scope this run are untouched.
     """
     run_uuid = uuid_mod.UUID(str(run_id))
     progress_cb = _progress_cb(db, run_uuid)
@@ -835,12 +894,6 @@ async def run_compliance_scan(
 
     await progress_cb("loading_cards", 0, 0, "")
     cards = await load_scan_targets(db, include_itc=True)
-
-    # Clear all previous compliance findings — a compliance scan is a
-    # full refresh of the selected regulations; anything not in scope
-    # this run shouldn't linger.
-    await db.execute(delete(TurboLensComplianceFinding))
-    await db.flush()
 
     ai_scope: dict[str, dict[str, Any]] = {}
     if "eu_ai_act" in regs:
@@ -853,25 +906,86 @@ async def run_compliance_scan(
         compliance_rows.extend(reg_findings)
 
     await progress_cb("persisting_compliance_findings", 0, len(compliance_rows), "")
-    for f in compliance_rows:
-        db.add(
-            TurboLensComplianceFinding(
-                id=uuid_mod.uuid4(),
-                run_id=run_uuid,
-                regulation=f["regulation"],
-                regulation_article=f.get("regulation_article"),
-                card_id=f.get("card_id"),
-                scope_type=f.get("scope_type") or "landscape",
-                category=f.get("category") or "",
-                requirement=f.get("requirement") or "",
-                status=f.get("status") or "review_needed",
-                severity=f.get("severity") or "info",
-                gap_description=f.get("gap_description") or "",
-                evidence=f.get("evidence"),
-                remediation=f.get("remediation"),
-                ai_detected=bool(f.get("ai_detected")),
+
+    # Load existing findings within the scanned regulations and index by key.
+    existing_rows = (
+        (
+            await db.execute(
+                select(TurboLensComplianceFinding).where(
+                    TurboLensComplianceFinding.regulation.in_(regs)
+                )
             )
         )
+        .scalars()
+        .all()
+    )
+    existing_by_key: dict[str, TurboLensComplianceFinding] = {
+        row.finding_key: row for row in existing_rows
+    }
+
+    seen_keys: set[str] = set()
+    for f in compliance_rows:
+        key = compute_finding_key(
+            f.get("scope_type") or "landscape",
+            f.get("card_id"),
+            f["regulation"],
+            f.get("regulation_article"),
+            f.get("requirement") or "",
+        )
+        seen_keys.add(key)
+        row = existing_by_key.get(key)
+        if row is None:
+            db.add(
+                TurboLensComplianceFinding(
+                    id=uuid_mod.uuid4(),
+                    run_id=run_uuid,
+                    regulation=f["regulation"],
+                    regulation_article=f.get("regulation_article"),
+                    card_id=f.get("card_id"),
+                    scope_type=f.get("scope_type") or "landscape",
+                    category=f.get("category") or "",
+                    requirement=f.get("requirement") or "",
+                    status=f.get("status") or "review_needed",
+                    severity=f.get("severity") or "info",
+                    gap_description=f.get("gap_description") or "",
+                    evidence=f.get("evidence"),
+                    remediation=f.get("remediation"),
+                    ai_detected=bool(f.get("ai_detected")),
+                    finding_key=key,
+                    decision="open",
+                    last_seen_run_id=run_uuid,
+                    auto_resolved=False,
+                )
+            )
+        else:
+            # Refresh AI-generated content; preserve decision + risk_id +
+            # reviewer metadata so human judgement isn't wiped.
+            row.run_id = run_uuid
+            row.last_seen_run_id = run_uuid
+            row.auto_resolved = False
+            row.status = f.get("status") or "review_needed"
+            row.severity = f.get("severity") or "info"
+            row.category = f.get("category") or ""
+            row.gap_description = f.get("gap_description") or ""
+            row.evidence = f.get("evidence")
+            row.remediation = f.get("remediation")
+            row.ai_detected = bool(f.get("ai_detected"))
+            # If the row had been auto-resolved by a prior scan and now
+            # re-surfaces, drop the auto-resolved decision so the user
+            # re-evaluates. Other decisions (acknowledged / accepted /
+            # risk_tracked) are preserved.
+            if row.decision == "auto_resolved":
+                row.decision = "open"
+
+    # Mark any finding within the scanned regulations that wasn't
+    # re-emitted this pass as auto-resolved. Preserve risk_tracked so
+    # the linked Risk's audit trail stays coherent.
+    vanished = [row for row in existing_rows if row.finding_key not in seen_keys]
+    for row in vanished:
+        row.auto_resolved = True
+        if row.decision != "risk_tracked":
+            row.decision = "auto_resolved"
+
     await db.flush()
 
     if user_id:
@@ -1002,6 +1116,7 @@ def compliance_to_dict(
     card_name: str | None,
     *,
     risk_reference: str | None = None,
+    reviewer_name: str | None = None,
 ) -> dict[str, Any]:
     return {
         "id": str(row.id),
@@ -1021,6 +1136,13 @@ def compliance_to_dict(
         "ai_detected": row.ai_detected,
         "risk_id": str(row.risk_id) if row.risk_id else None,
         "risk_reference": risk_reference,
+        "decision": row.decision,
+        "reviewed_by": str(row.reviewed_by) if row.reviewed_by else None,
+        "reviewer_name": reviewer_name,
+        "reviewed_at": row.reviewed_at.isoformat() if row.reviewed_at else None,
+        "review_note": row.review_note,
+        "auto_resolved": row.auto_resolved,
+        "last_seen_run_id": (str(row.last_seen_run_id) if row.last_seen_run_id else None),
         "created_at": row.created_at.isoformat() if row.created_at else None,
     }
 
@@ -1033,3 +1155,15 @@ async def load_risk_references(db: AsyncSession, risk_ids: set[uuid_mod.UUID]) -
 
     result = await db.execute(select(Risk.id, Risk.reference).where(Risk.id.in_(risk_ids)))
     return {str(rid): ref for rid, ref in result.all()}
+
+
+async def load_reviewer_names(db: AsyncSession, user_ids: set[uuid_mod.UUID]) -> dict[str, str]:
+    """Resolve user id → display_name (falling back to email) for reviewers."""
+    if not user_ids:
+        return {}
+    from app.models.user import User
+
+    result = await db.execute(
+        select(User.id, User.display_name, User.email).where(User.id.in_(user_ids))
+    )
+    return {str(uid): (display or email or "") for uid, display, email in result.all()}
