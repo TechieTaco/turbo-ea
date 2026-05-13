@@ -192,8 +192,9 @@ export default function ComplianceFilterSidebar({
         sx={{
           width: COLLAPSED_RAIL,
           minWidth: COLLAPSED_RAIL,
-          borderRight: 1,
+          border: 1,
           borderColor: "divider",
+          borderRadius: 1,
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
@@ -223,8 +224,9 @@ export default function ComplianceFilterSidebar({
       sx={{
         width,
         minWidth: width,
-        borderRight: 1,
+        border: 1,
         borderColor: "divider",
+        borderRadius: 1,
         display: "flex",
         flexDirection: "column",
         bgcolor: "action.hover",

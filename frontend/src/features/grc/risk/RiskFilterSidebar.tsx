@@ -271,8 +271,9 @@ export default function RiskFilterSidebar({
         sx={{
           width: 44,
           minWidth: 44,
-          borderRight: 1,
+          border: 1,
           borderColor: "divider",
+          borderRadius: 1,
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
@@ -302,8 +303,9 @@ export default function RiskFilterSidebar({
       <Box
         sx={{
           width,
-          borderRight: 1,
+          border: 1,
           borderColor: "divider",
+          borderRadius: 1,
           display: "flex",
           flexDirection: "column",
           overflow: "hidden",

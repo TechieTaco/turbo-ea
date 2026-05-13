@@ -615,15 +615,16 @@ export default function RiskRegisterPage() {
       </Paper>
 
       {/* Sidebar + grid — flex row matching the Inventory layout. No
-          outer border/borderRadius wrapper: the sidebar provides its
-          own ``borderRight`` divider, and the AG Grid's native cell
-          borders carry the rest. Wrapping in a bordered box on top of
-          that would produce the visible "double edge" on the right.   */}
+          outer border on this container (would create a "double edge"
+          with AG Grid's own cell borders); the sidebar itself is a
+          fully-bordered card with a small gap so it sits visually
+          separate from the grid. */}
       <Box
         sx={{
           display: "flex",
           flex: 1,
           minHeight: 480,
+          gap: 1.5,
         }}
       >
         <RiskFilterSidebar
