@@ -290,6 +290,7 @@ class ComplianceFindingOut(BaseModel):
     card_id: str | None = None
     card_name: str | None = None
     card_type: str | None = None
+    card_has_ai_features: bool | None = None
     scope_type: str = "landscape"
     category: str = ""
     requirement: str = ""

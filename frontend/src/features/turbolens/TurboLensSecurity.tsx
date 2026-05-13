@@ -275,6 +275,8 @@ export default function TurboLensSecurity() {
     ]),
   );
   const [complianceAiOnly, setComplianceAiOnly] = useState(false);
+  const [complianceAiConfirmedOnly, setComplianceAiConfirmedOnly] =
+    useState(false);
   const [complianceIncludeResolved, setComplianceIncludeResolved] =
     useState(false);
   const [complianceCardTypeFilter, setComplianceCardTypeFilter] = useState<
@@ -562,6 +564,8 @@ export default function TurboLensSecurity() {
       complianceDecisionFilter.has(f.decision as ComplianceDecision),
     );
     if (complianceAiOnly) items = items.filter((f) => f.ai_detected);
+    if (complianceAiConfirmedOnly)
+      items = items.filter((f) => f.card_has_ai_features === true);
     if (!complianceIncludeResolved)
       items = items.filter((f) => !f.auto_resolved);
     // Card-type filter: landscape-scoped findings (no card_type) always
@@ -582,6 +586,7 @@ export default function TurboLensSecurity() {
     complianceSeverityFilter,
     complianceDecisionFilter,
     complianceAiOnly,
+    complianceAiConfirmedOnly,
     complianceIncludeResolved,
     complianceCardTypeFilter,
   ]);
@@ -1320,6 +1325,7 @@ export default function TurboLensSecurity() {
             decisions: complianceDecisionFilter,
             cardTypes: complianceCardTypeFilter,
             aiOnly: complianceAiOnly,
+            aiConfirmedOnly: complianceAiConfirmedOnly,
             includeResolved: complianceIncludeResolved,
           } as ComplianceFilters}
           onFiltersChange={(next) => {
@@ -1328,6 +1334,7 @@ export default function TurboLensSecurity() {
             setComplianceDecisionFilter(next.decisions);
             setComplianceCardTypeFilter(next.cardTypes);
             setComplianceAiOnly(next.aiOnly);
+            setComplianceAiConfirmedOnly(next.aiConfirmedOnly);
             setComplianceIncludeResolved(next.includeResolved);
           }}
           onFindingUpdated={(updated) => {

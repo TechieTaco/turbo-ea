@@ -872,12 +872,34 @@ async def _load_card_names(db: AsyncSession, card_ids: set[uuid.UUID]) -> dict[s
     return {str(cid): name for cid, name in result.all()}
 
 
-async def _load_card_meta(db: AsyncSession, card_ids: set[uuid.UUID]) -> dict[str, tuple[str, str]]:
-    """Resolve card_id → (name, type) for N findings in one query."""
+async def _load_card_meta(
+    db: AsyncSession, card_ids: set[uuid.UUID]
+) -> dict[str, tuple[str, str, bool | None]]:
+    """Resolve card_id → (name, type, has_ai_features) for N findings in one query.
+
+    ``has_ai_features`` is read from ``Card.attributes["hasAiFeatures"]``
+    (a "yes" / "no" select attribute populated by the AI-verdict
+    workflow). ``None`` means the user hasn't recorded a verdict yet —
+    the frontend renders no chip in that case.
+    """
     if not card_ids:
         return {}
-    result = await db.execute(select(Card.id, Card.name, Card.type).where(Card.id.in_(card_ids)))
-    return {str(cid): (name, type_) for cid, name, type_ in result.all()}
+    result = await db.execute(
+        select(Card.id, Card.name, Card.type, Card.attributes).where(Card.id.in_(card_ids))
+    )
+    out: dict[str, tuple[str, str, bool | None]] = {}
+    for cid, name, type_, attrs in result.all():
+        raw = (attrs or {}).get("hasAiFeatures") if isinstance(attrs, dict) else None
+        has_ai: bool | None = None
+        if isinstance(raw, bool):
+            has_ai = raw
+        elif isinstance(raw, str):
+            if raw.lower() in ("yes", "true"):
+                has_ai = True
+            elif raw.lower() in ("no", "false"):
+                has_ai = False
+        out[str(cid)] = (name, type_, has_ai)
+    return out
 
 
 @router.post("/security/cve-scan")
@@ -1244,8 +1266,13 @@ async def list_compliance(
             ComplianceFindingOut.model_validate(
                 compliance_to_dict(
                     row,
-                    (meta_map.get(str(row.card_id)) or (None, None))[0] if row.card_id else None,
-                    card_type=(meta_map.get(str(row.card_id)) or (None, None))[1]
+                    (meta_map.get(str(row.card_id)) or (None, None, None))[0]
+                    if row.card_id
+                    else None,
+                    card_type=(meta_map.get(str(row.card_id)) or (None, None, None))[1]
+                    if row.card_id
+                    else None,
+                    card_has_ai_features=(meta_map.get(str(row.card_id)) or (None, None, None))[2]
                     if row.card_id
                     else None,
                     risk_reference=risk_refs.get(str(row.risk_id)) if row.risk_id else None,
@@ -1324,6 +1351,7 @@ async def create_compliance_finding_manual(
     card_uuid: uuid.UUID | None = None
     card_name: str | None = None
     card_type: str | None = None
+    card_has_ai_features: bool | None = None
     if body.card_id:
         try:
             card_uuid = uuid.UUID(body.card_id)
@@ -1333,7 +1361,7 @@ async def create_compliance_finding_manual(
         nt = meta.get(str(card_uuid))
         if not nt:
             raise HTTPException(404, "Card not found")
-        card_name, card_type = nt
+        card_name, card_type, card_has_ai_features = nt
 
     scope_type = "card" if card_uuid else "landscape"
 
@@ -1395,6 +1423,7 @@ async def create_compliance_finding_manual(
             row,
             card_name,
             card_type=card_type,
+            card_has_ai_features=card_has_ai_features,
         )
     )
 
@@ -1462,11 +1491,12 @@ async def update_compliance_finding_decision(
 
     card_name = None
     card_type = None
+    card_has_ai_features: bool | None = None
     if row.card_id:
         meta = await _load_card_meta(db, {row.card_id})
         nt = meta.get(str(row.card_id))
         if nt:
-            card_name, card_type = nt
+            card_name, card_type, card_has_ai_features = nt
     risk_refs = await load_risk_references(db, {row.risk_id}) if row.risk_id else {}
     reviewer_names = await load_reviewer_names(db, {row.reviewed_by}) if row.reviewed_by else {}
     return ComplianceFindingOut.model_validate(
@@ -1474,6 +1504,7 @@ async def update_compliance_finding_decision(
             row,
             card_name,
             card_type=card_type,
+            card_has_ai_features=card_has_ai_features,
             risk_reference=risk_refs.get(str(row.risk_id)) if row.risk_id else None,
             reviewer_name=(reviewer_names.get(str(row.reviewed_by)) if row.reviewed_by else None),
         )
@@ -1584,7 +1615,7 @@ async def submit_ai_verdict(
 
     meta_map = await _load_card_meta(db, {row.card_id})
     nt = meta_map.get(str(row.card_id))
-    card_name, card_type = nt if nt else (None, None)
+    card_name, card_type, card_has_ai_features = nt if nt else (None, None, None)
     risk_refs = await load_risk_references(db, {row.risk_id}) if row.risk_id else {}
     reviewer_names = await load_reviewer_names(db, {row.reviewed_by}) if row.reviewed_by else {}
     return ComplianceFindingOut.model_validate(
@@ -1592,6 +1623,7 @@ async def submit_ai_verdict(
             row,
             card_name,
             card_type=card_type,
+            card_has_ai_features=card_has_ai_features,
             risk_reference=risk_refs.get(str(row.risk_id)) if row.risk_id else None,
             reviewer_name=(reviewer_names.get(str(row.reviewed_by)) if row.reviewed_by else None),
         )
@@ -1629,7 +1661,7 @@ async def list_card_compliance_findings(
 
     meta_map = await _load_card_meta(db, {card_uuid})
     nt = meta_map.get(str(card_uuid))
-    card_name, card_type = nt if nt else (None, None)
+    card_name, card_type, card_has_ai_features = nt if nt else (None, None, None)
     risk_refs = await load_risk_references(db, {r.risk_id for r in rows if r.risk_id})
     reviewer_names = await load_reviewer_names(db, {r.reviewed_by for r in rows if r.reviewed_by})
 
@@ -1654,6 +1686,7 @@ async def list_card_compliance_findings(
                 row,
                 card_name,
                 card_type=card_type,
+                card_has_ai_features=card_has_ai_features,
                 risk_reference=risk_refs.get(str(row.risk_id)) if row.risk_id else None,
                 reviewer_name=(
                     reviewer_names.get(str(row.reviewed_by)) if row.reviewed_by else None

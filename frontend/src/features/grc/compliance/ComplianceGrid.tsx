@@ -375,18 +375,53 @@ export default function ComplianceGrid({
       width: 90,
       headerComponent: AiHeader,
       headerComponentParams: { tooltip: t("turbolens_security_compliance_ai_detected_help") },
-      cellRenderer: (p: ICellRendererParams<TurboLensComplianceFinding, boolean>) =>
-        p.value ? (
-          <Tooltip title={t("turbolens_security_compliance_ai_detected_help")}>
-            <Box sx={{ display: "inline-flex" }}>
-              <MaterialSymbol
-                icon="psychology"
-                size={18}
-                color={theme.palette.warning.main}
-              />
-            </Box>
-          </Tooltip>
-        ) : null,
+      cellRenderer: (p: ICellRendererParams<TurboLensComplianceFinding, boolean>) => {
+        const f = p.data;
+        if (!f) return null;
+        // Confirmed AI by user verdict — green check.
+        if (f.card_has_ai_features === true) {
+          return (
+            <Tooltip title={t("turbolens_security_compliance_ai_confirmed")}>
+              <Box sx={{ display: "inline-flex" }}>
+                <MaterialSymbol
+                  icon="check_circle"
+                  size={18}
+                  color={theme.palette.success.main}
+                />
+              </Box>
+            </Tooltip>
+          );
+        }
+        // Confirmed NOT AI — strikethrough psychology icon.
+        if (f.card_has_ai_features === false) {
+          return (
+            <Tooltip title={t("turbolens_security_compliance_ai_rejected")}>
+              <Box sx={{ display: "inline-flex" }}>
+                <MaterialSymbol
+                  icon="cancel"
+                  size={18}
+                  color={theme.palette.text.disabled}
+                />
+              </Box>
+            </Tooltip>
+          );
+        }
+        // Scanner flagged it, no user verdict yet — yellow "needs review".
+        if (f.ai_detected) {
+          return (
+            <Tooltip title={t("turbolens_security_compliance_ai_detected_help")}>
+              <Box sx={{ display: "inline-flex" }}>
+                <MaterialSymbol
+                  icon="psychology"
+                  size={18}
+                  color={theme.palette.warning.main}
+                />
+              </Box>
+            </Tooltip>
+          );
+        }
+        return null;
+      },
     },
     {
       headerName: tCards("compliance.grid.col.created"),

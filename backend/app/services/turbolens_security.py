@@ -1223,6 +1223,7 @@ def compliance_to_dict(
     card_name: str | None,
     *,
     card_type: str | None = None,
+    card_has_ai_features: bool | None = None,
     risk_reference: str | None = None,
     reviewer_name: str | None = None,
 ) -> dict[str, Any]:
@@ -1234,6 +1235,7 @@ def compliance_to_dict(
         "card_id": str(row.card_id) if row.card_id else None,
         "card_name": card_name,
         "card_type": card_type,
+        "card_has_ai_features": card_has_ai_features,
         "scope_type": row.scope_type,
         "category": row.category,
         "requirement": row.requirement,

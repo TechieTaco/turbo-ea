@@ -2445,6 +2445,17 @@
             "title": "Auto Resolved",
             "type": "boolean"
           },
+          "card_has_ai_features": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Card Has Ai Features"
+          },
           "card_id": {
             "anyOf": [
               {

@@ -47,6 +47,9 @@ export interface ComplianceFilters {
   decisions: Set<ComplianceDecision>;
   cardTypes: Set<"Application" | "ITComponent">;
   aiOnly: boolean;
+  /** Only show findings whose linked card has `hasAiFeatures = true`
+   *  (i.e. the user confirmed it is AI via the verdict workflow). */
+  aiConfirmedOnly: boolean;
   includeResolved: boolean;
 }
 
@@ -401,7 +404,11 @@ export default function ComplianceFilterSidebar({
           icon="tune"
           expanded={expanded.other}
           onToggle={() => toggleSection("other")}
-          count={(filters.aiOnly ? 1 : 0) + (filters.includeResolved ? 1 : 0)}
+          count={
+            (filters.aiOnly ? 1 : 0) +
+            (filters.aiConfirmedOnly ? 1 : 0) +
+            (filters.includeResolved ? 1 : 0)
+          }
         />
         <Collapse in={expanded.other}>
           <CheckboxList
@@ -412,6 +419,16 @@ export default function ComplianceFilterSidebar({
                 checked: filters.aiOnly,
                 onToggle: () =>
                   onFiltersChange({ ...filters, aiOnly: !filters.aiOnly }),
+              },
+              {
+                key: "ai_confirmed_only",
+                label: t("turbolens_security_compliance_filter_ai_confirmed_only"),
+                checked: filters.aiConfirmedOnly,
+                onToggle: () =>
+                  onFiltersChange({
+                    ...filters,
+                    aiConfirmedOnly: !filters.aiConfirmedOnly,
+                  }),
               },
               {
                 key: "include_resolved",
@@ -583,6 +600,7 @@ export function defaultComplianceFilters(): ComplianceFilters {
     ]),
     cardTypes: new Set<"Application" | "ITComponent">(["Application", "ITComponent"]),
     aiOnly: false,
+    aiConfirmedOnly: false,
     includeResolved: false,
   };
 }

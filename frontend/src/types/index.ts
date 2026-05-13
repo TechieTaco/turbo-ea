@@ -1425,6 +1425,9 @@ export interface TurboLensComplianceFinding {
   card_id: string | null;
   card_name: string | null;
   card_type: string | null;
+  /** `hasAiFeatures` attribute on the linked card, set via the AI
+   *  verdict workflow. `null` when no verdict has been recorded. */
+  card_has_ai_features: boolean | null;
   scope_type: "card" | "landscape";
   category: string;
   requirement: string;
