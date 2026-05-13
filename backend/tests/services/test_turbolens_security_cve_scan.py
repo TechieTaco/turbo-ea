@@ -183,6 +183,35 @@ async def test_cve_rescan_deletes_untouched_vanished_rows(db, patch_cve_pipeline
     assert await db.get(TurboLensCveFinding, untouched_pk) is None
 
 
+async def test_compliance_scan_with_unknown_regulation_returns_noop(db, monkeypatch):
+    """Caller-supplied regulations filter that resolves to nothing must NOT
+    fall back to scanning every enabled regulation — that would trigger an
+    expensive LLM fanout the caller never asked for."""
+
+    async def _no_match(db_, *, keys=None):
+        return []
+
+    async def _noop_cb(*args, **kwargs):
+        return None
+
+    monkeypatch.setattr(turbolens_security, "load_enabled_regulations", _no_match)
+    monkeypatch.setattr(
+        turbolens_security,
+        "_progress_cb",
+        lambda db, run_id: _noop_cb,
+    )
+
+    run_id = await _make_run(db)
+    summary = await turbolens_security.run_compliance_scan(
+        db, run_id, user_id=None, regulations=["bogus_reg_key"]
+    )
+
+    assert summary["compliance_findings"] == 0
+    assert summary["regulations"] == []
+    assert summary["regulations_requested"] == ["bogus_reg_key"]
+    assert summary["skipped_reason"] == "no_matching_enabled_regulations"
+
+
 async def test_cve_rescan_keeps_user_touched_vanished_rows(db, patch_cve_pipeline):
     """A vanished finding must stay if the user touched its status or promoted a risk."""
     card = await create_card(db)

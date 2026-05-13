@@ -1058,8 +1058,27 @@ async def run_compliance_scan(
 
     # Load enabled regulations from the DB. The optional ``regulations``
     # filter (from the request body) narrows the run to the intersection.
-    enabled_regs = await load_enabled_regulations(db, keys=regulations)
-    if not enabled_regs:
+    # When the caller passes a non-empty filter that doesn't match any
+    # enabled regulation (typo, or an admin disabled them in the
+    # meantime), DO NOT silently widen to a full-landscape scan — that
+    # would trigger an LLM fanout the caller never asked for. Return a
+    # no-op summary instead so the run record still completes cleanly.
+    if regulations:
+        enabled_regs = await load_enabled_regulations(db, keys=regulations)
+        if not enabled_regs:
+            empty_summary = {
+                "scan": "compliance",
+                "compliance_findings": 0,
+                "regulations": [],
+                "regulations_requested": list(regulations),
+                "skipped_reason": "no_matching_enabled_regulations",
+                "completed_at": datetime.now(timezone.utc).isoformat(),
+            }
+            run = await db.get(TurboLensAnalysisRun, run_uuid)
+            if run is not None:
+                run.results = empty_summary
+            return empty_summary
+    else:
         enabled_regs = await load_enabled_regulations(db)
     reg_keys = [r.key for r in enabled_regs]
 
