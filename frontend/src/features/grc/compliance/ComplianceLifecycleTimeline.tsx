@@ -179,61 +179,119 @@ export default function ComplianceLifecycleTimeline({
         </Stack>
       )}
 
-      {/* Timeline */}
-      <Box sx={{ position: "relative", px: 0.5, pt: 2, pb: 0.5 }}>
-        {/* Background track */}
+      {/* Timeline — dots row is its own positioned context with a known
+          height (DOT_PX) so the background track and progress fill share
+          a vertical centre via top:50% + translateY(-50%).             */}
+      <Box sx={{ px: 0.5, pt: 1 }}>
         <Box
           sx={{
-            position: "absolute",
-            left: `calc(${100 / (phaseCount * 2)}% + 8px)`,
-            right: `calc(${100 / (phaseCount * 2)}% + 8px)`,
-            top: 25,
-            height: 5,
-            borderRadius: 2.5,
-            bgcolor: theme.palette.action.hover,
-            zIndex: 0,
+            position: "relative",
+            height: 28,
+            // Background track
+            "&::before": {
+              content: '""',
+              position: "absolute",
+              left: `${100 / (phaseCount * 2)}%`,
+              right: `${100 / (phaseCount * 2)}%`,
+              top: "50%",
+              transform: "translateY(-50%)",
+              height: 4,
+              borderRadius: 2,
+              backgroundColor: theme.palette.action.hover,
+              zIndex: 0,
+            },
           }}
-        />
-        {/* Progress fill */}
-        {reachedIdx >= 0 && (
+        >
+          {/* Progress fill — shares the same vertical centre as the
+              background pseudo-element. */}
+          {reachedIdx >= 0 && (
+            <Box
+              sx={{
+                position: "absolute",
+                left: `${100 / (phaseCount * 2)}%`,
+                right: `${100 - ((reachedIdx * 2 + 1) * 100) / (phaseCount * 2)}%`,
+                top: "50%",
+                transform: "translateY(-50%)",
+                height: 4,
+                borderRadius: 2,
+                background:
+                  reachedIdx === 0
+                    ? COMPLIANCE_LIFECYCLE_COLORS[phases[0]]
+                    : `linear-gradient(90deg, ${phases
+                        .slice(0, reachedIdx + 1)
+                        .map(
+                          (p, i) =>
+                            `${COMPLIANCE_LIFECYCLE_COLORS[p]} ${(
+                              (i / reachedIdx) *
+                              100
+                            ).toFixed(2)}%`,
+                        )
+                        .join(", ")})`,
+                opacity: sideBranch ? 0.35 : 1,
+                transition: "all 0.3s ease",
+                zIndex: 1,
+              }}
+            />
+          )}
+          {/* Phase dots — flex row, each column flex:1, dot centred via
+              MUI's alignItems on the row and mx:auto on the dot. */}
           <Box
             sx={{
-              position: "absolute",
-              left: `calc(${100 / (phaseCount * 2)}% + 8px)`,
-              right: `calc(${100 - ((reachedIdx * 2 + 1) * 100) / (phaseCount * 2)}% + 8px)`,
-              top: 20,
-              height: 5,
-              borderRadius: 2.5,
-              background:
-                reachedIdx === 0
-                  ? COMPLIANCE_LIFECYCLE_COLORS[phases[0]]
-                  : `linear-gradient(90deg, ${phases
-                      .slice(0, reachedIdx + 1)
-                      .map(
-                        (p, i) =>
-                          `${COMPLIANCE_LIFECYCLE_COLORS[p]} ${(
-                            (i / reachedIdx) *
-                            100
-                          ).toFixed(2)}%`,
-                      )
-                      .join(", ")})`,
-              opacity: sideBranch ? 0.35 : 1,
-              transition: "all 0.3s ease",
-              zIndex: 1,
+              display: "flex",
+              alignItems: "center",
+              height: "100%",
+              position: "relative",
+              zIndex: 2,
             }}
-          />
-        )}
-        {/* Phase dots */}
-        <Box sx={{ display: "flex", position: "relative", zIndex: 2 }}>
+          >
+            {phases.map((phase, i) => {
+              const reached = i <= reachedIdx;
+              const isCurrent = onMainPath && phase === current;
+              const phaseColor = COMPLIANCE_LIFECYCLE_COLORS[phase];
+              const dotBg = reached ? phaseColor : theme.palette.background.paper;
+              const dotBorder = reached
+                ? phaseColor
+                : theme.palette.action.disabled;
+              const iconColor = reached ? "#fff" : theme.palette.text.disabled;
+              return (
+                <Box
+                  key={phase}
+                  sx={{ flex: 1, display: "flex", justifyContent: "center" }}
+                >
+                  <Box
+                    sx={{
+                      width: 24,
+                      height: 24,
+                      borderRadius: "50%",
+                      bgcolor: dotBg,
+                      border: `2px solid ${dotBorder}`,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      boxShadow: isCurrent
+                        ? `0 0 0 4px ${phaseColor}33`
+                        : "none",
+                      opacity: sideBranch ? 0.5 : 1,
+                      transition: "all 0.2s ease",
+                    }}
+                  >
+                    <MaterialSymbol
+                      icon={PHASE_ICONS[phase]}
+                      size={14}
+                      color={iconColor}
+                    />
+                  </Box>
+                </Box>
+              );
+            })}
+          </Box>
+        </Box>
+
+        {/* Labels in a separate row below the dot row */}
+        <Box sx={{ display: "flex", mt: 0.5 }}>
           {phases.map((phase, i) => {
             const reached = i <= reachedIdx;
             const isCurrent = onMainPath && phase === current;
-            const phaseColor = COMPLIANCE_LIFECYCLE_COLORS[phase];
-            const dotBg = reached ? phaseColor : theme.palette.background.paper;
-            const dotBorder = reached
-              ? phaseColor
-              : theme.palette.action.disabled;
-            const iconColor = reached ? "#fff" : theme.palette.text.disabled;
             return (
               <Box
                 key={phase}
@@ -243,32 +301,9 @@ export default function ComplianceLifecycleTimeline({
                   opacity: sideBranch ? 0.5 : 1,
                 }}
               >
-                <Box
-                  sx={{
-                    width: 24,
-                    height: 24,
-                    borderRadius: "50%",
-                    bgcolor: dotBg,
-                    border: `2px solid ${dotBorder}`,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    mx: "auto",
-                    boxShadow: isCurrent ? `0 0 0 4px ${phaseColor}33` : "none",
-                    transition: "all 0.2s ease",
-                  }}
-                >
-                  <MaterialSymbol
-                    icon={PHASE_ICONS[phase]}
-                    size={14}
-                    color={iconColor}
-                  />
-                </Box>
                 <Typography
                   variant="caption"
-                  display="block"
                   sx={{
-                    mt: 0.5,
                     fontSize: "0.7rem",
                     fontWeight: isCurrent ? 700 : 500,
                     color: reached ? "text.primary" : "text.secondary",

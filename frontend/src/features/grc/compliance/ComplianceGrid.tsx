@@ -309,8 +309,13 @@ export default function ComplianceGrid({
     },
   ], [t, tCards, theme, groupMode, sortedFindings]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Match the Inventory grid's defaults so the GRC table feels the same:
+  // sortable + filterable + resizable on every column. Per-column filter
+  // overrides below for Chip-rendered columns (severity / status /
+  // decision / ai) use a 'set' filter type so the user picks from valid
+  // values rather than typing free-form text.
   const defaultColDef = useMemo<ColDef>(
-    () => ({ sortable: true, resizable: true, filter: false }),
+    () => ({ sortable: true, resizable: true, filter: true }),
     [],
   );
 
@@ -424,8 +429,6 @@ export default function ComplianceGrid({
             getRowId={(p) => p.data.id}
             getRowStyle={getRowStyle}
             tooltipShowDelay={400}
-            rowHeight={40}
-            headerHeight={40}
             domLayout="autoHeight"
           />
         </Box>
