@@ -100,7 +100,7 @@ export default function FindingDetailDrawer({
       anchor="right"
       open={Boolean(finding)}
       onClose={onClose}
-      PaperProps={{ sx: { width: { xs: "100%", sm: 480 }, p: 3 } }}
+      PaperProps={{ sx: { width: { xs: "100%", sm: 560, md: 640 }, p: 3 } }}
     >
       {finding && (
         <Stack spacing={2.5}>

@@ -29,10 +29,10 @@ import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { AgGridReact } from "ag-grid-react";
 import type {
+  CellClickedEvent,
   ColDef,
   ICellRendererParams,
   IHeaderParams,
-  RowClickedEvent,
 } from "ag-grid-community";
 import "ag-grid-community/styles/ag-grid.css";
 import "ag-grid-community/styles/ag-theme-quartz.css";
@@ -169,26 +169,20 @@ export default function ComplianceGrid({
     });
   }, [findings, groupMode]);
 
-  /* ---------- rowSpan helper for the Card column when grouping ---------- */
-  const cardRowSpan = (params: { data?: TurboLensComplianceFinding | undefined }) => {
-    if (groupMode !== "by_card" || !params.data) return 1;
-    const idx = sortedFindings.findIndex((f) => f.id === params.data!.id);
-    if (idx === -1) return 1;
-    // Only the FIRST row of each card group renders the cell; later rows
-    // return 1 so they don't double-render. AG Grid pulls the value only
-    // from the row whose rowSpan > 1.
-    const prev = idx > 0 ? sortedFindings[idx - 1] : null;
-    if (prev && (prev.card_name || "") === (params.data!.card_name || "")) {
-      return 1;
-    }
-    let span = 1;
-    for (let j = idx + 1; j < sortedFindings.length; j++) {
-      if ((sortedFindings[j].card_name || "") !== (params.data!.card_name || "")) {
-        break;
-      }
-      span++;
-    }
-    return span;
+  /* ---------- Group helpers ----------
+   *
+   * AG Grid Community's ``rowSpan`` requires ``suppressRowTransform`` which
+   * breaks ``pinned: "left"`` columns. Simpler approach: render the card
+   * name only on the FIRST row of each card cluster and an empty cell on
+   * the rest. Visually identical to a real row-group header and works with
+   * the pinned column.
+   */
+  const isFirstOfCardGroup = (data: TurboLensComplianceFinding | undefined): boolean => {
+    if (!data) return false;
+    if (groupMode !== "by_card") return true;
+    const idx = sortedFindings.findIndex((f) => f.id === data.id);
+    if (idx <= 0) return true;
+    return (sortedFindings[idx - 1].card_name || "") !== (data.card_name || "");
   };
 
   /* ---------- Columns: Card first ---------- */
@@ -198,13 +192,20 @@ export default function ComplianceGrid({
       field: "card_name",
       width: 200,
       pinned: "left",
-      rowSpan: cardRowSpan,
       cellClassRules: {
         "compliance-grid--group-start": (p) =>
-          groupMode === "by_card" && cardRowSpan({ data: p.data }) > 1,
+          groupMode === "by_card" && isFirstOfCardGroup(p.data),
+        "compliance-grid--group-continuation": (p) =>
+          groupMode === "by_card" && !isFirstOfCardGroup(p.data),
       },
       cellRenderer: (p: ICellRendererParams<TurboLensComplianceFinding>) => {
         const data = p.data;
+        // In grouped mode, only render the card name on the first row
+        // of each card cluster; subsequent rows render an empty cell so
+        // the card name appears exactly once per group.
+        if (groupMode === "by_card" && !isFirstOfCardGroup(data)) {
+          return null;
+        }
         if (!data?.card_name || !data.card_id) {
           return (
             <Typography variant="body2" color="text.disabled" sx={{ fontStyle: "italic" }}>
@@ -214,15 +215,12 @@ export default function ComplianceGrid({
         }
         return (
           <Box
+            data-card-link
             sx={{
               cursor: "pointer",
               color: "primary.main",
-              fontWeight: groupMode === "by_card" ? 600 : 500,
+              fontWeight: groupMode === "by_card" ? 700 : 500,
               "&:hover": { textDecoration: "underline" },
-            }}
-            onClick={(e) => {
-              e.stopPropagation();
-              handleOpenCard(data.card_id!);
             }}
           >
             {data.card_name}
@@ -316,8 +314,14 @@ export default function ComplianceGrid({
     [],
   );
 
-  const onRowClicked = (e: RowClickedEvent<TurboLensComplianceFinding>) => {
+  const onCellClicked = (e: CellClickedEvent<TurboLensComplianceFinding>) => {
     if (!e.data) return;
+    // Click on the Card cell → open card panel only (single-drawer
+    // discipline). Click anywhere else on the row → open finding drawer.
+    if (e.colDef.field === "card_name") {
+      if (e.data.card_id) handleOpenCard(e.data.card_id);
+      return;
+    }
     setFindingDrawer(e.data);
   };
 
@@ -394,11 +398,20 @@ export default function ComplianceGrid({
           className={mode === "dark" ? "ag-theme-quartz-dark" : "ag-theme-quartz"}
           sx={{
             width: "100%",
-            // Visual emphasis for card group starts in by_card mode.
+            // Visual grouping: emphasise the first row of each card
+            // cluster and put a clean divider above it. Continuation
+            // rows render an empty Card cell so the name shows once
+            // per group.
             "& .compliance-grid--group-start": {
               fontWeight: 600,
               backgroundColor: theme.palette.action.hover,
-              borderTop: `1px solid ${theme.palette.divider}`,
+            },
+            "& .ag-row:has(.compliance-grid--group-start)": {
+              borderTop: `2px solid ${theme.palette.divider}`,
+            },
+            "& .compliance-grid--group-continuation": {
+              backgroundColor: "transparent",
+              borderRight: `1px solid ${theme.palette.divider}`,
             },
           }}
         >
@@ -406,11 +419,10 @@ export default function ComplianceGrid({
             rowData={sortedFindings}
             columnDefs={columnDefs}
             defaultColDef={defaultColDef}
-            onRowClicked={onRowClicked}
+            onCellClicked={onCellClicked}
             animateRows
             getRowId={(p) => p.data.id}
             getRowStyle={getRowStyle}
-            suppressRowTransform={groupMode === "by_card"}
             tooltipShowDelay={400}
             rowHeight={40}
             headerHeight={40}

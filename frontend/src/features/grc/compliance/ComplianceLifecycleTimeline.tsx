@@ -187,7 +187,7 @@ export default function ComplianceLifecycleTimeline({
             position: "absolute",
             left: `calc(${100 / (phaseCount * 2)}% + 8px)`,
             right: `calc(${100 / (phaseCount * 2)}% + 8px)`,
-            top: 20,
+            top: 25,
             height: 5,
             borderRadius: 2.5,
             bgcolor: theme.palette.action.hover,
