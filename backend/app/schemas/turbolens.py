@@ -302,7 +302,7 @@ class ComplianceFindingOut(BaseModel):
     ai_detected: bool = False
     risk_id: str | None = None
     risk_reference: str | None = None
-    decision: str = "open"
+    decision: str = "new"
     reviewed_by: str | None = None
     reviewer_name: str | None = None
     reviewed_at: datetime | None = None
@@ -353,11 +353,14 @@ class ComplianceFindingCreate(BaseModel):
 class ComplianceFindingDecisionUpdate(BaseModel):
     """Body for ``PATCH /security/compliance-findings/{id}``.
 
-    Users can transition the decision to ``open``, ``acknowledged``, or
-    ``accepted``. ``risk_tracked`` is set automatically when a finding is
-    promoted to a Risk (``POST /risks/promote/compliance/{id}``);
-    ``auto_resolved`` is set by the scanner when a re-scan no longer
-    reports the finding. Neither is user-settable.
+    Users transition the decision through the compliance lifecycle
+    states ``new``, ``in_review``, ``mitigated``, ``verified``,
+    ``accepted`` and ``not_applicable``. Allowed transitions are
+    enforced server-side by ``compliance_lifecycle_allowed``.
+    ``risk_tracked`` is set automatically when a finding is promoted to
+    a Risk (``POST /risks/promote/compliance/{id}``); ``auto_resolved``
+    is set by the scanner when a re-scan no longer reports the finding.
+    Neither is user-settable.
     """
 
     decision: str
