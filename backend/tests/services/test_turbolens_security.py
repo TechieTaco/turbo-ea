@@ -10,6 +10,9 @@ import uuid
 from datetime import date, datetime, timezone
 from types import SimpleNamespace
 
+import pytest
+
+from app.services import turbolens_security
 from app.services.turbolens_security import (
     ScanCard,
     _landscape_summary,
@@ -18,6 +21,7 @@ from app.services.turbolens_security import (
     compliance_score,
     compliance_to_dict,
     compute_finding_key,
+    detect_ai_bearing_cards,
     finding_to_dict,
 )
 
@@ -224,6 +228,42 @@ def test_compute_finding_key_truncates_requirement_to_first_200_chars():
     assert compute_finding_key("card", None, "gdpr", "Art. 5", long_a) == compute_finding_key(
         "card", None, "gdpr", "Art. 5", long_b
     )
+
+
+# ---------------------------------------------------------------------------
+# AI scope detection — user-confirmed hasAiFeatures must stick across re-scans
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_detect_ai_includes_user_confirmed_cards_when_subtype_is_not_ai(monkeypatch):
+    """Cards with attributes.hasAiFeatures=True must enter scope even if
+    their subtype is not in AI_SUBTYPES and AI is not configured (so the
+    LLM pass is skipped). Mirrors the verdict-endpoint guarantee that
+    user confirmations are sticky across re-scans."""
+
+    async def _fake_get_ai_config(db):
+        return {}
+
+    monkeypatch.setattr(turbolens_security, "get_ai_config", _fake_get_ai_config)
+    monkeypatch.setattr(turbolens_security, "is_ai_configured", lambda cfg: False)
+
+    confirmed = _scan_card(
+        type="Application",
+        subtype="Business Application",  # NOT an AI subtype
+        attributes={"hasAiFeatures": True},
+    )
+    plain = _scan_card(type="Application", subtype="Business Application")
+    explicit_ai = _scan_card(type="Application", subtype="AI Agent")
+
+    scope = await detect_ai_bearing_cards(db=None, cards=[confirmed, plain, explicit_ai])
+
+    assert confirmed.id in scope
+    assert plain.id not in scope
+    assert explicit_ai.id in scope
+    # Confirmed-via-attribute cards are tagged as embedded (not subtype_match).
+    assert scope[confirmed.id]["subtype_match"] is False
+    assert scope[explicit_ai.id]["subtype_match"] is True
 
 
 def test_compliance_to_dict_handles_landscape_scope():

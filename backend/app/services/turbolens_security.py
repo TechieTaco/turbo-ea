@@ -400,6 +400,20 @@ async def detect_ai_bearing_cards(
         for c in cards
         if c.subtype in AI_SUBTYPES
     }
+    # Also pre-include any card the user has explicitly confirmed as
+    # AI-bearing via the verdict endpoint (sets attributes.hasAiFeatures
+    # = true). The LLM pass is non-deterministic and may miss subtle
+    # embedded cases on a re-scan; this keeps user verdicts sticky so
+    # confirmed cards stay in EU AI Act scope across runs.
+    for c in cards:
+        if c.id in scoped:
+            continue
+        if isinstance(c.attributes, dict) and c.attributes.get("hasAiFeatures") is True:
+            scoped[c.id] = {
+                "role": "embedded",
+                "confidence": 1.0,
+                "subtype_match": False,
+            }
 
     ai_config = await get_ai_config(db)
     if not is_ai_configured(ai_config):
