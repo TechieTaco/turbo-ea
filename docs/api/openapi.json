@@ -2290,6 +2290,20 @@
         "title": "ComplianceBundleOut",
         "type": "object"
       },
+      "ComplianceFindingAiVerdict": {
+        "description": "Body for ``POST /security/compliance-findings/{id}/ai-verdict``.\n\nCaptures the user's verdict on the scanner's AI-detection claim and\npersists it on the impacted card's ``hasAiFeatures`` attribute.",
+        "properties": {
+          "verdict": {
+            "title": "Verdict",
+            "type": "string"
+          }
+        },
+        "required": [
+          "verdict"
+        ],
+        "title": "ComplianceFindingAiVerdict",
+        "type": "object"
+      },
       "ComplianceFindingDecisionUpdate": {
         "description": "Body for ``PATCH /security/compliance-findings/{id}``.\n\nUsers can transition the decision to ``open``, ``acknowledged``, or\n``accepted``. ``risk_tracked`` is set automatically when a finding is\npromoted to a Risk (``POST /risks/promote/compliance/{id}``);\n``auto_resolved`` is set by the scanner when a re-scan no longer\nreports the finding. Neither is user-settable.",
         "properties": {
@@ -2348,6 +2362,17 @@
               }
             ],
             "title": "Card Name"
+          },
+          "card_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Card Type"
           },
           "category": {
             "default": "",
@@ -26694,6 +26719,59 @@
           }
         },
         "summary": "Update Compliance Finding Decision",
+        "tags": [
+          "TurboLens"
+        ]
+      }
+    },
+    "/api/v1/turbolens/security/compliance-findings/{finding_id}/ai-verdict": {
+      "post": {
+        "description": "Record the user's verdict on the scanner's AI-detection claim.\n\nPersists ``hasAiFeatures`` (true / false) on the impacted card and\nstamps the finding as ``acknowledged`` with a review note. The card\nmust exist; landscape-scoped findings (no ``card_id``) cannot receive\na verdict.",
+        "operationId": "submit_ai_verdict_api_v1_turbolens_security_compliance_findings__finding_id__ai_verdict_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "finding_id",
+            "required": true,
+            "schema": {
+              "title": "Finding Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ComplianceFindingAiVerdict"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ComplianceFindingOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Submit Ai Verdict",
         "tags": [
           "TurboLens"
         ]

@@ -35,6 +35,7 @@ from app.models.user import User
 from app.schemas.turbolens import (
     SUPPORTED_REGULATIONS,
     ComplianceBundleOut,
+    ComplianceFindingAiVerdict,
     ComplianceFindingDecisionUpdate,
     ComplianceFindingOut,
     CveFindingOut,
@@ -865,6 +866,14 @@ async def _load_card_names(db: AsyncSession, card_ids: set[uuid.UUID]) -> dict[s
     return {str(cid): name for cid, name in result.all()}
 
 
+async def _load_card_meta(db: AsyncSession, card_ids: set[uuid.UUID]) -> dict[str, tuple[str, str]]:
+    """Resolve card_id → (name, type) for N findings in one query."""
+    if not card_ids:
+        return {}
+    result = await db.execute(select(Card.id, Card.name, Card.type).where(Card.id.in_(card_ids)))
+    return {str(cid): (name, type_) for cid, name, type_ in result.all()}
+
+
 @router.post("/security/cve-scan")
 async def trigger_cve_scan(
     body: SecurityScanRequest | None,
@@ -1197,7 +1206,7 @@ async def list_compliance(
     rows = list(rows_res.scalars().all())
 
     card_ids = {r.card_id for r in rows if r.card_id}
-    name_map = await _load_card_names(db, card_ids)
+    meta_map = await _load_card_meta(db, card_ids)
     risk_refs = await load_risk_references(db, {r.risk_id for r in rows if r.risk_id})
     reviewer_names = await load_reviewer_names(db, {r.reviewed_by for r in rows if r.reviewed_by})
 
@@ -1213,7 +1222,10 @@ async def list_compliance(
             ComplianceFindingOut.model_validate(
                 compliance_to_dict(
                     row,
-                    name_map.get(str(row.card_id)) if row.card_id else None,
+                    (meta_map.get(str(row.card_id)) or (None, None))[0] if row.card_id else None,
+                    card_type=(meta_map.get(str(row.card_id)) or (None, None))[1]
+                    if row.card_id
+                    else None,
                     risk_reference=risk_refs.get(str(row.risk_id)) if row.risk_id else None,
                     reviewer_name=(
                         reviewer_names.get(str(row.reviewed_by)) if row.reviewed_by else None
@@ -1291,15 +1303,111 @@ async def update_compliance_finding_decision(
     )
 
     card_name = None
+    card_type = None
     if row.card_id:
-        names = await _load_card_names(db, {row.card_id})
-        card_name = names.get(str(row.card_id))
+        meta = await _load_card_meta(db, {row.card_id})
+        nt = meta.get(str(row.card_id))
+        if nt:
+            card_name, card_type = nt
     risk_refs = await load_risk_references(db, {row.risk_id}) if row.risk_id else {}
     reviewer_names = await load_reviewer_names(db, {row.reviewed_by}) if row.reviewed_by else {}
     return ComplianceFindingOut.model_validate(
         compliance_to_dict(
             row,
             card_name,
+            card_type=card_type,
+            risk_reference=risk_refs.get(str(row.risk_id)) if row.risk_id else None,
+            reviewer_name=(reviewer_names.get(str(row.reviewed_by)) if row.reviewed_by else None),
+        )
+    )
+
+
+@router.post("/security/compliance-findings/{finding_id}/ai-verdict")
+async def submit_ai_verdict(
+    finding_id: str,
+    body: ComplianceFindingAiVerdict,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> ComplianceFindingOut:
+    """Record the user's verdict on the scanner's AI-detection claim.
+
+    Persists ``hasAiFeatures`` (true / false) on the impacted card and
+    stamps the finding as ``acknowledged`` with a review note. The card
+    must exist; landscape-scoped findings (no ``card_id``) cannot receive
+    a verdict.
+    """
+    await PermissionService.require_permission(db, user, "security_compliance.manage")
+
+    verdict = (body.verdict or "").strip()
+    if verdict not in ("confirmed", "rejected"):
+        raise HTTPException(400, "verdict must be 'confirmed' or 'rejected'")
+
+    row = await db.get(TurboLensComplianceFinding, uuid.UUID(finding_id))
+    if not row:
+        raise HTTPException(404, "Finding not found")
+    if row.card_id is None:
+        raise HTTPException(400, "Finding is not scoped to a specific card")
+
+    card_result = await db.execute(select(Card).where(Card.id == row.card_id))
+    card = card_result.scalar_one_or_none()
+    if card is None:
+        raise HTTPException(404, "Impacted card not found")
+
+    from app.api.v1.cards import _calc_data_quality
+    from app.services.calculation_engine import run_calculations_for_card
+    from app.services.event_bus import event_bus
+
+    new_value = verdict == "confirmed"
+    old_attrs = dict(card.attributes or {})
+    old_value = old_attrs.get("hasAiFeatures")
+    if old_value != new_value:
+        old_attrs["hasAiFeatures"] = new_value
+        card.attributes = old_attrs
+        card.updated_by = user.id
+        if card.approval_status == "APPROVED":
+            card.approval_status = "BROKEN"
+        card.data_quality = await _calc_data_quality(db, card)
+        await run_calculations_for_card(db, card)
+        await event_bus.publish(
+            "card.updated",
+            {
+                "id": str(card.id),
+                "changes": {
+                    "attributes": {
+                        "old": {"hasAiFeatures": old_value},
+                        "new": {"hasAiFeatures": new_value},
+                    }
+                },
+            },
+            db=db,
+            card_id=card.id,
+            user_id=user.id,
+        )
+
+    row.decision = "acknowledged"
+    row.review_note = "AI verdict: confirmed" if verdict == "confirmed" else "AI verdict: rejected"
+    row.reviewed_by = user.id
+    row.reviewed_at = datetime.now(timezone.utc)
+
+    await db.commit()
+    await db.refresh(row)
+
+    from app.services.turbolens_security import (
+        compliance_to_dict,
+        load_reviewer_names,
+        load_risk_references,
+    )
+
+    meta_map = await _load_card_meta(db, {row.card_id})
+    nt = meta_map.get(str(row.card_id))
+    card_name, card_type = nt if nt else (None, None)
+    risk_refs = await load_risk_references(db, {row.risk_id}) if row.risk_id else {}
+    reviewer_names = await load_reviewer_names(db, {row.reviewed_by}) if row.reviewed_by else {}
+    return ComplianceFindingOut.model_validate(
+        compliance_to_dict(
+            row,
+            card_name,
+            card_type=card_type,
             risk_reference=risk_refs.get(str(row.risk_id)) if row.risk_id else None,
             reviewer_name=(reviewer_names.get(str(row.reviewed_by)) if row.reviewed_by else None),
         )
@@ -1335,7 +1443,9 @@ async def list_card_compliance_findings(
         load_risk_references,
     )
 
-    name_map = await _load_card_names(db, {card_uuid})
+    meta_map = await _load_card_meta(db, {card_uuid})
+    nt = meta_map.get(str(card_uuid))
+    card_name, card_type = nt if nt else (None, None)
     risk_refs = await load_risk_references(db, {r.risk_id for r in rows if r.risk_id})
     reviewer_names = await load_reviewer_names(db, {r.reviewed_by for r in rows if r.reviewed_by})
 
@@ -1358,7 +1468,8 @@ async def list_card_compliance_findings(
         ComplianceFindingOut.model_validate(
             compliance_to_dict(
                 row,
-                name_map.get(str(card_uuid)),
+                card_name,
+                card_type=card_type,
                 risk_reference=risk_refs.get(str(row.risk_id)) if row.risk_id else None,
                 reviewer_name=(
                     reviewer_names.get(str(row.reviewed_by)) if row.reviewed_by else None

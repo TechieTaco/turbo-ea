@@ -292,6 +292,7 @@ class ComplianceFindingOut(BaseModel):
     regulation_article: str | None = None
     card_id: str | None = None
     card_name: str | None = None
+    card_type: str | None = None
     scope_type: str = "landscape"
     category: str = ""
     requirement: str = ""
@@ -340,6 +341,16 @@ class ComplianceFindingDecisionUpdate(BaseModel):
 
     decision: str
     review_note: str | None = None
+
+
+class ComplianceFindingAiVerdict(BaseModel):
+    """Body for ``POST /security/compliance-findings/{id}/ai-verdict``.
+
+    Captures the user's verdict on the scanner's AI-detection claim and
+    persists it on the impacted card's ``hasAiFeatures`` attribute.
+    """
+
+    verdict: str  # "confirmed" | "rejected"
 
 
 class SecurityScanRunOut(BaseModel):
