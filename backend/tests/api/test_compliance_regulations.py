@@ -453,11 +453,17 @@ class TestRescanPreservesUserWork:
         assert row.decision == "risk_tracked"
         assert row.auto_resolved is False
 
-    async def test_untouched_ai_finding_gets_auto_resolved_flag_but_no_decision_change(
-        self, client, db, reg_env
-    ):
-        """Vanished AI finding the user never touched gets auto_resolved=True
-        but decision stays put — verification is the user's call."""
+    async def test_vanished_untouched_ai_finding_stays_visible(self, client, db, reg_env):
+        """A finding the LLM didn't re-emit must still be visible.
+
+        Pre-fix: vanished untouched AI findings were flipped to
+        ``auto_resolved=True``, which the default Compliance grid filter
+        hides. Combined with LLM non-determinism, that silently shrank
+        the visible-findings count every scan. New behaviour: rescan is
+        purely additive — body, decision, and auto_resolved flag are all
+        preserved (and auto_resolved is explicitly cleared so stale
+        ``True`` from prior scans no longer hides anything).
+        """
         finding_id = await self._seed_finding(
             db,
             None,
@@ -470,5 +476,53 @@ class TestRescanPreservesUserWork:
 
         row = await db.get(TurboLensComplianceFinding, finding_id)
         assert row is not None
-        assert row.auto_resolved is True  # flagged for UI to dim
-        assert row.decision == "new"  # NOT force-transitioned to "verified"
+        assert row.auto_resolved is False  # NOT hidden
+        assert row.decision == "new"  # NOT force-transitioned
+        # Body intact.
+        assert row.severity == "high"
+        assert row.gap_description == "Original AI gap text."
+
+    async def test_stale_auto_resolved_row_unsticks_on_rescan(self, client, db, reg_env):
+        """Rows stuck at ``auto_resolved=True`` from earlier scans
+        (running against the old auto-resolve logic) must come back into
+        view after any subsequent scan of the same regulation. The
+        explicit clear inside ``run_compliance_scan`` is the fix."""
+        # Seed a row that's currently flagged auto_resolved=True (the
+        # state the old code would have left it in).
+        prev_run = TurboLensAnalysisRun(
+            id=uuid.uuid4(),
+            analysis_type=AnalysisType.SECURITY_COMPLIANCE,
+            status=AnalysisStatus.COMPLETED,
+        )
+        db.add(prev_run)
+        await db.flush()
+        finding_id = uuid.uuid4()
+        db.add(
+            TurboLensComplianceFinding(
+                id=finding_id,
+                run_id=prev_run.id,
+                regulation="gdpr",
+                regulation_article=None,
+                card_id=None,
+                scope_type="landscape",
+                category="x",
+                requirement="x",
+                status="non_compliant",
+                severity="high",
+                gap_description="x",
+                evidence=None,
+                remediation=None,
+                ai_detected=True,
+                finding_key=f"k-stale-{finding_id.hex}",
+                decision="new",
+                reviewed_by=None,
+                auto_resolved=True,  # stale flag from old scanner behaviour
+            )
+        )
+        await db.flush()
+
+        await self._run_scan(db, ["gdpr"])
+
+        row = await db.get(TurboLensComplianceFinding, finding_id)
+        assert row is not None
+        assert row.auto_resolved is False  # un-stuck → visible again

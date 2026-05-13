@@ -1000,39 +1000,28 @@ async def run_compliance_scan(
         else:
             # Re-emitted finding — minimal-touch.
             #
-            # The previous implementation overwrote status / severity /
-            # category / gap / evidence / remediation / ai_detected on every
-            # re-scan. That destroyed any hand-curation: manual findings, AI
-            # findings the user had acknowledged, severity overrides — all
-            # silently reverted to whatever the AI emitted this time.
-            #
-            # New rule: once a finding exists, its body and decision belong
-            # to the user. The scanner only updates the AI-side bookkeeping
-            # (which run last confirmed it, and whether it's still surfaced)
-            # and never touches anything else.
+            # Once a finding exists, its body and decision belong to the
+            # user. The scanner only updates the AI-side bookkeeping
+            # (which run last confirmed it) and never touches anything
+            # else. See the block below for vanished rows.
             row.run_id = run_uuid
             row.last_seen_run_id = run_uuid
-            row.auto_resolved = False
 
-    # Findings within the scanned regulations that didn't re-appear.
+    # Re-scan is purely additive: every existing row in the scanned
+    # regulations stays visible regardless of whether the LLM re-emitted
+    # it this run. Previously the "vanished" branch set
+    # ``auto_resolved=True`` on rows the new scan didn't mention, which
+    # the default Compliance grid filter hides — combined with LLM
+    # non-determinism, that silently shrank the user's visible findings
+    # on every scan.
     #
-    # User-touched rows (reviewed_by is set — covers manual findings,
-    # acknowledged / accepted findings, and findings promoted to a Risk)
-    # are left COMPLETELY alone. The previous implementation force-
-    # transitioned them to `decision="verified"` plus
-    # `auto_resolved=True`, which (a) destroyed the user's lifecycle
-    # state and (b) hid manual findings under the default register
-    # filter (which excludes auto_resolved rows). Both are data loss.
-    #
-    # Untouched AI findings still get `auto_resolved=True` flagged so the
-    # frontend can dim them with an "AI no longer reports this" hint, but
-    # the decision is never changed — verifying / closing is the user's
-    # call via the lifecycle workflow.
-    vanished = [row for row in existing_rows if row.finding_key not in seen_keys]
-    for row in vanished:
-        if row.reviewed_by is not None:
-            continue
-        row.auto_resolved = True
+    # Now we explicitly clear ``auto_resolved`` on every row in the
+    # scanned regulations. This also restores rows that got stuck at
+    # ``auto_resolved=True`` from older scans. Body and decision are
+    # never touched — verifying / closing is the user's call via the
+    # lifecycle workflow.
+    for row in existing_rows:
+        row.auto_resolved = False
 
     await db.flush()
 
