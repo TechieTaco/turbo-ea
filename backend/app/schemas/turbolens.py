@@ -329,6 +329,28 @@ class ComplianceFindingOut(BaseModel):
         return str(v) if v is not None else None
 
 
+class ComplianceFindingCreate(BaseModel):
+    """Body for ``POST /security/compliance-findings`` — manual finding entry.
+
+    Used by auditors / GRC analysts who want to record a finding the
+    scanner didn't pick up. The endpoint creates a synthetic "manual"
+    :class:`TurboLensAnalysisRun` to satisfy the FK and persists a row
+    with ``decision='new'`` so the lifecycle starts at the same place
+    as scanner-emitted findings.
+    """
+
+    regulation: str
+    regulation_article: str | None = None
+    card_id: str | None = None
+    category: str = ""
+    requirement: str
+    status: str
+    severity: str
+    gap_description: str = ""
+    evidence: str | None = None
+    remediation: str | None = None
+
+
 class ComplianceFindingDecisionUpdate(BaseModel):
     """Body for ``PATCH /security/compliance-findings/{id}``.
 

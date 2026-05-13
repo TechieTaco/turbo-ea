@@ -538,5 +538,13 @@
   "compliance.grid.col.status": "Compliance status",
   "compliance.columns.title": "Columns",
   "compliance.columns.help": "Choose which columns to show. Card, Severity, and Requirement are always visible.",
-  "compliance.columns.reset": "Reset"
+  "compliance.columns.reset": "Reset",
+  "compliance.create.newFinding": "New finding",
+  "compliance.create.title": "New compliance finding",
+  "compliance.create.regulation": "Regulation",
+  "compliance.create.article": "Article (optional)",
+  "compliance.create.card": "Impacted card (optional)",
+  "compliance.create.cardPlaceholder": "Search Applications and IT Components…",
+  "compliance.create.submit": "Create",
+  "compliance.create.errRequirement": "Requirement is required."
 }

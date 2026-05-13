@@ -538,5 +538,13 @@
   "compliance.grid.col.status": "Status de conformidade",
   "compliance.columns.title": "Colunas",
   "compliance.columns.help": "Escolha quais colunas mostrar. Cartão, Severidade e Requisito ficam sempre visíveis.",
-  "compliance.columns.reset": "Redefinir"
+  "compliance.columns.reset": "Redefinir",
+  "compliance.create.newFinding": "Novo achado",
+  "compliance.create.title": "Novo achado de conformidade",
+  "compliance.create.regulation": "Regulamento",
+  "compliance.create.article": "Artigo (opcional)",
+  "compliance.create.card": "Cartão impactado (opcional)",
+  "compliance.create.cardPlaceholder": "Buscar Aplicações e Componentes de TI…",
+  "compliance.create.submit": "Criar",
+  "compliance.create.errRequirement": "O requisito é obrigatório."
 }

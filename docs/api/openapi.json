@@ -2304,6 +2304,89 @@
         "title": "ComplianceFindingAiVerdict",
         "type": "object"
       },
+      "ComplianceFindingCreate": {
+        "description": "Body for ``POST /security/compliance-findings`` \u2014 manual finding entry.\n\nUsed by auditors / GRC analysts who want to record a finding the\nscanner didn't pick up. The endpoint creates a synthetic \"manual\"\n:class:`TurboLensAnalysisRun` to satisfy the FK and persists a row\nwith ``decision='new'`` so the lifecycle starts at the same place\nas scanner-emitted findings.",
+        "properties": {
+          "card_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Card Id"
+          },
+          "category": {
+            "default": "",
+            "title": "Category",
+            "type": "string"
+          },
+          "evidence": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evidence"
+          },
+          "gap_description": {
+            "default": "",
+            "title": "Gap Description",
+            "type": "string"
+          },
+          "regulation": {
+            "title": "Regulation",
+            "type": "string"
+          },
+          "regulation_article": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Regulation Article"
+          },
+          "remediation": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remediation"
+          },
+          "requirement": {
+            "title": "Requirement",
+            "type": "string"
+          },
+          "severity": {
+            "title": "Severity",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "regulation",
+          "requirement",
+          "status",
+          "severity"
+        ],
+        "title": "ComplianceFindingCreate",
+        "type": "object"
+      },
       "ComplianceFindingDecisionUpdate": {
         "description": "Body for ``PATCH /security/compliance-findings/{id}``.\n\nUsers can transition the decision to ``open``, ``acknowledged``, or\n``accepted``. ``risk_tracked`` is set automatically when a finding is\npromoted to a Risk (``POST /risks/promote/compliance/{id}``);\n``auto_resolved`` is set by the scanner when a re-scan no longer\nreports the finding. Neither is user-settable.",
         "properties": {
@@ -26666,6 +26749,48 @@
           }
         },
         "summary": "List Compliance",
+        "tags": [
+          "TurboLens"
+        ]
+      }
+    },
+    "/api/v1/turbolens/security/compliance-findings": {
+      "post": {
+        "description": "Manually create a compliance finding (auditor / analyst entry).\n\nCreates a synthetic \"manual\" :class:`TurboLensAnalysisRun` row to\nsatisfy the FK (``run_id`` is non-null), computes ``finding_key``\nvia the same recipe as the scanner so a later re-scan can upsert\ncleanly, and persists the finding with ``decision='new'`` and\n``ai_detected=False``. Requires ``security_compliance.manage``.",
+        "operationId": "create_compliance_finding_manual_api_v1_turbolens_security_compliance_findings_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ComplianceFindingCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ComplianceFindingOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Compliance Finding Manual",
         "tags": [
           "TurboLens"
         ]

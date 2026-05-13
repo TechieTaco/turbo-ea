@@ -36,6 +36,7 @@ from app.schemas.turbolens import (
     SUPPORTED_REGULATIONS,
     ComplianceBundleOut,
     ComplianceFindingAiVerdict,
+    ComplianceFindingCreate,
     ComplianceFindingDecisionUpdate,
     ComplianceFindingOut,
     CveFindingOut,
@@ -1254,6 +1255,117 @@ async def list_compliance(
 _USER_SETTABLE_COMPLIANCE_DECISIONS: frozenset[str] = frozenset(
     {"new", "in_review", "mitigated", "verified", "accepted", "not_applicable"}
 )
+
+_VALID_COMPLIANCE_STATUSES: frozenset[str] = frozenset(
+    {"compliant", "partial", "non_compliant", "not_applicable", "review_needed"}
+)
+_VALID_SEVERITIES: frozenset[str] = frozenset({"critical", "high", "medium", "low", "info"})
+
+
+@router.post("/security/compliance-findings", response_model=ComplianceFindingOut)
+async def create_compliance_finding_manual(
+    body: ComplianceFindingCreate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> ComplianceFindingOut:
+    """Manually create a compliance finding (auditor / analyst entry).
+
+    Creates a synthetic "manual" :class:`TurboLensAnalysisRun` row to
+    satisfy the FK (``run_id`` is non-null), computes ``finding_key``
+    via the same recipe as the scanner so a later re-scan can upsert
+    cleanly, and persists the finding with ``decision='new'`` and
+    ``ai_detected=False``. Requires ``security_compliance.manage``.
+    """
+    await PermissionService.require_permission(db, user, "security_compliance.manage")
+
+    if body.regulation not in SUPPORTED_REGULATIONS:
+        raise HTTPException(400, f"regulation must be one of: {', '.join(SUPPORTED_REGULATIONS)}")
+    if body.status not in _VALID_COMPLIANCE_STATUSES:
+        raise HTTPException(
+            400,
+            f"status must be one of: {', '.join(sorted(_VALID_COMPLIANCE_STATUSES))}",
+        )
+    if body.severity not in _VALID_SEVERITIES:
+        raise HTTPException(400, f"severity must be one of: {', '.join(sorted(_VALID_SEVERITIES))}")
+    if not body.requirement.strip():
+        raise HTTPException(400, "requirement is required")
+
+    card_uuid: uuid.UUID | None = None
+    card_name: str | None = None
+    card_type: str | None = None
+    if body.card_id:
+        try:
+            card_uuid = uuid.UUID(body.card_id)
+        except ValueError as exc:
+            raise HTTPException(400, "Invalid card_id") from exc
+        meta = await _load_card_meta(db, {card_uuid})
+        nt = meta.get(str(card_uuid))
+        if not nt:
+            raise HTTPException(404, "Card not found")
+        card_name, card_type = nt
+
+    scope_type = "card" if card_uuid else "landscape"
+
+    # Synthetic run so the FK + audit trail stays sane.
+    run = TurboLensAnalysisRun(
+        id=uuid.uuid4(),
+        analysis_type=AnalysisType.SECURITY_COMPLIANCE,
+        status=AnalysisStatus.COMPLETED,
+        started_at=datetime.now(timezone.utc),
+        completed_at=datetime.now(timezone.utc),
+        created_by=user.id,
+        results={"manual": True},
+    )
+    db.add(run)
+    await db.flush()
+
+    from app.services.turbolens_security import (
+        compliance_to_dict,
+        compute_finding_key,
+    )
+
+    finding_key = compute_finding_key(
+        scope_type,
+        card_uuid,
+        body.regulation,
+        body.regulation_article,
+        body.requirement,
+    )
+
+    row = TurboLensComplianceFinding(
+        id=uuid.uuid4(),
+        run_id=run.id,
+        regulation=body.regulation,
+        regulation_article=body.regulation_article,
+        card_id=card_uuid,
+        scope_type=scope_type,
+        category=body.category or "",
+        requirement=body.requirement,
+        status=body.status,
+        severity=body.severity,
+        gap_description=body.gap_description or "",
+        evidence=body.evidence,
+        remediation=body.remediation,
+        ai_detected=False,
+        finding_key=finding_key,
+        decision="new",
+        reviewed_by=user.id,
+        reviewed_at=datetime.now(timezone.utc),
+        review_note="Manually created finding.",
+        last_seen_run_id=run.id,
+        auto_resolved=False,
+    )
+    db.add(row)
+    await db.commit()
+    await db.refresh(row)
+
+    return ComplianceFindingOut.model_validate(
+        compliance_to_dict(
+            row,
+            card_name,
+            card_type=card_type,
+        )
+    )
 
 
 @router.patch("/security/compliance-findings/{finding_id}")

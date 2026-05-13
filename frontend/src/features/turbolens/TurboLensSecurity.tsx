@@ -58,6 +58,7 @@ import type {
 import ComplianceHeatmap from "./ComplianceHeatmap";
 import ComplianceGrid from "@/features/grc/compliance/ComplianceGrid";
 import type { ComplianceFilters } from "@/features/grc/compliance/ComplianceFilterSidebar";
+import CreateComplianceFindingDialog from "@/features/grc/compliance/CreateComplianceFindingDialog";
 import CreateRiskDialog from "@/features/grc/risk/CreateRiskDialog";
 import {
   RiskDialogSeed,
@@ -111,8 +112,74 @@ const SEVERITY_LABELS: Array<"critical" | "high" | "medium" | "low" | "unknown">
 
 // ---------------------------------------------------------------------------
 
+function csvCell(value: unknown): string {
+  if (value === null || value === undefined) return "";
+  const s = String(value);
+  if (/[",\n\r]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+  return s;
+}
+
+function exportComplianceToCsv(
+  findings: TurboLensComplianceFinding[],
+  t: (k: string) => string,
+  tCards: (k: string) => string,
+): void {
+  const header = [
+    tCards("compliance.grid.col.card"),
+    tCards("compliance.grid.col.severity"),
+    tCards("compliance.grid.col.status"),
+    tCards("compliance.grid.col.article"),
+    tCards("compliance.grid.col.requirement"),
+    tCards("compliance.grid.col.lifecycle"),
+    "AI detected",
+    "Auto-resolved",
+    "Regulation",
+    "Gap",
+    "Evidence",
+    "Remediation",
+    "Reviewer",
+    "Reviewed at",
+  ];
+  const lines = [header.map(csvCell).join(",")];
+  for (const f of findings) {
+    lines.push(
+      [
+        f.card_name ?? "",
+        t(`turbolens_security_severity_${f.severity}`),
+        t(`turbolens_security_compliance_status_${f.status}`),
+        f.regulation_article ?? "",
+        f.requirement ?? "",
+        t(`turbolens_security_compliance_decision_${f.decision}`),
+        f.ai_detected ? "Yes" : "No",
+        f.auto_resolved ? "Yes" : "No",
+        t(`turbolens_security_regulation_${f.regulation}`),
+        f.gap_description ?? "",
+        f.evidence ?? "",
+        f.remediation ?? "",
+        f.reviewer_name ?? "",
+        f.reviewed_at ?? "",
+      ]
+        .map(csvCell)
+        .join(","),
+    );
+  }
+  const blob = new Blob(["﻿" + lines.join("\r\n")], {
+    type: "text/csv;charset=utf-8;",
+  });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  const stamp = new Date().toISOString().slice(0, 10);
+  a.download = `compliance-findings-${stamp}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
 export default function TurboLensSecurity() {
   const { t } = useTranslation("admin");
+  const { t: tCards } = useTranslation("cards");
   const navigate = useNavigate();
   const phaseLabel = useCallback(
     (phase: string) => {
@@ -129,6 +196,7 @@ export default function TurboLensSecurity() {
   const [overviewLoading, setOverviewLoading] = useState(true);
   const [compliance, setCompliance] = useState<TurboLensComplianceBundle[]>([]);
   const [complianceLoading, setComplianceLoading] = useState(true);
+  const [createFindingOpen, setCreateFindingOpen] = useState(false);
 
   // ── Findings table state ───────────────────────────────────────────
   const [findings, setFindings] = useState<TurboLensCveFinding[]>([]);
@@ -649,6 +717,17 @@ export default function TurboLensSecurity() {
           navigate(`/grc/risks/${risk.id}`);
         }}
       />
+
+      <CreateComplianceFindingDialog
+        open={createFindingOpen}
+        defaultRegulation={activeRegulation}
+        onClose={() => setCreateFindingOpen(false)}
+        onCreated={() => {
+          // Refresh the compliance bundle so the new manual finding lands
+          // on the active regulation tab.
+          loadCompliance();
+        }}
+      />
     </Box>
   );
 
@@ -1080,6 +1159,36 @@ export default function TurboLensSecurity() {
     // sidebar stay visible during the initial fetch.
     return (
       <Stack spacing={2} sx={{ flex: 1, minHeight: 0, display: "flex" }}>
+        {/* Toolbar — Create + Export (mirrors Inventory header style). */}
+        <Stack
+          direction="row"
+          spacing={1}
+          justifyContent="flex-end"
+          alignItems="center"
+          flexWrap="wrap"
+          useFlexGap
+        >
+          <Button
+            variant="outlined"
+            color="inherit"
+            startIcon={<MaterialSymbol icon="download" size={18} />}
+            onClick={() =>
+              exportComplianceToCsv(filteredComplianceFindings, t, tCards)
+            }
+            disabled={filteredComplianceFindings.length === 0}
+            sx={{ textTransform: "none" }}
+          >
+            {t("common:actions.export", { defaultValue: "Export" })}
+          </Button>
+          <Button
+            variant="contained"
+            startIcon={<MaterialSymbol icon="add" size={18} />}
+            onClick={() => setCreateFindingOpen(true)}
+            sx={{ textTransform: "none" }}
+          >
+            {tCards("compliance.create.newFinding")}
+          </Button>
+        </Stack>
         <Tabs
           value={activeRegulation}
           onChange={(_, v) => {

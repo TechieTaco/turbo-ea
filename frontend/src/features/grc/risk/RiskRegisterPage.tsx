@@ -52,6 +52,69 @@ import RiskMatrix, { RiskMatrixSelection } from "./RiskMatrix";
 import { emptySeed, RiskDialogSeed, riskLevelChipColor } from "./riskDefaults";
 
 // ---------------------------------------------------------------------------
+// CSV export
+// ---------------------------------------------------------------------------
+
+function csvCell(value: unknown): string {
+  if (value === null || value === undefined) return "";
+  const s = String(value);
+  // Quote when the value contains a comma, quote, newline, or leading/trailing
+  // whitespace; double up any embedded quote.
+  if (/[",\n\r]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+  return s;
+}
+
+function exportRisksToCsv(
+  rows: Risk[],
+  t: (k: string, opts?: Record<string, unknown>) => string,
+  formatDate: (d: string | null | undefined) => string,
+): void {
+  const header = [
+    t("risks.col.reference"),
+    t("risks.col.title"),
+    t("risks.col.category"),
+    t("risks.col.initialLevel"),
+    t("risks.col.residualLevel"),
+    t("risks.col.status"),
+    t("risks.col.owner"),
+    t("risks.col.target"),
+    t("risks.col.cards"),
+    t("risks.col.updatedAt"),
+  ];
+  const lines = [header.map(csvCell).join(",")];
+  for (const r of rows) {
+    lines.push(
+      [
+        r.reference,
+        r.title,
+        r.category ? t(`risks.category.${r.category}`) : "",
+        r.initial_level ? t(`risks.level.${r.initial_level}`) : "",
+        r.residual_level ? t(`risks.level.${r.residual_level}`) : "",
+        r.status ? t(`risks.status.${r.status}`) : "",
+        r.owner_name ?? "",
+        formatDate(r.target_resolution_date),
+        (r.cards ?? []).map((c) => c.card_name).join("; "),
+        formatDate(r.updated_at),
+      ]
+        .map(csvCell)
+        .join(","),
+    );
+  }
+  const blob = new Blob(["﻿" + lines.join("\r\n")], {
+    type: "text/csv;charset=utf-8;",
+  });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  const stamp = new Date().toISOString().slice(0, 10);
+  a.download = `risks-${stamp}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+// ---------------------------------------------------------------------------
 // Grid column catalogue + per-user prefs (mirrors the Inventory pattern)
 // ---------------------------------------------------------------------------
 
@@ -499,13 +562,26 @@ export default function RiskRegisterPage() {
             {t("risks.description")}
           </Typography>
         </Box>
-        <Button
-          variant="contained"
-          startIcon={<MaterialSymbol icon="add" size={18} />}
-          onClick={() => setDialogSeed(emptySeed())}
-        >
-          {t("risks.newRisk")}
-        </Button>
+        <Stack direction="row" spacing={1}>
+          <Button
+            variant="outlined"
+            color="inherit"
+            startIcon={<MaterialSymbol icon="download" size={18} />}
+            onClick={() => exportRisksToCsv(filteredRows, t, formatDate)}
+            disabled={filteredRows.length === 0}
+            sx={{ textTransform: "none" }}
+          >
+            {t("common:actions.export", { defaultValue: "Export" })}
+          </Button>
+          <Button
+            variant="contained"
+            startIcon={<MaterialSymbol icon="add" size={18} />}
+            onClick={() => setDialogSeed(emptySeed())}
+            sx={{ textTransform: "none" }}
+          >
+            {t("risks.newRisk")}
+          </Button>
+        </Stack>
       </Stack>
 
       {error && (

@@ -538,5 +538,13 @@
   "compliance.grid.col.status": "合规状态",
   "compliance.columns.title": "列",
   "compliance.columns.help": "选择要显示的列。卡片、严重程度和要求始终可见。",
-  "compliance.columns.reset": "重置"
+  "compliance.columns.reset": "重置",
+  "compliance.create.newFinding": "新建发现",
+  "compliance.create.title": "新建合规发现",
+  "compliance.create.regulation": "法规",
+  "compliance.create.article": "条款（可选）",
+  "compliance.create.card": "受影响卡片（可选）",
+  "compliance.create.cardPlaceholder": "搜索应用程序和 IT 组件…",
+  "compliance.create.submit": "创建",
+  "compliance.create.errRequirement": "必须填写要求。"
 }

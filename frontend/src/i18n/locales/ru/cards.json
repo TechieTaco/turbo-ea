@@ -538,5 +538,13 @@
   "compliance.grid.col.status": "Статус соответствия",
   "compliance.columns.title": "Столбцы",
   "compliance.columns.help": "Выберите, какие столбцы показывать. Карточка, Серьёзность и Требование всегда видны.",
-  "compliance.columns.reset": "Сбросить"
+  "compliance.columns.reset": "Сбросить",
+  "compliance.create.newFinding": "Новая находка",
+  "compliance.create.title": "Новая находка соответствия",
+  "compliance.create.regulation": "Регламент",
+  "compliance.create.article": "Статья (необязательно)",
+  "compliance.create.card": "Затронутая карточка (необязательно)",
+  "compliance.create.cardPlaceholder": "Искать приложения и ИТ-компоненты…",
+  "compliance.create.submit": "Создать",
+  "compliance.create.errRequirement": "Требование обязательно."
 }

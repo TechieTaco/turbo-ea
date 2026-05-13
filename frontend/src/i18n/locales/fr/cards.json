@@ -538,5 +538,13 @@
   "compliance.grid.col.status": "Statut de conformité",
   "compliance.columns.title": "Colonnes",
   "compliance.columns.help": "Choisissez les colonnes à afficher. Carte, Sévérité et Exigence sont toujours visibles.",
-  "compliance.columns.reset": "Réinitialiser"
+  "compliance.columns.reset": "Réinitialiser",
+  "compliance.create.newFinding": "Nouveau constat",
+  "compliance.create.title": "Nouveau constat de conformité",
+  "compliance.create.regulation": "Réglementation",
+  "compliance.create.article": "Article (optionnel)",
+  "compliance.create.card": "Carte impactée (optionnel)",
+  "compliance.create.cardPlaceholder": "Rechercher Applications et composants IT…",
+  "compliance.create.submit": "Créer",
+  "compliance.create.errRequirement": "L'exigence est requise."
 }
