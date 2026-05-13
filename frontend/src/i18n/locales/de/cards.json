@@ -533,5 +533,10 @@
   "compliance.lifecycle.advanceTo": "Weiter zu {{state}}",
   "compliance.lifecycle.reopen": "Wieder öffnen",
   "compliance.lifecycle.riskTrackedHelp": "Dieser Befund wird von einem Risiko verfolgt. Lebenszyklus-Übergänge werden vom Risiko gesteuert — Risiko schließen, akzeptieren oder löschen, um weitere Änderungen zu ermöglichen.",
-  "compliance.filters.lifecycle": "Lebenszyklus"
+  "compliance.filters.lifecycle": "Lebenszyklus",
+  "compliance.grid.col.severity": "Schweregrad",
+  "compliance.grid.col.status": "Compliance-Status",
+  "compliance.columns.title": "Spalten",
+  "compliance.columns.help": "Wählen Sie die anzuzeigenden Spalten. Karte, Schweregrad und Anforderung sind immer sichtbar.",
+  "compliance.columns.reset": "Zurücksetzen"
 }

@@ -533,5 +533,10 @@
   "compliance.lifecycle.advanceTo": "Avançar para {{state}}",
   "compliance.lifecycle.reopen": "Reabrir",
   "compliance.lifecycle.riskTrackedHelp": "Este achado é rastreado por um Risco. As transições do ciclo de vida são controladas pelo Risco — feche, aceite ou exclua o Risco para destravar mais alterações.",
-  "compliance.filters.lifecycle": "Ciclo de vida"
+  "compliance.filters.lifecycle": "Ciclo de vida",
+  "compliance.grid.col.severity": "Severidade",
+  "compliance.grid.col.status": "Status de conformidade",
+  "compliance.columns.title": "Colunas",
+  "compliance.columns.help": "Escolha quais colunas mostrar. Cartão, Severidade e Requisito ficam sempre visíveis.",
+  "compliance.columns.reset": "Redefinir"
 }

@@ -533,5 +533,10 @@
   "compliance.lifecycle.advanceTo": "Avanza a {{state}}",
   "compliance.lifecycle.reopen": "Riapri",
   "compliance.lifecycle.riskTrackedHelp": "Questo riscontro è tracciato da un Rischio. Le transizioni del ciclo di vita sono controllate dal Rischio — chiudi, accetta o elimina il Rischio per sbloccare ulteriori modifiche.",
-  "compliance.filters.lifecycle": "Ciclo di vita"
+  "compliance.filters.lifecycle": "Ciclo di vita",
+  "compliance.grid.col.severity": "Severità",
+  "compliance.grid.col.status": "Stato di conformità",
+  "compliance.columns.title": "Colonne",
+  "compliance.columns.help": "Scegli quali colonne mostrare. Scheda, Severità e Requisito sono sempre visibili.",
+  "compliance.columns.reset": "Ripristina"
 }

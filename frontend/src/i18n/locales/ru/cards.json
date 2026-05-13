@@ -533,5 +533,10 @@
   "compliance.lifecycle.advanceTo": "Перейти к {{state}}",
   "compliance.lifecycle.reopen": "Открыть заново",
   "compliance.lifecycle.riskTrackedHelp": "Эта находка отслеживается риском. Переходы жизненного цикла контролируются риском — закройте, примите или удалите риск, чтобы продолжить изменения.",
-  "compliance.filters.lifecycle": "Жизненный цикл"
+  "compliance.filters.lifecycle": "Жизненный цикл",
+  "compliance.grid.col.severity": "Серьёзность",
+  "compliance.grid.col.status": "Статус соответствия",
+  "compliance.columns.title": "Столбцы",
+  "compliance.columns.help": "Выберите, какие столбцы показывать. Карточка, Серьёзность и Требование всегда видны.",
+  "compliance.columns.reset": "Сбросить"
 }

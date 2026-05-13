@@ -533,5 +533,10 @@
   "compliance.lifecycle.advanceTo": "Passer à {{state}}",
   "compliance.lifecycle.reopen": "Rouvrir",
   "compliance.lifecycle.riskTrackedHelp": "Ce constat est suivi par un Risque. Les transitions du cycle de vie sont contrôlées par le Risque — fermez, acceptez ou supprimez le Risque pour débloquer d'autres changements.",
-  "compliance.filters.lifecycle": "Cycle de vie"
+  "compliance.filters.lifecycle": "Cycle de vie",
+  "compliance.grid.col.severity": "Sévérité",
+  "compliance.grid.col.status": "Statut de conformité",
+  "compliance.columns.title": "Colonnes",
+  "compliance.columns.help": "Choisissez les colonnes à afficher. Carte, Sévérité et Exigence sont toujours visibles.",
+  "compliance.columns.reset": "Réinitialiser"
 }

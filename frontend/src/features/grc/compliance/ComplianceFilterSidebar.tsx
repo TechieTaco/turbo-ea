@@ -15,6 +15,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
+import Button from "@mui/material/Button";
 import Checkbox from "@mui/material/Checkbox";
 import Chip from "@mui/material/Chip";
 import Collapse from "@mui/material/Collapse";
@@ -23,6 +24,9 @@ import List from "@mui/material/List";
 import ListItemButton from "@mui/material/ListItemButton";
 import ListItemIcon from "@mui/material/ListItemIcon";
 import ListItemText from "@mui/material/ListItemText";
+import Stack from "@mui/material/Stack";
+import Tab from "@mui/material/Tab";
+import Tabs from "@mui/material/Tabs";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import MaterialSymbol from "@/components/MaterialSymbol";
@@ -46,11 +50,32 @@ export interface ComplianceFilters {
   includeResolved: boolean;
 }
 
+/** Stable identifier for every compliance grid column. Keep in sync with
+ *  the column field/key values in ``ComplianceGrid``. */
+export const COMPLIANCE_GRID_COLUMNS: Array<{ id: string; labelKey: string }> = [
+  { id: "card_name", labelKey: "compliance.grid.col.card" },
+  { id: "severity", labelKey: "compliance.grid.col.severity" },
+  { id: "status", labelKey: "compliance.grid.col.status" },
+  { id: "regulation_article", labelKey: "compliance.grid.col.article" },
+  { id: "requirement", labelKey: "compliance.grid.col.requirement" },
+  { id: "decision", labelKey: "compliance.grid.col.lifecycle" },
+  { id: "ai_detected", labelKey: "compliance.grid.col.ai" },
+];
+
+/** Columns that always render — the user can't hide these because they
+ *  anchor the row (Card) or define the finding (Severity / Requirement). */
+export const LOCKED_COMPLIANCE_COLUMNS = new Set(["card_name", "severity", "requirement"]);
+
 interface Props {
   filters: ComplianceFilters;
   onFiltersChange: (next: ComplianceFilters) => void;
   collapsed: boolean;
   onToggleCollapsed: () => void;
+  /** Visible column ids; columns not in this set are hidden. */
+  visibleColumns: Set<string>;
+  onVisibleColumnsChange: (next: Set<string>) => void;
+  /** Reset visible columns to the default (all columns). */
+  onResetColumns?: () => void;
   width?: number;
 }
 
@@ -116,11 +141,15 @@ export default function ComplianceFilterSidebar({
   onFiltersChange,
   collapsed,
   onToggleCollapsed,
+  visibleColumns,
+  onVisibleColumnsChange,
+  onResetColumns,
   width = DEFAULT_WIDTH,
 }: Props) {
   const { t } = useTranslation("admin");
   const { t: tCards } = useTranslation("cards");
 
+  const [tab, setTab] = useState<0 | 1>(0);
   const [expanded, setExpanded] = useState({
     status: true,
     severity: true,
@@ -130,6 +159,17 @@ export default function ComplianceFilterSidebar({
   });
   const toggleSection = (key: keyof typeof expanded) =>
     setExpanded((p) => ({ ...p, [key]: !p[key] }));
+
+  const totalColumns = COMPLIANCE_GRID_COLUMNS.length;
+  const hiddenColumns = totalColumns - visibleColumns.size;
+  const columnsChanged = hiddenColumns > 0;
+  const toggleColumn = (id: string) => {
+    if (LOCKED_COMPLIANCE_COLUMNS.has(id)) return;
+    const next = new Set(visibleColumns);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    onVisibleColumnsChange(next);
+  };
 
   function toggleSet<T>(set: Set<T>, value: T): Set<T> {
     const next = new Set(set);
@@ -191,7 +231,7 @@ export default function ComplianceFilterSidebar({
         overflow: "hidden",
       }}
     >
-      {/* Header */}
+      {/* Tabbed header (Filters / Columns) — mirrors Inventory pattern. */}
       <Box
         sx={{
           display: "flex",
@@ -203,28 +243,65 @@ export default function ComplianceFilterSidebar({
           borderColor: "divider",
         }}
       >
-        <Box sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>
-          <Typography variant="body2" fontWeight={700} fontSize={14}>
-            {tCards("compliance.filters.title")}
-          </Typography>
-          {activeCount > 0 && (
-            <Box
-              sx={{
-                width: 8,
-                height: 8,
-                borderRadius: "50%",
-                bgcolor: "primary.main",
-                flexShrink: 0,
-              }}
-            />
-          )}
-        </Box>
+        <Tabs
+          value={tab}
+          onChange={(_, v) => setTab(v as 0 | 1)}
+          sx={{
+            minHeight: 36,
+            "& .MuiTab-root": {
+              minHeight: 36,
+              py: 0,
+              textTransform: "none",
+              fontSize: 14,
+              minWidth: 0,
+            },
+          }}
+        >
+          <Tab
+            label={
+              <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                {tCards("compliance.filters.title")}
+                {activeCount > 0 && (
+                  <Box
+                    sx={{
+                      width: 8,
+                      height: 8,
+                      borderRadius: "50%",
+                      bgcolor: "primary.main",
+                      flexShrink: 0,
+                    }}
+                  />
+                )}
+              </Box>
+            }
+          />
+          <Tab
+            label={
+              <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                {tCards("compliance.columns.title")}
+                {columnsChanged && (
+                  <Box
+                    sx={{
+                      width: 8,
+                      height: 8,
+                      borderRadius: "50%",
+                      bgcolor: "primary.main",
+                      flexShrink: 0,
+                    }}
+                  />
+                )}
+              </Box>
+            }
+          />
+        </Tabs>
         <IconButton size="small" onClick={onToggleCollapsed} aria-label="collapse">
           <MaterialSymbol icon="chevron_left" size={20} />
         </IconButton>
       </Box>
 
       <Box sx={{ flex: 1, overflow: "auto", p: 1 }}>
+      {tab === 0 ? (
+        <>
         <SectionHeader
           label={t("turbolens_security_compliance_filter_status")}
           icon="verified"
@@ -345,6 +422,40 @@ export default function ComplianceFilterSidebar({
             ]}
           />
         </Collapse>
+        </>
+      ) : (
+        /* ─────── Columns tab ─────── */
+        <Box>
+          <Stack
+            direction="row"
+            alignItems="center"
+            justifyContent="space-between"
+            sx={{ mb: 1, px: 0.5 }}
+          >
+            <Typography variant="caption" color="text.secondary">
+              {tCards("compliance.columns.help")}
+            </Typography>
+            {columnsChanged && onResetColumns && (
+              <Button
+                size="small"
+                onClick={onResetColumns}
+                sx={{ textTransform: "none", fontSize: 12 }}
+              >
+                {tCards("compliance.columns.reset")}
+              </Button>
+            )}
+          </Stack>
+          <CheckboxList
+            items={COMPLIANCE_GRID_COLUMNS.map((c) => ({
+              key: c.id,
+              label: tCards(c.labelKey),
+              checked: visibleColumns.has(c.id),
+              onToggle: () => toggleColumn(c.id),
+              disabled: LOCKED_COMPLIANCE_COLUMNS.has(c.id),
+            }))}
+          />
+        </Box>
+      )}
       </Box>
     </Box>
   );
@@ -404,6 +515,7 @@ interface CheckboxItem {
   onToggle: () => void;
   color?: string;
   icon?: string;
+  disabled?: boolean;
 }
 
 function CheckboxList({ items }: { items: CheckboxItem[] }) {
@@ -413,6 +525,7 @@ function CheckboxList({ items }: { items: CheckboxItem[] }) {
         <ListItemButton
           key={item.key}
           dense
+          disabled={item.disabled}
           onClick={item.onToggle}
           sx={{ py: 0.25, px: 1, borderRadius: 1 }}
         >
@@ -420,6 +533,7 @@ function CheckboxList({ items }: { items: CheckboxItem[] }) {
             <Checkbox
               size="small"
               checked={item.checked}
+              disabled={item.disabled}
               disableRipple
               sx={{ p: 0 }}
             />

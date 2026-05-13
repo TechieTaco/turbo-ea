@@ -57,6 +57,8 @@ import {
   cveSeverityColor,
 } from "@/features/turbolens/utils";
 import ComplianceFilterSidebar, {
+  COMPLIANCE_GRID_COLUMNS,
+  LOCKED_COMPLIANCE_COLUMNS,
   type ComplianceFilters,
 } from "./ComplianceFilterSidebar";
 import FindingDetailDrawer from "./FindingDetailDrawer";
@@ -91,19 +93,39 @@ const PREFS_STORAGE_KEY = "turboea_grc_compliance_prefs";
 interface CompliancePrefs {
   groupMode: GroupMode;
   filtersCollapsed: boolean;
+  visibleColumns: string[];
 }
 
+const ALL_COLUMN_IDS = COMPLIANCE_GRID_COLUMNS.map((c) => c.id);
+
 function loadPrefs(): CompliancePrefs {
+  const defaults: CompliancePrefs = {
+    groupMode: "by_card",
+    filtersCollapsed: false,
+    visibleColumns: ALL_COLUMN_IDS,
+  };
   try {
     const raw = localStorage.getItem(PREFS_STORAGE_KEY);
-    if (!raw) return { groupMode: "by_card", filtersCollapsed: false };
+    if (!raw) return defaults;
     const parsed = JSON.parse(raw) as Partial<CompliancePrefs>;
     return {
       groupMode: parsed.groupMode === "ungrouped" ? "ungrouped" : "by_card",
       filtersCollapsed: !!parsed.filtersCollapsed,
+      visibleColumns:
+        Array.isArray(parsed.visibleColumns) && parsed.visibleColumns.length
+          ? // Ensure locked columns are always present and ignore unknown ids.
+            Array.from(
+              new Set([
+                ...LOCKED_COMPLIANCE_COLUMNS,
+                ...parsed.visibleColumns.filter((id): id is string =>
+                  typeof id === "string" && ALL_COLUMN_IDS.includes(id),
+                ),
+              ]),
+            )
+          : ALL_COLUMN_IDS,
     };
   } catch {
-    return { groupMode: "by_card", filtersCollapsed: false };
+    return defaults;
   }
 }
 
@@ -136,20 +158,40 @@ export default function ComplianceGrid({
   const [filtersCollapsed, setFiltersCollapsedRaw] = useState(
     initialPrefs.filtersCollapsed,
   );
+  const [visibleColumns, setVisibleColumnsRaw] = useState<Set<string>>(
+    () => new Set(initialPrefs.visibleColumns),
+  );
   const [findingDrawer, setFindingDrawer] =
     useState<TurboLensComplianceFinding | null>(null);
 
+  const persist = (next: Partial<CompliancePrefs>) => {
+    savePrefs({
+      groupMode,
+      filtersCollapsed,
+      visibleColumns: Array.from(visibleColumns),
+      ...next,
+    });
+  };
+
   const setGroupMode = (next: GroupMode) => {
     setGroupModeRaw(next);
-    savePrefs({ groupMode: next, filtersCollapsed });
+    persist({ groupMode: next });
   };
   const setFiltersCollapsed = (updater: boolean | ((prev: boolean) => boolean)) => {
     setFiltersCollapsedRaw((prev) => {
-      const next = typeof updater === "function" ? updater(prev) : updater;
-      savePrefs({ groupMode, filtersCollapsed: next });
-      return next;
+      const nextValue = typeof updater === "function" ? updater(prev) : updater;
+      persist({ filtersCollapsed: nextValue });
+      return nextValue;
     });
   };
+  const setVisibleColumns = (next: Set<string>) => {
+    // Guard: locked columns can never be hidden.
+    const guarded = new Set<string>(next);
+    for (const id of LOCKED_COMPLIANCE_COLUMNS) guarded.add(id);
+    setVisibleColumnsRaw(guarded);
+    persist({ visibleColumns: Array.from(guarded) });
+  };
+  const resetVisibleColumns = () => setVisibleColumns(new Set(ALL_COLUMN_IDS));
 
   const handleOpenCard = (cardId: string) => {
     // Single-drawer discipline: close the finding drawer first so the
@@ -309,6 +351,17 @@ export default function ComplianceGrid({
     },
   ], [t, tCards, theme, groupMode, sortedFindings]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Apply column visibility from prefs without rebuilding the colDef
+  // factory closure on every toggle.
+  const visibleColumnDefs = useMemo<ColDef<TurboLensComplianceFinding>[]>(
+    () =>
+      columnDefs.map((c) => ({
+        ...c,
+        hide: c.field ? !visibleColumns.has(c.field) : false,
+      })),
+    [columnDefs, visibleColumns],
+  );
+
   // Match the Inventory grid's defaults so the GRC table feels the same:
   // sortable + filterable + resizable on every column. Per-column filter
   // overrides below for Chip-rendered columns (severity / status /
@@ -348,6 +401,9 @@ export default function ComplianceGrid({
         onFiltersChange={onFiltersChange}
         collapsed={filtersCollapsed}
         onToggleCollapsed={() => setFiltersCollapsed((v) => !v)}
+        visibleColumns={visibleColumns}
+        onVisibleColumnsChange={setVisibleColumns}
+        onResetColumns={resetVisibleColumns}
       />
 
       {/* Grid + toolbar */}
@@ -422,7 +478,7 @@ export default function ComplianceGrid({
         >
           <AgGridReact<TurboLensComplianceFinding>
             rowData={sortedFindings}
-            columnDefs={columnDefs}
+            columnDefs={visibleColumnDefs}
             defaultColDef={defaultColDef}
             onCellClicked={onCellClicked}
             animateRows

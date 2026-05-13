@@ -533,5 +533,10 @@
   "compliance.lifecycle.advanceTo": "Advance to {{state}}",
   "compliance.lifecycle.reopen": "Re-open",
   "compliance.lifecycle.riskTrackedHelp": "This finding is tracked by a Risk. Lifecycle transitions are controlled by the Risk — close, accept, or delete the Risk to unblock further changes.",
-  "compliance.filters.lifecycle": "Lifecycle"
+  "compliance.filters.lifecycle": "Lifecycle",
+  "compliance.grid.col.severity": "Severity",
+  "compliance.grid.col.status": "Compliance status",
+  "compliance.columns.title": "Columns",
+  "compliance.columns.help": "Choose which columns to show. Card, Severity, and Requirement are always visible.",
+  "compliance.columns.reset": "Reset"
 }

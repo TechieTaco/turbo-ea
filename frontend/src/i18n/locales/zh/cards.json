@@ -533,5 +533,10 @@
   "compliance.lifecycle.advanceTo": "推进到 {{state}}",
   "compliance.lifecycle.reopen": "重新打开",
   "compliance.lifecycle.riskTrackedHelp": "此发现由风险跟踪。生命周期转换由风险控制——请关闭、接受或删除风险以解锁后续更改。",
-  "compliance.filters.lifecycle": "生命周期"
+  "compliance.filters.lifecycle": "生命周期",
+  "compliance.grid.col.severity": "严重程度",
+  "compliance.grid.col.status": "合规状态",
+  "compliance.columns.title": "列",
+  "compliance.columns.help": "选择要显示的列。卡片、严重程度和要求始终可见。",
+  "compliance.columns.reset": "重置"
 }
