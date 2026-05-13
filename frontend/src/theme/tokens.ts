@@ -85,6 +85,37 @@ export const DATA_QUALITY_COLORS = {
   "75-100": STATUS_COLORS.success,
 } as const;
 
+// ── Compliance finding lifecycle (GRC > Compliance) ─────────────────────
+// 4-state main path + 3 side branches. Visualised in the
+// ComplianceLifecycleTimeline at the top of the FindingDetailDrawer.
+
+export const COMPLIANCE_LIFECYCLE_COLORS = {
+  new: STATUS_COLORS.info,
+  in_review: STATUS_COLORS.warning,
+  mitigated: "#9ccc65", // lime — "applied, awaiting verification"
+  verified: STATUS_COLORS.success,
+  risk_tracked: STATUS_COLORS.error,
+  accepted: "#2e7d32", // dark green — terminal acceptance
+  not_applicable: STATUS_COLORS.neutral,
+} as const;
+
+export type ComplianceLifecycleState = keyof typeof COMPLIANCE_LIFECYCLE_COLORS;
+
+// Ordered main-path states for the timeline; side branches are rendered
+// as a badge above the line, not as a phase dot.
+export const COMPLIANCE_LIFECYCLE_MAIN_PATH: ComplianceLifecycleState[] = [
+  "new",
+  "in_review",
+  "mitigated",
+  "verified",
+];
+
+export const COMPLIANCE_LIFECYCLE_SIDE_BRANCHES: ComplianceLifecycleState[] = [
+  "risk_tracked",
+  "accepted",
+  "not_applicable",
+];
+
 // ── Card-type fallbacks ──────────────────────────────────────────────────
 // Runtime canonical values come from the per-type config in the database
 // (admin-editable). These are static fallbacks for legend keys and code that

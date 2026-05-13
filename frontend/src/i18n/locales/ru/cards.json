@@ -523,5 +523,15 @@
   "compliance.filters.expand": "Развернуть фильтры",
   "compliance.filters.cardType": "Тип карточки",
   "compliance.filters.other": "Прочие",
-  "compliance.drawer.untitled": "Наблюдение по соответствию"
+  "compliance.drawer.untitled": "Наблюдение по соответствию",
+  "compliance.grid.col.lifecycle": "Жизненный цикл",
+  "compliance.grid.group.flatHelp": "Показать каждую находку отдельной строкой.",
+  "compliance.grid.group.byCardHelp": "Группировать соседние строки по затронутой карточке; ячейка «Карточка» показывает имя один раз на группу.",
+  "compliance.lifecycle.title": "Жизненный цикл",
+  "compliance.lifecycle.autoResolved": "Повторный скан не нашёл",
+  "compliance.lifecycle.autoResolvedHelp": "Последний скан соответствия больше не сообщает об этой находке. Жизненный цикл перешёл в «Подтверждено», кроме случаев, когда находка отслеживается открытым риском.",
+  "compliance.lifecycle.advanceTo": "Перейти к {{state}}",
+  "compliance.lifecycle.reopen": "Открыть заново",
+  "compliance.lifecycle.riskTrackedHelp": "Эта находка отслеживается риском. Переходы жизненного цикла контролируются риском — закройте, примите или удалите риск, чтобы продолжить изменения.",
+  "compliance.filters.lifecycle": "Жизненный цикл"
 }

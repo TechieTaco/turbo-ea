@@ -1,20 +1,18 @@
 /**
- * FindingDetailDrawer — right-anchored drawer showing one compliance
- * finding with full context and an action bar at the bottom.
+ * FindingDetailDrawer — right-anchored drawer for one compliance finding.
  *
- * Mirrors ``SecurityFindingDrawer`` (the CVE drawer) for consistency:
- * - ``anchor="right"``, ``width: { xs: "100%", sm: 480 }``, ``p: 3``
- * - Stack header (h6 + close icon)
- * - Chips row (severity, status, decision, AI flag)
- * - Subtitle: regulation · article · card name
- * - Divider, then FieldRow blocks (requirement / gap / evidence /
- *   remediation / category / reviewed-by)
- * - Bottom action bar: primary Create-risk / Open-risk, then secondary
- *   AI verdict + decision-transition buttons
+ * Layout (top → bottom):
+ *   1. Header: title (h6) + close
+ *   2. ComplianceLifecycleTimeline (replaces the old decision chip + the
+ *      pile of Acknowledge/Accept/Reopen buttons)
+ *   3. Chips row: severity, status, AI-detected (decision moved to timeline)
+ *   4. Subtitle: regulation · card
+ *   5. Body FieldRows: requirement / gap / evidence / remediation /
+ *      category / reviewed-by
+ *   6. AI verdict panel (only when ai_detected=true)
+ *   7. Action bar: Create Risk / Open Risk + Open impacted card
  *
- * Opening the impacted card is bubbled up to the parent so it can close
- * this drawer first and open ``CardDetailSidePanel`` in the same slot —
- * the user only ever sees one drawer at a time.
+ * Mirrors ``SecurityFindingDrawer`` (CVE drawer) for visual consistency.
  */
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -31,15 +29,12 @@ import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api, ApiError } from "@/api/client";
-import type {
-  ComplianceDecision,
-  TurboLensComplianceFinding,
-} from "@/types";
+import type { TurboLensComplianceFinding } from "@/types";
 import {
-  complianceDecisionColor,
   complianceStatusColor,
   cveSeverityColor,
 } from "@/features/turbolens/utils";
+import ComplianceLifecycleTimeline from "./ComplianceLifecycleTimeline";
 
 interface Props {
   finding: TurboLensComplianceFinding | null;
@@ -100,23 +95,6 @@ export default function FindingDetailDrawer({
     }
   };
 
-  const setDecision = async (decision: ComplianceDecision) => {
-    if (!finding) return;
-    setSaving(decision);
-    setErr(null);
-    try {
-      const updated = await api.patch<TurboLensComplianceFinding>(
-        `/turbolens/security/compliance-findings/${finding.id}`,
-        { decision },
-      );
-      onUpdated?.(updated);
-    } catch (e) {
-      setErr(e instanceof ApiError ? e.message : String(e));
-    } finally {
-      setSaving(null);
-    }
-  };
-
   return (
     <Drawer
       anchor="right"
@@ -136,7 +114,15 @@ export default function FindingDetailDrawer({
             </IconButton>
           </Stack>
 
-          {/* Chips */}
+          {/* Lifecycle timeline */}
+          <ComplianceLifecycleTimeline
+            finding={finding}
+            canManage={canManage}
+            onRequestAccept={onRequestAccept}
+            onUpdated={(updated) => onUpdated?.(updated)}
+          />
+
+          {/* Chips: severity + status + AI detected (decision lives in timeline) */}
           <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
             <Chip
               size="small"
@@ -148,14 +134,6 @@ export default function FindingDetailDrawer({
               color={complianceStatusColor(finding.status)}
               label={t(`turbolens_security_compliance_status_${finding.status}`)}
             />
-            <Tooltip title={finding.review_note || ""}>
-              <Chip
-                size="small"
-                variant="outlined"
-                color={complianceDecisionColor(finding.decision as ComplianceDecision)}
-                label={t(`turbolens_security_compliance_decision_${finding.decision}`)}
-              />
-            </Tooltip>
             {finding.ai_detected && (
               <Tooltip title={t("turbolens_security_compliance_ai_detected_help")}>
                 <Chip
@@ -166,13 +144,6 @@ export default function FindingDetailDrawer({
                   label={t("turbolens_security_compliance_ai_detected")}
                 />
               </Tooltip>
-            )}
-            {finding.auto_resolved && (
-              <Chip
-                size="small"
-                variant="outlined"
-                label={t("turbolens_security_compliance_auto_resolved")}
-              />
             )}
           </Stack>
 
@@ -190,7 +161,7 @@ export default function FindingDetailDrawer({
 
           <Divider />
 
-          {/* Body fields */}
+          {/* Body */}
           <FieldRow
             label={tCards("compliance.grid.col.requirement")}
             value={finding.requirement}
@@ -233,7 +204,7 @@ export default function FindingDetailDrawer({
             />
           )}
 
-          {/* AI verdict block — prominent because it writes to the card */}
+          {/* AI verdict — writes hasAiFeatures on the card */}
           {canManage && finding.ai_detected && finding.card_id && (
             <Box
               sx={{
@@ -289,7 +260,8 @@ export default function FindingDetailDrawer({
 
           <Divider />
 
-          {/* Action bar */}
+          {/* Action bar: Create Risk / Open Risk + Open impacted card. All
+              lifecycle transitions live in the timeline above. */}
           <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
             {finding.card_name && finding.card_id && onOpenCard && (
               <Button
@@ -329,44 +301,6 @@ export default function FindingDetailDrawer({
                   {tDelivery("risks.createRisk")}
                 </Button>
               )
-            )}
-            {canManage && !finding.auto_resolved && (
-              <>
-                {finding.decision !== "acknowledged" &&
-                  finding.decision !== "risk_tracked" && (
-                    <Button
-                      size="small"
-                      variant="outlined"
-                      disabled={saving !== null}
-                      onClick={() => setDecision("acknowledged")}
-                    >
-                      {t("turbolens_security_compliance_acknowledge")}
-                    </Button>
-                  )}
-                {onRequestAccept &&
-                  finding.decision !== "accepted" &&
-                  finding.decision !== "risk_tracked" && (
-                    <Button
-                      size="small"
-                      variant="outlined"
-                      disabled={saving !== null}
-                      onClick={() => onRequestAccept(finding)}
-                    >
-                      {t("turbolens_security_compliance_accept")}
-                    </Button>
-                  )}
-                {finding.decision !== "open" &&
-                  finding.decision !== "risk_tracked" && (
-                    <Button
-                      size="small"
-                      variant="text"
-                      disabled={saving !== null}
-                      onClick={() => setDecision("open")}
-                    >
-                      {tCards("compliance.drawer.reopen")}
-                    </Button>
-                  )}
-              </>
             )}
           </Stack>
         </Stack>

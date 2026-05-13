@@ -444,6 +444,7 @@ async def update_risk(
     await PermissionService.require_permission(db, user, "risks.manage")
     risk = await _load_risk(db, risk_id)
     previous_owner = risk.owner_id
+    previous_status = risk.status
 
     data = body.model_dump(exclude_unset=True)
 
@@ -530,6 +531,13 @@ async def update_risk(
     # on the assignee's Todos page; notification only fires on owner change.
     await sync_owner_todo(db, risk, actor_id=user.id, previous_owner=previous_owner)
 
+    # Back-propagate to linked Compliance findings on status change so the
+    # finding lifecycle stays in sync with the Risk lifecycle.
+    if risk.status != previous_status:
+        from app.services.compliance_risk_sync import propagate_risk_to_findings
+
+        await propagate_risk_to_findings(db, risk, actor_user_id=user.id)
+
     if data:
         linked = await _linked_card_ids(db, risk.id)
         await _publish_risk_event(
@@ -586,6 +594,12 @@ async def delete_risk(
     # Capture linked cards before cascade-delete wipes the junction rows.
     linked = await _linked_card_ids(db, risk.id)
     await _publish_risk_event(db, risk, "risk.removed", linked, actor_id=user.id)
+    # Re-open any Compliance findings linked to this Risk so the owner
+    # re-decides what to do. Must run before the deletion (and the FK
+    # SET NULL) so the propagator can still see the linkage.
+    from app.services.compliance_risk_sync import propagate_risk_to_findings
+
+    await propagate_risk_to_findings(db, risk, deleted=True, actor_user_id=user.id)
     # Clean up the owner's system Todo before removing the risk row.
     todo_res = await db.execute(select(Todo).where(Todo.link == link, Todo.is_system.is_(True)))
     for t in todo_res.scalars().all():

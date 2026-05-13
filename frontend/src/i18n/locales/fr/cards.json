@@ -523,5 +523,15 @@
   "compliance.filters.expand": "Afficher les filtres",
   "compliance.filters.cardType": "Type de carte",
   "compliance.filters.other": "Autres",
-  "compliance.drawer.untitled": "Constat de conformité"
+  "compliance.drawer.untitled": "Constat de conformité",
+  "compliance.grid.col.lifecycle": "Cycle de vie",
+  "compliance.grid.group.flatHelp": "Afficher chaque constat sur une ligne plate.",
+  "compliance.grid.group.byCardHelp": "Regrouper les lignes adjacentes par carte impactée; la cellule Carte affiche le nom une fois par groupe.",
+  "compliance.lifecycle.title": "Cycle de vie",
+  "compliance.lifecycle.autoResolved": "Le rescan ne l'a pas vu",
+  "compliance.lifecycle.autoResolvedHelp": "Le dernier scan de conformité ne signale plus ce constat. Le cycle de vie est passé à Vérifié, sauf si le constat est suivi par un Risque ouvert.",
+  "compliance.lifecycle.advanceTo": "Passer à {{state}}",
+  "compliance.lifecycle.reopen": "Rouvrir",
+  "compliance.lifecycle.riskTrackedHelp": "Ce constat est suivi par un Risque. Les transitions du cycle de vie sont contrôlées par le Risque — fermez, acceptez ou supprimez le Risque pour débloquer d'autres changements.",
+  "compliance.filters.lifecycle": "Cycle de vie"
 }

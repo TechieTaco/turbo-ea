@@ -523,5 +523,15 @@
   "compliance.filters.expand": "Mostra filtri",
   "compliance.filters.cardType": "Tipo di scheda",
   "compliance.filters.other": "Altri",
-  "compliance.drawer.untitled": "Riscontro di conformità"
+  "compliance.drawer.untitled": "Riscontro di conformità",
+  "compliance.grid.col.lifecycle": "Ciclo di vita",
+  "compliance.grid.group.flatHelp": "Mostra ogni riscontro come riga piatta.",
+  "compliance.grid.group.byCardHelp": "Raggruppa le righe adiacenti per scheda impattata; la cella Scheda mostra il nome una volta per gruppo.",
+  "compliance.lifecycle.title": "Ciclo di vita",
+  "compliance.lifecycle.autoResolved": "La nuova scansione non l'ha visto",
+  "compliance.lifecycle.autoResolvedHelp": "L'ultima scansione di conformità non riporta più questo riscontro. Il ciclo di vita è passato a Verificato, tranne quando il riscontro è tracciato da un Rischio aperto.",
+  "compliance.lifecycle.advanceTo": "Avanza a {{state}}",
+  "compliance.lifecycle.reopen": "Riapri",
+  "compliance.lifecycle.riskTrackedHelp": "Questo riscontro è tracciato da un Rischio. Le transizioni del ciclo di vita sono controllate dal Rischio — chiudi, accetta o elimina il Rischio per sbloccare ulteriori modifiche.",
+  "compliance.filters.lifecycle": "Ciclo di vita"
 }

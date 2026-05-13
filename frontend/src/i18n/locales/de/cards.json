@@ -523,5 +523,15 @@
   "compliance.filters.expand": "Filter einblenden",
   "compliance.filters.cardType": "Kartentyp",
   "compliance.filters.other": "Sonstige",
-  "compliance.drawer.untitled": "Compliance-Befund"
+  "compliance.drawer.untitled": "Compliance-Befund",
+  "compliance.grid.col.lifecycle": "Lebenszyklus",
+  "compliance.grid.group.flatHelp": "Jeden Befund als flache Zeile anzeigen.",
+  "compliance.grid.group.byCardHelp": "Benachbarte Zeilen nach betroffener Karte gruppieren; die Karte-Zelle zeigt den Namen einmal pro Gruppe.",
+  "compliance.lifecycle.title": "Lebenszyklus",
+  "compliance.lifecycle.autoResolved": "Re-Scan hat ihn nicht erkannt",
+  "compliance.lifecycle.autoResolvedHelp": "Der letzte Compliance-Scan meldet diesen Befund nicht mehr. Der Lebenszyklus wurde auf Verifiziert verschoben, außer der Befund wird von einem offenen Risiko verfolgt.",
+  "compliance.lifecycle.advanceTo": "Weiter zu {{state}}",
+  "compliance.lifecycle.reopen": "Wieder öffnen",
+  "compliance.lifecycle.riskTrackedHelp": "Dieser Befund wird von einem Risiko verfolgt. Lebenszyklus-Übergänge werden vom Risiko gesteuert — Risiko schließen, akzeptieren oder löschen, um weitere Änderungen zu ermöglichen.",
+  "compliance.filters.lifecycle": "Lebenszyklus"
 }

@@ -523,5 +523,15 @@
   "compliance.filters.expand": "展开筛选",
   "compliance.filters.cardType": "卡片类型",
   "compliance.filters.other": "其他",
-  "compliance.drawer.untitled": "合规发现"
+  "compliance.drawer.untitled": "合规发现",
+  "compliance.grid.col.lifecycle": "生命周期",
+  "compliance.grid.group.flatHelp": "以平铺行显示每条发现。",
+  "compliance.grid.group.byCardHelp": "按受影响的卡片对相邻行进行分组；卡片单元格每组只显示一次名称。",
+  "compliance.lifecycle.title": "生命周期",
+  "compliance.lifecycle.autoResolved": "重新扫描未见",
+  "compliance.lifecycle.autoResolvedHelp": "最近一次合规扫描未再报告此发现。除非此发现已被开放的风险跟踪，否则生命周期已转入「已验证」。",
+  "compliance.lifecycle.advanceTo": "推进到 {{state}}",
+  "compliance.lifecycle.reopen": "重新打开",
+  "compliance.lifecycle.riskTrackedHelp": "此发现由风险跟踪。生命周期转换由风险控制——请关闭、接受或删除风险以解锁后续更改。",
+  "compliance.filters.lifecycle": "生命周期"
 }

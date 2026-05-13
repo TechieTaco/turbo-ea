@@ -177,10 +177,12 @@ export default function TurboLensSecurity() {
     Set<ComplianceDecision>
   >(
     new Set<ComplianceDecision>([
-      "open",
-      "acknowledged",
-      "accepted",
+      "new",
+      "in_review",
+      "mitigated",
+      "verified",
       "risk_tracked",
+      "accepted",
     ]),
   );
   const [complianceAiOnly, setComplianceAiOnly] = useState(false);

@@ -523,5 +523,15 @@
   "valueStreamCatalogue.capabilityIdsLabel": "Capabilities at this stage",
   "valueStreamCatalogue.processIdsLabel": "Processes at this stage",
   "compliance.filters.other": "Other",
-  "compliance.drawer.untitled": "Compliance finding"
+  "compliance.drawer.untitled": "Compliance finding",
+  "compliance.grid.col.lifecycle": "Lifecycle",
+  "compliance.grid.group.flatHelp": "Show every finding as a flat row.",
+  "compliance.grid.group.byCardHelp": "Group adjacent rows by impacted card; the Card cell shows the card name once per cluster.",
+  "compliance.lifecycle.title": "Lifecycle",
+  "compliance.lifecycle.autoResolved": "Re-scan didn't see it",
+  "compliance.lifecycle.autoResolvedHelp": "The last compliance scan no longer reports this finding. The lifecycle has moved to Verified, except when the finding is tracked by an open Risk.",
+  "compliance.lifecycle.advanceTo": "Advance to {{state}}",
+  "compliance.lifecycle.reopen": "Re-open",
+  "compliance.lifecycle.riskTrackedHelp": "This finding is tracked by a Risk. Lifecycle transitions are controlled by the Risk — close, accept, or delete the Risk to unblock further changes.",
+  "compliance.filters.lifecycle": "Lifecycle"
 }

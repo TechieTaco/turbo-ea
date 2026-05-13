@@ -523,5 +523,15 @@
   "compliance.filters.expand": "Mostrar filtros",
   "compliance.filters.cardType": "Tipo de tarjeta",
   "compliance.filters.other": "Otros",
-  "compliance.drawer.untitled": "Hallazgo de cumplimiento"
+  "compliance.drawer.untitled": "Hallazgo de cumplimiento",
+  "compliance.grid.col.lifecycle": "Ciclo de vida",
+  "compliance.grid.group.flatHelp": "Mostrar cada hallazgo como una fila plana.",
+  "compliance.grid.group.byCardHelp": "Agrupar filas adyacentes por tarjeta impactada; la celda Tarjeta muestra el nombre una vez por grupo.",
+  "compliance.lifecycle.title": "Ciclo de vida",
+  "compliance.lifecycle.autoResolved": "El reescaneo no lo detectó",
+  "compliance.lifecycle.autoResolvedHelp": "El último escaneo de conformidad ya no reporta este hallazgo. El ciclo de vida ha pasado a Verificado, salvo cuando el hallazgo está rastreado por un Riesgo abierto.",
+  "compliance.lifecycle.advanceTo": "Avanzar a {{state}}",
+  "compliance.lifecycle.reopen": "Reabrir",
+  "compliance.lifecycle.riskTrackedHelp": "Este hallazgo está rastreado por un Riesgo. Las transiciones de ciclo de vida las controla el Riesgo — cierre, acepte o elimine el Riesgo para habilitar más cambios.",
+  "compliance.filters.lifecycle": "Ciclo de vida"
 }

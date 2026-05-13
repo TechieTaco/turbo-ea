@@ -83,6 +83,38 @@ const SEVERITY_RANK: Record<string, number> = {
   info: 4,
 };
 
+// Per-user grid preferences (mirrors the Inventory page's localStorage
+// pattern). Default groupMode = "by_card" so first-time users see the
+// cleaner grouped view.
+const PREFS_STORAGE_KEY = "turboea_grc_compliance_prefs";
+
+interface CompliancePrefs {
+  groupMode: GroupMode;
+  filtersCollapsed: boolean;
+}
+
+function loadPrefs(): CompliancePrefs {
+  try {
+    const raw = localStorage.getItem(PREFS_STORAGE_KEY);
+    if (!raw) return { groupMode: "by_card", filtersCollapsed: false };
+    const parsed = JSON.parse(raw) as Partial<CompliancePrefs>;
+    return {
+      groupMode: parsed.groupMode === "ungrouped" ? "ungrouped" : "by_card",
+      filtersCollapsed: !!parsed.filtersCollapsed,
+    };
+  } catch {
+    return { groupMode: "by_card", filtersCollapsed: false };
+  }
+}
+
+function savePrefs(p: CompliancePrefs) {
+  try {
+    localStorage.setItem(PREFS_STORAGE_KEY, JSON.stringify(p));
+  } catch {
+    // localStorage may be full or disabled — ignore.
+  }
+}
+
 export default function ComplianceGrid({
   findings,
   filters,
@@ -99,10 +131,25 @@ export default function ComplianceGrid({
   const theme = useTheme();
   const { mode } = useThemeMode();
 
-  const [groupMode, setGroupMode] = useState<GroupMode>("ungrouped");
-  const [filtersCollapsed, setFiltersCollapsed] = useState(false);
+  const initialPrefs = useMemo(loadPrefs, []);
+  const [groupMode, setGroupModeRaw] = useState<GroupMode>(initialPrefs.groupMode);
+  const [filtersCollapsed, setFiltersCollapsedRaw] = useState(
+    initialPrefs.filtersCollapsed,
+  );
   const [findingDrawer, setFindingDrawer] =
     useState<TurboLensComplianceFinding | null>(null);
+
+  const setGroupMode = (next: GroupMode) => {
+    setGroupModeRaw(next);
+    savePrefs({ groupMode: next, filtersCollapsed });
+  };
+  const setFiltersCollapsed = (updater: boolean | ((prev: boolean) => boolean)) => {
+    setFiltersCollapsedRaw((prev) => {
+      const next = typeof updater === "function" ? updater(prev) : updater;
+      savePrefs({ groupMode, filtersCollapsed: next });
+      return next;
+    });
+  };
 
   const handleOpenCard = (cardId: string) => {
     // Single-drawer discipline: close the finding drawer first so the
@@ -228,7 +275,7 @@ export default function ComplianceGrid({
       },
     },
     {
-      headerName: tCards("compliance.grid.col.decision"),
+      headerName: tCards("compliance.grid.col.lifecycle"),
       field: "decision",
       width: 130,
       cellRenderer: (p: ICellRendererParams<TurboLensComplianceFinding, string>) =>
@@ -321,12 +368,22 @@ export default function ComplianceGrid({
             onChange={(_, v) => v && setGroupMode(v as GroupMode)}
             aria-label="group mode"
           >
-            <ToggleButton value="ungrouped">
-              {tCards("compliance.grid.group.flat")}
-            </ToggleButton>
-            <ToggleButton value="by_card">
-              {tCards("compliance.grid.group.byCard")}
-            </ToggleButton>
+            <Tooltip title={tCards("compliance.grid.group.flatHelp")}>
+              <ToggleButton value="ungrouped" sx={{ textTransform: "none" }}>
+                <MaterialSymbol icon="list" size={16} />
+                <Box sx={{ ml: 0.5 }}>
+                  {tCards("compliance.grid.group.flat")}
+                </Box>
+              </ToggleButton>
+            </Tooltip>
+            <Tooltip title={tCards("compliance.grid.group.byCardHelp")}>
+              <ToggleButton value="by_card" sx={{ textTransform: "none" }}>
+                <MaterialSymbol icon="view_agenda" size={16} />
+                <Box sx={{ ml: 0.5 }}>
+                  {tCards("compliance.grid.group.byCard")}
+                </Box>
+              </ToggleButton>
+            </Tooltip>
           </ToggleButtonGroup>
           <Typography variant="caption" color="text.secondary">
             {tCards("compliance.grid.count", { count: findings.length })}

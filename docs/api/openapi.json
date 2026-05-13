@@ -26673,7 +26673,7 @@
     },
     "/api/v1/turbolens/security/compliance-findings/{finding_id}": {
       "patch": {
-        "description": "Set the human decision on a compliance finding.\n\nAllowed transitions are between ``open`` / ``acknowledged`` /\n``accepted``. ``accepted`` requires a ``review_note``. Cannot be used\nto set ``risk_tracked`` (use ``POST /risks/promote/compliance/{id}``)\nor ``auto_resolved`` (set by the scanner).",
+        "description": "Transition a compliance finding's lifecycle state.\n\nAllowed transitions follow ``compliance_lifecycle_allowed`` in\n``services.turbolens_security``. ``accepted`` requires a\n``review_note``. ``risk_tracked`` is set by\n``POST /risks/promote/compliance/{id}`` (not here) and once a\nfinding is risk-tracked, manual transitions are blocked until the\nlinked Risk closes \u2014 the Risk lifecycle drives the finding via\n``compliance_risk_sync.propagate_risk_to_findings``.",
         "operationId": "update_compliance_finding_decision_api_v1_turbolens_security_compliance_findings__finding_id__patch",
         "parameters": [
           {
@@ -26726,7 +26726,7 @@
     },
     "/api/v1/turbolens/security/compliance-findings/{finding_id}/ai-verdict": {
       "post": {
-        "description": "Record the user's verdict on the scanner's AI-detection claim.\n\nPersists ``hasAiFeatures`` (true / false) on the impacted card and\nstamps the finding as ``acknowledged`` with a review note. The card\nmust exist; landscape-scoped findings (no ``card_id``) cannot receive\na verdict.",
+        "description": "Record the user's verdict on the scanner's AI-detection claim.\n\nPersists ``hasAiFeatures`` (true / false) on the impacted card and\nadvances the finding's lifecycle to ``in_review`` with an audit\nreview note. The card must exist; landscape-scoped findings (no\n``card_id``) cannot receive a verdict.",
         "operationId": "submit_ai_verdict_api_v1_turbolens_security_compliance_findings__finding_id__ai_verdict_post",
         "parameters": [
           {

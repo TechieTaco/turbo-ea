@@ -846,6 +846,57 @@ async def run_cve_scan(
     return summary
 
 
+# ---------------------------------------------------------------------------
+# Compliance finding lifecycle
+# ---------------------------------------------------------------------------
+#
+# Five-state main path with three off-path side branches. The `decision`
+# column on TurboLensComplianceFinding stores the current state. The
+# `auto_resolved` boolean is a separate flag, NOT a decision value.
+#
+#     new → in_review → mitigated → verified              (main path)
+#                ↳ risk_tracked / accepted / not_applicable (side branches)
+#
+# `risk_tracked` exits are blocked here and instead driven by the Risk
+# back-prop service (`compliance_risk_sync.propagate_risk_to_findings`).
+
+COMPLIANCE_LIFECYCLE_STATES: frozenset[str] = frozenset(
+    {
+        "new",
+        "in_review",
+        "mitigated",
+        "verified",
+        "risk_tracked",
+        "accepted",
+        "not_applicable",
+    }
+)
+
+_COMPLIANCE_ALLOWED_TRANSITIONS: dict[str, set[str]] = {
+    "new": {"in_review", "accepted", "not_applicable"},
+    "in_review": {"mitigated", "accepted", "not_applicable", "new"},
+    "mitigated": {"verified", "in_review"},
+    "verified": {"in_review"},
+    "accepted": {"in_review"},
+    "not_applicable": {"in_review"},
+    # risk_tracked exits are managed by the Risk lifecycle (back-prop).
+    "risk_tracked": set(),
+}
+
+
+def compliance_lifecycle_allowed(current: str | None, new: str) -> bool:
+    """Return True if ``new`` is a legal forward transition from ``current``.
+
+    Same-state is always allowed (no-op). Promotion to ``risk_tracked``
+    is handled by the dedicated promote endpoint and so is excluded from
+    the user-facing transition map.
+    """
+    if not current or current == new:
+        return True
+    allowed = _COMPLIANCE_ALLOWED_TRANSITIONS.get(current, set())
+    return new in allowed
+
+
 def compute_finding_key(
     scope_type: str | None,
     card_id: uuid_mod.UUID | str | None,
@@ -955,7 +1006,7 @@ async def run_compliance_scan(
                     remediation=f.get("remediation"),
                     ai_detected=bool(f.get("ai_detected")),
                     finding_key=key,
-                    decision="open",
+                    decision="new",
                     last_seen_run_id=run_uuid,
                     auto_resolved=False,
                 )
@@ -973,21 +1024,29 @@ async def run_compliance_scan(
             row.evidence = f.get("evidence")
             row.remediation = f.get("remediation")
             row.ai_detected = bool(f.get("ai_detected"))
-            # If the row had been auto-resolved by a prior scan and now
-            # re-surfaces, drop the auto-resolved decision so the user
-            # re-evaluates. Other decisions (acknowledged / accepted /
-            # risk_tracked) are preserved.
-            if row.decision == "auto_resolved":
-                row.decision = "open"
+            # If a previously verified-by-auto-resolve finding has re-surfaced,
+            # reopen it for human review. Other states (in_review / mitigated /
+            # accepted / risk_tracked / not_applicable) are preserved so
+            # reviewer judgement survives the new scan.
+            if row.decision == "verified" and row.auto_resolved:
+                row.decision = "in_review"
 
-    # Mark any finding within the scanned regulations that wasn't
-    # re-emitted this pass as auto-resolved. Preserve risk_tracked so
-    # the linked Risk's audit trail stays coherent.
+    # Findings within the scanned regulations that didn't re-appear:
+    # flag auto_resolved=True and transition to `verified` unless the
+    # row is `risk_tracked` (the linked Risk owns closure in that case).
     vanished = [row for row in existing_rows if row.finding_key not in seen_keys]
     for row in vanished:
         row.auto_resolved = True
         if row.decision != "risk_tracked":
-            row.decision = "auto_resolved"
+            if row.decision != "verified":
+                row.decision = "verified"
+                row.reviewed_at = datetime.now(timezone.utc)
+                if not row.review_note:
+                    row.review_note = (
+                        f"Auto-verified — re-scan on "
+                        f"{datetime.now(timezone.utc).strftime('%Y-%m-%d')} "
+                        f"no longer reports this finding."
+                    )
 
     await db.flush()
 

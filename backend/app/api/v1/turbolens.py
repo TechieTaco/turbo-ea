@@ -1249,11 +1249,10 @@ async def list_compliance(
     return bundles
 
 
-# Decisions the user can set explicitly. ``risk_tracked`` is set by the
-# promote endpoint, ``auto_resolved`` is set by the scanner; neither is
-# user-settable here.
+# Lifecycle states the user can set explicitly. ``risk_tracked`` is set by
+# the promote endpoint, never user-settable here.
 _USER_SETTABLE_COMPLIANCE_DECISIONS: frozenset[str] = frozenset(
-    {"open", "acknowledged", "accepted"}
+    {"new", "in_review", "mitigated", "verified", "accepted", "not_applicable"}
 )
 
 
@@ -1264,19 +1263,24 @@ async def update_compliance_finding_decision(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ) -> ComplianceFindingOut:
-    """Set the human decision on a compliance finding.
+    """Transition a compliance finding's lifecycle state.
 
-    Allowed transitions are between ``open`` / ``acknowledged`` /
-    ``accepted``. ``accepted`` requires a ``review_note``. Cannot be used
-    to set ``risk_tracked`` (use ``POST /risks/promote/compliance/{id}``)
-    or ``auto_resolved`` (set by the scanner).
+    Allowed transitions follow ``compliance_lifecycle_allowed`` in
+    ``services.turbolens_security``. ``accepted`` requires a
+    ``review_note``. ``risk_tracked`` is set by
+    ``POST /risks/promote/compliance/{id}`` (not here) and once a
+    finding is risk-tracked, manual transitions are blocked until the
+    linked Risk closes — the Risk lifecycle drives the finding via
+    ``compliance_risk_sync.propagate_risk_to_findings``.
     """
+    from app.services.turbolens_security import compliance_lifecycle_allowed
+
     await PermissionService.require_permission(db, user, "security_compliance.manage")
     decision = (body.decision or "").strip()
     if decision not in _USER_SETTABLE_COMPLIANCE_DECISIONS:
         raise HTTPException(
             400,
-            "decision must be one of open, acknowledged, accepted",
+            "decision must be one of: " + ", ".join(sorted(_USER_SETTABLE_COMPLIANCE_DECISIONS)),
         )
     note = (body.review_note or "").strip() or None
     if decision == "accepted" and not note:
@@ -1292,6 +1296,12 @@ async def update_compliance_finding_decision(
         raise HTTPException(
             409,
             "Finding is tracked by a Risk. Close or unlink the Risk first.",
+        )
+
+    if not compliance_lifecycle_allowed(row.decision, decision):
+        raise HTTPException(
+            409,
+            f"Illegal lifecycle transition: {row.decision} → {decision}.",
         )
 
     row.decision = decision
@@ -1337,9 +1347,9 @@ async def submit_ai_verdict(
     """Record the user's verdict on the scanner's AI-detection claim.
 
     Persists ``hasAiFeatures`` (true / false) on the impacted card and
-    stamps the finding as ``acknowledged`` with a review note. The card
-    must exist; landscape-scoped findings (no ``card_id``) cannot receive
-    a verdict.
+    advances the finding's lifecycle to ``in_review`` with an audit
+    review note. The card must exist; landscape-scoped findings (no
+    ``card_id``) cannot receive a verdict.
     """
     await PermissionService.require_permission(db, user, "security_compliance.manage")
 
@@ -1389,7 +1399,10 @@ async def submit_ai_verdict(
             user_id=user.id,
         )
 
-    row.decision = "acknowledged"
+    # Move the finding into in_review unless it's already in a state the
+    # user has explicitly chosen (mitigated/verified/accepted/risk_tracked).
+    if row.decision in ("new", "in_review", "not_applicable"):
+        row.decision = "in_review"
     row.review_note = "AI verdict: confirmed" if verdict == "confirmed" else "AI verdict: rejected"
     row.reviewed_by = user.id
     row.reviewed_at = datetime.now(timezone.utc)

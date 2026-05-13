@@ -1372,12 +1372,25 @@ export interface TurboLensCveFinding {
   created_at: string | null;
 }
 
+/**
+ * Compliance finding lifecycle state. 4-state main path + 3 side
+ * branches. Visualised in the ComplianceLifecycleTimeline.
+ *
+ *   new → in_review → mitigated → verified  (main path)
+ *   risk_tracked / accepted / not_applicable  (side branches)
+ *
+ * The `auto_resolved` boolean flag on the finding is independent of
+ * this lifecycle — it reflects whether the scanner stopped reporting
+ * the gap on its last run.
+ */
 export type ComplianceDecision =
-  | "open"
-  | "acknowledged"
-  | "accepted"
+  | "new"
+  | "in_review"
+  | "mitigated"
+  | "verified"
   | "risk_tracked"
-  | "auto_resolved";
+  | "accepted"
+  | "not_applicable";
 
 export interface TurboLensComplianceFinding {
   id: string;
