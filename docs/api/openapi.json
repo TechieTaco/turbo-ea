@@ -14813,6 +14813,63 @@
         ]
       }
     },
+    "/api/v1/cards/{card_id}/compliance-findings": {
+      "get": {
+        "description": "All compliance findings scoped to a single card.\n\nOrdered by severity then regulation/article. Used by the Compliance\ntab on the Card Detail page (mirrors ``GET /cards/{id}/risks``).",
+        "operationId": "list_card_compliance_findings_api_v1_cards__card_id__compliance_findings_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "card_id",
+            "required": true,
+            "schema": {
+              "title": "Card Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "include_auto_resolved",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Include Auto Resolved",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ComplianceFindingOut"
+                  },
+                  "title": "Response List Card Compliance Findings Api V1 Cards  Card Id  Compliance Findings Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Card Compliance Findings",
+        "tags": [
+          "TurboLens"
+        ]
+      }
+    },
     "/api/v1/cards/{card_id}/documents": {
       "get": {
         "operationId": "list_documents_api_v1_cards__card_id__documents_get",
@@ -26322,63 +26379,6 @@
           }
         },
         "summary": "Update Assessment",
-        "tags": [
-          "TurboLens"
-        ]
-      }
-    },
-    "/api/v1/turbolens/cards/{card_id}/compliance-findings": {
-      "get": {
-        "description": "All compliance findings scoped to a single card.\n\nOrdered by severity then regulation/article. Used by the Compliance\ntab on the Card Detail page (mirrors ``GET /cards/{id}/risks``).",
-        "operationId": "list_card_compliance_findings_api_v1_turbolens_cards__card_id__compliance_findings_get",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "card_id",
-            "required": true,
-            "schema": {
-              "title": "Card Id",
-              "type": "string"
-            }
-          },
-          {
-            "in": "query",
-            "name": "include_auto_resolved",
-            "required": false,
-            "schema": {
-              "default": false,
-              "title": "Include Auto Resolved",
-              "type": "boolean"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/ComplianceFindingOut"
-                  },
-                  "title": "Response List Card Compliance Findings Api V1 Turbolens Cards  Card Id  Compliance Findings Get",
-                  "type": "array"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "List Card Compliance Findings",
         "tags": [
           "TurboLens"
         ]

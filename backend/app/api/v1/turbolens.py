@@ -147,6 +147,11 @@ async def _create_analysis_run(
 
 router = APIRouter(prefix="/turbolens", tags=["TurboLens"])
 
+# Sibling router for routes that semantically belong under /cards/{id}/...
+# Mounted by api/v1/router.py alongside the main `router`. Kept here so the
+# compliance code lives in one file but exposed at the URL users expect.
+cards_router = APIRouter(prefix="/cards", tags=["TurboLens"])
+
 
 # ── Status & Overview ──────────────────────────────────────────────────────
 
@@ -1414,7 +1419,7 @@ async def submit_ai_verdict(
     )
 
 
-@router.get("/cards/{card_id}/compliance-findings")
+@cards_router.get("/{card_id}/compliance-findings")
 async def list_card_compliance_findings(
     card_id: str,
     include_auto_resolved: bool = False,
