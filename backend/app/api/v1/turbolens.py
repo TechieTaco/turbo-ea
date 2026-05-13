@@ -1215,9 +1215,18 @@ async def update_cve_finding_status(
 async def list_compliance(
     regulation: str | None = None,
     status: str | None = None,
+    include_auto_resolved: bool = False,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ) -> list[ComplianceBundleOut]:
+    """Bundle compliance findings by regulation for the GRC grid.
+
+    Hides ``auto_resolved`` findings by default — these are stale rows
+    that a previous re-scan no longer reported. Pass
+    ``include_auto_resolved=true`` to opt into seeing them (e.g. for an
+    audit-trail view). Mirrors the default on
+    ``GET /cards/{id}/compliance-findings``.
+    """
     await PermissionService.require_permission(db, user, "security_compliance.view")
 
     from app.services.turbolens_security import (
@@ -1233,6 +1242,8 @@ async def list_compliance(
         stmt = stmt.where(TurboLensComplianceFinding.regulation == regulation)
     if status:
         stmt = stmt.where(TurboLensComplianceFinding.status == status)
+    if not include_auto_resolved:
+        stmt = stmt.where(TurboLensComplianceFinding.auto_resolved.is_(False))
 
     rows_res = await db.execute(stmt)
     rows = list(rows_res.scalars().all())
