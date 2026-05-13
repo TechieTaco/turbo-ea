@@ -429,12 +429,18 @@ async def detect_ai_bearing_cards(
         ]
         prompt = (
             "Identify every card below that embeds, provides, or depends "
-            "on AI / ML capabilities. Include subtle cases — LLMs, "
-            "recommendation engines, computer vision, fraud / credit scoring, "
-            "chatbots, predictive analytics, anomaly detection, and AI "
-            "features hidden inside general-purpose software. Do NOT rely "
-            "only on the card's subtype; inspect name, vendor and "
-            "description for AI signals.\n\n"
+            "on AI / ML capabilities. The cards may be **Applications** "
+            "(business apps, microservices, AI agents, deployments) OR "
+            "**IT Components** (software, SaaS, PaaS, IaaS, services, "
+            "AI models, hardware) — assess both equally. Include subtle "
+            "cases: LLMs and foundation models packaged as components, "
+            "inference SaaS, vector databases used for retrieval, "
+            "recommendation engines, computer vision, fraud / credit "
+            "scoring, chatbots, predictive analytics, anomaly detection, "
+            "and AI features hidden inside general-purpose software or "
+            "third-party SaaS. Do NOT rely only on the card's type or "
+            "subtype; inspect name, vendor and description for AI "
+            "signals.\n\n"
             "For each AI card, also assess its tentative EU AI Act risk "
             "tier (Reg. (EU) 2024/1689). Heuristics:\n"
             "- unacceptable: social scoring, biometric mass surveillance, "
@@ -1115,6 +1121,7 @@ def compliance_to_dict(
     row: TurboLensComplianceFinding,
     card_name: str | None,
     *,
+    card_type: str | None = None,
     risk_reference: str | None = None,
     reviewer_name: str | None = None,
 ) -> dict[str, Any]:
@@ -1125,6 +1132,7 @@ def compliance_to_dict(
         "regulation_article": row.regulation_article,
         "card_id": str(row.card_id) if row.card_id else None,
         "card_name": card_name,
+        "card_type": card_type,
         "scope_type": row.scope_type,
         "category": row.category,
         "requirement": row.requirement,
