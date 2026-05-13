@@ -424,33 +424,39 @@ async def detect_ai_bearing_cards(
             for c in batch
         ]
         prompt = (
-            "Identify every card below that embeds, provides, or depends "
-            "on AI / ML capabilities. The cards may be **Applications** "
-            "(business apps, microservices, AI agents, deployments) OR "
-            "**IT Components** (software, SaaS, PaaS, IaaS, services, "
-            "AI models, hardware) — assess both equally. Include subtle "
-            "cases: LLMs and foundation models packaged as components, "
-            "inference SaaS, vector databases used for retrieval, "
-            "recommendation engines, computer vision, fraud / credit "
-            "scoring, chatbots, predictive analytics, anomaly detection, "
-            "and AI features hidden inside general-purpose software or "
-            "third-party SaaS. Do NOT rely only on the card's type or "
-            "subtype; inspect name, vendor and description for AI "
-            "signals.\n\n"
-            "For each AI card, also assess its tentative EU AI Act risk "
-            "tier (Reg. (EU) 2024/1689). Heuristics:\n"
-            "- unacceptable: social scoring, biometric mass surveillance, "
-            "subliminal manipulation (Art. 5).\n"
-            "- high: biometric identification, critical infrastructure, "
-            "education access, employment / HR screening, credit scoring, "
-            "law enforcement, migration, justice administration (Annex III).\n"
-            "- limited: chatbots, emotion recognition, deepfakes, content "
-            "labelling (Art. 50 transparency).\n"
-            "- minimal: spam filters, recommender systems, search ranking, "
-            "general-purpose productivity AI.\n\n"
+            "Identify every card below that embeds, provides, integrates, "
+            "or depends on AI / ML / generative-AI capabilities. Cards "
+            "may be Applications (business apps, microservices, AI "
+            "agents, deployments) or IT Components (software, SaaS, "
+            "PaaS, IaaS, services, AI models, hardware) — assess both "
+            "equally.\n\n"
+            "Be deliberately broad. Include both first-party AI "
+            "products and subtle / embedded cases:\n"
+            "- LLMs and foundation models packaged as components or "
+            "services\n"
+            "- coding assistants (e.g. GitHub Copilot, Cursor, Tabnine, "
+            "Codeium, Amazon Q Developer, JetBrains AI)\n"
+            "- consumer assistants and chat products (ChatGPT, Claude, "
+            "Gemini, Perplexity, Le Chat, Grok)\n"
+            "- image / video / audio generation (Midjourney, DALL·E, "
+            "Stable Diffusion, Runway, Sora, ElevenLabs, Suno)\n"
+            "- inference SaaS, vector databases used for retrieval / "
+            "RAG, embeddings APIs\n"
+            "- recommendation engines, search ranking, ad targeting\n"
+            "- computer vision, OCR, anomaly detection, fraud / credit "
+            "scoring, predictive analytics\n"
+            "- enterprise AI features inside general-purpose products "
+            "or third-party SaaS (e.g. Microsoft 365 Copilot, Salesforce "
+            "Einstein, Google Duet AI, Adobe Sensei, Notion AI, Jira "
+            "Intelligence)\n"
+            "- speech recognition, translation, summarisation, smart "
+            "compose / smart reply\n\n"
+            "Use the card NAME, VENDOR and DESCRIPTION as your primary "
+            "signals. Do NOT rely only on the card's type or subtype — "
+            "AI is often hidden inside generic-looking applications. "
+            "Err on the side of inclusion: when in doubt, flag it.\n\n"
             'Return ONLY JSON: [{"id":"<uuid>","ai_role":"provider|consumer|embedded",'
-            '"confidence":0.0-1.0,"signal":"<what in the card hinted at AI>",'
-            '"risk_tier":"unacceptable|high|limited|minimal"}].\n'
+            '"confidence":0.0-1.0,"signal":"<what in the card hinted at AI>"}].\n'
             "Omit cards with no AI involvement.\n\n"
             f"Cards:\n{json.dumps(payload)}"
         )
@@ -460,7 +466,10 @@ async def detect_ai_bearing_cards(
                 prompt,
                 max_tokens=AI_DETECTION_MAX_TOKENS,
                 system_prompt=(
-                    "You are a governance analyst for the EU AI Act. Return only valid JSON."
+                    "You are an enterprise-architecture analyst classifying "
+                    "applications and IT components by whether they use AI / "
+                    "ML capabilities. Be broad and inclusive — embedded and "
+                    "third-party AI both count. Return only valid JSON."
                 ),
             )
             parsed = parse_json(result["text"])
@@ -475,21 +484,14 @@ async def detect_ai_bearing_cards(
             card_id = item.get("id")
             if not card_id:
                 continue
-            risk_tier = item.get("risk_tier")
-            if risk_tier not in ("unacceptable", "high", "limited", "minimal"):
-                risk_tier = None
-            # Never downgrade a subtype match — but capture the LLM's
-            # risk-tier verdict so the AI Inventory can surface it.
+            # Subtype-match cards stay marked as such — don't downgrade.
             if card_id in scoped and scoped[card_id]["subtype_match"]:
-                if risk_tier and not scoped[card_id].get("risk_tier"):
-                    scoped[card_id]["risk_tier"] = risk_tier
                 continue
             scoped[card_id] = {
                 "role": item.get("ai_role", "embedded"),
                 "confidence": float(item.get("confidence", 0.6) or 0.6),
                 "subtype_match": False,
                 "signal": item.get("signal", ""),
-                "risk_tier": risk_tier,
             }
     return scoped
 
@@ -654,7 +656,7 @@ async def assess_regulation(
 
     prompt = (
         f"Regulation: {regulation.label}.\n"
-        f"Assessment scope: {directive}\n\n"
+        f"{directive}\n\n"
         "Return ONLY a JSON array of compliance findings. Each finding:\n"
         '{"regulation_article":"<optional article reference>",'
         '"card_id":"<uuid or null for landscape-wide>",'
