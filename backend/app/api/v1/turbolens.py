@@ -21,6 +21,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import get_current_user
 from app.database import get_db
 from app.models.card import Card
+from app.models.compliance_regulation import ComplianceRegulation
 from app.models.turbolens import (
     TurboLensAnalysisRun,
     TurboLensAssessment,
@@ -33,8 +34,10 @@ from app.models.turbolens import (
 )
 from app.models.user import User
 from app.schemas.turbolens import (
-    SUPPORTED_REGULATIONS,
     ComplianceBundleOut,
+    ComplianceFindingAiVerdict,
+    ComplianceFindingCreate,
+    ComplianceFindingDecisionUpdate,
     ComplianceFindingOut,
     CveFindingOut,
     CveFindingStatusUpdate,
@@ -144,6 +147,11 @@ async def _create_analysis_run(
 
 
 router = APIRouter(prefix="/turbolens", tags=["TurboLens"])
+
+# Sibling router for routes that semantically belong under /cards/{id}/...
+# Mounted by api/v1/router.py alongside the main `router`. Kept here so the
+# compliance code lives in one file but exposed at the URL users expect.
+cards_router = APIRouter(prefix="/cards", tags=["TurboLens"])
 
 
 # ── Status & Overview ──────────────────────────────────────────────────────
@@ -864,6 +872,36 @@ async def _load_card_names(db: AsyncSession, card_ids: set[uuid.UUID]) -> dict[s
     return {str(cid): name for cid, name in result.all()}
 
 
+async def _load_card_meta(
+    db: AsyncSession, card_ids: set[uuid.UUID]
+) -> dict[str, tuple[str, str, bool | None]]:
+    """Resolve card_id → (name, type, has_ai_features) for N findings in one query.
+
+    ``has_ai_features`` is read from ``Card.attributes["hasAiFeatures"]``
+    (a "yes" / "no" select attribute populated by the AI-verdict
+    workflow). ``None`` means the user hasn't recorded a verdict yet —
+    the frontend renders no chip in that case.
+    """
+    if not card_ids:
+        return {}
+    result = await db.execute(
+        select(Card.id, Card.name, Card.type, Card.attributes).where(Card.id.in_(card_ids))
+    )
+    out: dict[str, tuple[str, str, bool | None]] = {}
+    for cid, name, type_, attrs in result.all():
+        raw = (attrs or {}).get("hasAiFeatures") if isinstance(attrs, dict) else None
+        has_ai: bool | None = None
+        if isinstance(raw, bool):
+            has_ai = raw
+        elif isinstance(raw, str):
+            if raw.lower() in ("yes", "true"):
+                has_ai = True
+            elif raw.lower() in ("no", "false"):
+                has_ai = False
+        out[str(cid)] = (name, type_, has_ai)
+    return out
+
+
 @router.post("/security/cve-scan")
 async def trigger_cve_scan(
     body: SecurityScanRequest | None,
@@ -898,7 +936,10 @@ async def trigger_compliance_scan(
     await PermissionService.require_permission(db, user, "security_compliance.manage")
 
     run = await _create_analysis_run(db, AnalysisType.SECURITY_COMPLIANCE, user)
-    regulations = (body.regulations if body else None) or list(SUPPORTED_REGULATIONS)
+    # When the client doesn't filter, the service loads every enabled
+    # regulation from the DB. We pass the filter through verbatim and let
+    # the service intersect with the enabled set.
+    regulations = body.regulations if body else None
     user_id = str(user.id)
 
     async def _service(db_: AsyncSession) -> dict[str, Any]:
@@ -1010,9 +1051,9 @@ async def security_overview(
     compliance_scores = {reg: compliance_score(rows) for reg, rows in by_regulation.items()}
 
     compliance_by_status: dict[str, dict[str, int]] = {}
-    for reg in SUPPORTED_REGULATIONS:
+    for reg, reg_rows in by_regulation.items():
         status_counts: dict[str, int] = {}
-        for comp_row in by_regulation.get(reg, []):
+        for comp_row in reg_rows:
             status_counts[comp_row.status] = status_counts.get(comp_row.status, 0) + 1
         compliance_by_status[reg] = status_counts
 
@@ -1182,6 +1223,8 @@ async def list_compliance(
     from app.services.turbolens_security import (
         compliance_score,
         compliance_to_dict,
+        load_regulation_meta,
+        load_reviewer_names,
         load_risk_references,
     )
 
@@ -1195,23 +1238,47 @@ async def list_compliance(
     rows = list(rows_res.scalars().all())
 
     card_ids = {r.card_id for r in rows if r.card_id}
-    name_map = await _load_card_names(db, card_ids)
+    meta_map = await _load_card_meta(db, card_ids)
     risk_refs = await load_risk_references(db, {r.risk_id for r in rows if r.risk_id})
+    reviewer_names = await load_reviewer_names(db, {r.reviewed_by for r in rows if r.reviewed_by})
 
     grouped: dict[str, list[TurboLensComplianceFinding]] = {}
     for row in rows:
         grouped.setdefault(row.regulation, []).append(row)
 
+    reg_meta = await load_regulation_meta(db)
+
+    # Order: every known regulation (per the table's sort_order), then any
+    # orphan keys still referenced by findings (regulation deleted but
+    # findings remain — render as a muted "unknown" tab).
+    if regulation:
+        order: list[str] = [regulation]
+    else:
+        known_keys = list(reg_meta.keys())
+        orphan_keys = sorted(k for k in grouped.keys() if k not in reg_meta)
+        order = known_keys + orphan_keys
+
     bundles: list[ComplianceBundleOut] = []
-    order = SUPPORTED_REGULATIONS if not regulation else (regulation,)
     for reg in order:
         reg_rows = grouped.get(reg, [])
+        meta = reg_meta.get(reg)
         items = [
             ComplianceFindingOut.model_validate(
                 compliance_to_dict(
                     row,
-                    name_map.get(str(row.card_id)) if row.card_id else None,
+                    (meta_map.get(str(row.card_id)) or (None, None, None))[0]
+                    if row.card_id
+                    else None,
+                    card_type=(meta_map.get(str(row.card_id)) or (None, None, None))[1]
+                    if row.card_id
+                    else None,
+                    card_has_ai_features=(meta_map.get(str(row.card_id)) or (None, None, None))[2]
+                    if row.card_id
+                    else None,
                     risk_reference=risk_refs.get(str(row.risk_id)) if row.risk_id else None,
+                    reviewer_name=(
+                        reviewer_names.get(str(row.reviewed_by)) if row.reviewed_by else None
+                    ),
                 )
             )
             for row in reg_rows
@@ -1219,11 +1286,415 @@ async def list_compliance(
         bundles.append(
             ComplianceBundleOut(
                 regulation=reg,
+                label=meta["label"] if meta else reg,
+                is_enabled=meta["is_enabled"] if meta else False,
+                is_known=meta is not None,
                 score=compliance_score(reg_rows),
                 findings=items,
             )
         )
     return bundles
+
+
+# Lifecycle states the user can set explicitly. ``risk_tracked`` is set by
+# the promote endpoint, never user-settable here.
+_USER_SETTABLE_COMPLIANCE_DECISIONS: frozenset[str] = frozenset(
+    {"new", "in_review", "mitigated", "verified", "accepted", "not_applicable"}
+)
+
+_VALID_COMPLIANCE_STATUSES: frozenset[str] = frozenset(
+    {"compliant", "partial", "non_compliant", "not_applicable", "review_needed"}
+)
+_VALID_SEVERITIES: frozenset[str] = frozenset({"critical", "high", "medium", "low", "info"})
+
+
+@router.post("/security/compliance-findings", response_model=ComplianceFindingOut)
+async def create_compliance_finding_manual(
+    body: ComplianceFindingCreate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> ComplianceFindingOut:
+    """Manually create a compliance finding (auditor / analyst entry).
+
+    Creates a synthetic "manual" :class:`TurboLensAnalysisRun` row to
+    satisfy the FK (``run_id`` is non-null), computes ``finding_key``
+    via the same recipe as the scanner so a later re-scan can upsert
+    cleanly, and persists the finding with ``decision='new'`` and
+    ``ai_detected=False``. Requires ``security_compliance.manage``.
+    """
+    await PermissionService.require_permission(db, user, "security_compliance.manage")
+
+    reg_key = (body.regulation or "").strip()
+    if not reg_key:
+        raise HTTPException(400, "regulation is required")
+    # The regulation must be known to the system. Both enabled and
+    # disabled regulations are accepted so historical findings can be
+    # re-created against a regulation that's been temporarily disabled.
+    reg_exists = await db.execute(
+        select(ComplianceRegulation).where(ComplianceRegulation.key == reg_key)
+    )
+    if reg_exists.scalar_one_or_none() is None:
+        raise HTTPException(
+            400,
+            f"Unknown regulation '{reg_key}'. Add it under Admin → Metamodel → Regulations first.",
+        )
+    if body.status not in _VALID_COMPLIANCE_STATUSES:
+        raise HTTPException(
+            400,
+            f"status must be one of: {', '.join(sorted(_VALID_COMPLIANCE_STATUSES))}",
+        )
+    if body.severity not in _VALID_SEVERITIES:
+        raise HTTPException(400, f"severity must be one of: {', '.join(sorted(_VALID_SEVERITIES))}")
+    if not body.requirement.strip():
+        raise HTTPException(400, "requirement is required")
+
+    card_uuid: uuid.UUID | None = None
+    card_name: str | None = None
+    card_type: str | None = None
+    card_has_ai_features: bool | None = None
+    if body.card_id:
+        try:
+            card_uuid = uuid.UUID(body.card_id)
+        except ValueError as exc:
+            raise HTTPException(400, "Invalid card_id") from exc
+        meta = await _load_card_meta(db, {card_uuid})
+        nt = meta.get(str(card_uuid))
+        if not nt:
+            raise HTTPException(404, "Card not found")
+        card_name, card_type, card_has_ai_features = nt
+
+    scope_type = "card" if card_uuid else "landscape"
+
+    # Synthetic run so the FK + audit trail stays sane.
+    run = TurboLensAnalysisRun(
+        id=uuid.uuid4(),
+        analysis_type=AnalysisType.SECURITY_COMPLIANCE,
+        status=AnalysisStatus.COMPLETED,
+        started_at=datetime.now(timezone.utc),
+        completed_at=datetime.now(timezone.utc),
+        created_by=user.id,
+        results={"manual": True},
+    )
+    db.add(run)
+    await db.flush()
+
+    from app.services.turbolens_security import (
+        compliance_to_dict,
+        compute_finding_key,
+    )
+
+    finding_key = compute_finding_key(
+        scope_type,
+        card_uuid,
+        body.regulation,
+        body.regulation_article,
+        body.requirement,
+    )
+
+    row = TurboLensComplianceFinding(
+        id=uuid.uuid4(),
+        run_id=run.id,
+        regulation=body.regulation,
+        regulation_article=body.regulation_article,
+        card_id=card_uuid,
+        scope_type=scope_type,
+        category=body.category or "",
+        requirement=body.requirement,
+        status=body.status,
+        severity=body.severity,
+        gap_description=body.gap_description or "",
+        evidence=body.evidence,
+        remediation=body.remediation,
+        ai_detected=False,
+        finding_key=finding_key,
+        decision="new",
+        reviewed_by=user.id,
+        reviewed_at=datetime.now(timezone.utc),
+        review_note="Manually created finding.",
+        last_seen_run_id=run.id,
+        auto_resolved=False,
+    )
+    db.add(row)
+    await db.commit()
+    await db.refresh(row)
+
+    return ComplianceFindingOut.model_validate(
+        compliance_to_dict(
+            row,
+            card_name,
+            card_type=card_type,
+            card_has_ai_features=card_has_ai_features,
+        )
+    )
+
+
+@router.patch("/security/compliance-findings/{finding_id}")
+async def update_compliance_finding_decision(
+    finding_id: str,
+    body: ComplianceFindingDecisionUpdate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> ComplianceFindingOut:
+    """Transition a compliance finding's lifecycle state.
+
+    Allowed transitions follow ``compliance_lifecycle_allowed`` in
+    ``services.turbolens_security``. ``accepted`` requires a
+    ``review_note``. ``risk_tracked`` is set by
+    ``POST /risks/promote/compliance/{id}`` (not here) and once a
+    finding is risk-tracked, manual transitions are blocked until the
+    linked Risk closes — the Risk lifecycle drives the finding via
+    ``compliance_risk_sync.propagate_risk_to_findings``.
+    """
+    from app.services.turbolens_security import compliance_lifecycle_allowed
+
+    await PermissionService.require_permission(db, user, "security_compliance.manage")
+    decision = (body.decision or "").strip()
+    if decision not in _USER_SETTABLE_COMPLIANCE_DECISIONS:
+        raise HTTPException(
+            400,
+            "decision must be one of: " + ", ".join(sorted(_USER_SETTABLE_COMPLIANCE_DECISIONS)),
+        )
+    note = (body.review_note or "").strip() or None
+    if decision == "accepted" and not note:
+        raise HTTPException(400, "review_note is required when accepting a finding")
+
+    row = await db.get(TurboLensComplianceFinding, uuid.UUID(finding_id))
+    if not row:
+        raise HTTPException(404, "Finding not found")
+
+    # Cannot overwrite an active risk_tracked decision through this
+    # endpoint — the user must close the linked Risk first.
+    if row.decision == "risk_tracked" and row.risk_id is not None:
+        raise HTTPException(
+            409,
+            "Finding is tracked by a Risk. Close or unlink the Risk first.",
+        )
+
+    if not compliance_lifecycle_allowed(row.decision, decision):
+        raise HTTPException(
+            409,
+            f"Illegal lifecycle transition: {row.decision} → {decision}.",
+        )
+
+    row.decision = decision
+    row.review_note = note
+    row.reviewed_by = user.id
+    row.reviewed_at = datetime.now(timezone.utc)
+    await db.commit()
+    await db.refresh(row)
+
+    from app.services.turbolens_security import (
+        compliance_to_dict,
+        load_reviewer_names,
+        load_risk_references,
+    )
+
+    card_name = None
+    card_type = None
+    card_has_ai_features: bool | None = None
+    if row.card_id:
+        meta = await _load_card_meta(db, {row.card_id})
+        nt = meta.get(str(row.card_id))
+        if nt:
+            card_name, card_type, card_has_ai_features = nt
+    risk_refs = await load_risk_references(db, {row.risk_id}) if row.risk_id else {}
+    reviewer_names = await load_reviewer_names(db, {row.reviewed_by}) if row.reviewed_by else {}
+    return ComplianceFindingOut.model_validate(
+        compliance_to_dict(
+            row,
+            card_name,
+            card_type=card_type,
+            card_has_ai_features=card_has_ai_features,
+            risk_reference=risk_refs.get(str(row.risk_id)) if row.risk_id else None,
+            reviewer_name=(reviewer_names.get(str(row.reviewed_by)) if row.reviewed_by else None),
+        )
+    )
+
+
+@router.delete("/security/compliance-findings/{finding_id}", status_code=204)
+async def delete_compliance_finding(
+    finding_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Permanently delete a compliance finding.
+
+    Admin-grade action gated by ``security_compliance.manage`` (granted
+    only to the admin role by default). The linked Risk (if any) is
+    NOT cascaded — risks are independent records once promoted; the
+    finding's row is simply removed. The next compliance scan will
+    re-emit the finding if the LLM still reports it for the same
+    card+regulation+article+requirement.
+    """
+    await PermissionService.require_permission(db, user, "security_compliance.manage")
+    row = await db.get(TurboLensComplianceFinding, uuid.UUID(finding_id))
+    if not row:
+        raise HTTPException(404, "Finding not found")
+    await db.delete(row)
+    await db.commit()
+
+
+@router.post("/security/compliance-findings/{finding_id}/ai-verdict")
+async def submit_ai_verdict(
+    finding_id: str,
+    body: ComplianceFindingAiVerdict,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> ComplianceFindingOut:
+    """Record the user's verdict on the scanner's AI-detection claim.
+
+    Persists ``hasAiFeatures`` (true / false) on the impacted card and
+    advances the finding's lifecycle to ``in_review`` with an audit
+    review note. The card must exist; landscape-scoped findings (no
+    ``card_id``) cannot receive a verdict.
+    """
+    await PermissionService.require_permission(db, user, "security_compliance.manage")
+
+    verdict = (body.verdict or "").strip()
+    if verdict not in ("confirmed", "rejected"):
+        raise HTTPException(400, "verdict must be 'confirmed' or 'rejected'")
+
+    row = await db.get(TurboLensComplianceFinding, uuid.UUID(finding_id))
+    if not row:
+        raise HTTPException(404, "Finding not found")
+    if row.card_id is None:
+        raise HTTPException(400, "Finding is not scoped to a specific card")
+
+    card_result = await db.execute(select(Card).where(Card.id == row.card_id))
+    card = card_result.scalar_one_or_none()
+    if card is None:
+        raise HTTPException(404, "Impacted card not found")
+
+    from app.api.v1.cards import _calc_data_quality
+    from app.services.calculation_engine import run_calculations_for_card
+    from app.services.event_bus import event_bus
+
+    new_value = verdict == "confirmed"
+    old_attrs = dict(card.attributes or {})
+    old_value = old_attrs.get("hasAiFeatures")
+    if old_value != new_value:
+        old_attrs["hasAiFeatures"] = new_value
+        card.attributes = old_attrs
+        card.updated_by = user.id
+        if card.approval_status == "APPROVED":
+            card.approval_status = "BROKEN"
+        card.data_quality = await _calc_data_quality(db, card)
+        await run_calculations_for_card(db, card)
+        await event_bus.publish(
+            "card.updated",
+            {
+                "id": str(card.id),
+                "changes": {
+                    "attributes": {
+                        "old": {"hasAiFeatures": old_value},
+                        "new": {"hasAiFeatures": new_value},
+                    }
+                },
+            },
+            db=db,
+            card_id=card.id,
+            user_id=user.id,
+        )
+
+    # Move the finding into in_review unless it's already in a state the
+    # user has explicitly chosen (mitigated/verified/accepted/risk_tracked).
+    if row.decision in ("new", "in_review", "not_applicable"):
+        row.decision = "in_review"
+    row.review_note = "AI verdict: confirmed" if verdict == "confirmed" else "AI verdict: rejected"
+    row.reviewed_by = user.id
+    row.reviewed_at = datetime.now(timezone.utc)
+
+    await db.commit()
+    await db.refresh(row)
+
+    from app.services.turbolens_security import (
+        compliance_to_dict,
+        load_reviewer_names,
+        load_risk_references,
+    )
+
+    meta_map = await _load_card_meta(db, {row.card_id})
+    nt = meta_map.get(str(row.card_id))
+    card_name, card_type, card_has_ai_features = nt if nt else (None, None, None)
+    risk_refs = await load_risk_references(db, {row.risk_id}) if row.risk_id else {}
+    reviewer_names = await load_reviewer_names(db, {row.reviewed_by}) if row.reviewed_by else {}
+    return ComplianceFindingOut.model_validate(
+        compliance_to_dict(
+            row,
+            card_name,
+            card_type=card_type,
+            card_has_ai_features=card_has_ai_features,
+            risk_reference=risk_refs.get(str(row.risk_id)) if row.risk_id else None,
+            reviewer_name=(reviewer_names.get(str(row.reviewed_by)) if row.reviewed_by else None),
+        )
+    )
+
+
+@cards_router.get("/{card_id}/compliance-findings")
+async def list_card_compliance_findings(
+    card_id: str,
+    include_auto_resolved: bool = False,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> list[ComplianceFindingOut]:
+    """All compliance findings scoped to a single card.
+
+    Ordered by severity then regulation/article. Used by the Compliance
+    tab on the Card Detail page (mirrors ``GET /cards/{id}/risks``).
+    """
+    await PermissionService.require_permission(db, user, "security_compliance.view")
+    try:
+        card_uuid = uuid.UUID(card_id)
+    except ValueError as exc:
+        raise HTTPException(400, "Invalid card id") from exc
+
+    stmt = select(TurboLensComplianceFinding).where(TurboLensComplianceFinding.card_id == card_uuid)
+    if not include_auto_resolved:
+        stmt = stmt.where(TurboLensComplianceFinding.auto_resolved.is_(False))
+    rows = list((await db.execute(stmt)).scalars().all())
+
+    from app.services.turbolens_security import (
+        compliance_to_dict,
+        load_reviewer_names,
+        load_risk_references,
+    )
+
+    meta_map = await _load_card_meta(db, {card_uuid})
+    nt = meta_map.get(str(card_uuid))
+    card_name, card_type, card_has_ai_features = nt if nt else (None, None, None)
+    risk_refs = await load_risk_references(db, {r.risk_id for r in rows if r.risk_id})
+    reviewer_names = await load_reviewer_names(db, {r.reviewed_by for r in rows if r.reviewed_by})
+
+    severity_order = {
+        "critical": 0,
+        "high": 1,
+        "medium": 2,
+        "low": 3,
+        "info": 4,
+    }
+    rows.sort(
+        key=lambda r: (
+            severity_order.get(r.severity, 99),
+            r.regulation,
+            r.regulation_article or "",
+        )
+    )
+
+    return [
+        ComplianceFindingOut.model_validate(
+            compliance_to_dict(
+                row,
+                card_name,
+                card_type=card_type,
+                card_has_ai_features=card_has_ai_features,
+                risk_reference=risk_refs.get(str(row.risk_id)) if row.risk_id else None,
+                reviewer_name=(
+                    reviewer_names.get(str(row.reviewed_by)) if row.reviewed_by else None
+                ),
+            )
+        )
+        for row in rows
+    ]
 
 
 @router.get("/security/export.csv")

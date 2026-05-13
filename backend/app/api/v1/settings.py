@@ -14,6 +14,7 @@ from app.core.encryption import decrypt_value, encrypt_value
 from app.database import get_db
 from app.models.app_settings import AppSettings
 from app.models.card_type import CardType
+from app.models.compliance_regulation import ComplianceRegulation
 from app.models.relation_type import RelationType
 from app.models.user import User
 from app.services.permission_service import PermissionService
@@ -131,6 +132,32 @@ async def get_bootstrap(db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(AppSettings).where(AppSettings.id == "default"))
     row = result.scalar_one_or_none()
     general = (row.general_settings if row else None) or {}
+
+    reg_rows = (
+        (
+            await db.execute(
+                select(ComplianceRegulation).order_by(
+                    ComplianceRegulation.sort_order, ComplianceRegulation.label
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    compliance_regulations = [
+        {
+            "id": str(r.id),
+            "key": r.key,
+            "label": r.label,
+            "description": r.description,
+            "is_enabled": r.is_enabled,
+            "built_in": r.built_in,
+            "sort_order": r.sort_order,
+            "translations": r.translations or {},
+        }
+        for r in reg_rows
+    ]
+
     return {
         "currency": general.get("currency", DEFAULT_CURRENCY),
         "date_format": general.get("dateFormat", DEFAULT_DATE_FORMAT),
@@ -142,6 +169,7 @@ async def get_bootstrap(db: AsyncSession = Depends(get_db)):
         "fiscal_year_start": general.get("fiscalYearStart", 1),
         "bpm_row_order": general.get("bpmRowOrder", ["management", "core", "support"]),
         "show_principles_tab": general.get("showPrinciplesTab", True),
+        "compliance_regulations": compliance_regulations,
     }
 
 

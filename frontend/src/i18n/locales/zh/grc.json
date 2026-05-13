@@ -1,0 +1,59 @@
+{
+  "page": {
+    "title": "GRC",
+    "subtitle": "治理、风险与合规"
+  },
+  "tabs": {
+    "governance": "治理",
+    "risk": "风险",
+    "compliance": "合规"
+  },
+  "governance": {
+    "subtabs": {
+      "principles": "原则",
+      "decisions": "决策"
+    },
+    "principles": {
+      "title": "架构原则",
+      "empty": "尚无活跃原则。请在「管理 › 元模型」中定义。",
+      "rationale": "理由",
+      "implications": "影响"
+    },
+    "decisions": {
+      "title": "架构决策",
+      "empty": "尚未记录任何架构决策。",
+      "status": "状态",
+      "open": "打开",
+      "create": "新建决策"
+    }
+  },
+  "compliance": {
+    "aiRequired": {
+      "title": "尚未配置 AI 提供方",
+      "body": "合规扫描依赖大语言模型 (LLM) — 每条法规都通过调用已配置的 AI 提供方对您的环境进行评估。未配置提供方时,扫描会立即结束,但每条结论都会回落到「AI 未配置」,因此在扫描器能产出有用结果之前我们将其隐藏。",
+      "regulations": "覆盖的法规:欧盟《人工智能法》· GDPR · NIS2 · DORA · SOC 2 · ISO 27001。",
+      "configureCta": "配置 AI 提供方",
+      "contactAdmin": "请联系管理员,在「管理 › 设置 › AI」中配置 AI 提供方以启用合规扫描。"
+    }
+  },
+  "soaw": {
+    "tab": "SoAW",
+    "title": "架构工作说明书",
+    "subtitle": "本举措的范围、方法与签批",
+    "empty": "尚无 SoAW。创建一个以记录本举措的范围、方法与签批。",
+    "create": "新建 SoAW",
+    "columns": {
+      "title": "标题",
+      "status": "状态",
+      "revision": "版本",
+      "updated": "更新时间",
+      "author": "作者"
+    },
+    "actions": {
+      "open": "打开",
+      "preview": "预览",
+      "delete": "删除"
+    },
+    "confirmDelete": "确定删除此 SoAW 吗?此操作无法撤销。"
+  }
+}

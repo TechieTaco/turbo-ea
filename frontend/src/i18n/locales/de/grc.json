@@ -1,0 +1,59 @@
+{
+  "page": {
+    "title": "GRC",
+    "subtitle": "Governance, Risiko und Compliance"
+  },
+  "tabs": {
+    "governance": "Governance",
+    "risk": "Risiko",
+    "compliance": "Compliance"
+  },
+  "governance": {
+    "subtabs": {
+      "principles": "Prinzipien",
+      "decisions": "Entscheidungen"
+    },
+    "principles": {
+      "title": "Architekturprinzipien",
+      "empty": "Noch keine aktiven Prinzipien. Definieren Sie sie unter Admin › Metamodell.",
+      "rationale": "Begründung",
+      "implications": "Implikationen"
+    },
+    "decisions": {
+      "title": "Architekturentscheidungen",
+      "empty": "Noch keine Architekturentscheidungen erfasst.",
+      "status": "Status",
+      "open": "Öffnen",
+      "create": "Neue Entscheidung"
+    }
+  },
+  "compliance": {
+    "aiRequired": {
+      "title": "KI-Anbieter ist nicht konfiguriert",
+      "body": "Compliance-Scans werden von einem LLM gesteuert — jede Regulierung wird beurteilt, indem der konfigurierte KI-Anbieter gegen Ihre Landschaft aufgerufen wird. Ohne Anbieter sind die Scans sofort fertig, aber jeder Befund weicht auf «KI ist nicht konfiguriert» aus; deshalb verbergen wir den Scanner, bis er sinnvolle Arbeit leisten kann.",
+      "regulations": "Abgedeckte Regulierungen: EU-KI-Verordnung · DSGVO · NIS2 · DORA · SOC 2 · ISO 27001.",
+      "configureCta": "KI-Anbieter konfigurieren",
+      "contactAdmin": "Bitten Sie einen Administrator, unter Admin › Einstellungen › KI einen KI-Anbieter einzurichten, um Compliance-Scans zu aktivieren."
+    }
+  },
+  "soaw": {
+    "tab": "SoAW",
+    "title": "Statement of Architecture Work",
+    "subtitle": "Umfang, Vorgehen und Freigabe für diese Initiative",
+    "empty": "Noch keine SoAWs. Erstellen Sie eines, um Umfang, Vorgehen und Freigabe dieser Initiative zu erfassen.",
+    "create": "Neues SoAW",
+    "columns": {
+      "title": "Titel",
+      "status": "Status",
+      "revision": "Revision",
+      "updated": "Aktualisiert",
+      "author": "Autor"
+    },
+    "actions": {
+      "open": "Öffnen",
+      "preview": "Vorschau",
+      "delete": "Löschen"
+    },
+    "confirmDelete": "Dieses SoAW löschen? Dies kann nicht rückgängig gemacht werden."
+  }
+}

@@ -436,7 +436,7 @@
   "risks.createRisk": "Create risk",
   "risks.createRiskFromFinding": "Create risk from finding",
   "risks.viewSource": "View source finding",
-  "risks.backToRegister": "← Back to register",
+  "risks.backToRegister": "Назад к реестру",
   "risks.deleteRisk": "Delete risk",
   "risks.confirmDelete": "Delete risk {{reference}}? This cannot be undone.",
   "risks.emptyState": "No risks yet. Create one manually or promote a CVE / compliance finding from TurboLens.",
@@ -567,5 +567,11 @@
   "risks.filter.target": "Target date",
   "risks.filter.from": "From",
   "risks.filter.to": "To",
-  "risks.closed.readOnlyBanner": "This risk is closed and read-only. Reopen it to make changes."
+  "risks.closed.readOnlyBanner": "This risk is closed and read-only. Reopen it to make changes.",
+  "risks.columns.title": "Столбцы",
+  "risks.columns.help": "Выберите, какие столбцы показывать. Ссылка, Название и Начальный уровень всегда видны.",
+  "risks.columns.reset": "Сбросить",
+  "risks.tableTitle": "Реестр рисков",
+  "risks.tableCount_one": "{{count}} риск",
+  "risks.tableCount_other": "{{count}} рисков"
 }

@@ -17,6 +17,7 @@ Runs in a background task triggered from
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import uuid as uuid_mod
@@ -29,6 +30,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.card import Card
+from app.models.compliance_regulation import ComplianceRegulation
 from app.models.turbolens import (
     TurboLensAnalysisRun,
     TurboLensComplianceFinding,
@@ -50,19 +52,22 @@ from app.services.turbolens_nvd import (
 
 logger = logging.getLogger("turboea.turbolens.security")
 
-SUPPORTED_REGULATIONS: tuple[str, ...] = (
-    "eu_ai_act",
-    "gdpr",
-    "nis2",
-    "dora",
-    "soc2",
-    "iso27001",
-)
+# Built-in regulation key that triggers the EU AI Act semantic detector
+# pass. Custom regulations don't activate it — only the built-in does.
+EU_AI_ACT_KEY = "eu_ai_act"
 
 AI_SUBTYPES = {"AI Agent", "AI Model", "MCP Server"}
 CVE_PER_CARD_LIMIT = 20
 AI_BATCH_SIZE = 25
 COMPLIANCE_BATCH_SIZE = 60
+# `detect_ai_bearing_cards` packs each card with a richer payload (name, vendor,
+# product, description, plus an EU AI Act risk-tier verdict per item in the
+# response). With 60-card batches and 2400 output tokens, the JSON array can
+# truncate mid-array and the parser silently drops the whole batch. 30/4000
+# leaves plenty of headroom; if this ever needs to grow, prefer smaller batches
+# over more tokens (latency stays lower).
+AI_DETECTION_BATCH_SIZE = 30
+AI_DETECTION_MAX_TOKENS = 4000
 
 
 # A progress callback receives a ``phase`` label + a ``{current, total, note}``
@@ -400,12 +405,12 @@ async def detect_ai_bearing_cards(
     if not is_ai_configured(ai_config):
         return scoped
 
-    total_batches = max(1, (len(cards) + COMPLIANCE_BATCH_SIZE - 1) // COMPLIANCE_BATCH_SIZE)
-    for start in range(0, len(cards), COMPLIANCE_BATCH_SIZE):
-        batch_index = start // COMPLIANCE_BATCH_SIZE + 1
+    total_batches = max(1, (len(cards) + AI_DETECTION_BATCH_SIZE - 1) // AI_DETECTION_BATCH_SIZE)
+    for start in range(0, len(cards), AI_DETECTION_BATCH_SIZE):
+        batch_index = start // AI_DETECTION_BATCH_SIZE + 1
         if progress_cb:
             await progress_cb("ai_detection", batch_index, total_batches, "")
-        batch = cards[start : start + COMPLIANCE_BATCH_SIZE]
+        batch = cards[start : start + AI_DETECTION_BATCH_SIZE]
         payload = [
             {
                 "id": c.id,
@@ -419,13 +424,52 @@ async def detect_ai_bearing_cards(
             for c in batch
         ]
         prompt = (
-            "Identify every card below that embeds, provides, or depends "
-            "on AI / ML capabilities. Include subtle cases — LLMs, "
-            "recommendation engines, computer vision, fraud / credit scoring, "
-            "chatbots, predictive analytics, anomaly detection, and AI "
-            "features hidden inside general-purpose software. Do NOT rely "
-            "only on the card's subtype; inspect name, vendor and "
-            "description for AI signals.\n\n"
+            "Classify each card below as AI-bearing or not. A card is "
+            "AI-bearing if it embeds, provides, integrates, or depends "
+            "on AI / ML / generative-AI capabilities. Cards may be "
+            "Applications (business apps, microservices, AI agents, "
+            "deployments) or IT Components (software, SaaS, PaaS, "
+            "IaaS, services, AI models, hardware) — assess both equally.\n\n"
+            "Signals to combine (use ALL that are present):\n"
+            "1. The card's SUBTYPE field — values like 'AI Agent', "
+            "'AI Model', 'MCP Server' are explicit AI markers and the "
+            "card MUST be flagged.\n"
+            "2. The card's NAME — recognise well-known AI products "
+            "from your training data (Microsoft Copilot, GitHub "
+            "Copilot, ChatGPT, Claude, Gemini, Llama, Mistral, "
+            "DeepSeek, Perplexity, Cursor, Tabnine, Codeium, Amazon Q, "
+            "Microsoft 365 Copilot, Salesforce Einstein, Adobe Sensei, "
+            "Notion AI, Jira AI, Midjourney, DALL·E, Stable Diffusion, "
+            "Runway, Sora, ElevenLabs, etc.).\n"
+            "3. The card's VENDOR — vendors whose flagship offerings "
+            "are AI (OpenAI, Anthropic, Hugging Face, Cohere, "
+            "Mistral AI, Stability AI, ElevenLabs, RunwayML, etc.).\n"
+            "4. The card's DESCRIPTION — wording such as 'AI-powered', "
+            "'machine learning', 'LLM', 'generative AI', 'foundation "
+            "model', 'embeddings', 'RAG', 'recommendation engine', "
+            "'computer vision', 'speech recognition', 'predictive "
+            "analytics', 'anomaly detection', 'chatbot', 'assistant', "
+            "'agent', etc.\n\n"
+            "Be deliberately broad. Include both first-party AI "
+            "products and subtle / embedded cases:\n"
+            "- LLMs and foundation models packaged as components / "
+            "services / inference APIs\n"
+            "- coding assistants and AI IDE features\n"
+            "- consumer chat / assistant products\n"
+            "- image / video / audio / speech generation and "
+            "transcription\n"
+            "- vector databases used for retrieval / RAG, embeddings "
+            "APIs\n"
+            "- recommendation engines, search ranking, ad targeting\n"
+            "- computer vision, OCR, anomaly detection, fraud / credit "
+            "scoring, predictive analytics\n"
+            "- enterprise AI features hidden inside general-purpose "
+            "products or third-party SaaS\n\n"
+            "Use ALL of NAME, VENDOR, SUBTYPE and DESCRIPTION together. "
+            "Apply your own knowledge of well-known products even if the "
+            "description is sparse: a card simply named 'Copilot' or "
+            "'ChatGPT' is AI even with no description. Err on the side "
+            "of inclusion: when in doubt, flag it.\n\n"
             'Return ONLY JSON: [{"id":"<uuid>","ai_role":"provider|consumer|embedded",'
             '"confidence":0.0-1.0,"signal":"<what in the card hinted at AI>"}].\n'
             "Omit cards with no AI involvement.\n\n"
@@ -435,9 +479,12 @@ async def detect_ai_bearing_cards(
             result = await call_ai(
                 db,
                 prompt,
-                max_tokens=2400,
+                max_tokens=AI_DETECTION_MAX_TOKENS,
                 system_prompt=(
-                    "You are a governance analyst for the EU AI Act. Return only valid JSON."
+                    "You are an enterprise-architecture analyst classifying "
+                    "applications and IT components by whether they use AI / "
+                    "ML capabilities. Be broad and inclusive — embedded and "
+                    "third-party AI both count. Return only valid JSON."
                 ),
             )
             parsed = parse_json(result["text"])
@@ -452,7 +499,7 @@ async def detect_ai_bearing_cards(
             card_id = item.get("id")
             if not card_id:
                 continue
-            # Never downgrade a subtype match.
+            # Subtype-match cards stay marked as such — don't downgrade.
             if card_id in scoped and scoped[card_id]["subtype_match"]:
                 continue
             scoped[card_id] = {
@@ -465,18 +512,41 @@ async def detect_ai_bearing_cards(
 
 
 # ---------------------------------------------------------------------------
-# Compliance prompts
+# Compliance prompts (dynamic — built from the compliance_regulations table)
 # ---------------------------------------------------------------------------
 
 
-REGULATION_LABELS = {
-    "eu_ai_act": "EU AI Act (Regulation (EU) 2024/1689)",
-    "gdpr": "GDPR (Regulation (EU) 2016/679)",
-    "nis2": "NIS2 Directive (Directive (EU) 2022/2555)",
-    "dora": "DORA (Regulation (EU) 2022/2554)",
-    "soc2": "SOC 2 (Trust Services Criteria)",
-    "iso27001": "ISO/IEC 27001:2022",
-}
+async def load_enabled_regulations(
+    db: AsyncSession, keys: list[str] | None = None
+) -> list[ComplianceRegulation]:
+    """Return enabled regulations from the DB, ordered by sort_order.
+
+    If ``keys`` is provided, the result is intersected with that set.
+    Unknown keys are silently dropped — the scan endpoint never raises
+    on a stale client-side regulation key.
+    """
+    stmt = (
+        select(ComplianceRegulation)
+        .where(ComplianceRegulation.is_enabled == True)  # noqa: E712
+        .order_by(ComplianceRegulation.sort_order, ComplianceRegulation.label)
+    )
+    if keys:
+        stmt = stmt.where(ComplianceRegulation.key.in_(keys))
+    return list((await db.execute(stmt)).scalars().all())
+
+
+async def load_regulation_meta(db: AsyncSession) -> dict[str, dict[str, Any]]:
+    """Map of regulation key → {label, is_enabled} for ALL rows (incl. disabled).
+
+    Used by the ``GET /security/compliance`` rollup to surface a finding's
+    regulation label even after the regulation has been disabled, and to
+    render the muted "disabled" chip on the tab.
+    """
+    stmt = select(ComplianceRegulation).order_by(
+        ComplianceRegulation.sort_order, ComplianceRegulation.label
+    )
+    rows = list((await db.execute(stmt)).scalars().all())
+    return {r.key: {"label": r.label, "is_enabled": r.is_enabled} for r in rows}
 
 
 def _landscape_summary(cards: list[ScanCard]) -> dict[str, Any]:
@@ -508,52 +578,12 @@ def _landscape_summary(cards: list[ScanCard]) -> dict[str, Any]:
     }
 
 
-REGULATION_PROMPTS: dict[str, str] = {
-    "eu_ai_act": (
-        "Assess EU AI Act compliance. For each AI-bearing card classify "
-        "the risk tier (prohibited / high_risk / limited_risk / minimal) "
-        "using use-case signals in the description, and emit findings for "
-        "obligations that apply at that tier: risk management system, "
-        "data governance, technical documentation, transparency, human "
-        "oversight, accuracy / robustness / cybersecurity, logging, "
-        "post-market monitoring, conformity assessment. Also emit "
-        "landscape-level findings (e.g., missing registry of high-risk "
-        "systems, no AI governance role assigned)."
-    ),
-    "gdpr": (
-        "Assess GDPR compliance. Flag applications that likely process "
-        "personal data without a documented lawful basis, those that may "
-        "transfer personal data outside the EU without SCCs, and "
-        "high-risk processing that requires a DPIA. Emit landscape findings "
-        "for gaps such as missing DPO assignment or no record of "
-        "processing activities."
-    ),
-    "nis2": (
-        "Assess NIS2 Directive compliance. Consider the cards as the IT "
-        "estate of an essential or important entity. Flag gaps in: "
-        "incident response capability, supply-chain risk concentration "
-        "(single-vendor reliance), business continuity / disaster recovery, "
-        "vulnerability management for essential services."
-    ),
-    "dora": (
-        "Assess DORA (Digital Operational Resilience Act) compliance for "
-        "financial-services cards. Flag: ICT third-party concentration, "
-        "missing critical-function mapping, no resilience testing, "
-        "incident classification / reporting gaps."
-    ),
-    "soc2": (
-        "Assess SOC 2 Trust Services Criteria coverage over the landscape. "
-        "Flag: stakeholder / owner assignment gaps (access control), "
-        "change-management gaps (no approval workflow), monitoring / "
-        "availability gaps, confidentiality gaps around sensitive cards."
-    ),
-    "iso27001": (
-        "Assess ISO/IEC 27001:2022 Annex A control coverage. Flag: asset "
-        "inventory completeness (data-quality gaps), access control "
-        "ownership, supplier relationships (vendor / provider linkage), "
-        "operations security, incident management."
-    ),
-}
+DEFAULT_ASSESSMENT_DIRECTIVE = (
+    "Assess landscape compliance with this regulation. Identify card-level "
+    "gaps where a specific application, IT component, or data object drives "
+    "the non-compliance, and landscape-level gaps where a systemic control "
+    "is missing across the estate."
+)
 
 
 def _compliance_shared_context(
@@ -599,20 +629,26 @@ def _compliance_shared_context(
 
 async def assess_regulation(
     db: AsyncSession,
-    regulation: str,
+    regulation: ComplianceRegulation,
     cards: list[ScanCard],
     ai_scope: dict[str, dict[str, Any]],
 ) -> list[dict[str, Any]]:
     """Run one compliance pass against a single regulation.
 
+    The regulation's ``label`` and ``description`` (stored on the
+    ``compliance_regulations`` row) are composed into the LLM prompt.
+    Admins never enter or see raw prompts — the assessment scope text
+    they edit on the row is what feeds the LLM here.
+
     Returns a list of raw finding dicts ready to be materialised into
     :class:`TurboLensComplianceFinding` rows.
     """
+    reg_key = regulation.key
     ai_config = await get_ai_config(db)
     if not is_ai_configured(ai_config):
         return [
             {
-                "regulation": regulation,
+                "regulation": reg_key,
                 "regulation_article": None,
                 "card_id": None,
                 "scope_type": "landscape",
@@ -630,13 +666,11 @@ async def assess_regulation(
             }
         ]
 
-    directive = REGULATION_PROMPTS.get(regulation)
-    if not directive:
-        return []
+    directive = (regulation.description or "").strip() or DEFAULT_ASSESSMENT_DIRECTIVE
     context_json = _compliance_shared_context(cards, ai_scope)
 
     prompt = (
-        f"Regulation: {REGULATION_LABELS.get(regulation, regulation)}.\n"
+        f"Regulation: {regulation.label}.\n"
         f"{directive}\n\n"
         "Return ONLY a JSON array of compliance findings. Each finding:\n"
         '{"regulation_article":"<optional article reference>",'
@@ -669,15 +703,15 @@ async def assess_regulation(
         )
         parsed = parse_json(result["text"])
     except Exception as exc:  # noqa: BLE001
-        logger.warning("Compliance pass %s failed: %s", regulation, exc)
+        logger.warning("Compliance pass %s failed: %s", reg_key, exc)
         return []
 
     if not isinstance(parsed, list):
         return []
 
     ai_ids = set(ai_scope.keys())
-    non_subtype_ids = {cid for cid, info in ai_scope.items() if not info.get("subtype_match")}
     valid_card_ids = {c.id for c in cards}
+    cards_by_id = {c.id: c for c in cards}
     findings: list[dict[str, Any]] = []
 
     for item in parsed:
@@ -695,13 +729,18 @@ async def assess_regulation(
         if scope_type not in ("card", "landscape"):
             scope_type = "card" if card_uuid else "landscape"
 
+        # ``ai_detected`` now means "the card is AI-bearing" — any of
+        # subtype-marked, LLM semantically-detected, or LLM-emitted under
+        # EU AI Act. Previously it was narrowly true only for non-subtype
+        # matches, which meant the "AI only" filter hid every Copilot /
+        # ChatGPT card that had a proper AI Agent subtype.
         ai_detected = False
-        if regulation == "eu_ai_act" and card_uuid and str(card_uuid) in ai_ids:
-            ai_detected = str(card_uuid) in non_subtype_ids
+        if reg_key == EU_AI_ACT_KEY and card_uuid and str(card_uuid) in ai_ids:
+            ai_detected = True
 
         findings.append(
             {
-                "regulation": regulation,
+                "regulation": reg_key,
                 "regulation_article": (item.get("regulation_article") or None),
                 "card_id": card_uuid,
                 "scope_type": scope_type,
@@ -715,6 +754,54 @@ async def assess_regulation(
                 "ai_detected": ai_detected,
             }
         )
+
+    # EU AI Act guarantee: every AI-bearing card must appear in the
+    # register with at least one finding, even when the LLM chose to
+    # emit none for it (small models often skip "compliant-looking"
+    # cards). Without this fallback the AI inventory has gaps and
+    # cards like Copilot — subtype AI Agent — never surface.
+    if reg_key == EU_AI_ACT_KEY:
+        emitted_card_ids = {
+            str(f["card_id"])
+            for f in findings
+            if f.get("card_id") and f.get("scope_type") == "card"
+        }
+        for cid in ai_ids:
+            if cid in emitted_card_ids:
+                continue
+            try:
+                card_uuid = uuid_mod.UUID(cid)
+            except (TypeError, ValueError):
+                continue
+            card = cards_by_id.get(cid)
+            card_name = card.name if card else cid
+            findings.append(
+                {
+                    "regulation": reg_key,
+                    "regulation_article": None,
+                    "card_id": card_uuid,
+                    "scope_type": "card",
+                    "category": "applicability",
+                    "requirement": (
+                        f"EU AI Act applies to {card_name} — classify risk "
+                        "tier (prohibited / high / limited / minimal) and "
+                        "document the applicable obligations."
+                    ),
+                    "status": "review_needed",
+                    "severity": "medium",
+                    "gap_description": (
+                        "Card detected as AI-bearing but no risk-tier "
+                        "classification or obligation assessment on file."
+                    ),
+                    "evidence": None,
+                    "remediation": (
+                        "Open the card and classify its EU AI Act risk "
+                        "tier per Art. 5 / Annex III, then document the "
+                        "obligations that apply at that tier."
+                    ),
+                    "ai_detected": True,
+                }
+            )
     return findings
 
 
@@ -812,6 +899,82 @@ async def run_cve_scan(
     return summary
 
 
+# ---------------------------------------------------------------------------
+# Compliance finding lifecycle
+# ---------------------------------------------------------------------------
+#
+# Five-state main path with three off-path side branches. The `decision`
+# column on TurboLensComplianceFinding stores the current state. The
+# `auto_resolved` boolean is a separate flag, NOT a decision value.
+#
+#     new → in_review → mitigated → verified              (main path)
+#                ↳ risk_tracked / accepted / not_applicable (side branches)
+#
+# `risk_tracked` exits are blocked here and instead driven by the Risk
+# back-prop service (`compliance_risk_sync.propagate_risk_to_findings`).
+
+COMPLIANCE_LIFECYCLE_STATES: frozenset[str] = frozenset(
+    {
+        "new",
+        "in_review",
+        "mitigated",
+        "verified",
+        "risk_tracked",
+        "accepted",
+        "not_applicable",
+    }
+)
+
+_COMPLIANCE_ALLOWED_TRANSITIONS: dict[str, set[str]] = {
+    "new": {"in_review", "accepted", "not_applicable"},
+    "in_review": {"mitigated", "accepted", "not_applicable", "new"},
+    "mitigated": {"verified", "in_review"},
+    "verified": {"in_review"},
+    "accepted": {"in_review"},
+    "not_applicable": {"in_review"},
+    # risk_tracked exits are managed by the Risk lifecycle (back-prop).
+    "risk_tracked": set(),
+}
+
+
+def compliance_lifecycle_allowed(current: str | None, new: str) -> bool:
+    """Return True if ``new`` is a legal forward transition from ``current``.
+
+    Same-state is always allowed (no-op). Promotion to ``risk_tracked``
+    is handled by the dedicated promote endpoint and so is excluded from
+    the user-facing transition map.
+    """
+    if not current or current == new:
+        return True
+    allowed = _COMPLIANCE_ALLOWED_TRANSITIONS.get(current, set())
+    return new in allowed
+
+
+def compute_finding_key(
+    scope_type: str | None,
+    card_id: uuid_mod.UUID | str | None,
+    regulation: str | None,
+    regulation_article: str | None,
+    requirement: str | None,
+) -> str:
+    """Stable identity for a compliance finding across re-scans.
+
+    Used as the upsert key in ``run_compliance_scan`` so human decisions
+    (acknowledge / accept / risk_tracked) and promoted-Risk back-links
+    survive subsequent scans. The recipe is mirrored by migration 080's
+    backfill — keep them in sync. SHA-256 (not MD5) so CodeQL's weak-hash
+    rule stays quiet; the role is fingerprinting only, not security.
+    """
+    parts = [
+        (scope_type or "").strip(),
+        str(card_id) if card_id else "",
+        (regulation or "").strip(),
+        (regulation_article or "").strip(),
+        (requirement or "")[:200],
+    ]
+    return hashlib.sha256("|".join(parts).encode("utf-8")).hexdigest()
+
+
 async def run_compliance_scan(
     db: AsyncSession,
     run_id: uuid_mod.UUID | str,
@@ -821,57 +984,115 @@ async def run_compliance_scan(
 ) -> dict[str, Any]:
     """Compliance pipeline only: per-regulation AI gap analysis.
 
-    Replaces any existing compliance findings for the scanned
-    regulations; findings for unscoped regulations (e.g. the user
-    un-ticked DORA this time) are also cleared so the dashboard never
-    shows stale data from a previous pass.
+    Findings are *upserted* by ``finding_key`` (stable hash of scope +
+    card + regulation + article + requirement) so that human decisions
+    and any linked Risks survive re-scans. Findings that the new pass no
+    longer reports — within the scanned regulations — are flagged
+    ``auto_resolved=True`` instead of deleted; their ``risk_id`` is
+    preserved so the owner can verify / close any open Risk manually.
+    Findings under regulations not in scope this run are untouched.
     """
     run_uuid = uuid_mod.UUID(str(run_id))
     progress_cb = _progress_cb(db, run_uuid)
 
-    regs = [r for r in (regulations or list(SUPPORTED_REGULATIONS)) if r in SUPPORTED_REGULATIONS]
-    if not regs:
-        regs = list(SUPPORTED_REGULATIONS)
+    # Load enabled regulations from the DB. The optional ``regulations``
+    # filter (from the request body) narrows the run to the intersection.
+    enabled_regs = await load_enabled_regulations(db, keys=regulations)
+    if not enabled_regs:
+        enabled_regs = await load_enabled_regulations(db)
+    reg_keys = [r.key for r in enabled_regs]
 
     await progress_cb("loading_cards", 0, 0, "")
     cards = await load_scan_targets(db, include_itc=True)
 
-    # Clear all previous compliance findings — a compliance scan is a
-    # full refresh of the selected regulations; anything not in scope
-    # this run shouldn't linger.
-    await db.execute(delete(TurboLensComplianceFinding))
-    await db.flush()
-
     ai_scope: dict[str, dict[str, Any]] = {}
-    if "eu_ai_act" in regs:
+    if EU_AI_ACT_KEY in reg_keys:
         ai_scope = await detect_ai_bearing_cards(db, cards, progress_cb=progress_cb)
 
     compliance_rows: list[dict[str, Any]] = []
-    for idx, reg in enumerate(regs, 1):
-        await progress_cb("regulation", idx, len(regs), reg)
+    for idx, reg in enumerate(enabled_regs, 1):
+        await progress_cb("regulation", idx, len(enabled_regs), reg.key)
         reg_findings = await assess_regulation(db, reg, cards, ai_scope)
         compliance_rows.extend(reg_findings)
 
     await progress_cb("persisting_compliance_findings", 0, len(compliance_rows), "")
-    for f in compliance_rows:
-        db.add(
-            TurboLensComplianceFinding(
-                id=uuid_mod.uuid4(),
-                run_id=run_uuid,
-                regulation=f["regulation"],
-                regulation_article=f.get("regulation_article"),
-                card_id=f.get("card_id"),
-                scope_type=f.get("scope_type") or "landscape",
-                category=f.get("category") or "",
-                requirement=f.get("requirement") or "",
-                status=f.get("status") or "review_needed",
-                severity=f.get("severity") or "info",
-                gap_description=f.get("gap_description") or "",
-                evidence=f.get("evidence"),
-                remediation=f.get("remediation"),
-                ai_detected=bool(f.get("ai_detected")),
+
+    # Load existing findings within the scanned regulations and index by key.
+    existing_rows = (
+        (
+            await db.execute(
+                select(TurboLensComplianceFinding).where(
+                    TurboLensComplianceFinding.regulation.in_(reg_keys)
+                )
             )
         )
+        .scalars()
+        .all()
+    )
+    existing_by_key: dict[str, TurboLensComplianceFinding] = {
+        row.finding_key: row for row in existing_rows
+    }
+
+    seen_keys: set[str] = set()
+    for f in compliance_rows:
+        key = compute_finding_key(
+            f.get("scope_type") or "landscape",
+            f.get("card_id"),
+            f["regulation"],
+            f.get("regulation_article"),
+            f.get("requirement") or "",
+        )
+        seen_keys.add(key)
+        row = existing_by_key.get(key)
+        if row is None:
+            db.add(
+                TurboLensComplianceFinding(
+                    id=uuid_mod.uuid4(),
+                    run_id=run_uuid,
+                    regulation=f["regulation"],
+                    regulation_article=f.get("regulation_article"),
+                    card_id=f.get("card_id"),
+                    scope_type=f.get("scope_type") or "landscape",
+                    category=f.get("category") or "",
+                    requirement=f.get("requirement") or "",
+                    status=f.get("status") or "review_needed",
+                    severity=f.get("severity") or "info",
+                    gap_description=f.get("gap_description") or "",
+                    evidence=f.get("evidence"),
+                    remediation=f.get("remediation"),
+                    ai_detected=bool(f.get("ai_detected")),
+                    finding_key=key,
+                    decision="new",
+                    last_seen_run_id=run_uuid,
+                    auto_resolved=False,
+                )
+            )
+        else:
+            # Re-emitted finding — minimal-touch.
+            #
+            # Once a finding exists, its body and decision belong to the
+            # user. The scanner only updates the AI-side bookkeeping
+            # (which run last confirmed it) and never touches anything
+            # else. See the block below for vanished rows.
+            row.run_id = run_uuid
+            row.last_seen_run_id = run_uuid
+
+    # Re-scan is purely additive: every existing row in the scanned
+    # regulations stays visible regardless of whether the LLM re-emitted
+    # it this run. Previously the "vanished" branch set
+    # ``auto_resolved=True`` on rows the new scan didn't mention, which
+    # the default Compliance grid filter hides — combined with LLM
+    # non-determinism, that silently shrank the user's visible findings
+    # on every scan.
+    #
+    # Now we explicitly clear ``auto_resolved`` on every row in the
+    # scanned regulations. This also restores rows that got stuck at
+    # ``auto_resolved=True`` from older scans. Body and decision are
+    # never touched — verifying / closing is the user's call via the
+    # lifecycle workflow.
+    for row in existing_rows:
+        row.auto_resolved = False
+
     await db.flush()
 
     if user_id:
@@ -883,12 +1104,12 @@ async def run_compliance_scan(
                 title="Compliance scan finished",
                 message=(
                     f"{len(compliance_rows)} compliance finding(s) across "
-                    f"{len(regs)} regulation(s)."
+                    f"{len(reg_keys)} regulation(s)."
                 ),
                 link="/turbolens?tab=security",
                 data={
                     "compliance_count": len(compliance_rows),
-                    "regulations": regs,
+                    "regulations": reg_keys,
                     "scan": "compliance",
                 },
             )
@@ -898,7 +1119,7 @@ async def run_compliance_scan(
     summary = {
         "scan": "compliance",
         "compliance_findings": len(compliance_rows),
-        "regulations": regs,
+        "regulations": reg_keys,
         "cards_scanned": len(cards),
         "ai_bearing_cards": len(ai_scope),
         "completed_at": datetime.now(timezone.utc).isoformat(),
@@ -1001,7 +1222,10 @@ def compliance_to_dict(
     row: TurboLensComplianceFinding,
     card_name: str | None,
     *,
+    card_type: str | None = None,
+    card_has_ai_features: bool | None = None,
     risk_reference: str | None = None,
+    reviewer_name: str | None = None,
 ) -> dict[str, Any]:
     return {
         "id": str(row.id),
@@ -1010,6 +1234,8 @@ def compliance_to_dict(
         "regulation_article": row.regulation_article,
         "card_id": str(row.card_id) if row.card_id else None,
         "card_name": card_name,
+        "card_type": card_type,
+        "card_has_ai_features": card_has_ai_features,
         "scope_type": row.scope_type,
         "category": row.category,
         "requirement": row.requirement,
@@ -1021,7 +1247,15 @@ def compliance_to_dict(
         "ai_detected": row.ai_detected,
         "risk_id": str(row.risk_id) if row.risk_id else None,
         "risk_reference": risk_reference,
+        "decision": row.decision,
+        "reviewed_by": str(row.reviewed_by) if row.reviewed_by else None,
+        "reviewer_name": reviewer_name,
+        "reviewed_at": row.reviewed_at.isoformat() if row.reviewed_at else None,
+        "review_note": row.review_note,
+        "auto_resolved": row.auto_resolved,
+        "last_seen_run_id": (str(row.last_seen_run_id) if row.last_seen_run_id else None),
         "created_at": row.created_at.isoformat() if row.created_at else None,
+        "updated_at": row.updated_at.isoformat() if row.updated_at else None,
     }
 
 
@@ -1033,3 +1267,15 @@ async def load_risk_references(db: AsyncSession, risk_ids: set[uuid_mod.UUID]) -
 
     result = await db.execute(select(Risk.id, Risk.reference).where(Risk.id.in_(risk_ids)))
     return {str(rid): ref for rid, ref in result.all()}
+
+
+async def load_reviewer_names(db: AsyncSession, user_ids: set[uuid_mod.UUID]) -> dict[str, str]:
+    """Resolve user id → display_name (falling back to email) for reviewers."""
+    if not user_ids:
+        return {}
+    from app.models.user import User
+
+    result = await db.execute(
+        select(User.id, User.display_name, User.email).where(User.id.in_(user_ids))
+    )
+    return {str(uid): (display or email or "") for uid, display, email in result.all()}

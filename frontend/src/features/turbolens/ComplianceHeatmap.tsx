@@ -9,8 +9,13 @@ import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import type { ComplianceStatus, RegulationKey } from "@/types";
 
+export interface HeatmapRegulation {
+  key: RegulationKey;
+  label: string;
+}
+
 interface Props {
-  regulations: RegulationKey[];
+  regulations: HeatmapRegulation[];
   matrix: Record<string, Record<string, number>>;
   scores: Record<string, number>;
   onSelect?: (regulation: RegulationKey, status: ComplianceStatus | null) => void;
@@ -71,18 +76,14 @@ export default function ComplianceHeatmap({
         {t("turbolens_security_kpi_compliance_score")}
       </Typography>
 
-      {regulations.map((reg) => {
+      {regulations.map(({ key: reg, label }) => {
         const row = matrix[reg] || {};
         const score = scores[reg] ?? 100;
         return (
-          <Stack
-            key={reg}
-            direction="row"
-            sx={{ display: "contents" }}
-          >
+          <Stack key={reg} direction="row" sx={{ display: "contents" }}>
             <Box sx={{ py: 1.25, px: 1, display: "flex", alignItems: "center" }}>
               <Typography variant="body2" fontWeight={600}>
-                {t(`turbolens_security_regulation_${reg}`)}
+                {label}
               </Typography>
             </Box>
             {STATUSES.map((s) => {

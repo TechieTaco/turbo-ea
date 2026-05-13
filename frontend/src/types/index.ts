@@ -1327,13 +1327,38 @@ export type ComplianceStatus =
   | "not_applicable"
   | "review_needed";
 
-export type RegulationKey =
-  | "eu_ai_act"
-  | "gdpr"
-  | "nis2"
-  | "dora"
-  | "soc2"
-  | "iso27001";
+/**
+ * Compliance regulation key — formerly a finite literal union over the 6
+ * built-ins, now any admin-managed slug from the `compliance_regulations`
+ * table. Kept as a named alias for readability and to leave a hook for
+ * narrowing back to a literal in tests if needed.
+ */
+export type RegulationKey = string;
+
+/** The 6 historical built-in regulation keys, used only as a fallback
+ *  when the dynamic list isn't loaded yet (e.g. on initial paint before
+ *  bootstrap arrives). */
+export const BUILTIN_REGULATION_KEYS = [
+  "eu_ai_act",
+  "gdpr",
+  "nis2",
+  "dora",
+  "soc2",
+  "iso27001",
+] as const;
+
+export interface ComplianceRegulation {
+  id: string;
+  key: string;
+  label: string;
+  description: string | null;
+  is_enabled: boolean;
+  built_in: boolean;
+  sort_order: number;
+  translations: TranslationMap;
+  created_at?: string | null;
+  updated_at?: string | null;
+}
 
 export interface CveReference {
   url: string;
@@ -1372,6 +1397,26 @@ export interface TurboLensCveFinding {
   created_at: string | null;
 }
 
+/**
+ * Compliance finding lifecycle state. 4-state main path + 3 side
+ * branches. Visualised in the ComplianceLifecycleTimeline.
+ *
+ *   new → in_review → mitigated → verified  (main path)
+ *   risk_tracked / accepted / not_applicable  (side branches)
+ *
+ * The `auto_resolved` boolean flag on the finding is independent of
+ * this lifecycle — it reflects whether the scanner stopped reporting
+ * the gap on its last run.
+ */
+export type ComplianceDecision =
+  | "new"
+  | "in_review"
+  | "mitigated"
+  | "verified"
+  | "risk_tracked"
+  | "accepted"
+  | "not_applicable";
+
 export interface TurboLensComplianceFinding {
   id: string;
   run_id: string;
@@ -1379,6 +1424,10 @@ export interface TurboLensComplianceFinding {
   regulation_article: string | null;
   card_id: string | null;
   card_name: string | null;
+  card_type: string | null;
+  /** `hasAiFeatures` attribute on the linked card, set via the AI
+   *  verdict workflow. `null` when no verdict has been recorded. */
+  card_has_ai_features: boolean | null;
   scope_type: "card" | "landscape";
   category: string;
   requirement: string;
@@ -1390,7 +1439,15 @@ export interface TurboLensComplianceFinding {
   ai_detected: boolean;
   risk_id: string | null;
   risk_reference: string | null;
+  decision: ComplianceDecision;
+  reviewed_by: string | null;
+  reviewer_name: string | null;
+  reviewed_at: string | null;
+  review_note: string | null;
+  auto_resolved: boolean;
+  last_seen_run_id: string | null;
   created_at: string | null;
+  updated_at: string | null;
 }
 
 // ── Risk Register ──────────────────────────────────────────────────────
@@ -1488,6 +1545,17 @@ export interface RiskMetrics {
 
 export interface TurboLensComplianceBundle {
   regulation: RegulationKey;
+  /** Display label resolved from the DB row, falls back to the raw key
+   *  for orphan findings. */
+  label?: string | null;
+  /** True if the regulation is admin-enabled. False for disabled
+   *  built-ins and disabled custom regulations. Always false for
+   *  `is_known === false`. */
+  is_enabled?: boolean;
+  /** True if the regulation key matches a row in the
+   *  `compliance_regulations` table. False for orphan findings whose
+   *  regulation was hard-deleted. */
+  is_known?: boolean;
   score: number;
   findings: TurboLensComplianceFinding[];
 }

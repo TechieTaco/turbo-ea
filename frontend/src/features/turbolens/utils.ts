@@ -197,3 +197,20 @@ const COMPLIANCE_STATUS_COLORS: Record<string, ChipColor> = {
 export function complianceStatusColor(status: string): ChipColor {
   return COMPLIANCE_STATUS_COLORS[status] ?? "default";
 }
+
+// Compliance finding lifecycle state → MUI Chip color. The actual hex
+// tokens live in theme/tokens.ts under COMPLIANCE_LIFECYCLE_COLORS; this
+// map is only used for MUI Chip's coarse semantic palette.
+const COMPLIANCE_DECISION_COLORS: Record<string, ChipColor> = {
+  new: "info",
+  in_review: "warning",
+  mitigated: "primary",
+  verified: "success",
+  risk_tracked: "error",
+  accepted: "success",
+  not_applicable: "default",
+};
+
+export function complianceDecisionColor(decision: string): ChipColor {
+  return COMPLIANCE_DECISION_COLORS[decision] ?? "default";
+}

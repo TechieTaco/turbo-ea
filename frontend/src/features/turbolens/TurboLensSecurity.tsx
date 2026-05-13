@@ -15,6 +15,10 @@ import CardContent from "@mui/material/CardContent";
 import Checkbox from "@mui/material/Checkbox";
 import Chip from "@mui/material/Chip";
 import CircularProgress from "@mui/material/CircularProgress";
+import Dialog from "@mui/material/Dialog";
+import DialogActions from "@mui/material/DialogActions";
+import DialogContent from "@mui/material/DialogContent";
+import DialogTitle from "@mui/material/DialogTitle";
 import FormControl from "@mui/material/FormControl";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import FormGroup from "@mui/material/FormGroup";
@@ -32,13 +36,17 @@ import TableHead from "@mui/material/TableHead";
 import TablePagination from "@mui/material/TablePagination";
 import TableRow from "@mui/material/TableRow";
 import Tabs from "@mui/material/Tabs";
-import Tooltip from "@mui/material/Tooltip";
+import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
-import { Link as RouterLink } from "react-router-dom";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import CardDetailSidePanel from "@/components/CardDetailSidePanel";
 import MetricCard from "@/features/reports/MetricCard";
 import { api, ApiError } from "@/api/client";
+import { useComplianceRegulations } from "@/hooks/useComplianceRegulations";
+import { useTurboLensReady } from "@/hooks/useTurboLensReady";
 import type {
+  ComplianceDecision,
+  ComplianceRegulation,
   ComplianceStatus,
   CveStatus,
   CveFindingsPage,
@@ -46,42 +54,58 @@ import type {
   SecurityActiveRuns,
   SecurityScanRun,
   TurboLensComplianceBundle,
+  TurboLensComplianceFinding,
   TurboLensCveFinding,
   TurboLensSecurityOverview,
 } from "@/types";
 import ComplianceHeatmap from "./ComplianceHeatmap";
-import CreateRiskDialog from "@/features/ea-delivery/risks/CreateRiskDialog";
+import ComplianceGrid from "@/features/grc/compliance/ComplianceGrid";
+import type { ComplianceFilters } from "@/features/grc/compliance/ComplianceFilterSidebar";
+import CreateComplianceFindingDialog from "@/features/grc/compliance/CreateComplianceFindingDialog";
+import CreateRiskDialog from "@/features/grc/risk/CreateRiskDialog";
 import {
   RiskDialogSeed,
   seedFromCompliance,
   seedFromCve,
-} from "@/features/ea-delivery/risks/riskDefaults";
+} from "@/features/grc/risk/riskDefaults";
 import { useNavigate } from "react-router-dom";
 import type { Risk } from "@/types";
 import SecurityFindingDrawer from "./SecurityFindingDrawer";
 import SecurityScanCard from "./SecurityScanCard";
 import { useAnalysisPolling } from "./useAnalysisPolling";
 import {
-  complianceStatusColor,
   cveSeverityColor,
   cveStatusColor,
   priorityColor,
   probabilityColor,
 } from "./utils";
-import RiskMatrixLegend from "../ea-delivery/risks/RiskMatrixLegend";
+import RiskMatrixLegend from "../grc/risk/RiskMatrixLegend";
 import {
   deriveLevelFromPair,
   riskLevelBackground,
-} from "../ea-delivery/risks/riskMatrixColors";
+} from "../grc/risk/riskMatrixColors";
 
-const REGULATIONS: RegulationKey[] = [
-  "eu_ai_act",
-  "gdpr",
-  "nis2",
-  "dora",
-  "soc2",
-  "iso27001",
-];
+/**
+ * Resolve a regulation key to a display label. Order of precedence:
+ *   1. The DB row's `label` (from the singleton hook), so admin edits show.
+ *   2. The i18n key `turbolens_security_regulation_<key>` if it exists
+ *      (covers the 6 built-ins in non-English locales).
+ *   3. The raw key, as a last-resort fallback for orphan findings whose
+ *      regulation was deleted from the table.
+ */
+function resolveRegulationLabel(
+  key: string,
+  byKey: Record<string, ComplianceRegulation>,
+  t: (k: string, opts?: { defaultValue?: string }) => string,
+  fallbackLabel?: string | null,
+): string {
+  const reg = byKey[key];
+  if (reg?.label) return reg.label;
+  if (fallbackLabel) return fallbackLabel;
+  const i18nKey = `turbolens_security_regulation_${key}`;
+  const translated = t(i18nKey, { defaultValue: key });
+  return translated && translated !== i18nKey ? translated : key;
+}
 
 const SEVERITIES = ["critical", "high", "medium", "low"] as const;
 const STATUSES = ["open", "acknowledged", "in_progress", "mitigated", "accepted"] as const;
@@ -104,9 +128,74 @@ const SEVERITY_LABELS: Array<"critical" | "high" | "medium" | "low" | "unknown">
 
 // ---------------------------------------------------------------------------
 
+function csvCell(value: unknown): string {
+  if (value === null || value === undefined) return "";
+  const s = String(value);
+  if (/[",\n\r]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+  return s;
+}
+
+function exportComplianceToCsv(
+  findings: TurboLensComplianceFinding[],
+  t: (k: string) => string,
+  tCards: (k: string) => string,
+): void {
+  const header = [
+    tCards("compliance.grid.col.card"),
+    tCards("compliance.grid.col.severity"),
+    tCards("compliance.grid.col.status"),
+    tCards("compliance.grid.col.article"),
+    tCards("compliance.grid.col.requirement"),
+    tCards("compliance.grid.col.lifecycle"),
+    "AI detected",
+    "Auto-resolved",
+    "Regulation",
+    "Gap",
+    "Evidence",
+    "Remediation",
+    "Reviewer",
+    "Reviewed at",
+  ];
+  const lines = [header.map(csvCell).join(",")];
+  for (const f of findings) {
+    lines.push(
+      [
+        f.card_name ?? "",
+        t(`turbolens_security_severity_${f.severity}`),
+        t(`turbolens_security_compliance_status_${f.status}`),
+        f.regulation_article ?? "",
+        f.requirement ?? "",
+        t(`turbolens_security_compliance_decision_${f.decision}`),
+        f.ai_detected ? "Yes" : "No",
+        f.auto_resolved ? "Yes" : "No",
+        f.regulation,
+        f.gap_description ?? "",
+        f.evidence ?? "",
+        f.remediation ?? "",
+        f.reviewer_name ?? "",
+        f.reviewed_at ?? "",
+      ]
+        .map(csvCell)
+        .join(","),
+    );
+  }
+  const blob = new Blob(["﻿" + lines.join("\r\n")], {
+    type: "text/csv;charset=utf-8;",
+  });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  const stamp = new Date().toISOString().slice(0, 10);
+  a.download = `compliance-findings-${stamp}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
 export default function TurboLensSecurity() {
   const { t } = useTranslation("admin");
-  const { t: tDelivery } = useTranslation("delivery");
+  const { t: tCards } = useTranslation("cards");
   const navigate = useNavigate();
   const phaseLabel = useCallback(
     (phase: string) => {
@@ -123,6 +212,7 @@ export default function TurboLensSecurity() {
   const [overviewLoading, setOverviewLoading] = useState(true);
   const [compliance, setCompliance] = useState<TurboLensComplianceBundle[]>([]);
   const [complianceLoading, setComplianceLoading] = useState(true);
+  const [createFindingOpen, setCreateFindingOpen] = useState(false);
 
   // ── Findings table state ───────────────────────────────────────────
   const [findings, setFindings] = useState<TurboLensCveFinding[]>([]);
@@ -137,9 +227,70 @@ export default function TurboLensSecurity() {
 
   // ── Compliance filter ──────────────────────────────────────────────
   const [activeRegulation, setActiveRegulation] = useState<RegulationKey>("eu_ai_act");
+
+  // If the current activeRegulation doesn't match any returned bundle
+  // (e.g. all built-ins were disabled, or the user is on a fresh
+  // install with no compliance scan yet), pin it to the first bundle.
+  // This avoids MUI Tabs "no matching value" console noise.
   const [highlightCell, setHighlightCell] = useState<{
     regulation: RegulationKey;
     status: ComplianceStatus | null;
+  } | null>(null);
+  // Compliance subtab filters. Status / severity / decision filters are
+  // "all selected" by default so every finding is shown. Auto-resolved
+  // findings are hidden by default to keep the active workload front and
+  // centre; users opt in to see history.
+  const [complianceStatusFilter, setComplianceStatusFilter] = useState<
+    Set<ComplianceStatus>
+  >(
+    new Set<ComplianceStatus>([
+      "compliant",
+      "partial",
+      "non_compliant",
+      "not_applicable",
+      "review_needed",
+    ]),
+  );
+  const [complianceSeverityFilter, setComplianceSeverityFilter] = useState<
+    Set<TurboLensComplianceFinding["severity"]>
+  >(
+    new Set<TurboLensComplianceFinding["severity"]>([
+      "critical",
+      "high",
+      "medium",
+      "low",
+      "info",
+    ]),
+  );
+  const [complianceDecisionFilter, setComplianceDecisionFilter] = useState<
+    Set<ComplianceDecision>
+  >(
+    new Set<ComplianceDecision>([
+      "new",
+      "in_review",
+      "mitigated",
+      "verified",
+      "risk_tracked",
+      "accepted",
+    ]),
+  );
+  const [complianceAiOnly, setComplianceAiOnly] = useState(false);
+  const [complianceAiConfirmedOnly, setComplianceAiConfirmedOnly] =
+    useState(false);
+  const [complianceIncludeResolved, setComplianceIncludeResolved] =
+    useState(false);
+  const [complianceCardTypeFilter, setComplianceCardTypeFilter] = useState<
+    Set<"Application" | "ITComponent">
+  >(new Set<"Application" | "ITComponent">(["Application", "ITComponent"]));
+
+  // Card side panel triggered from a finding's card-name click.
+  const [cardPanelId, setCardPanelId] = useState<string | null>(null);
+
+  // Inline "accept with rationale" dialog state.
+  const [acceptDialog, setAcceptDialog] = useState<{
+    finding: TurboLensComplianceFinding;
+    note: string;
+    saving: boolean;
   } | null>(null);
 
   // ── Drawer ─────────────────────────────────────────────────────────
@@ -149,7 +300,7 @@ export default function TurboLensSecurity() {
   // Risk promotion dialog (used from CVE drawer, CVE rows, compliance cards).
   const [riskSeed, setRiskSeed] = useState<RiskDialogSeed | null>(null);
   const openRisk = useCallback(
-    (riskId: string) => navigate(`/ea-delivery/risks/${riskId}`),
+    (riskId: string) => navigate(`/grc/risks/${riskId}`),
     [navigate],
   );
 
@@ -157,10 +308,37 @@ export default function TurboLensSecurity() {
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
 
+  // ── Admin-managed regulations + AI status ─────────────────────────
+  const { enabled: enabledRegulations, byKey: regulationsByKey } =
+    useComplianceRegulations();
+  const { turboLensAiConfigured } = useTurboLensReady();
+
   // ── Compliance regulation picker ──────────────────────────────────
+  // Initially empty; the effect below populates it from the enabled
+  // regulations once the singleton hook resolves. Admins can untick
+  // individual rows to narrow the next scan.
   const [selectedRegs, setSelectedRegs] = useState<Set<RegulationKey>>(
-    new Set(REGULATIONS),
+    new Set(),
   );
+
+  // Keep `selectedRegs` in sync with newly-enabled regulations and drop
+  // keys that have since been disabled, while preserving the admin's
+  // manual unticks within the still-enabled set.
+  useEffect(() => {
+    setSelectedRegs((prev) => {
+      const enabledKeys = new Set(enabledRegulations.map((r) => r.key));
+      if (prev.size === 0) return enabledKeys;
+      const next = new Set<RegulationKey>();
+      for (const k of prev) if (enabledKeys.has(k)) next.add(k);
+      // Auto-select newly added regulations on first appearance.
+      for (const k of enabledKeys) {
+        if (!Array.from(prev).some((existing) => existing === k)) {
+          next.add(k);
+        }
+      }
+      return next;
+    });
+  }, [enabledRegulations]);
 
   // ── Loaders ────────────────────────────────────────────────────────
   const loadOverview = useCallback(async () => {
@@ -221,6 +399,14 @@ export default function TurboLensSecurity() {
   useEffect(() => {
     reloadAll();
   }, [reloadAll]);
+
+  // Pin activeRegulation to a valid bundle whenever the list changes.
+  useEffect(() => {
+    if (compliance.length === 0) return;
+    if (!compliance.some((b) => b.regulation === activeRegulation)) {
+      setActiveRegulation(compliance[0].regulation);
+    }
+  }, [compliance, activeRegulation]);
 
   useEffect(() => {
     loadFindings();
@@ -358,13 +544,89 @@ export default function TurboLensSecurity() {
   const filteredComplianceFindings = useMemo(() => {
     const bundle = compliance.find((b) => b.regulation === activeRegulation);
     if (!bundle) return [];
-    if (highlightCell && highlightCell.regulation === activeRegulation && highlightCell.status) {
-      return bundle.findings.filter((f) => f.status === highlightCell.status);
+    let items = bundle.findings;
+    // Heatmap drill-through takes precedence as a transient pre-filter on
+    // status; once the user changes the explicit status filter chips,
+    // they win.
+    if (
+      highlightCell &&
+      highlightCell.regulation === activeRegulation &&
+      highlightCell.status
+    ) {
+      items = items.filter((f) => f.status === highlightCell.status);
+    } else {
+      items = items.filter((f) => complianceStatusFilter.has(f.status));
     }
-    return bundle.findings;
-  }, [compliance, activeRegulation, highlightCell]);
+    items = items.filter((f) =>
+      complianceSeverityFilter.has(f.severity),
+    );
+    items = items.filter((f) =>
+      complianceDecisionFilter.has(f.decision as ComplianceDecision),
+    );
+    if (complianceAiOnly) items = items.filter((f) => f.ai_detected);
+    if (complianceAiConfirmedOnly)
+      items = items.filter((f) => f.card_has_ai_features === true);
+    if (!complianceIncludeResolved)
+      items = items.filter((f) => !f.auto_resolved);
+    // Card-type filter: landscape-scoped findings (no card_type) always
+    // pass; otherwise drop findings whose card_type is not in the set.
+    items = items.filter(
+      (f) =>
+        !f.card_type ||
+        complianceCardTypeFilter.has(
+          f.card_type as "Application" | "ITComponent",
+        ),
+    );
+    return items;
+  }, [
+    compliance,
+    activeRegulation,
+    highlightCell,
+    complianceStatusFilter,
+    complianceSeverityFilter,
+    complianceDecisionFilter,
+    complianceAiOnly,
+    complianceAiConfirmedOnly,
+    complianceIncludeResolved,
+    complianceCardTypeFilter,
+  ]);
 
-  const activeBundle = compliance.find((b) => b.regulation === activeRegulation);
+  const setDecision = useCallback(
+    async (
+      finding: TurboLensComplianceFinding,
+      decision: ComplianceDecision,
+      note?: string,
+    ) => {
+      try {
+        const updated = await api.patch<TurboLensComplianceFinding>(
+          `/turbolens/security/compliance-findings/${finding.id}`,
+          {
+            decision,
+            ...(note !== undefined ? { review_note: note } : {}),
+          },
+        );
+        // Splice the updated row back into the loaded compliance bundles
+        // so the UI reflects the new decision immediately without a full
+        // refetch.
+        setCompliance((prev) =>
+          prev.map((b) =>
+            b.regulation === finding.regulation
+              ? {
+                  ...b,
+                  findings: b.findings.map((f) =>
+                    f.id === finding.id ? updated : f,
+                  ),
+                }
+              : b,
+          ),
+        );
+      } catch (e) {
+        if (e instanceof ApiError) setError(e.message);
+        else setError(String(e));
+      }
+    },
+    [],
+  );
 
   // ── Render ────────────────────────────────────────────────────────
   return (
@@ -430,6 +692,71 @@ export default function TurboLensSecurity() {
         updating={updating}
       />
 
+      <CardDetailSidePanel
+        cardId={cardPanelId}
+        open={Boolean(cardPanelId)}
+        onClose={() => setCardPanelId(null)}
+      />
+
+      <Dialog
+        open={Boolean(acceptDialog)}
+        onClose={() =>
+          !acceptDialog?.saving && setAcceptDialog(null)
+        }
+        fullWidth
+        maxWidth="sm"
+      >
+        <DialogTitle>
+          {t("turbolens_security_compliance_accept_title")}
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            {t("turbolens_security_compliance_accept_help")}
+          </Typography>
+          <TextField
+            autoFocus
+            fullWidth
+            multiline
+            minRows={3}
+            label={t("turbolens_security_compliance_review_note")}
+            value={acceptDialog?.note ?? ""}
+            onChange={(e) =>
+              setAcceptDialog((d) =>
+                d ? { ...d, note: e.target.value } : d,
+              )
+            }
+            disabled={acceptDialog?.saving}
+            required
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={() => setAcceptDialog(null)}
+            disabled={acceptDialog?.saving}
+          >
+            {t("turbolens_security_compliance_accept_cancel")}
+          </Button>
+          <Button
+            variant="contained"
+            disabled={
+              !acceptDialog?.note.trim() || Boolean(acceptDialog?.saving)
+            }
+            onClick={async () => {
+              if (!acceptDialog) return;
+              setAcceptDialog({ ...acceptDialog, saving: true });
+              await setDecision(
+                acceptDialog.finding,
+                "accepted",
+                acceptDialog.note.trim(),
+              );
+              setAcceptDialog(null);
+            }}
+          >
+            {t("turbolens_security_compliance_accept_confirm")}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
       <CreateRiskDialog
         open={Boolean(riskSeed)}
         seed={riskSeed}
@@ -448,7 +775,18 @@ export default function TurboLensSecurity() {
               risk_reference: risk.reference,
             });
           }
-          navigate(`/ea-delivery/risks/${risk.id}`);
+          navigate(`/grc/risks/${risk.id}`);
+        }}
+      />
+
+      <CreateComplianceFindingDialog
+        open={createFindingOpen}
+        defaultRegulation={activeRegulation}
+        onClose={() => setCreateFindingOpen(false)}
+        onCreated={() => {
+          // Refresh the compliance bundle so the new manual finding lands
+          // on the active regulation tab.
+          loadCompliance();
         }}
       />
     </Box>
@@ -496,72 +834,89 @@ export default function TurboLensSecurity() {
 
     return (
       <Stack spacing={3}>
-        <Grid container spacing={2}>
-          <Grid item xs={12} md={6}>
-            <SecurityScanCard
-              title={t("turbolens_security_cve_scan_title")}
-              description={t("turbolens_security_cve_scan_description")}
-              icon="shield"
-              run={cveRun}
-              running={cvePolling}
-              onRun={handleCveScan}
-              buttonLabel={t("turbolens_security_run_cve_scan")}
-              runningLabel={t("turbolens_security_scanning")}
-              neverScannedLabel={t("turbolens_security_never_scanned")}
-              phaseLabel={phaseLabel}
-              summaryLabel={(s) =>
-                t("turbolens_security_cve_summary", {
-                  count: (s.cve_findings as number) ?? 0,
-                  scanned: (s.cards_scanned as number) ?? 0,
-                })
-              }
-            />
-          </Grid>
-          <Grid item xs={12} md={6}>
-            <SecurityScanCard
-              title={t("turbolens_security_compliance_scan_title")}
-              description={t("turbolens_security_compliance_scan_description")}
-              icon="verified"
-              run={complianceRun}
-              running={compliancePolling}
-              onRun={handleComplianceScan}
-              buttonLabel={t("turbolens_security_run_compliance_scan")}
-              runningLabel={t("turbolens_security_scanning")}
-              neverScannedLabel={t("turbolens_security_never_scanned")}
-              phaseLabel={phaseLabel}
-              summaryLabel={(s) =>
-                t("turbolens_security_compliance_summary_label", {
-                  count: (s.compliance_findings as number) ?? 0,
-                  regs: Array.isArray(s.regulations) ? s.regulations.length : 0,
-                })
-              }
-              disabled={selectedRegs.size === 0}
-            >
-              <FormGroup row sx={{ gap: 1 }}>
-                {REGULATIONS.map((reg) => (
-                  <FormControlLabel
-                    key={reg}
-                    control={
-                      <Checkbox
-                        size="small"
-                        checked={selectedRegs.has(reg)}
-                        onChange={(e) => {
-                          const next = new Set(selectedRegs);
-                          if (e.target.checked) next.add(reg);
-                          else next.delete(reg);
-                          setSelectedRegs(next);
-                        }}
+        {turboLensAiConfigured ? (
+          <Grid container spacing={2}>
+            <Grid item xs={12} md={6}>
+              <SecurityScanCard
+                title={t("turbolens_security_cve_scan_title")}
+                description={t("turbolens_security_cve_scan_description")}
+                icon="shield"
+                run={cveRun}
+                running={cvePolling}
+                onRun={handleCveScan}
+                buttonLabel={t("turbolens_security_run_cve_scan")}
+                runningLabel={t("turbolens_security_scanning")}
+                neverScannedLabel={t("turbolens_security_never_scanned")}
+                phaseLabel={phaseLabel}
+                summaryLabel={(s) =>
+                  t("turbolens_security_cve_summary", {
+                    count: (s.cve_findings as number) ?? 0,
+                    scanned: (s.cards_scanned as number) ?? 0,
+                  })
+                }
+              />
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <SecurityScanCard
+                title={t("turbolens_security_compliance_scan_title")}
+                description={t("turbolens_security_compliance_scan_description")}
+                icon="verified"
+                run={complianceRun}
+                running={compliancePolling}
+                onRun={handleComplianceScan}
+                buttonLabel={t("turbolens_security_run_compliance_scan")}
+                runningLabel={t("turbolens_security_scanning")}
+                neverScannedLabel={t("turbolens_security_never_scanned")}
+                phaseLabel={phaseLabel}
+                summaryLabel={(s) =>
+                  t("turbolens_security_compliance_summary_label", {
+                    count: (s.compliance_findings as number) ?? 0,
+                    regs: Array.isArray(s.regulations) ? s.regulations.length : 0,
+                  })
+                }
+                disabled={selectedRegs.size === 0 || enabledRegulations.length === 0}
+              >
+                {enabledRegulations.length === 0 ? (
+                  <Alert severity="info" sx={{ mt: 1 }}>
+                    {t("turbolens_security_no_regulations_enabled")}
+                  </Alert>
+                ) : (
+                  <FormGroup row sx={{ gap: 1 }}>
+                    {enabledRegulations.map((reg) => (
+                      <FormControlLabel
+                        key={reg.key}
+                        control={
+                          <Checkbox
+                            size="small"
+                            checked={selectedRegs.has(reg.key)}
+                            onChange={(e) => {
+                              const next = new Set(selectedRegs);
+                              if (e.target.checked) next.add(reg.key);
+                              else next.delete(reg.key);
+                              setSelectedRegs(next);
+                            }}
+                          />
+                        }
+                        label={resolveRegulationLabel(
+                          reg.key,
+                          regulationsByKey,
+                          t,
+                          reg.label,
+                        )}
                       />
-                    }
-                    label={t(`turbolens_security_regulation_${reg}`)}
-                  />
-                ))}
-              </FormGroup>
-            </SecurityScanCard>
+                    ))}
+                  </FormGroup>
+                )}
+              </SecurityScanCard>
+            </Grid>
           </Grid>
-        </Grid>
+        ) : (
+          <Alert severity="info">
+            {t("turbolens_security_ai_not_configured_register_still_available")}
+          </Alert>
+        )}
 
-        {!hasEver && (
+        {!hasEver && turboLensAiConfigured && (
           <Alert severity="info">{t("turbolens_security_never_scanned")}</Alert>
         )}
 
@@ -658,7 +1013,10 @@ export default function TurboLensSecurity() {
             {t("turbolens_security_compliance_summary")}
           </Typography>
           <ComplianceHeatmap
-            regulations={REGULATIONS}
+            regulations={enabledRegulations.map((r) => ({
+              key: r.key,
+              label: resolveRegulationLabel(r.key, regulationsByKey, t, r.label),
+            }))}
             matrix={overview.compliance_by_status}
             scores={overview.compliance_scores}
             onSelect={handleComplianceCellSelect}
@@ -877,15 +1235,11 @@ export default function TurboLensSecurity() {
   // Compliance tab
   // -----------------------------------------------------------------
   function renderCompliance() {
-    if (complianceLoading) {
-      return (
-        <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>
-          <CircularProgress />
-        </Box>
-      );
-    }
+    // Loading state is rendered as AG Grid's native overlay via the
+    // ComplianceGrid `loading` prop; the regulation tabs and filter
+    // sidebar stay visible during the initial fetch.
     return (
-      <Stack spacing={2}>
+      <Stack spacing={2} sx={{ flex: 1, minHeight: 0, display: "flex" }}>
         <Tabs
           value={activeRegulation}
           onChange={(_, v) => {
@@ -895,28 +1249,53 @@ export default function TurboLensSecurity() {
           variant="scrollable"
           scrollButtons="auto"
         >
-          {REGULATIONS.map((reg) => {
-            const bundle = compliance.find((b) => b.regulation === reg);
+          {/* Tabs iterate the bundles returned by /security/compliance,
+              which already include enabled regulations + any orphans
+              that still have findings. Disabled/unknown regulations are
+              rendered muted so historical findings remain auditable. */}
+          {compliance.map((bundle) => {
+            const reg = bundle.regulation;
+            const label = resolveRegulationLabel(
+              reg,
+              regulationsByKey,
+              t,
+              bundle.label,
+            );
+            const muted =
+              bundle.is_enabled === false || bundle.is_known === false;
             return (
               <Tab
                 key={reg}
                 value={reg}
+                sx={muted ? { opacity: 0.55 } : undefined}
                 label={
                   <Stack direction="row" spacing={1} alignItems="center">
-                    <span>{t(`turbolens_security_regulation_${reg}`)}</span>
-                    {bundle && (
+                    <span>{label}</span>
+                    {bundle.is_known === false && (
                       <Chip
                         size="small"
-                        label={`${bundle.score}%`}
-                        color={
-                          bundle.score >= 80
-                            ? "success"
-                            : bundle.score >= 60
-                              ? "warning"
-                              : "error"
-                        }
+                        label={t("turbolens_security_regulation_orphan")}
+                        sx={{ height: 18, fontSize: 10 }}
                       />
                     )}
+                    {bundle.is_known !== false && bundle.is_enabled === false && (
+                      <Chip
+                        size="small"
+                        label={t("turbolens_security_regulation_disabled")}
+                        sx={{ height: 18, fontSize: 10 }}
+                      />
+                    )}
+                    <Chip
+                      size="small"
+                      label={`${bundle.score}%`}
+                      color={
+                        bundle.score >= 80
+                          ? "success"
+                          : bundle.score >= 60
+                            ? "warning"
+                            : "error"
+                      }
+                    />
                   </Stack>
                 }
               />
@@ -924,113 +1303,83 @@ export default function TurboLensSecurity() {
           })}
         </Tabs>
 
-        {activeBundle && filteredComplianceFindings.length === 0 ? (
-          <Alert severity="info">{t("turbolens_security_compliance_no_findings")}</Alert>
-        ) : (
-          <Stack spacing={1.5}>
-            {filteredComplianceFindings.map((f) => (
-              <Paper
-                key={f.id}
-                variant="outlined"
-                sx={{ p: 2, borderLeft: 4, borderLeftColor: `${complianceStatusColor(f.status)}.main` }}
-              >
-                <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 0.5 }} flexWrap="wrap" useFlexGap>
-                  <Chip
-                    size="small"
-                    color={complianceStatusColor(f.status)}
-                    label={t(`turbolens_security_compliance_status_${f.status}`)}
-                  />
-                  {f.regulation_article && (
-                    <Chip
-                      size="small"
-                      variant="outlined"
-                      label={`${t("turbolens_security_compliance_article")} · ${f.regulation_article}`}
-                    />
-                  )}
-                  {f.scope_type === "landscape" && (
-                    <Chip
-                      size="small"
-                      variant="outlined"
-                      label={t("turbolens_security_compliance_scope_landscape")}
-                    />
-                  )}
-                  {f.ai_detected && (
-                    <Tooltip title={t("turbolens_security_ai_detected_hint")}>
-                      <Chip
-                        size="small"
-                        color="secondary"
-                        icon={<MaterialSymbol icon="auto_awesome" size={14} />}
-                        label={t("turbolens_security_ai_detected")}
-                      />
-                    </Tooltip>
-                  )}
-                  {f.category && (
-                    <Chip size="small" variant="outlined" label={f.category} />
-                  )}
-                  {f.card_name && f.card_id && (
-                    <RouterLink
-                      to={`/cards/${f.card_id}`}
-                      style={{ textDecoration: "none" }}
-                    >
-                      <Chip
-                        size="small"
-                        clickable
-                        icon={<MaterialSymbol icon="arrow_outward" size={14} />}
-                        label={f.card_name}
-                      />
-                    </RouterLink>
-                  )}
-                </Stack>
-                <Typography variant="body2" sx={{ mt: 1 }}>
-                  {f.requirement}
-                </Typography>
-                {f.gap_description && f.status !== "compliant" && (
-                  <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                    <strong>{t("turbolens_security_compliance_gap")}:</strong>{" "}
-                    {f.gap_description}
-                  </Typography>
-                )}
-                {f.remediation && (
-                  <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                    <strong>{t("turbolens_security_compliance_remediation")}:</strong>{" "}
-                    {f.remediation}
-                  </Typography>
-                )}
-                {f.evidence && (
-                  <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: "block" }}>
-                    {t("turbolens_security_compliance_evidence")}: {f.evidence}
-                  </Typography>
-                )}
-                <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
-                  {f.risk_id ? (
-                    <Button
-                      size="small"
-                      variant="outlined"
-                      startIcon={<MaterialSymbol icon="open_in_new" size={14} />}
-                      onClick={() => openRisk(f.risk_id!)}
-                    >
-                      {tDelivery("risks.openRisk", {
-                        reference: f.risk_reference ?? f.risk_id,
-                      })}
-                    </Button>
-                  ) : (
-                    f.status !== "compliant" &&
-                    f.status !== "not_applicable" && (
-                      <Button
-                        size="small"
-                        variant="contained"
-                        startIcon={<MaterialSymbol icon="policy" size={14} />}
-                        onClick={() => setRiskSeed(seedFromCompliance(f))}
-                      >
-                        {tDelivery("risks.createRisk")}
-                      </Button>
-                    )
-                  )}
-                </Stack>
-              </Paper>
-            ))}
-          </Stack>
+        {highlightCell?.status && (
+          <Alert
+            severity="info"
+            sx={{ py: 0 }}
+            onClose={() => setHighlightCell(null)}
+          >
+            {t("turbolens_security_compliance_filter_from_heatmap", {
+              status: t(
+                `turbolens_security_compliance_status_${highlightCell.status}`,
+              ),
+            })}
+          </Alert>
         )}
+
+        <ComplianceGrid
+          findings={filteredComplianceFindings}
+          filters={{
+            statuses: complianceStatusFilter,
+            severities: complianceSeverityFilter,
+            decisions: complianceDecisionFilter,
+            cardTypes: complianceCardTypeFilter,
+            aiOnly: complianceAiOnly,
+            aiConfirmedOnly: complianceAiConfirmedOnly,
+            includeResolved: complianceIncludeResolved,
+          } as ComplianceFilters}
+          onFiltersChange={(next) => {
+            setComplianceStatusFilter(next.statuses);
+            setComplianceSeverityFilter(next.severities);
+            setComplianceDecisionFilter(next.decisions);
+            setComplianceCardTypeFilter(next.cardTypes);
+            setComplianceAiOnly(next.aiOnly);
+            setComplianceAiConfirmedOnly(next.aiConfirmedOnly);
+            setComplianceIncludeResolved(next.includeResolved);
+          }}
+          onFindingUpdated={(updated) => {
+            setCompliance((prev) =>
+              prev.map((b) =>
+                b.regulation === updated.regulation
+                  ? {
+                      ...b,
+                      findings: b.findings.map((f) =>
+                        f.id === updated.id ? updated : f,
+                      ),
+                    }
+                  : b,
+              ),
+            );
+          }}
+          onOpenCard={setCardPanelId}
+          onPromoteToRisk={(f) => setRiskSeed(seedFromCompliance(f))}
+          onOpenRisk={openRisk}
+          onRequestAccept={(f) =>
+            setAcceptDialog({ finding: f, note: "", saving: false })
+          }
+          loading={complianceLoading}
+          onCreate={() => setCreateFindingOpen(true)}
+          onExport={() =>
+            exportComplianceToCsv(filteredComplianceFindings, t, tCards)
+          }
+          onDelete={async (f) => {
+            try {
+              await api.delete(`/turbolens/security/compliance-findings/${f.id}`);
+              setCompliance((prev) =>
+                prev.map((b) =>
+                  b.regulation === f.regulation
+                    ? {
+                        ...b,
+                        findings: b.findings.filter((x) => x.id !== f.id),
+                      }
+                    : b,
+                ),
+              );
+            } catch (e) {
+              if (e instanceof ApiError) setError(e.message);
+            }
+          }}
+        />
       </Stack>
     );
   }

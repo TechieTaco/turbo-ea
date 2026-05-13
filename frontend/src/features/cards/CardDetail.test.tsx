@@ -47,6 +47,12 @@ vi.mock("@/features/cards/sections", () => ({
   StakeholdersTab: () => <div data-testid="stakeholders-tab" />,
   ResourcesTab: () => <div data-testid="resources-tab" />,
   HistoryTab: () => <div data-testid="history-tab" />,
+  RisksTab: () => <div data-testid="risks-tab" />,
+  ComplianceTab: () => <div data-testid="compliance-tab" />,
+}));
+
+vi.mock("@/features/cards/sections/SoAWTab", () => ({
+  default: () => <div data-testid="soaw-tab" />,
 }));
 
 vi.mock("@/components/EolLinkSection", () => ({
@@ -59,6 +65,28 @@ vi.mock("@/features/bpm/ProcessFlowTab", () => ({
 
 vi.mock("@/features/bpm/ProcessAssessmentPanel", () => ({
   default: () => <div data-testid="assessment-panel" />,
+}));
+
+vi.mock("@/hooks/AuthContext", () => ({
+  useAuthContext: () => ({
+    user: {
+      id: "user-1",
+      email: "test@example.com",
+      display_name: "Test User",
+      permissions: { "*": true },
+    },
+  }),
+}));
+
+vi.mock("@/hooks/usePermissions", () => ({
+  usePermissions: () => ({
+    can: () => true,
+    permissions: { "*": true },
+  }),
+}));
+
+vi.mock("@/hooks/usePpmEnabled", () => ({
+  usePpmEnabled: () => ({ ppmEnabled: false }),
 }));
 
 import { api } from "@/api/client";

@@ -233,9 +233,6 @@ class TurboLensAssessmentOut(BaseModel):
 # ---------------------------------------------------------------------------
 
 
-SUPPORTED_REGULATIONS = ("eu_ai_act", "gdpr", "nis2", "dora", "soc2", "iso27001")
-
-
 class SecurityScanRequest(BaseModel):
     """Options for an on-demand security & compliance scan."""
 
@@ -292,6 +289,8 @@ class ComplianceFindingOut(BaseModel):
     regulation_article: str | None = None
     card_id: str | None = None
     card_name: str | None = None
+    card_type: str | None = None
+    card_has_ai_features: bool | None = None
     scope_type: str = "landscape"
     category: str = ""
     requirement: str = ""
@@ -303,14 +302,76 @@ class ComplianceFindingOut(BaseModel):
     ai_detected: bool = False
     risk_id: str | None = None
     risk_reference: str | None = None
+    decision: str = "open"
+    reviewed_by: str | None = None
+    reviewer_name: str | None = None
+    reviewed_at: datetime | None = None
+    review_note: str | None = None
+    auto_resolved: bool = False
+    last_seen_run_id: str | None = None
     created_at: datetime | None = None
+    updated_at: datetime | None = None
 
     model_config = {"from_attributes": True}
 
-    @field_validator("id", "run_id", "card_id", "risk_id", mode="before")
+    @field_validator(
+        "id",
+        "run_id",
+        "card_id",
+        "risk_id",
+        "reviewed_by",
+        "last_seen_run_id",
+        mode="before",
+    )
     @classmethod
     def coerce_uuid(cls, v: str | uuid.UUID | None) -> str | None:
         return str(v) if v is not None else None
+
+
+class ComplianceFindingCreate(BaseModel):
+    """Body for ``POST /security/compliance-findings`` — manual finding entry.
+
+    Used by auditors / GRC analysts who want to record a finding the
+    scanner didn't pick up. The endpoint creates a synthetic "manual"
+    :class:`TurboLensAnalysisRun` to satisfy the FK and persists a row
+    with ``decision='new'`` so the lifecycle starts at the same place
+    as scanner-emitted findings.
+    """
+
+    regulation: str
+    regulation_article: str | None = None
+    card_id: str | None = None
+    category: str = ""
+    requirement: str
+    status: str
+    severity: str
+    gap_description: str = ""
+    evidence: str | None = None
+    remediation: str | None = None
+
+
+class ComplianceFindingDecisionUpdate(BaseModel):
+    """Body for ``PATCH /security/compliance-findings/{id}``.
+
+    Users can transition the decision to ``open``, ``acknowledged``, or
+    ``accepted``. ``risk_tracked`` is set automatically when a finding is
+    promoted to a Risk (``POST /risks/promote/compliance/{id}``);
+    ``auto_resolved`` is set by the scanner when a re-scan no longer
+    reports the finding. Neither is user-settable.
+    """
+
+    decision: str
+    review_note: str | None = None
+
+
+class ComplianceFindingAiVerdict(BaseModel):
+    """Body for ``POST /security/compliance-findings/{id}/ai-verdict``.
+
+    Captures the user's verdict on the scanner's AI-detection claim and
+    persists it on the impacted card's ``hasAiFeatures`` attribute.
+    """
+
+    verdict: str  # "confirmed" | "rejected"
 
 
 class SecurityScanRunOut(BaseModel):
@@ -343,5 +404,8 @@ class SecurityOverviewOut(BaseModel):
 
 class ComplianceBundleOut(BaseModel):
     regulation: str
+    label: str | None = None
+    is_enabled: bool = True
+    is_known: bool = True
     score: int = 0
     findings: list[ComplianceFindingOut] = Field(default_factory=list)

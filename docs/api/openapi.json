@@ -2274,6 +2274,27 @@
             "title": "Findings",
             "type": "array"
           },
+          "is_enabled": {
+            "default": true,
+            "title": "Is Enabled",
+            "type": "boolean"
+          },
+          "is_known": {
+            "default": true,
+            "title": "Is Known",
+            "type": "boolean"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
           "regulation": {
             "title": "Regulation",
             "type": "string"
@@ -2290,12 +2311,150 @@
         "title": "ComplianceBundleOut",
         "type": "object"
       },
+      "ComplianceFindingAiVerdict": {
+        "description": "Body for ``POST /security/compliance-findings/{id}/ai-verdict``.\n\nCaptures the user's verdict on the scanner's AI-detection claim and\npersists it on the impacted card's ``hasAiFeatures`` attribute.",
+        "properties": {
+          "verdict": {
+            "title": "Verdict",
+            "type": "string"
+          }
+        },
+        "required": [
+          "verdict"
+        ],
+        "title": "ComplianceFindingAiVerdict",
+        "type": "object"
+      },
+      "ComplianceFindingCreate": {
+        "description": "Body for ``POST /security/compliance-findings`` \u2014 manual finding entry.\n\nUsed by auditors / GRC analysts who want to record a finding the\nscanner didn't pick up. The endpoint creates a synthetic \"manual\"\n:class:`TurboLensAnalysisRun` to satisfy the FK and persists a row\nwith ``decision='new'`` so the lifecycle starts at the same place\nas scanner-emitted findings.",
+        "properties": {
+          "card_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Card Id"
+          },
+          "category": {
+            "default": "",
+            "title": "Category",
+            "type": "string"
+          },
+          "evidence": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evidence"
+          },
+          "gap_description": {
+            "default": "",
+            "title": "Gap Description",
+            "type": "string"
+          },
+          "regulation": {
+            "title": "Regulation",
+            "type": "string"
+          },
+          "regulation_article": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Regulation Article"
+          },
+          "remediation": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remediation"
+          },
+          "requirement": {
+            "title": "Requirement",
+            "type": "string"
+          },
+          "severity": {
+            "title": "Severity",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "regulation",
+          "requirement",
+          "status",
+          "severity"
+        ],
+        "title": "ComplianceFindingCreate",
+        "type": "object"
+      },
+      "ComplianceFindingDecisionUpdate": {
+        "description": "Body for ``PATCH /security/compliance-findings/{id}``.\n\nUsers can transition the decision to ``open``, ``acknowledged``, or\n``accepted``. ``risk_tracked`` is set automatically when a finding is\npromoted to a Risk (``POST /risks/promote/compliance/{id}``);\n``auto_resolved`` is set by the scanner when a re-scan no longer\nreports the finding. Neither is user-settable.",
+        "properties": {
+          "decision": {
+            "title": "Decision",
+            "type": "string"
+          },
+          "review_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Review Note"
+          }
+        },
+        "required": [
+          "decision"
+        ],
+        "title": "ComplianceFindingDecisionUpdate",
+        "type": "object"
+      },
       "ComplianceFindingOut": {
         "properties": {
           "ai_detected": {
             "default": false,
             "title": "Ai Detected",
             "type": "boolean"
+          },
+          "auto_resolved": {
+            "default": false,
+            "title": "Auto Resolved",
+            "type": "boolean"
+          },
+          "card_has_ai_features": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Card Has Ai Features"
           },
           "card_id": {
             "anyOf": [
@@ -2319,6 +2478,17 @@
             ],
             "title": "Card Name"
           },
+          "card_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Card Type"
+          },
           "category": {
             "default": "",
             "title": "Category",
@@ -2335,6 +2505,11 @@
               }
             ],
             "title": "Created At"
+          },
+          "decision": {
+            "default": "open",
+            "title": "Decision",
+            "type": "string"
           },
           "evidence": {
             "anyOf": [
@@ -2355,6 +2530,17 @@
           "id": {
             "title": "Id",
             "type": "string"
+          },
+          "last_seen_run_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Seen Run Id"
           },
           "regulation": {
             "title": "Regulation",
@@ -2386,6 +2572,51 @@
             "default": "",
             "title": "Requirement",
             "type": "string"
+          },
+          "review_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Review Note"
+          },
+          "reviewed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reviewed At"
+          },
+          "reviewed_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reviewed By"
+          },
+          "reviewer_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reviewer Name"
           },
           "risk_id": {
             "anyOf": [
@@ -2427,6 +2658,18 @@
             "default": "review_needed",
             "title": "Status",
             "type": "string"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
           }
         },
         "required": [
@@ -2435,6 +2678,129 @@
           "regulation"
         ],
         "title": "ComplianceFindingOut",
+        "type": "object"
+      },
+      "ComplianceRegulationCreate": {
+        "properties": {
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "is_enabled": {
+            "default": true,
+            "title": "Is Enabled",
+            "type": "boolean"
+          },
+          "key": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Key",
+            "type": "string"
+          },
+          "label": {
+            "maxLength": 300,
+            "minLength": 1,
+            "title": "Label",
+            "type": "string"
+          },
+          "sort_order": {
+            "default": 0,
+            "title": "Sort Order",
+            "type": "integer"
+          },
+          "translations": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Translations"
+          }
+        },
+        "required": [
+          "key",
+          "label"
+        ],
+        "title": "ComplianceRegulationCreate",
+        "type": "object"
+      },
+      "ComplianceRegulationUpdate": {
+        "properties": {
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "is_enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Enabled"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "maxLength": 300,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "sort_order": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sort Order"
+          },
+          "translations": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Translations"
+          }
+        },
+        "title": "ComplianceRegulationUpdate",
         "type": "object"
       },
       "ConnectionCreate": {
@@ -14697,6 +15063,63 @@
         ]
       }
     },
+    "/api/v1/cards/{card_id}/compliance-findings": {
+      "get": {
+        "description": "All compliance findings scoped to a single card.\n\nOrdered by severity then regulation/article. Used by the Compliance\ntab on the Card Detail page (mirrors ``GET /cards/{id}/risks``).",
+        "operationId": "list_card_compliance_findings_api_v1_cards__card_id__compliance_findings_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "card_id",
+            "required": true,
+            "schema": {
+              "title": "Card Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "include_auto_resolved",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Include Auto Resolved",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ComplianceFindingOut"
+                  },
+                  "title": "Response List Card Compliance Findings Api V1 Cards  Card Id  Compliance Findings Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Card Compliance Findings",
+        "tags": [
+          "TurboLens"
+        ]
+      }
+    },
     "/api/v1/cards/{card_id}/documents": {
       "get": {
         "operationId": "list_documents_api_v1_cards__card_id__documents_get",
@@ -16506,6 +16929,171 @@
         "summary": "Download File Attachment",
         "tags": [
           "file-attachments"
+        ]
+      }
+    },
+    "/api/v1/metamodel/compliance-regulations": {
+      "get": {
+        "description": "List compliance regulations, ordered by sort_order.\n\nAuthenticated read so the TurboLens Security tab can fetch the list\neven for users without admin rights. Write operations remain gated\nbehind ``admin.metamodel``.",
+        "operationId": "list_compliance_regulations_api_v1_metamodel_compliance_regulations_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "enabled_only",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Enabled Only",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Compliance Regulations",
+        "tags": [
+          "metamodel"
+        ]
+      },
+      "post": {
+        "description": "Create a new compliance regulation (admin only).",
+        "operationId": "create_compliance_regulation_api_v1_metamodel_compliance_regulations_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ComplianceRegulationCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Compliance Regulation",
+        "tags": [
+          "metamodel"
+        ]
+      }
+    },
+    "/api/v1/metamodel/compliance-regulations/{regulation_id}": {
+      "delete": {
+        "description": "Delete a compliance regulation (admin only).\n\nBuilt-in regulations are protected \u2014 they can be disabled but not\nhard-deleted, mirroring the built-in CardType pattern.",
+        "operationId": "delete_compliance_regulation_api_v1_metamodel_compliance_regulations__regulation_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "regulation_id",
+            "required": true,
+            "schema": {
+              "title": "Regulation Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Compliance Regulation",
+        "tags": [
+          "metamodel"
+        ]
+      },
+      "patch": {
+        "description": "Update a compliance regulation (admin only).\n\nThe ``key`` is immutable. ``built_in`` regulations can be edited and\ndisabled but never deleted.",
+        "operationId": "update_compliance_regulation_api_v1_metamodel_compliance_regulations__regulation_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "regulation_id",
+            "required": true,
+            "schema": {
+              "title": "Regulation Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ComplianceRegulationUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Compliance Regulation",
+        "tags": [
+          "metamodel"
         ]
       }
     },
@@ -26493,6 +27081,188 @@
           }
         },
         "summary": "List Compliance",
+        "tags": [
+          "TurboLens"
+        ]
+      }
+    },
+    "/api/v1/turbolens/security/compliance-findings": {
+      "post": {
+        "description": "Manually create a compliance finding (auditor / analyst entry).\n\nCreates a synthetic \"manual\" :class:`TurboLensAnalysisRun` row to\nsatisfy the FK (``run_id`` is non-null), computes ``finding_key``\nvia the same recipe as the scanner so a later re-scan can upsert\ncleanly, and persists the finding with ``decision='new'`` and\n``ai_detected=False``. Requires ``security_compliance.manage``.",
+        "operationId": "create_compliance_finding_manual_api_v1_turbolens_security_compliance_findings_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ComplianceFindingCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ComplianceFindingOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Compliance Finding Manual",
+        "tags": [
+          "TurboLens"
+        ]
+      }
+    },
+    "/api/v1/turbolens/security/compliance-findings/{finding_id}": {
+      "delete": {
+        "description": "Permanently delete a compliance finding.\n\nAdmin-grade action gated by ``security_compliance.manage`` (granted\nonly to the admin role by default). The linked Risk (if any) is\nNOT cascaded \u2014 risks are independent records once promoted; the\nfinding's row is simply removed. The next compliance scan will\nre-emit the finding if the LLM still reports it for the same\ncard+regulation+article+requirement.",
+        "operationId": "delete_compliance_finding_api_v1_turbolens_security_compliance_findings__finding_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "finding_id",
+            "required": true,
+            "schema": {
+              "title": "Finding Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Compliance Finding",
+        "tags": [
+          "TurboLens"
+        ]
+      },
+      "patch": {
+        "description": "Transition a compliance finding's lifecycle state.\n\nAllowed transitions follow ``compliance_lifecycle_allowed`` in\n``services.turbolens_security``. ``accepted`` requires a\n``review_note``. ``risk_tracked`` is set by\n``POST /risks/promote/compliance/{id}`` (not here) and once a\nfinding is risk-tracked, manual transitions are blocked until the\nlinked Risk closes \u2014 the Risk lifecycle drives the finding via\n``compliance_risk_sync.propagate_risk_to_findings``.",
+        "operationId": "update_compliance_finding_decision_api_v1_turbolens_security_compliance_findings__finding_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "finding_id",
+            "required": true,
+            "schema": {
+              "title": "Finding Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ComplianceFindingDecisionUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ComplianceFindingOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Compliance Finding Decision",
+        "tags": [
+          "TurboLens"
+        ]
+      }
+    },
+    "/api/v1/turbolens/security/compliance-findings/{finding_id}/ai-verdict": {
+      "post": {
+        "description": "Record the user's verdict on the scanner's AI-detection claim.\n\nPersists ``hasAiFeatures`` (true / false) on the impacted card and\nadvances the finding's lifecycle to ``in_review`` with an audit\nreview note. The card must exist; landscape-scoped findings (no\n``card_id``) cannot receive a verdict.",
+        "operationId": "submit_ai_verdict_api_v1_turbolens_security_compliance_findings__finding_id__ai_verdict_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "finding_id",
+            "required": true,
+            "schema": {
+              "title": "Finding Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ComplianceFindingAiVerdict"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ComplianceFindingOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Submit Ai Verdict",
         "tags": [
           "TurboLens"
         ]

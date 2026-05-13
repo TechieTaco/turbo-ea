@@ -14,7 +14,6 @@ import { useNavigate } from "react-router-dom";
 import { AgGridReact } from "ag-grid-react";
 import type {
   ColDef,
-  GridReadyEvent,
   ICellRendererParams,
   RowClickedEvent,
 } from "ag-grid-community";
@@ -24,7 +23,6 @@ import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
-import CircularProgress from "@mui/material/CircularProgress";
 import Grid from "@mui/material/Grid";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
@@ -54,6 +52,145 @@ import RiskMatrix, { RiskMatrixSelection } from "./RiskMatrix";
 import { emptySeed, RiskDialogSeed, riskLevelChipColor } from "./riskDefaults";
 
 // ---------------------------------------------------------------------------
+// CSV export
+// ---------------------------------------------------------------------------
+
+function csvCell(value: unknown): string {
+  if (value === null || value === undefined) return "";
+  const s = String(value);
+  // Quote when the value contains a comma, quote, newline, or leading/trailing
+  // whitespace; double up any embedded quote.
+  if (/[",\n\r]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+  return s;
+}
+
+function exportRisksToCsv(
+  rows: Risk[],
+  t: (k: string, opts?: Record<string, unknown>) => string,
+  formatDate: (d: string | null | undefined) => string,
+): void {
+  const header = [
+    t("risks.col.reference"),
+    t("risks.col.title"),
+    t("risks.col.category"),
+    t("risks.col.initialLevel"),
+    t("risks.col.residualLevel"),
+    t("risks.col.status"),
+    t("risks.col.owner"),
+    t("risks.col.target"),
+    t("risks.col.cards"),
+    t("risks.col.updatedAt"),
+  ];
+  const lines = [header.map(csvCell).join(",")];
+  for (const r of rows) {
+    lines.push(
+      [
+        r.reference,
+        r.title,
+        r.category ? t(`risks.category.${r.category}`) : "",
+        r.initial_level ? t(`risks.level.${r.initial_level}`) : "",
+        r.residual_level ? t(`risks.level.${r.residual_level}`) : "",
+        r.status ? t(`risks.status.${r.status}`) : "",
+        r.owner_name ?? "",
+        formatDate(r.target_resolution_date),
+        (r.cards ?? []).map((c) => c.card_name).join("; "),
+        formatDate(r.updated_at),
+      ]
+        .map(csvCell)
+        .join(","),
+    );
+  }
+  const blob = new Blob(["﻿" + lines.join("\r\n")], {
+    type: "text/csv;charset=utf-8;",
+  });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  const stamp = new Date().toISOString().slice(0, 10);
+  a.download = `risks-${stamp}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+// ---------------------------------------------------------------------------
+// Grid column catalogue + per-user prefs (mirrors the Inventory pattern)
+// ---------------------------------------------------------------------------
+
+/** Stable column ids. Must match `colId` / `field` on each column def below. */
+export const RISK_GRID_COLUMNS: Array<{ id: string; labelKey: string }> = [
+  { id: "reference", labelKey: "risks.col.reference" },
+  { id: "title", labelKey: "risks.col.title" },
+  { id: "category", labelKey: "risks.col.category" },
+  { id: "initial_level", labelKey: "risks.col.initialLevel" },
+  { id: "residual_level", labelKey: "risks.col.residualLevel" },
+  { id: "status", labelKey: "risks.col.status" },
+  { id: "owner_name", labelKey: "risks.col.owner" },
+  { id: "target_resolution_date", labelKey: "risks.col.target" },
+  { id: "cards", labelKey: "risks.col.cards" },
+  { id: "updated_at", labelKey: "risks.col.updatedAt" },
+];
+
+/** Columns that always render — they anchor each row. */
+export const LOCKED_RISK_COLUMNS = new Set(["reference", "title", "initial_level"]);
+
+const ALL_RISK_COLUMN_IDS = RISK_GRID_COLUMNS.map((c) => c.id);
+const RISK_PREFS_STORAGE_KEY = "turboea_grc_risks_prefs";
+
+interface RiskPrefs {
+  filtersCollapsed: boolean;
+  visibleColumns: string[];
+  sortModel: { colId: string; sort: "asc" | "desc" }[];
+}
+
+function loadRiskPrefs(): RiskPrefs {
+  const defaults: RiskPrefs = {
+    filtersCollapsed: false,
+    visibleColumns: ALL_RISK_COLUMN_IDS,
+    sortModel: [],
+  };
+  try {
+    const raw = localStorage.getItem(RISK_PREFS_STORAGE_KEY);
+    if (!raw) return defaults;
+    const parsed = JSON.parse(raw) as Partial<RiskPrefs>;
+    return {
+      filtersCollapsed: !!parsed.filtersCollapsed,
+      visibleColumns:
+        Array.isArray(parsed.visibleColumns) && parsed.visibleColumns.length
+          ? Array.from(
+              new Set([
+                ...LOCKED_RISK_COLUMNS,
+                ...parsed.visibleColumns.filter(
+                  (id): id is string =>
+                    typeof id === "string" && ALL_RISK_COLUMN_IDS.includes(id),
+                ),
+              ]),
+            )
+          : ALL_RISK_COLUMN_IDS,
+      sortModel: Array.isArray(parsed.sortModel)
+        ? parsed.sortModel.filter(
+            (s): s is { colId: string; sort: "asc" | "desc" } =>
+              !!s &&
+              typeof s.colId === "string" &&
+              (s.sort === "asc" || s.sort === "desc"),
+          )
+        : [],
+    };
+  } catch {
+    return defaults;
+  }
+}
+
+function saveRiskPrefs(p: RiskPrefs) {
+  try {
+    localStorage.setItem(RISK_PREFS_STORAGE_KEY, JSON.stringify(p));
+  } catch {
+    // localStorage may be full or disabled — ignore.
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
@@ -70,8 +207,54 @@ export default function RiskRegisterPage() {
   const [error, setError] = useState<string | null>(null);
 
   const [filters, setFilters] = useState<RiskFilters>({ ...EMPTY_RISK_FILTERS });
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const initialPrefs = useMemo(loadRiskPrefs, []);
+  const [sidebarCollapsed, setSidebarCollapsedRaw] = useState(
+    initialPrefs.filtersCollapsed,
+  );
   const [sidebarWidth, setSidebarWidth] = useState(280);
+  const [visibleColumns, setVisibleColumnsRaw] = useState<Set<string>>(
+    () => new Set(initialPrefs.visibleColumns),
+  );
+  const [sortModel, setSortModel] = useState<
+    { colId: string; sort: "asc" | "desc" }[]
+  >(initialPrefs.sortModel);
+
+  const persistRiskPrefs = useCallback(
+    (next: Partial<RiskPrefs>) => {
+      saveRiskPrefs({
+        filtersCollapsed: sidebarCollapsed,
+        visibleColumns: Array.from(visibleColumns),
+        sortModel,
+        ...next,
+      });
+    },
+    [sidebarCollapsed, visibleColumns, sortModel],
+  );
+
+  const setSidebarCollapsed = useCallback(
+    (updater: boolean | ((prev: boolean) => boolean)) => {
+      setSidebarCollapsedRaw((prev) => {
+        const v = typeof updater === "function" ? updater(prev) : updater;
+        persistRiskPrefs({ filtersCollapsed: v });
+        return v;
+      });
+    },
+    [persistRiskPrefs],
+  );
+
+  const setVisibleColumns = useCallback(
+    (next: Set<string>) => {
+      const guarded = new Set<string>(next);
+      for (const id of LOCKED_RISK_COLUMNS) guarded.add(id);
+      setVisibleColumnsRaw(guarded);
+      persistRiskPrefs({ visibleColumns: Array.from(guarded) });
+    },
+    [persistRiskPrefs],
+  );
+  const resetVisibleColumns = useCallback(
+    () => setVisibleColumns(new Set(ALL_RISK_COLUMN_IDS)),
+    [setVisibleColumns],
+  );
 
   const [matrixView, setMatrixView] = useState<"initial" | "residual">("initial");
   const [matrixSelection, setMatrixSelection] = useState<RiskMatrixSelection | null>(
@@ -169,7 +352,7 @@ export default function RiskRegisterPage() {
     setDialogSeed(null);
     reload();
     reloadMetrics();
-    navigate(`/ea-delivery/risks/${risk.id}`);
+    navigate(`/grc/risks/${risk.id}`);
   };
 
   const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
@@ -180,12 +363,13 @@ export default function RiskRegisterPage() {
     [],
   );
 
+  // Match the Inventory grid's defaults exactly so the three grids feel
+  // the same: sortable + filterable + resizable, nothing else.
   const defaultColDef: ColDef = useMemo(
     () => ({
-      resizable: true,
       sortable: true,
       filter: true,
-      suppressHeaderMenuButton: false,
+      resizable: true,
     }),
     [],
   );
@@ -201,8 +385,9 @@ export default function RiskRegisterPage() {
       {
         field: "title",
         headerName: t("risks.col.title"),
+        width: 380,
+        minWidth: 240,
         flex: 2,
-        minWidth: 260,
         filter: "agTextColumnFilter",
       },
       {
@@ -262,7 +447,7 @@ export default function RiskRegisterPage() {
       {
         field: "status",
         headerName: t("risks.col.status"),
-        width: 160,
+        width: 180,
         filter: "agSetColumnFilter",
         valueFormatter: (p) => (p.value ? t(`risks.status.${p.value}`) : ""),
         cellRenderer: (p: ICellRendererParams<Risk, string>) =>
@@ -277,7 +462,7 @@ export default function RiskRegisterPage() {
       {
         field: "owner_name",
         headerName: t("risks.col.owner"),
-        width: 180,
+        width: 160,
         filter: "agTextColumnFilter",
         valueFormatter: (p) => p.value ?? "—",
       },
@@ -323,20 +508,45 @@ export default function RiskRegisterPage() {
       {
         field: "updated_at",
         headerName: t("risks.col.updatedAt"),
-        width: 150,
+        width: 140,
         filter: "agDateColumnFilter",
-        sort: "desc",
+        // Default-sort only when the user hasn't picked their own. The
+        // grid's `initialState` (below) wins if there's a saved sort.
+        sort: sortModel.length === 0 ? "desc" : undefined,
         valueFormatter: (p) => formatDate(p.value as string | null | undefined),
       },
     ],
-    [t, today, levelWeight, formatDate],
+    [t, today, levelWeight, formatDate, sortModel],
   );
+
+  // Apply column visibility from prefs without rebuilding the colDef
+  // factory closure on every toggle. Maps each column's stable id (`field`
+  // or `colId`) to RISK_GRID_COLUMNS membership.
+  const visibleColumnDefs = useMemo<ColDef<Risk>[]>(
+    () =>
+      columnDefs.map((c) => {
+        const id = c.field ?? c.colId ?? "";
+        return { ...c, hide: id ? !visibleColumns.has(id) : false };
+      }),
+    [columnDefs, visibleColumns],
+  );
+
+  const onSortChanged = useCallback(() => {
+    const api = gridRef.current?.api;
+    if (!api) return;
+    const next = api
+      .getColumnState()
+      .filter((c) => c.sort === "asc" || c.sort === "desc")
+      .map((c) => ({ colId: c.colId!, sort: c.sort as "asc" | "desc" }));
+    setSortModel(next);
+    persistRiskPrefs({ sortModel: next });
+  }, [persistRiskPrefs]);
 
   // ── KPI helpers ──────────────────────────────────────────────────
   const topLvl = topLevel(metrics?.by_level);
 
   return (
-    <Box>
+    <Box sx={{ display: "flex", flexDirection: "column", minHeight: 0 }}>
       <Stack
         direction={{ xs: "column", sm: "row" }}
         spacing={2}
@@ -352,13 +562,6 @@ export default function RiskRegisterPage() {
             {t("risks.description")}
           </Typography>
         </Box>
-        <Button
-          variant="contained"
-          startIcon={<MaterialSymbol icon="add" size={18} />}
-          onClick={() => setDialogSeed(emptySeed())}
-        >
-          {t("risks.newRisk")}
-        </Button>
       </Stack>
 
       {error && (
@@ -467,16 +670,17 @@ export default function RiskRegisterPage() {
         )}
       </Paper>
 
-      {/* Sidebar + grid — flex row with a shared bordered container,
-          matching the ADR decisions tab layout. */}
+      {/* Sidebar + grid — flex row matching the Inventory layout. No
+          outer border on this container (would create a "double edge"
+          with AG Grid's own cell borders); the sidebar itself is a
+          fully-bordered card with a small gap so it sits visually
+          separate from the grid. */}
       <Box
         sx={{
           display: "flex",
-          border: 1,
-          borderColor: "divider",
-          borderRadius: 1,
-          overflow: "hidden",
-          height: 640,
+          flex: 1,
+          minHeight: 480,
+          gap: 1.5,
         }}
       >
         <RiskFilterSidebar
@@ -487,42 +691,82 @@ export default function RiskRegisterPage() {
           width={sidebarWidth}
           onWidthChange={setSidebarWidth}
           availableOwners={availableOwners}
+          visibleColumns={visibleColumns}
+          onVisibleColumnsChange={setVisibleColumns}
+          onResetColumns={resetVisibleColumns}
         />
 
         <Box sx={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
-          {loading ? (
-            <Box sx={{ display: "flex", justifyContent: "center", py: 6, flex: 1 }}>
-              <CircularProgress />
-            </Box>
-          ) : (
-            <Box
-              className={mode === "dark" ? "ag-theme-quartz-dark" : "ag-theme-quartz"}
-              sx={{ width: "100%", flex: 1 }}
-            >
-              <AgGridReact<Risk>
-                ref={gridRef}
-                rowData={filteredRows}
-                columnDefs={columnDefs}
-                defaultColDef={defaultColDef}
-                rowHeight={44}
-                headerHeight={44}
-                animateRows
-                pagination
-                paginationPageSize={25}
-                paginationPageSizeSelector={[25, 50, 100, 200]}
-                overlayNoRowsTemplate={`<span style="padding: 24px; color: var(--ag-secondary-foreground-color);">${t(
-                  "risks.grid.empty",
-                )}</span>`}
-                suppressCellFocus
-                onRowClicked={(e: RowClickedEvent<Risk>) => {
-                  if (e.data) navigate(`/ea-delivery/risks/${e.data.id}`);
-                }}
-                onGridReady={(e: GridReadyEvent<Risk>) => {
-                  e.api.sizeColumnsToFit();
-                }}
+          {/* Table-level toolbar — title + count pill on the left,
+              actions on the right. Mirrors the Inventory pattern. */}
+          <Stack
+            direction="row"
+            alignItems="center"
+            justifyContent="space-between"
+            spacing={2}
+            sx={{ mb: 1.5, flexWrap: "wrap", gap: 1 }}
+            useFlexGap
+          >
+            <Stack direction="row" alignItems="center" spacing={1.5}>
+              <Typography variant="h6" fontWeight={700}>
+                {t("risks.tableTitle", { defaultValue: "Risk Register" })}
+              </Typography>
+              <Chip
+                size="small"
+                label={t("risks.tableCount", {
+                  count: filteredRows.length,
+                  defaultValue: `${filteredRows.length} risks`,
+                })}
+                sx={{ bgcolor: "action.hover", fontWeight: 500 }}
               />
-            </Box>
-          )}
+            </Stack>
+            <Stack direction="row" spacing={1}>
+              <Button
+                variant="outlined"
+                color="inherit"
+                startIcon={<MaterialSymbol icon="download" size={18} />}
+                onClick={() => exportRisksToCsv(filteredRows, t, formatDate)}
+                disabled={filteredRows.length === 0}
+                sx={{ textTransform: "none" }}
+              >
+                {t("common:actions.export", { defaultValue: "Export" })}
+              </Button>
+              <Button
+                variant="contained"
+                startIcon={<MaterialSymbol icon="add" size={18} />}
+                onClick={() => setDialogSeed(emptySeed())}
+                sx={{ textTransform: "none" }}
+              >
+                {t("common:actions.create", { defaultValue: "Create" })}
+              </Button>
+            </Stack>
+          </Stack>
+          <Box
+            className={mode === "dark" ? "ag-theme-quartz-dark" : "ag-theme-quartz"}
+            sx={{ flex: 1, width: "100%", minHeight: 0 }}
+          >
+            <AgGridReact<Risk>
+              ref={gridRef}
+              rowData={filteredRows}
+              columnDefs={visibleColumnDefs}
+              defaultColDef={defaultColDef}
+              loading={loading}
+              animateRows
+              getRowId={(p) => p.data.id}
+              getRowStyle={(p) =>
+                p.data?.status === "closed" || p.data?.status === "accepted"
+                  ? { opacity: 0.65 }
+                  : undefined
+              }
+              initialState={
+                sortModel.length > 0 ? { sort: { sortModel } } : undefined
+              }
+              onSortChanged={onSortChanged}
+              onRowClicked={(e: RowClickedEvent<Risk>) => {
+                if (e.data) navigate(`/grc/risks/${e.data.id}`);
+              }}
+            />
+          </Box>
         </Box>
       </Box>
 

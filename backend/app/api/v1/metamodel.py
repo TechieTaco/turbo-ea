@@ -12,6 +12,7 @@ from app.api.deps import get_current_user
 from app.database import get_db
 from app.models.card import Card
 from app.models.card_type import CardType
+from app.models.compliance_regulation import ComplianceRegulation
 from app.models.ea_principle import EAPrinciple
 from app.models.relation import Relation
 from app.models.relation_type import RelationType
@@ -821,4 +822,147 @@ async def delete_principle(
     """Delete an EA principle (admin only)."""
     await PermissionService.require_permission(db, user, "admin.metamodel")
     await db.execute(delete(EAPrinciple).where(EAPrinciple.id == uuid.UUID(principle_id)))
+    await db.commit()
+
+
+# ── Compliance Regulations ────────────────────────────────────────────
+
+
+class ComplianceRegulationCreate(BaseModel):
+    key: str = Field(..., min_length=1, max_length=100)
+    label: str = Field(..., min_length=1, max_length=300)
+    description: str | None = None
+    is_enabled: bool = True
+    sort_order: int = 0
+    translations: dict[str, str] | None = None
+
+
+class ComplianceRegulationUpdate(BaseModel):
+    label: str | None = Field(None, min_length=1, max_length=300)
+    description: str | None = None
+    is_enabled: bool | None = None
+    sort_order: int | None = None
+    translations: dict[str, str] | None = None
+
+
+def _serialize_regulation(r: ComplianceRegulation) -> dict:
+    return {
+        "id": str(r.id),
+        "key": r.key,
+        "label": r.label,
+        "description": r.description,
+        "is_enabled": r.is_enabled,
+        "built_in": r.built_in,
+        "sort_order": r.sort_order,
+        "translations": r.translations or {},
+        "created_at": r.created_at.isoformat() if r.created_at else None,
+        "updated_at": r.updated_at.isoformat() if r.updated_at else None,
+    }
+
+
+@router.get("/compliance-regulations")
+async def list_compliance_regulations(
+    enabled_only: bool = False,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """List compliance regulations, ordered by sort_order.
+
+    Authenticated read so the TurboLens Security tab can fetch the list
+    even for users without admin rights. Write operations remain gated
+    behind ``admin.metamodel``.
+    """
+    stmt = select(ComplianceRegulation)
+    if enabled_only:
+        stmt = stmt.where(ComplianceRegulation.is_enabled == True)  # noqa: E712
+    stmt = stmt.order_by(ComplianceRegulation.sort_order, ComplianceRegulation.label)
+    result = await db.execute(stmt)
+    return [_serialize_regulation(r) for r in result.scalars().all()]
+
+
+@router.post("/compliance-regulations", status_code=201)
+async def create_compliance_regulation(
+    body: ComplianceRegulationCreate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Create a new compliance regulation (admin only)."""
+    await PermissionService.require_permission(db, user, "admin.metamodel")
+    key = body.key.strip().lower()
+    if not key:
+        raise HTTPException(400, "key is required")
+    existing = await db.execute(select(ComplianceRegulation).where(ComplianceRegulation.key == key))
+    if existing.scalar_one_or_none():
+        raise HTTPException(400, f"A regulation with key '{key}' already exists")
+    r = ComplianceRegulation(
+        id=uuid.uuid4(),
+        key=key,
+        label=body.label.strip(),
+        description=body.description,
+        is_enabled=body.is_enabled,
+        built_in=False,
+        sort_order=body.sort_order,
+        translations=body.translations or {},
+    )
+    db.add(r)
+    await db.commit()
+    await db.refresh(r)
+    return _serialize_regulation(r)
+
+
+@router.patch("/compliance-regulations/{regulation_id}")
+async def update_compliance_regulation(
+    regulation_id: str,
+    body: ComplianceRegulationUpdate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Update a compliance regulation (admin only).
+
+    The ``key`` is immutable. ``built_in`` regulations can be edited and
+    disabled but never deleted.
+    """
+    await PermissionService.require_permission(db, user, "admin.metamodel")
+    result = await db.execute(
+        select(ComplianceRegulation).where(ComplianceRegulation.id == uuid.UUID(regulation_id))
+    )
+    r = result.scalar_one_or_none()
+    if not r:
+        raise HTTPException(404, "Regulation not found")
+    updates = body.model_dump(exclude_unset=True)
+    if "label" in updates and updates["label"] is not None:
+        updates["label"] = updates["label"].strip()
+    if "translations" in updates and updates["translations"] is None:
+        updates["translations"] = {}
+    for k, v in updates.items():
+        setattr(r, k, v)
+    await db.commit()
+    await db.refresh(r)
+    return _serialize_regulation(r)
+
+
+@router.delete("/compliance-regulations/{regulation_id}", status_code=204)
+async def delete_compliance_regulation(
+    regulation_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Delete a compliance regulation (admin only).
+
+    Built-in regulations are protected — they can be disabled but not
+    hard-deleted, mirroring the built-in CardType pattern.
+    """
+    await PermissionService.require_permission(db, user, "admin.metamodel")
+    result = await db.execute(
+        select(ComplianceRegulation).where(ComplianceRegulation.id == uuid.UUID(regulation_id))
+    )
+    r = result.scalar_one_or_none()
+    if not r:
+        raise HTTPException(404, "Regulation not found")
+    if r.built_in:
+        raise HTTPException(
+            400,
+            "Built-in regulations cannot be deleted — toggle is_enabled to disable instead.",
+        )
+    await db.delete(r)
     await db.commit()
