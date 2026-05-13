@@ -23,6 +23,8 @@ import type {
   RowClickedEvent,
   ValueGetterParams,
 } from "ag-grid-community";
+import "ag-grid-community/styles/ag-grid.css";
+import "ag-grid-community/styles/ag-theme-quartz.css";
 import Box from "@mui/material/Box";
 import Chip from "@mui/material/Chip";
 import Stack from "@mui/material/Stack";
@@ -32,6 +34,7 @@ import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { useTheme } from "@mui/material/styles";
+import { useThemeMode } from "@/hooks/useThemeMode";
 import type {
   ComplianceDecision,
   ComplianceStatus,
@@ -71,6 +74,7 @@ export default function ComplianceGrid({
   const { t } = useTranslation("admin");
   const { t: tCards } = useTranslation("cards");
   const theme = useTheme();
+  const { mode } = useThemeMode();
 
   const [groupMode, setGroupMode] = useState<GroupMode>("ungrouped");
   const [filtersCollapsed, setFiltersCollapsed] = useState(false);
@@ -244,9 +248,24 @@ export default function ComplianceGrid({
   };
 
   return (
-    <Box sx={{ display: "flex", flex: 1, minHeight: 0, gap: 0 }}>
+    <Box sx={{ display: "flex", flex: 1, minHeight: 480, gap: 0 }}>
+      <ComplianceFilterSidebar
+        filters={filters}
+        onFiltersChange={onFiltersChange}
+        collapsed={filtersCollapsed}
+        onToggleCollapsed={() => setFiltersCollapsed((v) => !v)}
+      />
+
       {/* Grid + toolbar */}
-      <Box sx={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
+      <Box
+        sx={{
+          flex: 1,
+          display: "flex",
+          flexDirection: "column",
+          minWidth: 0,
+          pl: 1.5,
+        }}
+      >
         <Stack
           direction="row"
           spacing={1}
@@ -274,8 +293,8 @@ export default function ComplianceGrid({
         </Stack>
 
         <Box
-          className="ag-theme-quartz"
-          sx={{ flex: 1, minHeight: 360, width: "100%" }}
+          className={mode === "dark" ? "ag-theme-quartz-dark" : "ag-theme-quartz"}
+          sx={{ flex: 1, minHeight: 420, width: "100%" }}
         >
           <AgGridReact<TurboLensComplianceFinding>
             rowData={sortedFindings}
@@ -289,13 +308,6 @@ export default function ComplianceGrid({
           />
         </Box>
       </Box>
-
-      <ComplianceFilterSidebar
-        filters={filters}
-        onFiltersChange={onFiltersChange}
-        collapsed={filtersCollapsed}
-        onToggleCollapsed={() => setFiltersCollapsed((v) => !v)}
-      />
 
       <FindingDetailDrawer
         finding={findingDrawer}

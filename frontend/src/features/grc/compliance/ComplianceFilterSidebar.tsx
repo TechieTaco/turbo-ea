@@ -96,7 +96,7 @@ export default function ComplianceFilterSidebar({
       <Box
         sx={{
           width: COLLAPSED_RAIL,
-          borderLeft: 1,
+          borderRight: 1,
           borderColor: "divider",
           display: "flex",
           flexDirection: "column",
@@ -119,7 +119,7 @@ export default function ComplianceFilterSidebar({
       sx={{
         width,
         flexShrink: 0,
-        borderLeft: 1,
+        borderRight: 1,
         borderColor: "divider",
         p: 1.5,
         overflowY: "auto",
@@ -130,7 +130,7 @@ export default function ComplianceFilterSidebar({
           {tCards("compliance.filters.title")}
         </Typography>
         <IconButton size="small" onClick={onToggleCollapsed} aria-label="collapse">
-          <MaterialSymbol icon="chevron_right" size={20} />
+          <MaterialSymbol icon="chevron_left" size={20} />
         </IconButton>
       </Stack>
       <Divider sx={{ mb: 1.5 }} />
