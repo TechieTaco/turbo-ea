@@ -26,7 +26,7 @@ from dataclasses import dataclass, field
 from datetime import date, datetime, timezone
 from typing import Any
 
-from sqlalchemy import delete, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.card import Card
@@ -830,43 +830,90 @@ async def run_cve_scan(
     cards = await load_scan_targets(db, include_itc=include_itc)
     cards_by_id = {c.id: c for c in cards}
 
-    # Clear previous CVE findings for a fresh snapshot.
-    await db.execute(delete(TurboLensCveFinding))
-    await db.flush()
-
     raw_findings, skipped = await _fetch_raw_cves(cards, progress_cb=progress_cb)
     await enrich_with_ai(db, cards_by_id, raw_findings, progress_cb=progress_cb)
 
     await progress_cb("persisting_cve_findings", 0, len(raw_findings), "")
+
+    # Upsert by (card_id, cve_id) so user-set fields — ``status`` and
+    # the promoted-Risk back-link ``risk_id`` — survive re-scans. The
+    # parallel regression on the compliance side was fixed in PR #536;
+    # CVE was missed at the time and used to blanket-DELETE every row.
+    existing_rows = (await db.execute(select(TurboLensCveFinding))).scalars().all()
+    existing_by_key: dict[tuple[uuid_mod.UUID, str], TurboLensCveFinding] = {
+        (row.card_id, row.cve_id): row for row in existing_rows
+    }
+
+    seen_keys: set[tuple[uuid_mod.UUID, str]] = set()
     for f in raw_findings:
-        db.add(
-            TurboLensCveFinding(
-                id=uuid_mod.uuid4(),
-                run_id=run_uuid,
-                card_id=uuid_mod.UUID(f["card_id"]),
-                card_type=f["card_type"],
-                cve_id=f["cve_id"],
-                vendor=f.get("vendor") or "",
-                product=f.get("product") or "",
-                version=f.get("version"),
-                cvss_score=f.get("cvss_score"),
-                cvss_vector=f.get("cvss_vector"),
-                severity=f.get("severity") or "unknown",
-                attack_vector=f.get("attack_vector"),
-                exploitability_score=f.get("exploitability_score"),
-                impact_score=f.get("impact_score"),
-                patch_available=bool(f.get("patch_available")),
-                published_date=f.get("published_date"),
-                last_modified_date=f.get("last_modified_date"),
-                description=f.get("description") or "",
-                nvd_references=f.get("nvd_references") or [],
-                priority=f.get("priority") or "medium",
-                probability=f.get("probability") or "medium",
-                business_impact=f.get("business_impact"),
-                remediation=f.get("remediation"),
-                status="open",
+        card_uuid = uuid_mod.UUID(f["card_id"])
+        cve_id = f["cve_id"]
+        key = (card_uuid, cve_id)
+        seen_keys.add(key)
+        row = existing_by_key.get(key)
+        if row is None:
+            db.add(
+                TurboLensCveFinding(
+                    id=uuid_mod.uuid4(),
+                    run_id=run_uuid,
+                    card_id=card_uuid,
+                    card_type=f["card_type"],
+                    cve_id=cve_id,
+                    vendor=f.get("vendor") or "",
+                    product=f.get("product") or "",
+                    version=f.get("version"),
+                    cvss_score=f.get("cvss_score"),
+                    cvss_vector=f.get("cvss_vector"),
+                    severity=f.get("severity") or "unknown",
+                    attack_vector=f.get("attack_vector"),
+                    exploitability_score=f.get("exploitability_score"),
+                    impact_score=f.get("impact_score"),
+                    patch_available=bool(f.get("patch_available")),
+                    published_date=f.get("published_date"),
+                    last_modified_date=f.get("last_modified_date"),
+                    description=f.get("description") or "",
+                    nvd_references=f.get("nvd_references") or [],
+                    priority=f.get("priority") or "medium",
+                    probability=f.get("probability") or "medium",
+                    business_impact=f.get("business_impact"),
+                    remediation=f.get("remediation"),
+                    status="open",
+                )
             )
-        )
+        else:
+            # Refresh scanner-side fields from NVD; never touch
+            # user-owned ``status`` or ``risk_id``.
+            row.run_id = run_uuid
+            row.card_type = f["card_type"]
+            row.vendor = f.get("vendor") or ""
+            row.product = f.get("product") or ""
+            row.version = f.get("version")
+            row.cvss_score = f.get("cvss_score")
+            row.cvss_vector = f.get("cvss_vector")
+            row.severity = f.get("severity") or "unknown"
+            row.attack_vector = f.get("attack_vector")
+            row.exploitability_score = f.get("exploitability_score")
+            row.impact_score = f.get("impact_score")
+            row.patch_available = bool(f.get("patch_available"))
+            row.published_date = f.get("published_date")
+            row.last_modified_date = f.get("last_modified_date")
+            row.description = f.get("description") or ""
+            row.nvd_references = f.get("nvd_references") or []
+            row.priority = f.get("priority") or "medium"
+            row.probability = f.get("probability") or "medium"
+            row.business_impact = f.get("business_impact")
+            row.remediation = f.get("remediation")
+
+    # Vanished rows — NVD didn't re-emit this (card, CVE) pair on this
+    # run. Delete only the untouched ones (``status="open"`` and no
+    # promoted Risk). Anything the user has triaged or escalated is
+    # preserved so the audit trail and any open Risks stay intact.
+    for key, row in existing_by_key.items():
+        if key in seen_keys:
+            continue
+        if row.status == "open" and row.risk_id is None:
+            await db.delete(row)
+
     await db.flush()
 
     if user_id:
