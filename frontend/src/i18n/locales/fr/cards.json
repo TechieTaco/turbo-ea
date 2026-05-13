@@ -546,5 +546,6 @@
   "compliance.create.card": "Carte impactée (optionnel)",
   "compliance.create.cardPlaceholder": "Rechercher Applications et composants IT…",
   "compliance.create.submit": "Créer",
-  "compliance.create.errRequirement": "L'exigence est requise."
+  "compliance.create.errRequirement": "L'exigence est requise.",
+  "compliance.tableTitle": "Constats de conformité"
 }

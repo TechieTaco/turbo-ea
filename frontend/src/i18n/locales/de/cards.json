@@ -546,5 +546,6 @@
   "compliance.create.card": "Betroffene Karte (optional)",
   "compliance.create.cardPlaceholder": "Anwendungen und IT-Komponenten suchen…",
   "compliance.create.submit": "Erstellen",
-  "compliance.create.errRequirement": "Anforderung ist erforderlich."
+  "compliance.create.errRequirement": "Anforderung ist erforderlich.",
+  "compliance.tableTitle": "Compliance-Befunde"
 }

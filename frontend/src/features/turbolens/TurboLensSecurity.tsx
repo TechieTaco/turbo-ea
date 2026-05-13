@@ -1159,36 +1159,6 @@ export default function TurboLensSecurity() {
     // sidebar stay visible during the initial fetch.
     return (
       <Stack spacing={2} sx={{ flex: 1, minHeight: 0, display: "flex" }}>
-        {/* Toolbar — Create + Export (mirrors Inventory header style). */}
-        <Stack
-          direction="row"
-          spacing={1}
-          justifyContent="flex-end"
-          alignItems="center"
-          flexWrap="wrap"
-          useFlexGap
-        >
-          <Button
-            variant="outlined"
-            color="inherit"
-            startIcon={<MaterialSymbol icon="download" size={18} />}
-            onClick={() =>
-              exportComplianceToCsv(filteredComplianceFindings, t, tCards)
-            }
-            disabled={filteredComplianceFindings.length === 0}
-            sx={{ textTransform: "none" }}
-          >
-            {t("common:actions.export", { defaultValue: "Export" })}
-          </Button>
-          <Button
-            variant="contained"
-            startIcon={<MaterialSymbol icon="add" size={18} />}
-            onClick={() => setCreateFindingOpen(true)}
-            sx={{ textTransform: "none" }}
-          >
-            {tCards("compliance.create.newFinding")}
-          </Button>
-        </Stack>
         <Tabs
           value={activeRegulation}
           onChange={(_, v) => {
@@ -1280,6 +1250,10 @@ export default function TurboLensSecurity() {
             setAcceptDialog({ finding: f, note: "", saving: false })
           }
           loading={complianceLoading}
+          onCreate={() => setCreateFindingOpen(true)}
+          onExport={() =>
+            exportComplianceToCsv(filteredComplianceFindings, t, tCards)
+          }
         />
       </Stack>
     );

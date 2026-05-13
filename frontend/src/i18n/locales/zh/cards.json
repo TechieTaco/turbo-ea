@@ -546,5 +546,6 @@
   "compliance.create.card": "受影响卡片（可选）",
   "compliance.create.cardPlaceholder": "搜索应用程序和 IT 组件…",
   "compliance.create.submit": "创建",
-  "compliance.create.errRequirement": "必须填写要求。"
+  "compliance.create.errRequirement": "必须填写要求。",
+  "compliance.tableTitle": "合规发现"
 }

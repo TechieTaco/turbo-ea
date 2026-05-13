@@ -38,6 +38,7 @@ import type {
 import "ag-grid-community/styles/ag-grid.css";
 import "ag-grid-community/styles/ag-theme-quartz.css";
 import Box from "@mui/material/Box";
+import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
 import Stack from "@mui/material/Stack";
 import ToggleButton from "@mui/material/ToggleButton";
@@ -76,6 +77,9 @@ interface Props {
   canManage?: boolean;
   /** Render AG Grid's native loading overlay while findings refresh. */
   loading?: boolean;
+  /** Table-level toolbar actions (Inventory pattern). */
+  onCreate?: () => void;
+  onExport?: () => void;
 }
 
 type GroupMode = "ungrouped" | "by_card";
@@ -161,9 +165,12 @@ export default function ComplianceGrid({
   onRequestAccept,
   canManage = true,
   loading = false,
+  onCreate,
+  onExport,
 }: Props) {
   const { t } = useTranslation("admin");
   const { t: tCards } = useTranslation("cards");
+  const { t: tCommon } = useTranslation("common");
   const theme = useTheme();
   const { mode } = useThemeMode();
 
@@ -450,13 +457,27 @@ export default function ComplianceGrid({
           py: 1.5,
         }}
       >
+        {/* Table-level toolbar — title + count pill on the left, group
+            toggle in the middle, Export + Create actions on the right.
+            Mirrors the Inventory header pattern. */}
         <Stack
           direction="row"
-          spacing={1}
+          spacing={1.5}
           alignItems="center"
           justifyContent="space-between"
-          sx={{ mb: 1 }}
+          sx={{ mb: 1.5, flexWrap: "wrap", rowGap: 1 }}
+          useFlexGap
         >
+          <Stack direction="row" alignItems="center" spacing={1.5}>
+            <Typography variant="h6" fontWeight={700}>
+              {tCards("compliance.tableTitle")}
+            </Typography>
+            <Chip
+              size="small"
+              label={tCards("compliance.grid.count", { count: findings.length })}
+              sx={{ bgcolor: "action.hover", fontWeight: 500 }}
+            />
+          </Stack>
           <ToggleButtonGroup
             size="small"
             value={groupMode}
@@ -481,9 +502,30 @@ export default function ComplianceGrid({
               </ToggleButton>
             </Tooltip>
           </ToggleButtonGroup>
-          <Typography variant="caption" color="text.secondary">
-            {tCards("compliance.grid.count", { count: findings.length })}
-          </Typography>
+          <Stack direction="row" spacing={1}>
+            {onExport && (
+              <Button
+                variant="outlined"
+                color="inherit"
+                startIcon={<MaterialSymbol icon="download" size={18} />}
+                onClick={onExport}
+                disabled={findings.length === 0}
+                sx={{ textTransform: "none" }}
+              >
+                {tCommon("actions.export", { defaultValue: "Export" })}
+              </Button>
+            )}
+            {onCreate && canManage && (
+              <Button
+                variant="contained"
+                startIcon={<MaterialSymbol icon="add" size={18} />}
+                onClick={onCreate}
+                sx={{ textTransform: "none" }}
+              >
+                {tCommon("actions.create", { defaultValue: "Create" })}
+              </Button>
+            )}
+          </Stack>
         </Stack>
 
         <Box

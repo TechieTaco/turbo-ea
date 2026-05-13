@@ -546,5 +546,6 @@
   "compliance.create.card": "Cartão impactado (opcional)",
   "compliance.create.cardPlaceholder": "Buscar Aplicações e Componentes de TI…",
   "compliance.create.submit": "Criar",
-  "compliance.create.errRequirement": "O requisito é obrigatório."
+  "compliance.create.errRequirement": "O requisito é obrigatório.",
+  "compliance.tableTitle": "Achados de conformidade"
 }

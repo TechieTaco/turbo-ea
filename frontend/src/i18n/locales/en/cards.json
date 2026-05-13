@@ -546,5 +546,6 @@
   "compliance.create.card": "Impacted card (optional)",
   "compliance.create.cardPlaceholder": "Search Applications and IT Components…",
   "compliance.create.submit": "Create",
-  "compliance.create.errRequirement": "Requirement is required."
+  "compliance.create.errRequirement": "Requirement is required.",
+  "compliance.tableTitle": "Compliance findings"
 }

@@ -570,5 +570,8 @@
   "risks.closed.readOnlyBanner": "This risk is closed and read-only. Reopen it to make changes.",
   "risks.columns.title": "Columnas",
   "risks.columns.help": "Elija qué columnas mostrar. Referencia, Título y Nivel inicial están siempre visibles.",
-  "risks.columns.reset": "Restablecer"
+  "risks.columns.reset": "Restablecer",
+  "risks.tableTitle": "Registro de riesgos",
+  "risks.tableCount_one": "{{count}} riesgo",
+  "risks.tableCount_other": "{{count}} riesgos"
 }

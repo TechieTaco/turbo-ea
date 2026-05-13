@@ -546,5 +546,6 @@
   "compliance.create.card": "Scheda impattata (opzionale)",
   "compliance.create.cardPlaceholder": "Cerca Applicazioni e componenti IT…",
   "compliance.create.submit": "Crea",
-  "compliance.create.errRequirement": "Il requisito è obbligatorio."
+  "compliance.create.errRequirement": "Il requisito è obbligatorio.",
+  "compliance.tableTitle": "Riscontri di conformità"
 }

@@ -570,5 +570,8 @@
   "risks.closed.readOnlyBanner": "Dieses Risiko ist geschlossen und schreibgeschützt. Öffnen Sie es erneut, um Änderungen vorzunehmen.",
   "risks.columns.title": "Spalten",
   "risks.columns.help": "Wählen Sie die anzuzeigenden Spalten. Referenz, Titel und Anfangsniveau sind immer sichtbar.",
-  "risks.columns.reset": "Zurücksetzen"
+  "risks.columns.reset": "Zurücksetzen",
+  "risks.tableTitle": "Risikoregister",
+  "risks.tableCount_one": "{{count}} Risiko",
+  "risks.tableCount_other": "{{count}} Risiken"
 }

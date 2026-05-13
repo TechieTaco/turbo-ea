@@ -562,26 +562,6 @@ export default function RiskRegisterPage() {
             {t("risks.description")}
           </Typography>
         </Box>
-        <Stack direction="row" spacing={1}>
-          <Button
-            variant="outlined"
-            color="inherit"
-            startIcon={<MaterialSymbol icon="download" size={18} />}
-            onClick={() => exportRisksToCsv(filteredRows, t, formatDate)}
-            disabled={filteredRows.length === 0}
-            sx={{ textTransform: "none" }}
-          >
-            {t("common:actions.export", { defaultValue: "Export" })}
-          </Button>
-          <Button
-            variant="contained"
-            startIcon={<MaterialSymbol icon="add" size={18} />}
-            onClick={() => setDialogSeed(emptySeed())}
-            sx={{ textTransform: "none" }}
-          >
-            {t("risks.newRisk")}
-          </Button>
-        </Stack>
       </Stack>
 
       {error && (
@@ -717,6 +697,50 @@ export default function RiskRegisterPage() {
         />
 
         <Box sx={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
+          {/* Table-level toolbar — title + count pill on the left,
+              actions on the right. Mirrors the Inventory pattern. */}
+          <Stack
+            direction="row"
+            alignItems="center"
+            justifyContent="space-between"
+            spacing={2}
+            sx={{ mb: 1.5, flexWrap: "wrap", gap: 1 }}
+            useFlexGap
+          >
+            <Stack direction="row" alignItems="center" spacing={1.5}>
+              <Typography variant="h6" fontWeight={700}>
+                {t("risks.tableTitle", { defaultValue: "Risk Register" })}
+              </Typography>
+              <Chip
+                size="small"
+                label={t("risks.tableCount", {
+                  count: filteredRows.length,
+                  defaultValue: `${filteredRows.length} risks`,
+                })}
+                sx={{ bgcolor: "action.hover", fontWeight: 500 }}
+              />
+            </Stack>
+            <Stack direction="row" spacing={1}>
+              <Button
+                variant="outlined"
+                color="inherit"
+                startIcon={<MaterialSymbol icon="download" size={18} />}
+                onClick={() => exportRisksToCsv(filteredRows, t, formatDate)}
+                disabled={filteredRows.length === 0}
+                sx={{ textTransform: "none" }}
+              >
+                {t("common:actions.export", { defaultValue: "Export" })}
+              </Button>
+              <Button
+                variant="contained"
+                startIcon={<MaterialSymbol icon="add" size={18} />}
+                onClick={() => setDialogSeed(emptySeed())}
+                sx={{ textTransform: "none" }}
+              >
+                {t("common:actions.create", { defaultValue: "Create" })}
+              </Button>
+            </Stack>
+          </Stack>
           <Box
             className={mode === "dark" ? "ag-theme-quartz-dark" : "ag-theme-quartz"}
             sx={{ flex: 1, width: "100%", minHeight: 0 }}
