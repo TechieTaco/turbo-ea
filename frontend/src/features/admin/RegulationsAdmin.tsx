@@ -33,6 +33,7 @@ import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import { useComplianceRegulations } from "@/hooks/useComplianceRegulations";
 import { SUPPORTED_LOCALES, LOCALE_LABELS } from "@/i18n";
+import { brand } from "@/theme/tokens";
 import type { ComplianceRegulation, TranslationMap } from "@/types";
 
 interface FormState {
@@ -225,7 +226,7 @@ export default function RegulationsAdmin() {
                 <MaterialSymbol
                   icon="gavel"
                   size={22}
-                  color={r.is_enabled ? "#1976d2" : "#bbb"}
+                  color={r.is_enabled ? brand.primary : "#bbb"}
                 />
                 <Box sx={{ flex: 1, minWidth: 0 }}>
                   <Box

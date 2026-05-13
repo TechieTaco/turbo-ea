@@ -7,6 +7,7 @@ import CardContent from "@mui/material/CardContent";
 import Typography from "@mui/material/Typography";
 import { api } from "@/api/client";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import { surface } from "@/theme/tokens";
 import type { EAPrinciple } from "@/types";
 
 export default function PrinciplesPanel() {
@@ -71,7 +72,7 @@ export default function PrinciplesPanel() {
                 variant="caption"
                 sx={{
                   bgcolor: "primary.main",
-                  color: "#fff",
+                  color: surface.light.paper,
                   borderRadius: "50%",
                   width: 24,
                   height: 24,

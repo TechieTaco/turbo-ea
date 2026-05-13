@@ -10,6 +10,7 @@ import Typography from "@mui/material/Typography";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { useAuthContext } from "@/hooks/AuthContext";
 import { useAiStatus } from "@/hooks/useAiStatus";
+import { SEVERITY_COLORS } from "@/theme/tokens";
 
 const TurboLensSecurity = lazy(() => import("@/features/turbolens/TurboLensSecurity"));
 
@@ -47,7 +48,7 @@ export default function ComplianceTab() {
       <Paper variant="outlined" sx={{ p: { xs: 3, sm: 5 }, maxWidth: 720, mx: "auto", mt: 2 }}>
         <Stack spacing={2.5} alignItems="flex-start">
           <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-            <MaterialSymbol icon="psychology_alt" size={32} color="#f57c00" />
+            <MaterialSymbol icon="psychology_alt" size={32} color={SEVERITY_COLORS.high} />
             <Typography variant="h6" fontWeight={600}>
               {t("compliance.aiRequired.title")}
             </Typography>
