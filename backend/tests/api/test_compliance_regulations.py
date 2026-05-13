@@ -298,3 +298,177 @@ class TestBootstrapSurface:
         assert "compliance_regulations" in body
         keys = [reg["key"] for reg in body["compliance_regulations"]]
         assert "gdpr" in keys
+
+
+class TestRescanPreservesUserWork:
+    """A re-scan must NOT erase hand-curated state.
+
+    Pre-fix behaviour:
+      1. Re-emitted findings had their body fields (status, severity,
+         category, gap, evidence, remediation) overwritten by whatever
+         the AI emitted on the new run.
+      2. Findings the new scan didn't re-emit were force-transitioned
+         to ``decision="verified"`` + ``auto_resolved=True``, which
+         (a) wiped the user's lifecycle decision and (b) hid manual
+         findings under the default register filter.
+
+    Post-fix:
+      * Re-emitted findings: only ``run_id`` / ``last_seen_run_id`` /
+        ``auto_resolved=False`` are updated. Body + decision intact.
+      * Vanished findings with ``reviewed_by IS NOT NULL`` (manual
+        findings, acknowledged findings, accepted findings, promoted-
+        to-risk findings) are left ENTIRELY alone.
+      * Vanished, never-touched AI findings still get
+        ``auto_resolved=True`` flagged so the UI can show "AI no longer
+        reports this", but decision is never changed.
+    """
+
+    async def _run_scan(self, db, regulations: list[str]) -> None:
+        """Execute ``run_compliance_scan`` directly.
+
+        AI is not configured in the test env, so ``assess_regulation``
+        emits one synthetic "AI not configured" landscape finding per
+        regulation — but its ``finding_key`` is distinct from the rows
+        seeded in the tests, so the seeded rows always land in the
+        ``vanished`` branch and exercise the preservation logic.
+        """
+        from app.api.v1.turbolens import AnalysisStatus, AnalysisType
+        from app.services.turbolens_security import run_compliance_scan
+
+        scan_run = TurboLensAnalysisRun(
+            id=uuid.uuid4(),
+            analysis_type=AnalysisType.SECURITY_COMPLIANCE,
+            status=AnalysisStatus.RUNNING,
+        )
+        db.add(scan_run)
+        await db.flush()
+        await run_compliance_scan(db, scan_run.id, None, regulations=regulations)
+        await db.flush()
+
+    async def _seed_finding(
+        self,
+        db,
+        user_id,
+        *,
+        regulation: str,
+        decision: str,
+        reviewed_by,
+        severity: str = "high",
+        status: str = "non_compliant",
+        gap_description: str = "Original AI gap text.",
+    ):
+        """Insert a finding with a fixed finding_key + lifecycle state."""
+        prev_run = TurboLensAnalysisRun(
+            id=uuid.uuid4(),
+            analysis_type=AnalysisType.SECURITY_COMPLIANCE,
+            status=AnalysisStatus.COMPLETED,
+        )
+        db.add(prev_run)
+        await db.flush()
+        finding_id = uuid.uuid4()
+        db.add(
+            TurboLensComplianceFinding(
+                id=finding_id,
+                run_id=prev_run.id,
+                regulation=regulation,
+                regulation_article=None,
+                card_id=None,
+                scope_type="landscape",
+                category="Original category",
+                requirement="Original requirement that the user has curated.",
+                status=status,
+                severity=severity,
+                gap_description=gap_description,
+                evidence="Original evidence.",
+                remediation="Original remediation.",
+                ai_detected=False,
+                finding_key=f"k-{regulation}-{finding_id.hex}",
+                decision=decision,
+                reviewed_by=reviewed_by,
+            )
+        )
+        await db.flush()
+        return finding_id
+
+    async def test_manual_finding_survives_rescan(self, client, db, reg_env):
+        """Manual finding with reviewed_by set must be left entirely alone."""
+        admin = reg_env["admin"]
+        finding_id = await self._seed_finding(
+            db,
+            admin.id,
+            regulation="gdpr",
+            decision="new",
+            reviewed_by=admin.id,
+            severity="critical",
+            gap_description="My hand-written gap.",
+        )
+
+        await self._run_scan(db, ["gdpr"])
+
+        row = await db.get(TurboLensComplianceFinding, finding_id)
+        assert row is not None
+        # Everything intact: decision, body, auto_resolved=False
+        assert row.decision == "new"
+        assert row.severity == "critical"
+        assert row.gap_description == "My hand-written gap."
+        assert row.evidence == "Original evidence."
+        assert row.remediation == "Original remediation."
+        assert row.auto_resolved is False  # untouched
+
+    async def test_acknowledged_ai_finding_preserved(self, client, db, reg_env):
+        """An AI finding the user acknowledged must keep its decision + body."""
+        admin = reg_env["admin"]
+        finding_id = await self._seed_finding(
+            db,
+            admin.id,
+            regulation="gdpr",
+            decision="in_review",
+            reviewed_by=admin.id,
+            severity="medium",
+        )
+
+        await self._run_scan(db, ["gdpr"])
+
+        row = await db.get(TurboLensComplianceFinding, finding_id)
+        assert row is not None
+        assert row.decision == "in_review"  # was NOT force-transitioned
+        assert row.severity == "medium"  # body untouched
+        assert row.auto_resolved is False  # reviewed_by set → untouched
+
+    async def test_promoted_to_risk_finding_preserved(self, client, db, reg_env):
+        """A finding promoted to Risk (decision=risk_tracked) is preserved."""
+        admin = reg_env["admin"]
+        finding_id = await self._seed_finding(
+            db,
+            admin.id,
+            regulation="gdpr",
+            decision="risk_tracked",
+            reviewed_by=admin.id,
+        )
+
+        await self._run_scan(db, ["gdpr"])
+
+        row = await db.get(TurboLensComplianceFinding, finding_id)
+        assert row is not None
+        assert row.decision == "risk_tracked"
+        assert row.auto_resolved is False
+
+    async def test_untouched_ai_finding_gets_auto_resolved_flag_but_no_decision_change(
+        self, client, db, reg_env
+    ):
+        """Vanished AI finding the user never touched gets auto_resolved=True
+        but decision stays put — verification is the user's call."""
+        finding_id = await self._seed_finding(
+            db,
+            None,
+            regulation="gdpr",
+            decision="new",
+            reviewed_by=None,  # never touched
+        )
+
+        await self._run_scan(db, ["gdpr"])
+
+        row = await db.get(TurboLensComplianceFinding, finding_id)
+        assert row is not None
+        assert row.auto_resolved is True  # flagged for UI to dim
+        assert row.decision == "new"  # NOT force-transitioned to "verified"

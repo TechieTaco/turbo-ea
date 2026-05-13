@@ -26,6 +26,9 @@ The fixed list of 6 compliance regulations is gone. Admins can now CRUD complian
 ### Removed
 - `SUPPORTED_REGULATIONS`, `REGULATION_LABELS`, `REGULATION_PROMPTS` constants from `app/services/turbolens_security.py` and `app/schemas/turbolens.py`. The hard-coded `REGULATIONS` array on three frontend files (`TurboLensSecurity.tsx`, `CreateComplianceFindingDialog.tsx`, and the inline tab list) is gone.
 
+### Fixed
+- **Re-scan no longer destroys hand-curated state.** `run_compliance_scan` used to (a) overwrite the body of every re-emitted finding with the new AI output and (b) force-transition every finding the new scan didn't re-emit to `decision="verified"` + `auto_resolved=True` — which silently wiped manual findings, acknowledged decisions, severity overrides, and any handwritten gap / evidence / remediation. Re-scans are now minimal-touch: a re-emitted row only updates `last_seen_run_id` / `run_id` / `auto_resolved=False`; a vanished row only flips `auto_resolved=True` *if* the user has never touched it (`reviewed_by IS NULL`). User-touched rows — manual findings, acknowledged / accepted findings, anything promoted to a Risk — are never modified by the scanner. Verifying / closing remains a user decision via the lifecycle workflow.
+
 ## [1.10.0] - 2026-05-12
 
 Full introduction of the **GRC** (Governance, Risk and Compliance) module — a new classically-named top-level home that consolidates governance concerns previously scattered across `/ea-delivery` and TurboLens. The same release dissolves the legacy `/ea-delivery` page, lifts SoAW management onto the Initiative card, relocates the Initiatives workspace under **Reports › EA Delivery**, and makes compliance findings **stateful** with a per-finding decision workflow so reviewer decisions and risk-promotion back-links survive re-scans.

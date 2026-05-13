@@ -998,41 +998,41 @@ async def run_compliance_scan(
                 )
             )
         else:
-            # Refresh AI-generated content; preserve decision + risk_id +
-            # reviewer metadata so human judgement isn't wiped.
+            # Re-emitted finding — minimal-touch.
+            #
+            # The previous implementation overwrote status / severity /
+            # category / gap / evidence / remediation / ai_detected on every
+            # re-scan. That destroyed any hand-curation: manual findings, AI
+            # findings the user had acknowledged, severity overrides — all
+            # silently reverted to whatever the AI emitted this time.
+            #
+            # New rule: once a finding exists, its body and decision belong
+            # to the user. The scanner only updates the AI-side bookkeeping
+            # (which run last confirmed it, and whether it's still surfaced)
+            # and never touches anything else.
             row.run_id = run_uuid
             row.last_seen_run_id = run_uuid
             row.auto_resolved = False
-            row.status = f.get("status") or "review_needed"
-            row.severity = f.get("severity") or "info"
-            row.category = f.get("category") or ""
-            row.gap_description = f.get("gap_description") or ""
-            row.evidence = f.get("evidence")
-            row.remediation = f.get("remediation")
-            row.ai_detected = bool(f.get("ai_detected"))
-            # If a previously verified-by-auto-resolve finding has re-surfaced,
-            # reopen it for human review. Other states (in_review / mitigated /
-            # accepted / risk_tracked / not_applicable) are preserved so
-            # reviewer judgement survives the new scan.
-            if row.decision == "verified" and row.auto_resolved:
-                row.decision = "in_review"
 
-    # Findings within the scanned regulations that didn't re-appear:
-    # flag auto_resolved=True and transition to `verified` unless the
-    # row is `risk_tracked` (the linked Risk owns closure in that case).
+    # Findings within the scanned regulations that didn't re-appear.
+    #
+    # User-touched rows (reviewed_by is set — covers manual findings,
+    # acknowledged / accepted findings, and findings promoted to a Risk)
+    # are left COMPLETELY alone. The previous implementation force-
+    # transitioned them to `decision="verified"` plus
+    # `auto_resolved=True`, which (a) destroyed the user's lifecycle
+    # state and (b) hid manual findings under the default register
+    # filter (which excludes auto_resolved rows). Both are data loss.
+    #
+    # Untouched AI findings still get `auto_resolved=True` flagged so the
+    # frontend can dim them with an "AI no longer reports this" hint, but
+    # the decision is never changed — verifying / closing is the user's
+    # call via the lifecycle workflow.
     vanished = [row for row in existing_rows if row.finding_key not in seen_keys]
     for row in vanished:
+        if row.reviewed_by is not None:
+            continue
         row.auto_resolved = True
-        if row.decision != "risk_tracked":
-            if row.decision != "verified":
-                row.decision = "verified"
-                row.reviewed_at = datetime.now(timezone.utc)
-                if not row.review_note:
-                    row.review_note = (
-                        f"Auto-verified — re-scan on "
-                        f"{datetime.now(timezone.utc).strftime('%Y-%m-%d')} "
-                        f"no longer reports this finding."
-                    )
 
     await db.flush()
 
