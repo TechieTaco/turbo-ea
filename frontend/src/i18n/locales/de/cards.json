@@ -521,5 +521,7 @@
   "compliance.grid.count_other": "{{count}} Befunde",
   "compliance.filters.title": "Filter",
   "compliance.filters.expand": "Filter einblenden",
-  "compliance.filters.cardType": "Kartentyp"
+  "compliance.filters.cardType": "Kartentyp",
+  "compliance.filters.other": "Sonstige",
+  "compliance.drawer.untitled": "Compliance-Befund"
 }

@@ -1,32 +1,36 @@
 /**
- * Right-side collapsing filter sidebar for the Compliance AG Grid.
+ * Filter sidebar for the GRC > Compliance AG Grid.
  *
- * Follows the same collapsed-rail pattern used by ``InventoryFilterSidebar``
- * (anchored to the right edge of the grid). Hosts the filter chips and
- * toggles that previously lived in the inline Paper above the findings
- * list.
+ * Mirrors the InventoryFilterSidebar pattern: 44 px collapsed rail on
+ * the left of the grid, with a `chevron_right` to expand into a
+ * full-height sidebar (bgcolor: action.hover, borderRight, collapsible
+ * SectionHeader groups for each filter family).
+ *
+ * Colors come from the design tokens (`SEVERITY_COLORS`, `STATUS_COLORS`)
+ * — never hardcoded — so the look is consistent with the rest of the app
+ * and respects the `Don't redeclare status colors inline` rule in
+ * frontend/UI_GUIDELINES.md.
  */
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Checkbox from "@mui/material/Checkbox";
 import Chip from "@mui/material/Chip";
-import Divider from "@mui/material/Divider";
-import FormControlLabel from "@mui/material/FormControlLabel";
+import Collapse from "@mui/material/Collapse";
 import IconButton from "@mui/material/IconButton";
-import Stack from "@mui/material/Stack";
+import List from "@mui/material/List";
+import ListItemButton from "@mui/material/ListItemButton";
+import ListItemIcon from "@mui/material/ListItemIcon";
+import ListItemText from "@mui/material/ListItemText";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import { SEVERITY_COLORS, STATUS_COLORS } from "@/theme";
 import type {
   ComplianceDecision,
   ComplianceStatus,
   TurboLensComplianceFinding,
 } from "@/types";
-import {
-  complianceDecisionColor,
-  complianceStatusColor,
-  cveSeverityColor,
-} from "@/features/turbolens/utils";
 
 export interface ComplianceFilters {
   statuses: Set<ComplianceStatus>;
@@ -74,6 +78,35 @@ const CARD_TYPES: Array<"Application" | "ITComponent"> = [
 const DEFAULT_WIDTH = 280;
 const COLLAPSED_RAIL = 44;
 
+const STATUS_HEX: Record<ComplianceStatus, string> = {
+  compliant: STATUS_COLORS.success,
+  partial: STATUS_COLORS.warning,
+  non_compliant: STATUS_COLORS.error,
+  not_applicable: STATUS_COLORS.neutral,
+  review_needed: STATUS_COLORS.info,
+};
+
+const SEVERITY_HEX: Record<TurboLensComplianceFinding["severity"], string> = {
+  critical: SEVERITY_COLORS.critical,
+  high: SEVERITY_COLORS.high,
+  medium: SEVERITY_COLORS.medium,
+  low: SEVERITY_COLORS.low,
+  info: STATUS_COLORS.info,
+};
+
+const DECISION_HEX: Record<ComplianceDecision, string> = {
+  open: STATUS_COLORS.info,
+  acknowledged: STATUS_COLORS.warning,
+  accepted: STATUS_COLORS.success,
+  risk_tracked: STATUS_COLORS.error,
+  auto_resolved: STATUS_COLORS.neutral,
+};
+
+const CARD_TYPE_HEX: Record<"Application" | "ITComponent", string> = {
+  Application: "#0f7eb5",
+  ITComponent: "#d29270",
+};
+
 export default function ComplianceFilterSidebar({
   filters,
   onFiltersChange,
@@ -84,32 +117,59 @@ export default function ComplianceFilterSidebar({
   const { t } = useTranslation("admin");
   const { t: tCards } = useTranslation("cards");
 
-  function toggle<T>(set: Set<T>, value: T): Set<T> {
+  const [expanded, setExpanded] = useState({
+    status: true,
+    severity: true,
+    decision: true,
+    cardType: true,
+    other: true,
+  });
+  const toggleSection = (key: keyof typeof expanded) =>
+    setExpanded((p) => ({ ...p, [key]: !p[key] }));
+
+  function toggleSet<T>(set: Set<T>, value: T): Set<T> {
     const next = new Set(set);
     if (next.has(value)) next.delete(value);
     else next.add(value);
     return next;
   }
 
+  const activeCount =
+    (5 - filters.statuses.size) +
+    (5 - filters.severities.size) +
+    (5 - filters.decisions.size) +
+    (2 - filters.cardTypes.size) +
+    (filters.aiOnly ? 1 : 0) +
+    (filters.includeResolved ? 1 : 0);
+
   if (collapsed) {
     return (
       <Box
         sx={{
           width: COLLAPSED_RAIL,
+          minWidth: COLLAPSED_RAIL,
           borderRight: 1,
           borderColor: "divider",
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
-          py: 1,
-          flexShrink: 0,
+          pt: 1,
+          bgcolor: "action.hover",
         }}
       >
-        <Tooltip title={tCards("compliance.filters.expand")}>
+        <Tooltip title={tCards("compliance.filters.expand")} placement="right">
           <IconButton size="small" onClick={onToggleCollapsed}>
-            <MaterialSymbol icon="filter_alt" size={20} />
+            <MaterialSymbol icon="chevron_right" size={20} />
           </IconButton>
         </Tooltip>
+        {activeCount > 0 && (
+          <Chip
+            label={activeCount}
+            size="small"
+            color="primary"
+            sx={{ mt: 1, minWidth: 24, height: 20, fontSize: 12 }}
+          />
+        )}
       </Box>
     );
   }
@@ -118,143 +178,300 @@ export default function ComplianceFilterSidebar({
     <Box
       sx={{
         width,
-        flexShrink: 0,
+        minWidth: width,
         borderRight: 1,
         borderColor: "divider",
-        p: 1.5,
-        overflowY: "auto",
+        display: "flex",
+        flexDirection: "column",
+        bgcolor: "action.hover",
+        overflow: "hidden",
       }}
     >
-      <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
-        <Typography variant="subtitle2" fontWeight={700}>
-          {tCards("compliance.filters.title")}
-        </Typography>
+      {/* Header */}
+      <Box
+        sx={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          px: 1.5,
+          py: 0.5,
+          borderBottom: 1,
+          borderColor: "divider",
+        }}
+      >
+        <Box sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>
+          <Typography variant="body2" fontWeight={700} fontSize={14}>
+            {tCards("compliance.filters.title")}
+          </Typography>
+          {activeCount > 0 && (
+            <Box
+              sx={{
+                width: 8,
+                height: 8,
+                borderRadius: "50%",
+                bgcolor: "primary.main",
+                flexShrink: 0,
+              }}
+            />
+          )}
+        </Box>
         <IconButton size="small" onClick={onToggleCollapsed} aria-label="collapse">
           <MaterialSymbol icon="chevron_left" size={20} />
         </IconButton>
-      </Stack>
-      <Divider sx={{ mb: 1.5 }} />
+      </Box>
 
-      <FilterGroup label={t("turbolens_security_compliance_filter_status")}>
-        {STATUSES.map((s) => (
-          <Chip
-            key={s}
-            size="small"
-            label={t(`turbolens_security_compliance_status_${s}`)}
-            color={filters.statuses.has(s) ? complianceStatusColor(s) : "default"}
-            variant={filters.statuses.has(s) ? "filled" : "outlined"}
-            onClick={() =>
-              onFiltersChange({ ...filters, statuses: toggle(filters.statuses, s) })
-            }
-          />
-        ))}
-      </FilterGroup>
-
-      <FilterGroup label={t("turbolens_security_compliance_filter_severity")}>
-        {SEVERITIES.map((s) => (
-          <Chip
-            key={s}
-            size="small"
-            label={t(`turbolens_security_severity_${s}`)}
-            color={filters.severities.has(s) ? cveSeverityColor(s) : "default"}
-            variant={filters.severities.has(s) ? "filled" : "outlined"}
-            onClick={() =>
-              onFiltersChange({
-                ...filters,
-                severities: toggle(filters.severities, s),
-              })
-            }
-          />
-        ))}
-      </FilterGroup>
-
-      <FilterGroup label={t("turbolens_security_compliance_filter_decision")}>
-        {DECISIONS.map((d) => (
-          <Chip
-            key={d}
-            size="small"
-            label={t(`turbolens_security_compliance_decision_${d}`)}
-            color={
-              filters.decisions.has(d) ? complianceDecisionColor(d) : "default"
-            }
-            variant={filters.decisions.has(d) ? "filled" : "outlined"}
-            onClick={() =>
-              onFiltersChange({
-                ...filters,
-                decisions: toggle(filters.decisions, d),
-              })
-            }
-          />
-        ))}
-      </FilterGroup>
-
-      <FilterGroup label={tCards("compliance.filters.cardType")}>
-        {CARD_TYPES.map((ct) => (
-          <Chip
-            key={ct}
-            size="small"
-            label={ct}
-            color={filters.cardTypes.has(ct) ? "primary" : "default"}
-            variant={filters.cardTypes.has(ct) ? "filled" : "outlined"}
-            onClick={() =>
-              onFiltersChange({
-                ...filters,
-                cardTypes: toggle(filters.cardTypes, ct),
-              })
-            }
-          />
-        ))}
-      </FilterGroup>
-
-      <Stack spacing={0.5} sx={{ mt: 1 }}>
-        <FormControlLabel
-          control={
-            <Checkbox
-              size="small"
-              checked={filters.aiOnly}
-              onChange={(e) =>
-                onFiltersChange({ ...filters, aiOnly: e.target.checked })
-              }
-            />
-          }
-          label={t("turbolens_security_compliance_filter_ai_only")}
+      <Box sx={{ flex: 1, overflow: "auto", p: 1.5 }}>
+        <SectionHeader
+          label={t("turbolens_security_compliance_filter_status")}
+          icon="verified"
+          expanded={expanded.status}
+          onToggle={() => toggleSection("status")}
+          count={5 - filters.statuses.size}
         />
-        <FormControlLabel
-          control={
-            <Checkbox
-              size="small"
-              checked={filters.includeResolved}
-              onChange={(e) =>
+        <Collapse in={expanded.status}>
+          <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5, mb: 2, px: 0.5 }}>
+            {STATUSES.map((s) => (
+              <FilterChip
+                key={s}
+                label={t(`turbolens_security_compliance_status_${s}`)}
+                color={STATUS_HEX[s]}
+                selected={filters.statuses.has(s)}
+                onToggle={() =>
+                  onFiltersChange({ ...filters, statuses: toggleSet(filters.statuses, s) })
+                }
+              />
+            ))}
+          </Box>
+        </Collapse>
+
+        <SectionHeader
+          label={t("turbolens_security_compliance_filter_severity")}
+          icon="flag"
+          expanded={expanded.severity}
+          onToggle={() => toggleSection("severity")}
+          count={5 - filters.severities.size}
+        />
+        <Collapse in={expanded.severity}>
+          <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5, mb: 2, px: 0.5 }}>
+            {SEVERITIES.map((s) => (
+              <FilterChip
+                key={s}
+                label={t(`turbolens_security_severity_${s}`)}
+                color={SEVERITY_HEX[s]}
+                selected={filters.severities.has(s)}
+                onToggle={() =>
+                  onFiltersChange({
+                    ...filters,
+                    severities: toggleSet(filters.severities, s),
+                  })
+                }
+              />
+            ))}
+          </Box>
+        </Collapse>
+
+        <SectionHeader
+          label={t("turbolens_security_compliance_filter_decision")}
+          icon="how_to_reg"
+          expanded={expanded.decision}
+          onToggle={() => toggleSection("decision")}
+          count={5 - filters.decisions.size}
+        />
+        <Collapse in={expanded.decision}>
+          <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5, mb: 2, px: 0.5 }}>
+            {DECISIONS.map((d) => (
+              <FilterChip
+                key={d}
+                label={t(`turbolens_security_compliance_decision_${d}`)}
+                color={DECISION_HEX[d]}
+                selected={filters.decisions.has(d)}
+                onToggle={() =>
+                  onFiltersChange({
+                    ...filters,
+                    decisions: toggleSet(filters.decisions, d),
+                  })
+                }
+              />
+            ))}
+          </Box>
+        </Collapse>
+
+        <SectionHeader
+          label={tCards("compliance.filters.cardType")}
+          icon="category"
+          expanded={expanded.cardType}
+          onToggle={() => toggleSection("cardType")}
+          count={2 - filters.cardTypes.size}
+        />
+        <Collapse in={expanded.cardType}>
+          <List dense disablePadding sx={{ mb: 1 }}>
+            {CARD_TYPES.map((ct) => (
+              <ListItemButton
+                key={ct}
+                dense
+                onClick={() =>
+                  onFiltersChange({
+                    ...filters,
+                    cardTypes: toggleSet(filters.cardTypes, ct),
+                  })
+                }
+                sx={{ py: 0.25, px: 1, borderRadius: 1 }}
+              >
+                <ListItemIcon sx={{ minWidth: 32 }}>
+                  <Checkbox
+                    size="small"
+                    checked={filters.cardTypes.has(ct)}
+                    disableRipple
+                    sx={{ p: 0 }}
+                  />
+                </ListItemIcon>
+                <MaterialSymbol
+                  icon={ct === "Application" ? "apps" : "memory"}
+                  size={16}
+                  color={CARD_TYPE_HEX[ct]}
+                />
+                <ListItemText
+                  primary={ct}
+                  primaryTypographyProps={{
+                    fontSize: 14,
+                    ml: 0.75,
+                  }}
+                />
+              </ListItemButton>
+            ))}
+          </List>
+        </Collapse>
+
+        <SectionHeader
+          label={tCards("compliance.filters.other")}
+          icon="tune"
+          expanded={expanded.other}
+          onToggle={() => toggleSection("other")}
+          count={(filters.aiOnly ? 1 : 0) + (filters.includeResolved ? 1 : 0)}
+        />
+        <Collapse in={expanded.other}>
+          <List dense disablePadding sx={{ mb: 1 }}>
+            <ListItemButton
+              dense
+              onClick={() =>
+                onFiltersChange({ ...filters, aiOnly: !filters.aiOnly })
+              }
+              sx={{ py: 0.25, px: 1, borderRadius: 1 }}
+            >
+              <ListItemIcon sx={{ minWidth: 32 }}>
+                <Checkbox
+                  size="small"
+                  checked={filters.aiOnly}
+                  disableRipple
+                  sx={{ p: 0 }}
+                />
+              </ListItemIcon>
+              <ListItemText
+                primary={t("turbolens_security_compliance_filter_ai_only")}
+                primaryTypographyProps={{ fontSize: 14 }}
+              />
+            </ListItemButton>
+            <ListItemButton
+              dense
+              onClick={() =>
                 onFiltersChange({
                   ...filters,
-                  includeResolved: e.target.checked,
+                  includeResolved: !filters.includeResolved,
                 })
               }
-            />
-          }
-          label={t("turbolens_security_compliance_filter_include_resolved")}
-        />
-      </Stack>
+              sx={{ py: 0.25, px: 1, borderRadius: 1 }}
+            >
+              <ListItemIcon sx={{ minWidth: 32 }}>
+                <Checkbox
+                  size="small"
+                  checked={filters.includeResolved}
+                  disableRipple
+                  sx={{ p: 0 }}
+                />
+              </ListItemIcon>
+              <ListItemText
+                primary={t("turbolens_security_compliance_filter_include_resolved")}
+                primaryTypographyProps={{ fontSize: 14 }}
+              />
+            </ListItemButton>
+          </List>
+        </Collapse>
+      </Box>
     </Box>
   );
 }
 
-function FilterGroup({
+function SectionHeader({
   label,
-  children,
+  icon,
+  expanded,
+  onToggle,
+  count,
 }: {
   label: string;
-  children: React.ReactNode;
+  icon: string;
+  expanded: boolean;
+  onToggle: () => void;
+  count?: number;
 }) {
   return (
-    <Box sx={{ mb: 1.5 }}>
-      <Typography variant="caption" color="text.secondary" display="block">
+    <Box
+      onClick={onToggle}
+      sx={{
+        display: "flex",
+        alignItems: "center",
+        gap: 0.75,
+        py: 0.5,
+        px: 0.5,
+        cursor: "pointer",
+        borderRadius: 1,
+        userSelect: "none",
+        "&:hover": { bgcolor: "action.hover" },
+      }}
+    >
+      <MaterialSymbol
+        icon={expanded ? "expand_more" : "chevron_right"}
+        size={16}
+      />
+      <MaterialSymbol icon={icon} size={16} />
+      <Typography variant="body2" fontWeight={600} fontSize={13} sx={{ flex: 1 }}>
         {label}
       </Typography>
-      <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap sx={{ mt: 0.5 }}>
-        {children}
-      </Stack>
+      {count != null && count > 0 && (
+        <Chip
+          label={count}
+          size="small"
+          color="primary"
+          sx={{ height: 18, fontSize: 11 }}
+        />
+      )}
     </Box>
+  );
+}
+
+function FilterChip({
+  label,
+  color,
+  selected,
+  onToggle,
+}: {
+  label: string;
+  color: string;
+  selected: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <Chip
+      label={label}
+      size="small"
+      onClick={onToggle}
+      variant={selected ? "filled" : "outlined"}
+      sx={
+        selected
+          ? { bgcolor: color, color: "#fff", borderColor: color, fontWeight: 600 }
+          : { borderColor: color, color, bgcolor: "transparent" }
+      }
+    />
   );
 }
 

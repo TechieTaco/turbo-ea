@@ -521,5 +521,7 @@
   "compliance.grid.count_other": "{{count}} hallazgos",
   "compliance.filters.title": "Filtros",
   "compliance.filters.expand": "Mostrar filtros",
-  "compliance.filters.cardType": "Tipo de tarjeta"
+  "compliance.filters.cardType": "Tipo de tarjeta",
+  "compliance.filters.other": "Otros",
+  "compliance.drawer.untitled": "Hallazgo de cumplimiento"
 }

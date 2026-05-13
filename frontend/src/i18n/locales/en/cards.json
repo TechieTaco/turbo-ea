@@ -521,5 +521,7 @@
   "valueStreamCatalogue.industryVariantLabel": "Industry variant: {{variant}}",
   "valueStreamCatalogue.notesLabel": "Notes",
   "valueStreamCatalogue.capabilityIdsLabel": "Capabilities at this stage",
-  "valueStreamCatalogue.processIdsLabel": "Processes at this stage"
+  "valueStreamCatalogue.processIdsLabel": "Processes at this stage",
+  "compliance.filters.other": "Other",
+  "compliance.drawer.untitled": "Compliance finding"
 }

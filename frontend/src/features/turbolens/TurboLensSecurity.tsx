@@ -61,6 +61,7 @@ import type { ComplianceFilters } from "@/features/grc/compliance/ComplianceFilt
 import CreateRiskDialog from "@/features/grc/risk/CreateRiskDialog";
 import {
   RiskDialogSeed,
+  seedFromCompliance,
   seedFromCve,
 } from "@/features/grc/risk/riskDefaults";
 import { useNavigate } from "react-router-dom";
@@ -1166,6 +1167,8 @@ export default function TurboLensSecurity() {
             );
           }}
           onOpenCard={setCardPanelId}
+          onPromoteToRisk={(f) => setRiskSeed(seedFromCompliance(f))}
+          onOpenRisk={openRisk}
           onRequestAccept={(f) =>
             setAcceptDialog({ finding: f, note: "", saving: false })
           }

@@ -521,5 +521,7 @@
   "compliance.grid.count_other": "{{count}} riscontri",
   "compliance.filters.title": "Filtri",
   "compliance.filters.expand": "Mostra filtri",
-  "compliance.filters.cardType": "Tipo di scheda"
+  "compliance.filters.cardType": "Tipo di scheda",
+  "compliance.filters.other": "Altri",
+  "compliance.drawer.untitled": "Riscontro di conformità"
 }

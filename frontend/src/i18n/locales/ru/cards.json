@@ -521,5 +521,7 @@
   "compliance.grid.count_other": "{{count}} находок",
   "compliance.filters.title": "Фильтры",
   "compliance.filters.expand": "Развернуть фильтры",
-  "compliance.filters.cardType": "Тип карточки"
+  "compliance.filters.cardType": "Тип карточки",
+  "compliance.filters.other": "Прочие",
+  "compliance.drawer.untitled": "Наблюдение по соответствию"
 }

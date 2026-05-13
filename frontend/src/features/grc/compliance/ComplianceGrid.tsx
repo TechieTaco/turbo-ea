@@ -1,18 +1,29 @@
 /**
- * Compliance findings AG Grid.
+ * ComplianceGrid — AG Grid for the GRC > Compliance regulation sub-tab.
  *
- * Replaces the Paper-card-per-finding list inside ``TurboLensSecurity``'s
- * Compliance subtab. Findings are displayed compactly (severity, status,
- * article, card, decision, AI flag, requirement preview); the full body
- * lives in the ``FindingDetailDrawer`` opened on row click.
+ * Layout (matches the Inventory page convention):
  *
- * Grouping toggle: ungrouped (flat) or grouped-by-card (one row group per
- * impacted card). Filters live in the right-collapsing
- * ``ComplianceFilterSidebar``.
+ *     ┌─────────────┬─────────────────────────────────┐
+ *     │ filter      │ toolbar (group toggle, count)   │
+ *     │ sidebar     ├─────────────────────────────────┤
+ *     │ (left,      │            AG GRID              │
+ *     │ collapsible)│                                 │
+ *     └─────────────┴─────────────────────────────────┘
  *
- * Only one side panel is shown at a time: clicking a row opens the
- * Finding drawer; the Finding drawer's "Open impacted card" swaps the
- * same slot to ``CardDetailSidePanel``. Clicking outside closes.
+ * Column order: Card → Severity → Status → Article → Requirement →
+ * Decision → AI (icon-only column with a header tooltip explaining
+ * what the icon means).
+ *
+ * Grouping by card uses AG Grid Community's per-cell ``rowSpan`` to
+ * visually merge the Card column for consecutive same-card rows,
+ * combined with sort by card_name. No row-group rendering, no
+ * Enterprise feature dependency.
+ *
+ * Side panels:
+ * - Row click → finding drawer (right anchor)
+ * - Card-name click → bubbles up to the parent which closes the
+ *   finding drawer and opens the card panel in the same slot
+ *   (single-drawer discipline).
  */
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -20,8 +31,8 @@ import { AgGridReact } from "ag-grid-react";
 import type {
   ColDef,
   ICellRendererParams,
+  IHeaderParams,
   RowClickedEvent,
-  ValueGetterParams,
 } from "ag-grid-community";
 import "ag-grid-community/styles/ag-grid.css";
 import "ag-grid-community/styles/ag-theme-quartz.css";
@@ -33,8 +44,8 @@ import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import MaterialSymbol from "@/components/MaterialSymbol";
-import { useTheme } from "@mui/material/styles";
 import { useThemeMode } from "@/hooks/useThemeMode";
+import { useTheme } from "@mui/material/styles";
 import type {
   ComplianceDecision,
   ComplianceStatus,
@@ -56,11 +67,21 @@ interface Props {
   onFiltersChange: (next: ComplianceFilters) => void;
   onFindingUpdated: (updated: TurboLensComplianceFinding) => void;
   onOpenCard: (cardId: string) => void;
+  onPromoteToRisk?: (finding: TurboLensComplianceFinding) => void;
+  onOpenRisk?: (riskId: string) => void;
   onRequestAccept?: (finding: TurboLensComplianceFinding) => void;
   canManage?: boolean;
 }
 
 type GroupMode = "ungrouped" | "by_card";
+
+const SEVERITY_RANK: Record<string, number> = {
+  critical: 0,
+  high: 1,
+  medium: 2,
+  low: 3,
+  info: 4,
+};
 
 export default function ComplianceGrid({
   findings,
@@ -68,6 +89,8 @@ export default function ComplianceGrid({
   onFiltersChange,
   onFindingUpdated,
   onOpenCard,
+  onPromoteToRisk,
+  onOpenRisk,
   onRequestAccept,
   canManage = true,
 }: Props) {
@@ -82,122 +105,164 @@ export default function ComplianceGrid({
     useState<TurboLensComplianceFinding | null>(null);
 
   const handleOpenCard = (cardId: string) => {
+    // Single-drawer discipline: close the finding drawer first so the
+    // parent's CardDetailSidePanel is the only thing on screen.
     setFindingDrawer(null);
     onOpenCard(cardId);
   };
 
-  const columnDefs = useMemo<ColDef<TurboLensComplianceFinding>[]>(() => {
-    const cols: ColDef<TurboLensComplianceFinding>[] = [
-      {
-        headerName: t("turbolens_security_compliance_filter_severity"),
-        field: "severity",
-        width: 110,
-        cellRenderer: (p: ICellRendererParams<TurboLensComplianceFinding, string>) =>
-          p.value ? (
-            <Chip
-              size="small"
-              color={cveSeverityColor(p.value as TurboLensComplianceFinding["severity"])}
-              variant="outlined"
-              label={t(`turbolens_security_severity_${p.value}`)}
-            />
-          ) : null,
+  /* ---------- Sorted view for grouping ---------- */
+  const sortedFindings = useMemo(() => {
+    if (groupMode !== "by_card") return findings;
+    return [...findings].sort((a, b) => {
+      const an = a.card_name || "￿landscape"; // landscape rows last
+      const bn = b.card_name || "￿landscape";
+      if (an !== bn) return an.localeCompare(bn);
+      return (SEVERITY_RANK[a.severity] ?? 99) - (SEVERITY_RANK[b.severity] ?? 99);
+    });
+  }, [findings, groupMode]);
+
+  /* ---------- rowSpan helper for the Card column when grouping ---------- */
+  const cardRowSpan = (params: { data?: TurboLensComplianceFinding | undefined }) => {
+    if (groupMode !== "by_card" || !params.data) return 1;
+    const idx = sortedFindings.findIndex((f) => f.id === params.data!.id);
+    if (idx === -1) return 1;
+    // Only the FIRST row of each card group renders the cell; later rows
+    // return 1 so they don't double-render. AG Grid pulls the value only
+    // from the row whose rowSpan > 1.
+    const prev = idx > 0 ? sortedFindings[idx - 1] : null;
+    if (prev && (prev.card_name || "") === (params.data!.card_name || "")) {
+      return 1;
+    }
+    let span = 1;
+    for (let j = idx + 1; j < sortedFindings.length; j++) {
+      if ((sortedFindings[j].card_name || "") !== (params.data!.card_name || "")) {
+        break;
+      }
+      span++;
+    }
+    return span;
+  };
+
+  /* ---------- Columns: Card first ---------- */
+  const columnDefs = useMemo<ColDef<TurboLensComplianceFinding>[]>(() => [
+    {
+      headerName: tCards("compliance.grid.col.card"),
+      field: "card_name",
+      width: 200,
+      pinned: "left",
+      rowSpan: cardRowSpan,
+      cellClassRules: {
+        "compliance-grid--group-start": (p) =>
+          groupMode === "by_card" && cardRowSpan({ data: p.data }) > 1,
       },
-      {
-        headerName: t("turbolens_security_compliance_filter_status"),
-        field: "status",
-        width: 130,
-        cellRenderer: (p: ICellRendererParams<TurboLensComplianceFinding, string>) =>
-          p.value ? (
-            <Chip
-              size="small"
-              color={complianceStatusColor(p.value as ComplianceStatus)}
-              label={t(`turbolens_security_compliance_status_${p.value}`)}
-            />
-          ) : null,
-      },
-      {
-        headerName: tCards("compliance.grid.col.article"),
-        field: "regulation_article",
-        width: 110,
-        valueGetter: (p: ValueGetterParams<TurboLensComplianceFinding>) =>
-          p.data?.regulation_article ?? "—",
-      },
-      {
-        headerName: tCards("compliance.grid.col.card"),
-        field: "card_name",
-        width: 180,
-        cellRenderer: (p: ICellRendererParams<TurboLensComplianceFinding, string>) => {
-          const data = p.data;
-          if (!data?.card_name || !data.card_id) {
-            return (
-              <Typography variant="body2" color="text.disabled">
-                {tCards("compliance.grid.landscape")}
-              </Typography>
-            );
-          }
+      cellRenderer: (p: ICellRendererParams<TurboLensComplianceFinding>) => {
+        const data = p.data;
+        if (!data?.card_name || !data.card_id) {
           return (
-            <Box
-              sx={{
-                cursor: "pointer",
-                color: "primary.main",
-                "&:hover": { textDecoration: "underline" },
-              }}
-              onClick={(e) => {
-                e.stopPropagation();
-                handleOpenCard(data.card_id!);
-              }}
-            >
-              {data.card_name}
-            </Box>
+            <Typography variant="body2" color="text.disabled" sx={{ fontStyle: "italic" }}>
+              {tCards("compliance.grid.landscape")}
+            </Typography>
           );
-        },
+        }
+        return (
+          <Box
+            sx={{
+              cursor: "pointer",
+              color: "primary.main",
+              fontWeight: groupMode === "by_card" ? 600 : 500,
+              "&:hover": { textDecoration: "underline" },
+            }}
+            onClick={(e) => {
+              e.stopPropagation();
+              handleOpenCard(data.card_id!);
+            }}
+          >
+            {data.card_name}
+          </Box>
+        );
       },
-      {
-        headerName: tCards("compliance.grid.col.requirement"),
-        field: "requirement",
-        flex: 1,
-        minWidth: 220,
-        tooltipField: "requirement",
-        cellStyle: {
-          whiteSpace: "nowrap",
-          overflow: "hidden",
-          textOverflow: "ellipsis",
-        },
+    },
+    {
+      headerName: t("turbolens_security_compliance_filter_severity"),
+      field: "severity",
+      width: 110,
+      cellRenderer: (p: ICellRendererParams<TurboLensComplianceFinding, string>) =>
+        p.value ? (
+          <Chip
+            size="small"
+            color={cveSeverityColor(p.value as TurboLensComplianceFinding["severity"])}
+            label={t(`turbolens_security_severity_${p.value}`)}
+          />
+        ) : null,
+    },
+    {
+      headerName: t("turbolens_security_compliance_filter_status"),
+      field: "status",
+      width: 140,
+      cellRenderer: (p: ICellRendererParams<TurboLensComplianceFinding, string>) =>
+        p.value ? (
+          <Chip
+            size="small"
+            color={complianceStatusColor(p.value as ComplianceStatus)}
+            label={t(`turbolens_security_compliance_status_${p.value}`)}
+          />
+        ) : null,
+    },
+    {
+      headerName: tCards("compliance.grid.col.article"),
+      field: "regulation_article",
+      width: 110,
+      valueFormatter: (p) => p.value ?? "—",
+    },
+    {
+      headerName: tCards("compliance.grid.col.requirement"),
+      field: "requirement",
+      flex: 1,
+      minWidth: 240,
+      tooltipField: "requirement",
+      cellStyle: {
+        whiteSpace: "nowrap",
+        overflow: "hidden",
+        textOverflow: "ellipsis",
       },
-      {
-        headerName: tCards("compliance.grid.col.decision"),
-        field: "decision",
-        width: 130,
-        cellRenderer: (p: ICellRendererParams<TurboLensComplianceFinding, string>) =>
-          p.value ? (
-            <Tooltip title={p.data?.review_note || ""}>
-              <Chip
-                size="small"
-                variant="outlined"
-                color={complianceDecisionColor(p.value as ComplianceDecision)}
-                label={t(`turbolens_security_compliance_decision_${p.value}`)}
-              />
-            </Tooltip>
-          ) : null,
-      },
-      {
-        headerName: tCards("compliance.grid.col.ai"),
-        field: "ai_detected",
-        width: 70,
-        cellRenderer: (p: ICellRendererParams<TurboLensComplianceFinding, boolean>) =>
-          p.value ? (
-            <Tooltip title={t("turbolens_security_compliance_ai_detected_help")}>
+    },
+    {
+      headerName: tCards("compliance.grid.col.decision"),
+      field: "decision",
+      width: 130,
+      cellRenderer: (p: ICellRendererParams<TurboLensComplianceFinding, string>) =>
+        p.value ? (
+          <Tooltip title={p.data?.review_note || ""}>
+            <Chip
+              size="small"
+              variant="outlined"
+              color={complianceDecisionColor(p.value as ComplianceDecision)}
+              label={t(`turbolens_security_compliance_decision_${p.value}`)}
+            />
+          </Tooltip>
+        ) : null,
+    },
+    {
+      headerName: tCards("compliance.grid.col.ai"),
+      field: "ai_detected",
+      width: 72,
+      headerComponent: AiHeader,
+      headerComponentParams: { tooltip: t("turbolens_security_compliance_ai_detected_help") },
+      cellRenderer: (p: ICellRendererParams<TurboLensComplianceFinding, boolean>) =>
+        p.value ? (
+          <Tooltip title={t("turbolens_security_compliance_ai_detected_help")}>
+            <Box sx={{ display: "inline-flex" }}>
               <MaterialSymbol
                 icon="psychology"
                 size={18}
                 color={theme.palette.warning.main}
               />
-            </Tooltip>
-          ) : null,
-      },
-    ];
-    return cols;
-  }, [t, tCards, theme]);
+            </Box>
+          </Tooltip>
+        ) : null,
+    },
+  ], [t, tCards, theme, groupMode, sortedFindings]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const defaultColDef = useMemo<ColDef>(
     () => ({ sortable: true, resizable: true, filter: false }),
@@ -209,46 +274,19 @@ export default function ComplianceGrid({
     setFindingDrawer(e.data);
   };
 
-  // AG Grid Community does not ship row-group rendering. To honour the
-  // "ungrouped / by card" toggle we sort the rows by card_name (then by
-  // severity) when grouped — adjacent rows for the same card cluster
-  // visually, and the user still sees every finding in one scrollable
-  // table.
-  const severityRank: Record<string, number> = {
-    critical: 0,
-    high: 1,
-    medium: 2,
-    low: 3,
-    info: 4,
-  };
-  const sortedFindings = useMemo(() => {
-    if (groupMode !== "by_card") return findings;
-    return [...findings].sort((a, b) => {
-      const an = a.card_name || "~landscape";
-      const bn = b.card_name || "~landscape";
-      if (an !== bn) return an.localeCompare(bn);
-      return (
-        (severityRank[a.severity] ?? 99) - (severityRank[b.severity] ?? 99)
-      );
-    });
-  }, [findings, groupMode]);
-
-  const getRowStyle = (params: { data?: TurboLensComplianceFinding; node: { rowIndex: number | null } }) => {
-    const style: Record<string, string | number> = {};
-    if (params.data?.auto_resolved) style.opacity = 0.65;
-    // Visual separator at the top of each card cluster in grouped mode.
-    if (groupMode === "by_card" && params.node.rowIndex !== null && params.node.rowIndex > 0) {
-      const prev = sortedFindings[params.node.rowIndex - 1];
-      const curr = sortedFindings[params.node.rowIndex];
-      if (prev && curr && (prev.card_name || "") !== (curr.card_name || "")) {
-        style.borderTop = `2px solid ${theme.palette.divider}`;
-      }
-    }
-    return Object.keys(style).length ? style : undefined;
-  };
+  const getRowStyle = (params: { data?: TurboLensComplianceFinding }) =>
+    params.data?.auto_resolved ? { opacity: 0.65 } : undefined;
 
   return (
-    <Box sx={{ display: "flex", flex: 1, minHeight: 480, gap: 0 }}>
+    <Box
+      sx={{
+        display: "flex",
+        flex: 1,
+        minHeight: 0,
+        height: "100%",
+        gap: 0,
+      }}
+    >
       <ComplianceFilterSidebar
         filters={filters}
         onFiltersChange={onFiltersChange}
@@ -263,7 +301,10 @@ export default function ComplianceGrid({
           display: "flex",
           flexDirection: "column",
           minWidth: 0,
+          minHeight: 0,
           pl: 1.5,
+          pr: { xs: 1, md: 2 },
+          py: 1.5,
         }}
       >
         <Stack
@@ -294,7 +335,15 @@ export default function ComplianceGrid({
 
         <Box
           className={mode === "dark" ? "ag-theme-quartz-dark" : "ag-theme-quartz"}
-          sx={{ flex: 1, minHeight: 420, width: "100%" }}
+          sx={{
+            width: "100%",
+            // Visual emphasis for card group starts in by_card mode.
+            "& .compliance-grid--group-start": {
+              fontWeight: 600,
+              backgroundColor: theme.palette.action.hover,
+              borderTop: `1px solid ${theme.palette.divider}`,
+            },
+          }}
         >
           <AgGridReact<TurboLensComplianceFinding>
             rowData={sortedFindings}
@@ -304,7 +353,11 @@ export default function ComplianceGrid({
             animateRows
             getRowId={(p) => p.data.id}
             getRowStyle={getRowStyle}
+            suppressRowTransform={groupMode === "by_card"}
             tooltipShowDelay={400}
+            rowHeight={40}
+            headerHeight={40}
+            domLayout="autoHeight"
           />
         </Box>
       </Box>
@@ -314,6 +367,15 @@ export default function ComplianceGrid({
         onClose={() => setFindingDrawer(null)}
         canManage={canManage}
         onOpenCard={handleOpenCard}
+        onPromoteToRisk={
+          onPromoteToRisk
+            ? (f) => {
+                setFindingDrawer(null);
+                onPromoteToRisk(f);
+              }
+            : undefined
+        }
+        onOpenRisk={onOpenRisk}
         onRequestAccept={
           onRequestAccept
             ? (f) => {
@@ -328,5 +390,17 @@ export default function ComplianceGrid({
         }}
       />
     </Box>
+  );
+}
+
+/* Header renderer with a tooltip explaining the AI icon column. */
+function AiHeader(props: IHeaderParams & { tooltip: string }) {
+  return (
+    <Tooltip title={props.tooltip} placement="top">
+      <Stack direction="row" alignItems="center" spacing={0.5}>
+        <MaterialSymbol icon="psychology" size={16} />
+        <span>{props.displayName}</span>
+      </Stack>
+    </Tooltip>
   );
 }

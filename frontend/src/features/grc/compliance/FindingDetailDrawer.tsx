@@ -1,18 +1,20 @@
 /**
- * Finding detail drawer.
+ * FindingDetailDrawer — right-anchored drawer showing one compliance
+ * finding with full context and an action bar at the bottom.
  *
- * Renders the full body of a single compliance finding in a left-anchored
- * MUI Drawer. Used by both the GRC > Compliance AG Grid and the Card
- * Detail Compliance tab so the layout stays identical across surfaces.
+ * Mirrors ``SecurityFindingDrawer`` (the CVE drawer) for consistency:
+ * - ``anchor="right"``, ``width: { xs: "100%", sm: 480 }``, ``p: 3``
+ * - Stack header (h6 + close icon)
+ * - Chips row (severity, status, decision, AI flag)
+ * - Subtitle: regulation · article · card name
+ * - Divider, then FieldRow blocks (requirement / gap / evidence /
+ *   remediation / category / reviewed-by)
+ * - Bottom action bar: primary Create-risk / Open-risk, then secondary
+ *   AI verdict + decision-transition buttons
  *
- * AI verdict buttons (Confirm / Reject) appear when ``ai_detected`` is
- * true; they persist ``hasAiFeatures`` on the impacted card via
- * ``POST /turbolens/security/compliance-findings/{id}/ai-verdict`` and
- * acknowledge the finding in the same call.
- *
- * The user picks one drawer at a time: clicking "Open impacted card"
- * does not stack a second drawer — the parent owns drawer state and is
- * expected to swap to ``CardDetailSidePanel`` on the same slot.
+ * Opening the impacted card is bubbled up to the parent so it can close
+ * this drawer first and open ``CardDetailSidePanel`` in the same slot —
+ * the user only ever sees one drawer at a time.
  */
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -43,33 +45,43 @@ interface Props {
   finding: TurboLensComplianceFinding | null;
   onClose: () => void;
   onOpenCard?: (cardId: string) => void;
-  /** Triggered when the user clicks Accept — the parent should open the
-   *  rationale dialog (Accept requires a non-empty rationale server-side). */
+  onPromoteToRisk?: (finding: TurboLensComplianceFinding) => void;
+  onOpenRisk?: (riskId: string) => void;
   onRequestAccept?: (finding: TurboLensComplianceFinding) => void;
-  /** Optimistic local update after a verdict / decision change. */
   onUpdated?: (updated: TurboLensComplianceFinding) => void;
-  /** When false the AI verdict + decision controls are hidden (read-only viewer). */
   canManage?: boolean;
-  width?: number;
 }
 
-const DEFAULT_WIDTH = 440;
+function FieldRow({ label, value }: { label: string; value: React.ReactNode }) {
+  if (value === null || value === undefined || value === "") return null;
+  return (
+    <Box>
+      <Typography variant="caption" color="text.secondary" sx={{ letterSpacing: 0.4 }}>
+        {label.toUpperCase()}
+      </Typography>
+      <Typography variant="body2" sx={{ mt: 0.5, whiteSpace: "pre-wrap" }}>
+        {value}
+      </Typography>
+    </Box>
+  );
+}
 
 export default function FindingDetailDrawer({
   finding,
   onClose,
   onOpenCard,
+  onPromoteToRisk,
+  onOpenRisk,
   onRequestAccept,
   onUpdated,
   canManage = true,
-  width = DEFAULT_WIDTH,
 }: Props) {
   const { t } = useTranslation("admin");
   const { t: tCards } = useTranslation("cards");
+  const { t: tDelivery } = useTranslation("delivery");
+
   const [saving, setSaving] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
-
-  const open = finding !== null;
 
   const submitVerdict = async (verdict: "confirmed" | "rejected") => {
     if (!finding) return;
@@ -107,61 +119,41 @@ export default function FindingDetailDrawer({
 
   return (
     <Drawer
-      anchor="left"
-      open={open}
+      anchor="right"
+      open={Boolean(finding)}
       onClose={onClose}
-      PaperProps={{ sx: { width: { xs: "100vw", sm: width } } }}
+      PaperProps={{ sx: { width: { xs: "100%", sm: 480 }, p: 3 } }}
     >
       {finding && (
-        <Box
-          sx={{
-            p: 2,
-            height: "100%",
-            display: "flex",
-            flexDirection: "column",
-            gap: 1.5,
-            overflowY: "auto",
-          }}
-        >
+        <Stack spacing={2.5}>
+          {/* Header */}
           <Stack direction="row" alignItems="center" justifyContent="space-between">
-            <Typography variant="overline" color="text.secondary">
-              {t(`turbolens_security_regulation_${finding.regulation}`)}
-              {finding.regulation_article ? ` · ${finding.regulation_article}` : ""}
+            <Typography variant="h6" fontWeight={700} sx={{ pr: 1 }}>
+              {finding.regulation_article || tCards("compliance.drawer.untitled")}
             </Typography>
-            <IconButton size="small" onClick={onClose} aria-label="close">
-              <MaterialSymbol icon="close" size={18} />
+            <IconButton onClick={onClose} size="small" aria-label="Close">
+              <MaterialSymbol icon="close" />
             </IconButton>
           </Stack>
 
-          <Typography variant="h6" sx={{ lineHeight: 1.3 }}>
-            {finding.requirement}
-          </Typography>
-
-          <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
+          {/* Chips */}
+          <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+            <Chip
+              size="small"
+              color={cveSeverityColor(finding.severity)}
+              label={t(`turbolens_security_severity_${finding.severity}`)}
+            />
             <Chip
               size="small"
               color={complianceStatusColor(finding.status)}
               label={t(`turbolens_security_compliance_status_${finding.status}`)}
             />
-            <Chip
-              size="small"
-              variant="outlined"
-              color={cveSeverityColor(finding.severity)}
-              label={t(`turbolens_security_severity_${finding.severity}`)}
-            />
-            <Tooltip
-              title={
-                finding.review_note ||
-                t(`turbolens_security_compliance_decision_help_${finding.decision}`)
-              }
-            >
+            <Tooltip title={finding.review_note || ""}>
               <Chip
                 size="small"
                 variant="outlined"
                 color={complianceDecisionColor(finding.decision as ComplianceDecision)}
-                label={t(
-                  `turbolens_security_compliance_decision_${finding.decision}`,
-                )}
+                label={t(`turbolens_security_compliance_decision_${finding.decision}`)}
               />
             </Tooltip>
             {finding.ai_detected && (
@@ -184,17 +176,11 @@ export default function FindingDetailDrawer({
             )}
           </Stack>
 
-          {finding.card_name && finding.card_id && (
-            <Button
-              size="small"
-              variant="outlined"
-              startIcon={<MaterialSymbol icon="open_in_new" size={16} />}
-              onClick={() => onOpenCard?.(finding.card_id!)}
-              sx={{ alignSelf: "flex-start" }}
-            >
-              {tCards("compliance.drawer.openCard", { name: finding.card_name })}
-            </Button>
-          )}
+          {/* Subtitle: regulation + card */}
+          <Typography variant="subtitle2" color="text.secondary">
+            {t(`turbolens_security_regulation_${finding.regulation}`)}
+            {finding.card_name && finding.card_id ? ` · ${finding.card_name}` : ""}
+          </Typography>
 
           {err && (
             <Alert severity="error" onClose={() => setErr(null)}>
@@ -202,7 +188,53 @@ export default function FindingDetailDrawer({
             </Alert>
           )}
 
-          {finding.ai_detected && canManage && finding.card_id && (
+          <Divider />
+
+          {/* Body fields */}
+          <FieldRow
+            label={tCards("compliance.grid.col.requirement")}
+            value={finding.requirement}
+          />
+          <FieldRow
+            label={tCards("compliance.drawer.gap")}
+            value={
+              finding.gap_description && finding.gap_description !== "—"
+                ? finding.gap_description
+                : null
+            }
+          />
+          <FieldRow
+            label={tCards("compliance.drawer.evidence")}
+            value={finding.evidence}
+          />
+          <FieldRow
+            label={tCards("compliance.drawer.remediation")}
+            value={finding.remediation}
+          />
+          <FieldRow
+            label={tCards("compliance.drawer.category")}
+            value={
+              finding.category
+                ? finding.category
+                    .replace(/[_-]+/g, " ")
+                    .replace(/\b\w/g, (c) => c.toUpperCase())
+                : null
+            }
+          />
+          {finding.reviewer_name && finding.reviewed_at && (
+            <FieldRow
+              label={tCards("compliance.drawer.reviewed")}
+              value={
+                tCards("compliance.drawer.reviewedBy", {
+                  name: finding.reviewer_name,
+                  date: new Date(finding.reviewed_at).toLocaleString(),
+                }) + (finding.review_note ? ` — ${finding.review_note}` : "")
+              }
+            />
+          )}
+
+          {/* AI verdict block — prominent because it writes to the card */}
+          {canManage && finding.ai_detected && finding.card_id && (
             <Box
               sx={{
                 border: 1,
@@ -255,47 +287,56 @@ export default function FindingDetailDrawer({
             </Box>
           )}
 
-          {finding.gap_description && finding.gap_description !== "—" && (
-            <Section title={tCards("compliance.drawer.gap")}>
-              {finding.gap_description}
-            </Section>
-          )}
-          {finding.evidence && (
-            <Section title={tCards("compliance.drawer.evidence")}>
-              {finding.evidence}
-            </Section>
-          )}
-          {finding.remediation && (
-            <Section title={tCards("compliance.drawer.remediation")}>
-              {finding.remediation}
-            </Section>
-          )}
-          {finding.category && (
-            <Section title={tCards("compliance.drawer.category")}>
-              {finding.category
-                .replace(/[_-]+/g, " ")
-                .replace(/\b\w/g, (c) => c.toUpperCase())}
-            </Section>
-          )}
-          {finding.reviewer_name && finding.reviewed_at && (
-            <Section title={tCards("compliance.drawer.reviewed")}>
-              {tCards("compliance.drawer.reviewedBy", {
-                name: finding.reviewer_name,
-                date: new Date(finding.reviewed_at).toLocaleString(),
-              })}
-              {finding.review_note ? ` — ${finding.review_note}` : ""}
-            </Section>
-          )}
+          <Divider />
 
-          {canManage && !finding.auto_resolved && (
-            <>
-              <Divider sx={{ my: 1 }} />
-              <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+          {/* Action bar */}
+          <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+            {finding.card_name && finding.card_id && onOpenCard && (
+              <Button
+                size="small"
+                variant="text"
+                startIcon={<MaterialSymbol icon="open_in_new" size={16} />}
+                onClick={() => onOpenCard(finding.card_id!)}
+              >
+                {tCards("compliance.drawer.openCard", { name: finding.card_name })}
+              </Button>
+            )}
+            {finding.risk_id ? (
+              onOpenRisk && (
+                <Button
+                  size="small"
+                  variant="contained"
+                  color="primary"
+                  startIcon={<MaterialSymbol icon="open_in_new" size={16} />}
+                  onClick={() => onOpenRisk(finding.risk_id!)}
+                >
+                  {tDelivery("risks.openRisk", {
+                    reference: finding.risk_reference ?? finding.risk_id,
+                  })}
+                </Button>
+              )
+            ) : (
+              canManage &&
+              !finding.auto_resolved &&
+              onPromoteToRisk && (
+                <Button
+                  size="small"
+                  variant="contained"
+                  color="primary"
+                  startIcon={<MaterialSymbol icon="policy" size={16} />}
+                  onClick={() => onPromoteToRisk(finding)}
+                >
+                  {tDelivery("risks.createRisk")}
+                </Button>
+              )
+            )}
+            {canManage && !finding.auto_resolved && (
+              <>
                 {finding.decision !== "acknowledged" &&
                   finding.decision !== "risk_tracked" && (
                     <Button
                       size="small"
-                      variant="text"
+                      variant="outlined"
                       disabled={saving !== null}
                       onClick={() => setDecision("acknowledged")}
                     >
@@ -307,7 +348,7 @@ export default function FindingDetailDrawer({
                   finding.decision !== "risk_tracked" && (
                     <Button
                       size="small"
-                      variant="text"
+                      variant="outlined"
                       disabled={saving !== null}
                       onClick={() => onRequestAccept(finding)}
                     >
@@ -325,24 +366,11 @@ export default function FindingDetailDrawer({
                       {tCards("compliance.drawer.reopen")}
                     </Button>
                   )}
-              </Stack>
-            </>
-          )}
-        </Box>
+              </>
+            )}
+          </Stack>
+        </Stack>
       )}
     </Drawer>
-  );
-}
-
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <Box>
-      <Typography variant="caption" color="text.secondary" sx={{ textTransform: "uppercase", letterSpacing: 0.5 }}>
-        {title}
-      </Typography>
-      <Typography variant="body2" sx={{ whiteSpace: "pre-wrap", mt: 0.5 }}>
-        {children}
-      </Typography>
-    </Box>
   );
 }

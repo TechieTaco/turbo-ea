@@ -521,5 +521,7 @@
   "compliance.grid.count_other": "{{count}} 条发现",
   "compliance.filters.title": "筛选",
   "compliance.filters.expand": "展开筛选",
-  "compliance.filters.cardType": "卡片类型"
+  "compliance.filters.cardType": "卡片类型",
+  "compliance.filters.other": "其他",
+  "compliance.drawer.untitled": "合规发现"
 }

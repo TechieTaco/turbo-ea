@@ -521,5 +521,7 @@
   "compliance.grid.count_other": "{{count}} achados",
   "compliance.filters.title": "Filtros",
   "compliance.filters.expand": "Mostrar filtros",
-  "compliance.filters.cardType": "Tipo de cartão"
+  "compliance.filters.cardType": "Tipo de cartão",
+  "compliance.filters.other": "Outros",
+  "compliance.drawer.untitled": "Achado de conformidade"
 }

@@ -521,5 +521,7 @@
   "compliance.grid.count_other": "{{count}} constats",
   "compliance.filters.title": "Filtres",
   "compliance.filters.expand": "Afficher les filtres",
-  "compliance.filters.cardType": "Type de carte"
+  "compliance.filters.cardType": "Type de carte",
+  "compliance.filters.other": "Autres",
+  "compliance.drawer.untitled": "Constat de conformité"
 }
