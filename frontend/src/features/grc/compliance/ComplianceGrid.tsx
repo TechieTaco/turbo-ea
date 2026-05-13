@@ -250,7 +250,8 @@ export default function ComplianceGrid({
     {
       headerName: tCards("compliance.grid.col.card"),
       field: "card_name",
-      width: 200,
+      width: 280,
+      minWidth: 200,
       pinned: "left",
       cellClassRules: {
         "compliance-grid--group-start": (p) =>
@@ -291,7 +292,7 @@ export default function ComplianceGrid({
     {
       headerName: t("turbolens_security_compliance_filter_severity"),
       field: "severity",
-      width: 110,
+      width: 120,
       cellRenderer: (p: ICellRendererParams<TurboLensComplianceFinding, string>) =>
         p.value ? (
           <Chip
@@ -304,7 +305,7 @@ export default function ComplianceGrid({
     {
       headerName: t("turbolens_security_compliance_filter_status"),
       field: "status",
-      width: 140,
+      width: 170,
       cellRenderer: (p: ICellRendererParams<TurboLensComplianceFinding, string>) =>
         p.value ? (
           <Chip
@@ -317,7 +318,7 @@ export default function ComplianceGrid({
     {
       headerName: tCards("compliance.grid.col.article"),
       field: "regulation_article",
-      width: 110,
+      width: 150,
       valueFormatter: (p) => p.value ?? "—",
     },
     {
@@ -335,7 +336,7 @@ export default function ComplianceGrid({
     {
       headerName: tCards("compliance.grid.col.lifecycle"),
       field: "decision",
-      width: 130,
+      width: 160,
       cellRenderer: (p: ICellRendererParams<TurboLensComplianceFinding, string>) =>
         p.value ? (
           <Tooltip title={p.data?.review_note || ""}>
@@ -351,7 +352,7 @@ export default function ComplianceGrid({
     {
       headerName: tCards("compliance.grid.col.ai"),
       field: "ai_detected",
-      width: 72,
+      width: 90,
       headerComponent: AiHeader,
       headerComponentParams: { tooltip: t("turbolens_security_compliance_ai_detected_help") },
       cellRenderer: (p: ICellRendererParams<TurboLensComplianceFinding, boolean>) =>

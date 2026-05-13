@@ -614,17 +614,14 @@ export default function RiskRegisterPage() {
         )}
       </Paper>
 
-      {/* Sidebar + grid — flex row matching the Inventory layout. The
-          grid wrapper uses ``flex: 1, minHeight: 0`` so AG Grid takes
-          the parent's height; the parent flex column sized by the page
-          gives it a viewport-bound height (no fixed 640 px). */}
+      {/* Sidebar + grid — flex row matching the Inventory layout. No
+          outer border/borderRadius wrapper: the sidebar provides its
+          own ``borderRight`` divider, and the AG Grid's native cell
+          borders carry the rest. Wrapping in a bordered box on top of
+          that would produce the visible "double edge" on the right.   */}
       <Box
         sx={{
           display: "flex",
-          border: 1,
-          borderColor: "divider",
-          borderRadius: 1,
-          overflow: "hidden",
           flex: 1,
           minHeight: 480,
         }}

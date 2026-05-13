@@ -436,7 +436,7 @@
   "risks.createRisk": "Create risk",
   "risks.createRiskFromFinding": "Create risk from finding",
   "risks.viewSource": "View source finding",
-  "risks.backToRegister": "← Back to register",
+  "risks.backToRegister": "Torna al registro",
   "risks.deleteRisk": "Delete risk",
   "risks.confirmDelete": "Delete risk {{reference}}? This cannot be undone.",
   "risks.emptyState": "No risks yet. Create one manually or promote a CVE / compliance finding from TurboLens.",
