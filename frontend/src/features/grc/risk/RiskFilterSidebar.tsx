@@ -24,6 +24,8 @@ import ListItemButton from "@mui/material/ListItemButton";
 import ListItemIcon from "@mui/material/ListItemIcon";
 import ListItemText from "@mui/material/ListItemText";
 import Switch from "@mui/material/Switch";
+import Tab from "@mui/material/Tab";
+import Tabs from "@mui/material/Tabs";
 import TextField from "@mui/material/TextField";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
@@ -34,6 +36,10 @@ import type {
   RiskSourceType,
   RiskStatus,
 } from "@/types";
+import {
+  LOCKED_RISK_COLUMNS,
+  RISK_GRID_COLUMNS,
+} from "./RiskRegisterPage";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -77,6 +83,9 @@ interface Props {
   width: number;
   onWidthChange: (w: number) => void;
   availableOwners: OwnerOption[];
+  visibleColumns: Set<string>;
+  onVisibleColumnsChange: (next: Set<string>) => void;
+  onResetColumns?: () => void;
 }
 
 const STATUSES: RiskStatus[] = [
@@ -157,9 +166,13 @@ export default function RiskFilterSidebar({
   width,
   onWidthChange,
   availableOwners,
+  visibleColumns,
+  onVisibleColumnsChange,
+  onResetColumns,
 }: Props) {
   const { t } = useTranslation(["delivery", "common"]);
 
+  const [tab, setTab] = useState<0 | 1>(0);
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
     search: true,
     status: true,
@@ -170,6 +183,16 @@ export default function RiskFilterSidebar({
     target: false,
   });
   const [ownerSearch, setOwnerSearch] = useState("");
+
+  const hiddenColumnCount = RISK_GRID_COLUMNS.length - visibleColumns.size;
+  const columnsChanged = hiddenColumnCount > 0;
+  const toggleColumn = (id: string) => {
+    if (LOCKED_RISK_COLUMNS.has(id)) return;
+    const next = new Set(visibleColumns);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    onVisibleColumnsChange(next);
+  };
 
   const toggleSection = (key: string) =>
     setExpandedSections((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -287,7 +310,7 @@ export default function RiskFilterSidebar({
           bgcolor: "action.hover",
         }}
       >
-        {/* Header */}
+        {/* Tabbed header (Filters / Columns) — mirrors Inventory + Compliance. */}
         <Box
           sx={{
             display: "flex",
@@ -299,19 +322,57 @@ export default function RiskFilterSidebar({
             borderColor: "divider",
           }}
         >
-          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-            <Typography variant="subtitle2" sx={{ fontSize: 14, fontWeight: 600 }}>
-              {t("risks.filter.panelTitle")}
-            </Typography>
-            {activeCount > 0 && (
-              <Chip
-                label={t("risks.filter.activeCount", { count: activeCount })}
-                size="small"
-                color="primary"
-                sx={{ height: 20, fontSize: 11 }}
-              />
-            )}
-          </Box>
+          <Tabs
+            value={tab}
+            onChange={(_, v) => setTab(v as 0 | 1)}
+            sx={{
+              minHeight: 36,
+              "& .MuiTab-root": {
+                minHeight: 36,
+                py: 0,
+                textTransform: "none",
+                fontSize: 14,
+                minWidth: 0,
+              },
+            }}
+          >
+            <Tab
+              label={
+                <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                  {t("risks.filter.panelTitle")}
+                  {activeCount > 0 && (
+                    <Box
+                      sx={{
+                        width: 8,
+                        height: 8,
+                        borderRadius: "50%",
+                        bgcolor: "primary.main",
+                        flexShrink: 0,
+                      }}
+                    />
+                  )}
+                </Box>
+              }
+            />
+            <Tab
+              label={
+                <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                  {t("risks.columns.title")}
+                  {columnsChanged && (
+                    <Box
+                      sx={{
+                        width: 8,
+                        height: 8,
+                        borderRadius: "50%",
+                        bgcolor: "primary.main",
+                        flexShrink: 0,
+                      }}
+                    />
+                  )}
+                </Box>
+              }
+            />
+          </Tabs>
           <IconButton size="small" onClick={onToggleCollapse}>
             <MaterialSymbol icon="chevron_left" size={20} />
           </IconButton>
@@ -319,6 +380,8 @@ export default function RiskFilterSidebar({
 
         {/* Scrollable content */}
         <Box sx={{ flex: 1, overflowY: "auto", px: 1.5, py: 1 }}>
+        {tab === 0 ? (
+          <>
           {activeCount > 0 && (
             <Button
               size="small"
@@ -584,6 +647,62 @@ export default function RiskFilterSidebar({
               />
             </Box>
           </Collapse>
+          </>
+        ) : (
+          /* ─────── Columns tab ─────── */
+          <Box>
+            <Box
+              sx={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                mb: 1,
+                px: 0.5,
+              }}
+            >
+              <Typography variant="caption" color="text.secondary">
+                {t("risks.columns.help")}
+              </Typography>
+              {columnsChanged && onResetColumns && (
+                <Button
+                  size="small"
+                  onClick={onResetColumns}
+                  sx={{ textTransform: "none", fontSize: 12 }}
+                >
+                  {t("risks.columns.reset")}
+                </Button>
+              )}
+            </Box>
+            <List dense disablePadding sx={{ mb: 1 }}>
+              {RISK_GRID_COLUMNS.map((c) => {
+                const locked = LOCKED_RISK_COLUMNS.has(c.id);
+                return (
+                  <ListItemButton
+                    key={c.id}
+                    dense
+                    disabled={locked}
+                    onClick={() => toggleColumn(c.id)}
+                    sx={{ py: 0.25, px: 1, borderRadius: 1 }}
+                  >
+                    <ListItemIcon sx={{ minWidth: 28 }}>
+                      <Checkbox
+                        size="small"
+                        checked={visibleColumns.has(c.id)}
+                        disabled={locked}
+                        disableRipple
+                        sx={{ p: 0 }}
+                      />
+                    </ListItemIcon>
+                    <ListItemText
+                      primary={t(c.labelKey)}
+                      primaryTypographyProps={{ fontSize: 13, ml: 0.75, noWrap: true }}
+                    />
+                  </ListItemButton>
+                );
+              })}
+            </List>
+          </Box>
+        )}
         </Box>
       </Box>
 

@@ -567,5 +567,8 @@
   "risks.filter.target": "Target date",
   "risks.filter.from": "From",
   "risks.filter.to": "To",
-  "risks.closed.readOnlyBanner": "This risk is closed and read-only. Reopen it to make changes."
+  "risks.closed.readOnlyBanner": "This risk is closed and read-only. Reopen it to make changes.",
+  "risks.columns.title": "Столбцы",
+  "risks.columns.help": "Выберите, какие столбцы показывать. Ссылка, Название и Начальный уровень всегда видны.",
+  "risks.columns.reset": "Сбросить"
 }

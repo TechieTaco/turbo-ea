@@ -567,5 +567,8 @@
   "risks.filter.target": "Zieldatum",
   "risks.filter.from": "Von",
   "risks.filter.to": "Bis",
-  "risks.closed.readOnlyBanner": "Dieses Risiko ist geschlossen und schreibgeschützt. Öffnen Sie es erneut, um Änderungen vorzunehmen."
+  "risks.closed.readOnlyBanner": "Dieses Risiko ist geschlossen und schreibgeschützt. Öffnen Sie es erneut, um Änderungen vorzunehmen.",
+  "risks.columns.title": "Spalten",
+  "risks.columns.help": "Wählen Sie die anzuzeigenden Spalten. Referenz, Titel und Anfangsniveau sind immer sichtbar.",
+  "risks.columns.reset": "Zurücksetzen"
 }

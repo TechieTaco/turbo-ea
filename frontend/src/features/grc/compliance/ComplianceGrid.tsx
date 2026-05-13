@@ -33,6 +33,7 @@ import type {
   ColDef,
   ICellRendererParams,
   IHeaderParams,
+  SortChangedEvent,
 } from "ag-grid-community";
 import "ag-grid-community/styles/ag-grid.css";
 import "ag-grid-community/styles/ag-theme-quartz.css";
@@ -73,6 +74,8 @@ interface Props {
   onOpenRisk?: (riskId: string) => void;
   onRequestAccept?: (finding: TurboLensComplianceFinding) => void;
   canManage?: boolean;
+  /** Render AG Grid's native loading overlay while findings refresh. */
+  loading?: boolean;
 }
 
 type GroupMode = "ungrouped" | "by_card";
@@ -94,6 +97,7 @@ interface CompliancePrefs {
   groupMode: GroupMode;
   filtersCollapsed: boolean;
   visibleColumns: string[];
+  sortModel: { colId: string; sort: "asc" | "desc" }[];
 }
 
 const ALL_COLUMN_IDS = COMPLIANCE_GRID_COLUMNS.map((c) => c.id);
@@ -103,6 +107,7 @@ function loadPrefs(): CompliancePrefs {
     groupMode: "by_card",
     filtersCollapsed: false,
     visibleColumns: ALL_COLUMN_IDS,
+    sortModel: [],
   };
   try {
     const raw = localStorage.getItem(PREFS_STORAGE_KEY);
@@ -123,6 +128,14 @@ function loadPrefs(): CompliancePrefs {
               ]),
             )
           : ALL_COLUMN_IDS,
+      sortModel: Array.isArray(parsed.sortModel)
+        ? parsed.sortModel.filter(
+            (s): s is { colId: string; sort: "asc" | "desc" } =>
+              !!s &&
+              typeof s.colId === "string" &&
+              (s.sort === "asc" || s.sort === "desc"),
+          )
+        : [],
     };
   } catch {
     return defaults;
@@ -147,6 +160,7 @@ export default function ComplianceGrid({
   onOpenRisk,
   onRequestAccept,
   canManage = true,
+  loading = false,
 }: Props) {
   const { t } = useTranslation("admin");
   const { t: tCards } = useTranslation("cards");
@@ -161,6 +175,9 @@ export default function ComplianceGrid({
   const [visibleColumns, setVisibleColumnsRaw] = useState<Set<string>>(
     () => new Set(initialPrefs.visibleColumns),
   );
+  const [sortModel, setSortModel] = useState<
+    { colId: string; sort: "asc" | "desc" }[]
+  >(initialPrefs.sortModel);
   const [findingDrawer, setFindingDrawer] =
     useState<TurboLensComplianceFinding | null>(null);
 
@@ -169,6 +186,7 @@ export default function ComplianceGrid({
       groupMode,
       filtersCollapsed,
       visibleColumns: Array.from(visibleColumns),
+      sortModel,
       ...next,
     });
   };
@@ -372,6 +390,18 @@ export default function ComplianceGrid({
     [],
   );
 
+  const onSortChanged = (e: SortChangedEvent<TurboLensComplianceFinding>) => {
+    const next = e.api
+      .getColumnState()
+      .filter((c) => c.sort === "asc" || c.sort === "desc")
+      .map((c) => ({
+        colId: c.colId!,
+        sort: c.sort as "asc" | "desc",
+      }));
+    setSortModel(next);
+    persist({ sortModel: next });
+  };
+
   const onCellClicked = (e: CellClickedEvent<TurboLensComplianceFinding>) => {
     if (!e.data) return;
     // Click on the Card cell → open card panel only (single-drawer
@@ -480,11 +510,17 @@ export default function ComplianceGrid({
             rowData={sortedFindings}
             columnDefs={visibleColumnDefs}
             defaultColDef={defaultColDef}
+            loading={loading}
             onCellClicked={onCellClicked}
+            onSortChanged={onSortChanged}
             animateRows
             getRowId={(p) => p.data.id}
             getRowStyle={getRowStyle}
-            tooltipShowDelay={400}
+            initialState={
+              sortModel.length > 0
+                ? { sort: { sortModel } }
+                : undefined
+            }
             domLayout="autoHeight"
           />
         </Box>

@@ -567,5 +567,8 @@
   "risks.filter.target": "Target date",
   "risks.filter.from": "From",
   "risks.filter.to": "To",
-  "risks.closed.readOnlyBanner": "This risk is closed and read-only. Reopen it to make changes."
+  "risks.closed.readOnlyBanner": "This risk is closed and read-only. Reopen it to make changes.",
+  "risks.columns.title": "列",
+  "risks.columns.help": "选择要显示的列。参考、标题和初始等级始终可见。",
+  "risks.columns.reset": "重置"
 }

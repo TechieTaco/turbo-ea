@@ -1075,13 +1075,9 @@ export default function TurboLensSecurity() {
   // Compliance tab
   // -----------------------------------------------------------------
   function renderCompliance() {
-    if (complianceLoading) {
-      return (
-        <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>
-          <CircularProgress />
-        </Box>
-      );
-    }
+    // Loading state is rendered as AG Grid's native overlay via the
+    // ComplianceGrid `loading` prop; the regulation tabs and filter
+    // sidebar stay visible during the initial fetch.
     return (
       <Stack spacing={2} sx={{ flex: 1, minHeight: 0, display: "flex" }}>
         <Tabs
@@ -1174,6 +1170,7 @@ export default function TurboLensSecurity() {
           onRequestAccept={(f) =>
             setAcceptDialog({ finding: f, note: "", saving: false })
           }
+          loading={complianceLoading}
         />
       </Stack>
     );

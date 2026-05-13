@@ -567,5 +567,8 @@
   "risks.filter.target": "Target date",
   "risks.filter.from": "From",
   "risks.filter.to": "To",
-  "risks.closed.readOnlyBanner": "This risk is closed and read-only. Reopen it to make changes."
+  "risks.closed.readOnlyBanner": "This risk is closed and read-only. Reopen it to make changes.",
+  "risks.columns.title": "Colunas",
+  "risks.columns.help": "Escolha quais colunas mostrar. Referência, Título e Nível inicial ficam sempre visíveis.",
+  "risks.columns.reset": "Redefinir"
 }
