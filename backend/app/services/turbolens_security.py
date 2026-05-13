@@ -857,8 +857,9 @@ def compute_finding_key(
 
     Used as the upsert key in ``run_compliance_scan`` so human decisions
     (acknowledge / accept / risk_tracked) and promoted-Risk back-links
-    survive subsequent scans. The recipe is mirrored by migration 078's
-    backfill — keep them in sync.
+    survive subsequent scans. The recipe is mirrored by migration 080's
+    backfill — keep them in sync. SHA-256 (not MD5) so CodeQL's weak-hash
+    rule stays quiet; the role is fingerprinting only, not security.
     """
     parts = [
         (scope_type or "").strip(),
@@ -867,11 +868,7 @@ def compute_finding_key(
         (regulation_article or "").strip(),
         (requirement or "")[:200],
     ]
-    # MD5 is used as a non-cryptographic fingerprint (idempotent upsert key),
-    # not for security. usedforsecurity=False signals this to CodeQL/Bandit.
-    return hashlib.md5(  # noqa: S324
-        "|".join(parts).encode("utf-8"), usedforsecurity=False
-    ).hexdigest()
+    return hashlib.sha256("|".join(parts).encode("utf-8")).hexdigest()
 
 
 async def run_compliance_scan(
