@@ -424,37 +424,52 @@ async def detect_ai_bearing_cards(
             for c in batch
         ]
         prompt = (
-            "Identify every card below that embeds, provides, integrates, "
-            "or depends on AI / ML / generative-AI capabilities. Cards "
-            "may be Applications (business apps, microservices, AI "
-            "agents, deployments) or IT Components (software, SaaS, "
-            "PaaS, IaaS, services, AI models, hardware) — assess both "
-            "equally.\n\n"
+            "Classify each card below as AI-bearing or not. A card is "
+            "AI-bearing if it embeds, provides, integrates, or depends "
+            "on AI / ML / generative-AI capabilities. Cards may be "
+            "Applications (business apps, microservices, AI agents, "
+            "deployments) or IT Components (software, SaaS, PaaS, "
+            "IaaS, services, AI models, hardware) — assess both equally.\n\n"
+            "Signals to combine (use ALL that are present):\n"
+            "1. The card's SUBTYPE field — values like 'AI Agent', "
+            "'AI Model', 'MCP Server' are explicit AI markers and the "
+            "card MUST be flagged.\n"
+            "2. The card's NAME — recognise well-known AI products "
+            "from your training data (Microsoft Copilot, GitHub "
+            "Copilot, ChatGPT, Claude, Gemini, Llama, Mistral, "
+            "DeepSeek, Perplexity, Cursor, Tabnine, Codeium, Amazon Q, "
+            "Microsoft 365 Copilot, Salesforce Einstein, Adobe Sensei, "
+            "Notion AI, Jira AI, Midjourney, DALL·E, Stable Diffusion, "
+            "Runway, Sora, ElevenLabs, etc.).\n"
+            "3. The card's VENDOR — vendors whose flagship offerings "
+            "are AI (OpenAI, Anthropic, Hugging Face, Cohere, "
+            "Mistral AI, Stability AI, ElevenLabs, RunwayML, etc.).\n"
+            "4. The card's DESCRIPTION — wording such as 'AI-powered', "
+            "'machine learning', 'LLM', 'generative AI', 'foundation "
+            "model', 'embeddings', 'RAG', 'recommendation engine', "
+            "'computer vision', 'speech recognition', 'predictive "
+            "analytics', 'anomaly detection', 'chatbot', 'assistant', "
+            "'agent', etc.\n\n"
             "Be deliberately broad. Include both first-party AI "
             "products and subtle / embedded cases:\n"
-            "- LLMs and foundation models packaged as components or "
-            "services\n"
-            "- coding assistants (e.g. GitHub Copilot, Cursor, Tabnine, "
-            "Codeium, Amazon Q Developer, JetBrains AI)\n"
-            "- consumer assistants and chat products (ChatGPT, Claude, "
-            "Gemini, Perplexity, Le Chat, Grok)\n"
-            "- image / video / audio generation (Midjourney, DALL·E, "
-            "Stable Diffusion, Runway, Sora, ElevenLabs, Suno)\n"
-            "- inference SaaS, vector databases used for retrieval / "
-            "RAG, embeddings APIs\n"
+            "- LLMs and foundation models packaged as components / "
+            "services / inference APIs\n"
+            "- coding assistants and AI IDE features\n"
+            "- consumer chat / assistant products\n"
+            "- image / video / audio / speech generation and "
+            "transcription\n"
+            "- vector databases used for retrieval / RAG, embeddings "
+            "APIs\n"
             "- recommendation engines, search ranking, ad targeting\n"
             "- computer vision, OCR, anomaly detection, fraud / credit "
             "scoring, predictive analytics\n"
-            "- enterprise AI features inside general-purpose products "
-            "or third-party SaaS (e.g. Microsoft 365 Copilot, Salesforce "
-            "Einstein, Google Duet AI, Adobe Sensei, Notion AI, Jira "
-            "Intelligence)\n"
-            "- speech recognition, translation, summarisation, smart "
-            "compose / smart reply\n\n"
-            "Use the card NAME, VENDOR and DESCRIPTION as your primary "
-            "signals. Do NOT rely only on the card's type or subtype — "
-            "AI is often hidden inside generic-looking applications. "
-            "Err on the side of inclusion: when in doubt, flag it.\n\n"
+            "- enterprise AI features hidden inside general-purpose "
+            "products or third-party SaaS\n\n"
+            "Use ALL of NAME, VENDOR, SUBTYPE and DESCRIPTION together. "
+            "Apply your own knowledge of well-known products even if the "
+            "description is sparse: a card simply named 'Copilot' or "
+            "'ChatGPT' is AI even with no description. Err on the side "
+            "of inclusion: when in doubt, flag it.\n\n"
             'Return ONLY JSON: [{"id":"<uuid>","ai_role":"provider|consumer|embedded",'
             '"confidence":0.0-1.0,"signal":"<what in the card hinted at AI>"}].\n'
             "Omit cards with no AI involvement.\n\n"
@@ -695,8 +710,8 @@ async def assess_regulation(
         return []
 
     ai_ids = set(ai_scope.keys())
-    non_subtype_ids = {cid for cid, info in ai_scope.items() if not info.get("subtype_match")}
     valid_card_ids = {c.id for c in cards}
+    cards_by_id = {c.id: c for c in cards}
     findings: list[dict[str, Any]] = []
 
     for item in parsed:
@@ -714,9 +729,14 @@ async def assess_regulation(
         if scope_type not in ("card", "landscape"):
             scope_type = "card" if card_uuid else "landscape"
 
+        # ``ai_detected`` now means "the card is AI-bearing" — any of
+        # subtype-marked, LLM semantically-detected, or LLM-emitted under
+        # EU AI Act. Previously it was narrowly true only for non-subtype
+        # matches, which meant the "AI only" filter hid every Copilot /
+        # ChatGPT card that had a proper AI Agent subtype.
         ai_detected = False
         if reg_key == EU_AI_ACT_KEY and card_uuid and str(card_uuid) in ai_ids:
-            ai_detected = str(card_uuid) in non_subtype_ids
+            ai_detected = True
 
         findings.append(
             {
@@ -734,6 +754,54 @@ async def assess_regulation(
                 "ai_detected": ai_detected,
             }
         )
+
+    # EU AI Act guarantee: every AI-bearing card must appear in the
+    # register with at least one finding, even when the LLM chose to
+    # emit none for it (small models often skip "compliant-looking"
+    # cards). Without this fallback the AI inventory has gaps and
+    # cards like Copilot — subtype AI Agent — never surface.
+    if reg_key == EU_AI_ACT_KEY:
+        emitted_card_ids = {
+            str(f["card_id"])
+            for f in findings
+            if f.get("card_id") and f.get("scope_type") == "card"
+        }
+        for cid in ai_ids:
+            if cid in emitted_card_ids:
+                continue
+            try:
+                card_uuid = uuid_mod.UUID(cid)
+            except (TypeError, ValueError):
+                continue
+            card = cards_by_id.get(cid)
+            card_name = card.name if card else cid
+            findings.append(
+                {
+                    "regulation": reg_key,
+                    "regulation_article": None,
+                    "card_id": card_uuid,
+                    "scope_type": "card",
+                    "category": "applicability",
+                    "requirement": (
+                        f"EU AI Act applies to {card_name} — classify risk "
+                        "tier (prohibited / high / limited / minimal) and "
+                        "document the applicable obligations."
+                    ),
+                    "status": "review_needed",
+                    "severity": "medium",
+                    "gap_description": (
+                        "Card detected as AI-bearing but no risk-tier "
+                        "classification or obligation assessment on file."
+                    ),
+                    "evidence": None,
+                    "remediation": (
+                        "Open the card and classify its EU AI Act risk "
+                        "tier per Art. 5 / Annex III, then document the "
+                        "obligations that apply at that tier."
+                    ),
+                    "ai_detected": True,
+                }
+            )
     return findings
 
 
