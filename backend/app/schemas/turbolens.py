@@ -367,6 +367,42 @@ class ComplianceFindingDecisionUpdate(BaseModel):
     review_note: str | None = None
 
 
+class ComplianceFindingBulkDelete(BaseModel):
+    """Body for ``DELETE /security/compliance-findings/bulk``.
+
+    Accepts a list of finding ids; rows the caller can't see (or that
+    don't exist) are reported in the response's ``skipped`` list.
+    """
+
+    ids: list[str]
+
+
+class ComplianceFindingBulkDecisionUpdate(BaseModel):
+    """Body for ``PATCH /security/compliance-findings/bulk``.
+
+    Bulk transition of multiple findings to a single new ``decision``.
+    Per-row lifecycle validation still runs; rows where the transition
+    isn't allowed (or that are tracked by an active Risk) are reported
+    in the response's ``skipped`` list with a reason — the rest succeed.
+    """
+
+    ids: list[str]
+    decision: str
+    review_note: str | None = None
+
+
+class ComplianceFindingBulkResult(BaseModel):
+    """Outcome of a bulk delete or bulk decision update.
+
+    ``updated`` is the count of rows the call actually changed.
+    ``skipped`` lists rows that were left untouched, each with a
+    ``reason`` ("not_found", "illegal_transition", "risk_tracked", …).
+    """
+
+    updated: int
+    skipped: list[dict[str, str]] = []
+
+
 class ComplianceFindingAiVerdict(BaseModel):
     """Body for ``POST /security/compliance-findings/{id}/ai-verdict``.
 
