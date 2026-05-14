@@ -241,12 +241,32 @@ Atualizar a página **não interrompe uma análise em curso** — a tarefa em se
 
 - **Visão Geral** — barra de KPI (total de achados, contagens crítico / alto / médio, pontuação global de conformidade), uma **matriz de risco probabilidade × severidade** 5×5, os cinco principais achados críticos e um mapa de calor compacto de conformidade com navegação para o detalhe. A matriz é **clicável**: clicar numa célula abre o sub-separador CVE filtrado nesse compartimento, com um chip descartável acima da tabela para ver (e limpar) o filtro ativo.
 - **CVEs** — tabela filtrável com card, ID do CVE (ligado à página de detalhe do NVD), pontuação base CVSS, severidade, prioridade, probabilidade, disponibilidade de correção e estado. Cada linha abre um painel de detalhe com a descrição, vetor CVSS, vetor de ataque, pontuações de explorabilidade / impacto, referências, impacto de negócio e remediação gerados por IA, e uma barra de ações de estado (**Reconhecer → Marcar em andamento → Marcar como mitigado / Aceitar risco / Reabrir**).
-- **Conformidade** — um separador por regulação com pontuação global e uma lista em estilo cartão mostrando estado, artigo, categoria, requisito, descrição da lacuna, remediação e evidências. Um pequeno chip **Detetado por IA** destaca cards assinalados como portadores de IA pelo detetor semântico, mesmo que não estejam marcados como subtipos de IA.
+- **Conformidade** — uma grelha AG Grid que espelha a do Inventário: barra lateral de filtros, visibilidade de colunas e ordenação persistidas, pesquisa de texto completo e uma gaveta de detalhe por achado. As linhas levam estado, artigo, categoria, requisito, descrição da lacuna, remediação e evidências. Um pequeno chip **Detetado por IA** destaca cards assinalados como portadores de IA pelo detetor semântico, mesmo que não estejam marcados como subtipos de IA.
 - **Exportar CSV** — transfere os achados CVE numa ordem de colunas ao estilo OWASP/NIST (Card, Tipo, CVE, CVSS, Severidade, Vetor de ataque, Probabilidade, Prioridade, Correção, Publicado, Última modificação, Estado, Fornecedor, Produto, Versão, Impacto de negócio, Remediação, Descrição).
+
+### Os achados sobrevivem a re-varreduras
+
+As decisões do utilizador e os metadados de revisão são **duráveis entre re-varreduras**:
+
+- Os achados CVE são upsertados por `(card_id, cve_id)`. Um estado definido pelo utilizador (`acknowledged`, `mitigated`, `accepted`) e qualquer back-link para um Risco promovido sobrevivem à próxima varredura.
+- Os achados de conformidade são upsertados por `(scope, card, regulation, normalised_article)`. Identificadores de artigo como *Art. 6 / Article 6 / § 6* colapsam na mesma linha, pelo que as reformulações do LLM já não criam duplicados.
+- Um achado que a próxima passagem não volte a reportar **não é eliminado** — fica marcado com `auto_resolved=true` e oculto por padrão, mantendo o histórico (e o Risco promovido vinculado) intacto.
+- O **veredicto IA** do utilizador sobre um card (`hasAiFeatures = true / false`) também persiste. Se confirmar ou rejeitar a classificação de IA do LLM, essa decisão prevalece sobre o detetor em varreduras subsequentes — a deriva do LLM não pode alterar silenciosamente o âmbito.
 
 ### Promover um achado para o Registo de Riscos
 
 Cada painel CVE e cada cartão de achado de conformidade inclui uma ação primária **Criar risco**. Clicá-la abre o diálogo partilhado de criação de risco com título, descrição, categoria, probabilidade, impacto, mitigação e card afetado **pré-preenchidos a partir do achado**. Pode editar qualquer campo antes de submeter, atribuir um **proprietário** e escolher uma **data-alvo de resolução**. Ao submeter, a linha do achado passa a **Abrir risco R-000123** para manter o link visível — as promoções são idempotentes no servidor. Veja o [Registo de Riscos](risks.md) para o ciclo de vida completo alinhado com TOGAF e como a atribuição do proprietário cria um Todo de acompanhamento + notificação no sino.
+
+Quando o Risco vinculado atinge mais tarde `mitigated`, `monitoring`, `closed` ou `accepted` (ou é eliminado), o motor de retro-propagação transiciona automaticamente cada achado de conformidade vinculado para o estado correspondente (`mitigated`, `verified`, `accepted` ou de volta a `in_review`). A justificação de aceitação capturada no Risco é espelhada na nota de revisão do achado para que a trilha de auditoria permaneça consistente.
+
+### Ações em lote na grelha de Conformidade
+
+Quando é concedido `security_compliance.manage`, a grelha de Conformidade expõe seleção múltipla consciente dos filtros. Marque a caixa do cabeçalho para selecionar todas as linhas que correspondam aos filtros ativos, e depois use a barra de ferramentas fixa:
+
+- **Editar decisão** — transiciona em lote cada achado selecionado para um estado escolhido (por exemplo, marcar um conjunto de achados como `not_applicable` após uma revisão de âmbito). As transições ilegais são reportadas linha a linha num resumo de sucesso parcial em vez de fazer o lote inteiro falhar.
+- **Eliminar** — remove permanentemente os achados (útil para limpar achados de uma regulação que entretanto desativou).
+
+A promoção a Risco mantém-se uma ação por linha — a promoção em massa não é oferecida intencionalmente para preservar a captura de contexto por achado.
 
 ### Deteção semântica da Lei da IA da UE
 
@@ -262,7 +282,28 @@ Sem chave, o NVD só permite 5 pedidos a cada 30 segundos, o que pode tornar len
 
 ### Fluxo de estado
 
-Cada achado CVE percorre: **aberto** → **reconhecido** → **em andamento** → **mitigado** (ou **aceite**, quando a equipa aceitou formalmente o risco). A reabertura está sempre disponível. As mudanças de estado são da responsabilidade de utilizadores com `security_compliance.manage`. Para fluxos de governança (titularidade, avaliação residual, justificação de aceitação, Todos e notificações) promova o achado a um Risco — o ciclo completo vive no [Registo de Riscos](risks.md).
+Os achados CVE e de Conformidade têm **ciclos de vida distintos**, cada um renderizado como uma linha do tempo horizontal de fases na gaveta do achado. Ambos estão restritos a utilizadores com `security_compliance.manage`; o motor impõe as transições no servidor e rejeita movimentos ilegais com um erro claro.
+
+**Achados CVE**
+
+```
+open → acknowledged → in progress → mitigated
+                                  ↘ accepted (aceitação formal do risco)
+                                  ↘ reopen → open
+```
+
+**Achados de conformidade** (redesenhados em v1.11.0)
+
+```
+new → in_review → mitigated → verified
+                      ↘ accepted          (ramo lateral, requer justificação)
+                      ↘ not_applicable    (ramo lateral, revisão de âmbito)
+                      ↘ risk_tracked      (definido automaticamente ao promover para Risco)
+```
+
+`risk_tracked` nunca é definido manualmente — é escrito automaticamente quando clica em **Criar risco** num achado, e é limpo pelo motor de retro-propagação quando o Risco vinculado é fechado (veja *Promover um achado para o Registo de Riscos* acima).
+
+Para fluxos de governança completos (titularidade, avaliação residual, justificação de aceitação, Todos e notificações) promova o achado a um Risco — o ciclo completo vive no [Registo de Riscos](risks.md).
 
 ## Histórico de Análises
 

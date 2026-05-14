@@ -47,6 +47,19 @@ I rischi sono **molti-a-molti** con le card. Un rischio può interessare più Ap
 
 Sia la Panoramica Sicurezza di TurboLens sia la pagina del Registro dei Rischi mostrano una heatmap probabilità × impatto 4×4. Le celle sono **cliccabili** — cliccate su una per filtrare la lista sottostante su quel bucket, cliccate di nuovo (o sulla × del chip) per pulire. Nel Registro dei Rischi potete alternare la matrice fra le viste **Iniziale** e **Residua** per vedere visivamente il progresso della mitigazione.
 
+## Griglia del registro
+
+Il registro è un AG Grid che segue gli standard della pagina [Inventario](inventory.md): colonne ordinabili, filtrabili e ridimensionabili con preferenze utente persistite (colonne visibili, ordinamento, stato della sidebar). Il pulsante **+ Nuovo rischio** in barra strumenti apre il dialogo di creazione manuale. **Esporta CSV** scarica il set filtrato nello stesso ordine di colonne mostrato a schermo — utile per dossier di audit o per condividere il registro con stakeholder senza account Turbo EA.
+
+## Propagazione Rischio ↔ Riscontro
+
+Se un Rischio è stato [promosso da un riscontro TurboLens](turbolens.md#promote-a-finding-to-the-risk-register), i cambi di stato fluiscono **in entrambe le direzioni**:
+
+- Il riscontro porta un back-link **Apri rischio R-000123** dal momento della promozione (l'azione è idempotente — un nuovo click naviga al rischio esistente invece di crearne un duplicato).
+- Quando il Rischio raggiunge `mitigated` / `monitoring` / `closed` / `accepted` (o viene eliminato), il motore di back-propagation transiziona automaticamente ogni riscontro di conformità collegato al valore corrispondente (`mitigated` / `verified` / `accepted` / `in_review`). La motivazione di accettazione catturata sul Rischio viene rispecchiata nella nota di revisione del riscontro così che la pista di audit resti coerente.
+
+Questo mantiene allineati il Registro dei Rischi (vista governance) e la griglia di Conformità (vista operativa) senza manutenzione manuale.
+
 ## Flusso di stato
 
 La pagina di dettaglio mostra sempre un unico pulsante primario **Passo successivo** più una piccola riga di azioni laterali, così che il percorso sequenziale sia ovvio ma le vie di uscita di governance restino a un clic:

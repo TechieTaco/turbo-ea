@@ -62,3 +62,11 @@
 | **Estructura de Desglose del Trabajo (WBS)** | Una descomposición jerárquica del alcance del proyecto en paquetes de trabajo |
 | **Paquete de trabajo** | Una agrupación lógica de tareas dentro de un cronograma Gantt que tiene sus propias fechas de inicio/fin y porcentaje de finalización |
 | **Sugerencia IA** | Una descripción de ficha generada automáticamente combinando resultados de búsqueda web con un Modelo de Lenguaje Grande (LLM) |
+| **Veredicto IA** | Confirmación o rechazo por parte del usuario de la clasificación de IA del LLM sobre una ficha (`hasAiFeatures = true / false`). Persiste entre rescaneos para que la deriva del LLM no altere silenciosamente el alcance del Reglamento de IA de la UE |
+| **Hallazgo auto-resuelto** | Un hallazgo CVE o de cumplimiento que un escaneo posterior ya no informa. La fila se marca con `auto_resolved = true` y se oculta por defecto, pero no se elimina — su historial (y cualquier Riesgo promovido) permanece intacto |
+| **Ciclo de vida de un hallazgo de cumplimiento** | Máquina de estados de los hallazgos de cumplimiento: `new → in_review → mitigated → verified`, con `accepted`, `not_applicable` y `risk_tracked` como ramas laterales. Distinto del ciclo de vida de CVE (`open → acknowledged → in progress → mitigated`) |
+| **GRC** | Gobernanza, Riesgo y Cumplimiento — el espacio de trabajo unificado en `/grc` con tres pestañas (Gobernanza, Riesgo, Cumplimiento) que consolida los Principios EA, ADR, el Registro de Riesgos y el escáner de Seguridad y Cumplimiento |
+| **Fase G** | Fase ADM «Implementation Governance» de TOGAF. Fuente del vocabulario y ciclo de vida del Registro de Riesgos |
+| **Promover a Riesgo** | Acción idempotente que convierte un hallazgo CVE o de cumplimiento en una entrada del Registro de Riesgos. El hallazgo obtiene un enlace de retorno **Abrir riesgo R-NNNNNN**; pulsarlo de nuevo navega al riesgo existente en lugar de crear un duplicado |
+| **Registro de Riesgos** | Registro a nivel de paisaje de los riesgos de arquitectura alineado con TOGAF Fase G. Vive en `/grc?tab=risk`. Distinto de los riesgos a nivel de iniciativa capturados en PPM |
+| **Propietario del Riesgo** | El usuario responsable de un riesgo. La asignación crea automáticamente una tarea del sistema en la página de Tareas del propietario y dispara una notificación `risk_assigned` |

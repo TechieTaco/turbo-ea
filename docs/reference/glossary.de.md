@@ -62,3 +62,11 @@
 | **Projektstrukturplan (PSP / WBS)** | Eine hierarchische Zerlegung des Projektumfangs in Arbeitspakete mit Start-/Enddaten und Fortschrittsverfolgung |
 | **Arbeitspaket** | Eine logische Gruppierung von Aufgaben innerhalb eines Gantt-Zeitplans mit eigenen Start-/Enddaten und Fertigstellungsgrad |
 | **KI-Vorschlag** | Eine automatisch generierte Kartenbeschreibung, erstellt durch Kombination von Websuchergebnissen mit einem Large Language Model (LLM) |
+| **KI-Verdikt** | Die Bestätigung oder Ablehnung der vom LLM erkannten KI-Eigenschaft einer Karte durch den Nutzer (`hasAiFeatures = true / false`). Bleibt über Re-Scans hinweg bestehen, damit LLM-Drift den Geltungsbereich des EU AI Act nicht stillschweigend verändern kann |
+| **Auto-aufgelöster Befund** | Ein CVE- oder Compliance-Befund, den ein späterer Scan nicht mehr meldet. Die Zeile wird mit `auto_resolved = true` markiert und standardmässig ausgeblendet, aber nicht gelöscht — die Historie (und ein eventuell überführtes Risiko) bleibt erhalten |
+| **Lebenszyklus eines Compliance-Befunds** | Die Zustandsmaschine für Compliance-Befunde: `new → in_review → mitigated → verified`, mit `accepted`, `not_applicable` und `risk_tracked` als Seitenzweigen. Unterscheidet sich vom CVE-Lebenszyklus (`open → acknowledged → in progress → mitigated`) |
+| **GRC** | Governance, Risk und Compliance — der gebündelte Arbeitsbereich unter `/grc` mit drei Tabs (Governance, Risk, Compliance), die EA-Prinzipien, ADRs, das Risikoregister und den Security & Compliance-Scanner zusammenführen |
+| **Phase G** | TOGAF-ADM-Phase „Implementation Governance". Quelle des Vokabulars und Lebenszyklus des Risikoregisters |
+| **Befund zu Risiko überführen** | Die idempotente Aktion, die einen CVE- oder Compliance-Befund in einen Eintrag im Risikoregister überführt. Der Befund erhält einen Rückverweis **Risiko R-NNNNNN öffnen**; ein erneuter Klick navigiert zum bestehenden Risiko statt ein Duplikat anzulegen |
+| **Risikoregister** | Landschaftsweites Register architektonischer Risiken, ausgerichtet an TOGAF Phase G. Liegt unter `/grc?tab=risk`. Unterscheidet sich von den initiativ-bezogenen Risiken in PPM |
+| **Risiko-Eigentümer** | Die für ein Risiko verantwortliche Person. Die Zuweisung erstellt automatisch ein System-Todo auf der Todo-Seite des Eigentümers und löst eine Benachrichtigung `risk_assigned` aus |

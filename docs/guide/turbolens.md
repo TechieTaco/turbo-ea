@@ -243,12 +243,32 @@ Refreshing the page **does not interrupt a running scan** — the background tas
 
 - **Overview** — KPI strip (total findings, critical / high / medium counts, overall compliance score), a 5×5 **probability × severity risk matrix**, the top five critical findings, and a compact compliance heatmap you can click through to the details. The matrix itself is **clickable**: click a cell and the CVEs sub-tab opens filtered to that bucket, with a dismissible chip above the table so you can see (and clear) the active filter.
 - **CVEs** — filterable table showing card, CVE ID (linked to the NVD detail page), CVSS base score, severity, priority, probability, patch availability, and status. Each row opens a detail drawer with the description, CVSS vector, attack vector, exploitability / impact scores, references, AI-generated business impact and remediation, and a status action bar (**Acknowledge → Mark in progress → Mark mitigated / Accept risk / Reopen**).
-- **Compliance** — one tab per regulation with an overall score, and a card-style list of findings showing status, article, category, requirement, gap description, remediation and evidence. A small **AI-detected** chip highlights cards flagged as AI-bearing by the semantic detector even though they are not tagged as AI subtypes.
+- **Compliance** — an AG Grid that mirrors the Inventory grid: filter sidebar, persistent column visibility and sort, full-text search, plus a detail drawer per finding. Rows carry status, article, category, requirement, gap description, remediation and evidence. A small **AI-detected** chip highlights cards flagged as AI-bearing by the semantic detector even though they are not tagged as AI subtypes.
 - **Export CSV** — downloads the CVE findings in OWASP/NIST-style column order (Card, Type, CVE, CVSS, Severity, Attack Vector, Probability, Priority, Patch, Published, Last Modified, Status, Vendor, Product, Version, Business Impact, Remediation, Description).
+
+### Findings persist across re-scans
+
+User decisions and reviewer metadata are **durable across re-scans**:
+
+- CVE findings upsert by `(card_id, cve_id)`. A user-set status (`acknowledged`, `mitigated`, `accepted`) and any promoted-risk back-link survive the next scan.
+- Compliance findings upsert by `(scope, card, regulation, normalised_article)`. Article identifiers like *Art. 6 / Article 6 / § 6* collapse to the same row so LLM re-phrasing no longer mints duplicates.
+- A finding that the next pass no longer reports is **not deleted** — it is flagged `auto_resolved=true` and hidden by default, so its history (and the promoted Risk linked to it) stays intact.
+- The user's **AI verdict** on a card (`hasAiFeatures = true / false`) also sticks. If you confirm or reject the LLM's AI-bearing classification, that decision overrides the detector on subsequent scans — LLM drift cannot silently change scope.
 
 ### Promote a finding to the Risk Register
 
 Every CVE drawer and every compliance finding card includes a **Create risk** primary action. Clicking it opens the shared create-risk dialog with the title, description, category, probability, impact, mitigation and affected card **prefilled from the finding**. You can edit any field before submitting, assign an **owner**, and pick a **target resolution date**. On submit, the finding's row flips to **Open risk R-000123** so the link stays visible — promotions are idempotent server-side. See [Risk Register](risks.md) for the full TOGAF-aligned lifecycle and how owner assignment creates a follow-up Todo + bell notification.
+
+When the linked Risk later reaches `mitigated`, `monitoring`, `closed` or `accepted` (or is deleted), the back-propagation engine automatically moves every linked compliance finding to the matching state (`mitigated`, `verified`, `accepted`, or back to `in_review`). The acceptance rationale captured on the Risk is mirrored into the finding's review note so the audit trail stays consistent.
+
+### Bulk actions on the Compliance grid
+
+When `security_compliance.manage` is granted, the Compliance grid exposes filter-aware multi-select. Tick the header checkbox to select every row matching the active filters, then use the sticky toolbar:
+
+- **Edit decision** — batch-transition every selected finding to a chosen state (e.g., mark a swathe of findings as `not_applicable` after a scope review). Illegal transitions are surfaced per-row in a partial-success summary instead of failing the entire batch.
+- **Delete** — permanently remove findings (used to clean up findings from a regulation you've since disabled).
+
+Promotion to Risk remains a single-row action — bulk-promote is intentionally not offered to preserve per-finding context capture.
 
 ### EU AI Act semantic detection
 
@@ -264,7 +284,28 @@ Without a key, NVD allows only 5 requests / 30 seconds, which can make large-lan
 
 ### Status workflow
 
-Each CVE finding progresses through: **open** → **acknowledged** → **in progress** → **mitigated** (or **accepted**, when the team has formally accepted the risk). Reopening is always available. Status changes are owned by users with `security_compliance.manage`. For governance workflows (ownership, residual assessment, acceptance rationale, Todos and notifications) promote the finding to a Risk — the full lifecycle lives in the [Risk Register](risks.md).
+CVE and Compliance findings have **distinct lifecycles**, each rendered as a horizontal phase timeline in the finding drawer. Both are restricted to users with `security_compliance.manage`; the engine enforces transitions server-side and rejects illegal moves with a clear error.
+
+**CVE findings**
+
+```
+open → acknowledged → in progress → mitigated
+                                  ↘ accepted (formal risk acceptance)
+                                  ↘ reopen → open
+```
+
+**Compliance findings** (redesigned in v1.11.0)
+
+```
+new → in_review → mitigated → verified
+                      ↘ accepted          (side branch, requires rationale)
+                      ↘ not_applicable    (side branch, scope review)
+                      ↘ risk_tracked      (set automatically on promote-to-Risk)
+```
+
+`risk_tracked` is never set by hand — it is written automatically when you click **Create risk** on a finding and is cleared by the Risk back-propagation engine when the linked Risk closes (see *Promote a finding to the Risk Register* above).
+
+For full governance workflows (ownership, residual assessment, acceptance rationale, Todos and notifications) promote the finding to a Risk — the full lifecycle lives in the [Risk Register](risks.md).
 
 ## Analysis History
 

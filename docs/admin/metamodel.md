@@ -4,7 +4,7 @@ The **Metamodel** defines your platform's entire data structure — what types o
 
 ![Metamodel Configuration](../assets/img/en/20_admin_metamodel.png)
 
-Navigate to **Admin > Metamodel** to access the metamodel editor. It has six tabs: **Card Types**, **Relation Types**, **Calculations**, **Tags**, **EA Principles**, and **Metamodel Graph**.
+Navigate to **Admin > Metamodel** to access the metamodel editor. It has seven tabs: **Card Types**, **Relation Types**, **Calculations**, **Tags**, **Metamodel Graph**, **EA Principles**, and **Compliance Regulations**.
 
 ## Card Types
 
@@ -160,6 +160,28 @@ For example, a "Buy SaaS" principle would cause the AI to flag on-premise or Iaa
 ![Metamodel Graph Visualization](../assets/img/en/38_metamodel_graph.png)
 
 The **Metamodel Graph** tab shows a visual SVG diagram of all card types and their relation types. This is a read-only visualization that helps you understand the connections in your metamodel at a glance.
+
+## Compliance Regulations
+
+The **Compliance Regulations** tab manages the regulatory frameworks that the [GRC → Compliance scanner](../guide/grc.md#compliance) runs against. Six frameworks ship enabled by default:
+
+| Regulation | Scope |
+|------------|-------|
+| **EU AI Act** | Requirements for AI / ML systems placed on the EU market |
+| **GDPR** | EU General Data Protection Regulation |
+| **NIS2** | EU Network and Information Security Directive 2 |
+| **DORA** | EU Digital Operational Resilience Act for financial entities |
+| **SOC 2** | AICPA Service Organization Controls Trust Services Criteria |
+| **ISO/IEC 27001** | Information security management system standard |
+
+For each row you can:
+
+- **Enable / disable** the regulation with the toggle — disabled frameworks are skipped on every subsequent scan and their findings are excluded from the dashboards. Existing findings are preserved (not deleted) in case you re-enable later.
+- **Edit** the title, scope description and prompt context used by the LLM.
+- **Add a custom regulation** with **+ New Regulation** — for example, HIPAA, internal policies, or sector-specific frameworks. Custom regulations are first-class: they appear in the per-regulation tab, contribute to the overall compliance score, and support all the same finding actions (acknowledge, accept, promote to Risk).
+- **Delete** a custom regulation — built-in regulations cannot be deleted, only disabled.
+
+The compliance scanner and risk-promotion flow work **even when no AI provider is configured** — manual finding entry, status transitions and the promotion-to-Risk path all stay available. AI is only required when you actually trigger a new scan.
 
 ## Card Layout Editor
 

@@ -1,12 +1,14 @@
 # EA Delivery
 
-Das **EA Delivery**-Modul verwaltet **Architekturinitiativen und deren Artefakte** — Diagramme und Statements of Architecture Work (SoAW). Es bietet eine einheitliche Ansicht aller laufenden Architekturprojekte und ihrer Ergebnisse.
+Das **EA Delivery**-Modul verwaltet **Architekturinitiativen und deren Artefakte** — Diagramme, Statements of Architecture Work (SoAW) und Architecture Decision Records (ADR). Es bietet eine einheitliche Ansicht aller laufenden Architekturprojekte und ihrer Ergebnisse.
+
+Wenn PPM aktiviert ist — die übliche Konfiguration — lebt EA Delivery **innerhalb des PPM-Moduls**: Öffnen Sie **PPM** in der Top-Navigation und wechseln Sie auf den Reiter **EA Delivery** (`/ppm?tab=ea-delivery`). Wenn PPM deaktiviert ist, erscheint **EA Delivery** als eigener Top-Level-Eintrag mit Link zu `/reports/ea-delivery`. Die alte URL `/ea-delivery` funktioniert in beiden Fällen weiterhin als Weiterleitung, sodass bestehende Lesezeichen erhalten bleiben.
 
 ![EA Delivery-Verwaltung](../assets/img/de/17_ea_lieferung.png)
 
-## Initiativenübersicht
+## Initiativen-Arbeitsbereich
 
-Der Reiter "Initiativen" ist ein **Zwei-Spalten-Arbeitsbereich**:
+EA Delivery ist ein **Zwei-Spalten-Arbeitsbereich** (ohne interne Reiter):
 
 - **Linke Seitenleiste** — ein eingerückter, filterbarer Baum aller Initiativen (mit verschachtelten Unterinitiativen). Suchen Sie nach Namen, filtern Sie nach Status / Subtyp / Artefakten oder markieren Sie Favoriten.
 - **Rechter Arbeitsbereich** — die Lieferobjekte, untergeordneten Initiativen und Details der links ausgewählten Initiative. Bei der Auswahl einer anderen Zeile wird der Arbeitsbereich neu aufgebaut.
@@ -64,87 +66,17 @@ Sobald ein SoAW genehmigt ist, können Sie Abzeichnungen von Stakeholdern anford
 - **Vorschaumodus** — Schreibgeschützte Ansicht des vollständigen SoAW-Dokuments
 - **DOCX-Export** — Das SoAW als formatiertes Word-Dokument zum Offline-Teilen oder Drucken herunterladen
 
+### SoAW-Reiter auf Initiative-Karten
+
+![Initiative-Karte — SoAW-Reiter](../assets/img/de/55_initiative_soaw_tab.png)
+
+Initiativen zeigen außerdem direkt auf ihrer Karten-Detailseite einen eigenen **SoAW**-Reiter. Der Reiter listet jedes mit dieser Initiative verknüpfte SoAW auf (Titel, Status-Chip, Revisionsnummer, Datum der letzten Änderung) mit einer **+ Neues SoAW**-Schaltfläche, die die aktuelle Initiative vorauswählt — so kannst du SoAWs erstellen oder öffnen, ohne die Karte zu verlassen. Die Erstellung verwendet denselben Dialog wie die EA-Delivery-Seite, und das neue Dokument erscheint an beiden Stellen. Die Sichtbarkeit des Reiters folgt den Standard-Karten-Berechtigungsregeln.
+
 ## Architecture Decision Records (ADR)
 
-![EA Delivery Entscheidungen-Tab](../assets/img/de/17b_ea_lieferung_entscheidungen.png)
+Ein **Architecture Decision Record (ADR)** hält eine wichtige Architekturentscheidung samt Kontext, Konsequenzen und erwogenen Alternativen fest. Der EA-Delivery-Arbeitsbereich zeigt ADRs, die **mit der gewählten Initiative verknüpft** sind, inline unter dem Deliverable-Abschnitt *Architekturentscheidungen* — so können Sie sie lesen und öffnen, ohne die Initiative-Ansicht zu verlassen. Mit der Split-Schaltfläche **+ Neues Artefakt ▾** (oder **+ Hinzufügen** im Abschnitt) legen Sie ein neues ADR an, das automatisch mit der gewählten Initiative verknüpft wird.
 
-Ein **Architecture Decision Record (ADR)** dokumentiert wichtige Architekturentscheidungen zusammen mit ihrem Kontext, den Konsequenzen und den erwogenen Alternativen. ADRs bieten eine nachvollziehbare Historie, warum zentrale Designentscheidungen getroffen wurden.
-
-### ADR-Übersicht
-
-Die EA Delivery-Seite verfügt über einen eigenen **Entscheidungen**-Tab, der alle ADRs in einer **AG Grid-Tabelle** mit einer dauerhaften Filterseitenleiste anzeigt, ähnlich wie die Inventarseite.
-
-#### Tabellenspalten
-
-Das ADR-Raster zeigt die folgenden Spalten:
-
-| Spalte | Beschreibung |
-|--------|-------------|
-| **Referenznr.** | Automatisch generierte Referenznummer (ADR-001, ADR-002 usw.) |
-| **Titel** | ADR-Titel |
-| **Status** | Farbiger Chip mit Entwurf, In Überprüfung oder Unterschrieben |
-| **Verknüpfte Karten** | Farbige Pillen, die der Farbe des jeweiligen Kartentyps entsprechen (z.B. Blau für Anwendung, Lila für Datenobjekt) |
-| **Erstellt** | Erstellungsdatum |
-| **Geändert** | Datum der letzten Änderung |
-| **Unterschrieben** | Datum der Unterschrift |
-| **Revision** | Revisionsnummer |
-
-#### Filterseitenleiste
-
-Eine dauerhafte Filterseitenleiste auf der linken Seite bietet folgende Filter:
-
-- **Kartentypen** — Kontrollkästchen mit farbigen Punkten, die den Kartentypfarben entsprechen, zum Filtern nach verknüpften Kartentypen
-- **Status** — Filtern nach Entwurf, In Überprüfung oder Unterschrieben
-- **Erstellungsdatum** — Von/Bis-Datumsbereich
-- **Änderungsdatum** — Von/Bis-Datumsbereich
-- **Unterschriftsdatum** — Von/Bis-Datumsbereich
-
-#### Schnellfilter und Kontextmenü
-
-Verwenden Sie die **Schnellfilter**-Suchleiste für die Volltextsuche über alle ADRs. Klicken Sie mit der rechten Maustaste auf eine Zeile, um ein Kontextmenü mit den Aktionen **Bearbeiten**, **Vorschau**, **Duplizieren** und **Löschen** aufzurufen.
-
-### Ein ADR erstellen
-
-ADRs können von drei Stellen aus erstellt werden:
-
-1. **EA Delivery → Entscheidungen-Tab**: Klicken Sie auf **+ Neues ADR**, geben Sie den Titel ein und verknüpfen Sie optional Karten (einschließlich Initiativen).
-2. **EA Delivery → Initiativen-Tab**: Wählen Sie eine Initiative aus, klicken Sie oben auf **+ Neues Artefakt ▾** (oder auf die **+ Hinzufügen**-Schaltfläche im Abschnitt *Architekturentscheidungen*) und wählen Sie **Neue Architekturentscheidung** — die Initiative wird automatisch als Kartenverknüpfung hinzugefügt.
-3. **Karten-Ressourcen-Tab**: Klicken Sie auf **ADR erstellen** — die aktuelle Karte wird automatisch verknüpft.
-
-In allen Fällen können Sie während der Erstellung weitere Karten suchen und verknüpfen. Initiativen werden über denselben Kartenverknüpfungsmechanismus wie jede andere Karte verknüpft, sodass ein ADR mit mehreren Initiativen verknüpft werden kann. Der Editor öffnet sich mit Abschnitten für Kontext, Entscheidung, Konsequenzen und Erwogene Alternativen.
-
-### Der ADR-Editor
-
-Der Editor bietet:
-
-- Rich-Text-Bearbeitung für jeden Abschnitt (Kontext, Entscheidung, Konsequenzen, Erwogene Alternativen)
-- Kartenverknüpfung — verbinden Sie das ADR mit relevanten Karten (Anwendungen, IT-Komponenten, Initiativen usw.). Initiativen werden über die Standard-Kartenverknüpfung verknüpft, nicht über ein eigenes Feld, sodass ein ADR mehrere Initiativen referenzieren kann
-- Verwandte Entscheidungen — referenzieren Sie andere ADRs
-
-### Abzeichnungsworkflow
-
-ADRs unterstützen einen formalen Abzeichnungsprozess:
-
-1. Erstellen Sie das ADR im Status **Entwurf**
-2. Klicken Sie auf **Unterschriften anfordern** und suchen Sie Unterzeichner nach Name oder E-Mail
-3. Das ADR wechselt zu **In Überprüfung** — jeder Unterzeichner erhält eine Benachrichtigung und eine Aufgabe
-4. Unterzeichner prüfen und klicken auf **Unterschreiben**
-5. Wenn alle Unterzeichner unterschrieben haben, wechselt das ADR automatisch zum Status **Unterschrieben**
-
-Unterschriebene ADRs sind gesperrt und können nicht bearbeitet werden. Um Änderungen vorzunehmen, erstellen Sie eine **neue Revision**.
-
-### Revisionen
-
-Unterschriebene ADRs können überarbeitet werden:
-
-1. Öffnen Sie ein unterschriebenes ADR
-2. Klicken Sie auf **Überarbeiten**, um einen neuen Entwurf basierend auf der unterschriebenen Version zu erstellen
-3. Die neue Revision übernimmt den Inhalt und die Kartenverknüpfungen
-4. Jede Revision hat eine fortlaufende Revisionsnummer
-
-### ADR-Vorschau
-
-Klicken Sie auf das Vorschau-Symbol, um eine schreibgeschützte, formatierte Version des ADR anzuzeigen — nützlich zur Überprüfung vor der Unterschrift.
+Das **zentrale ADR-Register** — wo alle ADRs landschaftsweit gefiltert, durchsucht, abgezeichnet, revidiert und in der Vorschau betrachtet werden — liegt im GRC-Modul unter **GRC → Governance → [Entscheidungen](grc.md#governance)**. Den vollständigen ADR-Lebenszyklus (Spalten, Filtersidebar, Abzeichnungs-Workflow, Revisionen, Vorschau) finden Sie im GRC-Leitfaden.
 
 ## Registerkarte Ressourcen
 

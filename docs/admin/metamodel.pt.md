@@ -4,7 +4,7 @@ O **Metamodelo** define toda a estrutura de dados da sua plataforma — quais ti
 
 ![Configuração do Metamodelo](../assets/img/pt/20_admin_metamodelo.png)
 
-Navegue até **Admin > Metamodelo** para acessar o editor do metamodelo. Ele possui seis abas: **Tipos de Card**, **Tipos de Relacionamento**, **Cálculos**, **Princípios EA**, **Tags** e **Grafo do Metamodelo**.
+Navegue até **Admin > Metamodelo** para acessar o editor do metamodelo. Ele possui sete abas: **Tipos de Card**, **Tipos de Relacionamento**, **Cálculos**, **Tags**, **Grafo do Metamodelo**, **Princípios EA** e **Regulações de Conformidade**.
 
 ## Tipos de Card
 
@@ -160,6 +160,28 @@ Por exemplo, um princípio «Comprar SaaS» faria com que a IA sinalize aplicaç
 ![Grafo do Metamodelo](../assets/img/pt/38_grafo_metamodelo.png)
 
 A aba **Grafo do Metamodelo** mostra um diagrama visual SVG de todos os tipos de card e seus tipos de relacionamento. Esta é uma visualização somente leitura que ajuda você a entender as conexões no seu metamodelo de forma rápida.
+
+## Regulações de Conformidade
+
+A aba **Regulações de Conformidade** gerencia os frameworks regulatórios contra os quais o [scanner de Conformidade do GRC](../guide/grc.md#compliance) executa. Seis frameworks vêm habilitados por padrão:
+
+| Regulação | Escopo |
+|-----------|--------|
+| **Lei da IA da UE** | Requisitos para sistemas de IA / ML colocados no mercado da UE |
+| **GDPR** | Regulamento Geral de Proteção de Dados da UE |
+| **NIS2** | Diretiva 2 da UE sobre segurança de redes e sistemas de informação |
+| **DORA** | Regulamento europeu de resiliência operacional digital para entidades financeiras |
+| **SOC 2** | Critérios AICPA Service Organization Controls Trust Services |
+| **ISO/IEC 27001** | Norma para sistemas de gestão da segurança da informação |
+
+Em cada linha você pode:
+
+- **Habilitar / desabilitar** a regulação com o seletor — frameworks desabilitados são ignorados em cada varredura subsequente e seus achados excluídos dos painéis. Os achados existentes são preservados (não eliminados) caso você reabilite mais tarde.
+- **Editar** o título, descrição do escopo e o contexto de prompt fornecido ao LLM.
+- **Adicionar uma regulação personalizada** com **+ Nova Regulação** — por exemplo HIPAA, políticas internas ou frameworks setoriais. As regulações personalizadas são de primeira classe: aparecem na aba dedicada, contribuem para a pontuação global de conformidade e suportam as mesmas ações em achados (reconhecer, aceitar, promover para Risco).
+- **Excluir** uma regulação personalizada — as regulações integradas não podem ser excluídas, apenas desabilitadas.
+
+O scanner de conformidade e o fluxo de promoção para Risco funcionam **mesmo sem um provedor de IA configurado** — a entrada manual de achados, transições de status e o caminho de promoção para Risco continuam disponíveis. A IA só é necessária quando você efetivamente dispara uma nova varredura.
 
 ## Editor de Layout de Card
 

@@ -1,12 +1,14 @@
 # EA Delivery
 
-The **EA Delivery** module manages **architecture initiatives and their artifacts** — diagrams and Statements of Architecture Work (SoAW). It provides a single view of all ongoing architecture projects and their deliverables.
+The **EA Delivery** module manages **architecture initiatives and their artifacts** — diagrams, Statements of Architecture Work (SoAW), and Architecture Decision Records (ADR). It provides a single view of all ongoing architecture projects and their deliverables.
+
+When PPM is enabled — the typical configuration — EA Delivery lives **inside the PPM module**: open **PPM** in the top nav and switch to the **EA Delivery** tab (`/ppm?tab=ea-delivery`). When PPM is disabled, **EA Delivery** appears as a dedicated top-level nav item linking to `/reports/ea-delivery`. The legacy `/ea-delivery` URL keeps working as a redirect either way, so existing bookmarks still resolve.
 
 ![EA Delivery Management](../assets/img/en/17_ea_delivery.png)
 
-## Initiative Overview
+## Initiatives workspace
 
-The Initiatives tab is a **two-pane workspace**:
+EA Delivery is a **two-pane workspace** (no internal tabs):
 
 - **Left sidebar** — an indented, filterable tree of every initiative (with their child initiatives nested below). Search by name, filter by Status / Subtype / Artefacts, or pin favourites.
 - **Right workspace** — the deliverables, child initiatives, and details for the initiative you select on the left. Pick another row, and the workspace re-renders.
@@ -64,87 +66,17 @@ Once a SoAW is approved, you can request sign-offs from stakeholders. Click **Re
 - **Preview mode** — Read-only view of the complete SoAW document
 - **DOCX export** — Download the SoAW as a formatted Word document for offline sharing or printing
 
+### SoAW Tab on Initiative Cards
+
+![Initiative card — SoAW tab](../assets/img/en/55_initiative_soaw_tab.png)
+
+Initiatives also expose a dedicated **SoAW** tab directly on their card detail page. The tab lists every SoAW linked to that initiative (title, status chip, revision number, last-modified date) with a **+ New SoAW** button that pre-selects the current initiative — so you can author or jump to a SoAW without leaving the card you're working on. Creation reuses the same dialog as the EA Delivery page, and the new document appears in both places. Visibility of the tab follows the standard card permission rules.
+
 ## Architecture Decision Records (ADR)
 
-![EA Delivery Decisions Tab](../assets/img/en/17b_ea_delivery_decisions.png)
+An **Architecture Decision Record (ADR)** captures an important architecture decision along with its context, consequences, and alternatives considered. The EA Delivery workspace surfaces ADRs that are **linked to the selected initiative** inline, under the *Architecture Decisions* deliverable section, so you can read and open them without leaving the initiative view. Use the **+ New artefact ▾** split-button (or the **+ Add** button on the section) to create a new ADR pre-linked to the selected initiative.
 
-An **Architecture Decision Record (ADR)** documents important architecture decisions along with their context, consequences, and alternatives considered. ADRs provide a traceable history of why key design choices were made.
-
-### ADR Overview
-
-The EA Delivery page has a dedicated **Decisions** tab that displays all ADRs in an **AG Grid table** with a persistent filter sidebar, similar to the Inventory page.
-
-#### Grid Columns
-
-The ADR grid shows the following columns:
-
-| Column | Description |
-|--------|-------------|
-| **Reference #** | Auto-generated reference number (ADR-001, ADR-002, etc.) |
-| **Title** | ADR title |
-| **Status** | Colored chip showing Draft, In Review, or Signed |
-| **Linked Cards** | Colored pills matching each linked card's type color (e.g., blue for Application, purple for Data Object) |
-| **Created** | Creation date |
-| **Modified** | Last modification date |
-| **Signed** | Date when the ADR was signed |
-| **Revision** | Revision number |
-
-#### Filter Sidebar
-
-A persistent filter sidebar on the left provides the following filters:
-
-- **Card Types** — Checkboxes with colored dots matching the card type colors, to filter by linked card types
-- **Status** — Filter by Draft, In Review, or Signed
-- **Date Created** — From/to date range
-- **Date Modified** — From/to date range
-- **Date Signed** — From/to date range
-
-#### Quick Filter and Context Menu
-
-Use the **quick filter** search bar for full-text search across all ADRs. Right-click any row to access a context menu with **Edit**, **Preview**, **Duplicate**, and **Delete** actions.
-
-### Creating an ADR
-
-ADRs can be created from three places:
-
-1. **EA Delivery → Decisions tab**: Click **+ New ADR**, fill in the title and optionally link cards (including initiatives).
-2. **EA Delivery → Initiatives tab**: Select an initiative, then click **+ New artefact ▾** in the page header (or the **+ Add** button on the *Architecture Decisions* deliverable section) and choose **New Architecture Decision** — the initiative is pre-linked as a card link.
-3. **Card Resources tab**: Click **Create ADR** — the current card is pre-linked.
-
-In all cases, you can search and link additional cards during creation. Initiatives are linked through the same card linking mechanism as any other card, which means an ADR can be linked to multiple initiatives. The editor opens with sections for Context, Decision, Consequences, and Alternatives Considered.
-
-### The ADR Editor
-
-The editor provides:
-
-- Rich text editing for each section (Context, Decision, Consequences, Alternatives Considered)
-- Card linking — connect the ADR to relevant cards (applications, IT components, initiatives, etc.). Initiatives are linked through the standard card linking feature, not a dedicated field, so an ADR can reference multiple initiatives
-- Related decisions — reference other ADRs
-
-### Sign-off Workflow
-
-ADRs support a formal sign-off process:
-
-1. Create the ADR in **Draft** status
-2. Click **Request Signatures** and search for signatories by name or email
-3. The ADR moves to **In Review** — each signatory receives a notification and a task
-4. Signatories review and click **Sign**
-5. When all signatories have signed, the ADR automatically moves to **Signed** status
-
-Signed ADRs are locked and cannot be edited. To make changes, create a **new revision**.
-
-### Revisions
-
-Signed ADRs can be revised:
-
-1. Open a signed ADR
-2. Click **Revise** to create a new draft based on the signed version
-3. The new revision inherits the content and card links
-4. Each revision has an incrementing revision number
-
-### ADR Preview
-
-Click the preview icon to view a read-only, formatted version of the ADR — useful for reviewing before signing.
+The **master ADR registry** — where every ADR across the landscape is filtered, searched, signed off, revised and previewed — lives in the GRC module at **GRC → Governance → [Decisions](grc.md#governance)**. See the GRC guide for the full ADR lifecycle (grid columns, filter sidebar, sign-off workflow, revisions, preview).
 
 ## Resources Tab
 

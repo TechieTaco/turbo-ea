@@ -4,7 +4,7 @@ Il **Metamodello** definisce l'intera struttura dati della piattaforma — quali
 
 ![Configurazione del metamodello](../assets/img/it/20_admin_metamodello.png)
 
-Navigate su **Admin > Metamodello** per accedere all'editor del metamodello. Ha sei schede: **Tipi di card**, **Tipi di relazione**, **Calcoli**, **Tag**, **Principi EA** e **Grafo del metamodello**.
+Navigate su **Admin > Metamodello** per accedere all'editor del metamodello. Ha sette schede: **Tipi di card**, **Tipi di relazione**, **Calcoli**, **Tag**, **Grafo del metamodello**, **Principi EA** e **Regolamenti di conformità**.
 
 ## Tipi di card
 
@@ -160,6 +160,28 @@ Ad esempio, un principio «Acquistare SaaS» farebbe sì che l'IA segnali le app
 ![Grafo del metamodello](../assets/img/it/38_grafo_metamodello.png)
 
 La scheda **Grafo del metamodello** mostra un diagramma SVG visivo di tutti i tipi di card e i loro tipi di relazione. Questa è una visualizzazione di sola lettura che aiuta a comprendere le connessioni nel vostro metamodello a colpo d'occhio.
+
+## Regolamenti di conformità
+
+La scheda **Regolamenti di conformità** gestisce i framework normativi su cui esegue lo [scanner Conformità di GRC](../guide/grc.md#compliance). Sei framework sono abilitati per default:
+
+| Regolamento | Ambito |
+|-------------|--------|
+| **AI Act dell'UE** | Requisiti per sistemi di IA / ML immessi sul mercato dell'UE |
+| **GDPR** | Regolamento Generale sulla Protezione dei Dati dell'UE |
+| **NIS2** | Direttiva 2 dell'UE sulla sicurezza delle reti e dei sistemi informativi |
+| **DORA** | Regolamento europeo sulla resilienza operativa digitale per le entità finanziarie |
+| **SOC 2** | Criteri AICPA Service Organization Controls Trust Services |
+| **ISO/IEC 27001** | Standard per i sistemi di gestione della sicurezza delle informazioni |
+
+Per ciascuna riga potete:
+
+- **Abilitare / disabilitare** il regolamento tramite l'interruttore — i framework disabilitati vengono saltati in ogni scansione successiva e i loro riscontri esclusi dalle dashboard. I riscontri esistenti vengono conservati (non eliminati) nel caso lo riabilitiate in seguito.
+- **Modificare** il titolo, la descrizione dell'ambito e il contesto di prompt fornito al LLM.
+- **Aggiungere un regolamento personalizzato** con **+ Nuovo regolamento** — ad esempio HIPAA, policy interne o framework di settore. I regolamenti personalizzati sono a pieno titolo: compaiono nella scheda dedicata, contribuiscono al punteggio globale di conformità e supportano le stesse azioni sui riscontri (riconoscere, accettare, promuovere a Rischio).
+- **Eliminare** un regolamento personalizzato — i regolamenti integrati non possono essere eliminati, solo disabilitati.
+
+Lo scanner di conformità e il flusso di promozione a Rischio funzionano **anche senza un provider AI configurato** — l'inserimento manuale dei riscontri, le transizioni di stato e il percorso di promozione a Rischio restano disponibili. L'AI è richiesta solo quando avviate effettivamente una nuova scansione.
 
 ## Editor layout card
 

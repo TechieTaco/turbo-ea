@@ -47,6 +47,19 @@ Risks are **many-to-many** with Cards. A risk can affect multiple Applications o
 
 Both the TurboLens Security Overview and the Risk Register page render a 4×4 probability × impact heatmap. Cells are **clickable** — click one to filter the list below to just that bucket, click again (or the chip's ×) to clear. On the Risk Register you can toggle the matrix between **Initial** and **Residual** views so mitigation progress shows up visually.
 
+## Register grid
+
+The register is an AG Grid that mirrors the [Inventory](inventory.md) standards: sortable, filterable, resizable columns with per-user persistent preferences (visible columns, sort order, sidebar state). A toolbar **+ New risk** opens the manual create dialog. Use **Export CSV** to download the filtered set in the same column order shown on screen — useful for audit packs or for sharing the register with stakeholders who don't have a Turbo EA login.
+
+## Risk ↔ Finding propagation
+
+If a Risk was [promoted from a TurboLens finding](turbolens.md#promote-a-finding-to-the-risk-register), state changes flow **both ways**:
+
+- The finding carries an **Open risk R-000123** back-link from the moment it is promoted (the action is idempotent — clicking it again navigates to the existing risk instead of creating a duplicate).
+- When the Risk reaches `mitigated` / `monitoring` / `closed` / `accepted` (or is deleted), the back-propagation engine automatically transitions every linked compliance finding to match (`mitigated` / `verified` / `accepted` / `in_review`). The acceptance rationale you capture on the Risk is mirrored into the finding's review note so the audit trail stays consistent.
+
+This keeps the Risk Register (governance view) and the Compliance grid (operational view) aligned without manual upkeep.
+
 ## Status workflow
 
 The detail page always shows a single **primary Next step** button plus a smaller row of side actions, so the sequential path is obvious but governance escape hatches remain one click away:

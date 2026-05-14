@@ -10,14 +10,90 @@ GRC ha tre schede:
 
 Puoi puntare direttamente a una scheda con `/grc?tab=governance`, `/grc?tab=risk` o `/grc?tab=compliance`.
 
+![GRC — scheda Governance](../assets/img/it/52_grc_governance.png)
+
 ## Governance
 
-Due pannelli affiancati:
+La scheda Governance si divide in due **sotto-schede**, deep-linkabili tramite `/grc?tab=governance&sub=principles` (predefinita) e `/grc?tab=governance&sub=decisions`:
 
-- **Principi** — visualizzatore in sola lettura dei Principi EA pubblicati nel metamodello (enunciato, motivazione, implicazioni). Il catalogo si modifica da **Amministrazione → Metamodello → Principi**.
-- **Decisioni** — Architecture Decision Records. Ogni ADR cattura stato, contesto, decisione, alternative considerate e conseguenze. Le decisioni emesse dalla procedura guidata TurboLens Architect arrivano qui come bozze da approvare.
+### Principi
+
+Visualizzatore in sola lettura dei Principi EA pubblicati nel metamodello (enunciato, motivazione, implicazioni). Il catalogo si modifica da **Amministrazione → Metamodello → Principi**.
+
+### Decisioni
+
+![GRC — sotto-scheda Decisioni](../assets/img/it/52a_grc_decisioni.png)
+
+La sotto-scheda Decisioni è il **registro principale degli Architecture Decision Records (ADR)** — ogni ADR a livello di landscape, indipendentemente dall'iniziativa a cui è collegato. Sostituisce la vecchia scheda Decisioni di EA Delivery, dissolta con l'arrivo del modulo GRC.
+
+Gli ADR documentano importanti decisioni architetturali insieme al loro contesto, alle conseguenze e alle alternative considerate. Le decisioni emesse dalla procedura guidata TurboLens Architect arrivano qui come bozze da approvare.
+
+#### Colonne della tabella
+
+La griglia ADR rispecchia il layout della griglia Inventario:
+
+| Colonna | Descrizione |
+|---------|-------------|
+| **N. rif.** | Numero di riferimento generato automaticamente (ADR-001, ADR-002, …) |
+| **Titolo** | Titolo dell'ADR |
+| **Stato** | Chip colorato — Bozza, In Revisione o Firmato |
+| **Card collegate** | Pillole colorate corrispondenti al colore del tipo di ogni card collegata |
+| **Creato** | Data di creazione |
+| **Modificato** | Data di ultima modifica |
+| **Firmato** | Data di firma |
+| **Revisione** | Numero di revisione |
+
+#### Barra laterale dei filtri
+
+La barra laterale dei filtri persistente a sinistra offre:
+
+- **Tipi di card** — caselle di controllo con punti colorati che filtrano per tipi di card collegate
+- **Stato** — Bozza / In Revisione / Firmato
+- **Data di creazione / modifica / firma** — intervalli di date da/a
+
+Usate la barra del **filtro rapido** per la ricerca full-text. Fate clic destro su una riga per un menu contestuale (**Modifica**, **Anteprima**, **Duplica**, **Elimina**).
+
+#### Creare un ADR
+
+Gli ADR possono essere creati da tre punti — tutti aprono lo stesso editor e alimentano lo stesso registro:
+
+1. **GRC → Governance → Decisioni**: cliccate su **+ Nuovo ADR**, compilate il titolo e opzionalmente collegate card (incluse le iniziative).
+2. **Spazio di lavoro EA Delivery**: selezionate un'iniziativa, cliccate su **+ Nuovo artefatto ▾** in alto (oppure **+ Aggiungi** nella sezione *Decisioni di Architettura*) e scegliete **Nuova Decisione di Architettura** — l'iniziativa è pre-collegata.
+3. **Card → scheda Risorse**: cliccate su **Crea ADR** — la card corrente è pre-collegata.
+
+In tutti i casi potete cercare e collegare card aggiuntive durante la creazione. Le iniziative sono collegate attraverso lo stesso meccanismo di collegamento di card di qualsiasi altra card, quindi un ADR può fare riferimento a più iniziative. L'editor si apre con sezioni per **Contesto**, **Decisione**, **Conseguenze** e **Alternative considerate**.
+
+#### L'editor ADR
+
+L'editor fornisce:
+
+- Editing di testo ricco per ogni sezione (Contesto, Decisione, Conseguenze, Alternative considerate)
+- Collegamento di card — collegate l'ADR alle card pertinenti (applicazioni, componenti IT, iniziative, …). Le iniziative sono collegate tramite la funzionalità standard di collegamento di card, non tramite un campo dedicato, consentendo a un ADR di fare riferimento a più iniziative
+- Decisioni correlate — fate riferimento ad altri ADR
+
+#### Workflow di firma
+
+Gli ADR supportano un processo formale di firma:
+
+1. Create l'ADR con stato **Bozza**.
+2. Cliccate su **Richiedi firme** e cercate i firmatari per nome o e-mail.
+3. L'ADR passa a **In Revisione** — ogni firmatario riceve una notifica e un Todo.
+4. I firmatari esaminano e cliccano su **Firma**.
+5. Quando tutti i firmatari hanno firmato, l'ADR passa automaticamente allo stato **Firmato**.
+
+Gli ADR firmati sono bloccati e non possono essere modificati — per apportare modifiche create una nuova revisione.
+
+#### Revisioni
+
+Aprite un ADR firmato e cliccate su **Revisiona** per creare una nuova bozza basata sulla versione firmata. La nuova revisione eredita il contenuto e i collegamenti delle card e riceve un numero di revisione incrementale. Ogni revisione conserva la propria traccia di firma.
+
+#### Anteprima
+
+Cliccate sull'icona di anteprima per visualizzare una versione in sola lettura e formattata dell'ADR — utile per la revisione prima della firma.
 
 ## Rischio
+
+![GRC — Registro dei rischi](../assets/img/it/53_grc_registro_rischi.png)
 
 Incorpora il **Registro dei rischi** TOGAF Fase G. Ciclo di vita completo, workflow degli stati, interruttori della matrice e comportamento dei proprietari sono documentati nella [guida del Registro dei rischi](risks.md). I punti più rilevanti:
 
@@ -27,14 +103,31 @@ Incorpora il **Registro dei rischi** TOGAF Fase G. Ciclo di vita completo, workf
 
 ## Conformità
 
+![GRC — scanner di conformità](../assets/img/it/54_grc_conformita.png)
+
 Lo scanner di sicurezza on-demand, con due metà indipendenti:
 
 - **Scansione CVE** — interroga NIST NVD per i fornitori / prodotti / versioni del paesaggio vivo, poi chiede all'LLM di prioritizzare i riscontri.
-- **Scansione di conformità** — analisi degli scostamenti per regolamento, basata su IA, contro i regolamenti abilitati (per default EU AI Act, GDPR, NIS2, DORA, SOC 2, ISO 27001; gli amministratori possono abilitarne altri da **Amministrazione → Regolamenti**).
+- **Scansione di conformità** — analisi degli scostamenti per regolamento, basata su IA, contro i regolamenti abilitati. Sei framework sono abilitati per default (EU AI Act, GDPR, NIS2, DORA, SOC 2, ISO 27001); gli amministratori possono abilitarli o disabilitarli — e aggiungere regolamenti personalizzati come HIPAA o policy interne — da [**Amministrazione → Metamodello → Regolamenti**](../admin/metamodel.md#compliance-regulations).
 
-I riscontri sono **durevoli tra re-scansioni** — decisioni utente, note di revisione e il rimando a un Rischio promosso sopravvivono alle scansioni successive. Un riscontro che la passata seguente non riporta più viene marcato `auto_resolved` e nascosto per default; il Rischio promosso in precedenza resta intatto per non rompere il percorso di audit.
+I riscontri sono **durevoli tra re-scansioni** — decisioni utente, note di revisione, il verdetto AI dell'utente su una card e il rimando a un Rischio promosso sopravvivono alle scansioni successive. Un riscontro che la passata seguente non riporta più viene marcato `auto_resolved` e nascosto per default; il Rischio promosso in precedenza resta intatto per non rompere il percorso di audit.
 
-La griglia Conformità riflette quella dell'Inventario: barra laterale dei filtri con visibilità delle colonne, ordinamento persistito e un cassetto di dettaglio che mostra il ciclo di vita di conformità (`new → in_review → mitigated → verified`, con `risk_tracked`, `accepted` e `not_applicable` come rami laterali).
+La griglia Conformità riflette quella dell'Inventario: barra laterale dei filtri con visibilità delle colonne, ordinamento persistito, ricerca a testo libero e un cassetto di dettaglio che mostra il ciclo di vita di conformità come una timeline orizzontale di fasi:
+
+```
+new → in_review → mitigated → verified
+                      ↘ accepted          (motivazione richiesta)
+                      ↘ not_applicable    (revisione dell'ambito)
+                      ↘ risk_tracked      (impostato automaticamente alla promozione a Rischio)
+```
+
+Con `security_compliance.manage`, spunta la casella nell'header per una **selezione filtrata di tutte le righe**, poi usa la barra degli strumenti agganciata per **Modifica decisione** (transizione in batch) o **Elimina** i riscontri selezionati. Le transizioni illegali sono segnalate riga per riga in un riepilogo di successo parziale, così una singola riga errata non fa fallire l'intero batch. Vedi [TurboLens → Sicurezza & Conformità](turbolens.md#bulk-actions-on-the-compliance-grid) per il riferimento completo delle azioni.
+
+Quando un Rischio promosso da un riscontro viene chiuso o accettato, l'operazione **si propaga automaticamente al riscontro** — la riga di conformità collegata passa a `mitigated` / `verified` / `accepted` / `in_review` per restare sincronizzata, senza manutenzione manuale.
+
+### Conformità su una singola card
+
+Le card nell'ambito di una scansione di conformità espongono anche una scheda **Conformità** nella loro pagina di dettaglio (governata da `security_compliance.view`). Elenca ogni riscontro attualmente collegato alla card con le stesse azioni Riconosci / Accetta / **Crea rischio** / **Apri rischio** della vista GRC — così che un Application Owner possa triagiare i propri riscontri senza lasciare la card.
 
 ## Permessi
 

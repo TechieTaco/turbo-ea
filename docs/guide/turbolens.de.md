@@ -241,12 +241,32 @@ Ein Seiten-Refresh **unterbricht einen laufenden Scan nicht** — die Hintergrun
 
 - **Übersicht** — KPI-Leiste (Gesamtzahl Befunde, Anzahl kritisch / hoch / mittel, Gesamt-Compliance-Score), eine 5×5-**Wahrscheinlichkeit-×-Schweregrad-Risikomatrix**, die fünf kritischsten Befunde und eine kompakte Compliance-Heatmap mit Drill-Down in die Details. Die Matrix selbst ist **klickbar**: Ein Klick auf eine Zelle öffnet den CVEs-Unter-Tab gefiltert auf diesen Bucket, mit einem verwerfbaren Chip oberhalb der Tabelle zur Anzeige (und Löschung) des aktiven Filters.
 - **CVEs** — filterbare Tabelle mit Karte, CVE-ID (verlinkt auf die NVD-Detailseite), CVSS-Basisscore, Schweregrad, Priorität, Wahrscheinlichkeit, Patch-Verfügbarkeit und Status. Jede Zeile öffnet eine Detail-Schublade mit Beschreibung, CVSS-Vektor, Angriffsvektor, Ausnutzbarkeits- / Auswirkungs-Scores, Referenzen, KI-generierten Geschäftsauswirkungen und Behebung sowie einer Status-Aktionsleiste (**Bestätigen → In Bearbeitung setzen → Als behoben markieren / Risiko akzeptieren / Wiedereröffnen**).
-- **Compliance** — ein Tab pro Regulierung mit Gesamt-Score und einer kartenartigen Liste von Befunden, die Status, Artikel, Kategorie, Anforderung, Lückenbeschreibung, Behebung und Nachweise anzeigt. Ein kleiner **KI-erkannt**-Chip hebt Karten hervor, die vom semantischen Detektor als KI-tragend markiert wurden, obwohl sie nicht als KI-Subtypen klassifiziert sind.
+- **Compliance** — ein AG-Grid, das das Inventar-Grid spiegelt: Filter-Sidebar, persistierte Spaltensichtbarkeit und Sortierung, Volltextsuche und eine Detail-Schublade pro Befund. Zeilen tragen Status, Artikel, Kategorie, Anforderung, Lückenbeschreibung, Behebung und Nachweise. Ein kleiner **KI-erkannt**-Chip hebt Karten hervor, die vom semantischen Detektor als KI-tragend markiert wurden, obwohl sie nicht als KI-Subtypen klassifiziert sind.
 - **CSV exportieren** — lädt die CVE-Befunde in einer Spaltenreihenfolge nach OWASP/NIST-Stil herunter (Karte, Typ, CVE, CVSS, Schweregrad, Angriffsvektor, Wahrscheinlichkeit, Priorität, Patch, Veröffentlicht, Zuletzt geändert, Status, Hersteller, Produkt, Version, Geschäftsauswirkung, Behebung, Beschreibung).
+
+### Befunde überleben Re-Scans
+
+Nutzerentscheidungen und Reviewer-Metadaten sind **über Re-Scans hinweg dauerhaft**:
+
+- CVE-Befunde werden per `(card_id, cve_id)` upserted. Ein nutzergesetzter Status (`acknowledged`, `mitigated`, `accepted`) und jeder Rückverweis auf ein überführtes Risiko überleben den nächsten Scan.
+- Compliance-Befunde werden per `(scope, card, regulation, normalised_article)` upserted. Artikel-IDs wie *Art. 6 / Article 6 / § 6* fallen auf dieselbe Zeile zusammen, sodass LLM-Umformulierungen keine Duplikate mehr erzeugen.
+- Ein Befund, den der nächste Lauf nicht mehr meldet, wird **nicht gelöscht** — er erhält das Flag `auto_resolved=true` und wird standardmässig ausgeblendet, sodass seine Historie (und das verknüpfte Risiko) erhalten bleibt.
+- Das **KI-Verdikt** des Nutzers auf einer Karte (`hasAiFeatures = true / false`) bleibt ebenfalls bestehen. Wer die KI-Klassifizierung des LLM bestätigt oder ablehnt, überschreibt damit den Detektor für nachfolgende Scans — LLM-Drift kann den Geltungsbereich nicht stillschweigend ändern.
 
 ### Einen Befund ins Risikoregister überführen
 
 Jede CVE-Schublade und jede Compliance-Befundkarte enthält eine primäre Aktion **Risiko anlegen**. Ein Klick öffnet den gemeinsamen Risiko-anlegen-Dialog mit Titel, Beschreibung, Kategorie, Wahrscheinlichkeit, Auswirkung, Massnahme und betroffener Karte **aus dem Befund vorbefüllt**. Sie können jedes Feld vor dem Speichern bearbeiten, einen **Eigentümer** zuweisen und ein **Ziel-Erledigungsdatum** wählen. Beim Speichern wechselt die Zeile des Befunds zu **Risiko R-000123 öffnen**, damit der Link sichtbar bleibt — Überführungen sind serverseitig idempotent. Siehe [Risikoregister](risks.md) für den vollständigen TOGAF-konformen Lebenszyklus und wie eine Eigentümerzuweisung ein Folge-Todo + Glocken-Benachrichtigung erzeugt.
+
+Erreicht das verknüpfte Risiko später `mitigated`, `monitoring`, `closed` oder `accepted` (oder wird gelöscht), bewegt die Back-Propagation-Engine automatisch jeden verknüpften Compliance-Befund in den passenden Zustand (`mitigated`, `verified`, `accepted` oder zurück auf `in_review`). Die im Risiko erfasste Akzeptanzbegründung wird in die Prüfnotiz des Befunds gespiegelt, damit der Audit-Pfad konsistent bleibt.
+
+### Bulk-Aktionen im Compliance-Grid
+
+Mit `security_compliance.manage` zeigt das Compliance-Grid eine filter-bewusste Mehrfachauswahl. Setze das Häkchen im Header, um alle Zeilen zu wählen, die den aktiven Filtern entsprechen, und nutze dann die angeheftete Symbolleiste:
+
+- **Entscheidung bearbeiten** — überführe jeden ausgewählten Befund per Batch in einen gewählten Zustand (z. B. einen Schwung Befunde nach einem Scope-Review als `not_applicable` markieren). Illegale Übergänge werden je Zeile in einer Teil-Erfolg-Zusammenfassung gemeldet, statt den gesamten Batch scheitern zu lassen.
+- **Löschen** — Befunde dauerhaft entfernen (nützlich, um Befunde einer inzwischen deaktivierten Regulierung aufzuräumen).
+
+Das Überführen in ein Risiko bleibt eine Einzelaktion — ein Bulk-Promote wird bewusst nicht angeboten, um die kontextbezogene Erfassung pro Befund zu erhalten.
 
 ### Semantische EU-AI-Act-Erkennung
 
@@ -262,7 +282,28 @@ Ohne Schlüssel erlaubt NVD nur 5 Anfragen pro 30 Sekunden, was grossflächige S
 
 ### Statusworkflow
 
-Jeder CVE-Befund durchläuft: **offen** → **bestätigt** → **in Bearbeitung** → **behoben** (oder **akzeptiert**, wenn das Team das Risiko formell akzeptiert hat). Das Wiedereröffnen ist jederzeit möglich. Statusänderungen obliegen Benutzern mit `security_compliance.manage`. Für Governance-Workflows (Eigentümerschaft, Rest-Bewertung, Akzeptanz-Begründung, Todos und Benachrichtigungen) überführen Sie den Befund in ein Risiko — der volle Lebenszyklus liegt im [Risikoregister](risks.md).
+CVE- und Compliance-Befunde haben **unterschiedliche Lebenszyklen**, jeder in der Detail-Schublade als horizontale Phasen-Timeline gezeichnet. Beide sind auf Nutzer mit `security_compliance.manage` beschränkt; die Engine erzwingt Übergänge serverseitig und weist illegale Bewegungen mit klarer Fehlermeldung ab.
+
+**CVE-Befunde**
+
+```
+open → acknowledged → in progress → mitigated
+                                  ↘ accepted (formelle Risikoakzeptanz)
+                                  ↘ reopen → open
+```
+
+**Compliance-Befunde** (in v1.11.0 neu gestaltet)
+
+```
+new → in_review → mitigated → verified
+                      ↘ accepted          (Seitenzweig, Begründung erforderlich)
+                      ↘ not_applicable    (Seitenzweig, Scope-Review)
+                      ↘ risk_tracked      (automatisch bei Überführung in ein Risiko)
+```
+
+`risk_tracked` wird nie von Hand gesetzt — es wird automatisch geschrieben, sobald du auf einem Befund **Risiko anlegen** klickst, und von der Back-Propagation-Engine geräumt, wenn das verknüpfte Risiko schliesst (siehe *Einen Befund ins Risikoregister überführen* oben).
+
+Für vollständige Governance-Workflows (Eigentümerschaft, Rest-Bewertung, Akzeptanzbegründung, Todos und Benachrichtigungen) überführe den Befund in ein Risiko — der volle Lebenszyklus liegt im [Risikoregister](risks.md).
 
 ## Analyseverlauf
 

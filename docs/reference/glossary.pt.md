@@ -62,3 +62,11 @@
 | **Estrutura Analítica do Projeto (EAP / WBS)** | Uma decomposição hierárquica do escopo do projeto em pacotes de trabalho |
 | **Pacote de trabalho** | Um agrupamento lógico de tarefas dentro de um cronograma Gantt com suas próprias datas de início/fim e porcentagem de conclusão |
 | **Sugestão de IA** | Uma descrição de card gerada automaticamente produzida pela combinação de resultados de pesquisa na web com um Large Language Model (LLM) |
+| **Veredicto de IA** | A confirmação ou rejeição pelo utilizador da classificação de IA atribuída pelo LLM a um card (`hasAiFeatures = true / false`). Persiste entre re-scans para que a deriva do LLM não altere silenciosamente o âmbito do Regulamento Europeu da IA |
+| **Constatação auto-resolvida** | Uma constatação CVE ou de conformidade que um scan posterior já não reporta. A linha é marcada com `auto_resolved = true` e oculta por defeito, mas não eliminada — o seu histórico (e qualquer Risco promovido) permanece intacto |
+| **Ciclo de vida de uma constatação de conformidade** | A máquina de estados das constatações de conformidade: `new → in_review → mitigated → verified`, com `accepted`, `not_applicable` e `risk_tracked` como ramos laterais. Distinto do ciclo de vida CVE (`open → acknowledged → in progress → mitigated`) |
+| **GRC** | Governação, Risco e Conformidade — o espaço de trabalho unificado em `/grc` com três separadores (Governação, Risco, Conformidade) que consolida os Princípios EA, ADR, o Registo de Riscos e o scanner Segurança e Conformidade |
+| **Fase G** | Fase ADM «Implementation Governance» do TOGAF. Fonte do vocabulário e ciclo de vida do Registo de Riscos |
+| **Promover para Risco** | A ação idempotente que transforma uma constatação CVE ou de conformidade numa entrada do Registo de Riscos. A constatação obtém um back-link **Abrir risco R-NNNNNN**; clicar novamente navega para o risco existente em vez de criar um duplicado |
+| **Registo de Riscos** | Registo ao nível do landscape de riscos arquiteturais alinhado com TOGAF Fase G. Vive em `/grc?tab=risk`. Distinto dos riscos ao nível da iniciativa capturados em PPM |
+| **Proprietário do Risco** | O utilizador responsável por um risco. A atribuição cria automaticamente um Todo de sistema na página Todos do proprietário e dispara uma notificação `risk_assigned` |

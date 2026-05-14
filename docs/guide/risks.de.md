@@ -47,6 +47,19 @@ Risiken stehen in einer **M:N-Beziehung** mit Karten. Ein Risiko kann mehrere An
 
 Sowohl die Sicherheits-Übersicht von TurboLens als auch die Risikoregister-Seite rendern eine 4×4-Heatmap Wahrscheinlichkeit × Auswirkung. Zellen sind **klickbar** — ein Klick filtert die Liste darunter auf diesen Bucket, ein weiterer Klick (oder das × des Chips) löscht den Filter. Im Risikoregister können Sie die Matrix zwischen **Initial**- und **Rest**-Ansicht umschalten, damit sich der Fortschritt der Minderung visuell zeigt.
 
+## Register-Grid
+
+Das Register ist ein AG-Grid, das den Standards der [Inventar](inventory.md)-Seite folgt: sortierbare, filterbare und in der Breite anpassbare Spalten mit persistierten Nutzereinstellungen (sichtbare Spalten, Sortierung, Sidebar-Zustand). Über die Symbolleiste öffnest du mit **+ Neues Risiko** den manuellen Anlage-Dialog. **CSV exportieren** lädt die gefilterte Menge in derselben Spaltenreihenfolge herunter, die auf dem Bildschirm sichtbar ist — nützlich für Audit-Pakete oder für die Weitergabe an Stakeholder ohne Turbo-EA-Login.
+
+## Risiko ↔ Befund-Propagation
+
+Wenn ein Risiko aus einem TurboLens-Befund [überführt](turbolens.md#promote-a-finding-to-the-risk-register) wurde, fließen Statusänderungen **in beide Richtungen**:
+
+- Der Befund trägt ab dem Moment der Überführung einen Rückverweis **Risiko R-000123 öffnen** (die Aktion ist idempotent — ein erneuter Klick navigiert zum bestehenden Risiko statt ein Duplikat anzulegen).
+- Erreicht das Risiko `mitigated` / `monitoring` / `closed` / `accepted` (oder wird gelöscht), transitioniert die Back-Propagation-Engine automatisch jeden verknüpften Compliance-Befund passend (`mitigated` / `verified` / `accepted` / `in_review`). Die im Risiko erfasste Akzeptanzbegründung wird in die Prüfnotiz des Befunds gespiegelt, damit der Audit-Pfad konsistent bleibt.
+
+So bleiben das Risikoregister (Governance-Sicht) und das Compliance-Grid (operative Sicht) ohne manuelle Pflege aufeinander abgestimmt.
+
 ## Statusworkflow
 
 Die Detailseite zeigt immer eine einzige primäre Schaltfläche **Nächster Schritt** sowie eine kleine Zeile mit Seitenaktionen, damit der sequenzielle Pfad klar ist, Governance-Ausstiege aber einen Klick entfernt bleiben:

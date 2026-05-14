@@ -62,3 +62,11 @@
 | **Work Breakdown Structure (WBS)** | A hierarchical decomposition of project scope into work packages, each with start/end dates and completion tracking. Used in the PPM Gantt chart |
 | **Work Package** | A logical grouping of tasks within a Gantt timeline that has its own start date, end date, and completion percentage |
 | **AI Suggestion** | An auto-generated card description produced by combining web search results with a Large Language Model (LLM) |
+| **AI Verdict** | A user's confirmation or rejection of the LLM's AI-bearing classification for a card (`hasAiFeatures = true / false`). Persists across re-scans so LLM drift cannot silently change the EU AI Act scope |
+| **Auto-resolved Finding** | A CVE or compliance finding that a later scan no longer reports. The row is flagged `auto_resolved = true` and hidden by default, but not deleted — its history (and any promoted Risk) stays intact |
+| **Compliance Finding Lifecycle** | The state machine for compliance findings: `new → in_review → mitigated → verified`, with `accepted`, `not_applicable` and `risk_tracked` as side branches. Distinct from the CVE lifecycle (`open → acknowledged → in progress → mitigated`) |
+| **GRC** | Governance, Risk and Compliance — the unified workspace at `/grc` with three tabs (Governance, Risk, Compliance) consolidating EA Principles, ADRs, the Risk Register and the Security & Compliance scanner |
+| **Phase G** | TOGAF ADM "Implementation Governance" phase. The source of the Risk Register's vocabulary and lifecycle |
+| **Promote to Risk** | The idempotent action that turns a CVE or compliance finding into a Risk Register entry. The finding gains an **Open risk R-NNNNNN** back-link; clicking it again navigates to the existing risk instead of creating a duplicate |
+| **Risk Register** | Landscape-level register of architecture risks aligned to TOGAF Phase G. Lives at `/grc?tab=risk`. Distinct from the initiative-scoped risks captured inside PPM |
+| **Risk Owner** | The user accountable for a risk. Assignment auto-creates a system Todo on the owner's Todos page and fires a `risk_assigned` notification |

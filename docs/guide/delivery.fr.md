@@ -1,12 +1,14 @@
 # EA Delivery
 
-Le module **EA Delivery** gère les **initiatives d'architecture et leurs artefacts** -- diagrammes et Statements of Architecture Work (SoAW). Il fournit une vue unique de tous les projets d'architecture en cours et de leurs livrables.
+Le module **EA Delivery** gère les **initiatives d'architecture et leurs artefacts** — diagrammes, Statements of Architecture Work (SoAW) et Architecture Decision Records (ADR). Il fournit une vue unique de tous les projets d'architecture en cours et de leurs livrables.
+
+Lorsque PPM est activé — la configuration habituelle — EA Delivery vit **à l'intérieur du module PPM** : ouvrez **PPM** dans la barre de navigation et basculez sur l'onglet **EA Delivery** (`/ppm?tab=ea-delivery`). Lorsque PPM est désactivé, **EA Delivery** apparaît comme un élément de navigation de premier niveau dédié, liant à `/reports/ea-delivery`. L'ancienne URL `/ea-delivery` continue à fonctionner comme redirection dans les deux cas, de sorte que les marque-pages existants restent valides.
 
 ![Gestion EA Delivery](../assets/img/fr/17_livraison_ea.png)
 
-## Vue d'ensemble des initiatives
+## Espace de travail des initiatives
 
-L'onglet "Initiatives" est un **espace de travail à deux volets** :
+EA Delivery est un **espace de travail à deux volets** (sans onglets internes) :
 
 - **Barre latérale gauche** — un arbre indenté et filtrable de toutes les initiatives (avec les initiatives enfants imbriquées). Recherchez par nom, filtrez par Statut / Sous-type / Artefacts ou marquez vos favoris.
 - **Espace de travail à droite** — les livrables, initiatives enfants et détails de l'initiative sélectionnée à gauche. Sélectionner une autre ligne actualise l'espace de travail.
@@ -64,87 +66,17 @@ Une fois qu'un SoAW est approuvé, vous pouvez demander des signatures aux parti
 - **Mode aperçu** -- Vue en lecture seule du document SoAW complet
 - **Export DOCX** -- Téléchargez le SoAW sous forme de document Word formaté pour le partage hors ligne ou l'impression
 
+### Onglet SoAW sur les fiches d'initiative
+
+![Fiche d'initiative — onglet SoAW](../assets/img/fr/55_initiative_soaw_tab.png)
+
+Les initiatives exposent également un onglet **SoAW** dédié directement sur leur page de détail. L'onglet liste chaque SoAW lié à cette initiative (titre, puce de statut, numéro de révision, date de dernière modification) avec un bouton **+ Nouveau SoAW** qui pré-sélectionne l'initiative en cours — vous pouvez ainsi rédiger ou ouvrir un SoAW sans quitter la fiche sur laquelle vous travaillez. La création réutilise le même dialogue que la page EA Delivery, et le nouveau document apparaît aux deux endroits. La visibilité de l'onglet suit les règles de permission standard des fiches.
+
 ## Architecture Decision Records (ADR)
 
-![Onglet Décisions EA Delivery](../assets/img/fr/17b_livraison_ea_decisions.png)
+Un **Architecture Decision Record (ADR)** consigne une décision d'architecture importante, accompagnée de son contexte, de ses conséquences et des alternatives envisagées. L'espace de travail EA Delivery affiche les ADR **liés à l'initiative sélectionnée** en ligne, sous la section de livrables *Décisions d'Architecture* — vous pouvez ainsi les lire et les ouvrir sans quitter la vue de l'initiative. Utilisez la split-button **+ Nouvel artefact ▾** (ou **+ Ajouter** dans la section) pour créer un nouvel ADR pré-lié à l'initiative sélectionnée.
 
-Un **Architecture Decision Record (ADR)** documente les décisions d'architecture importantes ainsi que leur contexte, leurs conséquences et les alternatives envisagées. Les ADR fournissent un historique traçable expliquant pourquoi des choix de conception clés ont été faits.
-
-### Vue d'ensemble des ADR
-
-La page EA Delivery dispose d'un onglet **Décisions** dédié qui affiche tous les ADR dans un **tableau AG Grid** avec une barre latérale de filtres persistante, similaire à la page Inventaire.
-
-#### Colonnes du tableau
-
-Le tableau des ADR affiche les colonnes suivantes :
-
-| Colonne | Description |
-|---------|-------------|
-| **N° de réf.** | Numéro de référence généré automatiquement (ADR-001, ADR-002, etc.) |
-| **Titre** | Titre de l'ADR |
-| **Statut** | Puce colorée affichant Brouillon, En revue ou Signé |
-| **Cartes liées** | Pilules colorées correspondant à la couleur du type de carte (par ex. bleu pour Application, violet pour Objet de données) |
-| **Créé** | Date de création |
-| **Modifié** | Date de dernière modification |
-| **Signé** | Date de signature |
-| **Révision** | Numéro de révision |
-
-#### Barre latérale de filtres
-
-Une barre latérale de filtres persistante sur la gauche propose les filtres suivants :
-
-- **Types de carte** -- Cases à cocher avec des points colorés correspondant aux couleurs des types de cartes, pour filtrer par types de cartes liées
-- **Statut** -- Filtrer par Brouillon, En revue ou Signé
-- **Date de création** -- Plage de dates de/à
-- **Date de modification** -- Plage de dates de/à
-- **Date de signature** -- Plage de dates de/à
-
-#### Filtre rapide et menu contextuel
-
-Utilisez la barre de **filtre rapide** pour une recherche en texte intégral dans tous les ADR. Faites un clic droit sur n'importe quelle ligne pour accéder à un menu contextuel avec les actions **Modifier**, **Aperçu**, **Dupliquer** et **Supprimer**.
-
-### Créer un ADR
-
-Les ADR peuvent être créés depuis trois endroits :
-
-1. **EA Delivery → onglet Décisions** : Cliquez sur **+ Nouvel ADR**, remplissez le titre et liez optionnellement des cartes (y compris des initiatives).
-2. **EA Delivery → Onglet Initiatives** : Sélectionnez une initiative, cliquez sur **+ Nouvel artefact ▾** en haut de la page (ou sur le bouton **+ Ajouter** de la section *Décisions d'Architecture*) et choisissez **Nouvelle Décision d'Architecture** — l'initiative est pré-liée en tant que liaison de carte.
-3. **Onglet Ressources de la carte** : Cliquez sur **Créer ADR** — la carte actuelle est pré-liée.
-
-Dans tous les cas, vous pouvez rechercher et lier des cartes supplémentaires lors de la création. Les initiatives sont liées via le même mécanisme de liaison de cartes que toute autre carte, ce qui signifie qu'un ADR peut être lié à plusieurs initiatives. L'éditeur s'ouvre avec des sections pour le Contexte, la Décision, les Conséquences et les Alternatives envisagées.
-
-### L'éditeur ADR
-
-L'éditeur offre :
-
-- Édition de texte riche pour chaque section (Contexte, Décision, Conséquences, Alternatives envisagées)
-- Liaison de cartes -- connectez l'ADR aux cartes pertinentes (applications, composants IT, initiatives, etc.). Les initiatives sont liées via la fonctionnalité standard de liaison de cartes, et non via un champ dédié, ce qui permet à un ADR de référencer plusieurs initiatives
-- Décisions associées -- référencez d'autres ADR
-
-### Workflow de signature
-
-Les ADR prennent en charge un processus formel de signature :
-
-1. Créez l'ADR avec le statut **Brouillon**
-2. Cliquez sur **Demander des signatures** et recherchez des signataires par nom ou e-mail
-3. L'ADR passe à **En revue** -- chaque signataire reçoit une notification et une tâche
-4. Les signataires examinent et cliquent sur **Signer**
-5. Lorsque tous les signataires ont signé, l'ADR passe automatiquement au statut **Signé**
-
-Les ADR signés sont verrouillés et ne peuvent pas être modifiés. Pour apporter des modifications, créez une **nouvelle révision**.
-
-### Révisions
-
-Les ADR signés peuvent être révisés :
-
-1. Ouvrez un ADR signé
-2. Cliquez sur **Réviser** pour créer un nouveau brouillon basé sur la version signée
-3. La nouvelle révision hérite du contenu et des liens de cartes
-4. Chaque révision a un numéro de révision incrémentiel
-
-### Aperçu de l'ADR
-
-Cliquez sur l'icône d'aperçu pour afficher une version en lecture seule et formatée de l'ADR -- utile pour la révision avant la signature.
+Le **registre principal des ADR** — où chaque ADR à l'échelle du paysage est filtré, recherché, signé, révisé et prévisualisé — vit dans le module GRC sous **GRC → Gouvernance → [Décisions](grc.md#governance)**. Consultez le guide GRC pour le cycle de vie complet des ADR (colonnes de la grille, barre latérale de filtres, workflow de signature, révisions, aperçu).
 
 ## Onglet Ressources
 

@@ -241,12 +241,32 @@ Rafraîchir la page **n'interrompt pas une analyse en cours** — la tâche d'ar
 
 - **Vue d'ensemble** — bandeau de KPI (total des constats, nombres critiques / élevés / moyens, score global de conformité), une **matrice de risque probabilité × gravité** 5×5, les cinq constats critiques principaux et une carte thermique compacte de conformité avec navigation vers les détails. La matrice elle-même est **cliquable** : cliquer sur une cellule ouvre le sous-onglet CVE filtré sur ce compartiment, avec un chip supprimable au-dessus du tableau pour voir (et effacer) le filtre actif.
 - **CVE** — tableau filtrable présentant la fiche, l'ID CVE (lié vers la page de détail du NVD), le score CVSS de base, la gravité, la priorité, la probabilité, la disponibilité des correctifs et le statut. Chaque ligne ouvre un panneau de détail comportant la description, le vecteur CVSS, le vecteur d'attaque, les scores d'exploitabilité / d'impact, les références, l'impact métier et la remédiation générés par IA, ainsi qu'une barre d'actions d'état (**Accuser réception → Passer en cours → Marquer comme atténué / Accepter le risque / Rouvrir**).
-- **Conformité** — un onglet par réglementation avec un score global et une liste sous forme de cartes affichant le statut, l'article, la catégorie, l'exigence, la description de l'écart, la remédiation et les preuves. Un petit chip **Détecté par IA** met en évidence les fiches identifiées comme porteuses d'IA par le détecteur sémantique, même si elles ne sont pas étiquetées comme sous-types d'IA.
+- **Conformité** — une grille AG Grid qui reprend la grille Inventaire : barre latérale de filtres, visibilité des colonnes et tri persistés, recherche plein texte, ainsi qu'un tiroir de détail par constat. Les lignes portent le statut, l'article, la catégorie, l'exigence, la description de l'écart, la remédiation et les preuves. Un petit chip **Détecté par IA** met en évidence les fiches identifiées comme porteuses d'IA par le détecteur sémantique, même si elles ne sont pas étiquetées comme sous-types d'IA.
 - **Exporter en CSV** — télécharge les constats CVE dans un ordre de colonnes inspiré d'OWASP/NIST (Fiche, Type, CVE, CVSS, Gravité, Vecteur d'attaque, Probabilité, Priorité, Correctif, Publié, Dernière modification, Statut, Éditeur, Produit, Version, Impact métier, Remédiation, Description).
+
+### Les constats survivent aux re-scans
+
+Les décisions utilisateur et les métadonnées de revue sont **durables au fil des re-scans** :
+
+- Les constats CVE sont upsertés par `(card_id, cve_id)`. Un statut défini par l'utilisateur (`acknowledged`, `mitigated`, `accepted`) et tout rétro-lien vers un risque promu survivent au scan suivant.
+- Les constats de conformité sont upsertés par `(scope, card, regulation, normalised_article)`. Les identifiants d'article tels que *Art. 6 / Article 6 / § 6* tombent sur la même ligne, de sorte que les reformulations LLM ne génèrent plus de doublons.
+- Un constat que le scan suivant ne signale plus n'est **pas supprimé** — il est marqué `auto_resolved=true` et masqué par défaut, de sorte que son historique (et le risque promu qui lui est lié) reste intact.
+- Le **verdict IA** de l'utilisateur sur une fiche (`hasAiFeatures = true / false`) persiste également. Si vous confirmez ou rejetez la classification IA du LLM, cette décision prime sur le détecteur lors des scans suivants — la dérive du LLM ne peut pas modifier silencieusement le périmètre.
 
 ### Promouvoir un constat vers le Registre des risques
 
 Chaque panneau CVE et chaque carte de constat de conformité comporte une action primaire **Créer un risque**. Un clic ouvre la boîte de dialogue partagée de création de risque avec le titre, la description, la catégorie, la probabilité, l'impact, la mitigation et la fiche concernée **pré-remplis depuis le constat**. Vous pouvez modifier chaque champ avant de valider, attribuer un **propriétaire** et choisir une **date cible de résolution**. À la validation, la ligne du constat bascule en **Ouvrir le risque R-000123** pour conserver le lien visible — les promotions sont idempotentes côté serveur. Voir le [Registre des risques](risks.md) pour le cycle de vie complet aligné sur TOGAF et la façon dont l'attribution du propriétaire crée un Todo de suivi + une notification dans la cloche.
+
+Lorsque le risque lié atteint plus tard `mitigated`, `monitoring`, `closed` ou `accepted` (ou est supprimé), le moteur de rétro-propagation transitionne automatiquement chaque constat de conformité lié à l'état correspondant (`mitigated`, `verified`, `accepted` ou retour à `in_review`). La justification d'acceptation capturée sur le risque est répercutée dans la note de revue du constat afin que la piste d'audit reste cohérente.
+
+### Actions par lots sur la grille Conformité
+
+Avec `security_compliance.manage`, la grille Conformité expose une sélection multiple consciente des filtres. Cochez la case de l'en-tête pour sélectionner toutes les lignes correspondant aux filtres actifs, puis utilisez la barre d'outils épinglée :
+
+- **Modifier la décision** — bascule par lots tous les constats sélectionnés vers un état choisi (par exemple marquer un lot de constats en `not_applicable` après revue de périmètre). Les transitions illégales sont remontées ligne par ligne dans un résumé de succès partiel au lieu de faire échouer tout le lot.
+- **Supprimer** — supprime définitivement les constats (utile pour nettoyer les constats d'une réglementation que vous avez désactivée depuis).
+
+La promotion en Risque reste une action ligne par ligne — un promote en masse n'est volontairement pas proposé afin de préserver la capture de contexte par constat.
 
 ### Détection sémantique de la Loi européenne sur l'IA
 
@@ -262,7 +282,28 @@ Sans clé, le NVD n'autorise que 5 requêtes par 30 secondes, ce qui peut ralent
 
 ### Flux de statut
 
-Chaque constat CVE suit le cycle : **ouvert** → **accusé réception** → **en cours** → **atténué** (ou **accepté**, lorsque l'équipe a formellement accepté le risque). La réouverture reste toujours possible. Les changements de statut sont pilotés par les utilisateurs disposant de `security_compliance.manage`. Pour les workflows de gouvernance (propriété, évaluation résiduelle, justification d'acceptation, Todos et notifications), promouvez le constat en Risque — le cycle complet vit dans le [Registre des risques](risks.md).
+Les constats CVE et de Conformité ont des **cycles de vie distincts**, chacun affiché comme une chronologie horizontale de phases dans le tiroir du constat. Les deux sont réservés aux utilisateurs disposant de `security_compliance.manage` ; le moteur impose les transitions côté serveur et rejette tout mouvement illégal avec un message clair.
+
+**Constats CVE**
+
+```
+open → acknowledged → in progress → mitigated
+                                  ↘ accepted (acceptation formelle du risque)
+                                  ↘ reopen → open
+```
+
+**Constats de conformité** (refondus en v1.11.0)
+
+```
+new → in_review → mitigated → verified
+                      ↘ accepted          (branche latérale, justification requise)
+                      ↘ not_applicable    (branche latérale, revue de périmètre)
+                      ↘ risk_tracked      (positionné automatiquement à la promotion en risque)
+```
+
+`risk_tracked` n'est jamais positionné à la main — il est écrit automatiquement lorsque vous cliquez sur **Créer un risque** sur un constat et est effacé par le moteur de rétro-propagation lorsque le risque associé se ferme (voir *Promouvoir un constat vers le Registre des risques* ci-dessus).
+
+Pour les workflows de gouvernance complets (propriété, évaluation résiduelle, justification d'acceptation, Todos et notifications), promouvez le constat en Risque — le cycle complet vit dans le [Registre des risques](risks.md).
 
 ## Historique des analyses
 

@@ -62,3 +62,11 @@
 | **Struttura di Scomposizione del Lavoro (WBS)** | Una scomposizione gerarchica dell'ambito del progetto in pacchetti di lavoro |
 | **Pacchetto di lavoro** | Un raggruppamento logico di attività all'interno di un calendario Gantt con proprie date di inizio/fine e percentuale di completamento |
 | **Suggerimento AI** | Una descrizione di card auto-generata prodotta combinando risultati di ricerca web con un Large Language Model (LLM) |
+| **Verdetto AI** | La conferma o il rifiuto da parte dell'utente della classificazione AI fornita dal LLM su una card (`hasAiFeatures = true / false`). Persiste tra le ri-scansioni in modo che la deriva del LLM non modifichi silenziosamente l'ambito dell'AI Act dell'UE |
+| **Finding auto-risolto** | Un finding CVE o di conformità che una scansione successiva non segnala più. La riga viene contrassegnata con `auto_resolved = true` e nascosta per default, ma non eliminata — la sua storia (e qualsiasi Rischio promosso) rimane intatta |
+| **Ciclo di vita di un finding di conformità** | La macchina a stati dei finding di conformità: `new → in_review → mitigated → verified`, con `accepted`, `not_applicable` e `risk_tracked` come rami laterali. Distinto dal ciclo di vita CVE (`open → acknowledged → in progress → mitigated`) |
+| **GRC** | Governance, Risk e Compliance — lo spazio di lavoro unificato a `/grc` con tre tab (Governance, Risk, Compliance) che consolida i Principi EA, gli ADR, il Registro dei rischi e lo scanner Security & Compliance |
+| **Fase G** | Fase ADM «Implementation Governance» di TOGAF. Fonte del vocabolario e del ciclo di vita del Registro dei rischi |
+| **Promuovi a Rischio** | L'azione idempotente che trasforma un finding CVE o di conformità in una voce del Registro dei rischi. Il finding ottiene un back-link **Apri rischio R-NNNNNN**; un nuovo click naviga al rischio esistente invece di crearne un duplicato |
+| **Registro dei rischi** | Registro a livello di landscape dei rischi architetturali allineato a TOGAF Fase G. Vive a `/grc?tab=risk`. Distinto dai rischi a livello di iniziativa catturati in PPM |
+| **Proprietario del rischio** | L'utente responsabile di un rischio. L'assegnazione crea automaticamente un Todo di sistema sulla pagina Todo del proprietario e attiva una notifica `risk_assigned` |
