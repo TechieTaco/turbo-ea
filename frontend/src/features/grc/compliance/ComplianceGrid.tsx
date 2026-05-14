@@ -25,7 +25,7 @@
  *   finding drawer and opens the card panel in the same slot
  *   (single-drawer discipline).
  */
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { AgGridReact } from "ag-grid-react";
 import type {
@@ -33,10 +33,12 @@ import type {
   ColDef,
   ICellRendererParams,
   IHeaderParams,
+  SelectionChangedEvent,
   SortChangedEvent,
 } from "ag-grid-community";
 import "ag-grid-community/styles/ag-grid.css";
 import "ag-grid-community/styles/ag-theme-quartz.css";
+import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
@@ -45,7 +47,10 @@ import DialogActions from "@mui/material/DialogActions";
 import DialogContent from "@mui/material/DialogContent";
 import DialogTitle from "@mui/material/DialogTitle";
 import IconButton from "@mui/material/IconButton";
+import MenuItem from "@mui/material/MenuItem";
+import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
+import TextField from "@mui/material/TextField";
 import ToggleButton from "@mui/material/ToggleButton";
 import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import Tooltip from "@mui/material/Tooltip";
@@ -81,6 +86,17 @@ interface Props {
   onOpenRisk?: (riskId: string) => void;
   onRequestAccept?: (finding: TurboLensComplianceFinding) => void;
   onDelete?: (finding: TurboLensComplianceFinding) => Promise<void> | void;
+  /** Bulk delete a selection of findings. Returns the partial-success
+   *  result so the grid can surface skipped rows to the user. */
+  onBulkDelete?: (
+    ids: string[],
+  ) => Promise<{ updated: number; skipped: { id: string; reason: string }[] }>;
+  /** Bulk-transition selected findings to a single decision. */
+  onBulkDecisionUpdate?: (
+    ids: string[],
+    decision: ComplianceDecision,
+    reviewNote: string | null,
+  ) => Promise<{ updated: number; skipped: { id: string; reason: string }[] }>;
   canManage?: boolean;
   /** Render AG Grid's native loading overlay while findings refresh. */
   loading?: boolean;
@@ -171,6 +187,8 @@ export default function ComplianceGrid({
   onOpenRisk,
   onRequestAccept,
   onDelete,
+  onBulkDelete,
+  onBulkDecisionUpdate,
   canManage = true,
   loading = false,
   onCreate,
@@ -200,6 +218,50 @@ export default function ComplianceGrid({
   >(initialPrefs.sortModel);
   const [findingDrawer, setFindingDrawer] =
     useState<TurboLensComplianceFinding | null>(null);
+
+  // ── Bulk-selection state ────────────────────────────────────────────
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [bulkEditOpen, setBulkEditOpen] = useState(false);
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [bulkResult, setBulkResult] = useState<{
+    updated: number;
+    skipped: { id: string; reason: string }[];
+  } | null>(null);
+  // Bulk-edit form state — persisted only while the dialog is open.
+  const [bulkEditDecision, setBulkEditDecision] =
+    useState<ComplianceDecision>("in_review");
+  const [bulkEditNote, setBulkEditNote] = useState("");
+
+  // AG Grid v32 multi-select API. ``selectAll: "filtered"`` makes the
+  // header checkbox respect the current filter state, matching the
+  // Inventory grid's behaviour.
+  const rowSelection = useMemo(
+    () =>
+      ({
+        mode: "multiRow" as const,
+        enableClickSelection: false,
+        headerCheckbox: true,
+        selectAll: "filtered" as const,
+      }),
+    [],
+  );
+
+  const handleSelectionChanged = useCallback(
+    (event: SelectionChangedEvent<TurboLensComplianceFinding>) => {
+      const rows = event.api.getSelectedRows();
+      setSelectedIds(rows.map((r) => r.id));
+    },
+    [],
+  );
+
+  const clearSelection = () => {
+    setSelectedIds([]);
+    // No grid api access here; selection state lives both in our React
+    // state and the grid's internal model. The next render won't auto-sync,
+    // so callers that need to clear visual checkboxes after a bulk op should
+    // re-render the grid (we do — the parent updates findings).
+  };
 
   const persist = (next: Partial<CompliancePrefs>) => {
     savePrefs({
@@ -531,6 +593,43 @@ export default function ComplianceGrid({
     }
   };
 
+  const runBulkDelete = async () => {
+    if (!onBulkDelete || selectedIds.length === 0) return;
+    setBulkBusy(true);
+    try {
+      const result = await onBulkDelete(selectedIds);
+      setBulkResult(result);
+      setBulkDeleteOpen(false);
+      clearSelection();
+    } finally {
+      setBulkBusy(false);
+    }
+  };
+
+  const runBulkEdit = async () => {
+    if (!onBulkDecisionUpdate || selectedIds.length === 0) return;
+    const note = bulkEditNote.trim();
+    if (bulkEditDecision === "accepted" && !note) {
+      // Server enforces this too, but failing fast in the UI saves a
+      // round-trip and gives a clearer message.
+      return;
+    }
+    setBulkBusy(true);
+    try {
+      const result = await onBulkDecisionUpdate(
+        selectedIds,
+        bulkEditDecision,
+        note || null,
+      );
+      setBulkResult(result);
+      setBulkEditOpen(false);
+      setBulkEditNote("");
+      clearSelection();
+    } finally {
+      setBulkBusy(false);
+    }
+  };
+
   const getRowStyle = (params: { data?: TurboLensComplianceFinding }) =>
     params.data?.auto_resolved ? { opacity: 0.65 } : undefined;
 
@@ -638,6 +737,69 @@ export default function ComplianceGrid({
           </Stack>
         </Stack>
 
+        {/* Bulk-action toolbar — only renders when the user has selected
+            ≥1 row AND the parent passed bulk handlers. Sticks above the
+            grid so it scrolls with the page. */}
+        {canManage && selectedIds.length > 0 && (onBulkDelete || onBulkDecisionUpdate) && (
+          <Paper
+            variant="outlined"
+            sx={{
+              mb: 1,
+              px: 1.5,
+              py: 1,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 1,
+              flexWrap: "wrap",
+              bgcolor: "action.hover",
+            }}
+          >
+            <Stack direction="row" spacing={1.5} alignItems="center">
+              <Typography variant="body2" fontWeight={600}>
+                {tCards("compliance.bulk.selectedCount", { count: selectedIds.length })}
+              </Typography>
+              <Button
+                size="small"
+                variant="text"
+                onClick={clearSelection}
+                sx={{ textTransform: "none" }}
+              >
+                {tCards("compliance.bulk.clear")}
+              </Button>
+            </Stack>
+            <Stack direction="row" spacing={1}>
+              {onBulkDecisionUpdate && (
+                <Button
+                  size="small"
+                  variant="outlined"
+                  startIcon={<MaterialSymbol icon="edit" size={16} />}
+                  onClick={() => {
+                    setBulkEditDecision("in_review");
+                    setBulkEditNote("");
+                    setBulkEditOpen(true);
+                  }}
+                  sx={{ textTransform: "none" }}
+                >
+                  {tCards("compliance.bulk.editDecision")}
+                </Button>
+              )}
+              {onBulkDelete && (
+                <Button
+                  size="small"
+                  variant="outlined"
+                  color="error"
+                  startIcon={<MaterialSymbol icon="delete" size={16} />}
+                  onClick={() => setBulkDeleteOpen(true)}
+                  sx={{ textTransform: "none" }}
+                >
+                  {tCards("compliance.bulk.delete")}
+                </Button>
+              )}
+            </Stack>
+          </Paper>
+        )}
+
         <Box
           className={mode === "dark" ? "ag-theme-quartz-dark" : "ag-theme-quartz"}
           sx={{
@@ -666,6 +828,8 @@ export default function ComplianceGrid({
             loading={loading}
             onCellClicked={onCellClicked}
             onSortChanged={onSortChanged}
+            rowSelection={canManage ? rowSelection : undefined}
+            onSelectionChanged={canManage ? handleSelectionChanged : undefined}
             animateRows
             getRowId={(p) => p.data.id}
             getRowStyle={getRowStyle}
@@ -739,6 +903,171 @@ export default function ComplianceGrid({
             disabled={deleting}
           >
             {tCommon("actions.delete")}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Bulk delete confirmation. */}
+      <Dialog
+        open={bulkDeleteOpen}
+        onClose={() => !bulkBusy && setBulkDeleteOpen(false)}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle>
+          {tCards("compliance.bulk.deleteTitle", { count: selectedIds.length })}
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" sx={{ mt: 1 }}>
+            {tCards("compliance.bulk.deleteConfirm", { count: selectedIds.length })}
+          </Typography>
+          <Typography variant="caption" color="warning.main" sx={{ display: "block", mt: 1 }}>
+            {tCards("compliance.bulk.deleteRiskWarning")}
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setBulkDeleteOpen(false)} disabled={bulkBusy}>
+            {tCommon("actions.cancel")}
+          </Button>
+          <Button
+            variant="contained"
+            color="error"
+            onClick={runBulkDelete}
+            disabled={bulkBusy}
+          >
+            {tCommon("actions.delete")}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Bulk decision update. The decision picker only lists the
+          user-settable lifecycle states; the server runs per-row
+          validation and reports rows where the transition isn't legal
+          via the post-run snackbar (bulkResult.skipped). */}
+      <Dialog
+        open={bulkEditOpen}
+        onClose={() => !bulkBusy && setBulkEditOpen(false)}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle>
+          {tCards("compliance.bulk.editTitle", { count: selectedIds.length })}
+        </DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} sx={{ mt: 1 }}>
+            <TextField
+              select
+              fullWidth
+              size="small"
+              label={tCards("compliance.bulk.decisionLabel")}
+              value={bulkEditDecision}
+              onChange={(e) => setBulkEditDecision(e.target.value as ComplianceDecision)}
+            >
+              {(
+                [
+                  "new",
+                  "in_review",
+                  "mitigated",
+                  "verified",
+                  "accepted",
+                  "not_applicable",
+                ] as ComplianceDecision[]
+              ).map((d) => (
+                <MenuItem key={d} value={d}>
+                  {tCards(`compliance.lifecycle.${d}`)}
+                </MenuItem>
+              ))}
+            </TextField>
+            <TextField
+              fullWidth
+              size="small"
+              multiline
+              minRows={2}
+              label={tCards("compliance.bulk.noteLabel")}
+              placeholder={tCards("compliance.bulk.notePlaceholder")}
+              value={bulkEditNote}
+              onChange={(e) => setBulkEditNote(e.target.value)}
+              required={bulkEditDecision === "accepted"}
+              error={bulkEditDecision === "accepted" && bulkEditNote.trim() === ""}
+              helperText={
+                bulkEditDecision === "accepted"
+                  ? tCards("compliance.bulk.acceptedNoteHelp")
+                  : undefined
+              }
+            />
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setBulkEditOpen(false)} disabled={bulkBusy}>
+            {tCommon("actions.cancel")}
+          </Button>
+          <Button
+            variant="contained"
+            onClick={runBulkEdit}
+            disabled={
+              bulkBusy ||
+              (bulkEditDecision === "accepted" && bulkEditNote.trim() === "")
+            }
+          >
+            {tCommon("actions.apply", { defaultValue: "Apply" })}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Post-run summary. Shown for ~6s — auto-dismisses or close on
+          click anywhere off it. Skipped rows include their reason so the
+          user knows why some weren't applied (illegal transition,
+          tracked by Risk, missing). */}
+      <Dialog
+        open={!!bulkResult}
+        onClose={() => setBulkResult(null)}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle>{tCards("compliance.bulk.resultTitle")}</DialogTitle>
+        <DialogContent>
+          {bulkResult && (
+            <Stack spacing={1.5}>
+              <Alert
+                severity={bulkResult.skipped.length === 0 ? "success" : "info"}
+              >
+                {tCards("compliance.bulk.resultUpdated", {
+                  count: bulkResult.updated,
+                })}
+              </Alert>
+              {bulkResult.skipped.length > 0 && (
+                <>
+                  <Typography variant="body2" fontWeight={600}>
+                    {tCards("compliance.bulk.resultSkipped", {
+                      count: bulkResult.skipped.length,
+                    })}
+                  </Typography>
+                  <Stack spacing={0.5} sx={{ pl: 1 }}>
+                    {bulkResult.skipped.slice(0, 10).map((s) => (
+                      <Typography
+                        key={s.id}
+                        variant="caption"
+                        color="text.secondary"
+                      >
+                        {tCards(`compliance.bulk.skipReason.${s.reason}`, {
+                          defaultValue: s.reason,
+                        })}
+                      </Typography>
+                    ))}
+                    {bulkResult.skipped.length > 10 && (
+                      <Typography variant="caption" color="text.secondary">
+                        +{bulkResult.skipped.length - 10}…
+                      </Typography>
+                    )}
+                  </Stack>
+                </>
+              )}
+            </Stack>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setBulkResult(null)}>
+            {tCommon("actions.close", { defaultValue: "Close" })}
           </Button>
         </DialogActions>
       </Dialog>

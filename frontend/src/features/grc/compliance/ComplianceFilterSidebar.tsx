@@ -31,6 +31,7 @@ import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import {
+  CARD_TYPE_COLORS,
   COMPLIANCE_LIFECYCLE_COLORS,
   SEVERITY_COLORS,
   STATUS_COLORS,
@@ -132,8 +133,8 @@ const SEVERITY_HEX: Record<TurboLensComplianceFinding["severity"], string> = {
 };
 
 const CARD_TYPE_HEX: Record<"Application" | "ITComponent", string> = {
-  Application: "#0f7eb5",
-  ITComponent: "#d29270",
+  Application: CARD_TYPE_COLORS.Application,
+  ITComponent: CARD_TYPE_COLORS.ITComponent,
 };
 
 const CARD_TYPE_ICONS: Record<"Application" | "ITComponent", string> = {

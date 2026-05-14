@@ -7,6 +7,7 @@ import Tab from "@mui/material/Tab";
 import Tabs from "@mui/material/Tabs";
 import Typography from "@mui/material/Typography";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import { brand } from "@/theme/tokens";
 
 const GovernanceTab = lazy(() => import("./governance/GovernanceTab"));
 const RiskRegisterPage = lazy(
@@ -78,7 +79,7 @@ export default function GrcPage() {
         }}
       >
         <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, mb: 1 }}>
-          <MaterialSymbol icon="policy" size={28} color="#1976d2" />
+          <MaterialSymbol icon="policy" size={28} color={brand.primary} />
           <Typography variant="h5" sx={{ fontWeight: 700 }}>
             {t("page.title")}
           </Typography>

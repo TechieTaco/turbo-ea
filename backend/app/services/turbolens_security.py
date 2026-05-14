@@ -20,13 +20,14 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import re
 import uuid as uuid_mod
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from datetime import date, datetime, timezone
 from typing import Any
 
-from sqlalchemy import delete, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.card import Card
@@ -394,23 +395,56 @@ async def detect_ai_bearing_cards(
     if not cards:
         return {}
 
-    # Start with cards that are AI by subtype — they are always in scope.
+    # User verdict on attributes.hasAiFeatures is sticky in BOTH directions:
+    #   - True  → card is in scope even if subtype + LLM both miss it
+    #             (handled in the seed loop below)
+    #   - False → card is OUT of scope, even if its subtype matches and
+    #             even if the LLM would have flagged it. The user's "no"
+    #             overrides everything; otherwise the verdict UI is
+    #             pointless and we'd just toggle it back on every scan.
+    #   - missing → unknown; let subtype + LLM decide as before.
+    def _user_says_no_ai(c: ScanCard) -> bool:
+        return isinstance(c.attributes, dict) and c.attributes.get("hasAiFeatures") is False
+
+    def _user_says_yes_ai(c: ScanCard) -> bool:
+        return isinstance(c.attributes, dict) and c.attributes.get("hasAiFeatures") is True
+
+    # Start with cards that are AI by subtype — in scope by default,
+    # unless the user has explicitly overruled with a "no".
     scoped: dict[str, dict[str, Any]] = {
         c.id: {"role": "provider", "confidence": 1.0, "subtype_match": True}
         for c in cards
-        if c.subtype in AI_SUBTYPES
+        if c.subtype in AI_SUBTYPES and not _user_says_no_ai(c)
     }
+    # Pre-include cards the user has explicitly confirmed as AI-bearing.
+    # The LLM pass is non-deterministic and may miss subtle / embedded
+    # cases on a re-scan; this keeps user verdicts sticky.
+    for c in cards:
+        if c.id in scoped:
+            continue
+        if _user_says_yes_ai(c):
+            scoped[c.id] = {
+                "role": "embedded",
+                "confidence": 1.0,
+                "subtype_match": False,
+            }
 
     ai_config = await get_ai_config(db)
     if not is_ai_configured(ai_config):
         return scoped
 
-    total_batches = max(1, (len(cards) + AI_DETECTION_BATCH_SIZE - 1) // AI_DETECTION_BATCH_SIZE)
-    for start in range(0, len(cards), AI_DETECTION_BATCH_SIZE):
+    # Don't ask the LLM about cards the user has explicitly flagged as
+    # NOT AI-bearing — their answer is fixed regardless of what the
+    # model would say. Saves tokens and prevents the UI from flapping.
+    candidates = [c for c in cards if not _user_says_no_ai(c)]
+    total_batches = max(
+        1, (len(candidates) + AI_DETECTION_BATCH_SIZE - 1) // AI_DETECTION_BATCH_SIZE
+    )
+    for start in range(0, len(candidates), AI_DETECTION_BATCH_SIZE):
         batch_index = start // AI_DETECTION_BATCH_SIZE + 1
         if progress_cb:
             await progress_cb("ai_detection", batch_index, total_batches, "")
-        batch = cards[start : start + AI_DETECTION_BATCH_SIZE]
+        batch = candidates[start : start + AI_DETECTION_BATCH_SIZE]
         payload = [
             {
                 "id": c.id,
@@ -830,43 +864,90 @@ async def run_cve_scan(
     cards = await load_scan_targets(db, include_itc=include_itc)
     cards_by_id = {c.id: c for c in cards}
 
-    # Clear previous CVE findings for a fresh snapshot.
-    await db.execute(delete(TurboLensCveFinding))
-    await db.flush()
-
     raw_findings, skipped = await _fetch_raw_cves(cards, progress_cb=progress_cb)
     await enrich_with_ai(db, cards_by_id, raw_findings, progress_cb=progress_cb)
 
     await progress_cb("persisting_cve_findings", 0, len(raw_findings), "")
+
+    # Upsert by (card_id, cve_id) so user-set fields — ``status`` and
+    # the promoted-Risk back-link ``risk_id`` — survive re-scans. The
+    # parallel regression on the compliance side was fixed in PR #536;
+    # CVE was missed at the time and used to blanket-DELETE every row.
+    existing_rows = (await db.execute(select(TurboLensCveFinding))).scalars().all()
+    existing_by_key: dict[tuple[uuid_mod.UUID, str], TurboLensCveFinding] = {
+        (row.card_id, row.cve_id): row for row in existing_rows
+    }
+
+    seen_keys: set[tuple[uuid_mod.UUID, str]] = set()
     for f in raw_findings:
-        db.add(
-            TurboLensCveFinding(
-                id=uuid_mod.uuid4(),
-                run_id=run_uuid,
-                card_id=uuid_mod.UUID(f["card_id"]),
-                card_type=f["card_type"],
-                cve_id=f["cve_id"],
-                vendor=f.get("vendor") or "",
-                product=f.get("product") or "",
-                version=f.get("version"),
-                cvss_score=f.get("cvss_score"),
-                cvss_vector=f.get("cvss_vector"),
-                severity=f.get("severity") or "unknown",
-                attack_vector=f.get("attack_vector"),
-                exploitability_score=f.get("exploitability_score"),
-                impact_score=f.get("impact_score"),
-                patch_available=bool(f.get("patch_available")),
-                published_date=f.get("published_date"),
-                last_modified_date=f.get("last_modified_date"),
-                description=f.get("description") or "",
-                nvd_references=f.get("nvd_references") or [],
-                priority=f.get("priority") or "medium",
-                probability=f.get("probability") or "medium",
-                business_impact=f.get("business_impact"),
-                remediation=f.get("remediation"),
-                status="open",
+        card_uuid = uuid_mod.UUID(f["card_id"])
+        cve_id = f["cve_id"]
+        key = (card_uuid, cve_id)
+        seen_keys.add(key)
+        row = existing_by_key.get(key)
+        if row is None:
+            db.add(
+                TurboLensCveFinding(
+                    id=uuid_mod.uuid4(),
+                    run_id=run_uuid,
+                    card_id=card_uuid,
+                    card_type=f["card_type"],
+                    cve_id=cve_id,
+                    vendor=f.get("vendor") or "",
+                    product=f.get("product") or "",
+                    version=f.get("version"),
+                    cvss_score=f.get("cvss_score"),
+                    cvss_vector=f.get("cvss_vector"),
+                    severity=f.get("severity") or "unknown",
+                    attack_vector=f.get("attack_vector"),
+                    exploitability_score=f.get("exploitability_score"),
+                    impact_score=f.get("impact_score"),
+                    patch_available=bool(f.get("patch_available")),
+                    published_date=f.get("published_date"),
+                    last_modified_date=f.get("last_modified_date"),
+                    description=f.get("description") or "",
+                    nvd_references=f.get("nvd_references") or [],
+                    priority=f.get("priority") or "medium",
+                    probability=f.get("probability") or "medium",
+                    business_impact=f.get("business_impact"),
+                    remediation=f.get("remediation"),
+                    status="open",
+                )
             )
-        )
+        else:
+            # Refresh scanner-side fields from NVD; never touch
+            # user-owned ``status`` or ``risk_id``.
+            row.run_id = run_uuid
+            row.card_type = f["card_type"]
+            row.vendor = f.get("vendor") or ""
+            row.product = f.get("product") or ""
+            row.version = f.get("version")
+            row.cvss_score = f.get("cvss_score")
+            row.cvss_vector = f.get("cvss_vector")
+            row.severity = f.get("severity") or "unknown"
+            row.attack_vector = f.get("attack_vector")
+            row.exploitability_score = f.get("exploitability_score")
+            row.impact_score = f.get("impact_score")
+            row.patch_available = bool(f.get("patch_available"))
+            row.published_date = f.get("published_date")
+            row.last_modified_date = f.get("last_modified_date")
+            row.description = f.get("description") or ""
+            row.nvd_references = f.get("nvd_references") or []
+            row.priority = f.get("priority") or "medium"
+            row.probability = f.get("probability") or "medium"
+            row.business_impact = f.get("business_impact")
+            row.remediation = f.get("remediation")
+
+    # Vanished rows — NVD didn't re-emit this (card, CVE) pair on this
+    # run. Delete only the untouched ones (``status="open"`` and no
+    # promoted Risk). Anything the user has triaged or escalated is
+    # preserved so the audit trail and any open Risks stay intact.
+    for key, row in existing_by_key.items():
+        if key in seen_keys:
+            continue
+        if row.status == "open" and row.risk_id is None:
+            await db.delete(row)
+
     await db.flush()
 
     if user_id:
@@ -950,27 +1031,73 @@ def compliance_lifecycle_allowed(current: str | None, new: str) -> bool:
     return new in allowed
 
 
+# Match the LLM-emitted prefixes we want to strip from regulation_article so
+# "Art. 6", "Article 6", "art 6" and "§ 6" all collapse to the same identity.
+# Order is significant only in the regex sense (longer alternatives first).
+# ``§`` may sit flush against the digit ("§6") so its trailing whitespace is
+# optional. Word prefixes ("Article", "Art.", "Section" …) require trailing
+# whitespace so we don't accidentally chop the leading letters off words like
+# "Articles" or "Sectional".
+_ARTICLE_PREFIX_RE = re.compile(
+    r"^\s*(?:§\s*|(?:article|art\.?|section|sect\.?|paragraph|para\.?|chapter|chap\.?|annex)\s+)",
+    re.IGNORECASE,
+)
+
+
+def _normalise_article(article: str | None) -> str:
+    """Reduce an LLM-emitted article reference to a stable identifier.
+
+    Why: the LLM rephrases prefixes between scan runs ("Art. 6" → "Article 6"
+    → "art 6" → "§6"), tweaks whitespace, and sometimes adds trailing
+    punctuation. We want all those forms to collapse onto the same
+    ``finding_key`` so a re-scan upserts onto the existing row instead of
+    inserting a duplicate.
+    """
+    if not article:
+        return ""
+    s = article.strip()
+    # Strip leading prefixes — repeat to handle nested LLM phrasings like
+    # "Article §6" or "Art. Section 6".
+    while True:
+        new = _ARTICLE_PREFIX_RE.sub("", s, count=1)
+        if new == s:
+            break
+        s = new
+    # Collapse internal whitespace, lowercase, trim trailing punctuation.
+    s = re.sub(r"\s+", " ", s).strip().lower().rstrip(".,;:")
+    return s
+
+
 def compute_finding_key(
     scope_type: str | None,
     card_id: uuid_mod.UUID | str | None,
     regulation: str | None,
     regulation_article: str | None,
-    requirement: str | None,
+    requirement: str | None = None,  # accepted for backwards-compat; ignored
 ) -> str:
     """Stable identity for a compliance finding across re-scans.
 
+    The natural key is **(scope, card, regulation, normalised article)** —
+    NOT the LLM-emitted requirement text. Earlier versions hashed the
+    requirement too, but the LLM rephrases that body on every run, so a
+    re-scan would mint a brand-new ``finding_key`` for every row and
+    duplicate every finding. The requirement (and the rest of the body
+    fields: gap_description, evidence, remediation) are now treated as
+    scanner content — they live on the row but they're not part of its
+    identity.
+
     Used as the upsert key in ``run_compliance_scan`` so human decisions
     (acknowledge / accept / risk_tracked) and promoted-Risk back-links
-    survive subsequent scans. The recipe is mirrored by migration 080's
-    backfill — keep them in sync. SHA-256 (not MD5) so CodeQL's weak-hash
-    rule stays quiet; the role is fingerprinting only, not security.
+    survive subsequent scans. The recipe is mirrored by migration 083's
+    backfill — keep them in sync. SHA-256 so CodeQL's weak-hash rule stays
+    quiet; the role is fingerprinting only, not security.
     """
+    del requirement  # explicitly discarded — see docstring
     parts = [
         (scope_type or "").strip(),
         str(card_id) if card_id else "",
         (regulation or "").strip(),
-        (regulation_article or "").strip(),
-        (requirement or "")[:200],
+        _normalise_article(regulation_article),
     ]
     return hashlib.sha256("|".join(parts).encode("utf-8")).hexdigest()
 
@@ -997,8 +1124,27 @@ async def run_compliance_scan(
 
     # Load enabled regulations from the DB. The optional ``regulations``
     # filter (from the request body) narrows the run to the intersection.
-    enabled_regs = await load_enabled_regulations(db, keys=regulations)
-    if not enabled_regs:
+    # When the caller passes a non-empty filter that doesn't match any
+    # enabled regulation (typo, or an admin disabled them in the
+    # meantime), DO NOT silently widen to a full-landscape scan — that
+    # would trigger an LLM fanout the caller never asked for. Return a
+    # no-op summary instead so the run record still completes cleanly.
+    if regulations:
+        enabled_regs = await load_enabled_regulations(db, keys=regulations)
+        if not enabled_regs:
+            empty_summary = {
+                "scan": "compliance",
+                "compliance_findings": 0,
+                "regulations": [],
+                "regulations_requested": list(regulations),
+                "skipped_reason": "no_matching_enabled_regulations",
+                "completed_at": datetime.now(timezone.utc).isoformat(),
+            }
+            run = await db.get(TurboLensAnalysisRun, run_uuid)
+            if run is not None:
+                run.results = empty_summary
+            return empty_summary
+    else:
         enabled_regs = await load_enabled_regulations(db)
     reg_keys = [r.key for r in enabled_regs]
 

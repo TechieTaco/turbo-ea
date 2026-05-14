@@ -1,6 +1,6 @@
 # Risk Register
 
-The **Risk Register** captures architecture risks through their full lifecycle — from identification to mitigation, residual assessment, monitoring and closure (or formal acceptance). It lives as a tab inside **EA Delivery → Risks**, alongside Initiatives, EA Principles, and Architecture Decisions.
+The **Risk Register** captures architecture risks through their full lifecycle — from identification to mitigation, residual assessment, monitoring and closure (or formal acceptance). It lives as the **Risk** tab of the [GRC module](grc.md) at `/grc?tab=risk`.
 
 ## TOGAF alignment
 
@@ -20,8 +20,8 @@ The register implements the Architecture Risk Management process from **TOGAF AD
 Three paths all land in the same **Create risk** dialog — each variant prefills different fields so you can edit and submit:
 
 1. **Manual** — Risks tab → **+ New risk**. Blank form.
-2. **From a CVE finding** — TurboLens → Security & Compliance → CVE drawer → **Create risk**. Pre-fills title (CVE ID on card), description (NVD text + business impact + CVSS), category `security`, probability/impact from the CVE, mitigation from the finding's remediation, and links the affected card.
-3. **From a compliance finding** — TurboLens → Security & Compliance → Compliance tab → **Create risk** on a non-compliant finding. Pre-fills category `compliance`, probability/impact from regulation severity + status, description from requirement + gap.
+2. **From a CVE finding** — GRC → Compliance → CVE drawer → **Create risk**. Pre-fills title (CVE ID on card), description (NVD text + business impact + CVSS), category `security`, probability/impact from the CVE, mitigation from the finding's remediation, and links the affected card.
+3. **From a compliance finding** — GRC → Compliance → **Create risk** on a non-compliant finding. Pre-fills category `compliance`, probability/impact from regulation severity + status, description from requirement + gap.
 
 All three variants include **Owner**, **Category**, and **Target resolution date** fields so you can assign accountability at creation time — no need to re-open the risk to add them.
 

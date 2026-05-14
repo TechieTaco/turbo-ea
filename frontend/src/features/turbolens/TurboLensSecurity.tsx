@@ -1379,6 +1379,39 @@ export default function TurboLensSecurity() {
               if (e instanceof ApiError) setError(e.message);
             }
           }}
+          onBulkDelete={async (ids) => {
+            try {
+              const result = await api.delete<{
+                updated: number;
+                skipped: { id: string; reason: string }[];
+              }>("/turbolens/security/compliance-findings/bulk", { ids });
+              // Optimistic-but-safe: just reload — bulk ops can affect
+              // many rows across regulations and the server's partial-success
+              // contract means we can't easily compute the new state locally.
+              await loadCompliance();
+              return result;
+            } catch (e) {
+              if (e instanceof ApiError) setError(e.message);
+              return { updated: 0, skipped: [] };
+            }
+          }}
+          onBulkDecisionUpdate={async (ids, decision, reviewNote) => {
+            try {
+              const result = await api.patch<{
+                updated: number;
+                skipped: { id: string; reason: string }[];
+              }>("/turbolens/security/compliance-findings/bulk", {
+                ids,
+                decision,
+                review_note: reviewNote,
+              });
+              await loadCompliance();
+              return result;
+            } catch (e) {
+              if (e instanceof ApiError) setError(e.message);
+              return { updated: 0, skipped: [] };
+            }
+          }}
         />
       </Stack>
     );

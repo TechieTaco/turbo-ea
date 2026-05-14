@@ -34,6 +34,7 @@ import {
   COMPLIANCE_LIFECYCLE_COLORS,
   COMPLIANCE_LIFECYCLE_MAIN_PATH,
   COMPLIANCE_LIFECYCLE_SIDE_BRANCHES,
+  surface,
 } from "@/theme/tokens";
 import type {
   ComplianceDecision,
@@ -172,7 +173,7 @@ export default function ComplianceLifecycleTimeline({
             label={t(`turbolens_security_compliance_decision_${sideBranch}`)}
             sx={{
               bgcolor: COMPLIANCE_LIFECYCLE_COLORS[sideBranch],
-              color: "#fff",
+              color: surface.light.paper,
               fontWeight: 600,
             }}
           />
@@ -252,7 +253,7 @@ export default function ComplianceLifecycleTimeline({
               const dotBorder = reached
                 ? phaseColor
                 : theme.palette.action.disabled;
-              const iconColor = reached ? "#fff" : theme.palette.text.disabled;
+              const iconColor = reached ? surface.light.paper : theme.palette.text.disabled;
               return (
                 <Box
                   key={phase}
@@ -345,7 +346,7 @@ export default function ComplianceLifecycleTimeline({
                 next === phases[reachedIdx + 1]
                   ? {
                       bgcolor: COMPLIANCE_LIFECYCLE_COLORS[next],
-                      color: "#fff",
+                      color: surface.light.paper,
                       "&:hover": {
                         bgcolor: COMPLIANCE_LIFECYCLE_COLORS[next],
                         filter: "brightness(0.9)",

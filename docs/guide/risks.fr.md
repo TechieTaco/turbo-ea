@@ -1,6 +1,6 @@
 # Registre des risques
 
-Le **Registre des risques** capture les risques d'architecture tout au long de leur cycle de vie — de l'identification à la mitigation, à l'évaluation résiduelle, à la surveillance et à la clôture (ou à l'acceptation formelle). Il vit comme un onglet dans **EA Delivery → Risques**, aux côtés des Initiatives, des Principes d'EA et des Décisions d'architecture.
+Le **Registre des risques** capture les risques d'architecture tout au long de leur cycle de vie — de l'identification à la mitigation, à l'évaluation résiduelle, à la surveillance et à la clôture (ou à l'acceptation formelle). Il vit comme l'onglet **Risque** du [module GRC](grc.md) à `/grc?tab=risk`.
 
 ## Alignement TOGAF
 

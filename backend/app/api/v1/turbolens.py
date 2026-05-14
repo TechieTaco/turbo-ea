@@ -36,6 +36,9 @@ from app.models.user import User
 from app.schemas.turbolens import (
     ComplianceBundleOut,
     ComplianceFindingAiVerdict,
+    ComplianceFindingBulkDecisionUpdate,
+    ComplianceFindingBulkDelete,
+    ComplianceFindingBulkResult,
     ComplianceFindingCreate,
     ComplianceFindingDecisionUpdate,
     ComplianceFindingOut,
@@ -1215,9 +1218,18 @@ async def update_cve_finding_status(
 async def list_compliance(
     regulation: str | None = None,
     status: str | None = None,
+    include_auto_resolved: bool = False,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ) -> list[ComplianceBundleOut]:
+    """Bundle compliance findings by regulation for the GRC grid.
+
+    Hides ``auto_resolved`` findings by default — these are stale rows
+    that a previous re-scan no longer reported. Pass
+    ``include_auto_resolved=true`` to opt into seeing them (e.g. for an
+    audit-trail view). Mirrors the default on
+    ``GET /cards/{id}/compliance-findings``.
+    """
     await PermissionService.require_permission(db, user, "security_compliance.view")
 
     from app.services.turbolens_security import (
@@ -1233,6 +1245,8 @@ async def list_compliance(
         stmt = stmt.where(TurboLensComplianceFinding.regulation == regulation)
     if status:
         stmt = stmt.where(TurboLensComplianceFinding.status == status)
+    if not include_auto_resolved:
+        stmt = stmt.where(TurboLensComplianceFinding.auto_resolved.is_(False))
 
     rows_res = await db.execute(stmt)
     rows = list(rows_res.scalars().all())
@@ -1428,6 +1442,84 @@ async def create_compliance_finding_manual(
     )
 
 
+@router.patch("/security/compliance-findings/bulk")
+async def bulk_update_compliance_findings(
+    body: ComplianceFindingBulkDecisionUpdate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> ComplianceFindingBulkResult:
+    """Bulk-transition multiple compliance findings to one decision.
+
+    Per-row lifecycle validation still runs — a row whose current
+    decision can't legally transition to ``body.decision`` is reported
+    in ``skipped`` (with ``reason="illegal_transition"``) instead of
+    failing the whole batch. Risk-tracked findings with an open Risk
+    are also skipped (``reason="risk_tracked"``); the linked Risk has
+    to be closed first via the Risk lifecycle. Missing ids are
+    skipped with ``reason="not_found"``.
+
+    The reviewer (``reviewed_by`` / ``reviewed_at``) is set to the
+    caller on every successful row, mirroring the per-row endpoint.
+
+    NOTE: this route MUST be declared before the single-row
+    ``PATCH /security/compliance-findings/{finding_id}`` so FastAPI
+    matches the literal ``bulk`` segment first. Don't reorder.
+    """
+    from app.services.turbolens_security import compliance_lifecycle_allowed
+
+    await PermissionService.require_permission(db, user, "security_compliance.manage")
+
+    decision = (body.decision or "").strip()
+    if decision not in _USER_SETTABLE_COMPLIANCE_DECISIONS:
+        raise HTTPException(
+            400,
+            "decision must be one of: " + ", ".join(sorted(_USER_SETTABLE_COMPLIANCE_DECISIONS)),
+        )
+    note = (body.review_note or "").strip() or None
+    if decision == "accepted" and not note:
+        raise HTTPException(400, "review_note is required when accepting findings")
+    if not body.ids:
+        return ComplianceFindingBulkResult(updated=0, skipped=[])
+
+    try:
+        ids = [uuid.UUID(i) for i in body.ids]
+    except ValueError as exc:
+        raise HTTPException(400, "ids contains an invalid UUID") from exc
+
+    rows = (
+        (
+            await db.execute(
+                select(TurboLensComplianceFinding).where(TurboLensComplianceFinding.id.in_(ids))
+            )
+        )
+        .scalars()
+        .all()
+    )
+    found_ids = {row.id for row in rows}
+
+    skipped: list[dict[str, str]] = []
+    for missing in ids:
+        if missing not in found_ids:
+            skipped.append({"id": str(missing), "reason": "not_found"})
+
+    now = datetime.now(timezone.utc)
+    updated = 0
+    for row in rows:
+        if row.decision == "risk_tracked" and row.risk_id is not None:
+            skipped.append({"id": str(row.id), "reason": "risk_tracked"})
+            continue
+        if not compliance_lifecycle_allowed(row.decision, decision):
+            skipped.append({"id": str(row.id), "reason": "illegal_transition"})
+            continue
+        row.decision = decision
+        row.review_note = note
+        row.reviewed_by = user.id
+        row.reviewed_at = now
+        updated += 1
+    await db.commit()
+    return ComplianceFindingBulkResult(updated=updated, skipped=skipped)
+
+
 @router.patch("/security/compliance-findings/{finding_id}")
 async def update_compliance_finding_decision(
     finding_id: str,
@@ -1509,6 +1601,52 @@ async def update_compliance_finding_decision(
             reviewer_name=(reviewer_names.get(str(row.reviewed_by)) if row.reviewed_by else None),
         )
     )
+
+
+@router.delete("/security/compliance-findings/bulk")
+async def bulk_delete_compliance_findings(
+    body: ComplianceFindingBulkDelete,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> ComplianceFindingBulkResult:
+    """Bulk-delete compliance findings.
+
+    Same permission gate as the single-row delete (``security_compliance.manage``,
+    granted to admin only by default). The linked Risk on any row is NOT
+    cascaded — Risks are independent records once promoted. Missing ids
+    are reported in ``skipped`` with ``reason="not_found"`` rather than
+    failing the whole batch.
+    """
+    await PermissionService.require_permission(db, user, "security_compliance.manage")
+
+    if not body.ids:
+        return ComplianceFindingBulkResult(updated=0, skipped=[])
+
+    try:
+        ids = [uuid.UUID(i) for i in body.ids]
+    except ValueError as exc:
+        raise HTTPException(400, "ids contains an invalid UUID") from exc
+
+    rows = (
+        (
+            await db.execute(
+                select(TurboLensComplianceFinding).where(TurboLensComplianceFinding.id.in_(ids))
+            )
+        )
+        .scalars()
+        .all()
+    )
+    found_ids = {row.id for row in rows}
+
+    skipped: list[dict[str, str]] = []
+    for missing in ids:
+        if missing not in found_ids:
+            skipped.append({"id": str(missing), "reason": "not_found"})
+
+    for row in rows:
+        await db.delete(row)
+    await db.commit()
+    return ComplianceFindingBulkResult(updated=len(rows), skipped=skipped)
 
 
 @router.delete("/security/compliance-findings/{finding_id}", status_code=204)

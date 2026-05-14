@@ -1,6 +1,6 @@
 # Registro de Riesgos
 
-El **Registro de Riesgos** captura los riesgos de arquitectura durante todo su ciclo de vida — desde la identificación hasta la mitigación, la evaluación residual, la supervisión y el cierre (o la aceptación formal). Vive como una pestaña dentro de **EA Delivery → Riesgos**, junto a Iniciativas, Principios de EA y Decisiones de Arquitectura.
+El **Registro de Riesgos** captura los riesgos de arquitectura durante todo su ciclo de vida — desde la identificación hasta la mitigación, la evaluación residual, la supervisión y el cierre (o la aceptación formal). Vive como la pestaña **Riesgo** del [módulo GRC](grc.md) en `/grc?tab=risk`.
 
 ## Alineación con TOGAF
 
