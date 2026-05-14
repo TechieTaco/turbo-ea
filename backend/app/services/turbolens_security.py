@@ -20,6 +20,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import re
 import uuid as uuid_mod
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
@@ -1030,27 +1031,73 @@ def compliance_lifecycle_allowed(current: str | None, new: str) -> bool:
     return new in allowed
 
 
+# Match the LLM-emitted prefixes we want to strip from regulation_article so
+# "Art. 6", "Article 6", "art 6" and "§ 6" all collapse to the same identity.
+# Order is significant only in the regex sense (longer alternatives first).
+# ``§`` may sit flush against the digit ("§6") so its trailing whitespace is
+# optional. Word prefixes ("Article", "Art.", "Section" …) require trailing
+# whitespace so we don't accidentally chop the leading letters off words like
+# "Articles" or "Sectional".
+_ARTICLE_PREFIX_RE = re.compile(
+    r"^\s*(?:§\s*|(?:article|art\.?|section|sect\.?|paragraph|para\.?|chapter|chap\.?|annex)\s+)",
+    re.IGNORECASE,
+)
+
+
+def _normalise_article(article: str | None) -> str:
+    """Reduce an LLM-emitted article reference to a stable identifier.
+
+    Why: the LLM rephrases prefixes between scan runs ("Art. 6" → "Article 6"
+    → "art 6" → "§6"), tweaks whitespace, and sometimes adds trailing
+    punctuation. We want all those forms to collapse onto the same
+    ``finding_key`` so a re-scan upserts onto the existing row instead of
+    inserting a duplicate.
+    """
+    if not article:
+        return ""
+    s = article.strip()
+    # Strip leading prefixes — repeat to handle nested LLM phrasings like
+    # "Article §6" or "Art. Section 6".
+    while True:
+        new = _ARTICLE_PREFIX_RE.sub("", s, count=1)
+        if new == s:
+            break
+        s = new
+    # Collapse internal whitespace, lowercase, trim trailing punctuation.
+    s = re.sub(r"\s+", " ", s).strip().lower().rstrip(".,;:")
+    return s
+
+
 def compute_finding_key(
     scope_type: str | None,
     card_id: uuid_mod.UUID | str | None,
     regulation: str | None,
     regulation_article: str | None,
-    requirement: str | None,
+    requirement: str | None = None,  # accepted for backwards-compat; ignored
 ) -> str:
     """Stable identity for a compliance finding across re-scans.
 
+    The natural key is **(scope, card, regulation, normalised article)** —
+    NOT the LLM-emitted requirement text. Earlier versions hashed the
+    requirement too, but the LLM rephrases that body on every run, so a
+    re-scan would mint a brand-new ``finding_key`` for every row and
+    duplicate every finding. The requirement (and the rest of the body
+    fields: gap_description, evidence, remediation) are now treated as
+    scanner content — they live on the row but they're not part of its
+    identity.
+
     Used as the upsert key in ``run_compliance_scan`` so human decisions
     (acknowledge / accept / risk_tracked) and promoted-Risk back-links
-    survive subsequent scans. The recipe is mirrored by migration 080's
-    backfill — keep them in sync. SHA-256 (not MD5) so CodeQL's weak-hash
-    rule stays quiet; the role is fingerprinting only, not security.
+    survive subsequent scans. The recipe is mirrored by migration 083's
+    backfill — keep them in sync. SHA-256 so CodeQL's weak-hash rule stays
+    quiet; the role is fingerprinting only, not security.
     """
+    del requirement  # explicitly discarded — see docstring
     parts = [
         (scope_type or "").strip(),
         str(card_id) if card_id else "",
         (regulation or "").strip(),
-        (regulation_article or "").strip(),
-        (requirement or "")[:200],
+        _normalise_article(regulation_article),
     ]
     return hashlib.sha256("|".join(parts).encode("utf-8")).hexdigest()
 

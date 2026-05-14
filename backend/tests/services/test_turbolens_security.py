@@ -16,6 +16,7 @@ from app.services import turbolens_security
 from app.services.turbolens_security import (
     ScanCard,
     _landscape_summary,
+    _normalise_article,
     _priority_from_cvss_and_criticality,
     build_risk_matrix,
     compliance_score,
@@ -212,22 +213,59 @@ def test_compute_finding_key_is_stable_across_calls():
 
 def test_compute_finding_key_changes_with_any_identity_field():
     card_id = uuid.uuid4()
-    base = compute_finding_key("card", card_id, "eu_ai_act", "Art. 6", "x")
-    assert base != compute_finding_key("landscape", card_id, "eu_ai_act", "Art. 6", "x")
-    assert base != compute_finding_key("card", uuid.uuid4(), "eu_ai_act", "Art. 6", "x")
-    assert base != compute_finding_key("card", card_id, "gdpr", "Art. 6", "x")
-    assert base != compute_finding_key("card", card_id, "eu_ai_act", "Art. 7", "x")
-    assert base != compute_finding_key("card", card_id, "eu_ai_act", "Art. 6", "y")
+    base = compute_finding_key("card", card_id, "eu_ai_act", "Art. 6")
+    assert base != compute_finding_key("landscape", card_id, "eu_ai_act", "Art. 6")
+    assert base != compute_finding_key("card", uuid.uuid4(), "eu_ai_act", "Art. 6")
+    assert base != compute_finding_key("card", card_id, "gdpr", "Art. 6")
+    assert base != compute_finding_key("card", card_id, "eu_ai_act", "Art. 7")
 
 
-def test_compute_finding_key_truncates_requirement_to_first_200_chars():
-    # Two requirements that differ only after the first 200 chars must hash
-    # identically — the upsert key is meant to ignore late-prompt drift.
-    long_a = "a" * 200 + "TAIL_A"
-    long_b = "a" * 200 + "TAIL_B"
-    assert compute_finding_key("card", None, "gdpr", "Art. 5", long_a) == compute_finding_key(
-        "card", None, "gdpr", "Art. 5", long_b
-    )
+def test_compute_finding_key_ignores_requirement_text():
+    # The LLM rephrases the requirement body on every run. Two findings on
+    # the same article with different requirement text must hash to the
+    # same key so the re-scan upserts onto the existing row.
+    card_id = uuid.uuid4()
+    a = compute_finding_key("card", card_id, "gdpr", "Art. 5", "first phrasing")
+    b = compute_finding_key("card", card_id, "gdpr", "Art. 5", "completely different phrasing")
+    c = compute_finding_key("card", card_id, "gdpr", "Art. 5")  # no requirement at all
+    assert a == b == c
+
+
+def test_compute_finding_key_collapses_article_phrasings():
+    # The LLM emits "Art. 6", "Article 6", "art 6", "§ 6", " Article  6 " etc.
+    # All forms must hash to the same key.
+    card_id = uuid.uuid4()
+    keys = {
+        compute_finding_key("card", card_id, "eu_ai_act", form)
+        for form in [
+            "Art. 6",
+            "Article 6",
+            "article 6",
+            "art 6",
+            "§ 6",
+            "§6",
+            " Article  6 ",
+            "Art 6.",
+            "ARTICLE 6",
+        ]
+    }
+    assert len(keys) == 1
+
+
+def test_normalise_article_strips_prefixes_and_lowercases():
+    assert _normalise_article("Article 6") == "6"
+    assert _normalise_article("Art. 6") == "6"
+    assert _normalise_article("art 6") == "6"
+    assert _normalise_article("§ 6") == "6"
+    assert _normalise_article("§6") == "6"  # no space; falls through whitespace collapse
+    assert _normalise_article("Section 7.2") == "7.2"
+    assert _normalise_article("Annex III") == "iii"
+    assert _normalise_article("  Article 6  ") == "6"
+    assert _normalise_article("Article 6.") == "6"
+    assert _normalise_article(None) == ""
+    assert _normalise_article("") == ""
+    # Composite identifier with sub-paragraph stays intact.
+    assert _normalise_article("Article 6(2)(a)") == "6(2)(a)"
 
 
 # ---------------------------------------------------------------------------
