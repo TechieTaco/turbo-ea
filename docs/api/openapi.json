@@ -2409,7 +2409,7 @@
         "type": "object"
       },
       "ComplianceFindingDecisionUpdate": {
-        "description": "Body for ``PATCH /security/compliance-findings/{id}``.\n\nUsers can transition the decision to ``open``, ``acknowledged``, or\n``accepted``. ``risk_tracked`` is set automatically when a finding is\npromoted to a Risk (``POST /risks/promote/compliance/{id}``);\n``auto_resolved`` is set by the scanner when a re-scan no longer\nreports the finding. Neither is user-settable.",
+        "description": "Body for ``PATCH /security/compliance-findings/{id}``.\n\nUsers transition the decision through the compliance lifecycle\nstates ``new``, ``in_review``, ``mitigated``, ``verified``,\n``accepted`` and ``not_applicable``. Allowed transitions are\nenforced server-side by ``compliance_lifecycle_allowed``.\n``risk_tracked`` is set automatically when a finding is promoted to\na Risk (``POST /risks/promote/compliance/{id}``); ``auto_resolved``\nis set by the scanner when a re-scan no longer reports the finding.\nNeither is user-settable.",
         "properties": {
           "decision": {
             "title": "Decision",
@@ -2507,7 +2507,7 @@
             "title": "Created At"
           },
           "decision": {
-            "default": "open",
+            "default": "new",
             "title": "Decision",
             "type": "string"
           },
@@ -27019,6 +27019,7 @@
     },
     "/api/v1/turbolens/security/compliance": {
       "get": {
+        "description": "Bundle compliance findings by regulation for the GRC grid.\n\nHides ``auto_resolved`` findings by default \u2014 these are stale rows\nthat a previous re-scan no longer reported. Pass\n``include_auto_resolved=true`` to opt into seeing them (e.g. for an\naudit-trail view). Mirrors the default on\n``GET /cards/{id}/compliance-findings``.",
         "operationId": "list_compliance_api_v1_turbolens_security_compliance_get",
         "parameters": [
           {
@@ -27051,6 +27052,16 @@
                 }
               ],
               "title": "Status"
+            }
+          },
+          {
+            "in": "query",
+            "name": "include_auto_resolved",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Include Auto Resolved",
+              "type": "boolean"
             }
           }
         ],

@@ -5,6 +5,22 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.11.1] - 2026-05-14
+
+Follow-up fixes after the GRC module landed in 1.11.0. Addresses two correctness regressions on the security & compliance scanners (CVE re-scans were wiping triaged status and Risk back-links; AI verdict cards weren't sticky on re-scan), one stale link to the dissolved EA Delivery route, two scan-picker edge cases, and the docs the original PR deferred.
+
+### Added
+- **`/grc` user manual** (English source + 7 locale variants) covering the Governance / Risk / Compliance tabs, deep-link query params, and permissions. The mkdocs nav now lists "GRC" between "EA Delivery" and "Risk Register" in all 8 navs. The Risk Register and TurboLens Security & Compliance pages now point at the new GRC home.
+
+### Fixed
+- **CVE re-scan no longer wipes user state.** `run_cve_scan` used to delete every `TurboLensCveFinding` at the start of every run, resetting user-set status (acknowledged / mitigated / etc.) and severing `risk_id` back-links to promoted Risks. It now upserts by `(card_id, cve_id)`: scanner-side fields refresh from NVD, but `status` and `risk_id` are preserved. Vanished rows are deleted only when untouched (`status="open"` and no Risk).
+- **User-confirmed `hasAiFeatures` cards stay in EU AI Act scope across re-scans.** `detect_ai_bearing_cards` only seeded its scope from `c.subtype in AI_SUBTYPES`; cards a user explicitly confirmed via `POST /security/compliance-findings/{id}/ai-verdict` (which sets `attributes.hasAiFeatures = true`) were silently dropped if the LLM also missed them on the next scan. They are now pre-included before the LLM runs.
+- **Card Detail → Risks tab "View Risk Register" button** now navigates to `/grc?tab=risk` instead of the dissolved `/ea-delivery?tab=risks` (which redirected to the EA Delivery report and stripped the query param, landing the user on the wrong page).
+- **Compliance scan no longer silently widens to all regulations** when the caller-supplied filter resolves to an empty list (typo, or admin disabled the regulation). It returns a no-op summary tagged with `skipped_reason="no_matching_enabled_regulations"` so the run record completes cleanly without an unintended LLM fanout.
+- **`ComplianceFindingOut.decision` Pydantic default** is now `"new"` (the post-migration-081 lifecycle starting state) instead of the legacy `"open"`. The accompanying `ComplianceFindingDecisionUpdate` docstring lists the actual lifecycle states with a pointer to `compliance_lifecycle_allowed`.
+- **`GET /security/compliance` hides `auto_resolved=True` rows by default** (mirrors the per-card endpoint). Old rows stuck at `auto_resolved=True` from pre-PR-#536 scans no longer surface as live findings until the next scan clears them. Pass `include_auto_resolved=true` to opt into the audit-trail view.
+- **Hardcoded hex literals in newly-introduced GRC and Regulations admin files** replaced with the matching theme tokens (`brand.primary`, `SEVERITY_COLORS.high`, `surface.light.paper`, `CARD_TYPE_COLORS`). Removes the duplicate `CARD_TYPE_HEX` map in `ComplianceFilterSidebar`.
+
 ## [1.11.0] - 2026-05-13
 
 The fixed list of 6 compliance regulations is gone. Admins can now CRUD compliance frameworks from a new **Regulations** tab under Admin → Metamodel, enable/disable individual frameworks (defaults can be disabled but not deleted), and add their own (internal control policies, sector regulations like HIPAA, etc.). The Compliance register, manual finding entry, and risk promotion now work even when no AI provider is configured.
