@@ -1,6 +1,6 @@
 # Risikoregister
 
-Das **Risikoregister** erfasst Architektur-Risiken über ihren gesamten Lebenszyklus — von der Identifikation über Minderung, Rest-Bewertung und Überwachung bis zum Abschluss (oder zur formalen Akzeptanz). Es lebt als Tab innerhalb von **EA Delivery → Risiken**, neben Initiativen, EA-Prinzipien und Architekturentscheidungen.
+Das **Risikoregister** erfasst Architektur-Risiken über ihren gesamten Lebenszyklus — von der Identifikation über Minderung, Rest-Bewertung und Überwachung bis zum Abschluss (oder zur formalen Akzeptanz). Es lebt als Reiter **Risk** im [GRC-Modul](grc.md) unter `/grc?tab=risk`.
 
 ## TOGAF-Ausrichtung
 

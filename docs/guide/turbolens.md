@@ -219,7 +219,9 @@ Click **Choose Different** to return to the solution options and select a differ
 
 ## Security & Compliance
 
-The **Security & Compliance** tab runs an on-demand scan against the live landscape and produces a standards-compliant risk report plus a regulatory gap analysis.
+> The Security & Compliance scanner now lives under [**GRC → Compliance**](grc.md#compliance) at `/grc?tab=compliance`. The scan engine, finding lifecycle and APIs are unchanged — only the navigation moved.
+
+The Security & Compliance scanner runs on-demand against the live landscape and produces a standards-compliant risk report plus a regulatory gap analysis.
 
 ### What it scans
 
