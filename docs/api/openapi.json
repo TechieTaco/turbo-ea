@@ -2325,6 +2325,81 @@
         "title": "ComplianceFindingAiVerdict",
         "type": "object"
       },
+      "ComplianceFindingBulkDecisionUpdate": {
+        "description": "Body for ``PATCH /security/compliance-findings/bulk``.\n\nBulk transition of multiple findings to a single new ``decision``.\nPer-row lifecycle validation still runs; rows where the transition\nisn't allowed (or that are tracked by an active Risk) are reported\nin the response's ``skipped`` list with a reason \u2014 the rest succeed.",
+        "properties": {
+          "decision": {
+            "title": "Decision",
+            "type": "string"
+          },
+          "ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Ids",
+            "type": "array"
+          },
+          "review_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Review Note"
+          }
+        },
+        "required": [
+          "ids",
+          "decision"
+        ],
+        "title": "ComplianceFindingBulkDecisionUpdate",
+        "type": "object"
+      },
+      "ComplianceFindingBulkDelete": {
+        "description": "Body for ``DELETE /security/compliance-findings/bulk``.\n\nAccepts a list of finding ids; rows the caller can't see (or that\ndon't exist) are reported in the response's ``skipped`` list.",
+        "properties": {
+          "ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "ids"
+        ],
+        "title": "ComplianceFindingBulkDelete",
+        "type": "object"
+      },
+      "ComplianceFindingBulkResult": {
+        "description": "Outcome of a bulk delete or bulk decision update.\n\n``updated`` is the count of rows the call actually changed.\n``skipped`` lists rows that were left untouched, each with a\n``reason`` (\"not_found\", \"illegal_transition\", \"risk_tracked\", \u2026).",
+        "properties": {
+          "skipped": {
+            "default": [],
+            "items": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            "title": "Skipped",
+            "type": "array"
+          },
+          "updated": {
+            "title": "Updated",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "updated"
+        ],
+        "title": "ComplianceFindingBulkResult",
+        "type": "object"
+      },
       "ComplianceFindingCreate": {
         "description": "Body for ``POST /security/compliance-findings`` \u2014 manual finding entry.\n\nUsed by auditors / GRC analysts who want to record a finding the\nscanner didn't pick up. The endpoint creates a synthetic \"manual\"\n:class:`TurboLensAnalysisRun` to satisfy the FK and persists a row\nwith ``decision='new'`` so the lifecycle starts at the same place\nas scanner-emitted findings.",
         "properties": {
@@ -27134,6 +27209,88 @@
           }
         },
         "summary": "Create Compliance Finding Manual",
+        "tags": [
+          "TurboLens"
+        ]
+      }
+    },
+    "/api/v1/turbolens/security/compliance-findings/bulk": {
+      "delete": {
+        "description": "Bulk-delete compliance findings.\n\nSame permission gate as the single-row delete (``security_compliance.manage``,\ngranted to admin only by default). The linked Risk on any row is NOT\ncascaded \u2014 Risks are independent records once promoted. Missing ids\nare reported in ``skipped`` with ``reason=\"not_found\"`` rather than\nfailing the whole batch.",
+        "operationId": "bulk_delete_compliance_findings_api_v1_turbolens_security_compliance_findings_bulk_delete",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ComplianceFindingBulkDelete"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ComplianceFindingBulkResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Bulk Delete Compliance Findings",
+        "tags": [
+          "TurboLens"
+        ]
+      },
+      "patch": {
+        "description": "Bulk-transition multiple compliance findings to one decision.\n\nPer-row lifecycle validation still runs \u2014 a row whose current\ndecision can't legally transition to ``body.decision`` is reported\nin ``skipped`` (with ``reason=\"illegal_transition\"``) instead of\nfailing the whole batch. Risk-tracked findings with an open Risk\nare also skipped (``reason=\"risk_tracked\"``); the linked Risk has\nto be closed first via the Risk lifecycle. Missing ids are\nskipped with ``reason=\"not_found\"``.\n\nThe reviewer (``reviewed_by`` / ``reviewed_at``) is set to the\ncaller on every successful row, mirroring the per-row endpoint.\n\nNOTE: this route MUST be declared before the single-row\n``PATCH /security/compliance-findings/{finding_id}`` so FastAPI\nmatches the literal ``bulk`` segment first. Don't reorder.",
+        "operationId": "bulk_update_compliance_findings_api_v1_turbolens_security_compliance_findings_bulk_patch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ComplianceFindingBulkDecisionUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ComplianceFindingBulkResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Bulk Update Compliance Findings",
         "tags": [
           "TurboLens"
         ]
