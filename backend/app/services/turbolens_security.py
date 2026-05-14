@@ -394,21 +394,34 @@ async def detect_ai_bearing_cards(
     if not cards:
         return {}
 
-    # Start with cards that are AI by subtype — they are always in scope.
+    # User verdict on attributes.hasAiFeatures is sticky in BOTH directions:
+    #   - True  → card is in scope even if subtype + LLM both miss it
+    #             (handled in the seed loop below)
+    #   - False → card is OUT of scope, even if its subtype matches and
+    #             even if the LLM would have flagged it. The user's "no"
+    #             overrides everything; otherwise the verdict UI is
+    #             pointless and we'd just toggle it back on every scan.
+    #   - missing → unknown; let subtype + LLM decide as before.
+    def _user_says_no_ai(c: ScanCard) -> bool:
+        return isinstance(c.attributes, dict) and c.attributes.get("hasAiFeatures") is False
+
+    def _user_says_yes_ai(c: ScanCard) -> bool:
+        return isinstance(c.attributes, dict) and c.attributes.get("hasAiFeatures") is True
+
+    # Start with cards that are AI by subtype — in scope by default,
+    # unless the user has explicitly overruled with a "no".
     scoped: dict[str, dict[str, Any]] = {
         c.id: {"role": "provider", "confidence": 1.0, "subtype_match": True}
         for c in cards
-        if c.subtype in AI_SUBTYPES
+        if c.subtype in AI_SUBTYPES and not _user_says_no_ai(c)
     }
-    # Also pre-include any card the user has explicitly confirmed as
-    # AI-bearing via the verdict endpoint (sets attributes.hasAiFeatures
-    # = true). The LLM pass is non-deterministic and may miss subtle
-    # embedded cases on a re-scan; this keeps user verdicts sticky so
-    # confirmed cards stay in EU AI Act scope across runs.
+    # Pre-include cards the user has explicitly confirmed as AI-bearing.
+    # The LLM pass is non-deterministic and may miss subtle / embedded
+    # cases on a re-scan; this keeps user verdicts sticky.
     for c in cards:
         if c.id in scoped:
             continue
-        if isinstance(c.attributes, dict) and c.attributes.get("hasAiFeatures") is True:
+        if _user_says_yes_ai(c):
             scoped[c.id] = {
                 "role": "embedded",
                 "confidence": 1.0,
@@ -419,12 +432,18 @@ async def detect_ai_bearing_cards(
     if not is_ai_configured(ai_config):
         return scoped
 
-    total_batches = max(1, (len(cards) + AI_DETECTION_BATCH_SIZE - 1) // AI_DETECTION_BATCH_SIZE)
-    for start in range(0, len(cards), AI_DETECTION_BATCH_SIZE):
+    # Don't ask the LLM about cards the user has explicitly flagged as
+    # NOT AI-bearing — their answer is fixed regardless of what the
+    # model would say. Saves tokens and prevents the UI from flapping.
+    candidates = [c for c in cards if not _user_says_no_ai(c)]
+    total_batches = max(
+        1, (len(candidates) + AI_DETECTION_BATCH_SIZE - 1) // AI_DETECTION_BATCH_SIZE
+    )
+    for start in range(0, len(candidates), AI_DETECTION_BATCH_SIZE):
         batch_index = start // AI_DETECTION_BATCH_SIZE + 1
         if progress_cb:
             await progress_cb("ai_detection", batch_index, total_batches, "")
-        batch = cards[start : start + AI_DETECTION_BATCH_SIZE]
+        batch = candidates[start : start + AI_DETECTION_BATCH_SIZE]
         payload = [
             {
                 "id": c.id,

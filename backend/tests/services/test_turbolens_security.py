@@ -266,6 +266,44 @@ async def test_detect_ai_includes_user_confirmed_cards_when_subtype_is_not_ai(mo
     assert scope[explicit_ai.id]["subtype_match"] is True
 
 
+@pytest.mark.asyncio
+async def test_detect_ai_excludes_user_flagged_not_ai_cards(monkeypatch):
+    """Cards with attributes.hasAiFeatures=False must NOT be in scope, even
+    if their subtype matches AI_SUBTYPES. The user's explicit "no" overrides
+    both the subtype detection and the LLM pass — otherwise the verdict UI
+    has no effect and we'd just re-flag the card on every scan."""
+
+    async def _fake_get_ai_config(db):
+        return {}
+
+    monkeypatch.setattr(turbolens_security, "get_ai_config", _fake_get_ai_config)
+    monkeypatch.setattr(turbolens_security, "is_ai_configured", lambda cfg: False)
+
+    rejected_subtype_ai = _scan_card(
+        type="Application",
+        subtype="AI Agent",  # would normally be in scope by subtype
+        attributes={"hasAiFeatures": False},
+    )
+    confirmed_non_subtype = _scan_card(
+        type="Application",
+        subtype="Business Application",
+        attributes={"hasAiFeatures": True},
+    )
+    plain_subtype_ai = _scan_card(type="Application", subtype="AI Agent")
+
+    scope = await detect_ai_bearing_cards(
+        db=None,
+        cards=[rejected_subtype_ai, confirmed_non_subtype, plain_subtype_ai],
+    )
+
+    # User's "no" wins, even over subtype.
+    assert rejected_subtype_ai.id not in scope
+    # User's "yes" wins, even without subtype.
+    assert confirmed_non_subtype.id in scope
+    # No verdict + AI subtype → in scope as before.
+    assert plain_subtype_ai.id in scope
+
+
 def test_compliance_to_dict_handles_landscape_scope():
     row = SimpleNamespace(
         id=uuid.uuid4(),
