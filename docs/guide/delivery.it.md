@@ -1,6 +1,8 @@
 # EA Delivery
 
-Il modulo **EA Delivery** gestisce le **iniziative architetturali e i relativi artefatti** — diagrammi e Statement of Architecture Work (SoAW). Fornisce una vista unica di tutti i progetti architetturali in corso e i loro deliverable.
+Il modulo **EA Delivery** gestisce le **iniziative architetturali e i relativi artefatti** — diagrammi, Statement of Architecture Work (SoAW) e Architecture Decision Records (ADR). Fornisce una vista unica di tutti i progetti architetturali in corso e i loro deliverable.
+
+EA Delivery vive ora sotto **Report → EA Delivery** (`/reports/ea-delivery`). L'URL legacy `/ea-delivery` continua a funzionare come redirect, così i segnalibri esistenti vengono risolti.
 
 ![Gestione EA Delivery](../assets/img/it/17_consegna_ea.png)
 
@@ -63,6 +65,12 @@ Una volta approvato un SoAW, potete richiedere le firme dagli stakeholder. Clicc
 
 - **Modalità anteprima** — Vista di sola lettura del documento SoAW completo
 - **Esportazione DOCX** — Scaricate il SoAW come documento Word formattato per la condivisione offline o la stampa
+
+### Scheda SoAW sulle card di Iniziativa
+
+![Card iniziativa — scheda SoAW](../assets/img/it/55_iniziativa_soaw_tab.png)
+
+Le iniziative espongono inoltre una scheda **SoAW** dedicata direttamente nella loro pagina di dettaglio. La scheda elenca ogni SoAW collegato a quell'iniziativa (titolo, chip di stato, numero di revisione, data dell'ultima modifica) con un pulsante **+ Nuovo SoAW** che preseleziona l'iniziativa corrente — così è possibile redigere o saltare a un SoAW senza lasciare la card su cui si sta lavorando. La creazione riutilizza lo stesso dialogo della pagina EA Delivery, e il nuovo documento compare in entrambi i posti. La visibilità della scheda segue le regole standard di permesso sulle card.
 
 ## Architecture Decision Records (ADR)
 

@@ -241,12 +241,32 @@ Refrescar la página **no interrumpe un análisis en curso** — la tarea en seg
 
 - **Resumen** — barra de KPI (total de hallazgos, recuentos críticos / altos / medios, puntuación global de cumplimiento), una **matriz de riesgo probabilidad × severidad** de 5×5, los cinco hallazgos críticos principales y un mapa de calor compacto de cumplimiento en el que puede pulsar para ver el detalle. La matriz es **clicable**: al pulsar una celda se abre la sub-pestaña CVE filtrada por ese segmento, con un chip descartable sobre la tabla para ver (y borrar) el filtro activo.
 - **CVE** — tabla filtrable con ficha, ID de CVE (enlazado a la página de detalle del NVD), puntuación base CVSS, severidad, prioridad, probabilidad, disponibilidad de parche y estado. Cada fila abre un panel de detalle con la descripción, vector CVSS, vector de ataque, puntuaciones de explotabilidad / impacto, referencias, impacto de negocio y remediación generados por IA, y una barra de acciones de estado (**Reconocer → Marcar en curso → Marcar mitigado / Aceptar riesgo / Reabrir**).
-- **Cumplimiento** — una pestaña por regulación con una puntuación global y un listado en estilo tarjeta que muestra estado, artículo, categoría, requisito, descripción de la brecha, remediación y evidencias. Un pequeño chip **Detectado por IA** resalta las fichas marcadas como portadoras de IA por el detector semántico, aunque no estén etiquetadas como subtipos de IA.
+- **Cumplimiento** — una cuadrícula AG Grid que refleja la del Inventario: barra lateral de filtros, visibilidad de columnas y orden persistidos, búsqueda de texto completo y un panel de detalle por hallazgo. Las filas llevan estado, artículo, categoría, requisito, descripción de la brecha, remediación y evidencias. Un pequeño chip **Detectado por IA** resalta las fichas marcadas como portadoras de IA por el detector semántico, aunque no estén etiquetadas como subtipos de IA.
 - **Exportar CSV** — descarga los hallazgos CVE en un orden de columnas al estilo OWASP/NIST (Ficha, Tipo, CVE, CVSS, Severidad, Vector de Ataque, Probabilidad, Prioridad, Parche, Publicada, Última Modificación, Estado, Proveedor, Producto, Versión, Impacto de Negocio, Remediación, Descripción).
+
+### Los hallazgos sobreviven a los re-escaneos
+
+Las decisiones del usuario y los metadatos de revisión son **duraderos entre re-escaneos**:
+
+- Los hallazgos CVE se upsertan por `(card_id, cve_id)`. Un estado fijado por el usuario (`acknowledged`, `mitigated`, `accepted`) y cualquier enlace de retorno a un Riesgo promovido sobreviven al siguiente escaneo.
+- Los hallazgos de cumplimiento se upsertan por `(scope, card, regulation, normalised_article)`. Identificadores de artículo como *Art. 6 / Article 6 / § 6* colapsan en la misma fila, así las reformulaciones del LLM ya no generan duplicados.
+- Un hallazgo que el siguiente pase no vuelve a reportar **no se elimina** — se marca con `auto_resolved=true` y se oculta por defecto, de modo que su historial (y el Riesgo promovido vinculado) permanece intacto.
+- El **veredicto IA** del usuario sobre una ficha (`hasAiFeatures = true / false`) también permanece. Si confirmas o rechazas la clasificación de IA del LLM, esa decisión prevalece sobre el detector en los escaneos posteriores — la deriva del LLM no puede cambiar silenciosamente el alcance.
 
 ### Promover un hallazgo al Registro de Riesgos
 
 Cada panel CVE y cada tarjeta de hallazgo de cumplimiento incluye una acción primaria **Crear riesgo**. Al pulsarla se abre el diálogo compartido de creación de riesgo con el título, descripción, categoría, probabilidad, impacto, mitigación y ficha afectada **precargados desde el hallazgo**. Puede editar cualquier campo antes de enviarlo, asignar un **propietario** y elegir una **fecha objetivo de resolución**. Al enviar, la fila del hallazgo pasa a **Abrir riesgo R-000123** para mantener el enlace visible — las promociones son idempotentes en el servidor. Consulte el [Registro de Riesgos](risks.md) para el ciclo completo alineado con TOGAF y cómo la asignación del propietario crea una tarea de seguimiento + notificación en la campanita.
+
+Cuando el Riesgo vinculado alcanza más tarde `mitigated`, `monitoring`, `closed` o `accepted` (o se elimina), el motor de retro-propagación transiciona automáticamente cada hallazgo de cumplimiento vinculado al estado correspondiente (`mitigated`, `verified`, `accepted` o de vuelta a `in_review`). La justificación de aceptación capturada en el Riesgo se refleja en la nota de revisión del hallazgo para que la pista de auditoría se mantenga consistente.
+
+### Acciones masivas en la cuadrícula de Cumplimiento
+
+Cuando se concede `security_compliance.manage`, la cuadrícula de Cumplimiento expone selección múltiple consciente de los filtros. Marca la casilla del encabezado para seleccionar todas las filas que coincidan con los filtros activos, y luego usa la barra de herramientas fija:
+
+- **Editar decisión** — transición por lotes de cada hallazgo seleccionado a un estado elegido (por ejemplo, marcar un grupo de hallazgos como `not_applicable` tras una revisión de alcance). Las transiciones ilegales se notifican fila por fila en un resumen de éxito parcial en lugar de hacer fracasar todo el lote.
+- **Eliminar** — eliminar permanentemente los hallazgos (útil para limpiar hallazgos de una regulación que has desactivado desde entonces).
+
+La promoción a Riesgo sigue siendo una acción individual — la promoción masiva no se ofrece intencionadamente para preservar la captura de contexto por hallazgo.
 
 ### Detección semántica de la Ley de IA de la UE
 
@@ -262,7 +282,28 @@ Sin clave, el NVD sólo permite 5 peticiones cada 30 segundos, lo que puede rale
 
 ### Flujo de estado
 
-Cada hallazgo CVE recorre: **abierto** → **reconocido** → **en curso** → **mitigado** (o **aceptado**, cuando el equipo ha aceptado formalmente el riesgo). La reapertura siempre está disponible. Los cambios de estado los realizan usuarios con `security_compliance.manage`. Para flujos de gobernanza (titularidad, evaluación residual, justificación de aceptación, tareas y notificaciones) promueva el hallazgo a un Riesgo — el ciclo completo vive en el [Registro de Riesgos](risks.md).
+Los hallazgos CVE y de Cumplimiento tienen **ciclos de vida distintos**, cada uno renderizado como una línea de tiempo horizontal de fases en el panel del hallazgo. Ambos están restringidos a usuarios con `security_compliance.manage`; el motor aplica las transiciones del lado del servidor y rechaza movimientos ilegales con un error claro.
+
+**Hallazgos CVE**
+
+```
+open → acknowledged → in progress → mitigated
+                                  ↘ accepted (aceptación formal del riesgo)
+                                  ↘ reopen → open
+```
+
+**Hallazgos de cumplimiento** (rediseñado en v1.11.0)
+
+```
+new → in_review → mitigated → verified
+                      ↘ accepted          (rama lateral, requiere justificación)
+                      ↘ not_applicable    (rama lateral, revisión de alcance)
+                      ↘ risk_tracked      (establecido automáticamente al promover a Riesgo)
+```
+
+`risk_tracked` nunca se establece manualmente — se escribe automáticamente cuando pulsas **Crear riesgo** en un hallazgo, y lo limpia el motor de retro-propagación cuando se cierra el Riesgo vinculado (véase *Promover un hallazgo al Registro de Riesgos* arriba).
+
+Para flujos de gobernanza completos (titularidad, evaluación residual, justificación de aceptación, tareas y notificaciones) promueva el hallazgo a un Riesgo — el ciclo completo vive en el [Registro de Riesgos](risks.md).
 
 ## Historial de Análisis
 

@@ -5,6 +5,20 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.11.3] - 2026-05-14
+
+User documentation catch-up across the EA Delivery, GRC and TurboLens Security & Compliance refactor that landed across v1.10.0 – v1.11.2.
+
+### Changed
+- **EA Delivery** guide updated to reflect the move to `/reports/ea-delivery` (the legacy `/ea-delivery` URL still works as a redirect) and now documents the **SoAW tab on Initiative card detail** added in v1.10.0.
+- **TurboLens → Security & Compliance** guide rewritten with the v1.11.x lifecycle: separate CVE (`open → acknowledged → in progress → mitigated`) and Compliance (`new → in_review → mitigated → verified` + `accepted` / `not_applicable` / `risk_tracked` side branches) state machines, the durable re-scan upsert key, AI-verdict stickiness, automatic Risk ↔ Finding back-propagation, and the filter-aware bulk multi-select toolbar (Edit decision / Delete).
+- **GRC** guide expanded with the compliance lifecycle diagram, a cross-link to the bulk-actions section, and a new "Compliance on a single card" note covering the Card Detail → Compliance tab.
+- **Risk Register** guide adds a Register-grid section (CSV export, persistent column / sort prefs) and a Risk ↔ Finding propagation section that documents the bidirectional flow.
+- **Admin → Metamodel** page now reflects the seven-tab layout (Card Types, Relation Types, Calculations, Tags, Metamodel Graph, EA Principles, Compliance Regulations) and includes a new "Compliance Regulations" section describing built-in framework enable/disable, custom-regulation creation, and the AI-optional path.
+- **Glossary** gains entries for **GRC**, **Phase G**, **Risk Register**, **Promote to Risk**, **Risk Owner**, **Auto-resolved Finding**, **AI Verdict** and **Compliance Finding Lifecycle**.
+- **Screenshot capture script** (`scripts/screenshots/pages.ts`): existing EA Delivery routes updated from `/ea-delivery?...` to `/reports/ea-delivery?...`; new entries added for **GRC → Governance / Risk / Compliance**, **Initiative card → SoAW tab**, and **Card detail → Compliance tab** so subsequent capture runs populate them.
+- All updates mirrored across the 7 non-English locales (`de`, `fr`, `es`, `it`, `pt`, `zh`, `ru`).
+
 ## [1.11.2] - 2026-05-14
 
 Two follow-ups on the Compliance grid: a fix for duplicate findings the LLM was minting on every re-scan, and a new bulk-action toolbar so admins can edit or delete many findings at once.

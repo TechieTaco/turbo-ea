@@ -1,6 +1,8 @@
 # Entrega EA
 
-El módulo de **Entrega EA** gestiona las **iniciativas de arquitectura y sus artefactos** — diagramas y Declaraciones de Trabajo de Arquitectura (SoAW). Proporciona una vista única de todos los proyectos de arquitectura en curso y sus entregables.
+El módulo de **Entrega EA** gestiona las **iniciativas de arquitectura y sus artefactos** — diagramas, Declaraciones de Trabajo de Arquitectura (SoAW) y Registros de Decisiones de Arquitectura (ADR). Proporciona una vista única de todos los proyectos de arquitectura en curso y sus entregables.
+
+Entrega EA ahora vive bajo **Informes → Entrega EA** (`/reports/ea-delivery`). La URL legada `/ea-delivery` sigue funcionando como redirección, de modo que los marcadores existentes se resuelven.
 
 ![Gestión de Entrega EA](../assets/img/es/17_entrega_ea.png)
 
@@ -63,6 +65,12 @@ Una vez que un SoAW es aprobado, puede solicitar firmas de las partes interesada
 
 - **Modo de vista previa** — Vista de solo lectura del documento SoAW completo
 - **Exportación DOCX** — Descargue el SoAW como un documento Word formateado para compartir o imprimir sin conexión
+
+### Pestaña SoAW en las fichas de Iniciativa
+
+![Ficha de iniciativa — pestaña SoAW](../assets/img/es/55_iniciativa_soaw_tab.png)
+
+Las iniciativas también exponen una pestaña **SoAW** dedicada directamente en su página de detalle. La pestaña lista cada SoAW vinculado a esa iniciativa (título, chip de estado, número de revisión, fecha de última modificación) con un botón **+ Nuevo SoAW** que preselecciona la iniciativa actual — para que puedas redactar o saltar a un SoAW sin salir de la ficha en la que estás trabajando. La creación reutiliza el mismo diálogo que la página de Entrega EA, y el nuevo documento aparece en ambos lugares. La visibilidad de la pestaña sigue las reglas de permisos estándar de las fichas.
 
 ## Registros de Decisiones de Arquitectura (ADR)
 

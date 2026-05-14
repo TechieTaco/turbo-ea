@@ -10,6 +10,8 @@ GRC hat drei Reiter:
 
 Du kannst jeden Reiter direkt verlinken: `/grc?tab=governance`, `/grc?tab=risk` oder `/grc?tab=compliance`.
 
+![GRC — Governance-Reiter](../assets/img/de/52_grc_governance.png)
+
 ## Governance
 
 Zwei nebeneinanderliegende Panels:
@@ -19,6 +21,8 @@ Zwei nebeneinanderliegende Panels:
 
 ## Risk
 
+![GRC — Risikoregister](../assets/img/de/53_grc_risikoregister.png)
+
 Bindet das **Risikoregister** gemäß TOGAF Phase G ein. Lebenszyklus, Statusworkflow, Matrix-Umschalter und Eigentümer-Verhalten sind im [Risikoregister-Leitfaden](risks.md) dokumentiert. Die wichtigsten Punkte:
 
 - Das Register lebt unter `/grc?tab=risk` (vorher unter EA-Bereitstellung).
@@ -27,14 +31,31 @@ Bindet das **Risikoregister** gemäß TOGAF Phase G ein. Lebenszyklus, Statuswor
 
 ## Compliance
 
+![GRC — Compliance-Scanner](../assets/img/de/54_grc_compliance.png)
+
 Der On-Demand-Sicherheitsscanner mit zwei unabhängigen Hälften:
 
 - **CVE-Scan** — fragt die NIST NVD nach den Anbietern / Produkten / Versionen der lebenden Landschaft ab und lässt das LLM Funde priorisieren.
-- **Compliance-Scan** — KI-gestützte Lückenanalyse pro Regulierung gegen die aktivierten Regulierungen (standardmäßig EU AI Act, DSGVO, NIS2, DORA, SOC 2, ISO 27001; Administratorinnen können unter **Administration → Regulierungen** weitere aktivieren).
+- **Compliance-Scan** — KI-gestützte Lückenanalyse pro Regulierung gegen die aktivierten Regulierungen. Sechs Frameworks sind standardmäßig aktiviert (EU AI Act, DSGVO, NIS2, DORA, SOC 2, ISO 27001); Administratorinnen können sie unter [**Administration → Metamodell → Regulierungen**](../admin/metamodel.md#compliance-regulations) aktivieren / deaktivieren oder eigene Regulierungen (HIPAA, interne Richtlinien) ergänzen.
 
-Befunde sind **über Re-Scans hinweg dauerhaft** — Benutzerentscheidungen, Prüfnotizen und der Rückverweis auf ein promotetes Risiko überleben spätere Scans. Ein Befund, den der nächste Lauf nicht mehr meldet, wird mit `auto_resolved` markiert und standardmäßig ausgeblendet; das zuvor promotete Risiko bleibt erhalten, damit der Audit-Pfad nicht abreißt.
+Befunde sind **über Re-Scans hinweg dauerhaft** — Benutzerentscheidungen, Prüfnotizen, das KI-Verdikt des Nutzers auf einer Karte und der Rückverweis auf ein promotetes Risiko überleben spätere Scans. Ein Befund, den der nächste Lauf nicht mehr meldet, wird mit `auto_resolved` markiert und standardmäßig ausgeblendet; das zuvor promotete Risiko bleibt erhalten, damit der Audit-Pfad nicht abreißt.
 
-Das Compliance-Grid spiegelt das Inventar-Grid: Filter-Sidebar mit Spaltensichtbarkeit, persistierter Sortierung und einer Detail-Schublade, die den Compliance-Lebenszyklus zeigt (`new → in_review → mitigated → verified`, mit `risk_tracked`, `accepted` und `not_applicable` als Seitenpfade).
+Das Compliance-Grid spiegelt das Inventar-Grid: Filter-Sidebar mit Spaltensichtbarkeit, persistierter Sortierung, Volltextsuche und einer Detail-Schublade, die den Compliance-Lebenszyklus als horizontale Phasen-Timeline zeigt:
+
+```
+new → in_review → mitigated → verified
+                      ↘ accepted          (Begründung erforderlich)
+                      ↘ not_applicable    (Geltungsbereich-Review)
+                      ↘ risk_tracked      (automatisch beim Überführen in Risiko)
+```
+
+Mit `security_compliance.manage` kannst du über das Header-Kontrollkästchen alle gefilterten Zeilen **gefiltert auswählen** und dann über die fixierte Symbolleiste **Entscheidung bearbeiten** (Batch-Übergang) oder **Löschen** anwenden. Illegale Übergänge werden zeilenweise in einer Teil-Erfolg-Zusammenfassung gemeldet, sodass eine einzelne fehlerhafte Zeile nicht den gesamten Batch scheitern lässt. Den vollständigen Aktionsreferenz findest du unter [TurboLens → Security & Compliance](turbolens.md#bulk-actions-on-the-compliance-grid).
+
+Wenn ein aus einem Befund promotetes Risiko geschlossen oder akzeptiert wird, **propagiert das automatisch zurück auf den Befund** — die verknüpfte Compliance-Zeile wechselt entsprechend auf `mitigated` / `verified` / `accepted` / `in_review`, sodass beide Register ohne manuelle Pflege synchron bleiben.
+
+### Compliance auf einer einzelnen Karte
+
+Karten, die im Scope eines Compliance-Scans liegen, zeigen außerdem einen **Compliance**-Reiter auf ihrer Detailseite (durch `security_compliance.view` gesteuert). Er listet jeden Befund, der aktuell mit der Karte verknüpft ist, mit denselben Aktionen Acknowledge / Accept / **Risiko erstellen** / **Risiko öffnen** wie die GRC-Ansicht — sodass ein Application Owner seine Befunde triagieren kann, ohne die Karte zu verlassen.
 
 ## Berechtigungen
 

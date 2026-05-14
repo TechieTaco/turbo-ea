@@ -4,7 +4,7 @@ Le **Métamodèle** définit l'ensemble de la structure de données de votre pla
 
 ![Configuration du métamodèle](../assets/img/fr/20_admin_metamodele.png)
 
-Naviguez vers **Admin > Métamodèle** pour accéder à l'éditeur de métamodèle. Il comporte six onglets : **Types de fiches**, **Types de relations**, **Calculs**, **Tags**, **Principes EA** et **Graphe du métamodèle**.
+Naviguez vers **Admin > Métamodèle** pour accéder à l'éditeur de métamodèle. Il comporte sept onglets : **Types de fiches**, **Types de relations**, **Calculs**, **Tags**, **Graphe du métamodèle**, **Principes EA** et **Réglementations de conformité**.
 
 ## Types de fiches
 
@@ -160,6 +160,28 @@ Par exemple, un principe « Acheter du SaaS » amènerait l'IA à signaler les a
 ![Visualisation du graphe du métamodèle](../assets/img/fr/38_graphe_metamodele.png)
 
 L'onglet **Graphe du métamodèle** affiche un diagramme SVG visuel de tous les types de fiches et de leurs types de relations. C'est une visualisation en lecture seule qui vous aide à comprendre les connexions de votre métamodèle en un coup d'oeil.
+
+## Réglementations de conformité
+
+L'onglet **Réglementations de conformité** gère les cadres réglementaires utilisés par le [scanner Conformité de GRC](../guide/grc.md#compliance). Six cadres sont activés par défaut :
+
+| Réglementation | Périmètre |
+|----------------|-----------|
+| **AI Act européen** | Exigences applicables aux systèmes d'IA/ML mis sur le marché de l'UE |
+| **RGPD** | Règlement général européen sur la protection des données |
+| **NIS2** | Directive européenne sur la sécurité des réseaux et de l'information 2 |
+| **DORA** | Règlement européen sur la résilience opérationnelle numérique des entités financières |
+| **SOC 2** | Critères AICPA Service Organization Controls Trust Services |
+| **ISO/IEC 27001** | Norme pour les systèmes de management de la sécurité de l'information |
+
+Pour chaque ligne, vous pouvez :
+
+- **Activer / désactiver** la réglementation via la bascule — les cadres désactivés sont ignorés lors de chaque scan suivant et leurs constats sont exclus des tableaux de bord. Les constats existants sont conservés (non supprimés) au cas où vous réactiveriez la réglementation plus tard.
+- **Modifier** le titre, la description du périmètre et le contexte de prompt fourni au LLM.
+- **Ajouter une réglementation personnalisée** avec **+ Nouvelle réglementation** — par exemple HIPAA, des politiques internes ou des cadres sectoriels. Les réglementations personnalisées sont de plein droit : elles apparaissent dans l'onglet dédié, contribuent au score global de conformité et prennent en charge les mêmes actions sur les constats (accuser, accepter, promouvoir en risque).
+- **Supprimer** une réglementation personnalisée — les réglementations intégrées ne peuvent être supprimées, seulement désactivées.
+
+Le scanner de conformité et le flux de promotion en risque fonctionnent **même sans fournisseur IA configuré** — la saisie manuelle de constats, les transitions de statut et le chemin de promotion en risque restent disponibles. L'IA n'est requise que lorsque vous lancez réellement un nouveau scan.
 
 ## Éditeur de mise en page des fiches
 

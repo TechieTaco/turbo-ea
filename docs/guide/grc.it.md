@@ -10,6 +10,8 @@ GRC ha tre schede:
 
 Puoi puntare direttamente a una scheda con `/grc?tab=governance`, `/grc?tab=risk` o `/grc?tab=compliance`.
 
+![GRC — scheda Governance](../assets/img/it/52_grc_governance.png)
+
 ## Governance
 
 Due pannelli affiancati:
@@ -19,6 +21,8 @@ Due pannelli affiancati:
 
 ## Rischio
 
+![GRC — Registro dei rischi](../assets/img/it/53_grc_registro_rischi.png)
+
 Incorpora il **Registro dei rischi** TOGAF Fase G. Ciclo di vita completo, workflow degli stati, interruttori della matrice e comportamento dei proprietari sono documentati nella [guida del Registro dei rischi](risks.md). I punti più rilevanti:
 
 - Il registro vive a `/grc?tab=risk` (prima era sotto Consegna EA).
@@ -27,14 +31,31 @@ Incorpora il **Registro dei rischi** TOGAF Fase G. Ciclo di vita completo, workf
 
 ## Conformità
 
+![GRC — scanner di conformità](../assets/img/it/54_grc_conformita.png)
+
 Lo scanner di sicurezza on-demand, con due metà indipendenti:
 
 - **Scansione CVE** — interroga NIST NVD per i fornitori / prodotti / versioni del paesaggio vivo, poi chiede all'LLM di prioritizzare i riscontri.
-- **Scansione di conformità** — analisi degli scostamenti per regolamento, basata su IA, contro i regolamenti abilitati (per default EU AI Act, GDPR, NIS2, DORA, SOC 2, ISO 27001; gli amministratori possono abilitarne altri da **Amministrazione → Regolamenti**).
+- **Scansione di conformità** — analisi degli scostamenti per regolamento, basata su IA, contro i regolamenti abilitati. Sei framework sono abilitati per default (EU AI Act, GDPR, NIS2, DORA, SOC 2, ISO 27001); gli amministratori possono abilitarli o disabilitarli — e aggiungere regolamenti personalizzati come HIPAA o policy interne — da [**Amministrazione → Metamodello → Regolamenti**](../admin/metamodel.md#compliance-regulations).
 
-I riscontri sono **durevoli tra re-scansioni** — decisioni utente, note di revisione e il rimando a un Rischio promosso sopravvivono alle scansioni successive. Un riscontro che la passata seguente non riporta più viene marcato `auto_resolved` e nascosto per default; il Rischio promosso in precedenza resta intatto per non rompere il percorso di audit.
+I riscontri sono **durevoli tra re-scansioni** — decisioni utente, note di revisione, il verdetto AI dell'utente su una card e il rimando a un Rischio promosso sopravvivono alle scansioni successive. Un riscontro che la passata seguente non riporta più viene marcato `auto_resolved` e nascosto per default; il Rischio promosso in precedenza resta intatto per non rompere il percorso di audit.
 
-La griglia Conformità riflette quella dell'Inventario: barra laterale dei filtri con visibilità delle colonne, ordinamento persistito e un cassetto di dettaglio che mostra il ciclo di vita di conformità (`new → in_review → mitigated → verified`, con `risk_tracked`, `accepted` e `not_applicable` come rami laterali).
+La griglia Conformità riflette quella dell'Inventario: barra laterale dei filtri con visibilità delle colonne, ordinamento persistito, ricerca a testo libero e un cassetto di dettaglio che mostra il ciclo di vita di conformità come una timeline orizzontale di fasi:
+
+```
+new → in_review → mitigated → verified
+                      ↘ accepted          (motivazione richiesta)
+                      ↘ not_applicable    (revisione dell'ambito)
+                      ↘ risk_tracked      (impostato automaticamente alla promozione a Rischio)
+```
+
+Con `security_compliance.manage`, spunta la casella nell'header per una **selezione filtrata di tutte le righe**, poi usa la barra degli strumenti agganciata per **Modifica decisione** (transizione in batch) o **Elimina** i riscontri selezionati. Le transizioni illegali sono segnalate riga per riga in un riepilogo di successo parziale, così una singola riga errata non fa fallire l'intero batch. Vedi [TurboLens → Sicurezza & Conformità](turbolens.md#bulk-actions-on-the-compliance-grid) per il riferimento completo delle azioni.
+
+Quando un Rischio promosso da un riscontro viene chiuso o accettato, l'operazione **si propaga automaticamente al riscontro** — la riga di conformità collegata passa a `mitigated` / `verified` / `accepted` / `in_review` per restare sincronizzata, senza manutenzione manuale.
+
+### Conformità su una singola card
+
+Le card nell'ambito di una scansione di conformità espongono anche una scheda **Conformità** nella loro pagina di dettaglio (governata da `security_compliance.view`). Elenca ogni riscontro attualmente collegato alla card con le stesse azioni Riconosci / Accetta / **Crea rischio** / **Apri rischio** della vista GRC — così che un Application Owner possa triagiare i propri riscontri senza lasciare la card.
 
 ## Permessi
 

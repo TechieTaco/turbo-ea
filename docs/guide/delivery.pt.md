@@ -1,6 +1,8 @@
 # Entregas de EA
 
-O módulo de **Entregas de EA** gerencia **iniciativas de arquitetura e seus artefatos** — diagramas e Statements of Architecture Work (SoAW). Ele fornece uma visão única de todos os projetos de arquitetura em andamento e seus entregáveis.
+O módulo de **Entregas de EA** gerencia **iniciativas de arquitetura e seus artefatos** — diagramas, Statements of Architecture Work (SoAW) e Architecture Decision Records (ADR). Ele fornece uma visão única de todos os projetos de arquitetura em andamento e seus entregáveis.
+
+Entregas de EA agora vive em **Relatórios → Entregas de EA** (`/reports/ea-delivery`). A URL legada `/ea-delivery` continua funcionando como redirecionamento, para que os favoritos existentes ainda resolvam.
 
 ![Gestão de Entregas de EA](../assets/img/pt/17_entrega_ea.png)
 
@@ -63,6 +65,12 @@ Uma vez que um SoAW é aprovado, você pode solicitar assinaturas das partes int
 
 - **Modo de pré-visualização** — Visualização somente leitura do documento SoAW completo
 - **Exportação DOCX** — Baixe o SoAW como um documento Word formatado para compartilhamento offline ou impressão
+
+### Aba SoAW nos cards de Iniciativa
+
+![Card de iniciativa — aba SoAW](../assets/img/pt/55_iniciativa_soaw_tab.png)
+
+As iniciativas também expõem uma aba **SoAW** dedicada diretamente na sua página de detalhe. A aba lista cada SoAW vinculado àquela iniciativa (título, chip de status, número de revisão, data da última modificação) com um botão **+ Novo SoAW** que pré-seleciona a iniciativa atual — para que você possa redigir ou abrir um SoAW sem sair do card no qual está trabalhando. A criação reutiliza o mesmo diálogo da página Entregas de EA, e o novo documento aparece em ambos os lugares. A visibilidade da aba segue as regras padrão de permissão dos cards.
 
 ## Registros de Decisões de Arquitetura (ADR)
 

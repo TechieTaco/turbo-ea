@@ -4,7 +4,7 @@ El **Metamodelo** define la estructura de datos completa de su plataforma — qu
 
 ![Configuración del Metamodelo](../assets/img/es/20_admin_metamodelo.png)
 
-Navegue a **Administración > Metamodelo** para acceder al editor. Tiene seis pestañas: **Tipos de Fichas**, **Tipos de Relación**, **Cálculos**, **Etiquetas**, **Principios EA** y **Grafo del Metamodelo**.
+Navegue a **Administración > Metamodelo** para acceder al editor. Tiene siete pestañas: **Tipos de Fichas**, **Tipos de Relación**, **Cálculos**, **Etiquetas**, **Grafo del Metamodelo**, **Principios EA** y **Regulaciones de Cumplimiento**.
 
 ## Tipos de Fichas
 
@@ -160,6 +160,28 @@ Por ejemplo, un principio «Comprar SaaS» haría que la IA señale aplicaciones
 ![Grafo del Metamodelo](../assets/img/es/38_grafo_metamodelo.png)
 
 La pestaña **Grafo del Metamodelo** muestra un diagrama SVG visual de todos los tipos de fichas y sus tipos de relación. Esta es una visualización de solo lectura que ayuda a comprender las conexiones en su metamodelo de un vistazo.
+
+## Regulaciones de Cumplimiento
+
+La pestaña **Regulaciones de Cumplimiento** gestiona los marcos regulatorios contra los que el [escáner de Cumplimiento de GRC](../guide/grc.md#compliance) ejecuta el análisis. Seis marcos vienen habilitados por defecto:
+
+| Regulación | Alcance |
+|------------|---------|
+| **Ley de IA de la UE** | Requisitos para sistemas de IA / ML puestos en el mercado de la UE |
+| **RGPD** | Reglamento General de Protección de Datos de la UE |
+| **NIS2** | Directiva 2 de la UE sobre seguridad de redes y sistemas de información |
+| **DORA** | Reglamento europeo de resiliencia operativa digital para entidades financieras |
+| **SOC 2** | Criterios AICPA Service Organization Controls Trust Services |
+| **ISO/IEC 27001** | Norma para sistemas de gestión de la seguridad de la información |
+
+Para cada fila puede:
+
+- **Habilitar / deshabilitar** la regulación con el interruptor — los marcos deshabilitados se omiten en cada análisis posterior y sus hallazgos se excluyen de los cuadros de mando. Los hallazgos existentes se conservan (no se eliminan) por si vuelve a habilitarla más tarde.
+- **Editar** el título, la descripción del alcance y el contexto de prompt que se proporciona al LLM.
+- **Añadir una regulación personalizada** con **+ Nueva Regulación** — por ejemplo HIPAA, políticas internas o marcos sectoriales. Las regulaciones personalizadas son de pleno derecho: aparecen en la pestaña por regulación, contribuyen a la puntuación global de cumplimiento y admiten las mismas acciones sobre hallazgos (reconocer, aceptar, promover a Riesgo).
+- **Eliminar** una regulación personalizada — las regulaciones integradas no pueden eliminarse, solo deshabilitarse.
+
+El escáner de cumplimiento y el flujo de promoción a Riesgo funcionan **incluso sin un proveedor de IA configurado** — la entrada manual de hallazgos, las transiciones de estado y la ruta de promoción a Riesgo siguen disponibles. La IA solo es necesaria cuando realmente dispara un nuevo análisis.
 
 ## Editor de Disposición de Fichas
 

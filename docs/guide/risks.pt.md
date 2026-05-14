@@ -47,6 +47,19 @@ Os riscos são **muitos-para-muitos** com os cards. Um risco pode afetar várias
 
 Tanto a Visão Geral de Segurança do TurboLens como a página do Registo de Riscos apresentam um mapa de calor probabilidade × impacto 4×4. As células são **clicáveis** — clique numa para filtrar a lista abaixo por esse compartimento, clique novamente (ou no × do chip) para limpar. No Registo de Riscos pode alternar a matriz entre as vistas **Inicial** e **Residual** para que o progresso da mitigação apareça visualmente.
 
+## Grelha do registo
+
+O registo é um AG Grid que segue os padrões da página [Inventário](inventory.md): colunas ordenáveis, filtráveis e redimensionáveis com preferências por utilizador persistidas (colunas visíveis, ordenação, estado da barra lateral). Um botão **+ Novo risco** na barra de ferramentas abre o diálogo de criação manual. **Exportar CSV** transfere o conjunto filtrado na mesma ordem de colunas apresentada no ecrã — útil para pacotes de auditoria ou para partilhar o registo com partes interessadas sem conta Turbo EA.
+
+## Propagação Risco ↔ Constatação
+
+Se um Risco foi [promovido a partir de uma constatação TurboLens](turbolens.md#promote-a-finding-to-the-risk-register), as alterações de estado fluem em **ambos os sentidos**:
+
+- A constatação passa a exibir um back-link **Abrir risco R-000123** assim que é promovida (a ação é idempotente — clicar novamente navega para o risco existente em vez de criar duplicado).
+- Quando o Risco atinge `mitigated` / `monitoring` / `closed` / `accepted` (ou é excluído), o motor de retro-propagação transiciona automaticamente cada constatação de conformidade vinculada para o valor correspondente (`mitigated` / `verified` / `accepted` / `in_review`). A justificativa de aceitação capturada no Risco é espelhada na nota de revisão da constatação para que a trilha de auditoria permaneça consistente.
+
+Isto mantém o Registo de Riscos (visão de governança) e a grelha Conformidade (visão operacional) alinhados sem manutenção manual.
+
 ## Fluxo de estado
 
 A página de detalhe mostra sempre um único botão primário **Próximo passo** mais uma pequena linha de ações laterais, de modo que o caminho sequencial seja óbvio mas as saídas de governança fiquem a um clique de distância:

@@ -47,6 +47,19 @@ Les risques sont **plusieurs-à-plusieurs** avec les fiches. Un risque peut affe
 
 La Vue d'ensemble Sécurité de TurboLens comme la page du Registre des risques affichent une carte thermique probabilité × impact 4×4. Les cellules sont **cliquables** — cliquez sur une cellule pour filtrer la liste en dessous sur ce compartiment, cliquez à nouveau (ou sur le × du chip) pour effacer. Dans le Registre des risques, vous pouvez basculer la matrice entre les vues **Initiale** et **Résiduelle** pour visualiser les progrès de la mitigation.
 
+## Grille du registre
+
+Le registre est une grille AG Grid qui reprend les standards de la page [Inventaire](inventory.md) : colonnes triables, filtrables et redimensionnables avec préférences utilisateur persistées (colonnes visibles, ordre de tri, état de la barre latérale). Un bouton **+ Nouveau risque** dans la barre d'outils ouvre le dialogue de création manuelle. **Exporter en CSV** télécharge l'ensemble filtré dans le même ordre de colonnes que l'écran — utile pour les dossiers d'audit ou pour partager le registre avec des parties prenantes sans compte Turbo EA.
+
+## Propagation Risque ↔ Constat
+
+Si un risque a été [promu depuis un constat TurboLens](turbolens.md#promote-a-finding-to-the-risk-register), les changements de statut se propagent **dans les deux sens** :
+
+- Le constat porte un rétro-lien **Ouvrir le risque R-000123** dès la promotion (l'action est idempotente — cliquer à nouveau navigue vers le risque existant au lieu de créer un doublon).
+- Quand le risque atteint `mitigated` / `monitoring` / `closed` / `accepted` (ou est supprimé), le moteur de rétro-propagation transitionne automatiquement chaque constat de conformité lié à la valeur correspondante (`mitigated` / `verified` / `accepted` / `in_review`). La justification d'acceptation capturée sur le risque est répercutée dans la note de revue du constat afin que la piste d'audit reste cohérente.
+
+Cela maintient le Registre des risques (vue gouvernance) et la grille Conformité (vue opérationnelle) alignés sans entretien manuel.
+
 ## Flux de statut
 
 La page de détail affiche toujours un unique bouton primaire **Étape suivante** et une petite rangée d'actions latérales, de sorte que le chemin séquentiel soit évident mais que les sorties de gouvernance restent à un clic :

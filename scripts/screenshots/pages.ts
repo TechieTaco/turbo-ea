@@ -113,6 +113,11 @@ const TAB_RESOURCES = tabSelector(
   "Resources", "Ressourcen", "Ressources", "Recursos",
   "Risorse", "资源", "Ресурсы",
 );
+const TAB_SOAW = tabSelector("SoAW");
+const TAB_COMPLIANCE = tabSelector(
+  "Compliance", "Conformité", "Cumplimiento", "Conformità",
+  "Conformidade", "合规", "Соответствие",
+);
 const TAB_PPM_OVERVIEW = tabSelector(
   "Overview", "Übersicht", "Vue d'ensemble", "Resumen",
   "Panoramica", "Visão geral", "概览", "Обзор",
@@ -469,7 +474,9 @@ export const DOC_PAGES: PageDef[] = [
     id: "17_ea_delivery",
     // Deep-link to a specific initiative so the right pane shows the
     // workspace (deliverables, children, details) instead of the empty CTA.
-    route: "/ea-delivery?tab=initiatives&initiative={{cardId:sampleInitiative}}",
+    // The page lives under /reports/ea-delivery since v1.10.0 — the legacy
+    // /ea-delivery URL redirects but capturing the new path avoids the flash.
+    route: "/reports/ea-delivery?tab=initiatives&initiative={{cardId:sampleInitiative}}",
     waitFor: ".MuiPaper-root",
     actions: [{ type: "wait", ms: 800 }],
     filenames: {
@@ -487,8 +494,8 @@ export const DOC_PAGES: PageDef[] = [
   // ── EA Delivery — ADR Decisions Tab ──────────────────────────────────
   {
     id: "17b_ea_delivery_decisions",
-    // EADeliveryPage reads ?tab= so we navigate directly instead of clicking.
-    route: "/ea-delivery?tab=decisions",
+    // EaDeliveryReport reads ?tab= so we navigate directly instead of clicking.
+    route: "/reports/ea-delivery?tab=decisions",
     waitFor: ".MuiPaper-root",
     actions: [{ type: "wait", ms: 800 }],
     filenames: {
@@ -1179,6 +1186,104 @@ export const DOC_PAGES: PageDef[] = [
       pt: "51_catalogo_capacidades",
       zh: "51_capability_catalogue",
       ru: "51_katalog_vozmozhnostey",
+    },
+  },
+
+  // ── GRC — Governance tab ─────────────────────────────────────────────────
+  {
+    id: "52_grc_governance",
+    route: "/grc?tab=governance",
+    waitFor: ".MuiPaper-root",
+    actions: [{ type: "wait", ms: 800 }],
+    filenames: {
+      en: "52_grc_governance",
+      de: "52_grc_governance",
+      fr: "52_grc_gouvernance",
+      es: "52_grc_gobernanza",
+      it: "52_grc_governance",
+      pt: "52_grc_governanca",
+      zh: "52_grc_governance",
+      ru: "52_grc_upravlenie",
+    },
+  },
+
+  // ── GRC — Risk Register tab ──────────────────────────────────────────────
+  {
+    id: "53_grc_risk_register",
+    route: "/grc?tab=risk",
+    waitFor: ".MuiPaper-root",
+    actions: [{ type: "wait", ms: 1000 }],
+    filenames: {
+      en: "53_grc_risk_register",
+      de: "53_grc_risikoregister",
+      fr: "53_grc_registre_risques",
+      es: "53_grc_registro_riesgos",
+      it: "53_grc_registro_rischi",
+      pt: "53_grc_registo_riscos",
+      zh: "53_grc_risk_register",
+      ru: "53_grc_reestr_riskov",
+    },
+  },
+
+  // ── GRC — Compliance tab ─────────────────────────────────────────────────
+  {
+    id: "54_grc_compliance",
+    route: "/grc?tab=compliance",
+    waitFor: ".MuiPaper-root",
+    actions: [{ type: "wait", ms: 1000 }],
+    filenames: {
+      en: "54_grc_compliance",
+      de: "54_grc_compliance",
+      fr: "54_grc_conformite",
+      es: "54_grc_cumplimiento",
+      it: "54_grc_conformita",
+      pt: "54_grc_conformidade",
+      zh: "54_grc_compliance",
+      ru: "54_grc_sootvetstvie",
+    },
+  },
+
+  // ── Initiative card — SoAW tab ───────────────────────────────────────────
+  {
+    id: "55_initiative_soaw_tab",
+    route: "/cards/{{cardId:sampleInitiative}}",
+    waitFor: "[data-testid='card-detail'], [class*='CardDetail'], h5, h4",
+    actions: [
+      { type: "wait", ms: 400 },
+      { type: "click", selector: TAB_SOAW },
+      { type: "wait", ms: 600 },
+    ],
+    filenames: {
+      en: "55_initiative_soaw_tab",
+      de: "55_initiative_soaw_tab",
+      fr: "55_initiative_soaw_tab",
+      es: "55_iniciativa_soaw_tab",
+      it: "55_iniziativa_soaw_tab",
+      pt: "55_iniciativa_soaw_tab",
+      zh: "55_initiative_soaw_tab",
+      ru: "55_initsiativa_soaw_tab",
+    },
+  },
+
+  // ── Card detail — Compliance tab ─────────────────────────────────────────
+  {
+    id: "56_card_compliance_tab",
+    route: "/cards/{{cardId:sampleApp}}",
+    waitFor: "[data-testid='card-detail'], [class*='CardDetail'], h5, h4",
+    actions: [
+      { type: "wait", ms: 400 },
+      { type: "click", selector: TAB_COMPLIANCE },
+      { type: "wait", ms: 600 },
+    ],
+    filenames: {
+      en: "56_card_compliance_tab",
+      de: "56_karte_compliance_tab",
+      fr: "56_fiche_conformite_tab",
+      es: "56_ficha_cumplimiento_tab",
+      it: "56_scheda_conformita_tab",
+      pt: "56_ficha_conformidade_tab",
+      zh: "56_card_compliance_tab",
+      ru: "56_kartochka_sootvetstvie_tab",
     },
   },
 

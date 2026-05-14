@@ -1,6 +1,8 @@
 # EA Delivery
 
-Le module **EA Delivery** gère les **initiatives d'architecture et leurs artefacts** -- diagrammes et Statements of Architecture Work (SoAW). Il fournit une vue unique de tous les projets d'architecture en cours et de leurs livrables.
+Le module **EA Delivery** gère les **initiatives d'architecture et leurs artefacts** — diagrammes, Statements of Architecture Work (SoAW) et Architecture Decision Records (ADR). Il fournit une vue unique de tous les projets d'architecture en cours et de leurs livrables.
+
+EA Delivery vit désormais sous **Rapports → EA Delivery** (`/reports/ea-delivery`). L'ancienne URL `/ea-delivery` continue à fonctionner comme redirection, de sorte que les marque-pages existants restent valides.
 
 ![Gestion EA Delivery](../assets/img/fr/17_livraison_ea.png)
 
@@ -63,6 +65,12 @@ Une fois qu'un SoAW est approuvé, vous pouvez demander des signatures aux parti
 
 - **Mode aperçu** -- Vue en lecture seule du document SoAW complet
 - **Export DOCX** -- Téléchargez le SoAW sous forme de document Word formaté pour le partage hors ligne ou l'impression
+
+### Onglet SoAW sur les fiches d'initiative
+
+![Fiche d'initiative — onglet SoAW](../assets/img/fr/55_initiative_soaw_tab.png)
+
+Les initiatives exposent également un onglet **SoAW** dédié directement sur leur page de détail. L'onglet liste chaque SoAW lié à cette initiative (titre, puce de statut, numéro de révision, date de dernière modification) avec un bouton **+ Nouveau SoAW** qui pré-sélectionne l'initiative en cours — vous pouvez ainsi rédiger ou ouvrir un SoAW sans quitter la fiche sur laquelle vous travaillez. La création réutilise le même dialogue que la page EA Delivery, et le nouveau document apparaît aux deux endroits. La visibilité de l'onglet suit les règles de permission standard des fiches.
 
 ## Architecture Decision Records (ADR)
 

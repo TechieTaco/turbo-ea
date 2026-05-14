@@ -10,6 +10,8 @@ GRC tiene tres pestañas:
 
 Puedes apuntar directamente a cualquier pestaña con `/grc?tab=governance`, `/grc?tab=risk` o `/grc?tab=compliance`.
 
+![GRC — pestaña Gobernanza](../assets/img/es/52_grc_gobernanza.png)
+
 ## Gobernanza
 
 Dos paneles uno junto al otro:
@@ -19,6 +21,8 @@ Dos paneles uno junto al otro:
 
 ## Riesgo
 
+![GRC — Registro de riesgos](../assets/img/es/53_grc_registro_riesgos.png)
+
 Incrusta el **Registro de riesgos** TOGAF Fase G. El ciclo de vida completo, el flujo de estados, los conmutadores de matriz y el comportamiento de propietarios están documentados en la [guía del Registro de riesgos](risks.md). Lo más relevante:
 
 - El registro vive en `/grc?tab=risk` (antes estaba bajo Entrega EA).
@@ -27,14 +31,31 @@ Incrusta el **Registro de riesgos** TOGAF Fase G. El ciclo de vida completo, el 
 
 ## Cumplimiento
 
+![GRC — escáner de cumplimiento](../assets/img/es/54_grc_cumplimiento.png)
+
 El escáner de seguridad bajo demanda, con dos mitades independientes:
 
 - **Escaneo CVE** — consulta NIST NVD para los proveedores / productos / versiones del paisaje vivo, y luego pide al LLM que priorice los hallazgos.
-- **Escaneo de cumplimiento** — análisis de brechas por regulación con IA frente a las regulaciones habilitadas (por defecto EU AI Act, RGPD, NIS2, DORA, SOC 2, ISO 27001; los administradores pueden habilitar más en **Administración → Regulaciones**).
+- **Escaneo de cumplimiento** — análisis de brechas por regulación con IA frente a las regulaciones habilitadas. Seis marcos vienen habilitados por defecto (EU AI Act, RGPD, NIS2, DORA, SOC 2, ISO 27001); los administradores pueden habilitarlos o deshabilitarlos — y añadir regulaciones personalizadas como HIPAA o políticas internas — en [**Administración → Metamodelo → Regulaciones**](../admin/metamodel.md#compliance-regulations).
 
-Los hallazgos son **duraderos entre re-escaneos** — las decisiones de la usuaria, las notas de revisión y el enlace de vuelta a un Riesgo promovido sobreviven a los escaneos posteriores. Un hallazgo que la siguiente pasada ya no reporta se marca `auto_resolved` y se oculta por defecto; el Riesgo previamente promovido se conserva para no romper la pista de auditoría.
+Los hallazgos son **duraderos entre re-escaneos** — las decisiones de la usuaria, las notas de revisión, el veredicto IA del usuario sobre una ficha y el enlace de vuelta a un Riesgo promovido sobreviven a los escaneos posteriores. Un hallazgo que la siguiente pasada ya no reporta se marca `auto_resolved` y se oculta por defecto; el Riesgo previamente promovido se conserva para no romper la pista de auditoría.
 
-La cuadrícula de Cumplimiento refleja la del Inventario: barra lateral de filtros con visibilidad de columnas, orden persistido y un panel de detalle que muestra el ciclo de vida de cumplimiento (`new → in_review → mitigated → verified`, con `risk_tracked`, `accepted` y `not_applicable` como ramas laterales).
+La cuadrícula de Cumplimiento refleja la del Inventario: barra lateral de filtros con visibilidad de columnas, orden persistido, búsqueda de texto completo y un panel de detalle que muestra el ciclo de vida de cumplimiento como una línea de tiempo horizontal de fases:
+
+```
+new → in_review → mitigated → verified
+                      ↘ accepted          (requiere justificación)
+                      ↘ not_applicable    (revisión de alcance)
+                      ↘ risk_tracked      (establecido automáticamente al promover a Riesgo)
+```
+
+Con `security_compliance.manage`, marca la casilla del encabezado para una **selección-todo filtrada**, y luego usa la barra de herramientas fija para **Editar decisión** (transición por lotes) o **Eliminar** los hallazgos seleccionados. Las transiciones ilegales se reportan por fila en un resumen de éxito parcial, de modo que una sola fila errónea no haga fracasar todo el lote. Consulta [TurboLens → Seguridad y Cumplimiento](turbolens.md#bulk-actions-on-the-compliance-grid) para la referencia completa de acciones.
+
+Cuando un Riesgo promovido desde un hallazgo se cierra o se acepta, el cambio **se propaga de vuelta al hallazgo automáticamente** — la fila de cumplimiento vinculada pasa a `mitigated` / `verified` / `accepted` / `in_review` para sincronizarse, sin mantenimiento manual.
+
+### Cumplimiento en una sola ficha
+
+Las fichas dentro del alcance de un escaneo de cumplimiento también muestran una pestaña **Cumplimiento** en su página de detalle (gobernada por `security_compliance.view`). Lista cada hallazgo actualmente vinculado a la ficha con las mismas acciones Reconocer / Aceptar / **Crear riesgo** / **Abrir riesgo** que la vista GRC — de modo que un Application Owner pueda clasificar sus hallazgos sin salir de la ficha.
 
 ## Permisos
 

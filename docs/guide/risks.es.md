@@ -47,6 +47,19 @@ Los riesgos son **muchos-a-muchos** con las fichas. Un riesgo puede afectar a va
 
 Tanto el Resumen de Seguridad de TurboLens como la página del Registro de Riesgos muestran un mapa de calor probabilidad × impacto de 4×4. Las celdas son **clicables** — haga clic en una para filtrar la lista inferior por ese segmento, y de nuevo (o en el × del chip) para borrar. En el Registro de Riesgos puede alternar la matriz entre las vistas **Inicial** y **Residual** para que el progreso de la mitigación se vea de un vistazo.
 
+## Cuadrícula del registro
+
+El registro es una cuadrícula AG Grid que sigue los estándares de la página [Inventario](inventory.md): columnas ordenables, filtrables y redimensionables con preferencias por usuario persistidas (columnas visibles, orden, estado de la barra lateral). Un botón **+ Nuevo riesgo** en la barra de herramientas abre el diálogo de creación manual. **Exportar CSV** descarga el conjunto filtrado en el mismo orden de columnas que se muestra en pantalla — útil para paquetes de auditoría o para compartir el registro con partes interesadas que no tienen acceso a Turbo EA.
+
+## Propagación Riesgo ↔ Hallazgo
+
+Si un Riesgo fue [promovido desde un hallazgo de TurboLens](turbolens.md#promote-a-finding-to-the-risk-register), los cambios de estado fluyen en **ambos sentidos**:
+
+- El hallazgo lleva un enlace de retorno **Abrir riesgo R-000123** desde el momento en que se promueve (la acción es idempotente — pulsar de nuevo navega al riesgo existente en lugar de crear un duplicado).
+- Cuando el Riesgo alcanza `mitigated` / `monitoring` / `closed` / `accepted` (o se elimina), el motor de retro-propagación transiciona automáticamente cada hallazgo de cumplimiento vinculado al valor correspondiente (`mitigated` / `verified` / `accepted` / `in_review`). La justificación de aceptación capturada en el Riesgo se refleja en la nota de revisión del hallazgo para que la pista de auditoría se mantenga consistente.
+
+Esto mantiene alineados el Registro de Riesgos (vista de gobernanza) y la cuadrícula de Cumplimiento (vista operativa) sin mantenimiento manual.
+
 ## Flujo de estado
 
 La página de detalle siempre muestra un único botón primario **Siguiente paso** más una pequeña fila de acciones laterales, de modo que el camino secuencial sea obvio pero las vías de escape de gobernanza queden a un clic:

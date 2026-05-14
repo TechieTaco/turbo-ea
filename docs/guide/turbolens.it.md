@@ -241,12 +241,32 @@ Aggiornare la pagina **non interrompe una scansione in corso** — il task in ba
 
 - **Panoramica** — strip di KPI (totale evidenze, conteggi critiche / alte / medie, punteggio complessivo di conformità), una **matrice di rischio probabilità × gravità** 5×5, le cinque evidenze critiche principali e una heatmap compatta di conformità da cui navigare al dettaglio. La matrice è **cliccabile**: un clic su una cella apre la sotto-scheda CVE filtrata su quel bucket, con un chip rimovibile sopra la tabella per vedere (e cancellare) il filtro attivo.
 - **CVE** — tabella filtrabile che mostra card, ID CVE (collegato alla pagina di dettaglio NVD), punteggio base CVSS, gravità, priorità, probabilità, disponibilità di patch e stato. Ogni riga apre un pannello di dettaglio con la descrizione, il vettore CVSS, il vettore di attacco, i punteggi di sfruttabilità / impatto, i riferimenti, l'impatto sul business e la remediation generati dall'IA, più una barra di azioni di stato (**Confermare → Passare in corso → Segnare come mitigato / Accettare il rischio / Riaprire**).
-- **Conformità** — una scheda per normativa con un punteggio complessivo e un elenco in stile card che mostra stato, articolo, categoria, requisito, descrizione della lacuna, remediation ed evidenze. Un piccolo chip **Rilevato dall'IA** evidenzia le card segnalate come portatrici di IA dal rilevatore semantico anche se non sono etichettate come sottotipi IA.
+- **Conformità** — una griglia AG Grid che rispecchia quella dell'Inventario: barra laterale dei filtri, visibilità delle colonne e ordinamento persistiti, ricerca a testo libero e un cassetto di dettaglio per evidenza. Le righe portano stato, articolo, categoria, requisito, descrizione della lacuna, remediation ed evidenze. Un piccolo chip **Rilevato dall'IA** evidenzia le card segnalate come portatrici di IA dal rilevatore semantico anche se non sono etichettate come sottotipi IA.
 - **Esporta CSV** — scarica le evidenze CVE in un ordine di colonne in stile OWASP/NIST (Card, Tipo, CVE, CVSS, Gravità, Vettore di attacco, Probabilità, Priorità, Patch, Pubblicata, Ultima modifica, Stato, Fornitore, Prodotto, Versione, Impatto sul business, Remediation, Descrizione).
+
+### Le evidenze sopravvivono alle ri-scansioni
+
+Le decisioni utente e i metadati di revisione sono **durevoli tra le ri-scansioni**:
+
+- Le evidenze CVE vengono upsertate per `(card_id, cve_id)`. Uno stato impostato dall'utente (`acknowledged`, `mitigated`, `accepted`) e qualsiasi back-link a un Rischio promosso sopravvivono alla scansione successiva.
+- Le evidenze di conformità vengono upsertate per `(scope, card, regulation, normalised_article)`. Identificatori di articolo come *Art. 6 / Article 6 / § 6* collassano sulla stessa riga, così le riformulazioni del LLM non creano più duplicati.
+- Un'evidenza che la passata successiva non riporta più **non viene eliminata** — viene contrassegnata con `auto_resolved=true` e nascosta per default, così la sua storia (e il Rischio promosso collegato) resta intatta.
+- Anche il **verdetto AI** dell'utente su una card (`hasAiFeatures = true / false`) persiste. Se confermi o rifiuti la classificazione IA del LLM, quella decisione prevale sul rilevatore nelle scansioni successive — la deriva dell'LLM non può cambiare silenziosamente l'ambito.
 
 ### Promuovere un'evidenza al Registro dei Rischi
 
 Ogni pannello CVE e ogni card di evidenza di conformità include un'azione primaria **Crea rischio**. Cliccandola si apre il dialogo condiviso di creazione rischio con titolo, descrizione, categoria, probabilità, impatto, mitigazione e card interessata **precompilati dall'evidenza**. Potete modificare ogni campo prima di inviare, assegnare un **proprietario** e scegliere una **data obiettivo di risoluzione**. All'invio, la riga dell'evidenza diventa **Apri rischio R-000123** per mantenere visibile il collegamento — le promozioni sono idempotenti lato server. Vedi il [Registro dei Rischi](risks.md) per il ciclo di vita completo allineato a TOGAF e come l'assegnazione del proprietario crei un Todo di follow-up + notifica nella campanella.
+
+Quando il Rischio collegato raggiunge in seguito `mitigated`, `monitoring`, `closed` o `accepted` (o viene eliminato), il motore di back-propagation transiziona automaticamente ogni evidenza di conformità collegata allo stato corrispondente (`mitigated`, `verified`, `accepted` o di nuovo `in_review`). La motivazione di accettazione catturata sul Rischio viene rispecchiata nella nota di revisione dell'evidenza così che la pista di audit resti coerente.
+
+### Azioni in batch sulla griglia Conformità
+
+Quando è concesso `security_compliance.manage`, la griglia Conformità espone la selezione multipla consapevole dei filtri. Spunta la casella nell'header per selezionare tutte le righe che corrispondono ai filtri attivi, quindi usa la barra strumenti agganciata:
+
+- **Modifica decisione** — transiziona in batch ogni evidenza selezionata a uno stato scelto (ad es. segnare un lotto di evidenze come `not_applicable` dopo una revisione di ambito). Le transizioni illegali vengono segnalate riga per riga in un riepilogo di successo parziale invece di far fallire l'intero batch.
+- **Elimina** — rimuove definitivamente le evidenze (utile per ripulire evidenze di una normativa che hai disabilitato in seguito).
+
+La promozione a Rischio rimane un'azione su singola riga — il promote in massa non è offerto intenzionalmente per preservare la cattura di contesto per evidenza.
 
 ### Rilevamento semantico della Legge UE sull'IA
 
@@ -262,7 +282,28 @@ Senza chiave, NVD consente solo 5 richieste ogni 30 secondi, il che può rallent
 
 ### Flusso di stato
 
-Ogni evidenza CVE passa per: **aperta** → **confermata** → **in corso** → **mitigata** (oppure **accettata**, quando il team ha formalmente accettato il rischio). La riapertura è sempre disponibile. I cambi di stato sono di competenza degli utenti con `security_compliance.manage`. Per i workflow di governance (titolarità, valutazione residua, motivazione di accettazione, Todo e notifiche) promuovete l'evidenza a Rischio — il ciclo di vita completo vive nel [Registro dei Rischi](risks.md).
+Le evidenze CVE e di Conformità hanno **cicli di vita distinti**, ciascuno reso come una timeline orizzontale di fasi nel cassetto dell'evidenza. Entrambi sono riservati agli utenti con `security_compliance.manage`; il motore impone le transizioni lato server e rifiuta movimenti illegali con un errore chiaro.
+
+**Evidenze CVE**
+
+```
+open → acknowledged → in progress → mitigated
+                                  ↘ accepted (accettazione formale del rischio)
+                                  ↘ reopen → open
+```
+
+**Evidenze di conformità** (ridisegnate in v1.11.0)
+
+```
+new → in_review → mitigated → verified
+                      ↘ accepted          (ramo laterale, motivazione richiesta)
+                      ↘ not_applicable    (ramo laterale, revisione dell'ambito)
+                      ↘ risk_tracked      (impostato automaticamente alla promozione a Rischio)
+```
+
+`risk_tracked` non viene mai impostato a mano — viene scritto automaticamente quando clicchi **Crea rischio** su un'evidenza, e viene azzerato dal motore di back-propagation quando il Rischio collegato si chiude (vedi *Promuovere un'evidenza al Registro dei Rischi* sopra).
+
+Per workflow di governance completi (titolarità, valutazione residua, motivazione di accettazione, Todo e notifiche) promuovi l'evidenza a Rischio — il ciclo di vita completo vive nel [Registro dei Rischi](risks.md).
 
 ## Cronologia delle analisi
 

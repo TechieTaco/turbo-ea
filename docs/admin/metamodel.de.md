@@ -4,7 +4,7 @@ Das **Metamodell** definiert die gesamte Datenstruktur Ihrer Plattform — welch
 
 ![Metamodell-Konfiguration](../assets/img/de/20_admin_metamodell.png)
 
-Navigieren Sie zu **Admin > Metamodell**, um auf den Metamodell-Editor zuzugreifen. Er hat sechs Tabs: **Kartentypen**, **Beziehungstypen**, **Berechnungen**, **Tags**, **EA-Prinzipien** und **Metamodell-Graph**.
+Navigieren Sie zu **Admin > Metamodell**, um auf den Metamodell-Editor zuzugreifen. Er hat sieben Tabs: **Kartentypen**, **Beziehungstypen**, **Berechnungen**, **Tags**, **Metamodell-Graph**, **EA-Prinzipien** und **Compliance-Regulierungen**.
 
 ## Kartentypen
 
@@ -160,6 +160,28 @@ Beispielsweise würde ein „SaaS kaufen"-Prinzip dazu führen, dass die KI On-P
 ![Visualisierung des Metamodell-Graphen](../assets/img/de/38_metamodell_graph.png)
 
 Der **Metamodell-Graph**-Tab zeigt ein visuelles SVG-Diagramm aller Kartentypen und ihrer Beziehungstypen. Dies ist eine schreibgeschützte Visualisierung, die Ihnen hilft, die Verbindungen in Ihrem Metamodell auf einen Blick zu verstehen.
+
+## Compliance-Regulierungen
+
+Der **Compliance-Regulierungen**-Tab verwaltet die regulatorischen Frameworks, gegen die der [GRC-Compliance-Scanner](../guide/grc.md#compliance) prüft. Sechs Frameworks sind standardmäßig aktiviert:
+
+| Regulierung | Geltungsbereich |
+|-------------|-----------------|
+| **EU AI Act** | Anforderungen an auf dem EU-Markt platzierte KI-/ML-Systeme |
+| **DSGVO** | EU-Datenschutz-Grundverordnung |
+| **NIS2** | EU-Richtlinie zur Netzwerk- und Informationssicherheit 2 |
+| **DORA** | EU-Verordnung zur digitalen operationellen Resilienz für Finanzinstitute |
+| **SOC 2** | AICPA-Service-Organization-Controls-Trust-Services-Kriterien |
+| **ISO/IEC 27001** | Standard für Informationssicherheits-Managementsysteme |
+
+Pro Zeile können Sie:
+
+- Die Regulierung über den Schalter **aktivieren / deaktivieren** — deaktivierte Frameworks werden bei jedem nächsten Scan übersprungen und ihre Befunde aus den Dashboards ausgeschlossen. Bestehende Befunde bleiben erhalten (sie werden nicht gelöscht), falls Sie sie später wieder aktivieren.
+- Titel, Beschreibung des Geltungsbereichs und den vom LLM verwendeten Prompt-Kontext **bearbeiten**.
+- Mit **+ Neue Regulierung** eine **eigene Regulierung hinzufügen** — etwa HIPAA, interne Richtlinien oder branchenspezifische Frameworks. Eigene Regulierungen sind erstklassig: Sie erscheinen im Regulierungs-Tab, tragen zum Gesamt-Compliance-Score bei und unterstützen dieselben Aktionen auf Befunden (bestätigen, akzeptieren, in Risiko überführen).
+- Eine eigene Regulierung **löschen** — eingebaute Regulierungen können nicht gelöscht, nur deaktiviert werden.
+
+Der Compliance-Scanner und der Risk-Promotion-Flow funktionieren **auch ohne konfigurierten KI-Anbieter** — die manuelle Befundeingabe, Statusübergänge und der Weg in das Risikoregister bleiben verfügbar. KI ist nur notwendig, wenn Sie tatsächlich einen neuen Scan auslösen.
 
 ## Karten-Layout-Editor
 

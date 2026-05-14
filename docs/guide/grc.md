@@ -10,6 +10,8 @@ GRC has three tabs:
 
 You can deep-link any tab via `/grc?tab=governance`, `/grc?tab=risk` or `/grc?tab=compliance`.
 
+![GRC — Governance tab](../assets/img/en/52_grc_governance.png)
+
 ## Governance
 
 Two side-by-side panels:
@@ -19,6 +21,8 @@ Two side-by-side panels:
 
 ## Risk
 
+![GRC — Risk Register](../assets/img/en/53_grc_risk_register.png)
+
 Embeds the TOGAF Phase G **Risk Register**. The full lifecycle, status workflow, matrix toggles and ownership behaviour are documented in the [Risk Register guide](risks.md). The most relevant points:
 
 - The register lives at `/grc?tab=risk` (it used to live under EA Delivery).
@@ -27,14 +31,33 @@ Embeds the TOGAF Phase G **Risk Register**. The full lifecycle, status workflow,
 
 ## Compliance
 
+![GRC — Compliance scanner](../assets/img/en/54_grc_compliance.png)
+
 The on-demand security scanner, with two independent halves:
 
 - **CVE scan** — queries NIST NVD for the live landscape's vendors / products / versions, then asks the LLM to prioritise findings.
-- **Compliance scan** — per-regulation AI gap analysis against the enabled regulations (EU AI Act, GDPR, NIS2, DORA, SOC 2, ISO 27001 by default; admins can enable more under **Administration → Regulations**).
+- **Compliance scan** — per-regulation AI gap analysis against the enabled regulations. Six frameworks ship enabled by default (EU AI Act, GDPR, NIS2, DORA, SOC 2, ISO 27001); admins can enable or disable any of them — and add custom regulations like HIPAA or internal policies — under [**Administration → Metamodel → Regulations**](../admin/metamodel.md#compliance-regulations).
 
-Findings are **durable across re-scans** — user decisions, reviewer notes and the back-link to a promoted Risk all survive subsequent scans. A finding the next pass no longer reports is flagged `auto_resolved` and hidden by default; the previously-promoted Risk is left intact so its audit trail isn't broken.
+Findings are **durable across re-scans** — user decisions, reviewer notes, the user's AI verdict on a card, and the back-link to a promoted Risk all survive subsequent scans. A finding the next pass no longer reports is flagged `auto_resolved` and hidden by default; the previously-promoted Risk is left intact so its audit trail isn't broken.
 
-The Compliance grid mirrors the Inventory grid: filter sidebar with column visibility toggles, persisted sort, and a detail drawer that shows the finding's compliance lifecycle (`new → in_review → mitigated → verified`, with `risk_tracked`, `accepted` and `not_applicable` as side branches).
+The Compliance grid mirrors the Inventory grid: filter sidebar with column visibility toggles, persisted sort, full-text search, and a detail drawer that shows the finding's compliance lifecycle as a horizontal phase timeline:
+
+```
+new → in_review → mitigated → verified
+                      ↘ accepted          (requires rationale)
+                      ↘ not_applicable    (scope review)
+                      ↘ risk_tracked      (set automatically on promote-to-Risk)
+```
+
+When `security_compliance.manage` is granted, tick the header checkbox for a **filter-aware select-all**, then use the sticky toolbar to **Edit decision** (batch transition) or **Delete** the selected findings. Illegal transitions are reported per row in a partial-success summary so a single bad row doesn't fail the batch. See [TurboLens → Security & Compliance](turbolens.md#bulk-actions-on-the-compliance-grid) for the full action reference.
+
+Closing or accepting a Risk that was promoted from a finding **propagates back to the finding** automatically — the linked compliance row moves to `mitigated` / `verified` / `accepted` / `in_review` to match, so the two registers stay in sync without manual upkeep.
+
+### Compliance on a single card
+
+![Card detail — Compliance tab](../assets/img/en/56_card_compliance_tab.png)
+
+Cards that are in scope of a compliance scan also surface a **Compliance** tab on their detail page (gated on `security_compliance.view`). It lists every finding currently linked to the card with the same Acknowledge / Accept / **Create risk** / **Open risk** actions as the GRC view, so an Application owner can triage their own findings without leaving the card.
 
 ## Permissions
 
