@@ -14,10 +14,82 @@ You can deep-link any tab via `/grc?tab=governance`, `/grc?tab=risk` or `/grc?ta
 
 ## Governance
 
-Two side-by-side panels:
+The Governance tab splits into two **sub-tabs**, deep-linkable via `/grc?tab=governance&sub=principles` (default) and `/grc?tab=governance&sub=decisions`:
 
-- **Principles** — read-only browser of EA Principles published in the metamodel (statement, rationale, implications). Edit the catalogue from **Administration → Metamodel → Principles**.
-- **Decisions** — Architecture Decision Records. Each ADR captures status, context, decision, alternatives considered, and consequences. Decisions emitted by the TurboLens Architect wizard land here as drafts so reviewers can sign off.
+### Principles
+
+Read-only browser of EA Principles published in the metamodel (statement, rationale, implications). Edit the catalogue from **Administration → Metamodel → Principles**.
+
+### Decisions
+
+![GRC — Decisions sub-tab](../assets/img/en/52a_grc_decisions.png)
+
+The Decisions sub-tab is the **master registry of Architecture Decision Records (ADRs)** — every ADR across the landscape, regardless of which initiative it's linked to. It replaces the old EA Delivery → Decisions tab that was dissolved when GRC landed.
+
+ADRs document important architecture decisions along with their context, consequences, and alternatives considered. Decisions emitted by the TurboLens Architect wizard land here as drafts so reviewers can sign off.
+
+#### Grid columns
+
+The ADR grid mirrors the Inventory grid layout:
+
+| Column | Description |
+|--------|-------------|
+| **Reference #** | Auto-generated reference number (ADR-001, ADR-002, …) |
+| **Title** | ADR title |
+| **Status** | Coloured chip — Draft, In Review, or Signed |
+| **Linked Cards** | Coloured pills matching each linked card's type colour |
+| **Created** | Creation date |
+| **Modified** | Last-modified date |
+| **Signed** | Date the ADR was signed |
+| **Revision** | Revision number |
+
+#### Filter sidebar
+
+A persistent filter sidebar on the left exposes:
+
+- **Card Types** — checkboxes with coloured dots that filter by linked card types
+- **Status** — Draft / In Review / Signed
+- **Date Created** / **Date Modified** / **Date Signed** — from/to date ranges
+
+Use the **quick filter** search bar for full-text search across all ADRs. Right-click any row for a context menu (**Edit**, **Preview**, **Duplicate**, **Delete**).
+
+#### Creating an ADR
+
+ADRs can be created from three places — all open the same editor and feed the same registry:
+
+1. **GRC → Governance → Decisions**: click **+ New ADR**, fill in the title and optionally link cards (including initiatives).
+2. **EA Delivery workspace**: select an initiative, then click **+ New artefact ▾** in the page header (or **+ Add** in the *Architecture Decisions* deliverable section) and choose **New Architecture Decision** — the initiative is pre-linked.
+3. **Card → Resources tab**: click **Create ADR** — the current card is pre-linked.
+
+In every case, you can search and link additional cards during creation. Initiatives are linked through the same card-linking mechanism as any other card, so an ADR can reference multiple initiatives. The editor opens with sections for **Context**, **Decision**, **Consequences**, and **Alternatives Considered**.
+
+#### The ADR editor
+
+The editor provides:
+
+- Rich-text editing for each section (Context, Decision, Consequences, Alternatives Considered)
+- Card linking — connect the ADR to relevant cards (applications, IT components, initiatives, …). Initiatives are linked via the standard card-linking feature, not a dedicated field, so an ADR can reference multiple initiatives
+- Related decisions — reference other ADRs
+
+#### Sign-off workflow
+
+ADRs support a formal sign-off process:
+
+1. Create the ADR in **Draft** status.
+2. Click **Request Signatures** and search for signatories by name or email.
+3. The ADR moves to **In Review** — each signatory receives a notification and a task.
+4. Signatories review and click **Sign**.
+5. Once every signatory has signed, the ADR automatically moves to **Signed**.
+
+Signed ADRs are locked and cannot be edited — to make changes, create a new revision.
+
+#### Revisions
+
+Open a signed ADR and click **Revise** to create a new draft based on the signed version. The new revision inherits the content and card links and gets an incrementing revision number. Each revision keeps its own sign-off trail.
+
+#### Preview
+
+Click the preview icon to view a read-only, formatted version of the ADR — useful for reviewing before signing.
 
 ## Risk
 

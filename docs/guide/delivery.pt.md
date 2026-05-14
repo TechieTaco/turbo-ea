@@ -2,13 +2,13 @@
 
 O módulo de **Entregas de EA** gerencia **iniciativas de arquitetura e seus artefatos** — diagramas, Statements of Architecture Work (SoAW) e Architecture Decision Records (ADR). Ele fornece uma visão única de todos os projetos de arquitetura em andamento e seus entregáveis.
 
-Entregas de EA agora vive em **Relatórios → Entregas de EA** (`/reports/ea-delivery`). A URL legada `/ea-delivery` continua funcionando como redirecionamento, para que os favoritos existentes ainda resolvam.
+Quando o PPM está habilitado — a configuração típica — Entregas de EA vive **dentro do módulo PPM**: abra **PPM** na navegação superior e mude para a aba **EA Delivery** (`/ppm?tab=ea-delivery`). Quando o PPM está desabilitado, **Entregas de EA** aparece como um item de navegação de nível superior dedicado, apontando para `/reports/ea-delivery`. A URL legada `/ea-delivery` continua funcionando como redirecionamento em ambos os casos, para que os favoritos existentes ainda resolvam.
 
 ![Gestão de Entregas de EA](../assets/img/pt/17_entrega_ea.png)
 
-## Visão Geral de Iniciativas
+## Espaço de trabalho de Iniciativas
 
-O separador "Iniciativas" é um **espaço de trabalho de dois painéis**:
+Entregas de EA é um **espaço de trabalho de dois painéis** (sem separadores internos):
 
 - **Barra lateral à esquerda** — uma árvore indentada e filtrável de todas as iniciativas (com as iniciativas filhas aninhadas). Pesquise por nome, filtre por Status / Subtipo / Artefatos ou marque favoritos.
 - **Espaço de trabalho à direita** — os entregáveis, iniciativas filhas e detalhes da iniciativa selecionada à esquerda. Selecionar outra linha atualiza o espaço de trabalho.
@@ -74,85 +74,9 @@ As iniciativas também expõem uma aba **SoAW** dedicada diretamente na sua pág
 
 ## Registros de Decisões de Arquitetura (ADR)
 
-![Registros de Decisões de Arquitetura](../assets/img/pt/17b_entrega_ea_decisoes.png)
+Um **Registro de Decisão de Arquitetura (ADR)** captura uma decisão de arquitetura importante junto com seu contexto, consequências e alternativas consideradas. O espaço de trabalho de Entregas de EA mostra os ADR **vinculados à iniciativa selecionada** em linha, sob a secção de entregáveis *Decisões de Arquitetura* — assim você pode lê-los e abri-los sem sair da visualização da iniciativa. Use o split-button **+ Novo artefato ▾** (ou **+ Adicionar** na secção) para criar um novo ADR pré-vinculado à iniciativa selecionada.
 
-Um **Registro de Decisão de Arquitetura (ADR)** documenta decisões de arquitetura importantes junto com seu contexto, consequências e alternativas consideradas. Os ADR fornecem um histórico rastreável de por que escolhas de design fundamentais foram feitas.
-
-### Visão Geral dos ADR
-
-A página de Entregas de EA possui uma aba dedicada de **Decisões** que exibe todos os ADR em uma **tabela AG Grid** com uma barra lateral de filtros persistente, semelhante à página de Inventário.
-
-#### Colunas da tabela
-
-A tabela de ADR exibe as seguintes colunas:
-
-| Coluna | Descrição |
-|--------|-----------|
-| **N.º de ref.** | Número de referência gerado automaticamente (ADR-001, ADR-002, etc.) |
-| **Título** | Título do ADR |
-| **Status** | Chip colorido mostrando Rascunho, Em Revisão ou Assinado |
-| **Cards vinculados** | Pílulas coloridas correspondentes à cor do tipo de card (ex.: azul para Aplicação, roxo para Objeto de Dados) |
-| **Criado** | Data de criação |
-| **Modificado** | Data da última modificação |
-| **Assinado** | Data de assinatura |
-| **Revisão** | Número de revisão |
-
-#### Barra lateral de filtros
-
-Uma barra lateral de filtros persistente à esquerda oferece os seguintes filtros:
-
-- **Tipos de card** — Caixas de seleção com pontos coloridos correspondentes às cores do tipo de card, para filtrar por tipos de cards vinculados
-- **Status** — Filtrar por Rascunho, Em Revisão ou Assinado
-- **Data de criação** — Intervalo de datas de/até
-- **Data de modificação** — Intervalo de datas de/até
-- **Data de assinatura** — Intervalo de datas de/até
-
-#### Filtro rápido e menu de contexto
-
-Use a barra de **filtro rápido** para pesquisa de texto completo em todos os ADR. Clique com o botão direito em qualquer linha para acessar um menu de contexto com as ações **Editar**, **Pré-visualizar**, **Duplicar** e **Excluir**.
-
-### Criando um ADR
-
-Os ADR podem ser criados a partir de três locais:
-
-1. **Entregas de EA → aba Decisões**: Clique em **+ Novo ADR**, preencha o título e opcionalmente vincule cards (incluindo iniciativas).
-2. **EA Delivery → separador Iniciativas**: Selecione uma iniciativa, clique em **+ Novo artefato ▾** no topo (ou no botão **+ Adicionar** da secção *Decisões de Arquitetura*) e escolha **Nova Decisão de Arquitetura** — a iniciativa é pré-vinculada como um vínculo de card.
-3. **Aba Recursos do cartão**: Clique em **Criar ADR** — o cartão atual é pré-vinculado.
-
-Em todos os casos, você pode pesquisar e vincular cartões adicionais durante a criação. As iniciativas são vinculadas através do mesmo mecanismo de vinculação de cards utilizado para qualquer outro card, o que significa que um ADR pode ser vinculado a múltiplas iniciativas. O editor abre com seções para Contexto, Decisão, Consequências e Alternativas Consideradas.
-
-### O Editor de ADR
-
-O editor oferece:
-
-- Edição de texto rico para cada seção (Contexto, Decisão, Consequências, Alternativas Consideradas)
-- Vinculação de cards — conecte o ADR a cards relevantes (aplicações, componentes de TI, iniciativas, etc.). As iniciativas são vinculadas através da funcionalidade padrão de vinculação de cards, não por meio de um campo dedicado, permitindo que um ADR referencie múltiplas iniciativas
-- Decisões relacionadas — referencie outros ADR
-
-### Fluxo de Assinatura
-
-Os ADR suportam um processo formal de assinatura:
-
-1. Crie o ADR com status **Rascunho**
-2. Clique em **Solicitar Assinaturas** e pesquise signatários por nome ou e-mail
-3. O ADR passa para **Em Revisão** — cada signatário recebe uma notificação e uma tarefa
-4. Os signatários revisam e clicam em **Assinar**
-5. Quando todos os signatários tiverem assinado, o ADR passa automaticamente para o status **Assinado**
-
-ADR assinados ficam bloqueados e não podem ser editados. Para fazer alterações, crie uma **nova revisão**.
-
-### Revisões
-
-ADR assinados podem ser revisados:
-
-1. Abra um ADR assinado
-2. Clique em **Revisar** para criar um novo rascunho baseado na versão assinada
-3. A nova revisão herda o conteúdo e os vínculos de cards
-4. Cada revisão tem um número de revisão incremental
-
-### Pré-visualização do ADR
-
-Clique no ícone de pré-visualização para ver uma versão somente leitura e formatada do ADR — útil para revisão antes da assinatura.
+O **registo principal de ADR** — onde cada ADR a nível do panorama é filtrado, pesquisado, assinado, revisado e visualizado — vive no módulo GRC em **GRC → Governação → [Decisões](grc.md#governance)**. Consulte o guia GRC para o ciclo de vida completo do ADR (colunas da grelha, barra lateral de filtros, fluxo de assinatura, revisões, pré-visualização).
 
 ## Aba de Recursos
 

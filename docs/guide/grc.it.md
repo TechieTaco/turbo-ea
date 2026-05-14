@@ -14,10 +14,82 @@ Puoi puntare direttamente a una scheda con `/grc?tab=governance`, `/grc?tab=risk
 
 ## Governance
 
-Due pannelli affiancati:
+La scheda Governance si divide in due **sotto-schede**, deep-linkabili tramite `/grc?tab=governance&sub=principles` (predefinita) e `/grc?tab=governance&sub=decisions`:
 
-- **Principi** — visualizzatore in sola lettura dei Principi EA pubblicati nel metamodello (enunciato, motivazione, implicazioni). Il catalogo si modifica da **Amministrazione → Metamodello → Principi**.
-- **Decisioni** — Architecture Decision Records. Ogni ADR cattura stato, contesto, decisione, alternative considerate e conseguenze. Le decisioni emesse dalla procedura guidata TurboLens Architect arrivano qui come bozze da approvare.
+### Principi
+
+Visualizzatore in sola lettura dei Principi EA pubblicati nel metamodello (enunciato, motivazione, implicazioni). Il catalogo si modifica da **Amministrazione → Metamodello → Principi**.
+
+### Decisioni
+
+![GRC — sotto-scheda Decisioni](../assets/img/it/52a_grc_decisioni.png)
+
+La sotto-scheda Decisioni è il **registro principale degli Architecture Decision Records (ADR)** — ogni ADR a livello di landscape, indipendentemente dall'iniziativa a cui è collegato. Sostituisce la vecchia scheda Decisioni di EA Delivery, dissolta con l'arrivo del modulo GRC.
+
+Gli ADR documentano importanti decisioni architetturali insieme al loro contesto, alle conseguenze e alle alternative considerate. Le decisioni emesse dalla procedura guidata TurboLens Architect arrivano qui come bozze da approvare.
+
+#### Colonne della tabella
+
+La griglia ADR rispecchia il layout della griglia Inventario:
+
+| Colonna | Descrizione |
+|---------|-------------|
+| **N. rif.** | Numero di riferimento generato automaticamente (ADR-001, ADR-002, …) |
+| **Titolo** | Titolo dell'ADR |
+| **Stato** | Chip colorato — Bozza, In Revisione o Firmato |
+| **Card collegate** | Pillole colorate corrispondenti al colore del tipo di ogni card collegata |
+| **Creato** | Data di creazione |
+| **Modificato** | Data di ultima modifica |
+| **Firmato** | Data di firma |
+| **Revisione** | Numero di revisione |
+
+#### Barra laterale dei filtri
+
+La barra laterale dei filtri persistente a sinistra offre:
+
+- **Tipi di card** — caselle di controllo con punti colorati che filtrano per tipi di card collegate
+- **Stato** — Bozza / In Revisione / Firmato
+- **Data di creazione / modifica / firma** — intervalli di date da/a
+
+Usate la barra del **filtro rapido** per la ricerca full-text. Fate clic destro su una riga per un menu contestuale (**Modifica**, **Anteprima**, **Duplica**, **Elimina**).
+
+#### Creare un ADR
+
+Gli ADR possono essere creati da tre punti — tutti aprono lo stesso editor e alimentano lo stesso registro:
+
+1. **GRC → Governance → Decisioni**: cliccate su **+ Nuovo ADR**, compilate il titolo e opzionalmente collegate card (incluse le iniziative).
+2. **Spazio di lavoro EA Delivery**: selezionate un'iniziativa, cliccate su **+ Nuovo artefatto ▾** in alto (oppure **+ Aggiungi** nella sezione *Decisioni di Architettura*) e scegliete **Nuova Decisione di Architettura** — l'iniziativa è pre-collegata.
+3. **Card → scheda Risorse**: cliccate su **Crea ADR** — la card corrente è pre-collegata.
+
+In tutti i casi potete cercare e collegare card aggiuntive durante la creazione. Le iniziative sono collegate attraverso lo stesso meccanismo di collegamento di card di qualsiasi altra card, quindi un ADR può fare riferimento a più iniziative. L'editor si apre con sezioni per **Contesto**, **Decisione**, **Conseguenze** e **Alternative considerate**.
+
+#### L'editor ADR
+
+L'editor fornisce:
+
+- Editing di testo ricco per ogni sezione (Contesto, Decisione, Conseguenze, Alternative considerate)
+- Collegamento di card — collegate l'ADR alle card pertinenti (applicazioni, componenti IT, iniziative, …). Le iniziative sono collegate tramite la funzionalità standard di collegamento di card, non tramite un campo dedicato, consentendo a un ADR di fare riferimento a più iniziative
+- Decisioni correlate — fate riferimento ad altri ADR
+
+#### Workflow di firma
+
+Gli ADR supportano un processo formale di firma:
+
+1. Create l'ADR con stato **Bozza**.
+2. Cliccate su **Richiedi firme** e cercate i firmatari per nome o e-mail.
+3. L'ADR passa a **In Revisione** — ogni firmatario riceve una notifica e un Todo.
+4. I firmatari esaminano e cliccano su **Firma**.
+5. Quando tutti i firmatari hanno firmato, l'ADR passa automaticamente allo stato **Firmato**.
+
+Gli ADR firmati sono bloccati e non possono essere modificati — per apportare modifiche create una nuova revisione.
+
+#### Revisioni
+
+Aprite un ADR firmato e cliccate su **Revisiona** per creare una nuova bozza basata sulla versione firmata. La nuova revisione eredita il contenuto e i collegamenti delle card e riceve un numero di revisione incrementale. Ogni revisione conserva la propria traccia di firma.
+
+#### Anteprima
+
+Cliccate sull'icona di anteprima per visualizzare una versione in sola lettura e formattata dell'ADR — utile per la revisione prima della firma.
 
 ## Rischio
 

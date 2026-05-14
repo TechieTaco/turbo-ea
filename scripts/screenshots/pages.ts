@@ -474,9 +474,10 @@ export const DOC_PAGES: PageDef[] = [
     id: "17_ea_delivery",
     // Deep-link to a specific initiative so the right pane shows the
     // workspace (deliverables, children, details) instead of the empty CTA.
-    // The page lives under /reports/ea-delivery since v1.10.0 — the legacy
-    // /ea-delivery URL redirects but capturing the new path avoids the flash.
-    route: "/reports/ea-delivery?tab=initiatives&initiative={{cardId:sampleInitiative}}",
+    // EA Delivery is reached at /reports/ea-delivery (legacy /ea-delivery
+    // redirects here). The page is a single two-pane workspace and ignores
+    // ?tab=, so we only pass ?initiative=.
+    route: "/reports/ea-delivery?initiative={{cardId:sampleInitiative}}",
     waitFor: ".MuiPaper-root",
     actions: [{ type: "wait", ms: 800 }],
     filenames: {
@@ -488,25 +489,6 @@ export const DOC_PAGES: PageDef[] = [
       pt: "17_entrega_ea",
       zh: "17_ea_delivery",
       ru: "17_postavka_ea",
-    },
-  },
-
-  // ── EA Delivery — ADR Decisions Tab ──────────────────────────────────
-  {
-    id: "17b_ea_delivery_decisions",
-    // EaDeliveryReport reads ?tab= so we navigate directly instead of clicking.
-    route: "/reports/ea-delivery?tab=decisions",
-    waitFor: ".MuiPaper-root",
-    actions: [{ type: "wait", ms: 800 }],
-    filenames: {
-      en: "17b_ea_delivery_decisions",
-      de: "17b_ea_lieferung_entscheidungen",
-      fr: "17b_livraison_ea_decisions",
-      es: "17b_entrega_ea_decisiones",
-      it: "17b_consegna_ea_decisioni",
-      pt: "17b_entrega_ea_decisoes",
-      zh: "17b_ea_delivery_decisions",
-      ru: "17b_postavka_ea_resheniya",
     },
   },
 
@@ -1204,6 +1186,24 @@ export const DOC_PAGES: PageDef[] = [
       pt: "52_grc_governanca",
       zh: "52_grc_governance",
       ru: "52_grc_upravlenie",
+    },
+  },
+
+  // ── GRC — Governance → Decisions sub-tab (master ADR registry) ──────────
+  {
+    id: "52a_grc_decisions",
+    route: "/grc?tab=governance&sub=decisions",
+    waitFor: ".MuiPaper-root",
+    actions: [{ type: "wait", ms: 800 }],
+    filenames: {
+      en: "52a_grc_decisions",
+      de: "52a_grc_entscheidungen",
+      fr: "52a_grc_decisions",
+      es: "52a_grc_decisiones",
+      it: "52a_grc_decisioni",
+      pt: "52a_grc_decisoes",
+      zh: "52a_grc_decisions",
+      ru: "52a_grc_resheniya",
     },
   },
 
