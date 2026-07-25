@@ -13,6 +13,7 @@ import Select from "@mui/material/Select";
 import MenuItem from "@mui/material/MenuItem";
 import Menu from "@mui/material/Menu";
 import ListItemText from "@mui/material/ListItemText";
+import CircularProgress from "@mui/material/CircularProgress";
 import Divider from "@mui/material/Divider";
 import TextField from "@mui/material/TextField";
 import Chip from "@mui/material/Chip";
@@ -59,11 +60,31 @@ import { api, ApiError } from "@/api/client";
 import { APPROVAL_STATUS_COLORS } from "@/theme/tokens";
 import TagPicker from "@/components/TagPicker";
 import TagsCellEditor from "@/features/inventory/TagsCellEditor";
-import type { Card, CardListResponse, ColumnLayoutItem, FieldDef, Relation, RelationType, TagGroup, TagRef } from "@/types";
+import StakeholdersCellEditor from "@/features/inventory/StakeholdersCellEditor";
+import type { Card, CardListResponse, ColumnLayoutItem, FieldDef, Relation, RelationType, StakeholderRef, StakeholderRoleOption, TagGroup, TagRef } from "@/types";
 import "ag-grid-community/styles/ag-grid.css";
 import "ag-grid-community/styles/ag-theme-quartz.css";
 
 const DEFAULT_SIDEBAR_WIDTH = 300;
+
+/** Display names for one role's stakeholder refs, joined — used for
+ * sorting and (together with emails) column filtering, matching the chips
+ * the user sees. */
+function stakeholdersToText(refs?: StakeholderRef[]): string {
+  return (refs || [])
+    .map((s) => s.user_display_name || s.user_email || s.user_id)
+    .join("; ");
+}
+
+/** Emails for one role's stakeholder refs, joined — the export/copy value
+ * (valueFormatter). Emails are the only unambiguous user reference, so the
+ * current-view export and clipboard carry them, mirroring the full-workbook
+ * `stakeholder:<role>` cells and LeanIX's subscriptions columns. */
+function stakeholdersToEmails(refs?: StakeholderRef[]): string {
+  return (refs || [])
+    .map((s) => s.user_email || s.user_display_name || s.user_id)
+    .join("; ");
+}
 
 function getLifecyclePhase(card: Card): string {
   const lc = card.lifecycle || {};
@@ -202,6 +223,7 @@ export default function InventoryPage() {
   const canShareBookmarks = !!(user?.permissions?.["*"] || user?.permissions?.["bookmarks.share"]);
   const canOdataBookmarks = !!(user?.permissions?.["*"] || user?.permissions?.["bookmarks.odata"]);
   const canViewCostsGlobally = !!(user?.permissions?.["*"] || user?.permissions?.["costs.view"]);
+  const canManageStakeholders = !!(user?.permissions?.["*"] || user?.permissions?.["stakeholders.manage"]);
   const gridRef = useRef<AgGridReact>(null);
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
@@ -322,6 +344,13 @@ export default function InventoryPage() {
       })
       .catch(() => setUserNameMap({}));
   }, []);
+
+  // Stakeholder roles for the selected type — drives the per-role
+  // "Stakeholders: <role>" columns. Fetched from /stakeholder-roles (the
+  // authoritative source: role-definition table first, legacy JSONB fallback,
+  // then the built-in Responsible/Observer defaults) rather than
+  // typeConfig.stakeholder_roles, which can lag behind the table.
+  const [stakeholderRoles, setStakeholderRoles] = useState<StakeholderRoleOption[]>([]);
 
   // Dynamic column visibility: set of column keys the user has opted to show
   // Initialized from localStorage if available, otherwise defaults to all when type selected
@@ -472,6 +501,27 @@ export default function InventoryPage() {
   const selectedType = filters.types.length === 1 ? filters.types[0] : "";
   const typeConfig = types.find((t) => t.key === selectedType);
 
+  // Load the selected type's stakeholder roles (per-role columns follow the
+  // same single-type rule as attribute/relation columns).
+  useEffect(() => {
+    if (!selectedType) {
+      setStakeholderRoles([]);
+      return;
+    }
+    let cancelled = false;
+    api
+      .get<StakeholderRoleOption[]>(`/stakeholder-roles?type_key=${encodeURIComponent(selectedType)}`)
+      .then((roles) => {
+        if (!cancelled) setStakeholderRoles(Array.isArray(roles) ? roles : []);
+      })
+      .catch(() => {
+        if (!cancelled) setStakeholderRoles([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedType]);
+
   // Common fields across multiple selected types (for dynamic columns)
   const commonFields = useMemo<FieldDef[]>(() => {
     if (filters.types.length <= 1) return [];
@@ -564,8 +614,11 @@ export default function InventoryPage() {
         rt.source_type_key === selectedType ? rt.target_type_key : rt.source_type_key;
       cols.add(`rel_${otherKey}`);
     }
+    for (const role of stakeholderRoles) {
+      cols.add(`stakeholder_${role.key}`);
+    }
     return cols;
-  }, [typeConfig, commonFields, relevantRelTypes, selectedType]);
+  }, [typeConfig, commonFields, relevantRelTypes, selectedType, stakeholderRoles]);
 
   // Auto-populate columns with all-checked defaults when type changes (and not yet initialized)
   useEffect(() => {
@@ -628,41 +681,81 @@ export default function InventoryPage() {
     return keys;
   }, [relTypeGroupMap]);
 
-  // Fetch and index relations for each relevant relation type
+  // True while the relation request is in flight. Relation cells render a
+  // placeholder instead of looking empty — an empty cell is indistinguishable
+  // from "no relations", which is what made slow loads read as missing data
+  // (and made "Export current view" silently lossy).
+  const [relationsLoading, setRelationsLoading] = useState(false);
+  // Monotonic request id. `api.get` exposes no AbortSignal, so a superseded
+  // response is discarded by comparing generations — otherwise a slow request
+  // for type A can land after a fast one for type B and overwrite it.
+  const relationsGenRef = useRef(0);
+  // The in-flight fetch, so "Export current view" can await it.
+  const relationsInflightRef = useRef<Promise<void> | null>(null);
+
+  // Fetch and index every relation touching the selected card type.
+  //
+  // One request, filtered server-side to `card_type` + the relation types this
+  // grid actually renders. This used to be N parallel `?type=<key>` requests
+  // (10+ for Application), each returning every relation of that type in the
+  // instance, of which `buildRelationIndex` kept only the edges touching the
+  // selected type.
   const fetchRelations = useCallback(async () => {
+    const gen = ++relationsGenRef.current;
     if (!selectedType || allRelTypeKeys.length === 0) {
+      relationsInflightRef.current = null;
       setRelationsMap(new Map());
+      setRelationsLoading(false);
       return;
     }
 
-    // Fetch all relation types (including grouped duplicates)
-    const allRts = allRelTypeKeys.map((key) => relationTypes.find((rt) => rt.key === key)!).filter(Boolean);
-    const newMap = new Map<string, Map<string, string[]>>();
-    const results = await Promise.all(
-      allRts.map((rt) =>
-        api.get<Relation[]>(`/relations?type=${rt.key}`).catch(() => [] as Relation[])
-      )
-    );
+    setRelationsLoading(true);
+    const run = (async () => {
+      let rels: Relation[] = [];
+      try {
+        const params = new URLSearchParams({
+          card_type: selectedType,
+          types: allRelTypeKeys.join(","),
+        });
+        rels = await api.get<Relation[]>(`/relations?${params}`);
+      } catch {
+        rels = [];
+      }
+      // A newer fetch has started; its result wins and it owns the flags.
+      if (gen !== relationsGenRef.current) return;
 
-    for (let i = 0; i < allRts.length; i++) {
-      const rt = allRts[i];
-      const rels = results[i];
-      newMap.set(rt.key, buildRelationIndex(rels, rt, selectedType));
-    }
-    setRelationsMap(newMap);
+      // Bucket the flat response per relation type, then index each bucket
+      // exactly as before — `relationsMap` keeps its shape, so the column
+      // defs, sidebar filters and relation popover are unaffected.
+      const byType = new Map<string, Relation[]>();
+      for (const rel of rels) {
+        const bucket = byType.get(rel.type);
+        if (bucket) bucket.push(rel);
+        else byType.set(rel.type, [rel]);
+      }
+      const newMap = new Map<string, Map<string, string[]>>();
+      for (const key of allRelTypeKeys) {
+        const rt = relationTypes.find((r) => r.key === key);
+        if (!rt) continue;
+        newMap.set(key, buildRelationIndex(byType.get(key) ?? [], rt, selectedType));
+      }
+      setRelationsMap(newMap);
+      setRelationsLoading(false);
+      relationsInflightRef.current = null;
+    })();
+    relationsInflightRef.current = run;
+    await run;
   }, [selectedType, allRelTypeKeys, relationTypes]);
 
-  // Fetch relations when data or relevant types change
+  // Relations depend only on the selected type and its relation types — the
+  // server filters by `card_type`, so the result is the same regardless of
+  // which cards happen to be loaded. Deliberately NOT keyed on `data`: that
+  // dependency re-fetched every relation in the instance on each search
+  // keystroke, filter toggle, archive and inline edit. Explicit refreshes
+  // after a relation edit still call `fetchRelations()` directly.
   useEffect(() => {
-    if (data.length === 0) {
-      setRelationsMap(new Map());
-      return;
-    }
-
-    let cancelled = false;
-    fetchRelations().then(() => { if (cancelled) return; });
-    return () => { cancelled = true; };
-  }, [fetchRelations, data]);
+    fetchRelations();
+  }, [fetchRelations]);
 
   // Pre-computed hierarchy display paths (id → "Parent / Child").
   // Built once from raw API data; completely detached from the mutable row objects
@@ -827,6 +920,31 @@ export default function InventoryPage() {
       for (const id of toRemove) {
         await api.delete(`/cards/${card.id}/tags/${id}`);
       }
+    } else if (field.startsWith("stakeholder_")) {
+      const role = field.slice("stakeholder_".length);
+      const oldUserIds = new Set(
+        (event.oldValue as StakeholderRef[] | undefined ?? []).map((s) => s.user_id),
+      );
+      const newUserIds = new Set(
+        (event.newValue as StakeholderRef[] | undefined ?? []).map((s) => s.user_id),
+      );
+      const operations = [
+        ...[...newUserIds]
+          .filter((id) => !oldUserIds.has(id))
+          .map((id) => ({ action: "add", card_id: card.id, user_id: id, role })),
+        ...[...oldUserIds]
+          .filter((id) => !newUserIds.has(id))
+          .map((id) => ({ action: "remove", card_id: card.id, user_id: id, role })),
+      ];
+      if (operations.length > 0) {
+        try {
+          const res = await api.post<{ failed: number }>("/stakeholders/bulk", { operations });
+          if (res.failed > 0) loadData();
+        } catch {
+          // Revert the optimistic row state (e.g. a per-card permission denial).
+          loadData();
+        }
+      }
     }
   };
 
@@ -911,7 +1029,19 @@ export default function InventoryPage() {
   // after filtering — in sort order. WYSIWYG, not importable. Values are read
   // straight from the grid (via valueGetters/valueFormatters) so relation,
   // lifecycle, path and date columns come out exactly as displayed.
-  const handleExportCurrentView = useCallback(() => {
+  const handleExportCurrentView = useCallback(async () => {
+    // Relation columns read from `relationsMap`, which is populated
+    // asynchronously. Exporting mid-fetch used to emit blank relation cells
+    // that looked like real "no relations" data, so wait for the in-flight
+    // request first. Grid values are read after the await, never before.
+    if (relationsInflightRef.current) {
+      try {
+        await relationsInflightRef.current;
+      } catch {
+        // A failed relation fetch already degrades to an empty map; export
+        // what we have rather than blocking the download.
+      }
+    }
     const api = gridRef.current?.api;
     if (!api) return;
     // Exclude AG Grid's auto-generated columns (the row-selection / controls
@@ -1900,15 +2030,29 @@ export default function InventoryPage() {
                 <Typography
                   variant="body2"
                   sx={{ fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}
-                  title={p.value}
+                  title={relationsLoading && !p.value ? t("columns.relationsLoading") : p.value}
                 >
-                  {p.value || <span style={{ opacity: 0.5 }}>{t("columns.clickToEdit")}</span>}
+                  {p.value ||
+                    (relationsLoading ? (
+                      <span style={{ opacity: 0.5 }}>…</span>
+                    ) : (
+                      <span style={{ opacity: 0.5 }}>{t("columns.clickToEdit")}</span>
+                    ))}
                 </Typography>
                 <MaterialSymbol icon="edit" size={14} />
               </Box>
             );
           }
-          if (!p.value) return "";
+          if (!p.value) {
+            // Distinguish "still loading" from "no relations" — an empty cell
+            // during the fetch window reads as missing data.
+            if (!relationsLoading) return "";
+            return (
+              <span style={{ opacity: 0.5 }} title={t("columns.relationsLoading")}>
+                …
+              </span>
+            );
+          }
           return (
             <Box
               sx={{
@@ -1928,6 +2072,81 @@ export default function InventoryPage() {
               >
                 {p.value}
               </Typography>
+            </Box>
+          );
+        },
+      });
+    }
+
+    // Stakeholder columns — one per stakeholder role of the selected type.
+    // The cell value is the card's StakeholderRef[] filtered to that role
+    // (already part of the /cards list payload — no extra fetch), rendered as
+    // person chips and edited via StakeholdersCellEditor in grid-edit mode.
+    for (const role of stakeholderRoles) {
+      const roleKey = role.key;
+      const roleLabel = typeLabel(role);
+      const colKey = `stakeholder_${roleKey}`;
+      cols.push({
+        colId: colKey,
+        field: colKey,
+        headerName: t("columns.stakeholderRole", { role: roleLabel }),
+        width: 180,
+        hide: !selectedColumns.has(colKey),
+        editable: gridEditMode && canManageStakeholders,
+        cellEditor: StakeholdersCellEditor,
+        cellEditorPopup: true,
+        cellEditorParams: { roleKey, roleLabel },
+        valueGetter: (p: { data?: Card }) =>
+          (p.data?.stakeholders || []).filter((s) => s.role === roleKey),
+        valueSetter: (p: { data: Card; newValue: StakeholderRef[] }) => {
+          const others = (p.data.stakeholders || []).filter((s) => s.role !== roleKey);
+          p.data.stakeholders = [...others, ...(p.newValue || [])];
+          return true;
+        },
+        // The raw value is a StakeholderRef[]. Filter on names AND emails
+        // (either should match what the user types); sort on the visible
+        // names; export/copy (valueFormatter) carries emails only.
+        filterValueGetter: (p: { data?: Card }) => {
+          const refs = (p.data?.stakeholders || []).filter((s) => s.role === roleKey);
+          return `${stakeholdersToText(refs)}; ${stakeholdersToEmails(refs)}`;
+        },
+        valueFormatter: (p: { value?: StakeholderRef[] }) => stakeholdersToEmails(p.value),
+        comparator: (a: StakeholderRef[], b: StakeholderRef[]) =>
+          stakeholdersToText(a).localeCompare(stakeholdersToText(b)),
+        cellRenderer: (p: { value: StakeholderRef[] }) => {
+          const refs = p.value || [];
+          if (refs.length === 0) return "";
+          const visible = refs.slice(0, 3);
+          const overflow = refs.length - visible.length;
+          return (
+            <Box
+              sx={{
+                display: "flex",
+                flexWrap: "wrap",
+                gap: 0.25,
+                rowGap: "2px",
+                alignItems: "center",
+                lineHeight: 1,
+              }}
+            >
+              {visible.map((s) => (
+                <Chip
+                  key={s.user_id}
+                  icon={<MaterialSymbol icon="person" size={12} />}
+                  label={s.user_display_name || s.user_email || s.user_id}
+                  size="small"
+                  variant="outlined"
+                  sx={{ height: 16, fontSize: 11, "& .MuiChip-label": { px: 0.75 } }}
+                />
+              ))}
+              {overflow > 0 && (
+                <Chip
+                  label={`+${overflow}`}
+                  size="small"
+                  variant="outlined"
+                  sx={{ height: 16, fontSize: 11, "& .MuiChip-label": { px: 0.75 } }}
+                />
+              )}
             </Box>
           );
         },
@@ -1975,7 +2194,7 @@ export default function InventoryPage() {
     );
 
     return cols;
-  }, [types, typeConfig, commonFields, gridEditMode, relevantRelTypes, relTypeGroupMap, relationsMap, selectedType, parentPaths, filters.showArchived, selectedColumns, userNameMap, t, formatDate, formatDateTime, canViewCostsGlobally, tagGroups]);
+  }, [types, typeConfig, commonFields, gridEditMode, relevantRelTypes, relTypeGroupMap, relationsMap, relationsLoading, selectedType, parentPaths, filters.showArchived, selectedColumns, userNameMap, t, formatDate, formatDateTime, canViewCostsGlobally, canManageStakeholders, tagGroups, stakeholderRoles, typeLabel]);
 
   // Restore the saved column layout (order/width/pinning/sort) onto the grid.
   // Keyed on `columnDefs` so it re-applies each time the column *set* changes —
@@ -2225,6 +2444,7 @@ export default function InventoryPage() {
             width={300}
             onWidthChange={() => {}}
             relevantRelTypes={relevantRelTypes}
+            stakeholderRoles={stakeholderRoles}
             relationsMap={relationsMap}
             tagGroups={tagGroups}
             canArchive={canArchive}
@@ -2251,6 +2471,7 @@ export default function InventoryPage() {
           width={sidebarWidth}
           onWidthChange={setSidebarWidth}
           relevantRelTypes={relevantRelTypes}
+          stakeholderRoles={stakeholderRoles}
           relationsMap={relationsMap}
           tagGroups={tagGroups}
           canArchive={canArchive}
@@ -2406,8 +2627,13 @@ export default function InventoryPage() {
           >
             <ListItemText
               primary={t("export.currentView")}
-              secondary={t("export.currentViewHint")}
+              secondary={
+                relationsLoading
+                  ? t("export.waitingForRelations")
+                  : t("export.currentViewHint")
+              }
             />
+            {relationsLoading && <CircularProgress size={14} sx={{ ml: 1 }} />}
           </MenuItem>
         </Menu>
 
