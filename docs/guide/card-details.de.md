@@ -85,6 +85,11 @@ Zeigt alle Verbindungen zu anderen Karten, gruppiert nach Beziehungstyp. Für je
 - **Beziehung hinzufügen** — Klicken Sie auf **+**, um eine neue Beziehung zu erstellen; die Auswahlliste zeigt passende Karten bereits beim Öffnen an (nach Name sortiert, weitere werden beim Scrollen geladen), und durch Tippen wird die Liste gefiltert
 - **Beziehung entfernen** — Klicken Sie auf das Löschsymbol, um eine Beziehung zu entfernen
 - **Nach Untertyp gruppieren** — Enthält ein Beziehungsabschnitt viele verwandte Karten, werden sie automatisch in aufklappbare Untertyp-Gruppen (jeweils mit Anzahl) gruppiert, mit einer abschließenden Gruppe **Kein Untertyp** für nicht klassifizierte Karten. Über den Umschalter in der Abschnittsüberschrift wechseln Sie zwischen gruppierter und flacher Ansicht.
+- **Mit Unterelementen verknüpfte Karten** — Hat eine Karte Unterelemente, zeigt jede Beziehungsgruppe einen Chip **+N in Unterelementen** mit der Anzahl der weiter unten in der Hierarchie verknüpften Karten — etwa die Anwendungen an den Unterfähigkeiten einer Fähigkeit. Ein Klick öffnet eine schreibgeschützte Liste, in der jede Zeile das Unterelement nennt, das die Verknüpfung hält (eine über mehrere Unterelemente erreichte Karte erscheint einmal, mit allen Herkünften). Gezählt werden nur Karten, die nicht bereits in der Gruppe darüber stehen. Zum Ändern einer Verknüpfung öffnen Sie das zugehörige Unterelement. Die Liste ist in aufklappbare Untertyp-Abschnitte gegliedert, sodass der Untertyp einmal pro Abschnitt statt in jeder Zeile genannt wird. Innerhalb eines Abschnitts stehen Karten, deren Lebenszyklusphase Aufmerksamkeit erfordert, zuerst (Ende der Lebensdauer, dann Auslaufphase); die Phase jeder Karte erscheint als farbiger Punkt neben ihrem Namen — der Name der Phase wird beim Überfahren mit der Maus angezeigt.
+
+![Beziehungsgruppen mit dem Chip für Unterelemente](../assets/img/de/59_karte_unterelemente_chip.png)
+
+![Über Unterelemente verknüpfte Karten, nach Untertyp gruppiert](../assets/img/de/60_karte_unterelemente_beziehungen.png)
 
 ### Tags-Abschnitt
 
