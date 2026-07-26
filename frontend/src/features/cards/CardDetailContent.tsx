@@ -45,6 +45,10 @@ import {
   useExtensionFieldVisibilityProviders,
 } from "@/lib/extensionHost";
 import SoAWTab from "@/features/cards/sections/SoAWTab";
+import {
+  makeSectionConfigReader,
+  sectionDefaultExpanded,
+} from "@/features/cards/sectionConfig";
 import type {
   Card,
   CardEffectivePermissions,
@@ -180,12 +184,6 @@ export default function CardDetailContent({
     calcFieldKeys = [...new Set([...calcFieldKeys, ...autoFieldKeys])];
   }
 
-  // Section config
-  const sc = typeConfig?.section_config || {};
-  const secExpanded = (key: string, fallback = true) =>
-    sc[key]?.defaultExpanded !== false ? fallback : false;
-  const secHidden = (key: string) => !!sc[key]?.hidden;
-
   // Extensions may hide specific card fields at render time (display-only,
   // ungated, never deletes stored values). Each registered provider renders as
   // a headless slot below and reports its own hidden-key set, keyed by its
@@ -229,6 +227,14 @@ export default function CardDetailContent({
   const descExtraFields = (descExtraSection?.fields || []).filter(
     (f) => !hiddenFieldKeys.has(f.key),
   );
+
+  // Section config — see `sectionConfig.ts` for the explicit-boolean and
+  // legacy-key semantics this reader encapsulates.
+  const sc = typeConfig?.section_config || {};
+  const sectionCfg = makeSectionConfigReader(sc, customSections);
+  const secRaw = sectionCfg.raw;
+  const secExpanded = sectionCfg.expanded;
+  const secHidden = sectionCfg.hidden;
 
   // Build section order from config or default
   const sectionOrder = (() => {
@@ -311,7 +317,7 @@ export default function CardDetailContent({
 
   const renderSection = (key: string) => {
     if (secHidden(key)) return null;
-    const exp = secExpanded(key, key === "relations" ? false : true);
+    const exp = secExpanded(key, sectionDefaultExpanded(key));
 
     if (key === "description") {
       return (
@@ -335,10 +341,12 @@ export default function CardDetailContent({
     if (key === "eol") {
       return (
         <ErrorBoundary key={key} label="End of Life" inline>
+          {/* `undefined` keeps EolLinkSection's own default (expand only when a
+              product is linked); an explicit setting overrides it. */}
           <EolLinkSection
             card={card}
             onSave={handleUpdate}
-            initialExpanded={exp ? undefined : false}
+            initialExpanded={secRaw("eol")}
           />
         </ErrorBoundary>
       );
