@@ -44,6 +44,8 @@ Les colonnes sont regroupées en cinq catégories :
 | **Relations** | Types de cartes liés (par ex., Applications liées à une Capacité Métier) |
 | **Parties prenantes** | Une colonne par rôle de partie prenante défini pour le type sélectionné (par ex. *Parties prenantes : Responsible*), affichant les utilisateurs assignés sous forme de puces. En mode édition de grille, double-cliquez sur une cellule pour assigner ou retirer des utilisateurs pour ce rôle directement depuis la grille (nécessite la permission de gestion des parties prenantes). |
 
+La colonne **Parent** n'affiche que la carte située directement au-dessus, alors que **Chemin** affiche toute la chaîne. En mode d'édition de la grille, double-cliquez sur une cellule Parent pour déplacer la carte, ou videz le champ pour la remonter au niveau supérieur. La colonne n'est modifiable que si la grille est filtrée sur un seul type de carte prenant en charge la hiérarchie. Si un déplacement est refusé — parce qu'il créerait une boucle, entrerait en conflit avec une carte du même nom sous la cible, ou dépasserait la profondeur maximale —, le motif s'affiche en bas de l'écran et la cellule revient à son état précédent.
+
 La colonne **Chemin** affiche le fil d'Ariane hiérarchique (par ex. « Amérique du Nord / Ventes / Ventes internes ») sans le nom de la fiche elle-même, ce qui vous permet d'afficher Nom et Chemin en même temps.
 
 Chaque catégorie dispose d'une case à cocher **Tout sélectionner** pour activer ou désactiver rapidement toutes les colonnes du groupe. Un champ de recherche en haut permet de trouver des colonnes spécifiques par nom. Le badge sur chaque en-tête de section indique combien de colonnes de ce groupe sont actuellement visibles.
@@ -94,6 +96,33 @@ L'inventaire utilise un tableau de données **AG Grid** avec des fonctionnalité
    - Optionnellement, ajoutez une **Description**
 3. Optionnellement, cliquez sur **Suggérer avec l'IA** pour générer automatiquement une description (voir [Suggestions de description par IA](#suggestions-de-description-par-ia) ci-dessous)
 4. Cliquez sur **CREER**
+
+## Édition en masse { #mass-edit }
+
+Cochez deux lignes ou plus à l'aide des cases de la colonne de gauche, puis cliquez sur **Édition en masse** dans la barre de sélection. La boîte de dialogue applique une seule modification à chaque carte sélectionnée.
+
+La liste déroulante **Champ** regroupe les éléments modifiables :
+
+- **Général** — statut d'approbation, sous-type, étiquettes et parent
+- **Attributs** — tout champ modifiable défini pour le type de carte sélectionné
+- **Relations** — une entrée par type de relation et par direction (par exemple *s'exécute sur → Composant informatique*)
+
+Les étiquettes, les relations et le parent proposent chacun un bouton **ajouter / retirer**, afin d'étendre ou de réduire les valeurs existantes plutôt que de les remplacer.
+
+### Restructurer la hiérarchie { #mass-edit-parent }
+
+Le champ **Parent** apparaît dès que la grille est filtrée sur un seul type de carte prenant en charge la hiérarchie. Une carte n'a qu'un seul parent : ce champ unique couvre donc les deux sens d'une restructuration.
+
+- **Définir le parent** — choisissez une carte du même type ; toutes les cartes sélectionnées sont placées en dessous. C'est ainsi que l'on rattache plusieurs cartes à un même parent.
+- **Supprimer le parent** — toutes les cartes sélectionnées remontent au niveau supérieur.
+
+Les cartes sont déplacées une par une : un déplacement refusé ne bloque donc que la carte concernée. La boîte de dialogue reste ouverte et indique quelles cartes ont été bloquées et pourquoi. Les motifs habituels sont :
+
+- Une carte du même nom se trouve déjà sous le parent cible.
+- Le parent choisi est un descendant de l'une des cartes déplacées, ce qui créerait une boucle.
+- Le déplacement porterait une capacité métier au-delà du maximum de cinq niveaux.
+
+Une carte emporte ses propres enfants lors du déplacement, et les cartes approuvées repassent à **Rompu** afin que la modification soit réexaminée.
 
 ## Suggestions de description par IA { #ai-description-suggestions }
 

@@ -44,6 +44,8 @@ Spalten sind in fünf Kategorien gruppiert:
 | **Beziehungen** | Verknüpfte Kartentypen (z. B. Anwendungen, die mit einer Geschäftsfähigkeit verknüpft sind) |
 | **Stakeholder** | Eine Spalte pro Stakeholder-Rolle des ausgewählten Kartentyps (z. B. *Stakeholder: Responsible*) mit den zugewiesenen Benutzern als Chips. Im Raster-Bearbeitungsmodus können Sie per Doppelklick Benutzer für die Rolle direkt im Raster zuweisen oder entfernen (erfordert die Berechtigung zum Verwalten von Stakeholdern). |
 
+Die Spalte **Übergeordnetes Element** zeigt nur die direkt darüberliegende Karte, während **Pfad** die gesamte Kette anzeigt. Doppelklicken Sie im Tabellenbearbeitungsmodus auf eine solche Zelle, um die Karte zu verschieben, oder leeren Sie das Feld, um sie auf die oberste Ebene zu setzen. Die Spalte ist nur bearbeitbar, wenn die Tabelle auf einen einzelnen Kartentyp mit Hierarchie gefiltert ist. Wird eine Verschiebung abgelehnt — weil sie eine Schleife erzeugen würde, mit einer gleichnamigen Karte unter dem Ziel kollidiert oder die maximale Hierarchietiefe überschreitet —, erscheint die Begründung am unteren Bildschirmrand und die Zelle wird zurückgesetzt.
+
 Die Spalte **Pfad** zeigt den Hierarchie-Pfad der Karte (z. B. `Nordamerika / Vertrieb / Innendienst`) ohne den Namen der Karte selbst, sodass Sie Name und Pfad gleichzeitig anzeigen können.
 
 Jede Kategorie hat ein Kontrollkästchen **Alle auswählen**, um alle Spalten in dieser Gruppe schnell umzuschalten. Ein Suchfeld oben ermöglicht es, bestimmte Spalten nach Namen zu finden. Das Badge in jeder Abschnittsüberschrift zeigt an, wie viele Spalten aus dieser Gruppe derzeit sichtbar sind.
@@ -94,6 +96,33 @@ Das Inventar verwendet eine **AG Grid**-Datentabelle mit leistungsstarken Funkti
    - Optional: Fügen Sie eine **Beschreibung** hinzu
 3. Optional: Klicken Sie auf **Mit KI vorschlagen**, um automatisch eine Beschreibung zu generieren (siehe [KI-Beschreibungsvorschläge](#ki-beschreibungsvorschläge) unten)
 4. Klicken Sie auf **ERSTELLEN**
+
+## Massenbearbeitung { #mass-edit }
+
+Wählen Sie über die Kontrollkästchen in der linken Spalte zwei oder mehr Zeilen aus und klicken Sie dann in der Auswahlleiste auf **Massenbearbeitung**. Der Dialog wendet eine Änderung auf jede ausgewählte Karte an.
+
+Das Dropdown **Feld** gruppiert die Änderungsmöglichkeiten:
+
+- **Allgemein** — Freigabestatus, Untertyp, Tags und übergeordnetes Element
+- **Attribute** — jedes bearbeitbare Feld des ausgewählten Kartentyps
+- **Beziehungen** — ein Eintrag je Beziehungstyp und Richtung (zum Beispiel *läuft auf → IT-Komponente*)
+
+Tags, Beziehungen und das übergeordnete Element bieten jeweils einen Umschalter **Hinzufügen / Entfernen**, sodass Sie vorhandene Werte ergänzen oder reduzieren, statt sie zu ersetzen.
+
+### Hierarchie umstrukturieren { #mass-edit-parent }
+
+Das Feld **Übergeordnetes Element** erscheint, sobald Sie die Tabelle auf einen einzelnen Kartentyp mit Hierarchie gefiltert haben. Eine Karte hat genau ein übergeordnetes Element, daher deckt dieses eine Feld beide Richtungen einer Umstrukturierung ab:
+
+- **Übergeordnetes Element festlegen** — wählen Sie eine Karte desselben Typs; alle ausgewählten Karten werden darunter eingeordnet. So machen Sie viele Karten zu untergeordneten Elementen einer Karte.
+- **Übergeordnetes Element entfernen** — alle ausgewählten Karten werden auf die oberste Ebene verschoben.
+
+Die Karten werden einzeln verschoben; ein unzulässiger Vorgang blockiert daher nur die betroffene Karte. Der Dialog bleibt geöffnet und listet auf, welche Karten blockiert wurden und warum. Die häufigsten Gründe sind:
+
+- Unter dem Zielelement existiert bereits eine Karte mit demselben Namen.
+- Das gewählte übergeordnete Element ist ein Nachfahre einer der verschobenen Karten, was eine Schleife erzeugen würde.
+- Der Vorgang würde eine Geschäftsfähigkeit über die maximal fünf Ebenen hinaus verschieben.
+
+Eine Karte nimmt ihre untergeordneten Elemente mit, und freigegebene Karten fallen auf **Ungültig** zurück, damit die Änderung erneut geprüft wird.
 
 ## KI-Beschreibungsvorschläge { #ai-description-suggestions }
 

@@ -23,6 +23,7 @@ import DialogTitle from "@mui/material/DialogTitle";
 import DialogContent from "@mui/material/DialogContent";
 import DialogActions from "@mui/material/DialogActions";
 import Alert from "@mui/material/Alert";
+import Snackbar from "@mui/material/Snackbar";
 import Drawer from "@mui/material/Drawer";
 import Tooltip from "@mui/material/Tooltip";
 import ListSubheader from "@mui/material/ListSubheader";
@@ -30,12 +31,13 @@ import Autocomplete from "@mui/material/Autocomplete";
 import ToggleButton from "@mui/material/ToggleButton";
 import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import useMediaQuery from "@mui/material/useMediaQuery";
-import { useTheme } from "@mui/material/styles";
+import { useTheme, darken, lighten, type Theme } from "@mui/material/styles";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import LifecycleBadge from "@/components/LifecycleBadge";
 import ArchiveDeleteDialog from "@/features/cards/ArchiveDeleteDialog";
 import BulkRestoreDialog from "@/features/cards/BulkRestoreDialog";
 import CreateCardDialog from "@/components/CreateCardDialog";
+import CardPicker, { type CardOption } from "@/components/CardPicker";
 import CardDetailSidePanel from "@/components/CardDetailSidePanel";
 import InventoryFilterSidebar, {
   CORE_COLUMN_KEYS,
@@ -50,6 +52,7 @@ import { exportToExcel, exportCurrentViewToExcel } from "./excelExport";
 import { dateColumnFilterDef } from "@/lib/dateColumnFilter";
 import RelationCellPopover from "./RelationCellPopover";
 import { useMetamodel } from "@/hooks/useMetamodel";
+import { useCardSearch } from "@/hooks/useCardSearch";
 import { useTypeLabel, useRelationLabel, useFieldLabel, useOptionLabel, useSubtypeLabel } from "@/hooks/useResolveLabel";
 import { readableTextColor } from "@/lib/color";
 import { useAuth } from "@/hooks/useAuth";
@@ -60,6 +63,7 @@ import { api, ApiError } from "@/api/client";
 import { APPROVAL_STATUS_COLORS } from "@/theme/tokens";
 import TagPicker from "@/components/TagPicker";
 import TagsCellEditor from "@/features/inventory/TagsCellEditor";
+import ParentCellEditor from "@/features/inventory/ParentCellEditor";
 import StakeholdersCellEditor from "@/features/inventory/StakeholdersCellEditor";
 import type { Card, CardListResponse, ColumnLayoutItem, FieldDef, Relation, RelationType, StakeholderRef, StakeholderRoleOption, TagGroup, TagRef } from "@/types";
 import "ag-grid-community/styles/ag-grid.css";
@@ -94,6 +98,29 @@ function getLifecyclePhase(card: Card): string {
   }
   return "";
 }
+
+/**
+ * Shared styling for the action buttons in the selection bar.
+ *
+ * Those buttons sit on a `primary.main` (blue) bar and carry their own text
+ * colour on a `background.paper` chip. The hover state must therefore be an
+ * *opaque* colour: `action.selected` is a translucent overlay, so it let the
+ * blue bar show through and the button's own coloured text lost contrast —
+ * most visibly on Mass Edit, whose blue text ended up on a blue background.
+ * Deriving the hover shade from the real paper colour keeps the same
+ * text-contrast relationship as the resting state, in light and dark alike.
+ */
+const SELECTION_BAR_BUTTON_SX = {
+  bgcolor: "background.paper",
+  textTransform: "none",
+  whiteSpace: "nowrap",
+  "&:hover": {
+    bgcolor: (theme: Theme) =>
+      theme.palette.mode === "dark"
+        ? lighten(theme.palette.background.paper, 0.12)
+        : darken(theme.palette.background.paper, 0.08),
+  },
+} as const;
 
 /**
  * Pre-compute the breadcrumb path *up to* each card's parent (i.e. excluding
@@ -138,6 +165,58 @@ function buildParentPaths(items: Card[]): Map<string, string> {
     parentOnly.set(card.id, resolveFull(parentId, new Set([card.id])));
   }
   return parentOnly;
+}
+
+/**
+ * Index the loaded rows by id, so the Parent column can resolve a `parent_id`
+ * to a display name. Parents outside the loaded page resolve to an empty
+ * label — the inventory pages at 10 000 rows, so in practice the parent of a
+ * same-typed card is always present.
+ *
+ * The Parent column deliberately keeps the raw `parent_id` as its *cell
+ * value* and resolves the name only at render time. An earlier version had
+ * `valueGetter` return a `{id, name}` object out of a `data`-keyed memo while
+ * `valueSetter` mutated the row in place: the array reference never changed,
+ * so the memo never recomputed, and AG Grid's post-setter re-read handed
+ * `onCellValueChanged` the stale value. The move then "applied" the parent the
+ * card already had. Keeping the value primitive makes getter and setter
+ * consistent by construction.
+ */
+function buildCardIndex(items: Card[]): Map<string, Card> {
+  return new Map(items.map((card) => [card.id, card]));
+}
+
+/**
+ * Map each card to itself plus every descendant, so the parent picker can hide
+ * the choices that would obviously cycle. The server rejects cycles regardless
+ * (it is the only place that can see the full tree), but excluding them here
+ * avoids offering a choice that is guaranteed to fail.
+ */
+function buildDescendantIndex(items: Card[]): Map<string, string[]> {
+  const childrenOf = new Map<string, string[]>();
+  for (const card of items) {
+    if (!card.parent_id) continue;
+    const siblings = childrenOf.get(card.parent_id);
+    if (siblings) siblings.push(card.id);
+    else childrenOf.set(card.parent_id, [card.id]);
+  }
+
+  const index = new Map<string, string[]>();
+  for (const card of items) {
+    const collected: string[] = [card.id];
+    // Iterative walk with a seen-set: a pre-existing cycle in the data must
+    // not hang the grid.
+    const seen = new Set<string>([card.id]);
+    for (let i = 0; i < collected.length; i++) {
+      for (const childId of childrenOf.get(collected[i]) ?? []) {
+        if (seen.has(childId)) continue;
+        seen.add(childId);
+        collected.push(childId);
+      }
+    }
+    index.set(card.id, collected);
+  }
+  return index;
 }
 
 /**
@@ -464,11 +543,17 @@ export default function InventoryPage() {
     }[]
   >([]);
   const [massEditSucceeded, setMassEditSucceeded] = useState(0);
-  // Relation mass-edit state
+  // Relation mass-edit state. `massEditRelMode` is shared by the relation,
+  // tag and parent fields — all three are add/remove (set/clear) toggles.
   const [massEditRelMode, setMassEditRelMode] = useState<"add" | "remove">("add");
   const [massEditRelTargets, setMassEditRelTargets] = useState<{ id: string; name: string; type: string }[]>([]);
   const [massEditRelSearch, setMassEditRelSearch] = useState("");
-  const [massEditRelOptions, setMassEditRelOptions] = useState<{ id: string; name: string; type: string }[]>([]);
+  const [massEditRelSearchDebounced, setMassEditRelSearchDebounced] = useState("");
+  // Parent mass-edit state
+  const [massEditParent, setMassEditParent] = useState<CardOption | null>(null);
+  // Inline (Grid Edit) failures that the user needs a reason for — a rejected
+  // re-parent is the first, since the server owns every hierarchy rule.
+  const [cellEditError, setCellEditError] = useState("");
 
   // Mass archive / delete state
   const [massArchiveOpen, setMassArchiveOpen] = useState(false);
@@ -761,6 +846,13 @@ export default function InventoryPage() {
   // Built once from raw API data; completely detached from the mutable row objects
   // that AG Grid holds, so grid-internal writes to data[field] cannot corrupt paths.
   const parentPaths = useMemo(() => buildParentPaths(data), [data]);
+  const cardsById = useMemo(() => buildCardIndex(data), [data]);
+  const descendantIndex = useMemo(() => buildDescendantIndex(data), [data]);
+  const parentNameOf = useCallback(
+    (parentId: string | null | undefined) =>
+      (parentId ? cardsById.get(parentId)?.name : "") ?? "",
+    [cardsById],
+  );
 
   // Client-side filtering
   const filteredData = useMemo(() => {
@@ -909,6 +1001,19 @@ export default function InventoryPage() {
       if (fieldDef?.readonly) return;
       const attrs = { ...card.attributes, [key]: event.newValue };
       await api.patch(`/cards/${card.id}`, { attributes: attrs });
+    } else if (field === "parent_id") {
+      const newParentId = (event.newValue as string | null) ?? null;
+      try {
+        await api.patch(`/cards/${card.id}`, { parent_id: newParentId });
+      } catch (err) {
+        // The server owns the hierarchy rules — a cycle, a name collision under
+        // the new parent, or a capability depth limit all land here. Surface the
+        // reason rather than silently snapping the cell back.
+        setCellEditError(err instanceof Error ? err.message : t("gridEdit.parentFailed"));
+      }
+      // Reload either way: a success cascades levels (and the Path column) down
+      // the subtree, a failure has to revert the optimistic row state.
+      loadData();
     } else if (field === "tags") {
       const oldIds = new Set<string>((event.oldValue as TagRef[] | undefined ?? []).map((t) => t.id));
       const newIds = new Set<string>((event.newValue as TagRef[] | undefined ?? []).map((t) => t.id));
@@ -1113,6 +1218,13 @@ export default function InventoryPage() {
       fields.push({ key: "subtype", label: t("common:labels.subtype"), group: "core" });
     }
     fields.push({ key: "tags", label: t("columns.tags"), group: "core" });
+    // Parent needs one concrete type to pick from (parent is same-type by
+    // convention everywhere else), so it follows the same single-type rule as
+    // the relation fields below. A card has exactly one parent, so setting the
+    // parent of the selection is also how you make N cards children of X.
+    if (selectedType && typeConfig?.has_hierarchy) {
+      fields.push({ key: "parent", label: t("massEdit.parent.label"), group: "core" });
+    }
     if (typeConfig) {
       for (const section of typeConfig.fields_schema) {
         for (const field of section.fields) {
@@ -1173,28 +1285,38 @@ export default function InventoryPage() {
 
   const currentMassField = massEditableFields.find((f) => f.key === massEditField);
 
-  // Search for relation targets when the user is in relation mass-edit mode.
-  // Excludes the cards being mass-edited so users can't accidentally link a card to itself.
+  // Relation-target search runs on the shared `useCardSearch` engine, same as
+  // CardPicker and the diagram Insert-Cards dialog. It browses on open (no
+  // "type to search" gate), pages in more results as the listbox scrolls, and
+  // drops stale responses via the hook's request token.
   useEffect(() => {
-    if (!massEditOpen || !currentMassField?.relInfo) return;
-    if (massEditRelSearch.length < 1) {
-      setMassEditRelOptions([]);
-      return;
-    }
-    const otherTypeKey = currentMassField.relInfo.otherTypeKey;
-    const selectedSet = new Set(selectedIds);
-    const timer = setTimeout(() => {
-      api
-        .get<{ items: { id: string; name: string; type: string }[] }>(
-          `/cards?type=${otherTypeKey}&search=${encodeURIComponent(massEditRelSearch)}&page_size=20`,
-        )
-        .then((res) => {
-          setMassEditRelOptions(res.items.filter((item) => !selectedSet.has(item.id)));
-        })
-        .catch(() => setMassEditRelOptions([]));
-    }, 250);
+    const timer = setTimeout(() => setMassEditRelSearchDebounced(massEditRelSearch), 250);
     return () => clearTimeout(timer);
-  }, [massEditRelSearch, massEditOpen, currentMassField, selectedIds]);
+  }, [massEditRelSearch]);
+
+  const relSearchTypes = useMemo(
+    () => (currentMassField?.relInfo ? [currentMassField.relInfo.otherTypeKey] : []),
+    [currentMassField],
+  );
+  const {
+    items: massEditRelItems,
+    loading: massEditRelLoading,
+    hasMore: massEditRelHasMore,
+    loadMore: massEditRelLoadMore,
+  } = useCardSearch({
+    types: relSearchTypes,
+    search: massEditRelSearchDebounced,
+    enabled: massEditOpen && !!currentMassField?.relInfo,
+    pageSize: 50,
+  });
+
+  // Exclude the cards being mass-edited so a card can't be linked to itself.
+  const massEditRelOptions = useMemo(() => {
+    const selectedSet = new Set(selectedIds);
+    return massEditRelItems
+      .filter((item) => !selectedSet.has(item.id))
+      .map((item) => ({ id: item.id, name: item.name, type: item.type }));
+  }, [massEditRelItems, selectedIds]);
 
   const handleMassEdit = async () => {
     if (selectedIds.length === 0 || !massEditField) return;
@@ -1375,6 +1497,50 @@ export default function InventoryPage() {
           setMassEditValue("");
           setMassEditRelTargets([]);
           setMassEditRelSearch("");
+          return;
+        }
+        setMassEditSucceeded(succeeded);
+        setMassEditBlockers(blockers);
+        return;
+      }
+
+      if (massEditField === "parent") {
+        const newParentId = massEditRelMode === "add" ? massEditParent?.id ?? null : null;
+        if (massEditRelMode === "add" && !newParentId) {
+          setMassEditError(t("massEdit.parent.pickOne"));
+          return;
+        }
+        // Per-card PATCH rather than /cards/bulk: re-parenting fails per card
+        // (a name collision under the new parent, a capability depth limit),
+        // and the blocker list below reports exactly which ones. One bulk
+        // transaction would abort every move because of a single collision.
+        const targets = selectedIds.filter((id) => id !== newParentId);
+        const results = await Promise.allSettled(
+          targets.map((id) => api.patch(`/cards/${id}`, { parent_id: newParentId })),
+        );
+        const blockers: typeof massEditBlockers = [];
+        let succeeded = 0;
+        results.forEach((r, i) => {
+          if (r.status === "fulfilled") {
+            succeeded += 1;
+            return;
+          }
+          const id = targets[i];
+          const card = data.find((d) => d.id === id);
+          blockers.push({
+            id,
+            name: card?.name ?? id,
+            missingRelations: [],
+            missingTagGroups: [],
+            message: r.reason instanceof Error ? r.reason.message : t("massEdit.failed"),
+          });
+        });
+        await loadData();
+        if (blockers.length === 0) {
+          setMassEditOpen(false);
+          setMassEditField("");
+          setMassEditValue("");
+          setMassEditParent(null);
           return;
         }
         setMassEditSucceeded(succeeded);
@@ -1620,6 +1786,43 @@ export default function InventoryPage() {
         valueGetter: (p: { data?: Card }) =>
           p.data ? parentPaths.get(p.data.id) ?? "" : "",
         cellStyle: { color: "var(--mui-palette-text-secondary)" },
+      },
+      {
+        // The immediate parent, as opposed to core_path's full ancestor chain.
+        // Editable in Grid Edit mode so a one-off move needs neither Mass Edit
+        // nor a trip to the card detail page. Only offered for a single
+        // hierarchical type, matching the Mass Edit Parent field: the picker
+        // needs one concrete type to browse.
+        colId: "core_parent",
+        field: "parent_id",
+        headerName: t("columns.parent"),
+        flex: 1,
+        minWidth: 160,
+        sortable: true,
+        hide: !selectedColumns.has("core_parent"),
+        editable: gridEditMode && !!selectedType && !!typeConfig?.has_hierarchy,
+        cellEditor: ParentCellEditor,
+        cellEditorPopup: true,
+        cellEditorParams: (p: { data: Card }) => ({
+          typeKey: p.data.type,
+          excludeIds: descendantIndex.get(p.data.id) ?? [p.data.id],
+          currentParent: p.data.parent_id
+            ? cardsById.get(p.data.parent_id) ?? null
+            : null,
+        }),
+        // The cell value is the raw parent id — see buildCardIndex for why it
+        // must not be an object resolved out of a memo.
+        valueGetter: (p: { data?: Card }) => p.data?.parent_id ?? null,
+        valueSetter: (p: { data: Card; newValue: string | null }) => {
+          p.data.parent_id = p.newValue ?? undefined;
+          return true;
+        },
+        // The value is an opaque id, so the header text filter and the sort
+        // comparator both have to work off the resolved name instead.
+        filterValueGetter: (p: { data?: Card }) => parentNameOf(p.data?.parent_id),
+        comparator: (a: string | null, b: string | null) =>
+          parentNameOf(a).localeCompare(parentNameOf(b)),
+        cellRenderer: (p: { value: string | null }) => parentNameOf(p.value),
       },
       {
         colId: "core_description",
@@ -2194,7 +2397,7 @@ export default function InventoryPage() {
     );
 
     return cols;
-  }, [types, typeConfig, commonFields, gridEditMode, relevantRelTypes, relTypeGroupMap, relationsMap, relationsLoading, selectedType, parentPaths, filters.showArchived, selectedColumns, userNameMap, t, formatDate, formatDateTime, canViewCostsGlobally, canManageStakeholders, tagGroups, stakeholderRoles, typeLabel]);
+  }, [types, typeConfig, commonFields, gridEditMode, relevantRelTypes, relTypeGroupMap, relationsMap, relationsLoading, selectedType, parentPaths, cardsById, parentNameOf, descendantIndex, filters.showArchived, selectedColumns, userNameMap, t, formatDate, formatDateTime, canViewCostsGlobally, canManageStakeholders, tagGroups, stakeholderRoles, typeLabel]);
 
   // Restore the saved column layout (order/width/pinning/sort) onto the grid.
   // Keyed on `columnDefs` so it re-applies each time the column *set* changes —
@@ -2301,6 +2504,46 @@ export default function InventoryPage() {
       );
     }
 
+    if (massEditField === "parent") {
+      const ownLabel = typeConfig ? typeLabel(typeConfig) : selectedType;
+      return (
+        <Box>
+          <ToggleButtonGroup
+            value={massEditRelMode}
+            exclusive
+            size="small"
+            onChange={(_, val) => { if (val) setMassEditRelMode(val); }}
+            sx={{ mb: 2 }}
+          >
+            <ToggleButton value="add" sx={{ textTransform: "none", px: 2 }}>
+              <MaterialSymbol icon="account_tree" size={16} style={{ marginRight: 6 }} />
+              {t("massEdit.parent.set")}
+            </ToggleButton>
+            <ToggleButton value="remove" sx={{ textTransform: "none", px: 2 }}>
+              <MaterialSymbol icon="link_off" size={16} style={{ marginRight: 6 }} />
+              {t("massEdit.parent.clear")}
+            </ToggleButton>
+          </ToggleButtonGroup>
+          {massEditRelMode === "add" && (
+            <CardPicker
+              types={selectedType}
+              value={massEditParent}
+              onChange={setMassEditParent}
+              excludeIds={selectedIds}
+              enabled={massEditOpen}
+              fullWidth
+              label={t("massEdit.parent.pick", { type: ownLabel })}
+            />
+          )}
+          <Typography variant="caption" color="text.secondary" sx={{ mt: 1.5, display: "block" }}>
+            {massEditRelMode === "add"
+              ? t("massEdit.parent.setHint", { count: selectedIds.length })
+              : t("massEdit.parent.clearHint", { count: selectedIds.length })}
+          </Typography>
+        </Box>
+      );
+    }
+
     if (currentMassField.relInfo) {
       const otherType = types.find((tp) => tp.key === currentMassField.relInfo!.otherTypeKey);
       const otherLabel = otherType
@@ -2336,6 +2579,18 @@ export default function InventoryPage() {
             inputValue={massEditRelSearch}
             onInputChange={(_, val) => setMassEditRelSearch(val)}
             filterOptions={(x) => x}
+            loading={massEditRelLoading}
+            openOnFocus
+            slotProps={{
+              listbox: {
+                onScroll: (event) => {
+                  const el = event.currentTarget;
+                  if (el.scrollTop + el.clientHeight >= el.scrollHeight - 80) {
+                    if (massEditRelHasMore && !massEditRelLoading) massEditRelLoadMore();
+                  }
+                },
+              },
+            }}
             renderOption={(props, opt) => {
               const tConf = types.find((tp) => tp.key === opt.type);
               return (
@@ -2366,9 +2621,7 @@ export default function InventoryPage() {
               />
             )}
             noOptionsText={
-              massEditRelSearch
-                ? t("common:labels.noResults")
-                : t("massEdit.rel.typeToSearch", { type: otherLabel })
+              massEditRelLoading ? t("common:labels.loading") : t("common:labels.noResults")
             }
           />
           <Typography variant="caption" color="text.secondary" sx={{ mt: 1.5, display: "block" }}>
@@ -2667,13 +2920,7 @@ export default function InventoryPage() {
               size="small"
               variant="contained"
               color="inherit"
-              sx={{
-                color: "primary.main",
-                bgcolor: "background.paper",
-                textTransform: "none",
-                whiteSpace: "nowrap",
-                "&:hover": { bgcolor: "action.selected" },
-              }}
+              sx={{ color: "primary.main", ...SELECTION_BAR_BUTTON_SX }}
               startIcon={<MaterialSymbol icon="edit" size={16} />}
               onClick={() => {
                 setMassEditOpen(true);
@@ -2694,13 +2941,7 @@ export default function InventoryPage() {
                 size="small"
                 variant="contained"
                 color="inherit"
-                sx={{
-                  color: "#e65100",
-                  bgcolor: "background.paper",
-                  textTransform: "none",
-                  whiteSpace: "nowrap",
-                  "&:hover": { bgcolor: "action.selected" },
-                }}
+                sx={{ color: "#e65100", ...SELECTION_BAR_BUTTON_SX }}
                 startIcon={<MaterialSymbol icon="archive" size={16} />}
                 onClick={() => setMassArchiveOpen(true)}
               >
@@ -2712,13 +2953,7 @@ export default function InventoryPage() {
                 size="small"
                 variant="contained"
                 color="inherit"
-                sx={{
-                  color: "#2e7d32",
-                  bgcolor: "background.paper",
-                  textTransform: "none",
-                  whiteSpace: "nowrap",
-                  "&:hover": { bgcolor: "action.selected" },
-                }}
+                sx={{ color: "#2e7d32", ...SELECTION_BAR_BUTTON_SX }}
                 startIcon={<MaterialSymbol icon="restore" size={16} />}
                 onClick={() => setMassRestoreOpen(true)}
               >
@@ -2730,13 +2965,7 @@ export default function InventoryPage() {
                 size="small"
                 variant="contained"
                 color="inherit"
-                sx={{
-                  color: "#c62828",
-                  bgcolor: "background.paper",
-                  textTransform: "none",
-                  whiteSpace: "nowrap",
-                  "&:hover": { bgcolor: "action.selected" },
-                }}
+                sx={{ color: "#c62828", ...SELECTION_BAR_BUTTON_SX }}
                 startIcon={<MaterialSymbol icon="delete_forever" size={16} />}
                 onClick={() => setMassDeleteOpen(true)}
               >
@@ -2801,6 +3030,18 @@ export default function InventoryPage() {
           />
         </Box>
       </Box>
+
+      {/* Inline-edit failures (rejected re-parent, …) */}
+      <Snackbar
+        open={!!cellEditError}
+        autoHideDuration={8000}
+        onClose={() => setCellEditError("")}
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+      >
+        <Alert severity="error" variant="filled" onClose={() => setCellEditError("")}>
+          {cellEditError}
+        </Alert>
+      </Snackbar>
 
       {/* Mass Edit Dialog */}
       <Dialog open={massEditOpen} onClose={() => setMassEditOpen(false)} maxWidth="sm" fullWidth>
@@ -2882,7 +3123,9 @@ export default function InventoryPage() {
                 setMassEditValue("");
                 setMassEditRelTargets([]);
                 setMassEditRelSearch("");
+                setMassEditRelSearchDebounced("");
                 setMassEditRelMode("add");
+                setMassEditParent(null);
                 setMassEditError("");
               }}
             >

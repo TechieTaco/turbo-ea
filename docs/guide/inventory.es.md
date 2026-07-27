@@ -44,6 +44,8 @@ Las columnas se agrupan en cinco categorías:
 | **Relaciones** | Tipos de tarjetas relacionados (p. ej., Aplicaciones vinculadas a una Capacidad de Negocio) |
 | **Partes interesadas** | Una columna por cada rol de parte interesada definido para el tipo seleccionado (p. ej. *Partes interesadas: Responsible*), mostrando los usuarios asignados como chips. En el modo de edición de cuadrícula, haga doble clic en una celda para asignar o quitar usuarios de ese rol directamente desde la cuadrícula (requiere el permiso de gestión de partes interesadas). |
 
+La columna **Padre** muestra solo la tarjeta situada directamente encima, mientras que **Ruta** muestra la cadena completa. En el modo de edición de la cuadrícula, haga doble clic en una celda Padre para mover la tarjeta, o vacíe el campo para llevarla al nivel superior. La columna solo es editable cuando la cuadrícula está filtrada a un único tipo de tarjeta que admite jerarquía. Si un movimiento se rechaza — porque crearía un bucle, chocaría con una tarjeta del mismo nombre bajo el destino o superaría la profundidad máxima —, el motivo aparece en la parte inferior de la pantalla y la celda se revierte.
+
 La columna **Ruta** muestra la jerarquía de la ficha (p. ej. «América del Norte / Ventas / Ventas internas») sin incluir el nombre de la propia ficha, para que pueda ver Nombre y Ruta a la vez.
 
 Cada categoría tiene una casilla **Seleccionar todo** para activar o desactivar rápidamente todas las columnas de ese grupo. Un campo de búsqueda en la parte superior permite encontrar columnas específicas por nombre. La insignia en cada encabezado de sección muestra cuántas columnas de ese grupo están actualmente visibles.
@@ -94,6 +96,33 @@ El inventario utiliza una tabla de datos **AG Grid** con funciones avanzadas:
    - Opcionalmente, agregue una **Descripción**
 3. Opcionalmente, haga clic en **Sugerir con IA** para generar una descripción automáticamente (consulte [Sugerencias de Descripción con IA](#sugerencias-de-descripcion-con-ia) a continuación)
 4. Haga clic en **CREAR**
+
+## Edición masiva { #mass-edit }
+
+Marque dos o más filas con las casillas de la columna izquierda y haga clic en **Edición masiva** en la barra de selección. El cuadro de diálogo aplica un único cambio a todas las tarjetas seleccionadas.
+
+La lista desplegable **Campo** agrupa lo que se puede modificar:
+
+- **General** — estado de aprobación, subtipo, etiquetas y padre
+- **Atributos** — cualquier campo editable definido para el tipo de tarjeta seleccionado
+- **Relaciones** — una entrada por tipo de relación y dirección (por ejemplo *se ejecuta en → Componente de TI*)
+
+Las etiquetas, las relaciones y el padre ofrecen un conmutador **añadir / quitar**, de modo que amplíe o reduzca los valores existentes en lugar de sustituirlos.
+
+### Reestructurar la jerarquía { #mass-edit-parent }
+
+El campo **Padre** aparece cuando ha filtrado la cuadrícula a un único tipo de tarjeta que admite jerarquía. Una tarjeta tiene exactamente un padre, así que este único campo cubre ambos sentidos de una reestructuración:
+
+- **Establecer padre** — elija una tarjeta del mismo tipo; todas las tarjetas seleccionadas se mueven debajo de ella. Así se convierten muchas tarjetas en hijas de un mismo padre.
+- **Quitar padre** — todas las tarjetas seleccionadas vuelven al nivel superior.
+
+Las tarjetas se mueven de una en una, por lo que un movimiento no permitido solo bloquea esa tarjeta. El cuadro de diálogo permanece abierto e indica qué tarjetas se bloquearon y por qué. Los motivos habituales son:
+
+- Ya existe una tarjeta con el mismo nombre bajo el padre de destino.
+- El padre elegido es descendiente de una de las tarjetas que se mueven, lo que crearía un bucle.
+- El movimiento llevaría una capacidad de negocio más allá del máximo de cinco niveles.
+
+Una tarjeta arrastra consigo a sus hijas al moverse, y las tarjetas aprobadas vuelven a **Roto** para que el cambio se revise de nuevo.
 
 ## Sugerencias de Descripción con IA { #ai-description-suggestions }
 

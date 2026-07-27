@@ -44,6 +44,8 @@ Columns are grouped into five categories:
 | **Relations** | Related card types (e.g., Applications linked to a Business Capability) |
 | **Stakeholders** | One column per stakeholder role defined for the selected card type (e.g. *Stakeholders: Responsible*), showing the assigned users as chips. In grid edit mode, double-click a cell to assign or remove users for that role directly from the grid (requires the *manage stakeholders* permission). |
 
+The **Parent** column shows just the card directly above it in the hierarchy, where **Path** shows the whole chain. In grid edit mode, double-click a Parent cell to move the card somewhere else, or clear the field to move it to the top level. The column is editable only when the grid is filtered to a single card type that supports hierarchy. If a move is refused — because it would create a loop, collide with a same-named card under the target, or exceed the maximum capability depth — the reason appears at the bottom of the screen and the cell reverts.
+
 The **Path** column shows the card's hierarchy breadcrumb (e.g. `North America / Sales / Inside Sales`) without including the card's own name, so you can keep both Name and Path on screen at once.
 
 Each category has a **Select all** checkbox to quickly toggle all columns in that group. A search field at the top lets you find specific columns by name. The badge on each section header shows how many columns from that group are currently visible.
@@ -96,6 +98,33 @@ The inventory uses an **AG Grid** data table with powerful features:
    - Optionally, add a **Description**
 3. Optionally, click **Suggest with AI** to generate a description automatically (see [AI Description Suggestions](#ai-description-suggestions) below)
 4. Click **CREATE**
+
+## Mass Edit { #mass-edit }
+
+Tick two or more rows using the checkboxes in the left-hand column, then click **Mass Edit** in the selection toolbar. The dialog applies a single change to every selected card.
+
+The **Field** dropdown groups what you can change:
+
+- **General** — approval status, subtype, tags, and parent
+- **Attributes** — any editable field defined for the selected card type
+- **Relations** — one entry per relation type and direction (for example *runs on → IT Component*)
+
+Tags, relations and parent each offer an **add / remove** toggle, so you extend or trim existing values instead of replacing them.
+
+### Restructuring the hierarchy { #mass-edit-parent }
+
+The **Parent** field appears once you have filtered the grid to a single card type that supports hierarchy. A card has exactly one parent, so this single field covers both directions of a restructuring:
+
+- **Set parent** — choose a card of the same type; every selected card moves underneath it. This is how you make many cards the children of one parent.
+- **Clear parent** — every selected card moves back to the top level.
+
+Cards are moved one at a time, so a move that is not allowed blocks only that card. The dialog stays open and lists which cards were blocked and why. The usual reasons are:
+
+- A card with the same name already sits under the target parent.
+- The chosen parent is a descendant of one of the cards being moved, which would create a loop.
+- The move would push a Business Capability beyond the maximum of five levels.
+
+A card takes its own children with it when it moves, and approved cards drop back to **Broken** so the change is reviewed again.
 
 ## AI Description Suggestions { #ai-description-suggestions }
 
