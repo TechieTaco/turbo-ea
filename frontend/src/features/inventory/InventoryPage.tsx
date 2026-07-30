@@ -64,6 +64,7 @@ import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { api, ApiError, isAbortError } from "@/api/client";
 import { APPROVAL_STATUS_COLORS } from "@/theme/tokens";
 import TagPicker from "@/components/TagPicker";
+import { useColumnFreeze } from "@/components/grid/useColumnFreeze";
 import TagsCellEditor from "@/features/inventory/TagsCellEditor";
 import ParentCellEditor from "@/features/inventory/ParentCellEditor";
 import StakeholdersCellEditor from "@/features/inventory/StakeholdersCellEditor";
@@ -261,6 +262,10 @@ interface InventoryPrefs {
   // AG Grid column layout (order/width/pinning), captured via getColumnState().
   // Visibility still flows from `columns` → `selectedColumns` → colDef `hide`.
   columnState?: ColumnLayoutItem[];
+  // Frozen colIds. Owned separately from `columnState` because the layout's
+  // restore only runs until the user first rearranges a column, which is not
+  // a window a freeze can depend on.
+  frozenColumns?: string[];
   // AG Grid column-filter model (api.getFilterModel()), a layer separate from
   // `filters` (the sidebar filters). Persisted so column filters survive reload.
   columnFilterModel?: Record<string, unknown>;
@@ -478,6 +483,16 @@ export default function InventoryPage() {
   const [columnState, setColumnState] = useState<ColumnLayoutItem[] | undefined>(
     () => savedPrefsRef.current?.columnState,
   );
+  // Frozen colIds. Seeded from their own pref, falling back to the `pinned`
+  // flags of a layout saved before freezing had one, so an existing user's
+  // frozen columns carry over.
+  const [frozenColumns, setFrozenColumns] = useState<string[]>(
+    () =>
+      savedPrefsRef.current?.frozenColumns ??
+      (savedPrefsRef.current?.columnState ?? [])
+        .filter((c) => c.pinned === "left" && c.colId)
+        .map((c) => c.colId),
+  );
   // Mirror of the latest columnState for the apply effect (which keys on
   // columnDefs, not columnState, to avoid re-applying on every capture).
   const columnStateRef = useRef(columnState);
@@ -500,8 +515,26 @@ export default function InventoryPage() {
   const applyColumnLayout = useCallback((layout: ColumnLayoutItem[] | null) => {
     restorePendingRef.current = true;
     setColumnState(layout ?? undefined);
+    // A view carries its freezes inside the layout's `pinned`; hand them to
+    // `frozenColumns`, which is what actually drives the grid.
+    setFrozenColumns(
+      (layout ?? []).filter((c) => c.pinned === "left" && c.colId).map((c) => c.colId),
+    );
     setLayoutNonce((n) => n + 1);
   }, []);
+
+  // --- Frozen (pinned) columns ----------------------------------------------
+  // Kept as their own list of colIds and stamped onto the column defs by
+  // `applyFrozen()`, rather than read back out of the layout snapshot above.
+  // The snapshot is the wrong owner: its restore stops re-applying the moment
+  // the user drags or resizes anything (`restorePendingRef`), so a freeze made
+  // after that was persisted but never restored on the next load. A colDef
+  // carries `pinned` from the first render, with no restore window to miss —
+  // the same shape every other grid uses.
+  const columnFreeze = useColumnFreeze(gridRef, {
+    frozen: frozenColumns,
+    onFrozenChange: setFrozenColumns,
+  });
 
   // --- Column filters (AG Grid filter model) --------------------------------
   // The grid's own column-filter model, persisted to localStorage and saved
@@ -728,11 +761,12 @@ export default function InventoryPage() {
       filters,
       columns: Array.from(selectedColumns),
       columnState,
+      frozenColumns,
       columnFilterModel,
       sortModel,
       coreTagsMerged: true,
     });
-  }, [filters, selectedColumns, sortModel, columnState, columnFilterModel]);
+  }, [filters, selectedColumns, sortModel, columnState, frozenColumns, columnFilterModel]);
 
   // Free-text search is debounced; every other filter stays instant. Typing
   // "SAP ERP" used to fire seven whole-repository requests, one per keystroke.
@@ -1214,8 +1248,20 @@ export default function InventoryPage() {
     exportCurrentViewToExcel(rows, columns, { sheetLabel });
   }, [typeConfig, typeLabel, t]);
 
-  // Stable AG Grid config objects — prevents unnecessary grid re-renders
-  const defaultColDef = useMemo(() => ({ sortable: true, filter: true, resizable: true, filterParams: { buttons: ["reset"] } }), []);
+  // Stable AG Grid config objects — prevents unnecessary grid re-renders.
+  // `columnFreeze.headerComponentParams` adds the freeze pin to every column
+  // header; the resulting pinned state rides along in the column layout that
+  // `captureColumnState` already persists (localStorage + saved views).
+  const defaultColDef = useMemo(
+    () => ({
+      sortable: true,
+      filter: true,
+      resizable: true,
+      filterParams: { buttons: ["reset"] },
+      headerComponentParams: columnFreeze.headerComponentParams,
+    }),
+    [columnFreeze.headerComponentParams],
+  );
   const rowSelection = useMemo(() => ({ mode: "multiRow" as const, enableClickSelection: false, headerCheckbox: true, selectAll: "filtered" as const }), []);
   const getRowId = useCallback((p: { data: Card }) => p.data.id, []);
   const getRowStyle = useCallback((p: { data?: Card }) => p.data?.status === "ARCHIVED" ? { opacity: 0.6 } : undefined, []);
@@ -2479,14 +2525,13 @@ export default function InventoryPage() {
       }
     );
 
-    return cols;
-  }, [types, typeConfig, commonFields, gridEditMode, relevantRelTypes, relTypeGroupMap, relationsMap, relationsLoading, selectedType, parentPaths, cardsById, parentNameOf, descendantIndex, filters.showArchived, selectedColumns, userNameMap, t, formatDate, formatDateTime, canViewCostsGlobally, canManageStakeholders, tagGroups, stakeholderRoles, typeLabel]);
+    return columnFreeze.applyFrozen(cols);
+  }, [columnFreeze, types, typeConfig, commonFields, gridEditMode, relevantRelTypes, relTypeGroupMap, relationsMap, relationsLoading, selectedType, parentPaths, cardsById, parentNameOf, descendantIndex, filters.showArchived, selectedColumns, userNameMap, t, formatDate, formatDateTime, canViewCostsGlobally, canManageStakeholders, tagGroups, stakeholderRoles, typeLabel]);
 
   // Restore the saved column layout (order/width/pinning/sort) onto the grid.
   // Keyed on `columnDefs` so it re-applies each time the column *set* changes —
   // crucially when attribute/relation columns arrive after the metamodel loads,
-  // which happens *after* the grid is ready. We strip `hide` so visibility keeps
-  // flowing from `selectedColumns`. `restorePendingRef` stops the restore once
+  // which happens *after* the grid is ready. `restorePendingRef` stops the restore once
   // the user manually rearranges; `applyingLayoutRef` guards against capturing
   // the events this apply fires. Without re-applying on columnDefs changes, a
   // one-shot restore at grid-ready loses the late-arriving columns' positions.
@@ -2496,7 +2541,11 @@ export default function InventoryPage() {
     if (!layout || layout.length === 0) return;
     const api = gridRef.current?.api;
     if (!api) return;
-    const state: ColumnState[] = layout.map(({ hide: _hide, ...rest }) => rest);
+    // `hide` and `pinned` are stripped: visibility flows from
+    // `selectedColumns` and freezing from `frozenColumns`, both via colDefs.
+    const state: ColumnState[] = layout.map(
+      ({ hide: _hide, pinned: _pinned, ...rest }) => rest,
+    );
     applyingLayoutRef.current = true;
     api.applyColumnState({ state, applyOrder: true });
     applyingLayoutRef.current = false;
@@ -2791,6 +2840,8 @@ export default function InventoryPage() {
             onSelectedColumnsChange={setSelectedColumns}
             defaultColumns={defaultColumns}
             onResetColumns={handleResetColumns}
+            frozenColumns={columnFreeze.frozenColumns}
+            onToggleFrozen={columnFreeze.toggleFrozen}
             columnState={columnState}
             onApplyColumnState={applyColumnLayout}
             onApplyColumnFilters={applyColumnFilters}
@@ -2818,6 +2869,8 @@ export default function InventoryPage() {
           onSelectedColumnsChange={setSelectedColumns}
           defaultColumns={defaultColumns}
           onResetColumns={handleResetColumns}
+          frozenColumns={columnFreeze.frozenColumns}
+          onToggleFrozen={columnFreeze.toggleFrozen}
           columnState={columnState}
           onApplyColumnState={applyColumnLayout}
           onApplyColumnFilters={applyColumnFilters}
@@ -3089,8 +3142,9 @@ export default function InventoryPage() {
 
         {/* AG Grid */}
         <Box
+          ref={columnFreeze.containerRef}
           className={mode === "dark" ? "ag-theme-quartz-dark" : "ag-theme-quartz"}
-          sx={{ flex: 1, width: "100%", minHeight: 0 }}
+          sx={{ flex: 1, width: "100%", minHeight: 0, ...columnFreeze.sx }}
         >
           <AgGridReact
             key={isRtl ? "rtl" : "ltr"}
@@ -3102,6 +3156,8 @@ export default function InventoryPage() {
             // looks settled while it is still showing the previous query's rows.
             loading={loading || searchPending}
             rowSelection={rowSelection}
+            // Keeps the checkbox column left of every frozen column.
+            selectionColumnDef={columnFreeze.selectionColumnDef}
             onSelectionChanged={handleSelectionChanged}
             onCellValueChanged={handleCellEdit}
             onRowClicked={onRowClicked}
