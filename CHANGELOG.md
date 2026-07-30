@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.37.0] - 2026-07-30
+
+### Security
+- **The published `backend` and `mcp-server` images no longer ship pip.** Neither container ever ran pip — the backend receives its packages at build time and the extension loader imports from disk — but pip carries an inventory of its own bundled dependencies that vulnerability scanners read, so security advisories against those bundled copies were being reported against Turbo EA images that could not execute the affected code. Removing pip retires that entire class of false report. Nothing in the product changes; `python -m ensurepip` restores pip inside a container if it is ever needed for debugging.
+
 ## [2.36.0] - 2026-07-29
 
 ### Added

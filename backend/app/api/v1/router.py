@@ -45,6 +45,7 @@ from app.api.v1 import (
     surveys,
     tags,
     todos,
+    transition_plans,
     turbolens,
     users,
     value_stream_catalogue,
@@ -96,6 +97,7 @@ api_router.include_router(ai_suggest.router)
 api_router.include_router(ppm.router)
 api_router.include_router(ppm_reports.router)
 api_router.include_router(adr.router)
+api_router.include_router(transition_plans.router)
 api_router.include_router(risks.router)
 api_router.include_router(risks.cards_risks_router)
 api_router.include_router(risk_mitigation_tasks.risks_router)

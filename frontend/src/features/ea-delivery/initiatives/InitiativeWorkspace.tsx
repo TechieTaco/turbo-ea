@@ -15,6 +15,7 @@ import DeliverableSection, {
 import NewArtefactSplitButton from "./NewArtefactSplitButton";
 import type {
   ArchitectureDecision,
+  TransitionPlan,
   DiagramSummary,
   SoAW,
 } from "@/types";
@@ -25,6 +26,7 @@ interface UnlinkedSelection {
   soaws: SoAW[];
   diagrams: DiagramSummary[];
   adrs: ArchitectureDecision[];
+  plans: TransitionPlan[];
 }
 
 interface InitiativeSelection {
@@ -41,6 +43,7 @@ interface Props {
   onLinkDiagrams: (initiativeId: string) => void;
   onUnlinkDiagram: (diagram: DiagramSummary, initiativeId: string) => void;
   onSoawContextMenu: (anchor: HTMLElement, soaw: SoAW) => void;
+  onPlanContextMenu: (anchor: HTMLElement, plan: TransitionPlan) => void;
   isFavorite: (id: string) => boolean;
   onToggleFavorite: (id: string) => void;
 }
@@ -58,6 +61,7 @@ export default function InitiativeWorkspace({
   onLinkDiagrams,
   onUnlinkDiagram,
   onSoawContextMenu,
+  onPlanContextMenu,
   isFavorite,
   onToggleFavorite,
 }: Props) {
@@ -86,6 +90,11 @@ export default function InitiativeWorkspace({
         />
         <DeliverableSection kind="diagram" items={selection.diagrams} />
         <DeliverableSection kind="adr" items={selection.adrs} />
+        <DeliverableSection
+          kind="plan"
+          items={selection.plans}
+          onPlanContextMenu={onPlanContextMenu}
+        />
       </Box>
     );
   }
@@ -98,6 +107,7 @@ export default function InitiativeWorkspace({
       onLinkDiagrams={onLinkDiagrams}
       onUnlinkDiagram={onUnlinkDiagram}
       onSoawContextMenu={onSoawContextMenu}
+      onPlanContextMenu={onPlanContextMenu}
       isFavorite={isFavorite}
       onToggleFavorite={onToggleFavorite}
     />
@@ -113,6 +123,7 @@ function InitiativeView({
   onLinkDiagrams,
   onUnlinkDiagram,
   onSoawContextMenu,
+  onPlanContextMenu,
   isFavorite,
   onToggleFavorite,
 }: {
@@ -122,13 +133,14 @@ function InitiativeView({
   onLinkDiagrams: (initiativeId: string) => void;
   onUnlinkDiagram: (diagram: DiagramSummary, initiativeId: string) => void;
   onSoawContextMenu: (anchor: HTMLElement, soaw: SoAW) => void;
+  onPlanContextMenu: (anchor: HTMLElement, plan: TransitionPlan) => void;
   isFavorite: (id: string) => boolean;
   onToggleFavorite: (id: string) => void;
 }) {
   const { t } = useTranslation(["delivery", "common"]);
   const [previewOpen, setPreviewOpen] = useState(false);
 
-  const { initiative, children, soaws, diagrams, adrs } = node;
+  const { initiative, children, soaws, diagrams, adrs, plans } = node;
   const attrs = (initiative.attributes ?? {}) as Record<string, unknown>;
   const initStatus = attrs.initiativeStatus as string | undefined;
   const isArchived = initiative.status === "ARCHIVED";
@@ -242,6 +254,13 @@ function InitiativeView({
           items={adrs}
           initiativeId={initiative.id}
           onAdd={onCreateArtefact}
+        />
+        <DeliverableSection
+          kind="plan"
+          items={plans}
+          initiativeId={initiative.id}
+          onAdd={onCreateArtefact}
+          onPlanContextMenu={onPlanContextMenu}
         />
       </Box>
 

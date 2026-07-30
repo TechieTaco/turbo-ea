@@ -62,6 +62,7 @@ from app.models.stakeholder_role_definition import StakeholderRoleDefinition
 from app.models.survey import Survey, SurveyResponse
 from app.models.tag import CardTag, Tag, TagGroup
 from app.models.todo import Todo
+from app.models.transition_plan import TransitionPlan
 from app.models.turbolens import (
     TurboLensAnalysisRun,
     TurboLensAssessment,
@@ -86,6 +87,7 @@ __all__ = [
     "TurboLensVendorHierarchy",
     "ArchitectureDecision",
     "ArchitectureDecisionCard",
+    "TransitionPlan",
     "Base",
     "FileAttachment",
     "User",
