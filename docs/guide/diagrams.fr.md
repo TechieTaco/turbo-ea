@@ -55,6 +55,8 @@ Chaque fiche synchronisée porte une petite pastille en chevron. Un clic ouvre u
 
 Les lignes avec un compteur à zéro sont grisées, et les voisins / enfants déjà présents sur le canevas sont automatiquement ignorés.
 
+Une fiche déployée affiche une pastille `−` pour la réduire. La réduction retire les fiches déployées du canevas : Turbo EA demande donc confirmation si vous en avez déplacé ou remis en forme une ; un nouveau déploiement les replace exactement où vous les aviez laissées.
+
 ### La hiérarchie sur le canevas
 
 Les conteneurs correspondent au `parent_id` d'une fiche :
@@ -85,6 +87,12 @@ Le menu déroulant **Vue** dans la barre d'outils recolore chaque fiche du canev
 
 Une légende flottante en bas à gauche du canevas affiche la correspondance active. La vue choisie est enregistrée avec le diagramme.
 
+### Masquer les libellés de relation
+
+Chaque lien de relation porte son verbe — *fournit*, *consomme*, *soutient*. Sur un paysage dense, cela devient vite plus du bruit que de l'information : le menu **⋮** propose donc **Masquer les libellés de relation** (et **Afficher** pour les rétablir).
+
+Il s'agit uniquement de l'affichage : la relation elle-même n'est pas modifiée, le masquage est donc réversible. Le réglage est enregistré avec le diagramme, de sorte que la visionneuse en lecture seule, tout diagramme publié et les exports PNG/SVG correspondent à ce que vous avez arrangé. Les liens tracés ensuite suivent le réglage courant. Les liens d'annotation que vous avez libellés vous-même ne sont pas touchés — seuls les liens de relation Turbo EA le sont.
+
 ### Tiroir de synchronisation
 
 Le bouton **Sync** de la barre d'outils ouvre le tiroir latéral avec tout ce qui est en file pour la prochaine synchronisation :
@@ -100,3 +108,33 @@ Le bouton Sync de la barre d'outils affiche une pastille pulsée « N non synchr
 ### Lier des diagrammes aux fiches
 
 Les diagrammes peuvent être liés à **n'importe quelle fiche** depuis l'onglet **Ressources** de la fiche (voir [Détail des fiches](card-details.fr.md#onglet-ressources)). Lorsqu'un diagramme est lié à une fiche **Initiative**, il apparaît également dans le module [EA Delivery](delivery.md) aux côtés des documents SoAW.
+
+## Partager un diagramme en dehors de Turbo EA
+
+Un diagramme peut être publié sous forme de **lien en lecture seule qui s'ouvre sans connexion**, afin d'être intégré dans une page de wiki telle que Confluence.
+
+Dans la galerie, ouvrez le menu **⋮** du diagramme et choisissez **Partager / intégrer…**. La publication requiert la permission *Publier des diagrammes*, distincte de celle permettant de les modifier : un administrateur l'accorde délibérément.
+
+La boîte de dialogue propose deux choix et deux chaînes à copier :
+
+- **Toute personne disposant du lien** — aucune connexion. Traitez le lien comme un mot de passe : toute personne à qui il est transféré peut voir le diagramme.
+- **Uniquement les personnes connectées** — les visiteurs s'authentifient auprès de votre fournisseur d'identité, éventuellement restreint à certains domaines de messagerie. Aucun compte Turbo EA n'est créé pour eux.
+
+La page publiée n'affiche que l'image. Elle permet le déplacement et le zoom, mais aucun accès aux détails des fiches, et les identifiants des fiches derrière les formes sont retirés avant que le diagramme ne quitte le serveur. Dépublier prend effet immédiatement, y compris pour les personnes en train de consulter. Republier ultérieurement restaure le même lien, de sorte que les URL déjà collées continuent de fonctionner.
+
+!!! warning "L'intégration nécessite une étape administrateur"
+    Par sécurité, aucun autre site web ne peut placer Turbo EA dans un cadre sans l'accord d'un administrateur. Définissez `TURBO_EA_EMBED_ALLOWED_ORIGINS` dans `.env` avec les sites autorisés à intégrer des diagrammes, puis redémarrez la pile :
+
+    ```dotenv
+    TURBO_EA_EMBED_ALLOWED_ORIGINS=https://votreentreprise.atlassian.net
+    ```
+
+    Tant que ce n'est pas fait, les liens publiés fonctionnent toujours lorsqu'ils sont ouverts directement — ils ne peuvent simplement pas être intégrés par un autre site.
+
+### Intégrer dans Confluence
+
+1. Publiez le diagramme et copiez le **code d'intégration** depuis la boîte de dialogue de partage.
+2. Demandez à un administrateur d'ajouter l'URL de base de votre Confluence à `TURBO_EA_EMBED_ALLOWED_ORIGINS`.
+3. Dans Confluence, insérez une macro **HTML** (ou *Iframe* / *HTML include*, selon ce que votre instance autorise) et collez le code d'intégration.
+
+Si votre Confluence n'autorise pas les macros HTML, collez plutôt le **lien** simple : il ouvre la même vue dans un nouvel onglet.

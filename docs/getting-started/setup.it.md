@@ -72,6 +72,13 @@ Poi `docker compose up -d` (se avete già avviato, consultate «Reimpostare e ri
 
 `SEED_DEMO=true` include già dati BPM e PPM — non è necessario impostare i flag di sottoinsieme separatamente.
 
+!!! note "I dati dimostrativi vengono caricati una sola volta"
+    Ogni seeder viene eseguito **una volta per installazione** e lo registra.
+    Eliminare un contenuto dimostrativo — un diagramma di esempio, un sondaggio
+    dimostrativo — è definitivo: non tornerà al riavvio successivo, anche se
+    `SEED_DEMO=true` è ancora impostato. Per riavere il set di dati dimostrativi,
+    reimposta il database (vedi *Reimpostare e ricaricare* più avanti).
+
 ### Account amministratore dimostrativo
 
 Quando i dati dimostrativi sono caricati, viene creato un account amministratore predefinito:
@@ -166,6 +173,18 @@ TLS_HOST_PORT=443
 Mettete `cert.pem` e `key.pem` in `./certs/` (la directory è montata in sola lettura nel contenitore nginx). L'immagine deriva `server_name` e lo schema inoltrato da `TURBO_EA_PUBLIC_URL`, serve sia HTTP che HTTPS, e reindirizza HTTP a HTTPS automaticamente.
 
 Per le configurazioni dietro a un reverse-proxy esistente (Caddy, Traefik, Cloudflare Tunnel), lasciate `TURBO_EA_TLS_ENABLED=false` e fate gestire TLS al proxy.
+
+## Consentire l'incorporamento dei diagrammi (opzionale)
+
+Un [diagramma pubblicato](../guide/diagrams.md) può essere incorporato in un altro sito — una pagina Confluence, un portale intranet — ma solo se indichi prima quel sito. Per impostazione predefinita nessun sito esterno può inserire Turbo EA in un frame.
+
+```dotenv
+TURBO_EA_EMBED_ALLOWED_ORIGINS=https://tuaazienda.atlassian.net
+```
+
+Separa più origini con virgole. Riavvia lo stack per applicare la modifica.
+
+Questo vale **solo** per le pagine dei diagrammi pubblicati. L'applicazione stessa — editor di diagrammi incluso — resta comunque non incorporabile, e i collegamenti pubblicati continuano a funzionare se aperti direttamente anche senza questa impostazione.
 
 ## Fissare una versione
 

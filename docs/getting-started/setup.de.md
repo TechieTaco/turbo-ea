@@ -72,6 +72,13 @@ Dann `docker compose up -d` (falls Sie bereits gestartet haben, siehe „Zurück
 
 `SEED_DEMO=true` enthält bereits BPM- und PPM-Daten — die Teilmengen-Flags müssen nicht zusätzlich gesetzt werden.
 
+!!! note "Demodaten werden einmalig eingespielt"
+    Jeder Seeder läuft **einmal pro Installation** und vermerkt dies. Das Löschen
+    von Demoinhalten — eines Beispieldiagramms, einer Demoumfrage — ist endgültig:
+    Sie kehren beim nächsten Neustart nicht zurück, auch wenn `SEED_DEMO=true`
+    weiterhin gesetzt ist. Um den Demodatensatz zurückzuholen, setzen Sie die
+    Datenbank zurück (siehe *Zurücksetzen und neu einspielen* weiter unten).
+
 ### Demo-Administratorkonto
 
 Beim Laden der Demodaten wird ein Standard-Adminkonto erstellt:
@@ -166,6 +173,18 @@ TLS_HOST_PORT=443
 Legen Sie `cert.pem` und `key.pem` in `./certs/` ab (das Verzeichnis wird schreibgeschützt in den Nginx-Container eingebunden). Das Image leitet `server_name` und das weitergeleitete Schema aus `TURBO_EA_PUBLIC_URL` ab, bedient HTTP und HTTPS und leitet HTTP automatisch auf HTTPS um.
 
 Für Setups hinter einem bestehenden Reverse-Proxy (Caddy, Traefik, Cloudflare Tunnel) lassen Sie `TURBO_EA_TLS_ENABLED=false` und überlassen die TLS-Terminierung dem Proxy.
+
+## Einbetten von Diagrammen erlauben (optional)
+
+Ein [veröffentlichtes Diagramm](../guide/diagrams.md) kann in eine andere Website eingebettet werden — eine Confluence-Seite, ein Intranet-Portal —, aber nur, wenn Sie diese Website zuvor benennen. Standardmäßig darf keine externe Website Turbo EA überhaupt in einen Frame einbetten.
+
+```dotenv
+TURBO_EA_EMBED_ALLOWED_ORIGINS=https://ihrunternehmen.atlassian.net
+```
+
+Mehrere Ursprünge durch Kommas trennen. Starten Sie den Stack neu, damit die Änderung wirksam wird.
+
+Dies gilt **nur** für die Seiten veröffentlichter Diagramme. Die Anwendung selbst — einschließlich des Diagramm-Editors — bleibt in jedem Fall nicht einbettbar, und veröffentlichte Links funktionieren auch ohne diese Einstellung weiterhin beim direkten Aufruf.
 
 ## Eine Version anpinnen
 

@@ -55,6 +55,8 @@ Ogni scheda sincronizzata porta un piccolo chevron. Un clic apre un menu con tre
 
 Le righe con contatore = 0 sono in grigio, e i vicini / figli già presenti sulla tela sono saltati automaticamente.
 
+Una scheda espansa mostra un'icona `−` per comprimerla di nuovo. La compressione rimuove le schede espanse dalla tela, quindi Turbo EA chiede conferma se ne hai spostata o riformattata qualcuna; espandendo di nuovo tornano esattamente dove le avevi lasciate.
+
 ### La gerarchia sulla tela
 
 I contenitori corrispondono al `parent_id` di una scheda:
@@ -85,6 +87,12 @@ Il menu a tendina **Vista** nella barra strumenti ricolora ogni scheda sulla tel
 
 Una legenda fluttuante in basso a sinistra mostra la mappatura attiva. La vista scelta viene salvata col diagramma.
 
+### Nascondere le etichette delle relazioni
+
+Ogni arco di relazione porta il proprio verbo — *fornisce*, *consuma*, *supporta*. In un panorama denso diventa presto più rumore che informazione, perciò il menu **⋮** offre **Nascondi le etichette delle relazioni** (e **Mostra** per riportarle).
+
+Riguarda solo la visualizzazione: la relazione in sé non viene toccata, quindi nascondere è reversibile. L'impostazione viene salvata con il diagramma, così il visualizzatore in sola lettura, qualsiasi diagramma pubblicato e le esportazioni PNG/SVG corrispondono a ciò che hai preparato. Gli archi disegnati in seguito seguono l'impostazione corrente. Gli archi di annotazione che hai etichettato tu restano intatti: sono interessati solo quelli di relazione di Turbo EA.
+
 ### Pannello Sync
 
 Il pulsante **Sync** della barra strumenti apre il pannello laterale con tutto ciò che è in coda per la prossima sincronizzazione:
@@ -100,3 +108,33 @@ Il pulsante Sync della barra strumenti mostra una pillola pulsante «N non sincr
 ### Collegare diagrammi alle schede
 
 I diagrammi possono essere collegati a **qualsiasi scheda** dalla scheda **Risorse** della scheda stessa (vedi [Dettaglio scheda](card-details.it.md#scheda-risorse)). Quando un diagramma è collegato a una scheda **Iniziativa**, appare anche nel modulo [EA Delivery](delivery.md) accanto ai documenti SoAW.
+
+## Condividere un diagramma fuori da Turbo EA
+
+Un diagramma può essere pubblicato come **collegamento in sola lettura che si apre senza accedere**, così da poter essere incorporato in una pagina wiki come Confluence.
+
+Apri il menu **⋮** del diagramma nella galleria e scegli **Condividi / incorpora…**. La pubblicazione richiede il permesso *Pubblicare diagrammi*, distinto da quello per modificarli: un amministratore lo concede deliberatamente.
+
+La finestra offre due scelte e due stringhe da copiare:
+
+- **Chiunque abbia il collegamento** — nessun accesso richiesto. Tratta il collegamento come una password: chiunque lo riceva può vedere il diagramma.
+- **Solo chi effettua l'accesso** — i visitatori si autenticano con il tuo provider di identità, eventualmente limitato a domini email specifici. Non viene creato alcun account Turbo EA per loro.
+
+La pagina pubblicata mostra solo l'immagine. È possibile spostarla e ingrandirla, ma non si accede ai dettagli delle schede, e gli identificatori delle schede dietro le forme vengono rimossi prima che il diagramma lasci il server. Annullare la pubblicazione ha effetto immediato, anche per chi lo sta guardando. Ripubblicandolo in seguito si ottiene lo stesso collegamento, quindi gli URL già incollati continuano a funzionare.
+
+!!! warning "L'incorporamento richiede un passaggio dell'amministratore"
+    Per sicurezza, nessun altro sito web può inserire Turbo EA in un frame senza l'autorizzazione di un amministratore. Imposta `TURBO_EA_EMBED_ALLOWED_ORIGINS` in `.env` con i siti autorizzati a incorporare i diagrammi e riavvia lo stack:
+
+    ```dotenv
+    TURBO_EA_EMBED_ALLOWED_ORIGINS=https://tuaazienda.atlassian.net
+    ```
+
+    Fino ad allora i collegamenti pubblicati funzionano comunque se aperti direttamente: semplicemente non possono essere incorporati da un altro sito.
+
+### Incorporare in Confluence
+
+1. Pubblica il diagramma e copia il **codice di incorporamento** dalla finestra di condivisione.
+2. Chiedi a un amministratore di aggiungere l'URL di base del tuo Confluence a `TURBO_EA_EMBED_ALLOWED_ORIGINS`.
+3. In Confluence inserisci una macro **HTML** (oppure *Iframe* / *HTML include*, a seconda di ciò che la tua istanza consente) e incolla il codice.
+
+Se il tuo Confluence non consente le macro HTML, incolla invece il **collegamento** semplice: apre la stessa vista in una nuova scheda.

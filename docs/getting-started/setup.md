@@ -72,6 +72,12 @@ Then `docker compose up -d` (if you've already started, see "Reset and re-seed" 
 
 `SEED_DEMO=true` already includes BPM and PPM data — you do not need to set the subset flags separately.
 
+!!! note "Demo data is seeded once"
+    Each seeder runs **once per install** and records that it has. Deleting demo
+    content — an example diagram, a demo survey — is permanent: it will not come
+    back on the next restart, even with `SEED_DEMO=true` still set. To get the
+    demo dataset back, reset the database (see *Reset and re-seed* below).
+
 ### Demo admin account
 
 When demo data is loaded, a default admin account is created:
@@ -166,6 +172,18 @@ TLS_HOST_PORT=443
 Place `cert.pem` and `key.pem` in `./certs/` (the directory is mounted read-only into the nginx container). The image derives `server_name` and the forwarded scheme from `TURBO_EA_PUBLIC_URL`, serves both HTTP and HTTPS, and redirects HTTP to HTTPS automatically.
 
 For setups behind an existing reverse proxy (Caddy, Traefik, Cloudflare Tunnel), leave `TURBO_EA_TLS_ENABLED=false` and let the proxy handle TLS.
+
+## Allowing diagram embedding (optional)
+
+A [published diagram](../guide/diagrams.md#sharing-a-diagram-outside-turbo-ea) can be embedded in another site — a Confluence page, an intranet portal — but only if you name that site first. By default no external site may place Turbo EA in a frame at all.
+
+```dotenv
+TURBO_EA_EMBED_ALLOWED_ORIGINS=https://yourcompany.atlassian.net
+```
+
+Comma-separate several origins. Restart the stack for the change to take effect.
+
+This applies **only** to the published-diagram pages. The application itself — including the diagram editor — stays un-framable regardless, and published links keep working when opened directly even with this unset.
 
 ## Pinning a version
 

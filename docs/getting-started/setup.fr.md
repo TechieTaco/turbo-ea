@@ -72,6 +72,14 @@ Puis `docker compose up -d` (si vous avez déjà démarré, consultez « Réinit
 
 `SEED_DEMO=true` inclut déjà les données BPM et PPM — pas besoin de définir les flags de sous-ensemble séparément.
 
+!!! note "Les données de démonstration ne sont chargées qu'une fois"
+    Chaque chargeur s'exécute **une seule fois par installation** et le consigne.
+    Supprimer un contenu de démonstration — un diagramme d'exemple, une enquête de
+    démonstration — est définitif : il ne reviendra pas au prochain redémarrage,
+    même si `SEED_DEMO=true` est toujours défini. Pour retrouver le jeu de données
+    de démonstration, réinitialisez la base (voir *Réinitialiser et recharger*
+    ci-dessous).
+
 ### Compte administrateur de démonstration
 
 Lorsque les données de démonstration sont chargées, un compte administrateur par défaut est créé :
@@ -166,6 +174,18 @@ TLS_HOST_PORT=443
 Placez `cert.pem` et `key.pem` dans `./certs/` (le répertoire est monté en lecture seule dans le conteneur nginx). L'image dérive `server_name` et le schéma transféré de `TURBO_EA_PUBLIC_URL`, sert HTTP et HTTPS, et redirige HTTP vers HTTPS automatiquement.
 
 Pour les déploiements derrière un reverse-proxy existant (Caddy, Traefik, Cloudflare Tunnel), laissez `TURBO_EA_TLS_ENABLED=false` et laissez le proxy gérer TLS.
+
+## Autoriser l'intégration de diagrammes (optionnel)
+
+Un [diagramme publié](../guide/diagrams.md) peut être intégré dans un autre site — une page Confluence, un portail intranet — mais uniquement si vous désignez ce site au préalable. Par défaut, aucun site externe ne peut placer Turbo EA dans un cadre.
+
+```dotenv
+TURBO_EA_EMBED_ALLOWED_ORIGINS=https://votreentreprise.atlassian.net
+```
+
+Séparez plusieurs origines par des virgules. Redémarrez la pile pour appliquer le changement.
+
+Cela s'applique **uniquement** aux pages de diagrammes publiés. L'application elle-même — y compris l'éditeur de diagrammes — reste non intégrable dans tous les cas, et les liens publiés continuent de fonctionner à l'ouverture directe même sans ce paramètre.
 
 ## Épingler une version
 

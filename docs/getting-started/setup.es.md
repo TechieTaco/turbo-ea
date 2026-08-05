@@ -72,6 +72,14 @@ Luego `docker compose up -d` (si ya ha arrancado, consulte «Restablecer y volve
 
 `SEED_DEMO=true` ya incluye datos BPM y PPM — no es necesario establecer los flags de subconjunto por separado.
 
+!!! note "Los datos de demostración se cargan una sola vez"
+    Cada cargador se ejecuta **una vez por instalación** y lo registra. Eliminar
+    contenido de demostración — un diagrama de ejemplo, una encuesta de
+    demostración — es definitivo: no volverá en el siguiente reinicio, aunque
+    `SEED_DEMO=true` siga definido. Para recuperar el conjunto de datos de
+    demostración, restablece la base de datos (consulta *Restablecer y recargar*
+    más abajo).
+
 ### Cuenta de administrador de demostración
 
 Cuando se cargan los datos de demostración, se crea una cuenta de administrador predeterminada:
@@ -166,6 +174,18 @@ TLS_HOST_PORT=443
 Coloque `cert.pem` y `key.pem` en `./certs/` (el directorio se monta en modo solo lectura dentro del contenedor de nginx). La imagen deriva `server_name` y el esquema reenviado de `TURBO_EA_PUBLIC_URL`, sirve HTTP y HTTPS, y redirige HTTP a HTTPS automáticamente.
 
 Para configuraciones detrás de un proxy inverso existente (Caddy, Traefik, Cloudflare Tunnel), deje `TURBO_EA_TLS_ENABLED=false` y deje que el proxy gestione TLS.
+
+## Permitir la inserción de diagramas (opcional)
+
+Un [diagrama publicado](../guide/diagrams.md) puede insertarse en otro sitio — una página de Confluence, un portal de intranet — pero solo si indicas antes ese sitio. De forma predeterminada, ningún sitio externo puede colocar Turbo EA en un marco.
+
+```dotenv
+TURBO_EA_EMBED_ALLOWED_ORIGINS=https://tuempresa.atlassian.net
+```
+
+Separa varios orígenes con comas. Reinicia la pila para que el cambio surta efecto.
+
+Esto se aplica **solo** a las páginas de diagramas publicados. La aplicación en sí — incluido el editor de diagramas — no puede insertarse en ningún caso, y los enlaces publicados siguen funcionando al abrirlos directamente aunque no configures esto.
 
 ## Anclar una versión
 

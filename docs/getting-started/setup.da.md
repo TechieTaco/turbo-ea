@@ -72,6 +72,13 @@ Kør derefter `docker compose up -d` (hvis du allerede er startet, se "Nulstil o
 
 `SEED_DEMO=true` inkluderer allerede BPM- og PPM-data — du behøver ikke angive delmængde-flagene separat.
 
+!!! note "Demodata indlæses kun én gang"
+    Hver seeder kører **én gang pr. installation** og registrerer det. Sletter du
+    demoindhold — et eksempeldiagram, en demoundersøgelse — er det permanent: det
+    kommer ikke tilbage ved næste genstart, heller ikke selvom `SEED_DEMO=true`
+    stadig er sat. Nulstil databasen for at få demodatasættet tilbage (se
+    *Nulstil og genindlæs* nedenfor).
+
 ### Demoadministratorkonto
 
 Når demodata indlæses, oprettes en standardadministratorkonto:
@@ -166,6 +173,18 @@ TLS_HOST_PORT=443
 Placér `cert.pem` og `key.pem` i `./certs/` (mappen monteres skrivebeskyttet i nginx-containeren). Image'et udleder `server_name` og det forwardede skema fra `TURBO_EA_PUBLIC_URL`, serverer både HTTP og HTTPS og omdirigerer HTTP til HTTPS automatisk.
 
 For opsætninger bag en eksisterende reverse proxy (Caddy, Traefik, Cloudflare Tunnel), lad `TURBO_EA_TLS_ENABLED=false` stå, og lad proxyen håndtere TLS.
+
+## Tillad indlejring af diagrammer (valgfrit)
+
+Et [udgivet diagram](../guide/diagrams.md) kan indlejres på et andet websted — en Confluence-side, en intranetportal — men kun hvis du navngiver det websted først. Som standard må intet eksternt websted overhovedet placere Turbo EA i en ramme.
+
+```dotenv
+TURBO_EA_EMBED_ALLOWED_ORIGINS=https://dinvirksomhed.atlassian.net
+```
+
+Adskil flere oprindelser med komma. Genstart stakken, for at ændringen træder i kraft.
+
+Dette gælder **kun** siderne med udgivne diagrammer. Selve applikationen — inklusive diagrameditoren — kan under alle omstændigheder ikke indlejres, og udgivne links virker fortsat, når de åbnes direkte, også uden denne indstilling.
 
 ## Fastlås en version
 

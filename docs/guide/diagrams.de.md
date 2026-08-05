@@ -55,6 +55,8 @@ Jede synchronisierte Karte trägt ein kleines Chevron-Overlay. Ein Klick öffnet
 
 Zeilen mit Zähler = 0 sind ausgegraut, und Nachbarn oder Kinder, die bereits auf der Leinwand sind, werden automatisch übersprungen.
 
+Eine ausgeklappte Karte zeigt ein `−`-Symbol zum erneuten Einklappen. Beim Einklappen werden die ausgeklappten Karten von der Leinwand entfernt — Turbo EA fragt daher vorher nach, wenn Sie eine davon verschoben oder umgestaltet haben; beim erneuten Ausklappen erscheinen sie genau dort wieder, wo Sie sie gelassen haben.
+
 ### Hierarchie auf der Leinwand
 
 Container entsprechen der `parent_id` einer Karte:
@@ -85,6 +87,12 @@ Das Dropdown **Ansicht** in der Symbolleiste färbt jede Karte auf der Leinwand 
 
 Eine schwebende Legende unten links auf der Leinwand zeigt die aktive Zuordnung. Die gewählte Ansicht wird mit dem Diagramm gespeichert.
 
+### Beziehungsbeschriftungen ausblenden
+
+Jede Beziehungskante trägt ihr Verb — *stellt bereit*, *nutzt*, *unterstützt*. In einer dichten Landschaft wird das schnell mehr Rauschen als Information, daher bietet das Überlaufmenü **⋮** die Option **Beziehungsbeschriftungen ausblenden** (und **einblenden**, um sie zurückzuholen).
+
+Das betrifft nur die Anzeige: Die Beziehung selbst bleibt unverändert, das Ausblenden ist also jederzeit rückgängig zu machen. Die Einstellung wird mit dem Diagramm gespeichert, sodass der schreibgeschützte Viewer, jedes veröffentlichte Diagramm sowie PNG-/SVG-Exporte genau dem entsprechen, was Sie eingerichtet haben. Danach gezeichnete Kanten folgen der aktuellen Einstellung. Selbst beschriftete Anmerkungskanten bleiben unberührt — betroffen sind nur Turbo-EA-Beziehungskanten.
+
 ### Sync-Drawer
 
 Die **Sync**-Schaltfläche in der Symbolleiste öffnet den Seiten-Drawer mit allem, was für die nächste Synchronisierung in der Warteschlange steht:
@@ -100,3 +108,33 @@ Die Sync-Schaltfläche der Symbolleiste zeigt eine pulsierende «N unsynchron»-
 ### Diagramme mit Karten verknüpfen
 
 Diagramme können von der Registerkarte **Ressourcen** einer Karte aus mit **jeder beliebigen Karte** verknüpft werden (siehe [Karten-Details](card-details.de.md#registerkarte-ressourcen)). Wenn ein Diagramm mit einer **Initiative**-Karte verknüpft ist, erscheint es auch im Modul [EA Delivery](delivery.md) zusammen mit SoAW-Dokumenten.
+
+## Ein Diagramm außerhalb von Turbo EA teilen
+
+Ein Diagramm kann als **schreibgeschützter Link veröffentlicht werden, der sich ohne Anmeldung öffnet** — so lässt es sich in eine Wiki-Seite wie Confluence einbetten.
+
+Öffnen Sie in der Galerie das **⋮**-Menü des Diagramms und wählen Sie **Teilen / einbetten…**. Das Veröffentlichen erfordert die Berechtigung *Diagramme veröffentlichen*, die getrennt von der Bearbeitungsberechtigung vergeben wird — eine Administratorin erteilt sie bewusst.
+
+Der Dialog bietet zwei Optionen und zwei Zeichenfolgen zum Kopieren:
+
+- **Jeder mit dem Link** — keine Anmeldung. Behandeln Sie den Link wie ein Passwort: Wer ihn weitergeleitet bekommt, kann das Diagramm sehen.
+- **Nur angemeldete Personen** — Besucher authentifizieren sich über Ihren Identitätsanbieter, optional beschränkt auf bestimmte E-Mail-Domains. Es wird kein Turbo-EA-Konto für sie angelegt.
+
+Die veröffentlichte Seite zeigt nur das Bild. Sie lässt sich verschieben und zoomen, es gibt jedoch keinen Absprung zu Kartendetails, und die Kartenkennungen hinter den Formen werden entfernt, bevor das Diagramm den Server verlässt. Das Deaktivieren der Veröffentlichung wirkt sofort, auch für Personen, die gerade zusehen. Ein späteres erneutes Veröffentlichen stellt denselben Link wieder her, sodass bereits eingefügte URLs weiter funktionieren.
+
+!!! warning "Für das Einbetten ist ein Administrationsschritt nötig"
+    Aus Sicherheitsgründen darf keine andere Website Turbo EA in einen Frame einbetten, sofern eine Administratorin es nicht erlaubt. Setzen Sie `TURBO_EA_EMBED_ALLOWED_ORIGINS` in `.env` auf die Websites, die Diagramme einbetten dürfen, und starten Sie den Stack neu:
+
+    ```dotenv
+    TURBO_EA_EMBED_ALLOWED_ORIGINS=https://ihrunternehmen.atlassian.net
+    ```
+
+    Bis dahin funktionieren veröffentlichte Links weiterhin beim direkten Aufruf — sie können lediglich nicht von einer anderen Website eingebettet werden.
+
+### In Confluence einbetten
+
+1. Veröffentlichen Sie das Diagramm und kopieren Sie den **Einbettungscode** aus dem Teilen-Dialog.
+2. Bitten Sie eine Administratorin, Ihre Confluence-Basis-URL zu `TURBO_EA_EMBED_ALLOWED_ORIGINS` hinzuzufügen.
+3. Fügen Sie in Confluence ein **HTML**-Makro ein (oder *Iframe* / *HTML include*, je nachdem, was Ihre Instanz zulässt) und setzen Sie den Einbettungscode ein.
+
+Erlaubt Ihr Confluence keine HTML-Makros, fügen Sie stattdessen den einfachen **Link** ein — er öffnet dieselbe Ansicht in einem neuen Tab.

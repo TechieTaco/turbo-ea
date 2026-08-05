@@ -44,6 +44,30 @@ function darken(hex: string, factor = 0.25): string {
 }
 
 /**
+ * Style keys stamped onto a cell when a view recolours it, recording the fill
+ * and stroke the cell carried beforehand so the view can be undone without
+ * destroying a colour the user chose. Plain mxGraph style parts — the values
+ * are hex colours (or the `-` sentinel), so they carry no `;`/`=` and survive
+ * the `;`-delimited style parser.
+ */
+const BASE_FILL_KEY = "turboBaseFill";
+const BASE_STROKE_KEY = "turboBaseStroke";
+/** Sentinel recorded when the cell had no explicit value for that style key. */
+const NO_STYLE_VALUE = "-";
+
+/** mxGraph suppresses a cell's label when its style carries this part. The
+ *  label *value* is left untouched — hiding is a display decision, and the
+ *  relation verb is still needed by the sync side-table and by anyone who
+ *  turns the labels back on. */
+const NO_LABEL_PART = "noLabel=1";
+
+/** Read the value of a `key=value` mxGraph style part, or null when absent. */
+function readStylePart(parts: string[], key: string): string | null {
+  const hit = parts.find((p) => p.startsWith(`${key}=`));
+  return hit ? hit.slice(key.length + 1) : null;
+}
+
+/**
  * Build an SVG data-URI for a card-type icon (white glyph), or null when the
  * icon name isn't in the bundled set. We ship real vector paths (see
  * iconPaths.ts) rather than the Material Symbols font because font glyphs can't
@@ -350,6 +374,7 @@ export function stampEdgeAsRelation(
   relationLabel: string,
   color: string,
   pending: boolean,
+  hideLabel = false,
 ): boolean {
   const ctx = getMxGraph(iframe);
   if (!ctx) return false;
@@ -370,9 +395,13 @@ export function stampEdgeAsRelation(
     model.setValue(edge, obj);
 
     const dash = pending ? "dashed=1;dashPattern=5 3;" : "";
+    // This rebuilds the style from scratch, so it has to re-apply the
+    // diagram's label setting — otherwise a freshly drawn edge shows its verb
+    // while every other edge on the canvas is hidden.
+    const hide = hideLabel ? `${NO_LABEL_PART};` : "";
     const style =
       `edgeStyle=entityRelationEdgeStyle;strokeColor=${color};strokeWidth=1.5;` +
-      `endArrow=none;startArrow=none;fontSize=10;fontColor=#666;${dash}`;
+      `endArrow=none;startArrow=none;fontSize=10;fontColor=#666;${dash}${hide}`;
     graph.setCellStyles("edgeStyle", "entityRelationEdgeStyle", [edge]);
     model.setStyle(edge, style);
   } finally {
@@ -426,6 +455,7 @@ export function markEdgeSynced(
   edgeCellId: string,
   color: string,
   relationId?: string,
+  hideLabel = false,
 ): boolean {
   const ctx = getMxGraph(iframe);
   if (!ctx) return false;
@@ -440,9 +470,11 @@ export function markEdgeSynced(
     const obj = edge.value;
     if (obj?.removeAttribute) obj.removeAttribute("pending");
     if (relationId && obj?.setAttribute) obj.setAttribute("relationId", relationId);
+    // Rebuilt from scratch here too — carry the label setting across.
     const style =
       `edgeStyle=entityRelationEdgeStyle;strokeColor=${color};strokeWidth=1.5;` +
-      `endArrow=none;startArrow=none;fontSize=10;fontColor=#666;`;
+      `endArrow=none;startArrow=none;fontSize=10;fontColor=#666;` +
+      (hideLabel ? `${NO_LABEL_PART};` : "");
     model.setStyle(edge, style);
   } finally {
     model.endUpdate();
@@ -631,6 +663,19 @@ function getMxGraph(iframe: HTMLIFrameElement): { win: any; graph: any } | null 
   }
 }
 
+/**
+ * A child cell's on-canvas placement and styling, captured at collapse time by
+ * {@link captureGroupChildLayout} so re-expanding restores the user's own
+ * arrangement instead of recomputing the default stack (discussion #905).
+ */
+export interface ChildLayout {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  style: string;
+}
+
 export interface ExpandChildData {
   id: string;
   name: string;
@@ -642,6 +687,48 @@ export interface ExpandChildData {
   /** Backend relation id, when known. Stamped onto the connecting edge so
    *  canvas deletions can fire `DELETE /relations/{id}`. */
   relationId?: string;
+  /** Placement to restore instead of the computed default, when this child has
+   *  been expanded and collapsed before and the user had moved or restyled it. */
+  layout?: ChildLayout;
+}
+
+/**
+ * Snapshot every expanded child's geometry + style, keyed by card id.
+ *
+ * Collapse removes the child cells outright, so without this the user's manual
+ * positioning and formatting is destroyed the moment they click the `−` overlay.
+ * Call it immediately BEFORE `collapseCardGroup` and merge the result into the
+ * expand cache.
+ */
+export function captureGroupChildLayout(
+  iframe: HTMLIFrameElement,
+  parentCellId: string,
+): Map<string, ChildLayout> {
+  const out = new Map<string, ChildLayout>();
+  const ctx = getMxGraph(iframe);
+  if (!ctx) return out;
+  const { graph } = ctx;
+  const model = graph.getModel();
+  const cells = model.cells || {};
+
+  for (const k of Object.keys(cells)) {
+    const cell = cells[k];
+    if (!cell?.value?.getAttribute) continue;
+    if (cell.edge) continue;
+    if (cell.value.getAttribute("parentGroupCell") !== parentCellId) continue;
+    const cardId = cell.value.getAttribute("cardId");
+    if (!cardId) continue;
+    const geo = graph.getCellGeometry(cell);
+    if (!geo) continue;
+    out.set(cardId, {
+      x: geo.x,
+      y: geo.y,
+      width: geo.width,
+      height: geo.height,
+      style: (model.getStyle(cell) || "") as string,
+    });
+  }
+  return out;
 }
 
 /**
@@ -750,8 +837,15 @@ export function expandCardGroup(
       obj.setAttribute("cardType", ch.type);
       obj.setAttribute("parentGroupCell", parentCellId);
 
+      // Restore the user's own placement/styling when we have one (see
+      // captureGroupChildLayout); fall back to the computed stack otherwise.
       const vertex = graph.insertVertex(
-        root, cid, obj, startX, startY + yOff, CHILD_CARD_W, CHILD_CARD_H, style,
+        root, cid, obj,
+        ch.layout?.x ?? startX,
+        ch.layout?.y ?? startY + yOff,
+        ch.layout?.width ?? CHILD_CARD_W,
+        ch.layout?.height ?? CHILD_CARD_H,
+        ch.layout?.style || style,
       );
 
       // Stamp the connecting edge with the backend relation id (when known)
@@ -2744,15 +2838,17 @@ function insertChildVertex(
   obj.setAttribute("cardType", ch.type);
   obj.setAttribute("parentGroupCell", parentCellId);
 
+  // A child that was previously expanded, arranged by the user, then collapsed
+  // comes back exactly where and how they left it.
   const vertex = graph.insertVertex(
     root,
     cid,
     obj,
-    x,
-    y,
-    CHILD_CARD_W,
-    CHILD_CARD_H,
-    style,
+    ch.layout?.x ?? x,
+    ch.layout?.y ?? y,
+    ch.layout?.width ?? CHILD_CARD_W,
+    ch.layout?.height ?? CHILD_CARD_H,
+    ch.layout?.style || style,
   );
   // Stamp the edge with relationId both on the XML user-object (so saves
   // serialise correctly) and via the returned info so the editor's
@@ -3202,10 +3298,21 @@ export function applyViewToGraph(
       const color = colorByCardId.get(cardId) || defaultColor;
       const stroke = darken(color);
       const styleStr = (model.getStyle(cell) || "") as string;
-      const next = styleStr
-        .split(";")
-        .filter(Boolean)
+      const parts = styleStr.split(";").filter(Boolean);
+      // Remember what the cell looked like BEFORE the view took it over, once.
+      // `resetViewColors` restores from this stamp, which is what makes a view
+      // reversible and — crucially — lets it tell its own colours apart from a
+      // fill the user set by hand (discussion #905).
+      const stamped = parts.some((p) => p.startsWith(`${BASE_FILL_KEY}=`));
+      const baseStamps = stamped
+        ? []
+        : [
+            `${BASE_FILL_KEY}=${readStylePart(parts, "fillColor") ?? NO_STYLE_VALUE}`,
+            `${BASE_STROKE_KEY}=${readStylePart(parts, "strokeColor") ?? NO_STYLE_VALUE}`,
+          ];
+      const next = parts
         .filter((p) => !p.startsWith("fillColor=") && !p.startsWith("strokeColor="))
+        .concat(baseStamps)
         .concat([`fillColor=${color}`, `strokeColor=${stroke}`])
         .join(";");
       model.setStyle(cell, next);
@@ -3218,8 +3325,74 @@ export function applyViewToGraph(
 }
 
 /**
- * Restore each synced cell's style to its card-type color. Called when the
- * user switches the view back to "Card colors".
+ * Show or hide the relation verb ("provides", "consumes", …) on every Turbo EA
+ * relation edge on the canvas.
+ *
+ * Dense landscape diagrams carry one predicate per edge, and past a certain
+ * size that is noise rather than information — so this is a display switch,
+ * not an edit: the label *value* stays on the cell and only mxGraph's
+ * `noLabel` style part is toggled. Because that part is serialised with the
+ * diagram XML, the read-only viewer, a published (embedded) diagram and PNG /
+ * SVG exports all inherit the setting for free.
+ *
+ * Scoped deliberately to edges carrying a `relationType`: a plain annotation
+ * edge that the architect labelled by hand is theirs, not ours, and keeps its
+ * text. Returns how many edges actually changed.
+ */
+export function setRelationLabelsHidden(
+  iframe: HTMLIFrameElement,
+  hidden: boolean,
+): number {
+  const ctx = getMxGraph(iframe);
+  if (!ctx) return 0;
+  const { graph } = ctx;
+  const model = graph.getModel();
+  const cells = model.cells || {};
+
+  let touched = 0;
+  model.beginUpdate();
+  try {
+    for (const k of Object.keys(cells)) {
+      const cell = cells[k];
+      if (!cell?.edge) continue;
+      if (!cell.value?.getAttribute) continue;
+      if (!cell.value.getAttribute("relationType")) continue;
+
+      const styleStr = (model.getStyle(cell) || "") as string;
+      const parts = styleStr.split(";").filter(Boolean);
+      const isHidden = parts.includes(NO_LABEL_PART);
+      // Already in the requested state — leave the style byte-identical rather
+      // than rewriting it, so a no-op toggle never dirties the diagram.
+      if (isHidden === hidden) continue;
+
+      const next = (
+        hidden
+          ? [...parts, NO_LABEL_PART]
+          : parts.filter((part) => part !== NO_LABEL_PART)
+      ).join(";");
+      model.setStyle(cell, next);
+      touched += 1;
+    }
+  } finally {
+    model.endUpdate();
+  }
+  return touched;
+}
+
+/**
+ * Undo an active view, restoring each cell to the colours it carried before the
+ * view recoloured it. Called when the user switches back to "Card colors".
+ *
+ * Only cells the view actually took over are touched — they carry the
+ * `turboBaseFill` / `turboBaseStroke` stamp written by {@link applyViewToGraph}.
+ * A cell without the stamp is left exactly as it is, which is what preserves a
+ * fill the user set by hand. Rewriting *every* card cell to its card-type
+ * colour (the old behaviour) silently wiped manual formatting on every save,
+ * because saving re-runs the view (discussion #905).
+ *
+ * `colorByType` / `fallback` remain the restore target for a stamped cell whose
+ * recorded base fill was empty — a cell that had no explicit fill before the
+ * view claimed it falls back to its card-type colour rather than to nothing.
  */
 export function resetViewColors(
   iframe: HTMLIFrameElement,
@@ -3240,14 +3413,27 @@ export function resetViewColors(
       if (cell.edge) continue;
       const cardId = cell.value.getAttribute("cardId");
       if (!cardId) continue;
-      const cardType = cell.value.getAttribute("cardType") || "";
-      const color = colorByType.get(cardType) || fallback;
-      const stroke = darken(color);
       const styleStr = (model.getStyle(cell) || "") as string;
-      const next = styleStr
-        .split(";")
-        .filter(Boolean)
-        .filter((p) => !p.startsWith("fillColor=") && !p.startsWith("strokeColor="))
+      const parts = styleStr.split(";").filter(Boolean);
+      const baseFill = readStylePart(parts, BASE_FILL_KEY);
+      // No stamp ⇒ this cell was never view-managed. Hands off.
+      if (baseFill == null) continue;
+      const baseStroke = readStylePart(parts, BASE_STROKE_KEY);
+
+      const cardType = cell.value.getAttribute("cardType") || "";
+      const typeColor = colorByType.get(cardType) || fallback;
+      const color = baseFill === NO_STYLE_VALUE ? typeColor : baseFill;
+      const stroke =
+        baseStroke == null || baseStroke === NO_STYLE_VALUE ? darken(color) : baseStroke;
+
+      const next = parts
+        .filter(
+          (p) =>
+            !p.startsWith("fillColor=") &&
+            !p.startsWith("strokeColor=") &&
+            !p.startsWith(`${BASE_FILL_KEY}=`) &&
+            !p.startsWith(`${BASE_STROKE_KEY}=`),
+        )
         .concat([`fillColor=${color}`, `strokeColor=${stroke}`])
         .join(";");
       model.setStyle(cell, next);

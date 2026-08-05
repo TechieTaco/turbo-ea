@@ -72,6 +72,11 @@ SEED_DEMO=true
 
 `SEED_DEMO=true` 已经包含 BPM 和 PPM 数据 — 您不需要单独设置子集标志。
 
+!!! note "演示数据只加载一次"
+    每个加载器**每次安装只运行一次**并记录该状态。删除演示内容（示例图表、演示问卷）
+    是永久性的：即使仍然设置了 `SEED_DEMO=true`，下次重启也不会恢复。若要重新获取
+    演示数据集，请重置数据库（参见下文的「重置并重新加载」）。
+
 ### 演示管理员账户
 
 加载演示数据时，会创建一个默认管理员账户：
@@ -166,6 +171,18 @@ TLS_HOST_PORT=443
 将 `cert.pem` 和 `key.pem` 放在 `./certs/` 中（该目录以只读方式挂载到 nginx 容器）。镜像从 `TURBO_EA_PUBLIC_URL` 派生 `server_name` 和转发的协议，同时提供 HTTP 和 HTTPS，并自动将 HTTP 重定向到 HTTPS。
 
 对于位于现有反向代理（Caddy、Traefik、Cloudflare Tunnel）后的设置，保持 `TURBO_EA_TLS_ENABLED=false`，让代理处理 TLS。
+
+## 允许嵌入图表（可选）
+
+[已发布的图表](../guide/diagrams.md)可以嵌入到其他站点，例如 Confluence 页面或内网门户，但前提是你先指定该站点。默认情况下，任何外部站点都不能将 Turbo EA 放入框架中。
+
+```dotenv
+TURBO_EA_EMBED_ALLOWED_ORIGINS=https://yourcompany.atlassian.net
+```
+
+多个来源用逗号分隔。重启服务后更改才会生效。
+
+该设置**仅**适用于已发布图表的页面。应用本身（包括图表编辑器）在任何情况下都不可被嵌入；即使不设置该项，已发布链接直接打开时依然可用。
 
 ## 锁定版本
 
