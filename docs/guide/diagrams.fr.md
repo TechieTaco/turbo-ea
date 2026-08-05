@@ -87,6 +87,27 @@ Le menu déroulant **Vue** dans la barre d'outils recolore chaque fiche du canev
 
 Une légende flottante en bas à gauche du canevas affiche la correspondance active. La vue choisie est enregistrée avec le diagramme.
 
+### Comment les arêtes de relation sont dessinées
+
+Toute relation Turbo EA a la même apparence sur le canevas, quelle que soit la façon dont elle y est arrivée — tracée à la main avec le sélecteur de relation, ou ramenée de l'inventaire avec **+** / le menu d'expansion :
+
+- **Une seule ligne gris foncé neutre**, et non la couleur de la fiche à l'autre extrémité. Une arête *est* une relation ; la teinter par type de fiche ne fait que répéter ce que le nœud indique déjà.
+- **Une pointe de flèche du côté cible**, pour que la direction se lise d'un coup d'œil sans lire le verbe. Ramenez une relation qui pointe *vers* la fiche développée et la pointe se place à l'autre extrémité.
+- **Le verbe se lit dans le sens de la flèche.** La pointe marquant la cible de la relation, le libellé complète toujours la phrase *départ → verbe → arrivée*. Un lien se lit donc de la même façon quelle que soit la fiche développée : développez une Organisation et vous voyez *utilise* ; développez l'une de ses Applications et les organisations qui remontent affichent toujours *utilise*, la flèche pointant dans l'autre sens.
+- **Une ligne pointillée** tant que la relation est en attente ; elle devient pleine une fois poussée dans l'inventaire.
+
+#### Fournisseur et consommateur
+
+Certaines relations portent un **sens de flux** — au premier chef le lien entre une Application et une Interface, où une application *fournit* l'interface et d'autres la *consomment*. Renseignez-le dans la boîte de dialogue de relation au moment du tracé (ou depuis la section Relations de la fiche ensuite), et la pointe de flèche suit alors les données plutôt que la relation :
+
+| Sens de flux | Pointe de flèche |
+|---|---|
+| **Fournisseur** (source → cible) | pointe vers l'Interface |
+| **Consommateur** (cible → source) | pointe vers l'Application |
+| **Bidirectionnel** | pointes aux deux extrémités |
+
+Cela correspond à ce que la [Layered Dependency View](reports.md) dessine déjà, si bien que le diagramme et le rapport de dépendances concordent. Les liens dont le sens de flux n'a jamais été renseigné conservent la flèche de direction de relation — l'information doit exister dans le modèle avant qu'un diagramme puisse l'afficher.
+
 ### Masquer les libellés de relation
 
 Chaque lien de relation porte son verbe — *fournit*, *consomme*, *soutient*. Sur un paysage dense, cela devient vite plus du bruit que de l'information : le menu **⋮** propose donc **Masquer les libellés de relation** (et **Afficher** pour les rétablir).

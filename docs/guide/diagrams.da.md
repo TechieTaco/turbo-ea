@@ -87,6 +87,27 @@ Dropdownen **View** i værktøjslinjen omfarver hvert kort på lærredet efter e
 
 En flydende forklaring nederst til venstre på lærredet viser den aktive tilknytning. Den valgte visning gemmes med diagrammet.
 
+### Hvordan relationskanter tegnes
+
+Enhver Turbo EA-relation ser ens ud på lærredet, uanset hvordan den kom derhen — tegnet i hånden med relationsvælgeren eller hentet ind fra inventaret med **+** / Expand-menuen:
+
+- **Én neutral mørkegrå linje**, ikke farven på kortet i den anden ende. En kant *er* en relation; at farve den efter korttype gentager blot det, noden allerede siger.
+- **En pilespids i målenden**, så retningen kan aflæses på et øjeblik uden at læse udsagnsordet. Henter du en relation, der peger *mod* det kort, du udvidede, sidder pilespidsen i den anden ende.
+- **Udsagnsordet læses i pilens retning.** Da pilespidsen markerer relationens mål, fuldender etiketten altid sætningen *start → udsagnsord → slut*. En forbindelse læses derfor ens, uanset hvilket kort du udvidede fra: udvid en Organisation, og du ser *bruger*; udvid en af dens Applikationer, og organisationerne, der kommer tilbage, viser stadig *bruger* — blot med pilen den anden vej.
+- **En stiplet linje**, så længe relationen endnu ikke er sendt til inventaret; den bliver massiv, når den er.
+
+#### Leverandør og forbruger
+
+Nogle relationer bærer en **flowretning** — først og fremmest forbindelsen mellem en Applikation og en Grænseflade, hvor én applikation *leverer* grænsefladen, og andre *forbruger* den. Angiv den i relationsdialogen, når du tegner forbindelsen (eller bagefter fra kortets Relationer-sektion), så følger pilespidsen data i stedet for relationen:
+
+| Flowretning | Pilespids |
+|---|---|
+| **Leverandør** (kilde → mål) | peger på Grænsefladen |
+| **Forbruger** (mål → kilde) | peger tilbage på Applikationen |
+| **Bidirektional** | pilespidser i begge ender |
+
+Det svarer til det, [Layered Dependency View](reports.md) allerede tegner, så diagrammet og afhængighedsrapporten stemmer overens. Forbindelser uden angivet flowretning beholder den almindelige relationspil — informationen skal findes i modellen, før et diagram kan vise den.
+
 ### Skjul relationsetiketter
 
 Hver relationskant viser sit udsagnsord — *leverer*, *forbruger*, *understøtter*. På et tæt landskab bliver det hurtigt mere støj end information, så **⋮**-menuen tilbyder **Skjul relationsetiketter** (og **Vis relationsetiketter** for at hente dem tilbage).

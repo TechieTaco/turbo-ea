@@ -87,6 +87,27 @@ O menu pendente **Vista** na barra de ferramentas recoloria cada cartão da tela
 
 Uma legenda flutuante no canto inferior esquerdo mostra o mapeamento ativo. A vista escolhida é guardada com o diagrama.
 
+### Como as arestas de relação são desenhadas
+
+Qualquer relação do Turbo EA tem o mesmo aspeto na tela, independentemente de como lá chegou — desenhada à mão com o seletor de relações ou trazida do inventário com **+** / o menu de expansão:
+
+- **Uma única linha cinzento-escura neutra**, e não a cor do cartão da outra ponta. Uma aresta *é* uma relação; colori-la por tipo de cartão apenas repete o que o nó já diz.
+- **Uma seta na extremidade de destino**, para que a direção se leia num relance sem ler o verbo. Se trouxer uma relação que aponta *para* o cartão expandido, a seta fica na outra extremidade.
+- **O verbo lê-se no sentido da seta.** Como a ponta assinala o destino da relação, a etiqueta completa sempre a frase *origem → verbo → destino*. Assim, uma ligação lê-se da mesma forma seja qual for o cartão que expandiu: expanda uma Organização e vê *usa*; expanda uma das suas Aplicações e as organizações que surgem continuam a mostrar *usa*, com a seta a apontar ao contrário.
+- **Uma linha tracejada** enquanto a relação estiver pendente; passa a contínua assim que for enviada para o inventário.
+
+#### Fornecedor e consumidor
+
+Algumas relações têm um **sentido de fluxo** — sobretudo a ligação entre uma Aplicação e uma Interface, em que uma aplicação *fornece* a interface e outras a *consomem*. Defina-o na caixa de diálogo da relação ao desenhar a ligação (ou depois, na secção Relações do cartão), e a seta passa a seguir os dados em vez da relação:
+
+| Sentido de fluxo | Seta |
+|---|---|
+| **Fornecedor** (origem → destino) | aponta para a Interface |
+| **Consumidor** (destino → origem) | aponta de volta para a Aplicação |
+| **Bidirecional** | setas em ambas as extremidades |
+
+Corresponde ao que a [Layered Dependency View](reports.md) já desenha, pelo que o diagrama e o relatório de dependências concordam. As ligações sem sentido de fluxo definido mantêm a seta de direção da relação — a informação tem de estar no modelo antes de um diagrama a poder mostrar.
+
 ### Ocultar as etiquetas de relação
 
 Cada aresta de relação exibe o seu verbo — *fornece*, *consome*, *suporta*. Num panorama denso isso torna-se depressa mais ruído do que informação, por isso o menu **⋮** oferece **Ocultar etiquetas de relação** (e **Mostrar** para as trazer de volta).

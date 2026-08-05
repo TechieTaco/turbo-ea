@@ -87,6 +87,7 @@ import type {
 import type {
   ChildLayout,
   ExpandChildData,
+  RelationFlowDirection,
   RemovedRelationTombstone,
 } from "./drawio-shapes";
 import ExpandMenu from "./ExpandMenu";
@@ -102,6 +103,25 @@ import { useMetamodel } from "@/hooks/useMetamodel";
 import { relationLabel, useTypeLabel } from "@/hooks/useResolveLabel";
 import { useAuthContext } from "@/hooks/AuthContext";
 import type { Card, CardType, Relation, RelationType } from "@/types";
+import {
+  flowDirectionBadge,
+  type RelationAttributes,
+} from "@/features/cards/sections/RelationAttributesEditor";
+
+/**
+ * A relation's flow direction, but only when its relation type actually
+ * declares the `flowDirection` attribute — the same gate the Card Detail
+ * badge uses, so the canvas and the card can never disagree about whether an
+ * Application provides or consumes an Interface. Returns undefined when the
+ * type has no such attribute or the value was never set, which is exactly the
+ * "fall back to the relation's own direction" case.
+ */
+function relationFlowFor(
+  rt: RelationType | undefined,
+  attributes?: RelationAttributes,
+): RelationFlowDirection | undefined {
+  return flowDirectionBadge(rt, attributes)?.value;
+}
 
 /* ------------------------------------------------------------------ */
 /*  DrawIO configuration                                               */
@@ -805,7 +825,9 @@ export default function DiagramEditor() {
         return;
       }
 
-      const inserted = expandCardGroup(frame, cellId, visible);
+      const inserted = expandCardGroup(
+        frame, cellId, visible, hideRelationLabelsRef.current,
+      );
       // Baseline for the "has the user arranged these?" check on collapse.
       pristineChildLayoutRef.current.set(
         cellId,
@@ -928,6 +950,36 @@ export default function DiagramEditor() {
     [],
   );
 
+  /** Verb + direction for an edge inserted by an expansion.
+   *
+   *  The verb is **always the forward label**, never the reverse one. An edge
+   *  on a canvas has no "card you started from" — a reader sees a line with an
+   *  arrowhead and reads it in the arrow's direction. Since the arrowhead
+   *  always marks the relation's *target* (that is the whole job of
+   *  `incoming`: expansion inserts the edge parent → child, and `incoming`
+   *  puts the arrowhead on the semantic target regardless), the sentence along
+   *  the arrow is always source-verb-target. Resolving the verb from the
+   *  expanded card instead made one relation read two different ways depending
+   *  on which end you expanded from — "uses" from the Organization, "is used
+   *  by" from the Application. `layeredDependencyLayout.ts` is forward-only for
+   *  the same reason; this keeps the two surfaces agreeing.
+   *
+   *  `incoming` still decides which end carries the arrowhead, and when the
+   *  relation carries a `flowDirection` attribute that takes over, so an
+   *  Application that *consumes* an Interface is distinguishable from one that
+   *  *provides* it without opening the link (discussion #905). */
+  const relationEdgeMeta = useCallback(
+    (relationTypeKey: string, incoming: boolean, attributes?: RelationAttributes) => {
+      const rt = relTypesRef.current.find((x) => x.key === relationTypeKey);
+      return {
+        incoming,
+        flow: relationFlowFor(rt, attributes),
+        relationLabel: rt ? relationLabel(rt, i18n.language) : "",
+      };
+    },
+    [i18n.language],
+  );
+
   /** Backwards-compatible signature still passed around as `handleToggleGroup`
    *  so callers that ask "expand from a fresh state" keep working. New code
    *  should use the chevron overlay route which opens the ExpandMenu. */
@@ -966,6 +1018,7 @@ export default function DiagramEditor() {
               icon: ct?.icon,
               relationType: r.type,
               relationId: r.id,
+              ...relationEdgeMeta(r.type, r.target_id === cardId, r.attributes),
             });
           }
           if (children.length === 0) {
@@ -1080,6 +1133,7 @@ export default function DiagramEditor() {
                 icon: iconForType(other.type),
                 relationType: r.type,
                 relationId: r.id,
+                ...relationEdgeMeta(r.type, !isOutgoing, r.attributes),
               });
             }
           }
@@ -1092,7 +1146,9 @@ export default function DiagramEditor() {
             return;
           }
           children.sort((a, b) => a.name.localeCompare(b.name));
-          const inserted = expandCardGroupAt(frame, target.cellId, children, "right");
+          const inserted = expandCardGroupAt(
+            frame, target.cellId, children, "right", hideRelationLabelsRef.current,
+          );
           pristineChildLayoutRef.current.set(
             target.cellId,
             captureGroupChildLayout(frame, target.cellId),
@@ -1331,6 +1387,7 @@ export default function DiagramEditor() {
               icon: ct?.icon,
               relationType: r.type,
               relationId: r.id,
+              ...relationEdgeMeta(r.type, r.target_id === cardId, r.attributes),
             });
           }
           if (children.length === 0) {
@@ -2035,11 +2092,18 @@ export default function DiagramEditor() {
       const ep = pendingEdgeRef.current;
       if (!frame || !ep) return;
 
-      const color = direction === "as-is" ? ep.sourceColor : ep.targetColor;
+      // "reversed" means the relation runs target -> source while the edge was
+      // drawn source -> target, so the arrowhead belongs on the start and sync
+      // must swap source_id/target_id before POSTing (#905). It does NOT change
+      // the verb: the arrowhead still lands on the relation's target, so the
+      // sentence along the arrow is source-verb-target either way.
+      const reversed = direction === "reversed";
+      const verb = relationLabel(relType, i18n.language);
 
       stampEdgeAsRelation(
-        frame, ep.edgeCellId, relType.key, relType.label, color, true,
+        frame, ep.edgeCellId, relType.key, verb, reversed, true,
         hideRelationLabelsRef.current,
+        relationFlowFor(relType, attributes),
       );
 
       if (attributes && Object.keys(attributes).length > 0) {
@@ -2050,10 +2114,11 @@ export default function DiagramEditor() {
 
       setRelPickerOpen(false);
       pendingEdgeRef.current = null;
-      setSnackMsg(t("editor.relationAddedPending", { label: relType.label }));
+      setSnackMsg(t("editor.relationAddedPending", { label: verb }));
       refreshSyncPanel();
     },
-    [refreshSyncPanel],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [refreshSyncPanel, i18n.language],
   );
 
   const handleRelationCancelled = useCallback(() => {
@@ -2133,8 +2198,10 @@ export default function DiagramEditor() {
         const stashedAttrs = pendingEdgeAttributesRef.current.get(edgeCellId);
         const payload: Record<string, unknown> = {
           type: rel.relationType,
-          source_id: rel.sourceCardId,
-          target_id: rel.targetCardId,
+          // A relation picked in its reverse direction runs target -> source
+          // even though the edge points the other way.
+          source_id: rel.reversed ? rel.targetCardId : rel.sourceCardId,
+          target_id: rel.reversed ? rel.sourceCardId : rel.targetCardId,
         };
         if (stashedAttrs && Object.keys(stashedAttrs).length > 0) {
           payload.attributes = stashedAttrs;
@@ -2142,7 +2209,7 @@ export default function DiagramEditor() {
         const created = await api.post<Relation>("/relations", payload);
         pendingEdgeAttributesRef.current.delete(edgeCellId);
 
-        markEdgeSynced(frame, edgeCellId, "#666", created.id, hideRelationLabelsRef.current);
+        markEdgeSynced(frame, edgeCellId, rel.reversed, created.id, hideRelationLabelsRef.current);
         // Mirror the new relation into the side-table so a later canvas
         // delete still reaches the confirm dialog. The endpoint cellIds,
         // live style and visible label come from the cell so the
@@ -2205,11 +2272,11 @@ export default function DiagramEditor() {
         try {
           const created = await api.post<Relation>("/relations", {
             type: r.relationType,
-            source_id: r.sourceCardId,
-            target_id: r.targetCardId,
+            source_id: r.reversed ? r.targetCardId : r.sourceCardId,
+            target_id: r.reversed ? r.sourceCardId : r.targetCardId,
           });
           markEdgeSynced(
-            frame, r.edgeCellId, "#666", created.id, hideRelationLabelsRef.current,
+            frame, r.edgeCellId, r.reversed, created.id, hideRelationLabelsRef.current,
           );
           const endpoints = describeEdgeEndpoints(frame, r.edgeCellId);
           registerEdgeRelation(r.edgeCellId, {

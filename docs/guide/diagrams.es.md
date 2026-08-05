@@ -87,6 +87,27 @@ El desplegable **Vista** de la barra de herramientas recolorea cada tarjeta del 
 
 Una leyenda flotante en la esquina inferior izquierda del lienzo muestra la asignación activa. La vista elegida se guarda con el diagrama.
 
+### Cómo se dibujan las aristas de relación
+
+Toda relación de Turbo EA se ve igual en el lienzo, sin importar cómo llegó allí — dibujada a mano con el selector de relaciones o traída del inventario con **+** / el menú de expansión:
+
+- **Una única línea gris oscuro neutra**, no el color de la tarjeta del otro extremo. Una arista *es* una relación; teñirla por tipo de tarjeta solo repite lo que el nodo ya dice.
+- **Una punta de flecha en el extremo destino**, para que la dirección se lea de un vistazo sin leer el verbo. Si traes una relación que apunta *hacia* la tarjeta expandida, la punta se sitúa en el otro extremo.
+- **El verbo se lee en el sentido de la flecha.** Como la punta marca el destino de la relación, la etiqueta siempre completa la frase *origen → verbo → destino*. Así, un vínculo se lee igual sea cual sea la tarjeta que hayas expandido: expande una Organización y verás *usa*; expande una de sus Aplicaciones y las organizaciones que aparecen siguen mostrando *usa*, con la flecha apuntando al revés.
+- **Una línea discontinua** mientras la relación sigue pendiente; pasa a continua en cuanto se envía al inventario.
+
+#### Proveedor y consumidor
+
+Algunas relaciones llevan un **sentido de flujo** — sobre todo el vínculo entre una Aplicación y una Interfaz, donde una aplicación *provee* la interfaz y otras la *consumen*. Indícalo en el diálogo de relación al trazar el vínculo (o después desde la sección Relaciones de la tarjeta), y la punta de flecha seguirá los datos en lugar de la relación:
+
+| Sentido de flujo | Punta de flecha |
+|---|---|
+| **Proveedor** (origen → destino) | apunta a la Interfaz |
+| **Consumidor** (destino → origen) | apunta de vuelta a la Aplicación |
+| **Bidireccional** | puntas en ambos extremos |
+
+Coincide con lo que la [Layered Dependency View](reports.md) ya dibuja, así que el diagrama y el informe de dependencias concuerdan. Los vínculos sin sentido de flujo definido conservan la flecha de dirección de la relación: la información debe estar en el modelo antes de que un diagrama pueda mostrarla.
+
 ### Ocultar las etiquetas de relación
 
 Cada arista de relación lleva su verbo — *proporciona*, *consume*, *da soporte*. En un paisaje denso eso se convierte enseguida en más ruido que información, así que el menú **⋮** ofrece **Ocultar etiquetas de relación** (y **Mostrar** para recuperarlas).

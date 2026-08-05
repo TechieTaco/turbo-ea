@@ -87,6 +87,27 @@ Das Dropdown **Ansicht** in der Symbolleiste färbt jede Karte auf der Leinwand 
 
 Eine schwebende Legende unten links auf der Leinwand zeigt die aktive Zuordnung. Die gewählte Ansicht wird mit dem Diagramm gespeichert.
 
+### Wie Beziehungskanten gezeichnet werden
+
+Jede Turbo-EA-Beziehung sieht auf der Leinwand gleich aus, unabhängig davon, wie sie dorthin gelangt ist — von Hand mit der Beziehungsauswahl gezeichnet oder über **+** / das Erweiterungsmenü aus dem Inventar geholt:
+
+- **Eine neutrale dunkelgraue Linie**, nicht die Farbe der Karte am anderen Ende. Eine Kante *ist* eine Beziehung; sie nach Kartentyp einzufärben wiederholt nur, was der Knoten ohnehin schon sagt.
+- **Eine Pfeilspitze am Zielende**, sodass die Richtung auf einen Blick erkennbar ist, ohne das Verb zu lesen. Holen Sie eine Beziehung herein, die *auf* die erweiterte Karte zeigt, sitzt die Pfeilspitze am anderen Ende.
+- **Das Verb liest sich in Pfeilrichtung.** Da die Pfeilspitze das Ziel der Beziehung markiert, vervollständigt die Beschriftung stets den Satz *Anfang → Verb → Ende*. Eine Verbindung liest sich damit gleich, von welcher Karte aus Sie auch erweitert haben: Erweitern Sie eine Organisation, sehen Sie *nutzt*; erweitern Sie eine ihrer Anwendungen, steht bei den zurückkommenden Organisationen ebenfalls *nutzt* — nur zeigt der Pfeil in die andere Richtung.
+- **Eine gestrichelte Linie**, solange die Beziehung noch aussteht; sie wird durchgezogen, sobald sie ins Inventar übertragen wurde.
+
+#### Anbieter und Konsument
+
+Manche Beziehungen tragen eine **Flussrichtung** — allen voran die Verbindung zwischen einer Anwendung und einer Schnittstelle, bei der eine Anwendung die Schnittstelle *bereitstellt* und andere sie *konsumieren*. Legen Sie sie beim Zeichnen im Beziehungsdialog fest (oder nachträglich im Abschnitt Beziehungen der Karte), und die Pfeilspitze folgt dann den Daten statt der Beziehung:
+
+| Flussrichtung | Pfeilspitze |
+|---|---|
+| **Anbieter** (Quelle → Ziel) | zeigt auf die Schnittstelle |
+| **Konsument** (Ziel → Quelle) | zeigt zurück auf die Anwendung |
+| **Bidirektional** | Pfeilspitzen an beiden Enden |
+
+Das entspricht dem, was die [Layered Dependency View](reports.md) bereits zeichnet, sodass Diagramm und Abhängigkeitsbericht übereinstimmen. Verbindungen ohne gesetzte Flussrichtung behalten den einfachen Beziehungspfeil — die Information muss im Modell stehen, bevor ein Diagramm sie zeigen kann.
+
 ### Beziehungsbeschriftungen ausblenden
 
 Jede Beziehungskante trägt ihr Verb — *stellt bereit*, *nutzt*, *unterstützt*. In einer dichten Landschaft wird das schnell mehr Rauschen als Information, daher bietet das Überlaufmenü **⋮** die Option **Beziehungsbeschriftungen ausblenden** (und **einblenden**, um sie zurückzuholen).

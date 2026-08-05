@@ -87,6 +87,27 @@ The **View** dropdown in the toolbar recolors every card on the canvas by an att
 
 A floating legend in the bottom-left of the canvas shows the active mapping. The chosen view is saved with the diagram.
 
+### How relation edges are drawn
+
+Every Turbo EA relation looks the same on the canvas however it got there — drawn by hand with the relation picker, or pulled in from the inventory with the **+** / Expand menu:
+
+- **One neutral dark-grey line**, not the colour of the card at the other end. An edge *is* a relation; tinting it by card type only restates what the node already says.
+- **An arrowhead on the target end**, so the direction reads at a glance without reading the verb. Pull in a relation that points *at* the card you expanded and the arrowhead sits on the other end.
+- **The verb reads in the arrow's direction.** Since the arrowhead marks the relation's target, the label always completes the sentence *tail → verb → head*. That means a link reads the same whichever card you expanded from: expand an Organization and you see *uses*; expand one of its Applications and the organisations coming back still read *uses*, with the arrow pointing the other way.
+- **A dashed line** while the relation is still pending, turning solid once it has been pushed to the inventory.
+
+#### Provider and consumer
+
+Some relations carry a **flow direction** — most importantly the link between an Application and an Interface, where one application *provides* the interface and others *consume* it. Set it in the relation dialog when you draw the link (or from the card's Relations section afterwards), and the arrowhead follows the data rather than the relation:
+
+| Flow direction | Arrowhead |
+|---|---|
+| **Provider** (source → target) | points at the Interface |
+| **Consumer** (target → source) | points back at the Application |
+| **Bidirectional** | arrowheads at both ends |
+
+This matches what the [Layered Dependency View](reports.md) already draws, so a diagram and a dependency report agree. Links where the flow direction was never set keep the plain relation-direction arrow — the information has to be in the model before a diagram can show it.
+
 ### Hiding relation labels
 
 Every relation edge carries its verb — *provides*, *consumes*, *supports*. On a dense landscape that quickly becomes more noise than information, so the **⋮** overflow menu offers **Hide relation labels** (and **Show relation labels** to bring them back).

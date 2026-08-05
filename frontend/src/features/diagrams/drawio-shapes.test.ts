@@ -4,6 +4,7 @@ import {
   applyCardTypeIcons,
   buildLdvDiagramXml,
   rollUpInto,
+  expandCardGroup,
   childEscapedParentBounds,
   applyViewToGraph,
   resetViewColors,
@@ -11,6 +12,9 @@ import {
   setRelationLabelsHidden,
   stampEdgeAsRelation,
   markEdgeSynced,
+  relationEdgeStyle,
+  RELATION_EDGE_COLOR,
+  readFlowDirection,
   type DiagramCardInput,
   type DiagramRelInput,
   type DiagramLayerInput,
@@ -196,7 +200,6 @@ describe("buildLdvDiagramXml", () => {
       targetCardId: "22222222-2222-2222-2222-222222222222",
       relationType: "relAppToData",
       label: "reads",
-      color: "#8a93a3",
     },
   ];
   const layers: DiagramLayerInput[] = [
@@ -253,7 +256,6 @@ describe("buildLdvDiagramXml", () => {
         targetCardId: "99999999-9999-9999-9999-999999999999",
         relationType: "relAppToData",
         label: "reads",
-        color: "#8a93a3",
       },
     ];
     const xml = buildLdvDiagramXml(cards, orphanRel, layers);
@@ -267,7 +269,6 @@ describe("buildLdvDiagramXml", () => {
         targetCardId: "22222222-2222-2222-2222-222222222222",
         relationType: "",
         label: "contains",
-        color: "#8a93a3",
       },
     ];
     const xml = buildLdvDiagramXml(cards, hierRel, layers);
@@ -745,7 +746,7 @@ describe("edge style builders honour the label setting", () => {
     const edge = edgeCell({}, "");
     const frame = viewFrame({ e: edge });
 
-    stampEdgeAsRelation(frame, "e", "app_to_itc", "provides", "#666", false, true);
+    stampEdgeAsRelation(frame, "e", "app_to_itc", "provides", false, false, true);
     expect(edge._style.split(";")).toContain("noLabel=1");
   });
 
@@ -753,7 +754,7 @@ describe("edge style builders honour the label setting", () => {
     const edge = edgeCell({}, "");
     const frame = viewFrame({ e: edge });
 
-    stampEdgeAsRelation(frame, "e", "app_to_itc", "provides", "#666", false);
+    stampEdgeAsRelation(frame, "e", "app_to_itc", "provides", false, false);
     expect(edge._style.split(";")).not.toContain("noLabel=1");
   });
 
@@ -764,7 +765,329 @@ describe("edge style builders honour the label setting", () => {
     );
     const frame = viewFrame({ e: edge });
 
-    markEdgeSynced(frame, "e", "#666", "rel-1", true);
+    markEdgeSynced(frame, "e", false, "rel-1", true);
     expect(edge._style.split(";")).toContain("noLabel=1");
+  });
+});
+
+/* ---------------------------------------------------------------------- */
+/*  relationEdgeStyle — the one renderer for relation edges (#905)          */
+/* ---------------------------------------------------------------------- */
+
+describe("relationEdgeStyle", () => {
+  it("draws every relation in the same neutral colour", () => {
+    // The reporter saw the same relation rendered two ways depending on how
+    // it reached the canvas. One builder, one colour.
+    expect(stylePart(relationEdgeStyle(), "strokeColor")).toBe(RELATION_EDGE_COLOR);
+    expect(stylePart(relationEdgeStyle({ incoming: true }), "strokeColor")).toBe(
+      RELATION_EDGE_COLOR,
+    );
+    expect(stylePart(relationEdgeStyle({ pending: true }), "strokeColor")).toBe(
+      RELATION_EDGE_COLOR,
+    );
+  });
+
+  it("puts the arrowhead on the end for an outgoing relation", () => {
+    const parts = relationEdgeStyle().split(";");
+    expect(parts).toContain("endArrow=block");
+    expect(parts).toContain("startArrow=none");
+  });
+
+  it("moves the arrowhead to the start for an incoming relation", () => {
+    // The mxGraph endpoints stay put (expand/collapse and the sync
+    // side-table key off them) — only the arrowhead swaps ends.
+    const parts = relationEdgeStyle({ incoming: true }).split(";");
+    expect(parts).toContain("startArrow=block");
+    expect(parts).toContain("endArrow=none");
+  });
+
+  it("dashes a relation that has not been pushed to the inventory yet", () => {
+    expect(relationEdgeStyle({ pending: true }).split(";")).toContain("dashed=1");
+    expect(relationEdgeStyle().split(";")).not.toContain("dashed=1");
+  });
+
+  it("honours the hide-labels setting", () => {
+    expect(relationEdgeStyle({ hideLabel: true }).split(";")).toContain("noLabel=1");
+    expect(relationEdgeStyle().split(";")).not.toContain("noLabel=1");
+  });
+});
+
+describe("edge builders all delegate to relationEdgeStyle", () => {
+  it("stampEdgeAsRelation renders exactly what relationEdgeStyle says", () => {
+    const edge = edgeCell({}, "");
+    const frame = viewFrame({ e: edge });
+
+    stampEdgeAsRelation(frame, "e", "app_to_itc", "provides", true, true);
+    expect(edge._style).toBe(relationEdgeStyle({ incoming: true, pending: true }));
+  });
+
+  it("stampEdgeAsRelation records a reversed pick so sync can swap the ids", () => {
+    // Without this the relation is POSTed source -> target even though the
+    // user picked the reverse direction. Note the verb is still the FORWARD
+    // one: reversing moves the arrowhead, not the sentence — the arrow always
+    // points at the relation's target, so it still reads source-verb-target.
+    const edge = edgeCell({}, "");
+    const frame = viewFrame({ e: edge });
+
+    stampEdgeAsRelation(frame, "e", "app_to_itc", "uses", true, true);
+    expect(edge.value.getAttribute("reversed")).toBe("1");
+    expect(edge.value.getAttribute("label")).toBe("uses");
+  });
+
+  it("stampEdgeAsRelation leaves an as-drawn relation unflagged", () => {
+    const edge = edgeCell({}, "");
+    const frame = viewFrame({ e: edge });
+
+    stampEdgeAsRelation(frame, "e", "app_to_itc", "provides", false, true);
+    expect(edge.value.getAttribute("reversed")).toBeNull();
+  });
+
+  it("markEdgeSynced only drops the dashes", () => {
+    const edge = edgeCell({ relationType: "app_to_itc" }, relationEdgeStyle({ pending: true }));
+    const frame = viewFrame({ e: edge });
+
+    markEdgeSynced(frame, "e", false, "rel-1");
+    expect(edge._style).toBe(relationEdgeStyle());
+  });
+
+  it("markEdgeSynced keeps the arrowhead on the reversed end", () => {
+    const edge = edgeCell(
+      { relationType: "app_to_itc" },
+      relationEdgeStyle({ incoming: true, pending: true }),
+    );
+    const frame = viewFrame({ e: edge });
+
+    markEdgeSynced(frame, "e", true, "rel-1");
+    expect(edge._style).toBe(relationEdgeStyle({ incoming: true }));
+  });
+});
+
+/* ---------------------------------------------------------------------- */
+/*  flowDirection arrowheads — provider vs consumer on an edge (#905)      */
+/* ---------------------------------------------------------------------- */
+
+describe("relationEdgeStyle honours a relation's flowDirection", () => {
+  const arrows = (style: string) => {
+    const parts = style.split(";");
+    return {
+      start: parts.includes("startArrow=block"),
+      end: parts.includes("endArrow=block"),
+    };
+  };
+
+  it("points at the target when data flows source → target", () => {
+    // The reporter's case: an Application that *provides* an Interface.
+    expect(arrows(relationEdgeStyle({ flow: "forward" }))).toEqual({
+      start: false,
+      end: true,
+    });
+  });
+
+  it("points back at the source when data flows target → source", () => {
+    // An Application that *consumes* the Interface — the whole point is that
+    // this must look different from the provider link above.
+    expect(arrows(relationEdgeStyle({ flow: "reverse" }))).toEqual({
+      start: true,
+      end: false,
+    });
+  });
+
+  it("arrows both ends when the flow is bidirectional", () => {
+    expect(arrows(relationEdgeStyle({ flow: "bidirectional" }))).toEqual({
+      start: true,
+      end: true,
+    });
+  });
+
+  it("re-orients the flow onto an edge drawn the other way round", () => {
+    // flowDirection is stored on the RELATION's source → target axis. When the
+    // edge was drawn against that axis the arrowhead has to swap ends, or a
+    // provider and a consumer would render identically.
+    expect(arrows(relationEdgeStyle({ flow: "forward", incoming: true }))).toEqual({
+      start: true,
+      end: false,
+    });
+    expect(arrows(relationEdgeStyle({ flow: "reverse", incoming: true }))).toEqual({
+      start: false,
+      end: true,
+    });
+    // Bidirectional is symmetric, so re-orienting is a no-op.
+    expect(arrows(relationEdgeStyle({ flow: "bidirectional", incoming: true }))).toEqual({
+      start: true,
+      end: true,
+    });
+  });
+
+  it("leaves every relation without a flow exactly as it was", () => {
+    // Regression guard: only relation types that declare the attribute change.
+    expect(relationEdgeStyle({ flow: undefined })).toBe(relationEdgeStyle());
+    expect(relationEdgeStyle({ flow: undefined, incoming: true })).toBe(
+      relationEdgeStyle({ incoming: true }),
+    );
+    expect(relationEdgeStyle({ flow: undefined, pending: true, hideLabel: true })).toBe(
+      relationEdgeStyle({ pending: true, hideLabel: true }),
+    );
+  });
+
+  it("still dashes and hides labels when a flow is set", () => {
+    const style = relationEdgeStyle({ flow: "reverse", pending: true, hideLabel: true });
+    expect(style.split(";")).toContain("dashed=1");
+    expect(style.split(";")).toContain("noLabel=1");
+  });
+});
+
+describe("readFlowDirection", () => {
+  it("accepts the three stored values", () => {
+    expect(readFlowDirection("forward")).toBe("forward");
+    expect(readFlowDirection("reverse")).toBe("reverse");
+    expect(readFlowDirection("bidirectional")).toBe("bidirectional");
+  });
+
+  it("returns undefined for anything else, so the edge falls back", () => {
+    // Covers the unset attribute, a legacy edge with no stamp, and junk.
+    for (const v of [null, undefined, "", "sideways", 1, {}]) {
+      expect(readFlowDirection(v)).toBeUndefined();
+    }
+  });
+});
+
+describe("flowDirection survives the pending → synced switch", () => {
+  it("stampEdgeAsRelation stamps it and markEdgeSynced reads it back", () => {
+    // markEdgeSynced deliberately takes no flow argument — it reads what the
+    // stamp left, so the two paths cannot disagree.
+    const edge = edgeCell({}, "");
+    const frame = viewFrame({ e: edge });
+
+    stampEdgeAsRelation(frame, "e", "relAppToInterface", "provides / consumes", false, true, false, "reverse");
+    expect(edge.value.getAttribute("flowDirection")).toBe("reverse");
+    expect(edge._style).toBe(relationEdgeStyle({ flow: "reverse", pending: true }));
+
+    markEdgeSynced(frame, "e", false, "rel-1");
+    expect(edge._style).toBe(relationEdgeStyle({ flow: "reverse" }));
+  });
+
+  it("leaves an edge with no flow unstamped", () => {
+    const edge = edgeCell({}, "");
+    const frame = viewFrame({ e: edge });
+
+    stampEdgeAsRelation(frame, "e", "relOrgToApp", "uses", false, true);
+    expect(edge.value.getAttribute("flowDirection")).toBeNull();
+    expect(edge._style).toBe(relationEdgeStyle({ pending: true }));
+  });
+});
+
+/* ---------------------------------------------------------------------- */
+/*  expandCardGroup — the edges the + / Expand menu inserts (#905)          */
+/* ---------------------------------------------------------------------- */
+
+/** Fake mxGraph with just enough surface for expandCardGroup's edge output. */
+function expandFrame() {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const cells: Record<string, any> = {};
+  const root = { id: "__root" };
+  const parent = {
+    id: "parent-cell",
+    value: attrBag({ cardId: "org-1", cardType: "Organization", label: "Nexatech" }),
+  };
+  cells["parent-cell"] = parent;
+  const model = {
+    cells,
+    beginUpdate() {},
+    endUpdate() {},
+    getCell: (id: string) => cells[id] ?? null,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    setValue: (cell: any, v: unknown) => {
+      cell.value = v;
+    },
+  };
+  const graph = {
+    getModel: () => model,
+    getDefaultParent: () => root,
+    getCellGeometry: () => ({ x: 0, y: 0, width: 180, height: 50 }),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    insertVertex: (_p: any, id: string, obj: any, _x: number, _y: number, _w: number, _h: number, style: string) => {
+      const cell = { id, value: obj, style };
+      cells[id] = cell;
+      return cell;
+    },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    insertEdge: (_p: any, id: string, _v: unknown, _s: any, _t: any, style: string) => {
+      const cell = { id, value: null, style, edge: true };
+      cells[id] = cell;
+      return cell;
+    },
+  };
+  const iframe = {
+    contentWindow: {
+      __turboGraph: graph,
+      mxUtils: { createXmlDocument: () => ({ createElement: () => attrBag() }) },
+    },
+  } as unknown as HTMLIFrameElement;
+  return { iframe, cells };
+}
+
+/** One neighbour of the expanded card, related by `relOrgToApp` ("uses"). */
+const expandChild = (incoming: boolean) => ({
+  id: "app-1",
+  name: "Copilot",
+  type: "Application",
+  color: "#0f7eb5",
+  relationType: "relOrgToApp",
+  relationId: "rel-1",
+  relationLabel: "uses",
+  incoming,
+});
+
+describe("expandCardGroup edges", () => {
+  it("reads the same verb whichever end of the relation you expanded from", () => {
+    // The reported case. Expanding the Organization shows "Nexatech uses
+    // Copilot"; expanding the Application must NOT flip the verb to "is used
+    // by", because the arrowhead still points at the Application, so the
+    // sentence along the arrow is unchanged.
+    const outgoing = expandFrame();
+    expandCardGroup(outgoing.iframe, "parent-cell", [expandChild(false)]);
+    const incoming = expandFrame();
+    expandCardGroup(incoming.iframe, "parent-cell", [expandChild(true)]);
+
+    const labelOf = (f: ReturnType<typeof expandFrame>) => {
+      const edge = Object.values(f.cells).find((c) => c.edge);
+      return edge.value.getAttribute("label");
+    };
+    expect(labelOf(outgoing)).toBe("uses");
+    expect(labelOf(incoming)).toBe("uses");
+  });
+
+  it("puts the arrowhead on opposite ends for the two directions", () => {
+    // The verb stays put; the arrow is what carries the direction.
+    const outgoing = expandFrame();
+    expandCardGroup(outgoing.iframe, "parent-cell", [expandChild(false)]);
+    const incoming = expandFrame();
+    expandCardGroup(incoming.iframe, "parent-cell", [expandChild(true)]);
+
+    const styleOf = (f: ReturnType<typeof expandFrame>) =>
+      Object.values(f.cells).find((c) => c.edge).style.split(";");
+    expect(styleOf(outgoing)).toContain("endArrow=block");
+    expect(styleOf(outgoing)).toContain("startArrow=none");
+    expect(styleOf(incoming)).toContain("startArrow=block");
+    expect(styleOf(incoming)).toContain("endArrow=none");
+  });
+
+  it("stamps the relation id and type so canvas deletes reach the backend", () => {
+    const f = expandFrame();
+    const inserted = expandCardGroup(f.iframe, "parent-cell", [expandChild(false)]);
+
+    const edge = Object.values(f.cells).find((c) => c.edge);
+    expect(edge.value.getAttribute("relationId")).toBe("rel-1");
+    expect(edge.value.getAttribute("relationType")).toBe("relOrgToApp");
+    expect(inserted[0].relationId).toBe("rel-1");
+    expect(inserted[0].relationLabel).toBe("uses");
+  });
+
+  it("hides the verb on expansion edges when the diagram hides labels", () => {
+    const f = expandFrame();
+    expandCardGroup(f.iframe, "parent-cell", [expandChild(false)], true);
+
+    const edge = Object.values(f.cells).find((c) => c.edge);
+    expect(edge.style.split(";")).toContain("noLabel=1");
   });
 });
