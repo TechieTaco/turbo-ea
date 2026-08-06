@@ -158,6 +158,10 @@ Tipos de relacionamento definem as conexões permitidas entre tipos de card. Cad
 
 Clique em **+ Novo Tipo de Relacionamento** para criar um relacionamento, ou clique em um existente para editar seus rótulos e atributos.
 
+Os campos **Rótulo** e **Rótulo Inverso** são escritos no idioma que está a utilizar no momento — a legenda do campo indica qual (por exemplo, *Rótulo (Português)*). Renomear uma relação atualiza esse idioma em todos os locais onde o verbo aparece: a secção **Relações** de um card, as colunas de relação do inventário, os relatórios, os portais e os diagramas. Os restantes idiomas mantêm a sua própria redação até que os traduza.
+
+Use **Gerir traduções** no topo do separador Tipos de Relacionamento para traduzir os verbos de todas as relações para cada idioma ativado de uma só vez. Escolha um separador de idioma, escreva a redação ao lado do original em inglês e guarde — o contador em cada separador mostra quantos verbos faltam ainda nesse idioma. O inglês não aparece aqui porque é a redação da própria relação; um verbo não traduzido recorre a ela.
+
 ### Atributos de relação
 
 Algumas relações incluem atributos adicionais que define em cada ligação individual em vez de no tipo de relação. Por exemplo, a relação integrada **Organização → Aplicação** («utiliza») tem um atributo **Tipo de utilização** — defina-o como **Proprietário**, **Utilizador** ou **Parte interessada** em cada ligação. Assim, pode modelar uma aplicação *propriedade de* uma organização e *utilizada por* outras através de um único tipo de relação. O valor escolhido aparece como um marcador colorido na secção **Relações** da carta; defina-o ao adicionar a relação ou mais tarde através do ícone de edição na linha da relação.
