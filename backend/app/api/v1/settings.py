@@ -230,6 +230,7 @@ async def get_bootstrap(db: AsyncSession = Depends(get_db)):
         "navbar_bg": general.get("navbarBg", DEFAULT_NAVBAR_BG),
         "navbar_fg": general.get("navbarFg", DEFAULT_NAVBAR_FG),
         "bpm_enabled": general.get("bpmEnabled", True),
+        "bpm_require_separate_approver": general.get("bpmRequireSeparateApprover", False),
         "ppm_enabled": general.get("ppmEnabled", False),
         "turbolens_enabled": general.get("turboLensEnabled", True),
         "grc_enabled": general.get("grcEnabled", True),
@@ -768,6 +769,41 @@ async def update_sponsor_button_enabled(
     row = await _get_or_create_row(db)
     general = dict(row.general_settings or {})
     general["sponsorButtonEnabled"] = body.enabled
+    row.general_settings = general
+
+    await db.commit()
+    return {"ok": True}
+
+
+class SeparateApproverPayload(BaseModel):
+    enabled: bool
+
+
+@router.get("/bpm-separate-approver")
+async def get_bpm_separate_approver(db: AsyncSession = Depends(get_db)):
+    """Public endpoint — whether a process flow needs a second person to approve it.
+
+    Off by default so upgrading changes nothing for a team where one person both
+    submits and approves; regulated instances turn it on deliberately.
+    """
+    result = await db.execute(select(AppSettings).where(AppSettings.id == "default"))
+    row = result.scalar_one_or_none()
+    general = (row.general_settings if row else None) or {}
+    return {"enabled": general.get("bpmRequireSeparateApprover", False)}
+
+
+@router.patch("/bpm-separate-approver")
+async def update_bpm_separate_approver(
+    body: SeparateApproverPayload,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Admin endpoint — require a separate approver for BPMN flow revisions."""
+    await PermissionService.require_permission(db, user, "admin.settings")
+
+    row = await _get_or_create_row(db)
+    general = dict(row.general_settings or {})
+    general["bpmRequireSeparateApprover"] = body.enabled
     row.general_settings = general
 
     await db.commit()

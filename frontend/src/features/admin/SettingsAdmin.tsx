@@ -144,6 +144,7 @@ interface GeneralSettingsBootstrap {
   date_format: string;
   app_title: string;
   bpm_enabled: boolean;
+  bpm_require_separate_approver: boolean;
   ppm_enabled: boolean;
   grc_enabled: boolean;
   sponsor_button_enabled: boolean;
@@ -233,6 +234,8 @@ function GeneralTab() {
   // BPM toggle state
   const [bpmEnabled, setBpmEnabled] = useState(true);
   const [savingBpm, setSavingBpm] = useState(false);
+  const [requireSeparateApprover, setRequireSeparateApprover] = useState(false);
+  const [savingSeparateApprover, setSavingSeparateApprover] = useState(false);
 
   // PPM toggle state
   const [ppmEnabled, setPpmEnabled] = useState(false);
@@ -333,6 +336,7 @@ function GeneralTab() {
         setHasCustomFavicon(faviconData.has_custom_favicon);
         setSelectedCurrency(general.currency);
         setBpmEnabled(general.bpm_enabled);
+        setRequireSeparateApprover(Boolean(general.bpm_require_separate_approver));
         setPpmEnabled(general.ppm_enabled);
         setGrcEnabled(general.grc_enabled);
         setSponsorButtonEnabled(general.sponsor_button_enabled);
@@ -501,6 +505,20 @@ function GeneralTab() {
       setError(e instanceof Error ? e.message : t("common:errors.generic"));
     } finally {
       setSavingBpm(false);
+    }
+  };
+
+  const handleSeparateApproverToggle = async (enabled: boolean) => {
+    setSavingSeparateApprover(true);
+    setError("");
+    try {
+      await api.patch("/settings/bpm-separate-approver", { enabled });
+      setRequireSeparateApprover(enabled);
+      setSnack(t("settings.bpm.separateApproverSaved"));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t("common:errors.generic"));
+    } finally {
+      setSavingSeparateApprover(false);
     }
   };
 
@@ -1331,6 +1349,25 @@ function GeneralTab() {
           }
           label={bpmEnabled ? t("settings.bpm.visible") : t("settings.bpm.hidden")}
         />
+
+        {/* Segregation of duties for process-flow approvals (discussion #916).
+            Lives in the BPM block because that is the module it governs. Off by
+            default: turning it on is an explicit organisational choice, not a
+            prerequisite for the audit trail, which is recorded either way. */}
+        <Divider sx={{ my: 2 }} />
+        <FormControlLabel
+          control={
+            <Switch
+              checked={requireSeparateApprover}
+              onChange={(e) => handleSeparateApproverToggle(e.target.checked)}
+              disabled={savingSeparateApprover || !bpmEnabled}
+            />
+          }
+          label={t("settings.bpm.separateApprover")}
+        />
+        <Typography variant="caption" color="text.secondary" display="block">
+          {t("settings.bpm.separateApproverHint")}
+        </Typography>
       </Paper>
 
       {/* PPM Module Toggle */}
