@@ -15,6 +15,9 @@ import {
   relationEdgeStyle,
   RELATION_EDGE_COLOR,
   readFlowDirection,
+  scanDiagramItems,
+  scanSyncedRelationEdges,
+  applyEdgeFlowDirection,
   type DiagramCardInput,
   type DiagramRelInput,
   type DiagramLayerInput,
@@ -1089,5 +1092,188 @@ describe("expandCardGroup edges", () => {
 
     const edge = Object.values(f.cells).find((c) => c.edge);
     expect(edge.style.split(";")).toContain("noLabel=1");
+  });
+});
+
+/* ------------------------------------------------------------------ */
+/*  scanDiagramItems / scanSyncedRelationEdges                         */
+/* ------------------------------------------------------------------ */
+
+/** Fake frame for the scan helpers: attribute-bag cells + getTerminal. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function scanFrame(cells: Record<string, any>) {
+  const model = {
+    cells,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    getTerminal: (cell: any, isSource: boolean) =>
+      isSource ? (cell.source ?? null) : (cell.target ?? null),
+  };
+  const graph = { getModel: () => model };
+  return { contentWindow: { __turboGraph: graph } } as unknown as HTMLIFrameElement;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function scanVertex(id: string, attrs: Record<string, string>): any {
+  return { id, value: attrBag(attrs) };
+}
+
+describe("scanDiagramItems — synced children", () => {
+  it("splits synced cells into top-level and expanded-group children", () => {
+    const frame = scanFrame({
+      top: scanVertex("top", {
+        cardId: "id-top",
+        cardType: "Application",
+        label: "Top",
+      }),
+      child: scanVertex("child", {
+        cardId: "id-child",
+        cardType: "Application",
+        label: "Child",
+        parentGroupCell: "top",
+      }),
+      pending: scanVertex("pending", {
+        cardId: "pending-x",
+        cardType: "Application",
+        label: "Draft",
+        pending: "1",
+      }),
+    });
+    const scan = scanDiagramItems(frame);
+    expect(scan.syncedFS).toEqual([
+      { cellId: "top", cardId: "id-top", name: "Top", type: "Application" },
+    ]);
+    expect(scan.syncedChildren).toEqual([
+      { cellId: "child", cardId: "id-child", name: "Child", type: "Application" },
+    ]);
+    expect(scan.pendingCards).toHaveLength(1);
+  });
+});
+
+describe("scanSyncedRelationEdges", () => {
+  it("returns synced edges with endpoint card ids and labels", () => {
+    const src = scanVertex("s", { cardId: "id-s", label: "Source" });
+    const tgt = scanVertex("t", { cardId: "id-t", label: "Target" });
+    const frame = scanFrame({
+      s: src,
+      t: tgt,
+      e1: {
+        id: "e1",
+        edge: true,
+        source: src,
+        target: tgt,
+        value: attrBag({
+          relationId: "rel-1",
+          relationType: "relOrgToApp",
+          label: "uses",
+        }),
+      },
+      // A pending edge has no relationId yet — must be skipped.
+      e2: {
+        id: "e2",
+        edge: true,
+        source: src,
+        target: tgt,
+        value: attrBag({ relationType: "relOrgToApp", pending: "1" }),
+      },
+    });
+    expect(scanSyncedRelationEdges(frame)).toEqual([
+      {
+        edgeCellId: "e1",
+        relationId: "rel-1",
+        relationType: "relOrgToApp",
+        edgeLabel: "uses",
+        sourceCardId: "id-s",
+        targetCardId: "id-t",
+        sourceName: "Source",
+        targetName: "Target",
+      },
+    ]);
+  });
+
+  it("tolerates dangling edges with missing terminals", () => {
+    const frame = scanFrame({
+      e1: {
+        id: "e1",
+        edge: true,
+        value: attrBag({ relationId: "rel-1", relationType: "relOrgToApp" }),
+      },
+    });
+    const [edge] = scanSyncedRelationEdges(frame);
+    expect(edge.sourceCardId).toBe("");
+    expect(edge.targetCardId).toBe("");
+  });
+
+  it("reads the stamped flowDirection and drops invalid values", () => {
+    const frame = scanFrame({
+      e1: {
+        id: "e1",
+        edge: true,
+        value: attrBag({ relationId: "rel-1", flowDirection: "reverse" }),
+      },
+      e2: {
+        id: "e2",
+        edge: true,
+        value: attrBag({ relationId: "rel-2", flowDirection: "sideways" }),
+      },
+    });
+    const [withFlow, withJunk] = scanSyncedRelationEdges(frame);
+    expect(withFlow.flowDirection).toBe("reverse");
+    expect(withJunk.flowDirection).toBeUndefined();
+  });
+});
+
+describe("applyEdgeFlowDirection", () => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  function flowFrame(edgeValue: any) {
+    const edge = { id: "e1", edge: true, value: edgeValue, _style: "" };
+    const model = {
+      cells: { e1: edge },
+      getCell: (id: string) => (id === "e1" ? edge : null),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      setStyle: (c: any, s: string) => {
+        c._style = s;
+      },
+      beginUpdate() {},
+      endUpdate() {},
+    };
+    const graph = { getModel: () => model };
+    const iframe = {
+      contentWindow: { __turboGraph: graph },
+    } as unknown as HTMLIFrameElement;
+    return { iframe, edge };
+  }
+
+  it("re-stamps the attribute and moves the arrowhead to the new flow", () => {
+    const { iframe, edge } = flowFrame(attrBag({ flowDirection: "forward" }));
+    expect(applyEdgeFlowDirection(iframe, "e1", "reverse", false)).toBe(true);
+    expect(edge.value.getAttribute("flowDirection")).toBe("reverse");
+    // reverse flow on a forward-drawn edge → arrowhead at the start.
+    const parts = edge._style.split(";");
+    expect(parts).toContain("startArrow=block");
+    expect(parts).toContain("endArrow=none");
+  });
+
+  it("clears the attribute and falls back to the drawn direction", () => {
+    const { iframe, edge } = flowFrame(attrBag({ flowDirection: "forward" }));
+    applyEdgeFlowDirection(iframe, "e1", undefined, false);
+    expect(edge.value.getAttribute("flowDirection")).toBeNull();
+    const parts = edge._style.split(";");
+    expect(parts).toContain("endArrow=block");
+    expect(parts).toContain("startArrow=none");
+  });
+
+  it("XORs the flow with an incoming-drawn edge, matching relationEdgeStyle", () => {
+    // Edge drawn child → parent (incoming): a "forward" flow points at the
+    // relation's target, which sits at the drawn edge's START.
+    const { iframe, edge } = flowFrame(attrBag({}));
+    applyEdgeFlowDirection(iframe, "e1", "forward", true);
+    expect(edge._style).toBe(
+      relationEdgeStyle({ incoming: true, flow: "forward" }),
+    );
+  });
+
+  it("returns false for an unknown edge cell", () => {
+    const { iframe } = flowFrame(attrBag({}));
+    expect(applyEdgeFlowDirection(iframe, "nope", "forward", false)).toBe(false);
   });
 });
