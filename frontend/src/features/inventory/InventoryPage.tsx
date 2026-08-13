@@ -69,10 +69,17 @@ import { api, ApiError, isAbortError } from "@/api/client";
 import { APPROVAL_STATUS_COLORS } from "@/theme/tokens";
 import TagPicker from "@/components/TagPicker";
 import { useColumnFreeze } from "@/components/grid/useColumnFreeze";
+import {
+  useCellContextMenu,
+  type CellMenuContext,
+  type CellSplitValue,
+} from "@/components/grid/useCellContextMenu";
+import { useFacetColumnSync } from "@/components/grid/useFacetColumnSync";
+import type { FacetBinding } from "@/components/grid/facetColumnSync";
 import TagsCellEditor from "@/features/inventory/TagsCellEditor";
 import ParentCellEditor from "@/features/inventory/ParentCellEditor";
 import StakeholdersCellEditor from "@/features/inventory/StakeholdersCellEditor";
-import type { Card, CardListResponse, ColumnLayoutItem, FieldDef, Relation, RelationType, StakeholderRef, StakeholderRoleOption, TagGroup, TagRef } from "@/types";
+import type { Card, CardListResponse, CardType, ColumnLayoutItem, FieldDef, Relation, RelationType, StakeholderRef, StakeholderRoleOption, TagGroup, TagRef } from "@/types";
 import "ag-grid-community/styles/ag-grid.css";
 import "ag-grid-community/styles/ag-theme-quartz.css";
 
@@ -260,6 +267,136 @@ function buildRelationIndex(
 /** An inventory grid row: a card, or a member clone marked as group header. */
 type InventoryRow = GroupedRow<Card>;
 
+/**
+ * Split a multi-valued cell into its values for the context menu's per-value
+ * filter stage. Separators follow what each column's valueGetter/formatter
+ * joins with: tags and multi-select attributes use ", ", relation and
+ * stakeholder columns use "; ". Multi-select attribute cells display option
+ * labels but filter on raw keys, so labels come from the display text and
+ * filters from the raw array value. Exported for tests.
+ */
+export function splitInventoryCellValues(
+  ctx: CellMenuContext<InventoryRow>,
+): CellSplitValue[] | null {
+  if (ctx.colId.startsWith("attr_")) {
+    if (!Array.isArray(ctx.filterValue)) return null;
+    const labels = ctx.displayValue ? ctx.displayValue.split(", ") : [];
+    return ctx.filterValue.map((key, i) => ({
+      label: labels[i] ?? String(key),
+      filter: String(key),
+    }));
+  }
+  const sep =
+    ctx.colId === "core_tags"
+      ? ", "
+      : ctx.colId.startsWith("rel_") || ctx.colId.startsWith("stakeholder_")
+        ? "; "
+        : null;
+  if (!sep || !ctx.displayValue) return null;
+  return ctx.displayValue
+    .split(sep)
+    .filter(Boolean)
+    .map((v) => ({ label: v, filter: v }));
+}
+
+/**
+ * Facet bindings for the cell menu's "Show matching" (see
+ * components/grid/useFacetColumnSync). Only columns whose sidebar facet has
+ * the SAME semantics as an equals filter are bound:
+ *
+ *  - not bound: name/reference/path/parent/description/status/metadata (no
+ *    facet), data quality (a threshold, not a value), tags / relations /
+ *    stakeholders / multi-select attributes (multi-valued), and text /
+ *    number / cost / date attributes — the sidebar matches those with
+ *    *contains* / *minimum*, so mirroring an equals cell into them would
+ *    silently change what the filter means.
+ *
+ * Exported for tests.
+ */
+export function buildInventoryFacetBindings(
+  filtersRef: { current: Filters },
+  setFilters: (updater: (prev: Filters) => Filters) => void,
+  typeConfig: CardType | undefined,
+): Record<string, FacetBinding<InventoryRow>> {
+  const asArray = (v: string | string[] | undefined): string[] =>
+    Array.isArray(v) ? v : v ? [v] : [];
+  /** A raw cell value → facet value, treating blanks as the sidebar's "(empty)". */
+  const orEmpty = (ctx: CellMenuContext<InventoryRow>): string =>
+    ctx.filterValue === null || ctx.filterValue === undefined || ctx.filterValue === ""
+      ? EMPTY_VALUE
+      : String(ctx.filterValue);
+  const nonBlank = (ctx: CellMenuContext<InventoryRow>): string | null =>
+    ctx.filterValue === null || ctx.filterValue === undefined || ctx.filterValue === ""
+      ? null
+      : String(ctx.filterValue);
+
+  const bindings: Record<string, FacetBinding<InventoryRow>> = {
+    core_type: {
+      // Facet-only. The type facet is a *server-side* query param, so the
+      // fetched rows are already just that type and an equals column filter
+      // adds nothing; and selecting a type rebuilds the whole column set
+      // (attribute/relation columns are per-type), which re-runs the model
+      // restore and would strand the mirrored entry.
+      columnFilter: false,
+      toFacetValue: nonBlank,
+      getValues: () => filtersRef.current.types,
+      setValues: (values) =>
+        setFilters((prev) => {
+          const next = values[0] ?? null;
+          if (prev.types.length === (next ? 1 : 0) && (!next || prev.types[0] === next)) {
+            return prev;
+          }
+          // Selecting a type hides the subtype/attribute/relation facets of
+          // the previous one — leaving them set would keep filtering by an
+          // invisible criterion (issue #686), so reset them exactly as
+          // `filtersAfterTypeToggle` does.
+          return { ...prev, types: next ? [next] : [], subtypes: [], attributes: {}, relations: {} };
+        }),
+    },
+    core_subtype: {
+      toFacetValue: orEmpty,
+      getValues: () => filtersRef.current.subtypes,
+      setValues: (values) => setFilters((prev) => ({ ...prev, subtypes: values })),
+    },
+    core_lifecycle: {
+      toFacetValue: orEmpty,
+      getValues: () => filtersRef.current.lifecyclePhases,
+      setValues: (values) => setFilters((prev) => ({ ...prev, lifecyclePhases: values })),
+    },
+    core_approval_status: {
+      // The Approval Status facet has no "(empty)" option — a blank cell
+      // falls back to a plain blank column filter.
+      toFacetValue: nonBlank,
+      getValues: () => filtersRef.current.approvalStatuses,
+      setValues: (values) => setFilters((prev) => ({ ...prev, approvalStatuses: values })),
+    },
+  };
+
+  // Attribute columns exist only while a single type is selected — exactly
+  // when the sidebar shows that type's Attributes section.
+  for (const section of typeConfig?.fields_schema ?? []) {
+    for (const field of section.fields) {
+      if (field.type !== "single_select" && field.type !== "boolean") continue;
+      const colId = `attr_${field.key}`;
+      const isBoolean = field.type === "boolean";
+      bindings[colId] = {
+        toFacetValue: isBoolean ? nonBlank : orEmpty,
+        getValues: () => asArray(filtersRef.current.attributes[field.key]),
+        setValues: (values) =>
+          setFilters((prev) => {
+            const attributes = { ...prev.attributes };
+            if (values.length === 0) delete attributes[field.key];
+            // Boolean facets are scalar ("true"/"false"); selects are arrays.
+            else attributes[field.key] = isBoolean ? values[0] : values;
+            return { ...prev, attributes };
+          }),
+      };
+    }
+  }
+
+  return bindings;
+}
+
 /* ---- localStorage persistence helpers ---- */
 const LS_KEY = "turboea_inventory";
 
@@ -414,6 +551,10 @@ export default function InventoryPage() {
       mineScope: null,
     };
   });
+  // Current filters, readable from the facet bindings' stable callbacks
+  // without rebuilding them on every filter change.
+  const filtersRef = useRef(filters);
+  filtersRef.current = filters;
 
   // Sort model for AG Grid persistence
   const [sortModel, setSortModel] = useState<{ colId: string; sort: string }[]>(
@@ -577,11 +718,19 @@ export default function InventoryPage() {
   const applyingFilterRef = useRef(false);
   const [filterNonce, setFilterNonce] = useState(0);
 
+  // Set below, once useFacetColumnSync exists — applyColumnFilters is defined
+  // before it and only needs to *call* the reset.
+  const resetFacetRegistryRef = useRef<() => void>(() => {});
+
   // Apply a filter model (or clear with null). Used by the toolbar Clear button,
   // the sidebar "Clear all", and applying a saved view. Updates state/ref and
   // bumps the nonce; the restore effect performs the actual setFilterModel.
   const applyColumnFilters = useCallback((model: Record<string, unknown> | null) => {
     const next = model ?? {};
+    // Every model here is authored wholesale (view apply / clear-all), so no
+    // menu-created mirror survives it. Dropping the provenance first stops the
+    // facet-prune from racing the apply and deleting the incoming model.
+    resetFacetRegistryRef.current();
     columnFilterModelRef.current = next;
     setColumnFilterModel(next);
     setFilterNonce((n) => n + 1);
@@ -1135,6 +1284,30 @@ export default function InventoryPage() {
     rows: filteredData,
     axes: groupAxes,
     groupBy,
+  });
+
+  // Sidebar-facet mirroring: "Show matching" on a facet-backed column also
+  // selects the value in the filter panel, so the sidebar, the grid's column
+  // filter, and a saved view built from both can never disagree.
+  const facetBindings = useMemo(
+    () => buildInventoryFacetBindings(filtersRef, setFilters, typeConfig),
+    [typeConfig],
+  );
+  const facetSync = useFacetColumnSync<InventoryRow>(gridRef, {
+    bindings: facetBindings,
+    facetState: filters,
+  });
+  resetFacetRegistryRef.current = facetSync.resetRegistry;
+
+  // Right-click / long-press cell menu (Show matching, Filter out, …).
+  // Suppressed in grid-edit mode so it never fights the cell editors; filters
+  // land in the grid's column filter model, which handleFilterChanged already
+  // persists to localStorage and saved views.
+  const cellMenu = useCellContextMenu<InventoryRow>(gridRef, {
+    disabled: () => gridEditMode,
+    suppressForRow: (data) => !!data?.__group,
+    splitValues: splitInventoryCellValues,
+    facetSync: facetSync.cellMenu,
   });
 
   const handleCellEdit = async (event: CellValueChangedEvent) => {
@@ -3279,8 +3452,9 @@ export default function InventoryPage() {
         {/* AG Grid */}
         <Box
           ref={columnFreeze.containerRef}
+          {...cellMenu.containerProps}
           className={mode === "dark" ? "ag-theme-quartz-dark" : "ag-theme-quartz"}
-          sx={{ flex: 1, width: "100%", minHeight: 0, ...columnFreeze.sx }}
+          sx={{ flex: 1, width: "100%", minHeight: 0, ...columnFreeze.sx, ...cellMenu.sx }}
         >
           <AgGridReact
             key={isRtl ? "rtl" : "ltr"}
@@ -3307,6 +3481,7 @@ export default function InventoryPage() {
             getRowId={getRowId}
             getRowStyle={getRowStyle}
             {...grouping.gridProps}
+            {...cellMenu.gridProps}
             animateRows
             defaultColDef={defaultColDef}
             initialState={
@@ -3324,6 +3499,8 @@ export default function InventoryPage() {
           />
         </Box>
       </Box>
+
+      {cellMenu.menu}
 
       {/* Inline-edit failures (rejected re-parent, …) */}
       <Snackbar

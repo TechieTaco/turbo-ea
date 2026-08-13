@@ -26,6 +26,19 @@ Il pannello laterale sinistro consente di **filtrare** le card secondo diversi c
 
 Un **badge con il conteggio dei filtri attivi** mostra quanti filtri sono attualmente applicati.
 
+### Filtrare da una cella
+
+Fai clic con il tasto destro su una cella qualsiasi della griglia (pressione prolungata sui dispositivi touch) per aprire un menu contestuale con azioni di filtro rapide, in stile ServiceNow:
+
+- **Mostra corrispondenze** — mantiene solo le righe il cui valore corrisponde a quello della cella selezionata
+- **Escludi** — nasconde le righe il cui valore corrisponde a quello della cella selezionata
+- **Copia valore** — copia il testo della cella negli appunti
+- **Cancella filtro colonna** — rimuove il filtro di quella colonna (visibile solo mentre ce n'è uno attivo)
+
+Su una cella con più valori (tag, relazioni, stakeholder, attributi a selezione multipla) il menu elenca prima i singoli valori, così puoi filtrare su uno di essi o sull'intera cella. Questi filtri confluiscono nei filtri di colonna della griglia: si combinano con i filtri della barra laterale, contano nel pulsante **Cancella filtri** della barra degli strumenti e vengono conservati con la tua vista. Lo stesso menu è disponibile su ogni griglia di Turbo EA — Decisioni, Registro dei rischi, Conformità e le griglie di amministrazione. Quando la colonna ha un filtro corrispondente nel pannello di sinistra — tipo di scheda, sottotipo, ciclo di vita, stato di approvazione o un attributo a selezione singola —, **Mostra corrispondenze** seleziona quel valore anche nel pannello e **Cancella** cancella entrambi, così una vista salvata non può mai contenere un filtro del pannello e un filtro di colonna in contraddizione. Se poi il filtro viene modificato nel pannello, è quest'ultimo a prevalere.
+
+![Menu contestuale di una cella dell'inventario](../assets/img/it/62_inventario_menu_contestuale.png)
+
 ### Scheda Colonne
 
 La scheda **Colonne** nel pannello laterale consente di scegliere quali colonne aggiuntive visualizzare nella griglia. Le colonne disponibili cambiano dinamicamente in base ai tipi di schede selezionati:

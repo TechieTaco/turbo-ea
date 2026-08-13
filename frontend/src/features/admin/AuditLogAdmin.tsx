@@ -32,6 +32,10 @@ import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { useColumnFreeze } from "@/components/grid/useColumnFreeze";
+import { useCellContextMenu } from "@/components/grid/useCellContextMenu";
+import { useFacetColumnSync } from "@/components/grid/useFacetColumnSync";
+import { arrayFacetBinding } from "@/components/grid/facetColumnSync";
+import { dateColumnFilterDef } from "@/lib/dateColumnFilter";
 import { api } from "@/api/client";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { useThemeMode } from "@/hooks/useThemeMode";
@@ -259,6 +263,43 @@ export default function AuditLogAdmin() {
     [columnFreeze.headerComponentParams],
   );
 
+  // "Show matching" also selects the value in the filter sidebar.
+  //
+  // Origin mirrors into both: the facet becomes a server query param, so it
+  // narrows the whole dataset rather than just the loaded page. Status is
+  // facet-only (`columnFilter: false`) because its column renders the
+  // *translated* label — an equals filter on that text would be stranded by a
+  // locale switch, while the facet keys on the raw status.
+  const filtersRef = useRef(filters);
+  filtersRef.current = filters;
+  const facetBindings = useMemo(
+    () => ({
+      origin: arrayFacetBinding<AuditBatch>({
+        get: () => filtersRef.current.origins,
+        set: (v) => setFilters((p) => ({ ...p, origins: v as AuditLogFilters["origins"] })),
+      }),
+      status_derived: arrayFacetBinding<AuditBatch>({
+        toFacetValue: (ctx) => (ctx.data ? statusOf(ctx.data).key : null),
+        get: () => filtersRef.current.statuses,
+        set: (v) => setFilters((p) => ({ ...p, statuses: v as AuditLogFilters["statuses"] })),
+        columnFilter: false,
+      }),
+    }),
+    [],
+  );
+  const facetSync = useFacetColumnSync<AuditBatch>(gridRef, {
+    bindings: facetBindings,
+    facetState: filters,
+  });
+
+  // Right-click / long-press cell menu. Column filters on this grid narrow
+  // the loaded page only (the list is server-paginated) — the pre-existing
+  // semantic of its filter popups, unchanged here.
+  const cellMenu = useCellContextMenu<AuditBatch>(gridRef, {
+    excludeColumns: (colId) => colId === "actions",
+    facetSync: facetSync.cellMenu,
+  });
+
   const columnDefs: ColDef<AuditBatch>[] = useMemo(
     () => [
       {
@@ -267,7 +308,8 @@ export default function AuditLogAdmin() {
         headerName: t("auditLog.columns.when"),
         width: 180,
         sort: "desc",
-        filter: "agDateColumnFilter",
+        // Custom comparator — the stock one can't parse ISO-string cells.
+        ...dateColumnFilterDef,
         valueFormatter: (p) => (p.value ? formatDateTime(p.value as string) : ""),
       },
       {
@@ -516,8 +558,9 @@ export default function AuditLogAdmin() {
 
           <Box
             ref={columnFreeze.containerRef}
+            {...cellMenu.containerProps}
             className={mode === "dark" ? "ag-theme-quartz-dark" : "ag-theme-quartz"}
-            sx={{ flex: 1, width: "100%", minHeight: 0, ...columnFreeze.sx }}
+            sx={{ flex: 1, width: "100%", minHeight: 0, ...columnFreeze.sx, ...cellMenu.sx }}
           >
             <AgGridReact<AuditBatch>
               key={isRtl ? "rtl" : "ltr"}
@@ -532,8 +575,10 @@ export default function AuditLogAdmin() {
               onRowClicked={(e: RowClickedEvent<AuditBatch>) => {
                 if (e.data) setDrawerBatch(e.data);
               }}
+              {...cellMenu.gridProps}
             />
           </Box>
+          {cellMenu.menu}
 
           {total > pageSize && (
             <Stack
