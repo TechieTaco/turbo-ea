@@ -45,6 +45,8 @@ import InventoryFilterSidebar, {
   LIFECYCLE_PHASES,
   LOCKED_COLUMN_KEYS,
   EMPTY_VALUE,
+  normalizeRelationFilterKeys,
+  normalizeSelectAttributeFilters,
   valueIsEmpty,
   tagsToFilterText,
   type Filters,
@@ -267,6 +269,20 @@ function buildRelationIndex(
 /** An inventory grid row: a card, or a member clone marked as group header. */
 type InventoryRow = GroupedRow<Card>;
 
+/** True when the URL carries filter state (a deep-link) — it then wins over
+ * the persisted prefs for both the sidebar filters and the group-by axis. */
+function urlHasFilterParams(searchParams: URLSearchParams): boolean {
+  return (
+    searchParams.has("type") ||
+    searchParams.has("search") ||
+    searchParams.has("approval_status") ||
+    searchParams.has("show_archived") ||
+    searchParams.has("mine") ||
+    searchParams.has("tag") ||
+    Array.from(searchParams.keys()).some((k) => k.startsWith("attr_") || k.startsWith("rel_"))
+  );
+}
+
 /**
  * Split a multi-valued cell into its values for the context menu's per-value
  * filter stage. Separators follow what each column's valueGetter/formatter
@@ -486,24 +502,22 @@ export default function InventoryPage() {
 
   const [filters, setFilters] = useState<Filters>(() => {
     // URL params take precedence over localStorage
-    const hasUrlParams = searchParams.has("type") || searchParams.has("search") ||
-      searchParams.has("approval_status") || searchParams.has("show_archived") ||
-      searchParams.has("mine") ||
-      Array.from(searchParams.keys()).some((k) => k.startsWith("attr_") || k.startsWith("rel_"));
-
-    if (hasUrlParams) {
-      const attributes: Record<string, string> = {};
-      // rel_<relTypeKey>=<related card name> — the deep-link shape the
-      // portfolio report's "View in inventory" button emits for relation
-      // groups. Name-based to match the sidebar's relation filter values.
+    if (urlHasFilterParams(searchParams)) {
+      // attr_/rel_ params may repeat (a report carrying multi-value filters):
+      // one value stays scalar for attr_ (the select-normalization effect
+      // below promotes it once the field types are known), several land as
+      // an array. rel_<relTypeKey>=<related card name> is name-based to
+      // match the sidebar's relation filter values.
+      const attributes: Record<string, string | string[]> = {};
       const relations: Record<string, string[]> = {};
-      searchParams.forEach((value, key) => {
+      for (const key of new Set(searchParams.keys())) {
         if (key.startsWith("attr_")) {
-          attributes[key.slice(5)] = value;
+          const values = searchParams.getAll(key);
+          attributes[key.slice(5)] = values.length > 1 ? values : values[0];
         } else if (key.startsWith("rel_")) {
-          relations[key.slice(4)] = [value];
+          relations[key.slice(4)] = searchParams.getAll(key);
         }
-      });
+      }
       return {
         types: searchParams.get("type") ? [searchParams.get("type")!] : [],
         search: searchParams.get("search") || "",
@@ -514,7 +528,7 @@ export default function InventoryPage() {
         showArchived: searchParams.get("show_archived") === "true",
         attributes,
         relations,
-        tagIds: [],
+        tagIds: searchParams.getAll("tag"),
         mineScope: searchParams.get("mine") === "stakeholder" ? "stakeholder" : null,
       };
     }
@@ -565,9 +579,19 @@ export default function InventoryPage() {
   // Axis key string (see the groupAxes memo). URL wins so deep-links land
   // grouped; ?group_by= alone deliberately does NOT count as "URL params
   // present" for the filters above — sharing a grouped link must not wipe the
-  // recipient's saved filters.
-  const [groupBy, setGroupBy] = useState<string | null>(
-    () => searchParams.get("group_by") ?? savedPrefsRef.current?.groupBy ?? null,
+  // recipient's saved filters. But when the URL DOES carry filter params (a
+  // "View in inventory" deep-link), the saved group-by must not apply either:
+  // landing on the "Invest" slice still grouped by a stale axis reads as two
+  // filters fighting each other (#933 follow-up).
+  const [groupBy, setGroupBy] = useState<string | null>(() => {
+    const fromUrl = searchParams.get("group_by");
+    if (fromUrl) return fromUrl;
+    return urlHasFilterParams(searchParams) ? null : (savedPrefsRef.current?.groupBy ?? null);
+  });
+  // ?expand_group=<key> — the report group the user clicked. Consumed once by
+  // the grouping hook: that group lands expanded, all others collapsed.
+  const initialFocusGroupRef = useRef(
+    searchParams.get("group_by") ? searchParams.get("expand_group") : null,
   );
 
   const [data, setData] = useState<Card[]>([]);
@@ -800,6 +824,20 @@ export default function InventoryPage() {
   const selectedType = filters.types.length === 1 ? filters.types[0] : "";
   const typeConfig = types.find((t) => t.key === selectedType);
 
+  // URL deep-links seed attribute filters as scalar strings (the URL block
+  // above runs before the metamodel loads, so it can't know which fields are
+  // selects). Once the type's schema is known, promote scalars on select
+  // fields to arrays so the sidebar highlights the filtered value and the
+  // matcher compares option keys exactly (#933 follow-up).
+  useEffect(() => {
+    if (!typeConfig) return;
+    const fields = typeConfig.fields_schema.flatMap((s) => s.fields);
+    setFilters((prev) => {
+      const attributes = normalizeSelectAttributeFilters(prev.attributes, fields);
+      return attributes === prev.attributes ? prev : { ...prev, attributes };
+    });
+  }, [typeConfig]);
+
   // Axes offered by the Group-by picker (consumed by useRowGrouping, which
   // resolves an unknown/stale axis key to "no grouping"). Lifecycle and
   // approval status work for any type mix; subtype and single-select
@@ -937,6 +975,20 @@ export default function InventoryPage() {
     }
     return map;
   }, [selectedType, relationTypes, visibleTypeKeys]);
+
+  // Deep links seed relation filters keyed by the RELATED CARD TYPE
+  // (`rel_Provider=Altium`) because the report thinks in related types, but
+  // the inventory's relation filters are keyed by relation-type key
+  // everywhere. Translate once the metamodel is known — an untranslated key
+  // matches nothing and silently empties the grid (#933 follow-up).
+  useEffect(() => {
+    if (!selectedType || relationTypes.length === 0) return;
+    const relTypeKeys = new Set(relationTypes.map((rt) => rt.key));
+    setFilters((prev) => {
+      const relations = normalizeRelationFilterKeys(prev.relations, relTypeKeys, relTypeGroupMap);
+      return relations === prev.relations ? prev : { ...prev, relations };
+    });
+  }, [selectedType, relationTypes, relTypeGroupMap]);
 
   // Compute the "default" set of columns: all core columns + all attribute +
   // all relation columns checked. The core keys (type, name, path, etc.) used
@@ -1284,6 +1336,7 @@ export default function InventoryPage() {
     rows: filteredData,
     axes: groupAxes,
     groupBy,
+    initialFocusGroup: initialFocusGroupRef.current,
   });
 
   // Sidebar-facet mirroring: "Show matching" on a facet-backed column also
