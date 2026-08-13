@@ -40,13 +40,17 @@ import CreateCardDialog from "@/components/CreateCardDialog";
 import CardPicker, { type CardOption } from "@/components/CardPicker";
 import CardDetailSidePanel from "@/components/CardDetailSidePanel";
 import InventoryFilterSidebar, {
+  APPROVAL_STATUS_OPTIONS,
   CORE_COLUMN_KEYS,
+  LIFECYCLE_PHASES,
   LOCKED_COLUMN_KEYS,
   EMPTY_VALUE,
   valueIsEmpty,
   tagsToFilterText,
   type Filters,
 } from "./InventoryFilterSidebar";
+import { type GroupAxis, type GroupedRow } from "@/components/grid/rowGrouping";
+import { GroupByMenuButton, useRowGrouping } from "@/components/grid/useRowGrouping";
 import ImportDialog from "./ImportDialog";
 import { exportToExcel, exportCurrentViewToExcel } from "./excelExport";
 import { dateColumnFilterDef } from "@/lib/dateColumnFilter";
@@ -253,6 +257,9 @@ function buildRelationIndex(
   return index;
 }
 
+/** An inventory grid row: a card, or a member clone marked as group header. */
+type InventoryRow = GroupedRow<Card>;
+
 /* ---- localStorage persistence helpers ---- */
 const LS_KEY = "turboea_inventory";
 
@@ -275,6 +282,9 @@ interface InventoryPrefs {
   // flag, existing users would suddenly stop seeing the Tags column once
   // it became togglable.
   coreTagsMerged?: boolean;
+  // Active group-by axis in wire format ("subtype" | "lifecycle" |
+  // "approval_status" | "attr_<fieldKey>"), or null for no grouping.
+  groupBy?: string | null;
 }
 
 function loadPrefs(): InventoryPrefs | null {
@@ -342,13 +352,19 @@ export default function InventoryPage() {
     const hasUrlParams = searchParams.has("type") || searchParams.has("search") ||
       searchParams.has("approval_status") || searchParams.has("show_archived") ||
       searchParams.has("mine") ||
-      Array.from(searchParams.keys()).some((k) => k.startsWith("attr_"));
+      Array.from(searchParams.keys()).some((k) => k.startsWith("attr_") || k.startsWith("rel_"));
 
     if (hasUrlParams) {
       const attributes: Record<string, string> = {};
+      // rel_<relTypeKey>=<related card name> — the deep-link shape the
+      // portfolio report's "View in inventory" button emits for relation
+      // groups. Name-based to match the sidebar's relation filter values.
+      const relations: Record<string, string[]> = {};
       searchParams.forEach((value, key) => {
         if (key.startsWith("attr_")) {
           attributes[key.slice(5)] = value;
+        } else if (key.startsWith("rel_")) {
+          relations[key.slice(4)] = [value];
         }
       });
       return {
@@ -360,7 +376,7 @@ export default function InventoryPage() {
         approvalStatuses: searchParams.get("approval_status") ? [searchParams.get("approval_status")!] : [],
         showArchived: searchParams.get("show_archived") === "true",
         attributes,
-        relations: {},
+        relations,
         tagIds: [],
         mineScope: searchParams.get("mine") === "stakeholder" ? "stakeholder" : null,
       };
@@ -402,6 +418,15 @@ export default function InventoryPage() {
   // Sort model for AG Grid persistence
   const [sortModel, setSortModel] = useState<{ colId: string; sort: string }[]>(
     () => savedPrefsRef.current?.sortModel || [],
+  );
+
+  // --- Group-by (collapsible group headers, discussion #933) -----------------
+  // Axis key string (see the groupAxes memo). URL wins so deep-links land
+  // grouped; ?group_by= alone deliberately does NOT count as "URL params
+  // present" for the filters above — sharing a grouped link must not wipe the
+  // recipient's saved filters.
+  const [groupBy, setGroupBy] = useState<string | null>(
+    () => searchParams.get("group_by") ?? savedPrefsRef.current?.groupBy ?? null,
   );
 
   const [data, setData] = useState<Card[]>([]);
@@ -626,6 +651,54 @@ export default function InventoryPage() {
   const selectedType = filters.types.length === 1 ? filters.types[0] : "";
   const typeConfig = types.find((t) => t.key === selectedType);
 
+  // Axes offered by the Group-by picker (consumed by useRowGrouping, which
+  // resolves an unknown/stale axis key to "no grouping"). Lifecycle and
+  // approval status work for any type mix; subtype and single-select
+  // attributes follow the same single-selected-type rule as their columns.
+  const groupAxes = useMemo<GroupAxis<Card>[]>(() => {
+    const axes: GroupAxis<Card>[] = [];
+    if (typeConfig?.subtypes?.length) {
+      axes.push({
+        key: "subtype",
+        label: t("common:labels.subtype"),
+        groupKeyOf: (c) => c.subtype,
+        vocab: typeConfig.subtypes.map((st) => ({ key: st.key, label: stLabel(st) })),
+      });
+    }
+    axes.push({
+      key: "lifecycle",
+      label: t("columns.lifecycle"),
+      groupKeyOf: (c) => getLifecyclePhase(c),
+      vocab: LIFECYCLE_PHASES.map((p) => ({ key: p.key, label: t(p.tKey), color: p.color })),
+    });
+    axes.push({
+      key: "approval_status",
+      label: t("columns.approvalStatus"),
+      groupKeyOf: (c) => c.approval_status,
+      vocab: APPROVAL_STATUS_OPTIONS.map((o) => ({ key: o.key, label: t(o.tKey), color: o.color })),
+    });
+    if (typeConfig) {
+      for (const section of typeConfig.fields_schema) {
+        for (const f of section.fields) {
+          if (f.type === "single_select" && f.options?.length) {
+            axes.push({
+              key: `attr_${f.key}`,
+              label: fieldLabel(f),
+              groupKeyOf: (c) => {
+                const value = (c.attributes || {})[f.key];
+                if (valueIsEmpty(value)) return null;
+                // single_select stores a scalar; tolerate a stray array value.
+                return Array.isArray(value) ? String(value[0]) : String(value);
+              },
+              vocab: f.options.map((o) => ({ key: o.key, label: optLabel(o), color: o.color })),
+            });
+          }
+        }
+      }
+    }
+    return axes;
+  }, [typeConfig, stLabel, optLabel, fieldLabel, t]);
+
   // Load the selected type's stakeholder roles (per-role columns follow the
   // same single-type rule as attribute/relation columns).
   useEffect(() => {
@@ -765,8 +838,9 @@ export default function InventoryPage() {
       columnFilterModel,
       sortModel,
       coreTagsMerged: true,
+      groupBy,
     });
-  }, [filters, selectedColumns, sortModel, columnState, frozenColumns, columnFilterModel]);
+  }, [filters, selectedColumns, sortModel, columnState, frozenColumns, columnFilterModel, groupBy]);
 
   // Free-text search is debounced; every other filter stays instant. Typing
   // "SAP ERP" used to fire seven whole-repository requests, one per keystroke.
@@ -964,6 +1038,9 @@ export default function InventoryPage() {
             if (Array.isArray(actual)) return actual.some((a) => val.includes(a as string));
             return val.includes(actual as string);
           }
+          // "(empty)" as a scalar — URL deep-links seed scalar values, and the
+          // report's "Not set" group links land here as attr_<key>=__empty__.
+          if (val === EMPTY_VALUE) return valueIsEmpty(actual);
           // number/cost: filter as minimum value
           if (!isNaN(Number(val)) && val !== "" && typeof actual === "number") {
             return actual >= Number(val);
@@ -1053,6 +1130,13 @@ export default function InventoryPage() {
     return result;
   }, [data, filters.types, filters.subtypes, filters.lifecyclePhases, filters.dataQualityMin, filters.attributes, filters.relations, filters.tagIds, relationsMap, tagGroups]);
 
+  // --- Grouped row data (shared hook — see components/grid/useRowGrouping) ---
+  const grouping = useRowGrouping<Card>(gridRef, {
+    rows: filteredData,
+    axes: groupAxes,
+    groupBy,
+  });
+
   const handleCellEdit = async (event: CellValueChangedEvent) => {
     const card = event.data as Card;
     const field = event.colDef.field!;
@@ -1140,8 +1224,10 @@ export default function InventoryPage() {
   };
 
   const handleSelectionChanged = useCallback((event: SelectionChangedEvent) => {
-    const rows = event.api.getSelectedRows() as Card[];
-    setSelectedIds(rows.map((r) => r.id));
+    const rows = event.api.getSelectedRows() as InventoryRow[];
+    // Group header rows are unselectable (isRowSelectable), the filter is
+    // belt-and-braces so a header id can never reach the mass-edit endpoints.
+    setSelectedIds(rows.filter((r) => !r.__group).map((r) => r.id));
   }, []);
 
   const handleResetColumns = useCallback(() => {
@@ -1188,9 +1274,12 @@ export default function InventoryPage() {
     if (!api) return;
     const model = api.getFilterModel() ?? {};
     setHasColumnFilters(Object.keys(model).length > 0);
+    // Keep the group headers' representative members in sync with the active
+    // column filters (see useRowGrouping).
+    grouping.handleFilterChanged();
     if (applyingFilterRef.current) return;
     setColumnFilterModel(model);
-  }, []);
+  }, [grouping.handleFilterChanged]);
 
   // Keep the item-count pill in sync with the rows AG Grid actually shows.
   // onModelUpdated fires after row data is set and after every filter/sort, so
@@ -1198,8 +1287,23 @@ export default function InventoryPage() {
   const handleModelUpdated = useCallback(() => {
     const api = gridRef.current?.api;
     if (!api) return;
-    setDisplayedRowCount(api.getDisplayedRowCount());
-  }, []);
+    // Count cards, not group header rows. A collapsed group's members are not
+    // in the row model, so its header contributes its member count instead
+    // (collapse and column filters never overlap — see handleFilterChanged).
+    let count = 0;
+    api.forEachNodeAfterFilter((n) => {
+      const d = n.data as InventoryRow | undefined;
+      if (!d) return;
+      if (d.__group) {
+        if (d.__group.collapsed) count += d.__group.count;
+      } else {
+        count++;
+      }
+    });
+    setDisplayedRowCount(count);
+    // Finish an expand-then-select started by a collapsed group's checkbox.
+    grouping.handleModelUpdated();
+  }, [grouping.handleModelUpdated]);
 
   // Export only what's on screen: the displayed columns, in their current
   // left-to-right order, with their displayed headers, and only the rows left
@@ -1238,7 +1342,7 @@ export default function InventoryPage() {
     // not just the rows currently scrolled/paged into view. (Do not switch to
     // getRenderedNodes(), which is viewport-bound.)
     api.forEachNodeAfterFilterAndSort((node) => {
-      if (!node.data) return;
+      if (!node.data || (node.data as InventoryRow).__group) return;
       const row: Record<string, unknown> = {};
       for (const col of displayed) {
         row[col.getColId()] = api.getCellValue({
@@ -1270,9 +1374,21 @@ export default function InventoryPage() {
     [columnFreeze.headerComponentParams],
   );
   const rowSelection = useMemo(() => ({ mode: "multiRow" as const, enableClickSelection: false, headerCheckbox: true, selectAll: "filtered" as const }), []);
-  const getRowId = useCallback((p: { data: Card }) => p.data.id, []);
-  const getRowStyle = useCallback((p: { data?: Card }) => p.data?.status === "ARCHIVED" ? { opacity: 0.6 } : undefined, []);
+  // Header row ids are namespaced by the grouping hook so switching the
+  // group-by can never hand AG Grid a stale row under a reused id.
+  const getRowId = useCallback(
+    (p: { data: InventoryRow }) => grouping.groupRowId(p.data),
+    [grouping.groupRowId],
+  );
+  // Headers are member clones — without the guard an ARCHIVED representative
+  // would dim the whole header row.
+  const getRowStyle = useCallback((p: { data?: InventoryRow }) => {
+    if (p.data?.__group) return undefined;
+    return p.data?.status === "ARCHIVED" ? { opacity: 0.6 } : undefined;
+  }, []);
   const onRowClicked = useCallback((e: RowClickedEvent<Card>) => {
+    // Collapse/expand is handled by the header renderer's own click handler.
+    if ((e.data as InventoryRow | undefined)?.__group) return;
     if (gridEditMode || !e.data || e.event?.defaultPrevented) return;
     // Let the browser handle Ctrl/Cmd/Shift+Click and middle-click — they're
     // intended for "open in new tab/window" via the real anchor in the Name
@@ -2856,6 +2972,8 @@ export default function InventoryPage() {
             onApplyColumnState={applyColumnLayout}
             onApplyColumnFilters={applyColumnFilters}
             columnFilterModel={columnFilterModel}
+            groupBy={groupBy}
+            onGroupByChange={setGroupBy}
           />
         </Drawer>
       ) : (
@@ -2885,6 +3003,8 @@ export default function InventoryPage() {
           onApplyColumnState={applyColumnLayout}
           onApplyColumnFilters={applyColumnFilters}
           columnFilterModel={columnFilterModel}
+          groupBy={groupBy}
+          onGroupByChange={setGroupBy}
         />
       )}
 
@@ -2903,6 +3023,12 @@ export default function InventoryPage() {
             {t("page.title")}
           </Typography>
           <Chip label={t("common:items", { count: displayedRowCount ?? filteredData.length })} size="small" />
+          <GroupByMenuButton
+            axes={groupAxes}
+            groupBy={groupBy}
+            onChange={setGroupBy}
+            compact={isMobile}
+          />
           <Box sx={{ flex: 1 }} />
           {isMobile ? (
             <>
@@ -3160,7 +3286,7 @@ export default function InventoryPage() {
             key={isRtl ? "rtl" : "ltr"}
             enableRtl={isRtl}
             ref={gridRef}
-            rowData={filteredData}
+            rowData={grouping.rowData}
             columnDefs={columnDefs}
             // `searchPending` covers the debounce window too, so the grid never
             // looks settled while it is still showing the previous query's rows.
@@ -3180,6 +3306,7 @@ export default function InventoryPage() {
             maintainColumnOrder
             getRowId={getRowId}
             getRowStyle={getRowStyle}
+            {...grouping.gridProps}
             animateRows
             defaultColDef={defaultColDef}
             initialState={
