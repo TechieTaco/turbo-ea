@@ -53,9 +53,11 @@ Los campos definen los atributos personalizados disponibles en fichas de este ti
 | **Etiqueta** | Nombre para mostrar |
 | **Tipo** | texto, texto_multilínea, número, costo, booleano, fecha, url, selección_única o selección_múltiple |
 | **Opciones** | Para campos de selección: las opciones disponibles con etiquetas y colores opcionales |
-| **Requerido** | Si el campo debe completarse para la puntuación de calidad de datos |
+| **Requerido** | Si el campo es obligatorio — consulta las reglas de aplicación más abajo |
 | **Calidad de datos** | La contribución de cada campo a la puntuación se gestiona en el panel **Calidad de datos** (ver más abajo) |
 | **Solo lectura** | Impide la edición manual (útil para campos calculados) |
+
+**Cómo se aplican los campos obligatorios.** Crear una tarjeta nunca exige estos campos: las tarjetas pueden crearse rápidamente y completarse después. Mientras algún campo obligatorio siga vacío, la puntuación de calidad de datos de la tarjeta permanece en **0** y la página de detalle muestra un aviso con los campos que deben completarse. Al editar una sección de la tarjeta, no se puede guardar hasta que sus campos obligatorios estén completos, y la API rechaza vaciar un campo obligatorio que ya tiene valor. Los campos booleanos y de solo lectura (calculados) están exentos.
 
 Haga clic en **+ Agregar Campo** para crear un nuevo campo, o haga clic en un campo existente para editarlo en el **Diálogo Editor de Campos**.
 
@@ -84,6 +86,8 @@ Los ID son **únicos globalmente, de solo lectura y nunca se reutilizan ni cambi
 #### Puntuación de calidad de datos
 
 La puntuación de **calidad de datos** de una tarjeta mide de forma ponderada cuán completa está. Cada factor que contribuye —cada campo y cinco factores integrados— se gestiona en un solo lugar: la pestaña **Calidad de datos** del editor del tipo de tarjeta. (El editor se organiza en pestañas: General, Relaciones, Roles de partes interesadas y Calidad de datos; las traducciones están disponibles desde el icono del encabezado.)
+
+**Los campos obligatorios prevalecen sobre la puntuación.** Mientras algún campo obligatorio de una tarjeta siga vacío, su puntuación permanece en **0** independientemente de los pesos: el cálculo ponderado solo se aplica una vez completados todos los campos obligatorios (los campos booleanos y de solo lectura están exentos; consulta el ajuste **Requerido** más arriba).
 
 La importancia de cada factor se establece con un control deslizante simple de cuatro niveles, que también muestra el número subyacente:
 

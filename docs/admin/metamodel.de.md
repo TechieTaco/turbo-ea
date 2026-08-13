@@ -53,9 +53,11 @@ Felder definieren die benutzerdefinierten Attribute, die auf Karten dieses Typs 
 | **Bezeichnung** | Anzeigename |
 | **Typ** | text, multiline_text, number, cost, boolean, date, url, single_select oder multiple_select |
 | **Optionen** | Für Auswahlfelder: die verfügbaren Auswahlmöglichkeiten mit Bezeichnungen und optionalen Farben |
-| **Pflichtfeld** | Ob das Feld für die Datenqualitätsbewertung ausgefüllt sein muss |
+| **Pflichtfeld** | Ob das Feld verpflichtend ist — siehe die Durchsetzungsregeln unten |
 | **Datenqualität** | Der Beitrag jedes Felds zum Wert wird im Bereich **Datenqualität** verwaltet (siehe unten) |
 | **Nur lesen** | Verhindert manuelle Bearbeitung (nützlich für berechnete Felder) |
+
+**So werden Pflichtfelder durchgesetzt.** Beim Erstellen einer Karte sind diese Felder nie erforderlich — Karten können schnell angelegt und später vervollständigt werden. Solange ein Pflichtfeld leer ist, bleibt die Datenqualitätsbewertung der Karte bei **0**, und die Kartendetailseite zeigt ein Warnbanner mit den auszufüllenden Feldern. Beim Bearbeiten eines Kartenbereichs kann dieser erst gespeichert werden, wenn seine Pflichtfelder ausgefüllt sind, und die API lehnt das Leeren eines bereits gefüllten Pflichtfelds ab. Boolesche und schreibgeschützte (berechnete) Felder sind ausgenommen.
 
 Klicken Sie auf **+ Feld hinzufügen**, um ein neues Feld zu erstellen, oder klicken Sie auf ein bestehendes Feld, um es im **Feldeditor-Dialog** zu bearbeiten.
 
@@ -84,6 +86,8 @@ IDs sind **global eindeutig, schreibgeschützt und werden nie wiederverwendet od
 #### Datenqualitätsbewertung
 
 Der **Datenqualitätswert** einer Karte ist ein gewichtetes Maß für ihre Vollständigkeit. Jeder beitragende Faktor – jedes Feld sowie fünf integrierte Faktoren – wird an einer Stelle verwaltet: im **Datenqualität**-Tab des Kartentyp-Editors. (Der Editor ist in Registerkarten unterteilt – Allgemein, Beziehungen, Stakeholder-Rollen und Datenqualität – Übersetzungen sind über das Symbol in der Kopfzeile verfügbar.)
+
+**Pflichtfelder haben Vorrang vor der Bewertung.** Solange ein Pflichtfeld einer Karte leer ist, bleibt ihr Wert unabhängig von den Gewichtungen bei **0** — die gewichtete Berechnung greift erst, wenn alle Pflichtfelder ausgefüllt sind (boolesche und schreibgeschützte Felder sind ausgenommen; siehe die Einstellung **Pflichtfeld** oben).
 
 Die Wichtigkeit jedes Faktors wird mit einem einfachen Schieberegler über vier Stufen festgelegt, der auch die zugrunde liegende Zahl anzeigt:
 

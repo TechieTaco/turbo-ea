@@ -53,9 +53,11 @@ Felter definerer de brugerdefinerede egenskaber, der er tilgængelige på kort a
 | **Etiket** | Visningsnavn |
 | **Type** | text, multiline_text, number, cost, boolean, date, url, single_select eller multiple_select |
 | **Indstillinger** | For udvælgelsesfelter: de tilgængelige valg med etiketter og valgfri farver |
-| **Påkrævet** | Hvorvidt feltet skal udfyldes for datakvalitetsscoring |
+| **Påkrævet** | Hvorvidt feltet er obligatorisk — se håndhævelsesreglerne nedenfor |
 | **Datakvalitet** | Hvert felts bidrag til scoren håndteres i panelet **Datakvalitet** (se nedenfor) |
 | **Skrivebeskyttet** | Forhindrer manuel redigering (nyttigt for beregnede felter) |
+
+**Sådan håndhæves påkrævede felter.** Oprettelse af et kort kræver aldrig disse felter — kort kan oprettes hurtigt og udfyldes senere. Så længe et påkrævet felt er tomt, forbliver kortets datakvalitetsscore på **0**, og kortets detaljeside viser et advarselsbanner med de felter, der skal udfyldes. Når en kortsektion redigeres, kan den ikke gemmes, før dens påkrævede felter er udfyldt, og API'et afviser at tømme et påkrævet felt, der allerede har en værdi. Boolske og skrivebeskyttede (beregnede) felter er undtaget.
 
 Klik på **+ Tilføj felt** for at oprette et nyt felt, eller klik på et eksisterende felt for at redigere det i **Feltredigeringsdialogen**.
 
@@ -84,6 +86,8 @@ ID'er er **globalt unikke, skrivebeskyttede og genbruges eller ændres aldrig**.
 #### Datakvalitetsscore
 
 Et korts **datakvalitetsscore** er et vægtet mål for, hvor komplet det er. Hver bidragende faktor – hvert felt samt fem indbyggede faktorer – håndteres ét sted: fanen **Datakvalitet** i korttypeeditoren. (Editoren er organiseret i faner – Generelt, Relationer, Interessentroller og Datakvalitet – oversættelser er tilgængelige via ikonet i headeren.)
+
+**Påkrævede felter tilsidesætter scoren.** Så længe et påkrævet felt på et kort er tomt, forbliver dets score på **0** uanset vægtene — den vægtede beregning gælder først, når alle påkrævede felter er udfyldt (boolske og skrivebeskyttede felter er undtaget; se indstillingen **Påkrævet** ovenfor).
 
 Hver faktors vigtighed angives med en enkel skyder over fire niveauer, der også viser det underliggende tal:
 
