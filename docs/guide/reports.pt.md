@@ -45,6 +45,9 @@ Ao agrupar por um tipo de cartão relacionado que suporta hierarquia (como Capac
 
 ## Mapa de Capacidades
 
+Clicar numa capacidade abre um painel lateral com todas as aplicações da sua subárvore. No nível mais baixo, o painel oferece **Ver no inventário**, que leva às aplicações ligadas a ela.
+
+
 ![Mapa de Capacidades de Negócio](../assets/img/pt/11_mapa_capacidades.png)
 
 O **Mapa de Capacidades** mostra um **mapa de calor** hierárquico das capacidades de negócio da organização. Cada bloco representa uma capacidade, com:
@@ -222,7 +225,7 @@ Cada valor do relatório é uma porta de entrada, não apenas uma leitura:
 - **Clique numa barra** em *Completude média por tipo*, ou numa linha da vista de tabela, para listar todos os cards desse tipo.
 - **Clique no bloco Órfãos ou Desatualizados** para listar os cards por trás daquela contagem.
 
-No painel, clique num card para abrir o seu painel de detalhe, ou carregue em **Ver no inventário** para continuar no [Inventário](inventory.md) — que chega agrupado por qualidade dos dados, com a faixa clicada expandida e as restantes recolhidas ao lado, para começar a corrigir registos de imediato. Os painéis Órfãos e Desatualizados não têm botão **Ver no inventário**, porque o inventário não consegue filtrar por nenhum dos dois.
+No painel, clique num card para abrir o seu painel de detalhe, ou carregue em **Ver no inventário** para continuar no [Inventário](inventory.md) — que chega agrupado por qualidade dos dados, com a faixa clicada expandida e as restantes recolhidas ao lado, para começar a corrigir registos de imediato. Os painéis Órfãos e Desatualizados ligam ao filtro correspondente do inventário, em todos os tipos de ficha.
 
 
 ## Relatório de Fim de Vida (EOL)

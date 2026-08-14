@@ -26,12 +26,13 @@ import { useIsRtl } from "@/hooks/useIsRtl";
 import { makeRtlAxisTick, rtlLegendItemStyle, mirrorChartMargin } from "@/lib/rechartsRtl";
 import CardDetailSidePanel from "@/components/CardDetailSidePanel";
 import ReportCardListPanel, { type ReportCardListItem } from "./ReportCardListPanel";
-import { buildInventorySliceUrl } from "./portfolioInventoryLink";
+import { buildInventoryFlagUrl, buildInventorySliceUrl } from "./portfolioInventoryLink";
 import {
+  bandColor,
   bandOf,
   DATA_QUALITY_BANDS,
   type DataQualityBand,
-} from "@/features/inventory/dataQualityBands";
+} from "@/lib/dataQualityBands";
 import { useApiQuery } from "@/hooks/useApiQuery";
 import { api } from "@/api/client";
 
@@ -111,7 +112,7 @@ function scopePath(scope: DQScope): string {
 }
 
 function dataQualityColor(v: number): string {
-  return QUALITY_COLORS[bandOf(v)];
+  return bandColor(v);
 }
 
 function dataQualityLabelKey(v: number): string {
@@ -222,19 +223,20 @@ export default function DataQualityReport() {
     dotColor: dataQualityColor(item.data_quality),
   }));
 
-  // Orphaned / stale have no inventory equivalent, so those panels carry no
-  // deep-link rather than one that would land on the wrong rows.
-  const panelInventoryHref =
-    scope && scope.kind !== "flag"
-      ? buildInventorySliceUrl({
+  // Band and type slices land grouped by quality with the clicked band
+  // expanded; the flag tiles land on their own inventory filter.
+  const panelInventoryHref = !scope
+    ? undefined
+    : scope.kind === "flag"
+      ? buildInventoryFlagUrl(scope.flag)
+      : buildInventorySliceUrl({
           cardType: scope.typeKey,
           mode: { kind: "quality" },
           group:
             scope.kind === "band"
               ? { key: scope.band, label: t(BAND_LABEL_KEY[scope.band]) }
               : null,
-        })
-      : undefined;
+        });
 
   const panelTotal = panelData?.total ?? 0;
   const shown = panelItems.length;

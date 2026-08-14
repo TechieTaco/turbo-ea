@@ -45,6 +45,9 @@ Når du grupperer efter en relateret korttype, der understøtter hierarki (såso
 
 ## Kompetencekort
 
+Et klik på en kapabilitet åbner et sidepanel med alle applikationer i dens undertræ. På nederste niveau tilbyder panelet **Vis i inventar**, som fører til de applikationer, der er knyttet til den.
+
+
 ![Forretningskompetencekort](../assets/img/da/11_capability_map.png)
 
 **Kompetencekortet** viser et hierarkisk **heatmap** over organisationens forretningskompetencer. Hver blok repræsenterer en kompetence med:
@@ -222,7 +225,7 @@ Hvert tal i rapporten er en indgang, ikke bare en aflæsning:
 - **Klik på en bjælke** i *Gennemsnitlig fuldstændighed efter type*, eller på en række i tabelvisningen, for at vise alle kort af den type.
 - **Klik på feltet Forældreløse eller Forældede** for at vise kortene bag det tal.
 
-Fra panelet kan du klikke på et kort for at åbne dets detaljepanel, eller trykke **Vis i inventar** for at fortsætte i [Inventaret](inventory.md) — som åbner grupperet efter datakvalitet med det valgte bånd foldet ud og de øvrige foldet sammen ved siden af, så du kan gå i gang med at rette poster med det samme. Panelerne Forældreløse og Forældede har ingen **Vis i inventar**-knap, da inventaret ikke kan filtrere på nogen af dem.
+Fra panelet kan du klikke på et kort for at åbne dets detaljepanel, eller trykke **Vis i inventar** for at fortsætte i [Inventaret](inventory.md) — som åbner grupperet efter datakvalitet med det valgte bånd foldet ud og de øvrige foldet sammen ved siden af, så du kan gå i gang med at rette poster med det samme. Panelerne Forældreløse og Forældede linker til inventarets tilsvarende filter på tværs af alle korttyper.
 
 
 ## End of Life (EOL)-rapport

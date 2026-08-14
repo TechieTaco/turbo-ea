@@ -45,6 +45,9 @@ Al agrupar por un tipo de tarjeta relacionado que admite jerarquía (como Capaci
 
 ## Mapa de Capacidades
 
+Al hacer clic en una capacidad se abre un panel lateral con todas las aplicaciones de su subárbol. En el nivel más bajo, el panel ofrece **Ver en el inventario**, que lleva a las aplicaciones vinculadas a ella.
+
+
 ![Mapa de Capacidades de Negocio](../assets/img/es/11_mapa_capacidades.png)
 
 El **Mapa de Capacidades** muestra un **mapa de calor** jerárquico de las capacidades de negocio de la organización. Cada bloque representa una capacidad, con:
@@ -222,7 +225,7 @@ Cada cifra del informe es una vía de entrada, no solo un dato:
 - **Haga clic en una barra** de *Completitud media por tipo*, o en una fila de la vista de tabla, para listar todas las fichas de ese tipo.
 - **Haga clic en el mosaico Huérfanos u Desactualizados** para listar las fichas tras ese recuento.
 
-Desde el panel, haga clic en una ficha para abrir su panel de detalle, o pulse **Ver en el inventario** para continuar en el [Inventario](inventory.md), que llega agrupado por calidad de datos con la banda seleccionada desplegada y las demás plegadas al lado, de modo que pueda empezar a corregir registros de inmediato. Los paneles de Huérfanos y Desactualizados no tienen botón **Ver en el inventario**, porque el inventario no puede filtrar por ninguno de los dos.
+Desde el panel, haga clic en una ficha para abrir su panel de detalle, o pulse **Ver en el inventario** para continuar en el [Inventario](inventory.md), que llega agrupado por calidad de datos con la banda seleccionada desplegada y las demás plegadas al lado, de modo que pueda empezar a corregir registros de inmediato. Los paneles de Huérfanos y Desactualizados enlazan con el filtro de inventario correspondiente, en todos los tipos de ficha.
 
 
 ## Informe de Fin de Vida (EOL)
