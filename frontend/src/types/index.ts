@@ -689,7 +689,9 @@ export type NotificationType =
   | "approval_status_changed"
   | "soaw_sign_requested"
   | "soaw_signed"
-  | "survey_request";
+  | "survey_request"
+  | "app_update_available"
+  | "app_updated";
 
 export interface Notification {
   id: string;
@@ -711,6 +713,25 @@ export interface NotificationListResponse {
   total: number;
   page: number;
   page_size: number;
+}
+
+/** Cached result of the daily "is there a newer release?" check. */
+export interface UpdateStatus {
+  current_version: string;
+  latest_version: string | null;
+  release_url: string | null;
+  release_notes: string;
+  checked_at: string | null;
+  error: string | null;
+  update_available: boolean;
+  enabled: boolean;
+}
+
+/** Changelog for the versions this instance was last upgraded across. */
+export interface WhatsNewResponse {
+  version: string;
+  from_version: string | null;
+  notes: string;
 }
 
 export interface NotificationPreferences {

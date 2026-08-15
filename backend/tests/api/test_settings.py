@@ -281,6 +281,144 @@ class TestSponsorButtonEnabledSettings:
 
 
 # -------------------------------------------------------------------
+# PATCH /settings/update-check-enabled
+# -------------------------------------------------------------------
+
+
+class TestUpdateCheckEnabledSettings:
+    async def test_update_check_defaults_to_enabled(self, client, db, settings_env):
+        admin = settings_env["admin"]
+        resp = await client.get("/api/v1/settings/bootstrap", headers=auth_headers(admin))
+        assert resp.status_code == 200
+        assert resp.json()["update_check_enabled"] is True
+
+    async def test_admin_can_toggle_update_check(self, client, db, settings_env):
+        admin = settings_env["admin"]
+
+        resp = await client.patch(
+            "/api/v1/settings/update-check-enabled",
+            json={"enabled": False},
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 200
+        assert resp.json()["ok"] is True
+
+        get_resp = await client.get("/api/v1/settings/bootstrap", headers=auth_headers(admin))
+        assert get_resp.json()["update_check_enabled"] is False
+
+        resp2 = await client.patch(
+            "/api/v1/settings/update-check-enabled",
+            json={"enabled": True},
+            headers=auth_headers(admin),
+        )
+        assert resp2.status_code == 200
+
+        get_resp2 = await client.get("/api/v1/settings/bootstrap", headers=auth_headers(admin))
+        assert get_resp2.json()["update_check_enabled"] is True
+
+    async def test_member_cannot_toggle_update_check(self, client, db, settings_env):
+        member = settings_env["member"]
+        resp = await client.patch(
+            "/api/v1/settings/update-check-enabled",
+            json={"enabled": False},
+            headers=auth_headers(member),
+        )
+        assert resp.status_code == 403
+
+    async def test_update_status_serves_the_cached_release_notes(self, client, db, settings_env):
+        from app.services.update_check import ReleaseInfo, record_result
+
+        await record_result(
+            db,
+            release=ReleaseInfo(
+                version="99.0.0",
+                url="https://github.com/vincentmakes/turbo-ea/releases/tag/v99.0.0",
+                notes="### Added\n- Something new",
+            ),
+            error=None,
+        )
+        await db.commit()
+
+        resp = await client.get(
+            "/api/v1/settings/update-status", headers=auth_headers(settings_env["admin"])
+        )
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["latest_version"] == "99.0.0"
+        assert body["release_notes"] == "### Added\n- Something new"
+        assert body["update_available"] is True
+        assert body["checked_at"]
+
+    async def test_update_status_is_empty_before_the_first_check(self, client, db, settings_env):
+        resp = await client.get(
+            "/api/v1/settings/update-status", headers=auth_headers(settings_env["admin"])
+        )
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["latest_version"] is None
+        assert body["release_notes"] == ""
+        assert body["update_available"] is False
+
+    async def test_member_cannot_read_update_status(self, client, db, settings_env):
+        """Same gate as the notification: a non-admin learns nothing here."""
+        resp = await client.get(
+            "/api/v1/settings/update-status", headers=auth_headers(settings_env["member"])
+        )
+        assert resp.status_code == 403
+
+
+# -------------------------------------------------------------------
+# GET /settings/whats-new + PATCH /settings/announce-upgrades-enabled
+# -------------------------------------------------------------------
+
+
+class TestWhatsNewSettings:
+    async def test_any_authenticated_user_can_read_whats_new(self, client, db, settings_env):
+        """Deliberately *not* admin-gated, unlike /update-status: every user is
+        notified when the app is updated, so every user must be able to read
+        what changed."""
+        for who in ("admin", "member", "viewer"):
+            resp = await client.get(
+                "/api/v1/settings/whats-new", headers=auth_headers(settings_env[who])
+            )
+            assert resp.status_code == 200, who
+            body = resp.json()
+            assert body["version"]
+            assert "notes" in body
+
+    async def test_whats_new_requires_authentication(self, client, db, settings_env):
+        resp = await client.get("/api/v1/settings/whats-new")
+        assert resp.status_code == 401
+
+    async def test_announcements_default_to_enabled(self, client, db, settings_env):
+        resp = await client.get(
+            "/api/v1/settings/bootstrap", headers=auth_headers(settings_env["admin"])
+        )
+        assert resp.json()["announce_upgrades_enabled"] is True
+
+    async def test_admin_can_toggle_announcements(self, client, db, settings_env):
+        admin = settings_env["admin"]
+
+        resp = await client.patch(
+            "/api/v1/settings/announce-upgrades-enabled",
+            json={"enabled": False},
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 200
+
+        boot = await client.get("/api/v1/settings/bootstrap", headers=auth_headers(admin))
+        assert boot.json()["announce_upgrades_enabled"] is False
+
+    async def test_member_cannot_toggle_announcements(self, client, db, settings_env):
+        resp = await client.patch(
+            "/api/v1/settings/announce-upgrades-enabled",
+            json={"enabled": False},
+            headers=auth_headers(settings_env["member"]),
+        )
+        assert resp.status_code == 403
+
+
+# -------------------------------------------------------------------
 # GET /settings/file-uploads-enabled + PATCH /settings/file-uploads-enabled
 # -------------------------------------------------------------------
 

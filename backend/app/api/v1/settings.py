@@ -235,6 +235,8 @@ async def get_bootstrap(db: AsyncSession = Depends(get_db)):
         "turbolens_enabled": general.get("turboLensEnabled", True),
         "grc_enabled": general.get("grcEnabled", True),
         "sponsor_button_enabled": general.get("sponsorButtonEnabled", True),
+        "update_check_enabled": general.get("updateCheckEnabled", True),
+        "announce_upgrades_enabled": general.get("announceUpgradesEnabled", True),
         "file_uploads_enabled": general.get("fileUploadsEnabled", True),
         "enabled_locales": general.get("enabledLocales", SUPPORTED_LOCALES),
         "fiscal_year_start": general.get("fiscalYearStart", 1),
@@ -769,6 +771,100 @@ async def update_sponsor_button_enabled(
     row = await _get_or_create_row(db)
     general = dict(row.general_settings or {})
     general["sponsorButtonEnabled"] = body.enabled
+    row.general_settings = general
+
+    await db.commit()
+    return {"ok": True}
+
+
+@router.get("/update-status")
+async def get_update_status(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Cached result of the last update check, for the release-notes dialog.
+
+    Gated on ``admin.settings`` — the same permission that decides who gets
+    notified in the first place, so the endpoint cannot tell a non-admin
+    anything the notification would not have. Serves only what the daily check
+    already stored; it never reaches out to GitHub itself.
+    """
+    await PermissionService.require_permission(db, user, "admin.settings")
+
+    from app.services.update_check import read_status
+
+    return await read_status(db)
+
+
+@router.get("/whats-new")
+async def get_whats_new(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Changelog for the versions this instance was last upgraded across.
+
+    Authenticated but **not** permission-gated, unlike ``/update-status``:
+    every active user is notified when the app is updated, so every one of them
+    has to be able to read what changed. A changelog is public information —
+    the same text is on the project's releases page.
+
+    Served from the changelog bundled in the image, so it needs no network and
+    answers identically on an air-gapped install.
+    """
+    from app.services.upgrade_announce import read_whats_new
+
+    return await read_whats_new(db)
+
+
+class AnnounceUpgradesEnabledPayload(BaseModel):
+    enabled: bool
+
+
+@router.patch("/announce-upgrades-enabled")
+async def update_announce_upgrades_enabled(
+    body: AnnounceUpgradesEnabledPayload,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Admin endpoint — announce upgrades to all users, or keep them silent.
+
+    Switching it off does not suppress a *pending* announcement retroactively:
+    the version marker still advances on every boot, so re-enabling this later
+    announces the next upgrade rather than replaying an old one.
+    """
+    await PermissionService.require_permission(db, user, "admin.settings")
+
+    row = await _get_or_create_row(db)
+    general = dict(row.general_settings or {})
+    general["announceUpgradesEnabled"] = body.enabled
+    row.general_settings = general
+
+    await db.commit()
+    return {"ok": True}
+
+
+class UpdateCheckEnabledPayload(BaseModel):
+    enabled: bool
+
+
+@router.patch("/update-check-enabled")
+async def update_update_check_enabled(
+    body: UpdateCheckEnabledPayload,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Admin endpoint — enable or disable the daily "newer release available" check.
+
+    Turning it off stops the outbound request to GitHub entirely (the flag is
+    read before the fetch), which is what an egress-restricted or air-gapped
+    install wants. The current value rides along on ``GET /settings/bootstrap``
+    rather than getting its own endpoint — only the admin page reads it.
+    """
+    await PermissionService.require_permission(db, user, "admin.settings")
+
+    row = await _get_or_create_row(db)
+    general = dict(row.general_settings or {})
+    general["updateCheckEnabled"] = body.enabled
     row.general_settings = general
 
     await db.commit()

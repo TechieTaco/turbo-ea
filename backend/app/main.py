@@ -305,6 +305,28 @@ async def _license_refresh_loop() -> None:
             logger.exception("Error in extension license refresh loop")
 
 
+async def _update_check_loop() -> None:
+    """Daily loop that notifies administrators when a newer release exists.
+
+    Awareness only — nothing is downloaded, installed or restarted. Runs
+    shortly after boot (so an instance that has been off for a while catches up
+    without waiting a day) and then every 24h. Silent on air-gapped installs,
+    and skipped entirely when an admin turns the check off.
+    """
+    from app.services.update_check import run_update_check
+
+    delay = 180  # first attempt shortly after boot, then daily
+    while True:
+        try:
+            await asyncio.sleep(delay)
+            delay = 24 * 3600
+            await run_update_check()
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            logger.exception("Error in update check loop")
+
+
 async def _promote_recurring_tasks_loop() -> None:
     """Daily background loop that flips eligible ``scheduled`` recurring
     items to ``open`` once their lead-time window opens.
@@ -364,6 +386,30 @@ async def _promote_recurring_tasks_loop() -> None:
 #   V3 (2.59.0) — the stakeholders bucket became a single yes/no slot instead
 #                 of one slot per role defined on the card type.
 _DQ_RESCORE_FLAG = "dataQualityCanonicalRescoreDoneV3"
+
+
+async def _one_shot_upgrade_announcement() -> None:
+    """Tell every user what changed, once, on the first boot of a new version.
+
+    Runs once per boot, not on a loop: a marker in ``app_settings`` makes every
+    restart on the same version a no-op. A fresh install, a rollback, and an
+    instance with announcements switched off all record the version and stay
+    quiet — see ``announce_upgrade_if_needed``.
+    """
+    from app.database import async_session
+    from app.services.upgrade_announce import announce_upgrade_if_needed
+
+    try:
+        async with async_session() as db:
+            notified = await announce_upgrade_if_needed(db)
+            await db.commit()
+            if notified:
+                logger.info("Announced the upgrade to %s to %d user(s)", APP_VERSION, notified)
+    except asyncio.CancelledError:
+        raise
+    except Exception:
+        # Marker not written — the announcement retries on the next startup.
+        logger.exception("Upgrade announcement failed")
 
 
 async def _one_shot_data_quality_rescore() -> None:
@@ -823,9 +869,17 @@ async def lifespan(app: FastAPI):
     # manually issued licenses and on air-gapped installs).
     license_refresh_task = asyncio.create_task(_license_refresh_loop())
 
+    # Daily "a newer release exists" check that notifies administrators via the
+    # bell. Notification only — never downloads or installs anything.
+    update_check_task = asyncio.create_task(_update_check_loop())
+
     # One-shot canonical data-quality rescore (guarded by a settings marker;
     # a no-op on every boot after the first successful run).
     dq_rescore_task = asyncio.create_task(_one_shot_data_quality_rescore())
+
+    # One-shot "the app was updated" announcement to every user (guarded by a
+    # settings marker; a no-op on every boot that is not a version change).
+    upgrade_announce_task = asyncio.create_task(_one_shot_upgrade_announcement())
 
     # Hourly ops-access maintenance: expire rescue accounts + purge ops nonces.
     ops_access_task = asyncio.create_task(_ops_access_maintenance_loop())
@@ -865,6 +919,11 @@ async def lifespan(app: FastAPI):
         await license_refresh_task
     except asyncio.CancelledError:
         pass
+    update_check_task.cancel()
+    try:
+        await update_check_task
+    except asyncio.CancelledError:
+        pass
     ops_access_task.cancel()
     try:
         await ops_access_task
@@ -874,6 +933,12 @@ async def lifespan(app: FastAPI):
         dq_rescore_task.cancel()
         try:
             await dq_rescore_task
+        except asyncio.CancelledError:
+            pass
+    if not upgrade_announce_task.done():
+        upgrade_announce_task.cancel()
+        try:
+            await upgrade_announce_task
         except asyncio.CancelledError:
             pass
     if ollama_task and not ollama_task.done():

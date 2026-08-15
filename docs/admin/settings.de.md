@@ -166,6 +166,22 @@ Schalten Sie das **Governance, Risk and Compliance**-Modul (GRC) ein oder aus. W
 
 Siehe den [GRC-Leitfaden](../guide/grc.md) für die vollständige Funktionsübersicht.
 
+## Update-Benachrichtigungen
+
+Turbo EA prüft einmal täglich, ob eine neuere Version veröffentlicht wurde, und legt in diesem Fall eine Benachrichtigung in die Glocke jedes Benutzers, dessen Rolle `admin.settings` gewährt. Ein Klick darauf öffnet die Release Notes — das Changelog dieser Version — in einem Dialog innerhalb von Turbo EA. Die Notes werden von der täglichen Prüfung zwischengespeichert; das Lesen verursacht also keine ausgehende Anfrage und funktioniert auch dann noch, wenn die Instanz später keine Netzwerkverbindung mehr hat. Eine Schaltfläche **Auf GitHub ansehen** im Dialog öffnet die Release-Seite bei Bedarf in einem neuen Tab.
+
+Die Prüfung ist **reine Benachrichtigung** — es wird nichts heruntergeladen und nichts auf dem Host verändert. Das Upgrade bleibt der bewusste, durch ein Backup abgesicherte Ablauf, der unter [Betrieb](operations.md#the-upgrade-procedure) beschrieben ist. Administratoren, die nicht erinnert werden möchten, können die Zeile **Update verfügbar** in ihren eigenen Benachrichtigungseinstellungen stummschalten.
+
+Wird der Schalter **deaktiviert**, entfällt die tägliche Anfrage an github.com vollständig — genau das, was eine Air-Gap- oder Egress-beschränkte Installation benötigt. In beiden Fällen verhält sich die Instanz normal: Ist der Release-Feed nicht erreichbar, wird der Fehler still protokolliert und nichts angezeigt.
+
+### Nach dem Upgrade
+
+Ein zweiter Schalter, **Upgrades an Benutzer ankündigen**, deckt die andere Hälfte ab. Startet die Instanz mit einer neueren Version, erhält **jeder** Benutzer — nicht nur Administratoren — eine Benachrichtigung, dass Turbo EA aktualisiert wurde; ein Klick zeigt das Changelog aller übersprungenen Versionen. Eine Instanz, die von 2.57.0 auf 2.60.0 springt, zeigt alle vier Releases, nicht nur das letzte.
+
+Die Ankündigung erfolgt **einmal pro Version**: zehn Neustarts derselben Version ergeben eine Benachrichtigung, ein Rollback keine. Eine brandneue Installation kündigt nichts an, weil es kein Upgrade zu beschreiben gibt. Diese Notes stammen aus dem im Image mitgelieferten Changelog, dieser Teil benötigt also überhaupt kein Netzwerk.
+
+Diese Benachrichtigung erfolgt **nur in der App** und wird nie per E-Mail versendet — sie erreicht bei jedem Upgrade jeden aktiven Benutzer, und ein E-Mail-Kanal würde jedes Patch-Release zu einem Massenversand machen. Einzelne Benutzer können sie weiterhin unter **Update-Benachrichtigungen** in ihren eigenen Benachrichtigungseinstellungen stummschalten; der E-Mail-Schalter wird dort deaktiviert angezeigt.
+
 ## Sponsor-Schaltfläche
 
 Blenden Sie die **Sponsor**-Schaltfläche im Benutzermenü (Avatar) ein oder aus. Wenn sie ausgeblendet ist, sehen Benutzer die Sponsor-Schaltfläche nicht mehr in ihrem Profilmenü. Die Sponsor-Schaltfläche — und der Dialog, der erklärt, wie man Turbo EA unterstützt — bleibt in diesem Einstellungsbereich immer verfügbar, sodass Administratoren sie auch dann erreichen, wenn sie im Menü ausgeblendet ist.

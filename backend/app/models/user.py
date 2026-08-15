@@ -18,6 +18,8 @@ DEFAULT_NOTIFICATION_PREFERENCES = {
         "soaw_sign_requested": True,
         "soaw_signed": True,
         "survey_request": True,
+        "app_update_available": True,
+        "app_updated": True,
     },
     "email": {
         "todo_assigned": True,
@@ -28,6 +30,7 @@ DEFAULT_NOTIFICATION_PREFERENCES = {
         "soaw_sign_requested": True,
         "soaw_signed": True,
         "survey_request": True,
+        "app_update_available": False,
     },
 }
 
