@@ -56,6 +56,8 @@ The **Capability Map** shows a hierarchical **heatmap** of the organization's bu
 - **Heatmap coloring** — Blocks are colored based on a selected metric (e.g., number of supporting applications, average data quality, or risk level)
 - **Click to explore** — Click any capability to drill down into its details and supporting applications
 
+**Scoping to specific capabilities** — By default the map draws every capability. Use the capability chip in the toolbar to open a picker and select one or more capabilities; the map then shows only those and everything beneath them. Sub-capabilities are included automatically, so picking a top-level capability gives you its whole branch. **Display Depth** counts from the capabilities you selected, so *Level 2* always means two tiers below what you are looking at. The scope is stored with the report, so a saved report reopens on the same branch.
+
 ## Lifecycle Report
 
 ![Lifecycle Report](../assets/img/en/12_lifecycle.png)
@@ -67,6 +69,8 @@ The **Lifecycle Report** shows a **timeline visualization** of when technology c
 - **Migration coordination** — Visualize overlapping phase-in and phase-out periods
 
 Components are displayed as horizontal bars spanning their lifecycle phases: Plan, Phase In, Active, Phase Out, and End of Life.
+
+**Scoping to specific cards** — Once you have picked a card type, the chip beside it opens a picker: select one or more cards and the timeline shows only those and everything beneath them in the hierarchy. Sub-cards are included automatically. The chip stays disabled while the type selector is on *All types*, because a scope needs one hierarchy to work from.
 
 ## Dependencies Report
 
@@ -152,6 +156,8 @@ Whenever at least one Cost Source is active, the treemap rectangles are **clicka
 
 The timeline slider, Cost Source selection, and other filters are preserved as you drill, and the drilled level is part of the saved-report config — saving a report while drilled in re-opens directly at that level. With **no** Cost Source active, clicking a rectangle opens the card side panel instead (there's nothing to break down).
 
+**Scoping to specific cards** — The chip beside the card-type selector opens a picker: select one or more cards and the treemap, the totals and the table all narrow to those and everything beneath them. The chip is hidden while you are drilled into a rectangle, since a drill has already moved you to a different card type; leave the drill and the scope is still there.
+
 ## Matrix Report
 
 ![Matrix Report](../assets/img/en/35_report_matrix.png)
@@ -205,6 +211,8 @@ Two tiles count the cards on each axis that have no relation at all. **Show only
 
 Excel export produces two sheets: the grid as it appears on screen, and one row per relation with its values spread across columns — the sheet to pivot on. PowerPoint export captures the picture.
 
+**Scoping each axis** — Each axis carries its own chip beside its type selector, so you can ask for *these capabilities × these applications*. Select one or more cards and that axis shows only those and everything beneath them. The KPI cards above the grid follow the scope, so the counts always describe what you are looking at. Changing an axis's card type clears that axis's scope; transposing the grid swaps the two scopes along with the axes.
+
 ## Data Quality Report
 
 ![Data Quality Report](../assets/img/en/33_report_data_quality.png)
@@ -256,3 +264,5 @@ Active filters and grouping options applied at the moment of export are recorded
 ## Process Map
 
 The **Process Map** visualizes the organization's business process landscape as a structured map, showing process categories (Management, Core, Support) and their hierarchical relationships.
+
+**Scoping to specific processes** — The chip beside *Display Depth* opens a picker: select one or more processes and the map shows only those and everything beneath them. Sub-processes are included automatically, and **Display Depth** counts from what you selected. Clicking into a process to zoom still works, and now works within the scope. Note this is a different control from the **Scope** row below, which filters by related Organization or Business Context.

@@ -36,7 +36,13 @@
  * axis ticks, tooltip styling) core reports use, so extension charts match
  * core's look without hand-rolling it. Since SDK 1.11 `useThumbnailCapture`
  * captures a chart container as the PNG preview shown on saved-report cards
- * (html-to-image loads lazily on first capture).
+ * (html-to-image loads lazily on first capture). Since SDK 1.14
+ * `CardScopeDialog` is the shared hierarchy-aware multi-select card picker
+ * report scope controls are built on — pick cards and everything beneath them
+ * comes with — plus its `dedupeScopeRoots` helper. Since SDK 1.15 the rest of
+ * the kit ships too: `CardScopeFilter` (the toolbar chip that opens it),
+ * `useCardScope` (scope state, closure, stale-id handling, type-change reset)
+ * and `applyScope` (narrow a list to a closure).
  *
  * Since SDK 1.12 the preferred way to add a plug point is the GENERIC SLOT
  * registry, not a new named extension point. An extension declares
@@ -63,6 +69,9 @@ import { useTranslation } from "react-i18next";
 
 import { api } from "@/api/client";
 import FilterSelect from "@/components/FilterSelect";
+import CardScopeDialog, { dedupeScopeRoots } from "@/components/CardScopeDialog";
+import CardScopeFilter from "@/components/CardScopeFilter";
+import { applyScope, useCardScope } from "@/hooks/useCardScope";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { hasPermission } from "@/components/RequirePermission";
 import { useAuthContext } from "@/hooks/AuthContext";
@@ -78,7 +87,7 @@ import { useSavedReport as useCoreSavedReport } from "@/hooks/useSavedReport";
 import * as tokens from "@/theme/tokens";
 import type { ArchitectureDecision, Card } from "@/types";
 
-export const UI_SDK_VERSION = "1.13";
+export const UI_SDK_VERSION = "1.15";
 
 /**
  * Core nav groups an extension route may request placement into (instead of the
@@ -806,6 +815,18 @@ export function initExtensionHost(): void {
       // core's look in either light or dark mode.
       useChartTheme,
       useThumbnailCapture,
+      // SDK 1.14 — the shared card scope picker. An extension report that
+      // wants "narrow this to a few cards (and everything under them)" gets
+      // core's behaviour — browse-on-open, tree, ancestor-wins dedupe — rather
+      // than re-rolling a weaker one. MUI-only, so a static import is fine.
+      CardScopeDialog,
+      dedupeScopeRoots,
+      // SDK 1.15 — the whole report-scoping kit, so an extension report gets
+      // "narrow this to a few cards and everything under them" with the same
+      // saved-report round-trip and stale-id handling core reports have.
+      CardScopeFilter,
+      useCardScope,
+      applyScope,
     },
     register: registerExtension,
   };

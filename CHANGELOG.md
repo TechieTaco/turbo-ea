@@ -5,6 +5,15 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.65.0] - 2026-08-16
+
+### Added
+- **The Process Map, Matrix, Lifecycle and Cost reports can be scoped to the cards you care about too.** The same picker as the Capability Map, in each report's toolbar. On the Matrix each axis gets its own, so you can ask for *these capabilities × these applications*, and the KPI cards above the grid follow the scope rather than continuing to report whole-axis numbers. On the Process Map, Display Depth counts from what you selected and click-to-zoom now works within the scope. On Lifecycle the chip waits until you have picked a card type, and a scoped parent brings its children into view even when the parent itself carries no lifecycle dates. On Cost the chip steps aside while you are drilled into a rectangle and is still there when you come back out. Every scope is saved with its report and appears in print and Excel/PowerPoint exports.
+- **The Capability Map can now be scoped to the capabilities you care about.** Drawing a large landscape meant drawing every capability, with no way to look at one branch — the existing filters all narrow the applications inside the blocks, not the blocks themselves. The toolbar now carries a capability chip: open it, pick one or more capabilities, and the map shows only those and everything beneath them. Sub-capabilities come along automatically, so picking a top-level capability gives you its whole branch, and picking a capability that already sits inside another pick changes nothing. Display Depth counts from what you selected, so *Level 2* keeps meaning two tiers below what you are looking at wherever you scoped. The scope is saved with the report and appears in print and Excel/PowerPoint exports.
+
+### Fixed
+- **Card search boxes now filter as you type, best matches first.** In the Add-relations dialog and the diagram Insert-Cards dialog, typing left the list unchanged for a fraction of a second before anything happened — the filter was waiting on the same delay as the server request, even though the results were already loaded and could have been narrowed instantly. They now respond to the first character. The Insert-Cards dialog never narrowed its list at all until the server answered, and never ordered results by relevance; it now does both. Results are ranked the way the rest of the app ranks them: an exact match first, then names starting with what you typed, then names where it starts a word. In the capability scope picker, which shows a tree, a branch is ranked by the best match anywhere inside it, so the branch holding what you are looking for rises to the top even when the parent's own name doesn't match.
+
 ## [2.64.0] - 2026-08-16
 
 ### Added

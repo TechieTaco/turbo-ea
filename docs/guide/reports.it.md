@@ -56,6 +56,8 @@ La **Mappa delle Capability** mostra una **mappa di calore** gerarchica delle bu
 - **Colorazione a mappa di calore** — I blocchi sono colorati in base a una metrica selezionata (es. numero di applicazioni di supporto, qualità media dei dati o livello di rischio)
 - **Cliccate per esplorare** — Cliccate su qualsiasi capability per approfondire i dettagli e le applicazioni di supporto
 
+**Limitare a capacità specifiche** — Per impostazione predefinita la mappa disegna tutte le capacità. Usa il chip delle capacità nella barra degli strumenti per aprire un selettore e scegliere una o più capacità; la mappa mostrerà allora solo quelle e tutto ciò che si trova sotto di esse. Le sotto-capacità sono incluse automaticamente, quindi scegliendo una capacità di primo livello ottieni l'intero ramo. La **Profondità di visualizzazione** si conta a partire dalle capacità selezionate, perciò *Livello 2* significa sempre due livelli sotto ciò che stai guardando. L'ambito viene salvato con il report, così un report salvato si riapre sullo stesso ramo.
+
 ## Report Ciclo di vita
 
 ![Report Ciclo di vita](../assets/img/it/12_ciclo_vita.png)
@@ -67,6 +69,8 @@ Il **Report Ciclo di vita** mostra una **visualizzazione temporale** di quando i
 - **Coordinamento delle migrazioni** — Visualizzate i periodi sovrapposti di phase-in e phase-out
 
 I componenti sono visualizzati come barre orizzontali che attraversano le fasi del ciclo di vita: Plan, Phase In, Active, Phase Out e End of Life.
+
+**Limitare a schede specifiche** — Una volta scelto un tipo di scheda, il chip accanto apre un selettore: scegli una o più schede e la cronologia mostrerà solo quelle e tutto ciò che si trova sotto di esse. Le schede figlie sono incluse automaticamente. Il chip resta disattivato finché il selettore è su *Tutti i tipi*, perché un ambito richiede una sola gerarchia.
 
 ## Report Dipendenze
 
@@ -152,6 +156,8 @@ Quando almeno un'Origine costi è attiva, i rettangoli del treemap diventano **c
 
 Lo slider della linea temporale, la selezione dell'Origine costi e gli altri filtri vengono mantenuti durante il drill-down, e il livello di drill-down fa parte della configurazione del report salvato: salvando un report mentre si è in drill-down lo si riapre direttamente a quel livello. Senza un'Origine costi attiva, un clic su un rettangolo apre invece il pannello laterale della card (non c'è nulla da scomporre).
 
+**Limitare a schede specifiche** — Il chip accanto al selettore del tipo apre un selettore: scegli una o più schede e la treemap, i totali e la tabella si limiteranno a quelle e a tutto ciò che si trova sotto di esse. Il chip è nascosto mentre sei all'interno di un rettangolo, poiché quel dettaglio ti ha già portato a un altro tipo di scheda; esci e l'ambito è ancora lì.
+
 ## Report Matrice
 
 ![Report Matrice](../assets/img/it/35_report_matrice.png)
@@ -205,6 +211,8 @@ Due riquadri contano le card di ciascun asse che non hanno alcuna relazione. **M
 
 L'esportazione in Excel produce due fogli: la griglia così come appare a schermo e una riga per relazione con i suoi valori distribuiti in colonne, il foglio su cui costruire una tabella pivot. L'esportazione in PowerPoint cattura l'immagine.
 
+**Limitare ciascun asse** — Ogni asse ha il proprio chip accanto al selettore del tipo, così puoi chiedere *queste capacità × queste applicazioni*. Gli indicatori sopra la griglia seguono l'ambito, quindi i numeri descrivono sempre ciò che stai guardando. Cambiare il tipo di un asse cancella il suo ambito; la trasposizione scambia i due ambiti insieme agli assi.
+
 ## Report Qualità dei Dati
 
 ![Report Qualità dei Dati](../assets/img/it/33_report_qualita_dati.png)
@@ -256,3 +264,5 @@ Filtri e raggruppamenti attivi al momento dell'esportazione sono registrati sull
 ## Mappa dei processi
 
 La **Mappa dei processi** visualizza il panorama dei processi aziendali dell'organizzazione come una mappa strutturata, mostrando le categorie di processo (Gestione, Core, Supporto) e le loro relazioni gerarchiche.
+
+**Limitare a processi specifici** — Il chip accanto a *Profondità di visualizzazione* apre un selettore: scegli uno o più processi e la mappa mostrerà solo quelli e tutto ciò che si trova sotto di essi. I sotto-processi sono inclusi automaticamente e la **Profondità di visualizzazione** si conta dalla tua selezione. Lo zoom con un clic funziona ancora, ora all'interno dell'ambito. È un controllo diverso dalla riga **Ambito** sottostante, che filtra per Organizzazione o Contesto di business collegato.
