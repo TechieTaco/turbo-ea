@@ -50,6 +50,8 @@ Carregar o mesmo pacote outra vez é seguro — a pré-visualização mostra tud
 
 Aplique uma licença através de **Introduzir licença…** no separador Instaladas (cole o texto ou carregue o ficheiro); o botão também aparece em cada linha de extensão que precise dela. A página mostra então o titular e um distintivo por direito com a respetiva data de expiração.
 
+A sua instância mantém **apenas uma licença de cada vez** — aplicar uma nova substitui a anterior. As licenças emitidas pela Store contêm sempre todas as compras feitas para a sua instância, pelo que a substituição é segura. Se também possuir licenças emitidas manualmente, peça ao seu fornecedor uma licença combinada em vez de aplicar ficheiros por extensão; se uma licença aplicada removesse direitos que a atual ainda cobre, o Turbo EA lista-os e pede primeiro confirmação (em nenhum caso são eliminados dados).
+
 Quando um direito ultrapassa a validade entra num **período de tolerância** (30 dias por predefinição): tudo continua a funcionar e os administradores veem um aviso. Após a tolerância, a extensão é **desativada suavemente** — as suas páginas desaparecem, a sua API recusa pedidos e as suas tarefas em segundo plano ficam em pausa. **Nunca são apagados dados.** Aplicar uma licença renovada restaura tudo de imediato, sem reinício.
 
 As licenças compradas na Loja renovam-se sozinhas nas instâncias ligadas: após cada pagamento bem-sucedido, a sua instância obtém automaticamente a licença prolongada — nada a colar. Numa instância isolada, a renovação resume-se a colar o ficheiro de licença atualizado do e-mail de renovação (ou pedi-lo ao fornecedor) — nada mais.
@@ -87,8 +89,13 @@ A maioria das extensões trabalha apenas com os seus próprios dados. Uma extens
 - `core.todos.read` / `core.todos.write` — ler ou alterar todos através do SDK de extensões. Escrever inclui ler. Nos todos de sistema (como pedidos de assinatura), uma extensão de sincronização só pode definir a referência externa mostrada como chip — nunca pode concluí-los, editá-los, reatribuí-los ou eliminá-los, e os todos de outra extensão continuam fora do seu alcance.
 - `core.events.todo` — receber os eventos de alteração dos todos, para que um conector reaja de imediato em vez de esperar pelo próximo ciclo de sondagem.
 - `core.users.read` — consultar utilizadores (apenas nome, e-mail e estado ativo) para que um conector possa fazer corresponder responsáveis a contas da ferramenta externa. Não são expostos dados de função, início de sessão ou preferências, e as extensões nunca podem alterar utilizadores.
+- `core.cards.read` — ler cartões, relações e o metamodelo, por exemplo para que um conector possa fazer corresponder as suas aplicações a registos de um sistema externo. Os cartões arquivados permanecem fora de vista.
+- `core.cards.write` — criar, atualizar ou arquivar cartões e adicionar relações, com exatamente a validação que o editor da aplicação aplica. As atualizações fundem os valores dos campos em vez de os substituir, pelo que uma extensão nunca pode apagar dados que não gere, e **não existe eliminação permanente** — arquivar, com a sua janela de restauro, é a única remoção possível para uma extensão.
+- `core.events.card` — receber eventos de alteração de cartões e relações, para que um conector reaja de imediato às mudanças do inventário em vez de esperar pelo próximo ciclo de consulta.
 
 Os grants fazem parte do pacote assinado pelo fornecedor: ficam fixados no empacotamento e são visíveis antes da instalação. Só se aplicam enquanto a extensão está instalada, ativada e licenciada — desativá-la ou deixar a licença expirar revoga o acesso imediatamente, sem reinício. Cada alteração feita por uma extensão fica registada em **Admin → Registo de auditoria** sob a origem **Extensão**, e um todo espelhado de um gestor externo mostra um chip com ligação ao item externo.
+
+Cada alteração feita por uma extensão aparece em **Admin → Registo de auditoria** como um lote `ext:<chave>` com diferenças campo a campo, e pode ser revertida aí como qualquer outro lote. Os operadores têm a última palavra: a variável de ambiente `EXTENSION_WRITES_ENABLED=false` pausa de imediato todas as escritas de extensões (as leituras continuam, sem reinício), e `EXTENSION_MAX_WRITES_PER_BATCH` / `EXTENSION_MAX_BATCHES_PER_MINUTE` limitam quanto uma extensão pode alterar por lote e por minuto.
 
 ## Onde as páginas de extensão aparecem
 
