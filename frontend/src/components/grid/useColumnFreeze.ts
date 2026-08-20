@@ -49,13 +49,15 @@ import { colIdOf, sameOrder } from "./columnOrder";
 /** Marker class on both pins — the click delegate keys on it. */
 export const FREEZE_TOGGLE_CLASS = "tea-freeze";
 /**
- * AG Grid's auto-generated row-selection column (`CONTROLS_COLUMN_ID_PREFIX`).
- * It is `lockPosition: "left"`, which only orders it within its own region —
- * so as soon as the user freezes a column, the checkboxes end up *after* the
- * pinned region. Pinning it too keeps it genuinely first; see
- * `selectionColumnDef` below.
+ * AG Grid's auto-generated row-selection column — colId prefix
+ * `ag-Grid-SelectionColumn` since v33 (`ag-Grid-ControlsColumn` in v32,
+ * kept as a fallback). It is `lockPosition: "left"`, which only orders it
+ * within its own region — so as soon as the user freezes a column, the
+ * checkboxes end up *after* the pinned region. Pinning it too keeps it
+ * genuinely first; see `selectionColumnDef` below.
  */
-const CONTROLS_COLUMN_SELECTOR = '[col-id^="ag-Grid-ControlsColumn"]';
+const CONTROLS_COLUMN_SELECTOR =
+  '[col-id^="ag-Grid-SelectionColumn"], [col-id^="ag-Grid-ControlsColumn"]';
 /** Shown on hover over a column that is not frozen. */
 const FREEZE_ACTION_CLASS = "tea-freeze-do";
 /** Shown permanently on a frozen column. */
@@ -135,6 +137,21 @@ export const columnFreezeSx: SxProps<Theme> = {
     [`& .ag-header-cell .${FREEZE_ACTION_CLASS}`]: { display: "inline-flex" },
     [`& .ag-pinned-left-header .ag-header-cell .${FREEZE_ACTION_CLASS}, & .ag-pinned-right-header .ag-header-cell .${FREEZE_ACTION_CLASS}`]:
       { display: "none" },
+  },
+  // Touch: a 16px glyph with 2px margins is far below the ~44px target Apple
+  // recommends, and it sits right next to the filter button — tapping the pin
+  // on an iPad took several tries and often hit the filter instead. Grow the
+  // hit area with padding (the click delegate keys on the element, so padding
+  // counts) and push the pin away from its neighbours. Negative block margin
+  // keeps the taller box from stretching the header row.
+  "@media (pointer: coarse)": {
+    [`& .${FREEZE_TOGGLE_CLASS}`]: {
+      padding: "10px 8px",
+      marginBlock: "-10px",
+      marginInlineStart: "6px",
+      marginInlineEnd: "2px",
+      opacity: 0.8,
+    },
   },
   // The pins are an on-screen affordance only.
   "@media print": {
@@ -283,24 +300,36 @@ export function useColumnFreeze<TData = unknown>(
     const el = containerRef.current;
     if (!el) return;
 
-    const handler = (event: MouseEvent) => {
+    const handler = (event: Event) => {
       const target = event.target as HTMLElement | null;
       if (!target?.closest?.(`.${FREEZE_TOGGLE_CLASS}`)) return;
-      // Keep the click off AG Grid's own header handlers: `mousedown` would
-      // start a column drag, `click` would progress the sort.
+      // Keep the interaction off AG Grid's own header handlers: `mousedown`
+      // would start a column drag, `click` would progress the sort — and on
+      // touch devices AG Grid handles the tap through its OWN touch listener
+      // (tap-to-sort) and prevents the default, so the synthetic `click`
+      // never fires at all: a pin tap on an iPad sorted the column and never
+      // froze anything. Capture-phase touch handling stops the tap before it
+      // reaches the header cell, and the touchend preventDefault suppresses
+      // the synthetic click so the toggle cannot run twice.
       event.preventDefault();
       event.stopPropagation();
-      if (event.type !== "click") return;
+      if (event.type !== "click" && event.type !== "touchend") return;
 
       const colId = target.closest(".ag-header-cell")?.getAttribute("col-id");
       if (colId) toggleFrozen(colId);
     };
 
+    // Touch listeners must be explicitly non-passive to be allowed to call
+    // preventDefault.
     el.addEventListener("mousedown", handler, true);
     el.addEventListener("click", handler, true);
+    el.addEventListener("touchstart", handler, { capture: true, passive: false });
+    el.addEventListener("touchend", handler, { capture: true, passive: false });
     return () => {
       el.removeEventListener("mousedown", handler, true);
       el.removeEventListener("click", handler, true);
+      el.removeEventListener("touchstart", handler, true);
+      el.removeEventListener("touchend", handler, true);
     };
   }, [toggleFrozen]);
 

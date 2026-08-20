@@ -7,6 +7,7 @@ import {
   useState,
   type RefObject,
 } from "react";
+import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import type { AgGridReact } from "ag-grid-react";
 import type { GridApi, IRowNode } from "ag-grid-community";
@@ -26,7 +27,6 @@ import { readableTextColor } from "@/lib/color";
 import {
   buildGroupedRows,
   collapsedSetForFocus,
-  findStickyGroupIndex,
   glueGroups,
   groupKeyOn,
   type GroupAxis,
@@ -34,6 +34,12 @@ import {
   type GroupHeaderAnchor,
   type GroupInfo,
 } from "./rowGrouping";
+
+/** A group header's geometry plus the pixel span of its rows — the sticky
+ * range its bar is allowed to pin within. */
+interface StickyGroupAnchor extends GroupHeaderAnchor {
+  span: number;
+}
 
 /**
  * Stateful half of grid row grouping (see rowGrouping.ts): collapse state,
@@ -195,32 +201,64 @@ export function GroupHeaderRow({ data, api, context }: GroupHeaderRowProps) {
 /** Wrapper styling the sticky bar needs: it is positioned against the Box that
  * wraps the grid. Reached by pages as `grouping.sx`, spread alongside
  * `columnFreeze.sx` / `cellMenu.sx`. */
-const rowGroupingSx = { position: "relative" } as const;
+// Wrapper styling. Grid popups no longer render inside the wrapper at all
+// (popupParent: document.body in agGridSetup.ts), which is what keeps them
+// clear of the sticky group bars' compositing layers on WebKit.
+const rowGroupingSx = {
+  position: "relative",
+  // While the sticky bars are rendering, the REAL full-width group rows
+  // never need to paint: each bar overlays its row pixel-exactly and carries
+  // the same GroupHeaderRow. Hiding the rows makes a duplicated header
+  // impossible BY CONSTRUCTION — WebKit repositions non-composited sticky
+  // elements a beat late on scroll direction changes, and with the rows
+  // visible that lag exposed the real header next to the bar for a few px.
+  // Gated on the bar wrappers actually existing, so autoHeight grids (which
+  // render no bars — their viewport is not the scrollport) keep their rows.
+  "&:has(.tea-group-sticky-range) .ag-full-width-row": { visibility: "hidden" },
+  // The bars are display:none in print — there the real rows are the record.
+  "@media print": {
+    "& .ag-full-width-row": { visibility: "visible" },
+  },
+} as const;
 
 /**
  * The group bar that stays put under the column headers while you scroll, so a
  * long group never leaves you wondering which one you are inside.
  *
- * AG Grid Community has no `groupRowsSticky` (Enterprise only), and its rows
- * are absolutely positioned inside a scrolling viewport, so `position: sticky`
- * on a row is not available either. This is therefore an overlay painted over
- * the grid body, driven by the scroll offset and a cache of where each group
- * header sits.
+ * AG Grid Community has no `groupRowsSticky` (Enterprise only) and positions
+ * its rows absolutely, so a row itself cannot be sticky. Instead, one bar per
+ * group is PORTALED INTO the grid's own `.ag-full-width-container` — the
+ * absolutely-positioned, full-content-height layer that already holds the
+ * real full-width group rows and uses the same `rowTop` coordinates as the
+ * anchors. Each bar sits in an absolute wrapper spanning its group's rows and
+ * pins with native `position: sticky; top: 0`, so the browser compositor
+ * does ALL the positioning: pinning, hand-off between groups (the next
+ * wrapper's bottom pushes the previous bar out), elastic rubber-band
+ * overscroll, and momentum flings. Earlier versions were a JS overlay driven
+ * by scroll events, which was structurally one frame behind the compositor —
+ * a 1px bump at every group boundary, and a stuck duplicate header after
+ * iOS/macOS rubber-band overscroll, where the settle produces no usable
+ * scroll event at all.
  *
- * It renders `GroupHeaderRow` VERBATIM rather than a lookalike, so the bar and
- * the real row cannot drift apart, and the counts and select-all state are
- * computed by the one piece of code that already knows how.
+ * Living inside the grid element also means the Theming API's `--ag-*`
+ * variables resolve here natively (they are scoped to the grid's own element
+ * since v33 — a sibling overlay had to read them off the DOM at runtime).
+ *
+ * It renders `GroupHeaderRow` VERBATIM rather than a lookalike, so the bar
+ * and the real row cannot drift apart, and the counts and select-all state
+ * are computed by the one piece of code that already knows how.
  *
  * That includes the **select-all checkbox**, which is the point of the whole
  * affordance: the group header exists so you can tick it and then bulk-edit
  * the group. Deep inside a long group, having to scroll back to the real
  * header to reach that tick box is exactly the friction this bar removes.
- * `selectable` is inherited from the grid's own context, so a grid with no row
- * selection (the Risk Register) still gets a bar with no checkbox.
+ * `selectable` is inherited from the grid's own context, so a grid with no
+ * row selection (the Risk Register) still gets a bar with no checkbox.
  *
- * The bar therefore stays IN the accessibility tree — it holds a real control,
- * and a focusable control inside `aria-hidden` is reachable by keyboard but
- * invisible to assistive tech, which is worse than the duplication it avoids.
+ * The bars stay IN the accessibility tree — each holds a real control, the
+ * real header row is often virtualised out of the DOM, and a focusable
+ * control inside `aria-hidden` is reachable by keyboard but invisible to
+ * assistive tech, which is worse than the duplication it avoids.
  */
 function StickyGroupHeader<T extends { id: string }>({
   gridRef,
@@ -233,11 +271,15 @@ function StickyGroupHeader<T extends { id: string }>({
   context: GroupRowContext;
 }) {
   const anchorRef = useRef<HTMLDivElement | null>(null);
-  const barRef = useRef<HTMLDivElement | null>(null);
-  const anchorsRef = useRef<GroupHeaderAnchor[]>([]);
+  const anchorsRef = useRef<StickyGroupAnchor[]>([]);
   const [api, setApi] = useState<GridApi | null>(null);
-  const [current, setCurrent] = useState<{ info: GroupInfo; height: number } | null>(null);
-  const [top, setTop] = useState(0);
+  const [host, setHost] = useState<HTMLDivElement | null>(null);
+  const [anchors, setAnchors] = useState<StickyGroupAnchor[]>([]);
+  // An autoHeight grid's viewport never scrolls, so the nearest scrollport is
+  // some page-level container — the bars would pin against THAT and float
+  // over unrelated content. Render nothing there; the real header rows are
+  // always on screen anyway.
+  const [autoHeight, setAutoHeight] = useState(false);
 
   // The grid creates its api in its own effect, so it may not exist on our
   // first pass. Poll for a bounded number of frames rather than making every
@@ -259,13 +301,45 @@ function StickyGroupHeader<T extends { id: string }>({
     };
   }, [gridRef]);
 
-  // Header positions, refreshed on model updates only. `rowTop` is assigned
+  // Mount the portal host inside the grid's full-width row layer. Keyed on
+  // the api so the RTL remount (the pages key the grid on direction) gets a
+  // fresh host inside the fresh grid DOM.
+  useEffect(() => {
+    if (!api) return;
+    // The probe's parent is the wrapper Box the pages render both the grid
+    // and this component into (see `rowGroupingSx`).
+    const wrap = anchorRef.current?.parentElement;
+    const container = wrap?.querySelector<HTMLElement>(".ag-full-width-container");
+    if (!container) return;
+    const el = document.createElement("div");
+    el.className = "tea-group-sticky-host";
+    // Later sibling of the real rows in the same container, so it paints
+    // above them without any z-index games; pointer events stay off so the
+    // member rows underneath keep hover/click, and only the bars themselves
+    // opt back in.
+    el.style.cssText = "position:absolute;inset:0;pointer-events:none;";
+    container.appendChild(el);
+    setHost(el);
+    return () => {
+      setHost(null);
+      try {
+        el.remove();
+      } catch {
+        // The grid may have torn the container down already.
+      }
+    };
+  }, [api]);
+
+  // Group geometry, refreshed on model updates only. `rowTop` is assigned
   // when AG Grid lays the displayed rows out — after `postSortRows` — so
   // reading it from inside the sort glue would give stale geometry. Resolving
-  // by row id keeps this O(groups) instead of a walk over every row.
+  // by row id keeps this O(groups) instead of a walk over every row. Each
+  // anchor's `span` reaches to the next group header (or the last row's
+  // bottom), which is what bounds its bar's sticky range: the next group
+  // pushes the previous bar out natively.
   const rebuildAnchors = useCallback(() => {
     const a = gridRef.current?.api;
-    const out: GroupHeaderAnchor[] = [];
+    const out: StickyGroupAnchor[] = [];
     if (a) {
       for (const head of heads) {
         const node = a.getRowNode(head.id);
@@ -275,90 +349,33 @@ function StickyGroupHeader<T extends { id: string }>({
             height: node.rowHeight ?? 0,
             rowIndex: node.rowIndex,
             group: head.info,
+            span: 0,
           });
         }
       }
       out.sort((x, y) => x.top - y.top);
+      const count = a.getDisplayedRowCount?.() ?? 0;
+      const last = count > 0 ? a.getDisplayedRowAtIndex?.(count - 1) : null;
+      const contentEnd = last?.rowTop != null ? last.rowTop + (last.rowHeight ?? 0) : null;
+      out.forEach((x, i) => {
+        x.span = (out[i + 1]?.top ?? contentEnd ?? x.top + x.height) - x.top;
+      });
     }
     anchorsRef.current = out;
+    setAnchors(out);
+    const wrap = anchorRef.current?.parentElement;
+    setAutoHeight(!!wrap?.querySelector(".ag-layout-auto-height"));
   }, [gridRef, heads]);
 
   useEffect(() => {
     if (!api) return;
-    let raf = 0;
-
-    const tick = () => {
-      raf = 0;
-      const hide = () => setCurrent(null);
-      try {
-        // Re-read the DOM every pass instead of caching elements or attaching
-        // a ResizeObserver: the grid is remounted whenever the writing
-        // direction flips, and jsdom has no ResizeObserver, which would push
-        // a stub into every page test that renders a grid.
-        const wrap = anchorRef.current?.parentElement;
-        const viewport = wrap?.querySelector<HTMLElement>(".ag-body-viewport");
-        if (!wrap || !viewport) return hide();
-        // An autoHeight grid has no viewport of its own to scroll, so there is
-        // nothing for a sticky bar to track.
-        if (wrap.querySelector(".ag-layout-auto-height")) return hide();
-
-        // Several page tests mock ag-grid-react with a proxy that answers
-        // every api call with undefined — never destructure this blind.
-        const scrollTop = api.getVerticalPixelRange?.()?.top;
-        if (typeof scrollTop !== "number") return hide();
-
-        const anchors = anchorsRef.current;
-        const i = findStickyGroupIndex(anchors, scrollTop);
-        // Flush against the top edge means the real header row is on screen;
-        // showing both at once would read as a duplicate, not as a sticky one.
-        if (i < 0 || anchors[i].top >= scrollTop - 0.5) return hide();
-
-        const vpRect = viewport.getBoundingClientRect();
-        const nextTop = vpRect.top - wrap.getBoundingClientRect().top;
-        setTop((prev) => (prev === nextTop ? prev : nextTop));
-
-        const { group, height } = anchors[i];
-        setCurrent((prev) =>
-          prev && prev.info === group && prev.height === height ? prev : { info: group, height },
-        );
-
-        // Push-out: once the next group's real header reaches the bar, it
-        // slides this one up and out rather than swapping it abruptly. Written
-        // straight to the node so scrolling inside one group costs no render.
-        const next = anchors[i + 1];
-        const barH = barRef.current?.offsetHeight || height;
-        const offset = next ? Math.min(0, next.top - scrollTop - barH) : 0;
-        if (barRef.current) {
-          barRef.current.style.transform = offset ? `translateY(${offset}px)` : "";
-        }
-      } catch {
-        // The grid can be torn down between a scroll event and this frame.
-        hide();
-      }
-    };
-
-    const schedule = () => {
-      if (!raf) raf = requestAnimationFrame(tick);
-    };
-    const onModel = () => {
-      rebuildAnchors();
-      schedule();
-    };
-
-    onModel();
-    api.addEventListener("modelUpdated", onModel);
-    api.addEventListener("firstDataRendered", onModel);
-    api.addEventListener("bodyScroll", schedule);
-    api.addEventListener("gridSizeChanged", schedule);
-    window.addEventListener("resize", schedule);
+    rebuildAnchors();
+    api.addEventListener("modelUpdated", rebuildAnchors);
+    api.addEventListener("firstDataRendered", rebuildAnchors);
     return () => {
-      if (raf) cancelAnimationFrame(raf);
-      window.removeEventListener("resize", schedule);
       try {
-        api.removeEventListener("modelUpdated", onModel);
-        api.removeEventListener("firstDataRendered", onModel);
-        api.removeEventListener("bodyScroll", schedule);
-        api.removeEventListener("gridSizeChanged", schedule);
+        api.removeEventListener("modelUpdated", rebuildAnchors);
+        api.removeEventListener("firstDataRendered", rebuildAnchors);
       } catch {
         // The grid may already be destroyed.
       }
@@ -393,62 +410,70 @@ function StickyGroupHeader<T extends { id: string }>({
 
   return (
     <>
-      {/* Zero-size probe: gives the effect a handle on the wrapper element
+      {/* Zero-size probe: gives the effects a handle on the wrapper element
           without competing for the wrapper's own ref (which the pages already
           hand to useColumnFreeze). A plain div, not a Box — it is never
           painted, so it has no business minting an emotion class. */}
       <div ref={anchorRef} className="tea-group-sticky-probe" style={{ display: "none" }} />
-      {api && current && (
-        <Box
-          sx={{
-            position: "absolute",
-            insetInline: 0,
-            top: `${top}px`,
-            height: current.height,
-            overflow: "hidden",
-            // Sits above the rows (later sibling, positioned) but below AG
-            // Grid's own popups, which carry positive z-indexes — a column
-            // filter opens exactly here.
-            zIndex: 0,
-            pointerEvents: "none",
-            "@media print": { display: "none" },
-          }}
-        >
-          <Box
-            ref={barRef}
-            sx={{
-              height: "100%",
-              pointerEvents: "auto",
-              // Paint EXACTLY what a real group header row paints, so the
-              // hand-off between the two is invisible and needs no animation:
-              // AG Grid's row canvas underneath (GroupHeaderRow's own
-              // `action.hover` on top of it is translucent, and this one floats
-              // over real rows so it cannot be transparent), plus the row's own
-              // top border. Quartz sets no row striping — the base
-              // `--ag-odd-row-background-color` falls back to
-              // `--ag-background-color` — so one colour matches every row
-              // position. Deliberately NO elevation: a shadow that exists only
-              // while floating is exactly what made the swap flicker.
-              //
-              // The border goes on the BOTTOM: `.ag-row` renders its separator
-              // there (the base stylesheet's `border-top` rule applies to a
-              // different row variant), and it sits inside the row height under
-              // `box-sizing: border-box`, so this does not change the bar's
-              // height. Verified by diffing computed styles against a real
-              // header row in both themes.
-              bgcolor: "var(--ag-background-color)",
-              borderBottom:
-                "var(--ag-row-border-width) var(--ag-row-border-style) var(--ag-row-border-color)",
-            }}
-          >
-            <GroupHeaderRow
-              data={{ __group: current.info } as GroupedRow<T>}
-              api={api}
-              context={stickyContext}
-            />
-          </Box>
-        </Box>
-      )}
+      {api &&
+        host &&
+        !autoHeight &&
+        createPortal(
+          anchors.map((a) => (
+            // Geometry rides on plain inline styles: it changes with every
+            // model update, and a per-group `sx` would mint a fresh emotion
+            // class each time. The static bits (print, theming) keep stable
+            // sx objects and so stable classes.
+            <Box
+              key={a.group.key}
+              className="tea-group-sticky-range"
+              style={{
+                position: "absolute",
+                top: `${a.top}px`,
+                height: `${a.span}px`,
+                left: 0,
+                right: 0,
+                pointerEvents: "none",
+              }}
+              sx={{ "@media print": { display: "none" } }}
+            >
+              <Box
+                style={{
+                  position: "sticky",
+                  top: 0,
+                  height: `${a.height}px`,
+                  // Forces the bar onto its own compositor layer so WebKit
+                  // updates its stuck position on the compositor thread —
+                  // without it, iPadOS repositions the bar a frame late on
+                  // direction changes and it shows a few px off its pin
+                  // (reading as a brief duplicate next to the real row).
+                  transform: "translateZ(0)",
+                }}
+                sx={{
+                  pointerEvents: "auto",
+                  // Paint EXACTLY what a real group header row paints, so bar
+                  // and row are indistinguishable when they overlap at rest:
+                  // the row canvas (GroupHeaderRow's own `action.hover` is
+                  // translucent, and while pinned this floats over member
+                  // rows, so it cannot be transparent) plus the row's own
+                  // bottom border. Inside the grid element the Theming API
+                  // variables resolve directly. Deliberately NO elevation —
+                  // a shadow that exists only while floating is a flicker at
+                  // every hand-off.
+                  bgcolor: "var(--ag-background-color)",
+                  borderBottom: "var(--ag-row-border)",
+                }}
+              >
+                <GroupHeaderRow
+                  data={{ __group: a.group } as GroupedRow<T>}
+                  api={api}
+                  context={stickyContext}
+                />
+              </Box>
+            </Box>
+          )),
+          host,
+        )}
     </>
   );
 }

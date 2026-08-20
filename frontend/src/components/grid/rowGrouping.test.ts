@@ -4,13 +4,11 @@ import {
   NOT_SET_KEY,
   buildGroupedRows,
   collapsedSetForFocus,
-  findStickyGroupIndex,
   glueGroups,
   groupKeyOn,
   resolveVocabColor,
   type GroupAxis,
   type GroupedRow,
-  type GroupHeaderAnchor,
   type GroupInfo,
 } from "./rowGrouping";
 
@@ -243,41 +241,3 @@ describe("resolveVocabColor", () => {
   });
 });
 
-describe("findStickyGroupIndex", () => {
-  const info = (key: string): GroupInfo => ({
-    axis: "a",
-    key,
-    label: key,
-    count: 1,
-    memberIds: [],
-    collapsed: false,
-    index: 0,
-  });
-  const anchor = (top: number, key: string): GroupHeaderAnchor => ({
-    top,
-    height: 32,
-    rowIndex: 0,
-    group: info(key),
-  });
-  const anchors = [anchor(0, "first"), anchor(300, "second"), anchor(900, "third")];
-
-  it("returns -1 with no groups at all", () => {
-    expect(findStickyGroupIndex([], 100)).toBe(-1);
-  });
-
-  it("returns -1 when scrolled above the first header", () => {
-    expect(findStickyGroupIndex([anchor(50, "first")], 10)).toBe(-1);
-  });
-
-  it("picks the group a mid-group offset belongs to", () => {
-    expect(findStickyGroupIndex(anchors, 500)).toBe(1);
-  });
-
-  it("treats a header's own top as inside that group", () => {
-    expect(findStickyGroupIndex(anchors, 300)).toBe(1);
-  });
-
-  it("stays on the last group past the last header", () => {
-    expect(findStickyGroupIndex(anchors, 99999)).toBe(2);
-  });
-});

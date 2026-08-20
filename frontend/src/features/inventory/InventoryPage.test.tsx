@@ -209,8 +209,6 @@ vi.mock("./excelExport", () => ({
 }));
 
 // Stub CSS imports
-vi.mock("ag-grid-community/styles/ag-grid.css", () => ({}));
-vi.mock("ag-grid-community/styles/ag-theme-quartz.css", () => ({}));
 
 import { api } from "@/api/client";
 import { AgGridReact } from "ag-grid-react";
@@ -853,13 +851,16 @@ describe("InventoryPage parent column", () => {
 
   it("renders the immediate parent's name, not the whole path", async () => {
     renderInventory();
-    await waitFor(() => expect(parentCol()).toBeDefined());
+    // The column def exists before the cards land, but the renderer resolves
+    // names from the LOADED rows (cardsById) — asserting right after the
+    // column appears races the fetch and flakes on slow CI runners. Wait for
+    // the resolution itself.
+    await waitFor(() => expect(parentCol()?.cellRenderer?.({ value: "p1" })).toBe("Finance Suite"));
 
     const child = HIER_CARDS.items[1];
     const root = HIER_CARDS.items[0];
     // The cell *value* is the raw parent id; the name is resolved at render.
     expect(parentCol()!.valueGetter!({ data: child })).toBe("p1");
-    expect(parentCol()!.cellRenderer!({ value: "p1" })).toBe("Finance Suite");
     // A root card has no parent — the cell stays empty rather than showing itself.
     expect(parentCol()!.valueGetter!({ data: root })).toBeNull();
     expect(parentCol()!.cellRenderer!({ value: null })).toBe("");

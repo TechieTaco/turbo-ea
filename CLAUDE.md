@@ -478,7 +478,7 @@ npx tsx capture.ts --dry-run # Preview without saving files
 └─────────────────────────────┘  └─────────────────────────────┘
 ```
 
-**DrawIO** is self-hosted inside the frontend Docker image (cloned at build time from `jgraph/drawio` v26.0.9) and served under `/drawio/` by Nginx.
+**DrawIO** is self-hosted inside the frontend Docker image (cloned at build time from `jgraph/drawio` v31.1.8) and served under `/drawio/` by Nginx.
 
 ---
 
@@ -1728,7 +1728,7 @@ The `compliance_findings` table also carries a nullable `risk_id` back-link so f
 ## DrawIO Integration
 
 ### How It Works
-1. **Build time**: Frontend Dockerfile clones `jgraph/drawio` v26.0.9
+1. **Build time**: Frontend Dockerfile clones `jgraph/drawio` v31.1.8
 2. **Runtime**: Nginx serves DrawIO at `/drawio/` (same origin)
 3. **Editor**: `DiagramEditor.tsx` loads DrawIO in a same-origin iframe
 4. **Communication**: Direct DOM access to iframe's `mxGraph` API. Graph reference stored on `iframe.contentWindow.__turboGraph`
@@ -1972,15 +1972,15 @@ All container images are built from one `/Dockerfile` at the repo root using mul
 | `backend` | `python:3.12-alpine` | Final backend image — copies `VERSION` + `backend/`, runs as non-root `appuser` |
 | `db` | `postgres:18-alpine` | Bundled PostgreSQL image |
 | `frontend-build` | `node:24-alpine` | Vite build of `frontend/` (consumes `VERSION` for `__APP_VERSION__`) |
-| `drawio` | `alpine/git:v2.47.2` | Clones jgraph/drawio v26.0.9 |
-| `frontend` | `nginx:alpine` | Final frontend image — built SPA + DrawIO assets, runs as non-root `nginx` |
-| `nginx` | `nginx:alpine` | Edge nginx (public entrypoint, proxies `/api`, `/mcp`, `/drawio`, `/`) — config from `nginx/default.conf` |
+| `drawio` | `alpine/git:v2.47.2` | Clones jgraph/drawio v31.1.8 |
+| `frontend` | `nginx:1.30.3-alpine` | Final frontend image — built SPA + DrawIO assets, runs as non-root `nginx` |
+| `nginx` | `nginx:1.30.3-alpine` | Edge nginx (public entrypoint, proxies `/api`, `/mcp`, `/drawio`, `/`) — config from `nginx/default.conf` |
 | `ollama` | `ollama/ollama:latest` | Thin non-root patch over upstream Ollama |
 | `mcp-server` | `python:3.12-alpine` | MCP server image — copies `VERSION` + `mcp-server/`, runs as non-root |
 
 ### Nginx Configuration
 - `/api/*` → proxy to `backend:8000` (with SSE support headers)
-- `/drawio/*` → static DrawIO assets (30-day cache, no-transform)
+- `/drawio/*` → static DrawIO assets (`no-cache` + ETag revalidation — DrawIO files are not content-hashed, so a long TTL serves a stale editor for weeks after an upgrade)
 - `/*` → SPA fallback to `index.html`
 - Security headers on all responses
 - Static assets → 1-year cache with `immutable`

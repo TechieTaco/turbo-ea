@@ -5,6 +5,26 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.69.0] - 2026-08-19
+
+### Added
+- Monthly automated dependency-bump pull request for the embedded UI engines (DrawIO, AG Grid, bpmn-js): DrawIO always follows the latest upstream release, npm packages get patch/minor updates within their installed major, and newly available majors are flagged in the PR body for a deliberate upgrade. Requires the `DEPENDENCY_BUMP_TOKEN` repository secret (fine-grained PAT).
+
+### Changed
+- Upgraded the bundled DrawIO editor from v26.0.9 to v31.1.8 (improved auto-layout for large diagrams, five majors of upstream fixes). The Dockerfile now fails the build loudly if a future DrawIO release reformats `index.html` in a way that defeats the hardening patches.
+- Upgraded AG Grid from 32.3 to 35.3 and migrated all grids from the deprecated legacy CSS themes to the AG Grid Theming API — same Quartz design in light and dark mode.
+- Upgraded bpmn-js from 18.12 to 18.25.
+
+### Removed
+- Unused `bpmn-js-properties-panel` / `@bpmn-io/properties-panel` frontend packages and two dead DrawIO config CSS files.
+
+### Fixed
+- DrawIO assets are now served with `no-cache` (ETag revalidation) instead of a 30-day browser cache: DrawIO ships no content-hashed filenames, so the old policy kept serving the previous editor version for up to a month after an upgrade.
+- Grid popups (column filter menu) now explicitly stack above the sticky group headers on iPadOS/Safari, and the column freeze pins get larger touch targets on tablets.
+- Freezing a column no longer moves the row-selection checkboxes behind it: AG Grid 33+ auto-unpins columns when the pinned region crowds a narrow viewport and sacrificed the selection column first (easily triggered on tablets with the filter sidebar open) — the grids now veto that so the checkboxes always stay leftmost.
+- Duplicate sticky group headers can no longer appear during scroll direction changes: the sticky bars fully replace the real group header rows on screen (the rows still print), so a late compositor update shows one header, never two.
+- The app's `index.html` is now served with `no-cache` (ETag revalidation): it previously carried no cache header at all, so Safari cached it heuristically and devices could keep loading the previous app version for days after an upgrade.
+
 ## [2.68.0] - 2026-08-19
 
 ### Added

@@ -170,31 +170,6 @@ export interface GroupHeaderAnchor {
 }
 
 /**
- * Index of the anchor whose group owns `scrollTop` — the last header at or
- * above it — or -1 when scrolled above the very first header, where there is
- * nothing to stick. `anchors` must be sorted by `top` ascending, which is the
- * order the grid lays its rows out in.
- *
- * A binary search rather than a scan: this runs on every scroll frame and a
- * grouped inventory routinely carries thousands of rows.
- */
-export function findStickyGroupIndex(anchors: GroupHeaderAnchor[], scrollTop: number): number {
-  let lo = 0;
-  let hi = anchors.length - 1;
-  let found = -1;
-  while (lo <= hi) {
-    const mid = (lo + hi) >> 1;
-    if (anchors[mid].top <= scrollTop) {
-      found = mid;
-      lo = mid + 1;
-    } else {
-      hi = mid - 1;
-    }
-  }
-  return found;
-}
-
-/**
  * `postSortRows` glue: AG Grid sorts headers among the leaves (a header is a
  * member clone, so it sorts wherever that member would). Reorder in place so
  * each group's header sits directly above its members, members keep the order
