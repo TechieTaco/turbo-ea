@@ -5,6 +5,17 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.73.0] - 2026-08-21
+
+### Added
+
+- My Tasks: quick origin filters — every todo now carries where it came from (project task, risk, ADR, SoAW, process approval, extension, manual) and the list offers one-click filter chips with counts (shown when tasks come from more than one origin), a sort selector (due date, newest, origin), and a free-text search across description, card, assigner and assignee.
+- My Tasks: each todo shows who assigned it ("From: …") on the Assigned-to-me tab, and rows carry a colour-coded origin icon and accent stripe for at-a-glance scanning. A task mirrored to an external tracker (Jira, GitLab, …) keeps its real origin and shows the external reference as a small link — completion always happens in Turbo EA.
+
+### Changed
+
+- My Tasks: rows were decluttered for readability — the due date moved to a fixed right-hand column (red when overdue, replacing the separate "Overdue" chip), metadata collapsed into one quiet text line, and the generic "Action required" chip on system todos was replaced by the specific origin indicator.
+
 ## [2.72.1] - 2026-08-21
 
 ### Fixed
