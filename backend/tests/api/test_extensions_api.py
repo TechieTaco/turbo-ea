@@ -938,7 +938,10 @@ class TestStoreCatalog:
         await ext_api.run_apply(db, install, admin)
         mock_store(
             monkeypatch,
-            catalog=catalog_payload(demo_url="https://youtu.be/demo"),
+            catalog=catalog_payload(
+                demo_url="https://youtu.be/demo",
+                trial_link="https://buy.stripe.test/pl_trial_1",
+            ),
         )
 
         res = await client.get(
@@ -951,6 +954,10 @@ class TestStoreCatalog:
         assert item["key"] == "sample-ext"
         assert item["price"] == "990 EUR / year"
         assert item["payment_link"] == "https://buy.stripe.test/pl_1"
+        # Trial checkout link passes through; absent from the catalogue → "".
+        assert item["trial_link"] == "https://buy.stripe.test/pl_trial_1"
+        # A paid (non-trial) entitlement is not flagged as a trial.
+        assert item["entitlement_trial"] is False
         assert item["demo_url"] == "https://youtu.be/demo"
         assert item["installed_version"] == "0.9.0"
         assert item["update_available"] is True
@@ -961,6 +968,41 @@ class TestStoreCatalog:
         assert item["license"] == ""
         assert item["license_url"] == ""
         assert item["screenshots"] == []
+
+    async def test_catalog_flags_trial_entitlements(self, client, db, vendor, monkeypatch):
+        """A trial entitlement (active here; same for expired) surfaces as
+        entitlement_trial=True so the UI can keep the Buy button visible for
+        in-product conversion even though the state is not "unlicensed"."""
+        admin = await make_admin(db)
+        await client.put(
+            "/api/v1/admin/extensions/license",
+            json={
+                "text": make_license_text(
+                    vendor,
+                    entitlements=[
+                        {
+                            "extension_key": "sample-ext",
+                            "expires_at": EXPIRES,
+                            "auto_renew": False,
+                            "trial": True,
+                        }
+                    ],
+                )
+            },
+            headers=auth_headers(admin),
+        )
+        mock_store(monkeypatch, catalog=catalog_payload())
+
+        res = await client.get(
+            "/api/v1/admin/extensions/store/catalog", headers=auth_headers(admin)
+        )
+        assert res.status_code == 200
+        (item,) = res.json()["items"]
+        assert item["entitlement_state"] == "active"
+        assert item["entitlement_trial"] is True
+        # the card's chip needs the dates without cross-referencing installed rows
+        assert item["entitlement_expires_at"] is not None
+        assert item["entitlement_auto_renew"] is False
 
     async def test_catalog_ignores_a_catalogue_version_with_no_digits(
         self, client, db, vendor, monkeypatch

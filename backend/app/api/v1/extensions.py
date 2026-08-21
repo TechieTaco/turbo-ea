@@ -94,6 +94,8 @@ class EntitlementOut(BaseModel):
     # Whether the backing store subscription renews at period end; None on
     # manual/offline licenses and licenses issued before the flag existed.
     auto_renew: bool | None = None
+    # Store-issued trial entitlement (no grace window; labelled in the UI).
+    trial: bool | None = None
 
 
 class ExtensionOut(BaseModel):
@@ -182,6 +184,7 @@ def _extension_out(row: Extension) -> ExtensionOut:
             expires_at=ent.expires_at,
             grace_until=ent.grace_until,
             auto_renew=ent.auto_renew,
+            trial=ent.trial,
         ),
         created_at=row.created_at,
         updated_at=row.updated_at,
@@ -590,6 +593,10 @@ class StoreItemOut(BaseModel):
     long_description: str = ""
     price: str = ""
     payment_link: str = ""
+    # Optional checkout link for a no-card trial of this extension. Same
+    # treatment as payment_link: opened in a new tab, license claimed through
+    # the ordinary claim-token flow.
+    trial_link: str = ""
     demo_url: str = ""
     homepage: str = ""
     license: str = ""
@@ -597,6 +604,17 @@ class StoreItemOut(BaseModel):
     screenshots: list[str] = []
     tags: list[str] = []
     version: str = ""
+    # True while this instance's entitlement for the item is a trial (active
+    # OR already expired) — the UI keeps the Buy button visible so a trialing
+    # customer can convert in-product, even though the state isn't
+    # "unlicensed".
+    entitlement_trial: bool = False
+    # Expiry/renewal info so the store card can show "Trial until …" /
+    # "Renews on …" without cross-referencing the installed-extensions list
+    # (a licensed-but-not-installed item has no row there).
+    entitlement_expires_at: datetime | None = None
+    entitlement_grace_until: datetime | None = None
+    entitlement_auto_renew: bool | None = None
     installed_version: str | None = None
     update_available: bool = False
     entitlement_state: str = "unlicensed"
@@ -707,6 +725,7 @@ async def store_catalog(
         key = str(item["key"])
         catalog_version = str(item.get("version") or "")
         installed_version = installed.get(key)
+        entitlement = extension_registry.entitlement(key)
         items.append(
             StoreItemOut(
                 key=key,
@@ -715,6 +734,7 @@ async def store_catalog(
                 long_description=str(item.get("long_description") or ""),
                 price=str(item.get("price") or ""),
                 payment_link=str(item.get("payment_link") or ""),
+                trial_link=str(item.get("trial_link") or ""),
                 demo_url=str(item.get("demo_url") or ""),
                 homepage=str(item.get("homepage") or ""),
                 license=str(item.get("license") or ""),
@@ -724,7 +744,11 @@ async def store_catalog(
                 version=catalog_version,
                 installed_version=installed_version,
                 update_available=store_update_available(catalog_version, installed_version),
-                entitlement_state=extension_registry.entitlement(key).state,
+                entitlement_state=entitlement.state,
+                entitlement_trial=entitlement.trial is True,
+                entitlement_expires_at=entitlement.expires_at,
+                entitlement_grace_until=entitlement.grace_until,
+                entitlement_auto_renew=entitlement.auto_renew,
                 free=item.get("free") is True,
             )
         )

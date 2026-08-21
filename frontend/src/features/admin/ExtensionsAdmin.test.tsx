@@ -30,6 +30,7 @@ vi.mock("@/hooks/useMetamodel", () => ({
 }));
 
 import { api, ApiError } from "@/api/client";
+import { DEFAULT_DATE_FORMAT, formatDateWith } from "@/hooks/useDateFormat";
 
 const mockGet = api.get as ReturnType<typeof vi.fn>;
 const mockPost = api.post as ReturnType<typeof vi.fn>;
@@ -72,6 +73,7 @@ function primeInitialLoad({
   extensions = [] as unknown[],
   license = null as unknown,
   catalog = UNCONFIGURED_CATALOG as unknown,
+  instanceId = "",
 } = {}) {
   mockGet.mockImplementation(async (path: string) => {
     if (path === "/admin/extensions") return extensions;
@@ -80,6 +82,7 @@ function primeInitialLoad({
       throw new Error("No license installed");
     }
     if (path === "/admin/extensions/store/catalog") return catalog;
+    if (path === "/admin/extensions/instance") return { instance_id: instanceId };
     throw new Error(`unexpected GET ${path}`);
   });
 }
@@ -759,6 +762,89 @@ describe("ExtensionsAdmin", () => {
     // Waiting state shows on the card while the claim poll runs.
     expect(screen.getByText(/Waiting for payment confirmation/)).toBeInTheDocument();
     openSpy.mockRestore();
+  });
+
+  it(
+    "claim poll sends the FULL client_reference_id incl. the instance suffix",
+    async () => {
+      // The store resolves the checkout by an EXACT client_reference_id
+      // match: polling with the bare token while the session carries
+      // token-instance never resolves — the "waiting for payment
+      // confirmation forever" bug.
+      primeInitialLoad({
+        catalog: {
+          configured: true,
+          reachable: true,
+          store_url: "https://x",
+          items: [STORE_ITEM],
+        },
+        instanceId: "TEA-AAAA-AAAA-AAAM",
+      });
+      const openSpy = vi.spyOn(window, "open").mockReturnValue(null);
+      mockPost.mockResolvedValue({ status: "pending" });
+
+      renderPage();
+      await waitFor(() => expect(screen.getByText("ESG Content Pack")).toBeInTheDocument());
+      await userEvent.click(screen.getByText("Buy", { selector: "button" }));
+
+      // With a known instance id the checkout goes through the store's
+      // server-created session endpoint (no typed instance field) …
+      const url = new URL(openSpy.mock.calls[0][0] as string);
+      expect(url.pathname).toBe("/checkout");
+      expect(url.searchParams.get("kind")).toBe("buy");
+      expect(url.searchParams.get("instance")).toBe("TEA-AAAA-AAAA-AAAM");
+      // … and the session's client_reference_id is <ref>-<instance>, which
+      // is exactly what the claim poll must send.
+      const ref = `${url.searchParams.get("ref")}-TEA-AAAA-AAAA-AAAM`;
+
+      // the first poll fires after CLAIM_POLL_MS (5s) of real time
+      await waitFor(
+        () =>
+          expect(mockPost).toHaveBeenCalledWith("/admin/extensions/store/claim", {
+            token: ref,
+          }),
+        { timeout: 7000 },
+      );
+      openSpy.mockRestore();
+    },
+    12000,
+  );
+
+  it("store card shows the live entitlement chip with the trial expiry date", async () => {
+    const trialItem = {
+      ...STORE_ITEM,
+      installed_version: "1.0.0", // chip must show even while installed
+      entitlement_state: "active",
+      entitlement_trial: true,
+      entitlement_expires_at: "2026-09-20T00:00:00Z",
+      entitlement_auto_renew: false,
+    };
+    primeInitialLoad({
+      catalog: { configured: true, reachable: true, store_url: "https://x", items: [trialItem] },
+    });
+    renderPage();
+    await waitFor(() => expect(screen.getByText("ESG Content Pack")).toBeInTheDocument());
+    // dates follow the app-wide configured format, not the browser locale
+    expect(
+      screen.getByText(
+        `Trial until ${formatDateWith(DEFAULT_DATE_FORMAT, "2026-09-20T00:00:00Z")}`,
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("store card shows the renewal date for a paid yearly entitlement", async () => {
+    const paidItem = {
+      ...STORE_ITEM,
+      entitlement_state: "active",
+      entitlement_expires_at: "2027-08-21T00:00:00Z",
+      entitlement_auto_renew: true,
+    };
+    primeInitialLoad({
+      catalog: { configured: true, reachable: true, store_url: "https://x", items: [paidItem] },
+    });
+    renderPage();
+    await waitFor(() => expect(screen.getByText("ESG Content Pack")).toBeInTheDocument());
+    expect(screen.getByText(/Renews on/)).toBeInTheDocument();
   });
 
   it("shows the not-configured hint on the Store tab by default", async () => {

@@ -32,6 +32,7 @@ import { useSearchParams } from "react-router";
 
 import { api, ApiError } from "@/api/client";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import { useDateFormat } from "@/hooks/useDateFormat";
 import { invalidateExtensionCapabilities } from "@/hooks/useExtensionCapabilities";
 import { invalidateCache as invalidateMetamodel } from "@/hooks/useMetamodel";
 
@@ -58,6 +59,8 @@ interface EntitlementInfo {
   // Whether the backing store subscription renews at period end; null/absent
   // on manual/offline licenses and licenses issued before the flag existed.
   auto_renew?: boolean | null;
+  // Store-issued trial entitlement — no grace window, labelled "Trial".
+  trial?: boolean | null;
 }
 
 interface ExtensionInfo {
@@ -128,6 +131,9 @@ interface StoreItem {
   long_description?: string;
   price: string;
   payment_link: string;
+  // Optional no-card trial checkout link; opened through the same
+  // claim-token flow as payment_link.
+  trial_link?: string;
   demo_url?: string;
   homepage?: string;
   license?: string;
@@ -140,6 +146,14 @@ interface StoreItem {
   installed_version?: string | null;
   update_available: boolean;
   entitlement_state: EntitlementInfo["state"];
+  // Entitlement is a trial (active or expired) — Buy stays visible so a
+  // trialing customer can convert in-product.
+  entitlement_trial?: boolean;
+  // Expiry/renewal info for the card's entitlement chip ("Trial until …" /
+  // "Renews on …") — present even for licensed-but-not-installed items.
+  entitlement_expires_at?: string | null;
+  entitlement_grace_until?: string | null;
+  entitlement_auto_renew?: boolean | null;
   free?: boolean;
 }
 
@@ -225,6 +239,9 @@ export default function ExtensionsAdmin() {
     else params.set("tab", next);
     setSearchParams(params, { replace: true });
   };
+  // Entitlement/license dates follow the app-wide configured date format
+  // (Admin → Settings), never the browser locale.
+  const { formatDate: fmtDate } = useDateFormat();
   const [extensions, setExtensions] = useState<ExtensionInfo[]>([]);
   const [license, setLicense] = useState<LicenseInfo | null>(null);
   const [catalog, setCatalog] = useState<StoreCatalog | null>(null);
@@ -561,22 +578,49 @@ export default function ExtensionsAdmin() {
     [clearClaimPoll, loadAll, startStoreInstall, t],
   );
 
-  const handleBuy = (item: StoreItem) => {
-    if (!item.payment_link) return;
+  // Open a Stripe checkout link (paid subscription or no-card trial) and
+  // start polling the store's claim endpoint. The claim flow is mechanism-
+  // agnostic: a completed trial checkout resolves to a license exactly like
+  // a paid one.
+  const openCheckout = (link: string, itemKey: string, kind: "buy" | "trial") => {
     const token = makeClaimToken();
-    const sep = item.payment_link.includes("?") ? "&" : "?";
     // The instance ID rides along so the store can key the purchase to this
     // instance (composite licensing) — parsed off the end by the webhook
     // (fixed TEA-XXXX-XXXX-XXXX shape). Stripe allows [A-Za-z0-9_-] here.
     const ref = instanceId ? `${token}-${instanceId}` : token;
-    window.open(
-      `${item.payment_link}${sep}client_reference_id=${ref}`,
-      "_blank",
-      "noopener",
-    );
+    // Prefer the store's server-created checkout: no typed instance-ID field
+    // (the app passes it; the store stamps it onto the subscription and uses
+    // the same token-instance client_reference_id, so the claim poll below
+    // works identically). The static payment link stays as the fallback for
+    // an unknown instance id — and the store itself falls back to it too.
+    const storeBase = catalog?.store_url?.replace(/\/$/, "");
+    let target: string;
+    if (instanceId && storeBase) {
+      target =
+        `${storeBase}/checkout?item=${encodeURIComponent(itemKey)}` +
+        `&kind=${kind}&ref=${token}&instance=${instanceId}`;
+    } else {
+      const sep = link.includes("?") ? "&" : "?";
+      target = `${link}${sep}client_reference_id=${ref}`;
+    }
+    window.open(target, "_blank", "noopener");
     claimCountRef.current = 0;
-    setClaiming({ token, itemKey: item.key });
-    pollClaim(token, item.key);
+    // Poll with the FULL ref: the store looks the checkout session up by an
+    // EXACT client_reference_id match, so polling with the bare token while
+    // the session carries token-instance never resolves ("waiting for
+    // payment confirmation" forever, paid and trial alike).
+    setClaiming({ token: ref, itemKey });
+    pollClaim(ref, itemKey);
+  };
+
+  const handleBuy = (item: StoreItem) => {
+    if (!item.payment_link) return;
+    openCheckout(item.payment_link, item.key, "buy");
+  };
+
+  const handleTrial = (item: StoreItem) => {
+    if (!item.trial_link) return;
+    openCheckout(item.trial_link, item.key, "trial");
   };
 
   const handleInstallClick = (item: StoreItem) => {
@@ -741,9 +785,33 @@ export default function ExtensionsAdmin() {
     (plugin.adminPanels ?? []).map((panel) => ({ extKey: key, panel })),
   );
 
-  const fmtDate = (iso?: string | null) => (iso ? new Date(iso).toLocaleDateString() : "");
 
   const entitlementChip = (ent: EntitlementInfo) => {
+    // Trials first: they have no grace window (expiry is a hard stop), so the
+    // chip says exactly that — and an ended trial points at the fix.
+    if (ent.trial === true && (ent.state === "active" || ent.state === "grace")) {
+      return (
+        <Chip
+          size="small"
+          color="info"
+          label={t("extensions.entitlement.trialUntil", "Trial until {{date}}", {
+            date: fmtDate(ent.expires_at),
+          })}
+        />
+      );
+    }
+    if (ent.trial === true && ent.state === "expired") {
+      return (
+        <Chip
+          size="small"
+          color="warning"
+          label={t(
+            "extensions.entitlement.trialEnded",
+            "Trial ended — subscribe to reactivate",
+          )}
+        />
+      );
+    }
     // Active + a known auto-renew state: say what actually happens on the
     // date — "renews" vs "will not renew" — instead of the ambiguous
     // "active until". Unknown (manual/offline licenses) keeps today's label.
@@ -1061,15 +1129,20 @@ export default function ExtensionsAdmin() {
                             label={t("extensions.entitlement.free", "Free")}
                           />
                         )}
-                        {!item.installed_version &&
-                          !item.free &&
-                          item.entitlement_state !== "unlicensed" && (
-                            <Chip
-                              size="small"
-                              color={ENTITLEMENT_COLOR[item.entitlement_state]}
-                              label={t("extensions.store.licensed", "Licensed")}
-                            />
-                          )}
+                        {/* Live entitlement chip — the same cascade as the
+                            Installed tab ("Trial until …", "Renews on …",
+                            "Expires … — will not renew"), shown even while
+                            installed so trial countdowns and renewal dates
+                            are visible where Buy/Start-trial live. */}
+                        {!item.free &&
+                          item.entitlement_state !== "unlicensed" &&
+                          entitlementChip({
+                            state: item.entitlement_state,
+                            expires_at: item.entitlement_expires_at,
+                            grace_until: item.entitlement_grace_until,
+                            auto_renew: item.entitlement_auto_renew,
+                            trial: item.entitlement_trial,
+                          })}
                       </Stack>
                       <Typography variant="body2" color="text.secondary" sx={{ flex: 1, mb: 1.5 }}>
                         {item.description}
@@ -1140,8 +1213,25 @@ export default function ExtensionsAdmin() {
                           </Button>
                         )}
                         {!item.free &&
-                          item.payment_link &&
+                          item.trial_link &&
                           item.entitlement_state === "unlicensed" &&
+                          claiming?.itemKey !== item.key && (
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              onClick={() => handleTrial(item)}
+                              startIcon={<MaterialSymbol icon="hourglass_top" size={18} />}
+                            >
+                              {t("extensions.store.startTrial", "Start 30-day trial")}
+                            </Button>
+                          )}
+                        {!item.free &&
+                          item.payment_link &&
+                          // Unlicensed, or on a trial (active or expired) —
+                          // a trialing customer converts in-product; the
+                          // claim flow replaces the trial entitlement with
+                          // the paid one automatically.
+                          (item.entitlement_state === "unlicensed" || item.entitlement_trial) &&
                           claiming?.itemKey !== item.key && (
                             <Button
                               size="small"
@@ -1483,15 +1573,26 @@ export default function ExtensionsAdmin() {
                   <LinearProgress sx={{ mt: 0.5 }} />
                 </>
               ) : (
-                <Button
-                  variant="contained"
-                  onClick={() => handleBuy(gateItem)}
-                  startIcon={<MaterialSymbol icon="shopping_cart" size={18} />}
-                >
-                  {gateItem.price
-                    ? t("extensions.gate.buyFor", "Buy — {{price}}", { price: gateItem.price })
-                    : t("extensions.store.buy", "Buy")}
-                </Button>
+                <Stack direction="row" spacing={1}>
+                  <Button
+                    variant="contained"
+                    onClick={() => handleBuy(gateItem)}
+                    startIcon={<MaterialSymbol icon="shopping_cart" size={18} />}
+                  >
+                    {gateItem.price
+                      ? t("extensions.gate.buyFor", "Buy — {{price}}", { price: gateItem.price })
+                      : t("extensions.store.buy", "Buy")}
+                  </Button>
+                  {gateItem.trial_link && gateItem.entitlement_state === "unlicensed" && (
+                    <Button
+                      variant="outlined"
+                      onClick={() => handleTrial(gateItem)}
+                      startIcon={<MaterialSymbol icon="hourglass_top" size={18} />}
+                    >
+                      {t("extensions.store.startTrial", "Start 30-day trial")}
+                    </Button>
+                  )}
+                </Stack>
               )}
             </Box>
           )}
