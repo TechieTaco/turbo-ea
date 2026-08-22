@@ -82,6 +82,8 @@ import {
   type LdvGroupData,
   type LdvEdgeData,
 } from "./layeredDependencyLayout";
+import type { TimelineChange } from "./timelineRange";
+import { STATUS_COLORS, TIMELINE_COLORS } from "@/theme/tokens";
 
 /* ------------------------------------------------------------------ */
 /*  Card display settings (persisted, shared store)                    */
@@ -218,6 +220,21 @@ const LdvNode = memo(({ data }: NodeProps<Node<LdvNodeData>>) => {
   // children (below) the card can surface via the Reveal toolbar tools.
   const hiddenParent = data.hiddenParent === true;
   const hiddenChildren = data.hiddenChildren === true;
+  // Time-travel: how this card's presence changes between today and the date
+  // being viewed. Dashes the border like `proposed` does, and badges the card.
+  const changeState = data.changeState as TimelineChange | undefined;
+  const changeColor =
+    changeState === "arriving" || changeState === "planned"
+      ? TIMELINE_COLORS.future
+      : changeState === "retired"
+        ? STATUS_COLORS.error
+        : null;
+  // Survives the date, but loses a dependency to the transformation.
+  const impacted = data.impacted === true;
+  // The NEW badge owns the top-edge slot when both would render (TurboLens
+  // proposed cards never carry changeState today, but precedence is explicit).
+  const futureOnTop =
+    (changeState === "arriving" || changeState === "planned") && !data.proposed;
 
   const usedSet = useMemo(() => new Set(data.usedHandles ?? []), [data.usedHandles]);
   const hs = (id: string, extra?: React.CSSProperties) => {
@@ -333,8 +350,26 @@ const LdvNode = memo(({ data }: NodeProps<Node<LdvNodeData>>) => {
         width: LDV_NODE_W,
         height: LDV_NODE_H,
         borderRadius: "8px",
-        border: data.proposed ? `2px dashed ${accent}` : `1.5px solid ${accent}`,
-        bgcolor: data.proposed ? (isDark ? `rgba(${r},${g},${b},0.06)` : `rgba(${r},${g},${b},0.06)`) : bg,
+        border: changeColor
+          ? `2px dashed ${changeColor}`
+          : data.proposed
+            ? `2px dashed ${accent}`
+            : `1.5px solid ${accent}`,
+        bgcolor:
+          changeState === "arriving"
+            ? // Tint toward the timeline's future colour, not the type colour —
+              // glowing = coming, faded = going, readable at a glance.
+              `${TIMELINE_COLORS.future}${isDark ? "1f" : "12"}`
+            : data.proposed
+              ? (isDark ? `rgba(${r},${g},${b},0.06)` : `rgba(${r},${g},${b},0.06)`)
+              : bg,
+        ...(changeState === "arriving" && {
+          boxShadow: `0 0 0 3px ${TIMELINE_COLORS.future}30`,
+        }),
+        // Ghost what isn't in this date's landscape: retired (already gone)
+        // and planned (not here yet). The visual grammar: glowing = newly
+        // here, ghost-purple = coming later, ghost-red = gone.
+        opacity: changeState === "retired" || changeState === "planned" ? 0.55 : 1,
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
@@ -438,6 +473,39 @@ const LdvNode = memo(({ data }: NodeProps<Node<LdvNodeData>>) => {
           textTransform: "uppercase", letterSpacing: 0.5,
         }}>
           {t("dependency.proposedBadge")}
+        </Box>
+      )}
+      {/* Time-travel change badge. Arriving cards take the prominent top-edge
+          slot (unless a NEW badge holds it); retired cards keep bottom-right. */}
+      {changeState && changeColor && (
+        <Box sx={{
+          position: "absolute",
+          ...(futureOnTop ? { top: -8, left: 8 } : { bottom: -8, right: 8 }),
+          bgcolor: changeColor, color: "#fff",
+          fontSize: 9, fontWeight: 700, lineHeight: 1,
+          px: 0.7, py: 0.25, borderRadius: "4px",
+          textTransform: "uppercase", letterSpacing: 0.5,
+        }}>
+          {t(
+            changeState === "arriving"
+              ? "dependency.arrivingBadge"
+              : changeState === "planned"
+                ? "dependency.plannedBadge"
+                : "dependency.retiredBadge",
+          )}
+        </Box>
+      )}
+      {/* Impacted badge: bottom-right, free unless the card is itself retired —
+          and a retired card is never "impacted" by definition. */}
+      {impacted && changeState !== "retired" && (
+        <Box sx={{
+          position: "absolute", bottom: -8, right: 8,
+          bgcolor: STATUS_COLORS.warning, color: "#fff",
+          fontSize: 9, fontWeight: 700, lineHeight: 1,
+          px: 0.7, py: 0.25, borderRadius: "4px",
+          textTransform: "uppercase", letterSpacing: 0.5,
+        }}>
+          {t("dependency.impactedBadge")}
         </Box>
       )}
       {/* Long-press radial progress ring */}
@@ -670,8 +738,12 @@ const LdvEdgeComponent = memo(
       ? connectedToHovered
       : isHovered || connectedToHovered;
     const isDark = theme.palette.mode === "dark";
-    const baseColor = isDark ? "#aaa" : "#777";
-    const hoverColor = isDark ? "#4fc3f7" : "#1976d2";
+    // A severed edge (one endpoint retired at the viewed date) keeps the error
+    // colour even while hovered — the highlight bumps its width instead, so
+    // "this dependency is going away" never reads as a healthy blue link.
+    const severed = edgeData?.severed === true;
+    const baseColor = severed ? STATUS_COLORS.error : isDark ? "#aaa" : "#777";
+    const hoverColor = severed ? STATUS_COLORS.error : isDark ? "#4fc3f7" : "#1976d2";
     const color = active ? hoverColor : baseColor;
 
     const rawOffset = edgeData?.pathOffset ?? 20;
@@ -789,7 +861,7 @@ const LdvEdgeComponent = memo(
           style={{
             stroke: color,
             strokeWidth: active ? 2 : 1.2,
-            strokeDasharray: active ? "none" : "5 3",
+            strokeDasharray: severed ? "3 3" : active ? "none" : "5 3",
             transition: "stroke 0.15s, stroke-width 0.15s",
           }}
         />
@@ -869,6 +941,22 @@ interface Props {
   centerName?: string;
   /** Id of the centered/target card — always kept visible by the end-of-life filter. */
   centerId?: string;
+  /** Render the graph as of this date (epoch ms) instead of today: the
+   *  end-of-life filter and each card's lifecycle dot are evaluated against it.
+   *  Omit for a live "today" view. */
+  asOfMs?: number;
+  /** Cards to spotlight, id → the kind of change ("live" | "retire"). Fired by
+   *  clicking a transition mark: the rest of the canvas dims briefly and these
+   *  pulse in the mark's own colour. Purely a transient attention cue — the
+   *  badges carry the permanent state. */
+  pulseCards?: Record<string, "live" | "retire">;
+  /** When set, the nav bar offers an "open in the Dependencies report" link to
+   *  this URL, in a new tab. Supplied by the card-detail section, which has no
+   *  timeline, table view or saving of its own; omitted by the report itself
+   *  (it would link to itself) and by TurboLens Architect (its cards are
+   *  proposals that do not exist yet). Build it with
+   *  `buildDependencyReportUrl` — see `dependencyReportLink.ts`. */
+  openInReportHref?: string;
   /** When true, show the "Create diagram" toolbar action (gated on `diagrams.manage`
    *  by the parent). Only enable in consumers whose nodes are real inventory cards. */
   canCreateDiagram?: boolean;
@@ -895,6 +983,9 @@ function LayeredDependencyInner({
   hasNext,
   centerName,
   centerId,
+  asOfMs,
+  pulseCards,
+  openInReportHref,
   canCreateDiagram,
 }: Props) {
   const { t } = useTranslation(["reports", "common"]);
@@ -911,8 +1002,8 @@ function LayeredDependencyInner({
     () =>
       settings.showEndOfLife
         ? { nodes: rawNodes, edges: rawEdges }
-        : filterEndOfLifeNodes(rawNodes, rawEdges, centerId),
-    [rawNodes, rawEdges, settings.showEndOfLife, centerId],
+        : filterEndOfLifeNodes(rawNodes, rawEdges, centerId, asOfMs),
+    [rawNodes, rawEdges, settings.showEndOfLife, centerId, asOfMs],
   );
 
   /* ---- Resolve a relation's single-select attribute value(s) into a
@@ -1336,7 +1427,7 @@ function LayeredDependencyInner({
   const cardDisplayData = useCallback(
     (n: Node) => {
       const g = gnodeById.get(n.id);
-      const phase = settings.showLifecycle ? getCurrentPhase(g?.lifecycle) : null;
+      const phase = settings.showLifecycle ? getCurrentPhase(g?.lifecycle, asOfMs) : null;
 
       // Resolve every chosen extra field to a label/value line (skips empties).
       const lines: DisplayLine[] = [];
@@ -1368,6 +1459,7 @@ function LayeredDependencyInner({
     [
       gnodeById,
       hierarchyMarkers,
+      asOfMs,
       settings.showLifecycle,
       settings.showType,
       settings.extraFields,
@@ -1533,6 +1625,30 @@ function LayeredDependencyInner({
     ].join("\n");
   }, [hoveredNeighbors]);
 
+  // Spotlight for a clicked transition mark. Built as CSS keyed on node id,
+  // exactly like `hoverStyle` above: recreating node objects to carry a
+  // transient flag causes flicker, and this needs to layer over whatever
+  // border/badge the card already has rather than replace it.
+  const pulseStyle = useMemo(() => {
+    const entries = Object.entries(pulseCards ?? {});
+    if (!entries.length) return "";
+    const rules = [
+      // Everything fades for the pulse, so the changed cards read instantly
+      // even on a dense canvas; the fade lifts on its own.
+      `.ldv-pulse-active .react-flow__node-ldvNode { opacity: 0.3; transition: opacity 0.2s; }`,
+      `@keyframes ldv-pulse-live { 0%,100% { box-shadow: 0 0 0 0 ${TIMELINE_COLORS.goLive}00 } 50% { box-shadow: 0 0 0 8px ${TIMELINE_COLORS.goLive}66 } }`,
+      `@keyframes ldv-pulse-retire { 0%,100% { box-shadow: 0 0 0 0 ${STATUS_COLORS.error}00 } 50% { box-shadow: 0 0 0 8px ${STATUS_COLORS.error}66 } }`,
+    ];
+    for (const [id, kind] of entries) {
+      const sel = `.react-flow__node[data-id="${CSS.escape(id)}"]`;
+      rules.push(
+        `${sel} { opacity: 1 !important; z-index: 10 !important; }`,
+        `${sel} > * { animation: ldv-pulse-${kind === "live" ? "live" : "retire"} 0.65s ease-in-out 2; border-radius: 8px; }`,
+      );
+    }
+    return rules.join("\n");
+  }, [pulseCards]);
+
   // Obstacle boxes for edge-label placement — computed once here and shared
   // with every edge via context (each edge no longer walks the node list).
   const obstacles = useMemo(() => computeObstacles(flowNodes), [flowNodes]);
@@ -1649,10 +1765,34 @@ function LayeredDependencyInner({
               </IconButton>
             </Tooltip>
           )}
+          {openInReportHref && (
+            <Tooltip title={t("dependency.openInReport")} arrow>
+              {/* A real anchor, not window.open: middle-click, cmd-click and
+                  "copy link address" all have to work on a link. */}
+              <IconButton
+                size="small"
+                component="a"
+                href={openInReportHref}
+                target="_blank"
+                rel="noopener"
+                aria-label={t("dependency.openInReport")}
+              >
+                <MaterialSymbol icon="open_in_new" size={19} />
+              </IconButton>
+            </Tooltip>
+          )}
         </Box>
       </Box>
-      <Box sx={{ flex: 1, minHeight: 0 }} className={hoveredNode ? "ldv-hover-active" : undefined}>
+      <Box
+        sx={{ flex: 1, minHeight: 0 }}
+        className={
+          [hoveredNode ? "ldv-hover-active" : "", pulseStyle ? "ldv-pulse-active" : ""]
+            .filter(Boolean)
+            .join(" ") || undefined
+        }
+      >
         {hoverStyle && <style>{hoverStyle}</style>}
+        {pulseStyle && <style>{pulseStyle}</style>}
         <ReactFlow
           nodes={flowNodes}
           edges={orderedEdges}
