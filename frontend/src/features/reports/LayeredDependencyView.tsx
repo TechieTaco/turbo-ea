@@ -84,6 +84,7 @@ import {
   type LdvEdgeData,
 } from "./layeredDependencyLayout";
 import { ldvFocusRing } from "./ldvFocusRing";
+import LinkChangeIcon from "./LinkChangeIcon";
 import { isPresentAtDate } from "./timelineRange";
 import type { TimelineChange } from "./timelineRange";
 import { STATUS_COLORS, TIMELINE_COLORS } from "@/theme/tokens";
@@ -189,7 +190,13 @@ const LP_CIRCUMFERENCE = 2 * Math.PI * 15; // ~94.25
 // luminance-gating rationale. Re-exported for existing importers.
 export { readableTypeColor };
 
-const LdvNode = memo(({ data }: NodeProps<Node<LdvNodeData>>) => {
+// Exported for `LdvNode.test.tsx` only. The card's chrome — the corner icons,
+// the badges, the focus ring — is otherwise reachable only by mounting the
+// whole view, which React Flow cannot do under jsdom (it needs
+// `SVGPathElement.getTotalLength`, `CSS.escape` and `ResizeObserver`, none of
+// which jsdom has, and every rect is 0x0 regardless). Rendering the node on its
+// own costs nothing and is what caught the icons sitting outside the card.
+export const LdvNode = memo(({ data }: NodeProps<Node<LdvNodeData>>) => {
   const typeLabel = useTypeLabel();
   const { t } = useTranslation("reports");
   const theme = useTheme();
@@ -241,8 +248,11 @@ const LdvNode = memo(({ data }: NodeProps<Node<LdvNodeData>>) => {
       : changeState === "retired"
         ? STATUS_COLORS.error
         : null;
-  // Survives the date, but loses a dependency to the transformation.
-  const impacted = data.impacted === true;
+  // Stays put while a neighbour comes or goes at the mark being stood on. Only
+  // ever set on a card that is not itself changing there, so these never share a
+  // corner with a state badge.
+  const gainedLink = data.gainedLink === true;
+  const lostLink = data.lostLink === true;
   // The NEW badge owns the top-edge slot when both would render (TurboLens
   // proposed cards never carry changeState today, but precedence is explicit).
   const futureOnTop = changeState === "planned" && !data.proposed;
@@ -515,17 +525,32 @@ const LdvNode = memo(({ data }: NodeProps<Node<LdvNodeData>>) => {
           )}
         </Box>
       )}
-      {/* Impacted badge: bottom-right, free unless the card is itself retired —
-          and a retired card is never "impacted" by definition. */}
-      {impacted && changeState !== "retired" && (
-        <Box sx={{
-          position: "absolute", bottom: -8, right: 8,
-          bgcolor: STATUS_COLORS.warning, color: "#fff",
-          fontSize: 9, fontWeight: 700, lineHeight: 1,
-          px: 0.7, py: 0.25, borderRadius: "4px",
-          textTransform: "uppercase", letterSpacing: 0.5,
-        }}>
-          {t("dependency.impactedBadge")}
+      {/* What the mark does to this card's connections: blue where one is gained,
+          red where one is lost, both when both. Inside the bottom-right corner
+          on the same 6px inset as the type icon and the lifecycle dot — that
+          corner is free, because a card marked here is never itself arriving or
+          retiring and so carries no state badge of its own. */}
+      {(gainedLink || lostLink) && (
+        <Box
+          sx={{
+            position: "absolute",
+            bottom: 5,
+            right: 6,
+            display: "flex",
+            gap: 0.375,
+            lineHeight: 0,
+          }}
+        >
+          {gainedLink && (
+            <Box component="span" title={t("dependency.gainedConnection")} sx={{ display: "flex" }}>
+              <LinkChangeIcon kind="gained" color={TIMELINE_COLORS.goLive} />
+            </Box>
+          )}
+          {lostLink && (
+            <Box component="span" title={t("dependency.lostConnection")} sx={{ display: "flex" }}>
+              <LinkChangeIcon kind="lost" color={STATUS_COLORS.error} />
+            </Box>
+          )}
         </Box>
       )}
       {/* Long-press radial progress ring */}
@@ -734,7 +759,6 @@ const LdvChevron = memo(({ dir, color }: { dir: "up" | "down"; color: string }) 
   </svg>
 ));
 LdvChevron.displayName = "LdvChevron";
-
 const LdvEdgeComponent = memo(
   ({
     id,
