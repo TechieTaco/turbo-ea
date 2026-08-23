@@ -19,6 +19,9 @@ const MIN_LABEL_SPACING_PX = 48;
 /** Markers closer together than this merge into one, so a landscape with
  *  hundreds of transition dates reads as marks rather than a smear. */
 const MIN_MILESTONE_SPACING_PX = 10;
+/** Width of a transition mark, and of one that merges several dates. */
+const MARK_PX = 3;
+const MERGED_MARK_PX = 7;
 /** Heavier chevrons on the step buttons — the outlined Material Symbol at its
  *  default weight is a hairline, which reads as decoration rather than a
  *  control next to the track. */
@@ -224,17 +227,40 @@ export default function TimelineSlider({
 
   const hasMilestones = (milestones?.length ?? 0) > 0;
 
-  // The mark the slider is standing on, if any. A click or an arrow step calls
-  // `onChange(m.value)` and lands on it exactly; a drag cannot, because MUI
-  // snaps to `min + n * step` and a mark's epoch is almost never on that
+  // The mark a given date stands on, if any. A mark click or an arrow step
+  // calls `onChange(m.value)` and lands on one exactly; a drag cannot, because
+  // MUI snaps to `min + n * step` and a mark's epoch is almost never on that
   // lattice — hence the one-day tolerance, which is below the resolution
   // anything on this timeline is modelled at anyway.
-  const activeCluster = useMemo(
-    () =>
+  const clusterAt = useCallback(
+    (at: number) =>
       milestoneClusters.find(
-        (c) => value >= c.value - ONE_DAY_MS && value <= c.spanEnd + ONE_DAY_MS,
+        (c) => at >= c.value - ONE_DAY_MS && at <= c.spanEnd + ONE_DAY_MS,
       ) ?? null,
-    [milestoneClusters, value],
+    [milestoneClusters],
+  );
+
+  const activeCluster = useMemo(() => clusterAt(value), [clusterAt, value]);
+
+  /**
+   * Move to a mark by arrow, spotlighting it exactly as clicking it would.
+   * Stepping used to call `onChange` alone, so the two ways of reaching the
+   * same mark behaved differently — the arrows navigated but never lit
+   * anything up.
+   *
+   * The span is the CLUSTER's, not the stepped-to date's: the step targets a
+   * single milestone (`prevMilestone` / `nextMilestone` are deliberately
+   * unclustered so stepping behaves the same at every screen width), but the
+   * pill row below is keyed on the cluster, so spotlighting the bare date
+   * would pulse a subset of the pills sitting right there.
+   */
+  const stepTo = useCallback(
+    (target: number) => {
+      onChange(target);
+      const cluster = clusterAt(target);
+      onMilestoneClick?.(cluster?.value ?? target, cluster?.spanEnd ?? target);
+    },
+    [onChange, onMilestoneClick, clusterAt],
   );
 
   const activeCards = useMemo(
@@ -379,7 +405,7 @@ export default function TimelineSlider({
               <IconButton
                 aria-label={t("timelineSlider.prevChange")}
                 disabled={prevMilestone == null}
-                onClick={() => prevMilestone != null && onChange(prevMilestone)}
+                onClick={() => prevMilestone != null && stepTo(prevMilestone)}
                 sx={stepButtonSx}
               >
                 <MaterialSymbol
@@ -467,7 +493,27 @@ export default function TimelineSlider({
                   parts.push(t("timelineSlider.milestoneActivating", { count: m.activating }));
                 if (m.disappearing)
                   parts.push(t("timelineSlider.milestoneDisappearing", { count: m.disappearing }));
-                const summary = `${fmtFull(m.value)} — ${parts.join(" · ")}`;
+                // Marks closer together than MIN_MILESTONE_SPACING_PX merge,
+                // so one mark can stand for several dates. Say the span when
+                // it does: stating a single date made a merged neighbour look
+                // unmarked, which is how a card whose arrival was absorbed
+                // into a busy mark reads as having no go-live mark at all.
+                const isMerged = m.spanEnd > m.value;
+                const when = isMerged
+                  ? `${fmtFull(m.value)} – ${fmtFull(m.spanEnd)}`
+                  : fmtFull(m.value);
+                const summary = `${when} — ${parts.join(" · ")}`;
+                // One bar, coloured by WHAT the mark does: blue where cards
+                // only arrive, red where they only retire, purple where it
+                // does both. Two abutting bars said the same thing but read as
+                // two marks at a glance, which is the last thing a crowded
+                // track needs.
+                const barColor =
+                  m.activating > 0 && m.disappearing > 0
+                    ? TIMELINE_COLORS.mixed
+                    : m.activating > 0
+                      ? TIMELINE_COLORS.goLive
+                      : STATUS_COLORS.error;
                 // Past transitions render exactly like upcoming ones. A stateful
                 // RETIRED/UPCOMING badge needs its mark whichever side of today
                 // it falls on, and muting the past ones made every mark in a
@@ -490,32 +536,23 @@ export default function TimelineSlider({
                         py: 0.5,
                         borderRadius: 1,
                         display: "flex",
-                        gap: "1px",
                         "&:hover": { bgcolor: "action.hover" },
                       }}
                     >
-                      {m.activating > 0 && (
-                        <Box
-                          sx={{
-                            width: 3,
-                            height: 10,
-                            borderRadius: "1px",
-                            // Same accent as the pulse this mark triggers on the
-                            // canvas, so mark and highlighted card read as one.
-                            bgcolor: TIMELINE_COLORS.goLive,
-                          }}
-                        />
-                      )}
-                      {m.disappearing > 0 && (
-                        <Box
-                          sx={{
-                            width: 3,
-                            height: 10,
-                            borderRadius: "1px",
-                            bgcolor: STATUS_COLORS.error,
-                          }}
-                        />
-                      )}
+                      <Box
+                        sx={{
+                          // Merged marks stand for several dates, so they are
+                          // drawn wider. Width is the only thing that says a
+                          // mark covers a span; without it a change absorbed
+                          // into a crowded neighbour looks unmarked.
+                          width: isMerged ? MERGED_MARK_PX : MARK_PX,
+                          height: 10,
+                          borderRadius: "1px",
+                          // Same accents as the pulse this mark triggers on the
+                          // canvas, so mark and highlighted card read as one.
+                          bgcolor: barColor,
+                        }}
+                      />
                     </ButtonBase>
                   </Tooltip>
                 );
@@ -557,7 +594,9 @@ export default function TimelineSlider({
                     </Tooltip>
                     {group.cards.map((card) => (
                       <Chip
-                        key={card.id}
+                        // Not `card.id`: a card that arrives and retires inside
+                        // one merged cluster is listed on both sides.
+                        key={`${card.id}:${card.kind}`}
                         size="small"
                         label={card.name}
                         onClick={onMilestoneCardClick ? () => onMilestoneCardClick(card) : undefined}
@@ -618,7 +657,7 @@ export default function TimelineSlider({
               <IconButton
                 aria-label={t("timelineSlider.nextChange")}
                 disabled={nextMilestone == null}
-                onClick={() => nextMilestone != null && onChange(nextMilestone)}
+                onClick={() => nextMilestone != null && stepTo(nextMilestone)}
                 sx={stepButtonSx}
               >
                 <MaterialSymbol
