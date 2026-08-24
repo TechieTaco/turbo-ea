@@ -5,6 +5,22 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.81.0] - 2026-08-24
+
+### Added
+
+- **Diagrams can show more than a card's name.** The **View** dropdown in the diagram toolbar now carries two independent settings: **Color by** picks the one attribute that recolours the shapes, and **Show on card** picks any number of fields to print on them — the card type, the subtype, or any attribute of the card types on the canvas. Fields are listed under the card type they belong to, with any field several of those types share grouped under **Shared**. The first two selections are drawn on the shape — a card is only so big — and the choice is saved with the diagram, so every reader, including anyone opening a published link, sees the same shapes. Expanded child cards keep just their name.
+- **A diagram generated from the Dependencies report keeps the report's detail.** The **Create diagram** button used to hand DrawIO nothing but names, so a landscape that read richly in the report went flat on the diagram made from it. The card-display settings and the resolved rows now travel across, and the new diagram opens with its own dropdown pre-set to match.
+- **Subtype can be shown on a dependency card.** The Dependencies report's **Card display** menu has a *Show subtype* switch, alongside the existing type and lifecycle toggles.
+- **The Dependencies report's Card display menu is grouped.** Its switches sit under **Cards** and **Relations** instead of running together, and the extra-fields picker lists each attribute under the card type that owns it.
+- **The colour and the fields on a diagram card are set independently.** Both live in the same **View** dropdown, and neither now depends on the other: the attribute rows are populated whenever the menu is opened rather than as a side effect of applying a colour, and picking a colour no longer dismisses the menu, so both can be set in one visit.
+- **A card's detail rows are stored as data rather than re-read from its own markup.** A diagram label is hand-editable, so lifting the rendered rows out of one label and splicing them into another re-emitted whatever markup that label happened to carry. The rows now travel as data on the cell and every re-render goes back through the escaper, and the name is recovered from a hand-edited label with a real HTML parse instead of a strip-tags pattern that a comment or a quoted `>` defeats.
+
+### Fixed
+
+- **The View button in the diagram toolbar no longer cuts off its own label.** With a longer view name selected the palette icon, the chevron and both ends of the text were clipped mid-word, with no ellipsis to show anything was missing. The label now truncates properly and the full text is available on hover.
+- **The diagram's colour legend and its View button agree in every language.** The legend printed the untranslated card-type and field names while the button printed the translated ones, so the two disagreed outside English — and an admin-created type showed its internal name in both the menu and the legend.
+
 ## [2.80.0] - 2026-08-24
 
 ### Added

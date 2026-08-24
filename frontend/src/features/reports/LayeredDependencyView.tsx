@@ -36,7 +36,17 @@ import { saveAs } from "file-saver";
 import { useNavigate } from "react-router";
 import { api } from "@/api/client";
 import { readableTypeColor } from "@/lib/color";
+import {
+  buildFieldCatalog,
+  groupFieldCatalog,
+  EMPTY_VALUE,
+  formatFieldValue,
+  MAX_CARD_LINES,
+  type DisplayLine,
+  type FieldMeta,
+} from "@/lib/cardDisplayFields";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import MenuSectionHeader from "@/components/MenuSectionHeader";
 import { getCurrentPhase } from "@/components/LifecycleBadge";
 import {
   ReactFlow,
@@ -61,6 +71,7 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { useTypeLabel, useFieldLabel } from "@/hooks/useResolveLabel";
+import { useCardSubtypeLabel } from "@/hooks/useCardSubtypeLabel";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useLdvSettings, type LdvBackgroundStyle } from "./ldvDisplaySettings";
 import type { CardType } from "@/types";
@@ -95,10 +106,6 @@ import { STATUS_COLORS, TIMELINE_COLORS } from "@/theme/tokens";
 
 type BackgroundStyle = LdvBackgroundStyle;
 
-/** How many of the chosen extra fields render directly on the card body.
- *  The rest still appear in the hover tooltip. */
-const MAX_CARD_LINES = 2;
-
 /** Lifecycle-phase → dot colour (hex, theme-independent). Mirrors LifecycleBadge. */
 const PHASE_DOT: Record<string, string> = {
   plan: "#9e9e9e",
@@ -107,20 +114,6 @@ const PHASE_DOT: Record<string, string> = {
   phaseOut: "#ed6c02",
   endOfLife: "#d32f2f",
 };
-
-interface FieldMeta {
-  key: string;
-  label: string;
-  translations?: Record<string, string>;
-  type: string;
-  options?: { key: string; label: string; translations?: Record<string, string> }[];
-}
-
-/** A single label/value line displayed on a card and/or its tooltip. */
-interface DisplayLine {
-  label: string;
-  value: string;
-}
 
 /* Obstacle boxes (cards + group-label strips) that edge labels must avoid.
    Computed once per render in the parent and shared with every edge through
@@ -150,34 +143,6 @@ function computeObstacles(nodeList: Node[]): ObstacleBounds[] {
     }
   }
   return bounds;
-}
-
-/** Collect a de-duplicated, sorted catalogue of attribute fields across the
- *  card types currently present in the graph — drives the "extra fields" picker. */
-function buildFieldCatalog(types: CardType[], presentTypeKeys: Set<string>): FieldMeta[] {
-  const out: FieldMeta[] = [];
-  const seen = new Set<string>();
-  for (const ct of types) {
-    if (!presentTypeKeys.has(ct.key)) continue;
-    for (const sec of ct.fields_schema || []) {
-      for (const f of sec.fields || []) {
-        if (seen.has(f.key)) continue;
-        seen.add(f.key);
-        out.push({
-          key: f.key,
-          label: f.label || f.key,
-          translations: f.translations,
-          type: f.type,
-          options: f.options?.map((o) => ({
-            key: o.key,
-            label: o.label || o.key,
-            translations: o.translations,
-          })),
-        });
-      }
-    }
-  }
-  return out.sort((a, b) => a.label.localeCompare(b.label));
 }
 
 /* ------------------------------------------------------------------ */
@@ -1040,6 +1005,8 @@ function LayeredDependencyInner({
   const { t } = useTranslation(["reports", "common"]);
   const theme = useTheme();
   const fieldLabel = useFieldLabel();
+  const subtypeLabel = useCardSubtypeLabel();
+  const cardTypeLabel = useTypeLabel();
   const navigate = useNavigate();
   const { fitView, getNodes, zoomIn, zoomOut } = useReactFlow();
 
@@ -1108,24 +1075,38 @@ function LayeredDependencyInner({
     const present = new Set(nodes.map((n) => n.type));
     return buildFieldCatalog(types, present);
   }, [types, nodes]);
+  /** The same catalogue filed under card-type headings, and flattened in group
+   *  order — `Autocomplete.groupBy` re-prints a heading every time the group
+   *  changes, so an unordered option list would repeat headings. */
+  const fieldGroups = useMemo(
+    () => groupFieldCatalog(fieldCatalog, types),
+    [fieldCatalog, types],
+  );
+  const groupedFieldOptions = useMemo(
+    () => fieldGroups.flatMap((g) => g.fields),
+    [fieldGroups],
+  );
+  const groupNameByFieldKey = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const g of fieldGroups) {
+      const name =
+        g.kind === "shared" ? t("dependency.sharedFields") : cardTypeLabel(g.type);
+      for (const f of g.fields) m.set(f.key, name);
+    }
+    return m;
+  }, [fieldGroups, cardTypeLabel, t]);
   const fieldMetaByKey = useMemo(
     () => new Map(fieldCatalog.map((f) => [f.key, f])),
     [fieldCatalog],
   );
 
   const formatVal = useCallback(
-    (raw: unknown, meta?: FieldMeta): string => {
-      if (raw === null || raw === undefined || raw === "") return "—";
-      if (typeof raw === "boolean") return raw ? t("common:labels.yes") : t("common:labels.no");
-      const optLabel = (x: unknown) => {
-        const o = meta?.options?.find((opt) => opt.key === x);
-        return o ? fieldLabel(o) : String(x);
-      };
-      if (Array.isArray(raw)) return raw.map(optLabel).join(", ");
-      if (meta?.options) return optLabel(raw);
-      if (typeof raw === "object") return JSON.stringify(raw);
-      return String(raw);
-    },
+    (raw: unknown, meta?: FieldMeta): string =>
+      formatFieldValue(raw, meta, {
+        optionLabel: fieldLabel,
+        yes: t("common:labels.yes"),
+        no: t("common:labels.no"),
+      }),
     [fieldLabel, t],
   );
 
@@ -1345,6 +1326,16 @@ function LayeredDependencyInner({
             name: d.name,
             color: d.typeColor,
             icon: d.typeIcon,
+            // Carry across exactly what the reader is looking at. `extraLines`
+            // already holds the subtype row and the picked attribute rows,
+            // resolved and formatted; the type row is rendered separately on an
+            // LDV node (as "[Application]"), so it is prepended here.
+            detailLines: [
+              ...(settings.showType
+                ? [{ label: t("dependency.typeLabel"), value: d.typeLabel || d.typeKey }]
+                : []),
+              ...((d.extraLines as DisplayLine[] | undefined) ?? []),
+            ],
             x: p.x,
             y: p.y,
             w: (n.style?.width as number) ?? LDV_NODE_W,
@@ -1385,7 +1376,17 @@ function LayeredDependencyInner({
       const xml = buildLdvDiagramXml(cards, rels, layers);
       const created = await api.post<{ id: string }>("/diagrams", {
         name,
-        data: { xml },
+        // Seed the diagram's own display settings from the report's, so the
+        // editor's card-display dropdown opens pre-set to what was on screen
+        // and a later re-apply reproduces the same rows.
+        data: {
+          xml,
+          cardLabels: {
+            showType: settings.showType,
+            showSubtype: settings.showSubtype,
+            fields: settings.extraFields,
+          },
+        },
       });
       setCreateOpen(false);
       navigate(`/diagrams/${created.id}/edit`);
@@ -1394,7 +1395,7 @@ function LayeredDependencyInner({
     } finally {
       setCreating(false);
     }
-  }, [createName, creating, getNodes, rfEdges, relTypeByPair, navigate]);
+  }, [createName, creating, getNodes, rfEdges, relTypeByPair, navigate, settings, t]);
 
   // ReactFlow's `fitView` prop only fits on the initial render. When the parent
   // navigates to a new centre, the new graph is laid out at different coordinates
@@ -1480,10 +1481,17 @@ function LayeredDependencyInner({
 
       // Resolve every chosen extra field to a label/value line (skips empties).
       const lines: DisplayLine[] = [];
+      const subtypeKey = (n.data as LdvNodeData).subtypeKey;
+      if (settings.showSubtype && subtypeKey) {
+        lines.push({
+          label: t("dependency.subtypeLabel"),
+          value: subtypeLabel((n.data as LdvNodeData).typeKey, subtypeKey),
+        });
+      }
       for (const fk of settings.extraFields) {
         const meta = fieldMetaByKey.get(fk);
         const value = formatVal(g?.attributes?.[fk], meta);
-        if (value === "—") continue;
+        if (value === EMPTY_VALUE) continue;
         lines.push({ label: meta ? fieldLabel(meta) : fk, value });
       }
 
@@ -1517,7 +1525,9 @@ function LayeredDependencyInner({
       expandedIds,
       settings.showLifecycle,
       settings.showType,
+      settings.showSubtype,
       settings.extraFields,
+      subtypeLabel,
       fieldMetaByKey,
       formatVal,
       fieldLabel,
@@ -2095,32 +2105,51 @@ function LayeredDependencyInner({
         </Typography>
         {(
           [
-            { key: "showType", label: t("dependency.showType") },
-            { key: "showLifecycle", label: t("dependency.showLifecycle") },
+            { group: "cards", key: "showType", label: t("dependency.showType") },
+            { group: "cards", key: "showSubtype", label: t("dependency.showSubtype") },
+            { group: "cards", key: "showLifecycle", label: t("dependency.showLifecycle") },
             {
+              group: "cards",
               key: "showHierarchyMarkers",
               label: t("dependency.showHierarchyMarkers"),
               hint: t("dependency.showHierarchyMarkersHint"),
             },
             {
+              group: "cards",
               key: "showEndOfLife",
               label: t("dependency.showEndOfLife"),
               hint: t("dependency.showEndOfLifeHint"),
             },
             {
+              group: "relations",
               key: "showRelationLabels",
               label: t("dependency.showRelationLabels"),
               hint: t("dependency.showRelationLabelsHint"),
             },
             {
+              group: "relations",
               key: "showRelationValues",
               label: t("dependency.showRelationValues"),
               hint: t("dependency.showRelationValuesHint"),
             },
           ] as const
-        ).map((row) => (
+        ).map((row, i, rows) => (
+          <Box key={row.key}>
+            {/* Heading whenever the group changes — the switches split into
+                what a card shows and what a relation shows, which read as one
+                undifferentiated run without it. */}
+            {(i === 0 || rows[i - 1].group !== row.group) && (
+              <MenuSectionHeader
+                px={0}
+                icon={row.group === "relations" ? "linear_scale" : "credit_card"}
+                label={
+                  row.group === "relations"
+                    ? t("dependency.groupRelations")
+                    : t("dependency.groupCards")
+                }
+              />
+            )}
           <Box
-            key={row.key}
             sx={{
               display: "flex",
               alignItems: "hint" in row && row.hint ? "flex-start" : "center",
@@ -2149,6 +2178,7 @@ function LayeredDependencyInner({
               sx={{ flexShrink: 0, mt: "hint" in row && row.hint ? "2px" : 0 }}
             />
           </Box>
+          </Box>
         ))}
         <Divider sx={{ my: 1.5 }} />
         <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1 }}>
@@ -2157,8 +2187,9 @@ function LayeredDependencyInner({
         <Autocomplete
           multiple
           size="small"
-          options={fieldCatalog}
-          value={fieldCatalog.filter((f) => settings.extraFields.includes(f.key))}
+          options={groupedFieldOptions}
+          groupBy={(f) => groupNameByFieldKey.get(f.key) ?? ""}
+          value={groupedFieldOptions.filter((f) => settings.extraFields.includes(f.key))}
           getOptionLabel={(f) => fieldLabel(f)}
           isOptionEqualToValue={(a, b) => a.key === b.key}
           onChange={(_, vals) => updateSettings({ extraFields: vals.map((v) => v.key) })}

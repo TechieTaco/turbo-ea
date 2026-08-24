@@ -87,6 +87,16 @@ Le menu déroulant **Vue** dans la barre d'outils recolore chaque fiche du canev
 
 Une légende flottante en bas à gauche du canevas affiche la correspondance active. La vue choisie est enregistrée avec le diagramme.
 
+#### Afficher sur la fiche
+
+Le même menu détermine aussi **ce que dit chaque forme**. Sous **Afficher sur la fiche**, cochez le **type de fiche**, le **sous-type** ou n'importe quel attribut des types de fiches présents sur le canevas : chaque forme reçoit alors de petites lignes de détail sous son nom. Le menu se divise en deux : **Colorer par** choisit l'unique attribut qui colore les formes, **Afficher sur la fiche** choisit autant de champs que voulu à imprimer dessus. Les champs sont classés sous le type de fiche auquel ils appartiennent ; un champ partagé par plusieurs de ces types est regroupé sous **Communs**.
+
+Les deux premières sélections sont dessinées sur la forme — une fiche a une taille limitée, et un texte trop long déborderait de sa bordure. Tout ce que vous cochez est mémorisé : élargir la sélection plus tard change lesquelles des deux s'affichent, sans avoir à recommencer.
+
+Ces lignes sont enregistrées avec le diagramme, si bien que tous les lecteurs — y compris via un lien publié — voient les mêmes formes. Les fiches enfants dépliées ne gardent que leur nom : elles sont trop petites pour davantage.
+
+Le bouton **Créer un diagramme** du [rapport de dépendances](reports.md) transmet ses propres réglages d'affichage, de sorte qu'un diagramme généré depuis un rapport affiche exactement les lignes que le rapport affichait.
+
 ### Comment les arêtes de relation sont dessinées
 
 Toute relation Turbo EA a la même apparence sur le canevas, quelle que soit la façon dont elle y est arrivée — tracée à la main avec le sélecteur de relation, ou ramenée de l'inventaire avec **+** / le menu d'expansion :
