@@ -460,3 +460,131 @@ describe("CapabilityMapReport time travel — transition marks", () => {
     }
   });
 });
+
+describe("CapabilityMapReport column picker", () => {
+  /** The card grid — the element carrying the print-column class. */
+  function grid() {
+    return chart().querySelector("[class*='report-print-grid-']") as HTMLElement;
+  }
+
+  it("defaults to three columns", async () => {
+    renderMap();
+    await waitFor(() => expect(within(chart()).getByText("Sales")).toBeInTheDocument());
+
+    expect(grid()).toHaveClass("report-print-grid-3");
+  });
+
+  it("reflows the grid when a count is picked", async () => {
+    renderMap();
+    await waitFor(() => expect(within(chart()).getByText("Sales")).toBeInTheDocument());
+
+    await userEvent.click(within(toolbar()).getByRole("button", { name: "Two columns" }));
+
+    expect(grid()).toHaveClass("report-print-grid-2");
+  });
+
+  it("persists the pick with the rest of the report config", async () => {
+    const persistConfig = vi.fn();
+    vi.mocked(useSavedReport).mockReturnValue({
+      savedReport: null,
+      savedReportName: null,
+      saveDialogOpen: false,
+      setSaveDialogOpen: vi.fn(),
+      loadedConfig: null,
+      consumeConfig: vi.fn(() => consumedConfig),
+      resetSavedReport: vi.fn(),
+      persistConfig,
+      resetAll: vi.fn(),
+      reportType: "capability-map",
+    } as never);
+
+    renderMap();
+    await waitFor(() => expect(within(chart()).getByText("Sales")).toBeInTheDocument());
+
+    await userEvent.click(within(toolbar()).getByRole("button", { name: "One column" }));
+
+    await waitFor(() =>
+      expect(persistConfig.mock.calls.at(-1)?.[0]).toMatchObject({ columns: 1 }),
+    );
+  });
+
+  it("restores a stored count", async () => {
+    consumedConfig = { columns: 1 };
+    renderMap();
+    await waitFor(() => expect(within(chart()).getByText("Sales")).toBeInTheDocument());
+
+    expect(grid()).toHaveClass("report-print-grid-1");
+  });
+
+  it("falls back to the default for a count an older build could have stored", async () => {
+    consumedConfig = { columns: 4 };
+    renderMap();
+    await waitFor(() => expect(within(chart()).getByText("Sales")).toBeInTheDocument());
+
+    expect(grid()).toHaveClass("report-print-grid-3");
+  });
+
+  it("keeps the pick when drilling deeper, instead of re-imposing a depth default", async () => {
+    consumedConfig = { columns: 2, displayLevel: 3 };
+    renderMap();
+    await waitFor(() => expect(within(chart()).getByText("Lead Scoring")).toBeInTheDocument());
+
+    expect(grid()).toHaveClass("report-print-grid-2");
+  });
+});
+
+describe("CapabilityMapReport nested column taper", () => {
+  /**
+   * The count on the grid that holds `name`. Anchoring to a card rather than
+   * to DOM order keeps this readable as the fixture tree grows.
+   *
+   * Fixture: Sales > Lead Management > Lead Scoring, and Finance > Billing.
+   * So "Lead Management" sits in a depth-2 grid and "Lead Scoring" in a
+   * depth-3 one.
+   */
+  const colsAround = (name: string) =>
+    within(chart())
+      .getByText(name)
+      .closest("[data-nested-cols]")
+      ?.getAttribute("data-nested-cols");
+
+  const renderAtDepth3 = async (columns: number) => {
+    consumedConfig = { columns, displayLevel: 3 };
+    renderMap();
+    await waitFor(() => expect(within(chart()).getByText("Lead Scoring")).toBeInTheDocument());
+  };
+
+  it("gives L2 three columns and L3 two when one column is picked", async () => {
+    await renderAtDepth3(1);
+    expect(colsAround("Lead Management")).toBe("3");
+    expect(colsAround("Lead Scoring")).toBe("2");
+  });
+
+  it("tapers to two then one when two columns are picked", async () => {
+    await renderAtDepth3(2);
+    expect(colsAround("Lead Management")).toBe("2");
+    expect(colsAround("Lead Scoring")).toBe("1");
+  });
+
+  it("stacks every level below the top when three columns are picked", async () => {
+    await renderAtDepth3(3);
+    expect(colsAround("Lead Management")).toBe("1");
+    expect(colsAround("Lead Scoring")).toBe("1");
+  });
+
+  it("re-derives the nested counts when the pick changes", async () => {
+    await renderAtDepth3(3);
+    expect(colsAround("Lead Management")).toBe("1");
+
+    await userEvent.click(within(toolbar()).getByRole("button", { name: "One column" }));
+
+    expect(colsAround("Lead Management")).toBe("3");
+    expect(colsAround("Lead Scoring")).toBe("2");
+  });
+
+  it("applies the taper to every branch, not just the first", async () => {
+    await renderAtDepth3(1);
+    // Finance is a sibling root; its children grid is depth 2 as well.
+    expect(colsAround("Billing")).toBe("3");
+  });
+});

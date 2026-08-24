@@ -51,6 +51,10 @@ When a card's relations carry a "type" value — for example the **Usage Type** 
 
 When grouping by a related card type that supports hierarchy (such as Business Capability or Organization), a **Nested groups** toggle appears next to the *Group by* selector. Enable it to render the groups as boxes within boxes following the related type's parent/child hierarchy — like the Capability Map. A **Display Depth** selector controls how many levels are expanded: each card appears under its deepest visible group, and groups below the depth limit roll their cards up into the closest visible ancestor. Branches that contain no cards are hidden.
 
+### Choosing the column count
+
+The card grid in the **Portfolio**, **Flexible Portfolio**, **Capability Map** and **Process Map** reports has a **column picker** in the toolbar — three buttons for one, two or three columns. Pick fewer columns when the cards are dense and you want them wide enough to read; pick three to see more of the landscape at once. The choice is remembered per report, travels with a [saved report](saved-reports.md), and is used when you print or export. Narrow screens still fall back to one or two columns on their own. The choice cascades downward: each level below the first gets one column fewer, so picking one column puts level 2 three across and level 3 two across, while picking three keeps everything below it stacked full width. A level still folds down to fewer columns when a card is genuinely too narrow for them.
+
 ## Capability Map
 
 Clicking a capability opens a side panel listing every application in its subtree. On a bottom-level capability the panel offers **View in inventory**, which lands on the applications linked to it.

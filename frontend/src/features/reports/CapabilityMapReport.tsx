@@ -19,6 +19,16 @@ import TagPicker from "@/components/TagPicker";
 import type { TagGroup } from "@/types";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import CardDetailSidePanel from "@/components/CardDetailSidePanel";
+import ColumnCountPicker from "@/components/ColumnCountPicker";
+import {
+  columnGridProps,
+  isColumnCount,
+  nestedColumns,
+  nestedGridProps,
+  CARD_TITLE_MIN_WIDTH,
+  DEFAULT_COLUMNS,
+  type ColumnCount,
+} from "@/components/cardColumns";
 import ReportCardListPanel, { type ReportCardListItem } from "./ReportCardListPanel";
 import ReportFilterSection from "./ReportFilterSection";
 import { isAliveAtDate, isRetiredByDate } from "./portfolioHelpers";
@@ -438,6 +448,8 @@ function AppChip({
 function CapabilityCard({
   node,
   displayLevel,
+  columns,
+  depth = 1,
   showApps,
   colorBy,
   selectFields,
@@ -452,6 +464,10 @@ function CapabilityCard({
 }: {
   node: CapNode;
   displayLevel: number;
+  /** The toolbar's top-level pick; the children grid tapers from it. */
+  columns: ColumnCount;
+  /** 1-based depth of THIS card, relative to the rendered root. */
+  depth?: number;
   showApps: boolean;
   colorBy: string;
   selectFields: FieldDef[];
@@ -513,6 +529,7 @@ function CapabilityCard({
               showApps && visibleApps.length > 0 ? 1 : "none",
             borderColor: "divider",
             display: "flex",
+            flexWrap: "wrap",
             alignItems: "center",
             gap: 1,
           }}
@@ -522,6 +539,7 @@ function CapabilityCard({
             sx={{
               fontWeight: 700,
               flex: 1,
+              minWidth: CARD_TITLE_MIN_WIDTH,
               color: val > maxVal * 0.7 ? "#fff" : "#333",
             }}
             noWrap
@@ -584,6 +602,7 @@ function CapabilityCard({
           borderBottom: 1,
           borderColor: "divider",
           display: "flex",
+          flexWrap: "wrap",
           alignItems: "center",
           gap: 1,
           cursor: "pointer",
@@ -596,6 +615,7 @@ function CapabilityCard({
           sx={{
             fontWeight: 700,
             flex: 1,
+            minWidth: CARD_TITLE_MIN_WIDTH,
             color: val > maxVal * 0.7 ? "#fff" : "#333",
           }}
           noWrap
@@ -636,12 +656,14 @@ function CapabilityCard({
       )}
 
       {/* Children */}
-      <Box sx={{ p: 1, display: "flex", flexWrap: "wrap", gap: 1 }}>
+      <Box {...nestedGridProps(nestedColumns(columns, depth + 1), { gap: 1, sx: { p: 1 } })}>
         {node.children.map((ch) => (
-          <Box key={ch.id} sx={{ flex: "1 1 200px", minWidth: 180, maxWidth: 400 }}>
+          <Box key={ch.id}>
             <CapabilityCard
               node={ch}
               displayLevel={displayLevel}
+              columns={columns}
+              depth={depth + 1}
               showApps={showApps}
               colorBy={colorBy}
               selectFields={selectFields}
@@ -685,6 +707,7 @@ export default function CapabilityMapReport() {
   // Controls
   const [metric, setMetric] = useState<Metric>("app_count");
   const [displayLevel, setDisplayLevel] = useState(2);
+  const [columns, setColumns] = useState<ColumnCount>(DEFAULT_COLUMNS);
   const [showApps, setShowApps] = useState(false);
   const [colorBy, setColorBy] = useState("");
   // Timeline slider
@@ -713,6 +736,7 @@ export default function CapabilityMapReport() {
     if (cfg) {
       if (cfg.metric) setMetric(cfg.metric as Metric);
       if (cfg.displayLevel != null) setDisplayLevel(cfg.displayLevel as number);
+      if (isColumnCount(cfg.columns)) setColumns(cfg.columns);
       if (cfg.showApps != null) setShowApps(cfg.showApps as boolean);
       if (cfg.colorBy != null) setColorBy(cfg.colorBy as string);
       if (Array.isArray(cfg.scopeIds)) {
@@ -736,18 +760,19 @@ export default function CapabilityMapReport() {
     }
   }, [saved.loadedConfig]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const getConfig = () => ({ metric, displayLevel, showApps, colorBy, timelineDate: tl.persistValue, attrFilters, relationFilters, tagFilterIds, scopeIds, filtersCollapsed });
+  const getConfig = () => ({ metric, displayLevel, columns, showApps, colorBy, timelineDate: tl.persistValue, attrFilters, relationFilters, tagFilterIds, scopeIds, filtersCollapsed });
 
   // Auto-persist config to localStorage
   useEffect(() => {
     saved.persistConfig(getConfig());
-  }, [metric, displayLevel, showApps, colorBy, tl.timelineDate, attrFilters, relationFilters, tagFilterIds, scopeIds, filtersCollapsed]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [metric, displayLevel, columns, showApps, colorBy, tl.timelineDate, attrFilters, relationFilters, tagFilterIds, scopeIds, filtersCollapsed]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Reset all parameters to defaults
   const handleReset = useCallback(() => {
     saved.resetAll();
     setMetric("app_count");
     setDisplayLevel(2);
+    setColumns(DEFAULT_COLUMNS);
     setShowApps(false);
     setColorBy("");
     setScopeIds([]);
@@ -1085,6 +1110,7 @@ export default function CapabilityMapReport() {
     params.push({ label: t("common.metric"), value: metricLabel });
     const depthLabel = levelOptions.find((o) => o.value === displayLevel)?.label || "";
     params.push({ label: t("common.depth"), value: depthLabel });
+    params.push({ label: t("common:cardColumns.label"), value: String(columns) });
     if (effectiveScopeIds.length > 0) {
       params.push({
         label: t("common.scope"),
@@ -1104,7 +1130,7 @@ export default function CapabilityMapReport() {
       });
     if (activeFilterCount > 0) params.push({ label: t("common.filters"), value: t("common.filtersActive", { count: activeFilterCount }) });
     return params;
-  }, [metric, displayLevel, showApps, colorBy, colorByOptions, levelOptions, tl.printParam, timelineDelta, activeFilterCount, effectiveScopeIds, t]);
+  }, [metric, displayLevel, columns, showApps, colorBy, colorByOptions, levelOptions, tl.printParam, timelineDelta, activeFilterCount, effectiveScopeIds, t]);
 
   if (data === null)
     return (
@@ -1161,6 +1187,8 @@ export default function CapabilityMapReport() {
               </MenuItem>
             ))}
           </TextField>
+
+          <ColumnCountPicker value={columns} onChange={setColumns} />
 
           {/* Scopes the *capabilities* the map draws, so it belongs up here
               with the other structural controls — not in the Application
@@ -1467,24 +1495,13 @@ export default function CapabilityMapReport() {
           </Typography>
         </Box>
       ) : (
-        <Box
-          className={displayLevel <= 1 ? "report-print-grid-4" : "report-print-grid-3"}
-          sx={{
-            display: "grid",
-            gridTemplateColumns: {
-              xs: "1fr",
-              sm: "1fr 1fr",
-              md: displayLevel <= 1 ? "1fr 1fr 1fr" : "1fr 1fr",
-              lg: displayLevel <= 1 ? "1fr 1fr 1fr 1fr" : "1fr 1fr 1fr",
-            },
-            gap: 2,
-          }}
-        >
+        <Box {...columnGridProps(columns)}>
           {tree.map((cap) => (
             <Box key={cap.id} data-export-row>
               <CapabilityCard
                 node={cap}
                 displayLevel={displayLevel}
+                columns={columns}
                 showApps={showApps}
                 colorBy={colorBy}
                 selectFields={selectFields}
