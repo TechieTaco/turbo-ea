@@ -5,6 +5,22 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.89.1] - 2026-08-26
+
+### Added
+
+- **Every notification type can now be switched on or off.** Notification preferences listed 12 types while the application actually sent 26 — so ADR signature requests, risk assignments, process-flow approvals and SoAW rejections arrived with no way to change how you received them. All 26 are now in one list, kept in step with what the backend really sends, and 13 of them appear in the preferences dialog for the first time. Nothing you had set changes: the newly listed types keep the behaviour they already had (in the bell, not in your inbox) and simply become switchable.
+- **Extensions can deliver notifications on a channel of their own.** An installed, licensed extension can add a third column to the notification preferences dialog — a chat message, a pager, whatever it connects to — and you choose per notification type whether it goes there, exactly as you already do for In-App and Email. Extension channels always start switched **off**, so installing one never begins sending on its own, and a type that is in-app only (like the upgrade announcement that reaches everyone) is never delivered to one. Disabling an extension or letting its licence lapse pauses its channel immediately and keeps every setting you chose, ready for when it comes back.
+
+### Changed
+
+- **Turning off a notification in the bell no longer turns off its email.** The bell used to act as a master switch: muting a type in-app silently stopped its emails too, so wanting something in your inbox but not in the bell got you nothing at all. Each channel now stands on its own. **If you had muted a type in the bell while leaving its email switched on, you will start receiving that email again** — check Notification Preferences if that is not what you want.
+- Survey invitations always send an email. The preferences dialog has always shown that switch as fixed on; the API used to accept a request to turn it off anyway.
+
+### Fixed
+
+- **The notification bell now updates itself after an upgrade — and after any interruption.** The «updated to …» notification was created correctly, but the badge kept showing its old count until the page was fully reloaded, so an upgrade looked like it had notified nobody. The announcement is written while the backend is still starting, before any browser is connected to be told about it, and the bell only ever read its count once when the page loaded. It now re-reads whenever the live connection comes back — which also covers a dropped network, a closed laptop lid, or anything else that interrupts the connection: notifications that arrived while you were disconnected are no longer missed until the next reload. The Todos and Surveys counters in the navigation bar were stale for the same reason and are fixed with it, and opening the bell now refreshes the badge too, so it can never disagree with the list underneath it.
+
 ## [2.88.2] - 2026-08-26
 
 ### Fixed
