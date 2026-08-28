@@ -7,8 +7,9 @@
  * it avoids XML merge root-cell conflicts and plugin lifecycle issues.
  */
 
+import { logoGutterFor } from "./cardLogoImage";
 import { ICON_PATHS } from "./iconPaths";
-import { readableTextColor } from "@/lib/color";
+import { readableTextColor, tint } from "@/lib/color";
 
 /** Escape a string for safe inclusion in XML attribute/text content. */
 function escapeXml(value: string): string {
@@ -17,18 +18,6 @@ function escapeXml(value: string): string {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
-}
-
-/** Mix a hex color toward white by a factor (0-1) for a faint background tint. */
-function tint(hex: string, factor = 0.88): string {
-  const r = parseInt(hex.slice(1, 3), 16);
-  const g = parseInt(hex.slice(3, 5), 16);
-  const b = parseInt(hex.slice(5, 7), 16);
-  const t = (v: number) =>
-    Math.round(v + (255 - v) * factor)
-      .toString(16)
-      .padStart(2, "0");
-  return `#${t(r)}${t(g)}${t(b)}`;
 }
 
 /** Darken a hex color by a factor (0-1) for stroke color */
@@ -54,6 +43,20 @@ const BASE_FILL_KEY = "turboBaseFill";
 const BASE_STROKE_KEY = "turboBaseStroke";
 /** Sentinel recorded when the cell had no explicit value for that style key. */
 const NO_STYLE_VALUE = "-";
+
+/**
+ * Stamped onto a cell whose image slot a card logo has taken over, recording
+ * what the slot held beforehand: `icon` (a card-type glyph, restore it) or
+ * `none` (the cell had no image, and must not gain one).
+ *
+ * Deliberately a two-value marker rather than the previous image itself, the
+ * way {@link BASE_FILL_KEY} stores the previous colour: an image token is a
+ * data URI, and stamping one would put a second URI inside a style part — more
+ * than doubling every card's style and re-raising the `;`/`=` question the
+ * encoding above exists to answer. The icon is cheap to re-derive instead,
+ * because the caller already holds the metamodel map it came from.
+ */
+const LOGO_STAMP_KEY = "turboLogo";
 
 /** mxGraph suppresses a cell's label when its style carries this part. The
  *  label *value* is left untouched — hiding is a display decision, and the
@@ -200,9 +203,41 @@ function buildIconImage(icon?: string): string | null {
  * Using `shape=label` bakes the icon into the single cell — it drags, copies
  * and exports with the shape, with no child cells or groups to manage.
  */
-function iconStyleParts(icon?: string): string[] {
-  const image = buildIconImage(icon);
+function iconStyleParts(
+  icon?: string,
+  logoImage?: string | null,
+  cardW = 210,
+  cardH = CARD_BASE_H,
+): string[] {
+  // A card's own logo wins the single image slot — it already carries the type
+  // glyph as a badge (see `cardLogoImage.ts`), so nothing is lost by it.
+  const image = logoImage || buildIconImage(icon);
   if (!image) return [];
+  if (logoImage) {
+    // A logo's composite IS the card: that is the only way to put the type
+    // glyph in the card's own top-right corner, since a `shape=label` cell has
+    // exactly one image slot. `cardW`/`cardH` therefore have to match the
+    // cell's real geometry, and the image is rebuilt when that changes.
+    //
+    // The gutter comes from the same helper that sizes the drawn logo, so a
+    // short card reserves the room its smaller mark actually takes — and it
+    // counts the logo's own inset, or the name ends up touching the plate.
+    const gutter = logoGutterFor(cardH);
+    return [
+      "shape=label",
+      `image=${image}`,
+      "imageAlign=left",
+      "imageVerticalAlign=top",
+      `imageWidth=${cardW}`,
+      `imageHeight=${cardH}`,
+      "spacing=0",
+      // Symmetric gutters. `spacingLeft` alone centres the label in what is
+      // LEFT of the card, not on the card — a 52px gutter pushed the name 26px
+      // right of true centre, which is exactly what it looked like.
+      `spacingLeft=${gutter}`,
+      `spacingRight=${gutter}`,
+    ];
+  }
   return [
     "shape=label",
     `image=${image}`,
@@ -210,13 +245,37 @@ function iconStyleParts(icon?: string): string[] {
     "imageVerticalAlign=top",
     "imageWidth=18",
     "imageHeight=18",
-    // `spacing` insets the icon from the top-left corner; `spacingLeft`
-    // reserves a matching left gutter for the label so the (centered) card
-    // name is always laid out to the right of the glyph and never overlaps it,
-    // even when it wraps to several lines.
+    // `spacing` insets the icon from the top-left corner; the gutters reserve
+    // room on BOTH sides so the centred card name stays centred on the card
+    // and never overlaps the glyph, even when it wraps to several lines.
     "spacing=4",
     "spacingLeft=24",
+    "spacingRight=24",
   ];
+}
+
+/**
+ * Drop every style part that makes up the image family, so it can be rebuilt.
+ *
+ * One list, used by both writers of that family — the logo pass and the
+ * "Apply card-type icons" action. They used to carry a copy each, which is
+ * exactly the shape of drift that lets one of them leave an orphaned
+ * `imageWidth` behind after the other has removed the `image` it sized.
+ */
+function stripImageParts(parts: string[]): string[] {
+  return parts.filter(
+    (p) =>
+      !(
+        p === "shape=label" ||
+        p.startsWith("image=") ||
+        p.startsWith("imageAlign=") ||
+        p.startsWith("imageVerticalAlign=") ||
+        p.startsWith("imageWidth=") ||
+        p.startsWith("imageHeight=") ||
+        p.startsWith("spacing") ||
+        p.startsWith(`${LOGO_STAMP_KEY}=`)
+      ),
+  );
 }
 
 /** Carry an existing cell's icon tokens across a full style rebuild. */
@@ -4013,6 +4072,275 @@ export function resetViewColors(
 }
 
 /**
+ * Show each card's own logo on the canvas, and take it back off again.
+ *
+ * Modelled on {@link applyViewToGraph}, and for the same reason: this owns one
+ * slot on a cell the user also controls, so it has to be able to tell what it
+ * put there from what was there already. A cell it takes over is stamped with
+ * {@link LOGO_STAMP_KEY}; only stamped cells are ever restored, and a cell that
+ * carried no image before gets none back.
+ *
+ * `logoByCardId` holds the composed logo-plus-badge images (see
+ * `cardLogoImage.ts`), already built; this pass does no I/O and no decoding, so
+ * it is a single synchronous model update — one undo step for the reader.
+ */
+/** One card-shaped cell on a canvas, and the size a logo must be built for. */
+export interface CardCellBox {
+  cardId: string;
+  w: number;
+  h: number;
+}
+
+/** Default geometry for a cell whose own geometry cannot be read. */
+const DEFAULT_CARD_BOX = { w: 210, h: CARD_BASE_H };
+
+/**
+ * Is this cell one a logo may be painted on? The guards are shared by every
+ * pass below so they cannot drift: a cell the reader has turned into a
+ * swimlane, an ellipse or any other shape keeps what they chose.
+ */
+function isLogoTarget(cell: unknown): boolean {
+  const c = cell as { value?: { getAttribute?: (k: string) => string | null }; edge?: boolean };
+  if (!c?.value?.getAttribute) return false;
+  if (c.edge) return false;
+  return true;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function boxOf(graph: any, cell: unknown): { w: number; h: number } {
+  try {
+    const geo = graph.getCellGeometry?.(cell);
+    if (geo && geo.width > 0 && geo.height > 0) {
+      return { w: Math.round(geo.width), h: Math.round(geo.height) };
+    }
+  } catch {
+    /* fall through to the plain card */
+  }
+  return DEFAULT_CARD_BOX;
+}
+
+/**
+ * Every card-shaped cell on the canvas, with the geometry its logo must match.
+ *
+ * The composite that carries a logo IS the card (see `cardLogoImage.ts`), so it
+ * has to be built at the cell's real size — and composing is asynchronous while
+ * applying is one synchronous model update. This is the read that lets the
+ * caller do the first before the second. The same card may appear more than
+ * once, at different sizes; each occurrence is its own entry.
+ */
+export function readCardCellBoxes(iframe: HTMLIFrameElement): CardCellBox[] {
+  const ctx = getMxGraph(iframe);
+  if (!ctx) return [];
+  const { graph } = ctx;
+  const model = graph.getModel();
+  const cells = model.cells || {};
+  const out: CardCellBox[] = [];
+  for (const k of Object.keys(cells)) {
+    const cell = cells[k];
+    if (!isLogoTarget(cell)) continue;
+    const cardId = cell.value.getAttribute("cardId");
+    if (!cardId || cardId.startsWith("pending-")) continue;
+    const styleStr = (model.getStyle(cell) || "") as string;
+    const shapeMatch = styleStr.match(/(?:^|;)shape=([^;]+)/);
+    if (shapeMatch && shapeMatch[1] !== "label") continue;
+    const { w, h } = boxOf(graph, cell);
+    out.push({ cardId, w, h });
+  }
+  return out;
+}
+
+/**
+ * The composed image for a card at a given cell size, or nothing.
+ *
+ * A lookup rather than a map because one card can be on the canvas at several
+ * sizes and each needs its own picture.
+ */
+export type CardLogoLookup = (cardId: string, w: number, h: number) => string | undefined;
+
+/** Cache key for one card's composite at one cell size. */
+export function logoKey(cardId: string, w: number, h: number): string {
+  return `${cardId}|${w}x${h}`;
+}
+
+/**
+ * Build a lookup over a map keyed by {@link logoKey}.
+ *
+ * A miss on the exact size falls back to any picture this card has, because
+ * the alternative is worse: "Apply card-type icons" reads this lookup so it
+ * does not wipe logos, and a card resized since the last logo pass would
+ * otherwise come back a miss and lose its logo to a generic glyph. A picture
+ * built for the previous size is briefly off; the next logo pass corrects it.
+ */
+export function logoLookupFor(map: Map<string, string>): CardLogoLookup {
+  const anySize = new Map<string, string>();
+  for (const [key, image] of map) {
+    const cardId = key.slice(0, key.lastIndexOf("|"));
+    if (!anySize.has(cardId)) anySize.set(cardId, image);
+  }
+  return (cardId, w, h) => map.get(logoKey(cardId, w, h)) ?? anySize.get(cardId);
+}
+
+export function applyCardLogos(
+  iframe: HTMLIFrameElement,
+  logoFor: CardLogoLookup,
+  iconByType: Map<string, string>,
+): { painted: number; restored: number } {
+  const ctx = getMxGraph(iframe);
+  if (!ctx) return { painted: 0, restored: 0 };
+  const { graph } = ctx;
+  const model = graph.getModel();
+  const cells = model.cells || {};
+
+  let painted = 0;
+  let restored = 0;
+  model.beginUpdate();
+  try {
+    for (const k of Object.keys(cells)) {
+      const cell = cells[k];
+      if (!isLogoTarget(cell)) continue;
+      const cardId = cell.value.getAttribute("cardId");
+      if (!cardId || cardId.startsWith("pending-")) continue;
+
+      const styleStr = (model.getStyle(cell) || "") as string;
+      // Preserve swimlane containers / ellipses / user shapes, exactly as
+      // `applyCardTypeIcons` does — only plain card rectangles and cells this
+      // pass or that action has already turned into `shape=label`.
+      const shapeMatch = styleStr.match(/(?:^|;)shape=([^;]+)/);
+      if (shapeMatch && shapeMatch[1] !== "label") continue;
+
+      const parts = styleStr.split(";").filter(Boolean);
+      const stamp = readStylePart(parts, LOGO_STAMP_KEY);
+      const { w, h } = boxOf(graph, cell);
+      const logo = logoFor(cardId, w, h);
+
+      let next: string;
+      if (logo) {
+        // Record what the slot held the first time we take it, never again —
+        // re-stamping on a refresh would record our own logo as the base.
+        const had = stamp ?? (parts.some((p) => p.startsWith("image=")) ? "icon" : "none");
+        next = stripImageParts(parts)
+          .concat([`${LOGO_STAMP_KEY}=${had}`])
+          // The picture is sized to THIS cell, not to the plain card — a
+          // composite built for 210×60 puts its type glyph off a 190×40 one.
+          .concat(iconStyleParts(undefined, logo, w, h))
+          .join(";");
+      } else if (stamp != null) {
+        const cardType = cell.value.getAttribute("cardType") || "";
+        next = stripImageParts(parts)
+          .concat(stamp === "icon" ? iconStyleParts(iconByType.get(cardType)) : [])
+          .join(";");
+      } else {
+        // No logo and never taken over: leave the cell exactly as the user has
+        // it. This is what stops the pass imposing icons on a diagram drawn
+        // before icons existed.
+        continue;
+      }
+
+      if (next !== styleStr) {
+        model.setStyle(cell, next);
+        if (logo) painted += 1;
+        else restored += 1;
+      }
+    }
+  } finally {
+    model.endUpdate();
+  }
+  return { painted, restored };
+}
+
+/** The geometry an `<mxCell>` carries in stored XML, or the plain card. */
+function boxFromXmlCell(cell: Element): { w: number; h: number } {
+  const geo = cell.getElementsByTagName("mxGeometry")[0];
+  const w = Number(geo?.getAttribute("width"));
+  const h = Number(geo?.getAttribute("height"));
+  return w > 0 && h > 0 ? { w: Math.round(w), h: Math.round(h) } : DEFAULT_CARD_BOX;
+}
+
+/**
+ * Every card-shaped cell in stored XML, with the geometry its logo must match.
+ *
+ * The viewer's counterpart to {@link readCardCellBoxes}: composing is
+ * asynchronous and needs the size up front, so the document is read once for
+ * geometry before anything is drawn and once again to write the styles.
+ */
+export function readCardBoxesFromXml(xml: string): CardCellBox[] {
+  if (!xml) return [];
+  let doc: Document;
+  try {
+    doc = new DOMParser().parseFromString(xml, "text/xml");
+  } catch {
+    return [];
+  }
+  if (doc.getElementsByTagName("parsererror").length > 0) return [];
+  const out: CardCellBox[] = [];
+  for (const obj of Array.from(doc.getElementsByTagName("object"))) {
+    const cardId = obj.getAttribute("cardId");
+    if (!cardId) continue;
+    const cell = obj.getElementsByTagName("mxCell")[0];
+    if (!cell) continue;
+    const style = cell.getAttribute("style") || "";
+    const shape = style.match(/(?:^|;)shape=([^;]+)/);
+    if (shape && shape[1] !== "label") continue;
+    const { w, h } = boxFromXmlCell(cell);
+    out.push({ cardId, w, h });
+  }
+  return out;
+}
+
+/**
+ * Draw each card's logo into a diagram's stored XML, without a live graph.
+ *
+ * The read-only viewer hands DrawIO its XML in the URL fragment and never
+ * constructs a graph this side of the iframe, so `applyCardLogos` has nothing
+ * to walk. Rewriting the styles in the document itself is the only seam — and
+ * it has to exist, because otherwise a diagram would show its logos in the
+ * editor and lose them the moment anyone merely *looked* at it.
+ *
+ * Purely additive and non-destructive: cells with no logo are returned byte
+ * for byte, so this can run over any diagram. Returns the original string
+ * unchanged when there is nothing to do or the document will not parse — a
+ * viewer must never fail to render because a logo could not be drawn.
+ */
+export function applyCardLogosToXml(xml: string, logoFor: CardLogoLookup): string {
+  if (!xml) return xml;
+  let doc: Document;
+  try {
+    doc = new DOMParser().parseFromString(xml, "text/xml");
+  } catch {
+    return xml;
+  }
+  if (doc.getElementsByTagName("parsererror").length > 0) return xml;
+
+  let touched = 0;
+  // The cardId lives on the user object that WRAPS the cell, so walk the
+  // objects and reach down to the mxCell they carry.
+  for (const obj of Array.from(doc.getElementsByTagName("object"))) {
+    const cardId = obj.getAttribute("cardId");
+    if (!cardId) continue;
+    const cell = obj.getElementsByTagName("mxCell")[0];
+    if (!cell) continue;
+    const { w, h } = boxFromXmlCell(cell);
+    const logo = logoFor(cardId, w, h);
+    if (!logo) continue;
+    const style = cell.getAttribute("style") || "";
+    // Same guard as the live pass: never touch a swimlane, ellipse or any
+    // other shape the user chose.
+    const shape = style.match(/(?:^|;)shape=([^;]+)/);
+    if (shape && shape[1] !== "label") continue;
+    const next = stripImageParts(style.split(";").filter(Boolean))
+      .concat([`${LOGO_STAMP_KEY}=icon`])
+      .concat(iconStyleParts(undefined, logo, w, h))
+      .join(";");
+    if (next !== style) {
+      cell.setAttribute("style", next);
+      touched += 1;
+    }
+  }
+  if (touched === 0) return xml;
+  return new XMLSerializer().serializeToString(doc);
+}
+
+/**
  * Add (or refresh) the card-type icon on every card-shaped cell already on the
  * canvas. Used by the "Apply card-type icons" toolbar action so cards placed on
  * a diagram before the icon feature existed can be upgraded in one click.
@@ -4027,6 +4355,7 @@ export function resetViewColors(
 export function applyCardTypeIcons(
   iframe: HTMLIFrameElement,
   iconByType: Map<string, string>,
+  logoFor: CardLogoLookup = () => undefined,
 ): number {
   const ctx = getMxGraph(iframe);
   if (!ctx) return 0;
@@ -4048,22 +4377,18 @@ export function applyCardTypeIcons(
       // `shape=label` cells are eligible.
       const shapeMatch = styleStr.match(/(?:^|;)shape=([^;]+)/);
       if (shapeMatch && shapeMatch[1] !== "label") continue;
-      const kept = styleStr
-        .split(";")
-        .filter(Boolean)
-        .filter(
-          (p) =>
-            !(
-              p === "shape=label" ||
-              p.startsWith("image=") ||
-              p.startsWith("imageAlign=") ||
-              p.startsWith("imageVerticalAlign=") ||
-              p.startsWith("imageWidth=") ||
-              p.startsWith("imageHeight=") ||
-              p.startsWith("spacing")
-            ),
-        );
-      const next = kept.concat(iconStyleParts(iconByType.get(cardType))).join(";");
+      const kept = stripImageParts(styleStr.split(";").filter(Boolean));
+      // A card showing its own logo keeps it: this action re-applies icons from
+      // the current metamodel, and without the logo map it would strip the
+      // image family and silently replace every logo on the canvas with a
+      // generic type glyph.
+      const cardId = cell.value.getAttribute("cardId") || "";
+      const { w, h } = boxOf(graph, cell);
+      const logo = logoFor(cardId, w, h);
+      const next = kept
+        .concat(logo ? [`${LOGO_STAMP_KEY}=icon`] : [])
+        .concat(iconStyleParts(iconByType.get(cardType), logo, w, h))
+        .join(";");
       if (next !== styleStr) {
         model.setStyle(cell, next);
         touched += 1;
@@ -4254,6 +4579,42 @@ function resizeContainerHeader(
  * renamed by hand: DrawIO writes only `label`, so `cardName` would keep the old
  * value and `staleCheck` would keep comparing that instead of what is on screen.
  */
+/**
+ * Call back when the reader finishes resizing cells, so a logo can be rebuilt
+ * at the new size.
+ *
+ * A logo composite is card-shaped and therefore size-specific: drag a card
+ * wider and the type glyph baked into the old picture is suddenly short of the
+ * corner it belongs in. Nothing else on a cell cares about a resize, which is
+ * why this listener did not exist before.
+ *
+ * Debounced, because mxGraph fires `CELLS_RESIZED` once per drag *step* on some
+ * paths, and each callback costs an image decode per affected card.
+ */
+export function attachCardResizeListener(
+  iframe: HTMLIFrameElement,
+  onResized: () => void,
+  delayMs = 300,
+): () => void {
+  const ctx = getMxGraph(iframe);
+  if (!ctx) return () => {};
+  const { win, graph } = ctx;
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  const listener = () => {
+    if (timer) clearTimeout(timer);
+    timer = setTimeout(onResized, delayMs);
+  };
+  graph.addListener(win.mxEvent.CELLS_RESIZED, listener);
+  return () => {
+    if (timer) clearTimeout(timer);
+    try {
+      graph.removeListener(listener);
+    } catch {
+      // Editor already torn down.
+    }
+  };
+}
+
 export function attachCardLabelEditListener(
   iframe: HTMLIFrameElement,
   onRenamed?: (cellId: string, name: string) => void,

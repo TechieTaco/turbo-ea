@@ -72,6 +72,7 @@ from app.services import card_lifecycle, card_reference, card_write_service, not
 from app.services.calculation_engine import run_calculations_for_card
 from app.services.card_completeness import missing_mandatory
 from app.services.card_flags import orphaned_condition, stale_condition
+from app.services.card_logo_service import logo_updated_map
 from app.services.card_resolver import CardResolver
 from app.services.card_uniqueness import check_sibling_name_unique
 from app.services.card_write_service import (
@@ -101,7 +102,12 @@ from app.services.search_rank import search_filter, search_rank
 router = APIRouter(prefix="/cards", tags=["cards"])
 
 
-def _card_to_response(card: Card, *, strip_cost_keys: frozenset[str] = frozenset()) -> CardResponse:
+def _card_to_response(
+    card: Card,
+    *,
+    strip_cost_keys: frozenset[str] = frozenset(),
+    logo_updated_at: datetime | None = None,
+) -> CardResponse:
     tags = []
     for t in card.tags or []:
         tags.append(
@@ -146,6 +152,7 @@ def _card_to_response(card: Card, *, strip_cost_keys: frozenset[str] = frozenset
         updated_by=str(card.updated_by) if card.updated_by else None,
         created_at=card.created_at,
         updated_at=card.updated_at,
+        logo_updated_at=logo_updated_at,
         tags=tags,
         stakeholders=stakeholder_refs,
     )
@@ -188,7 +195,12 @@ async def _cost_redaction_map(
 async def _card_response_with_cost_check(db: AsyncSession, user: User, card: Card) -> CardResponse:
     """Build a CardResponse, redacting cost fields per the cost permission rule."""
     redact = await _cost_redaction_map(db, user, [card])
-    return _card_to_response(card, strip_cost_keys=redact.get(card.id, frozenset()))
+    logos = await logo_updated_map(db, [card])
+    return _card_to_response(
+        card,
+        strip_cost_keys=redact.get(card.id, frozenset()),
+        logo_updated_at=logos.get(card.id),
+    )
 
 
 _ALLOWED_SORT_COLUMNS = {
@@ -348,8 +360,14 @@ async def list_cards(
     result = await db.execute(q)
     cards = list(result.scalars().all())
     redact = await _cost_redaction_map(db, user, cards)
+    logos = await logo_updated_map(db, cards)
     items = [
-        _card_to_response(card, strip_cost_keys=redact.get(card.id, frozenset())) for card in cards
+        _card_to_response(
+            card,
+            strip_cost_keys=redact.get(card.id, frozenset()),
+            logo_updated_at=logos.get(card.id),
+        )
+        for card in cards
     ]
 
     return CardListResponse(items=items, total=total, page=page, page_size=page_size)

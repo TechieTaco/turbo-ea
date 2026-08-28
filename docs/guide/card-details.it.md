@@ -16,6 +16,36 @@ La parte superiore della card mostra:
 - **Anello della qualità dei dati** — Indicatore visivo della completezza delle informazioni (0-100%)
 - **Menu azioni** — Archiviazione, eliminazione e azioni di approvazione. Include anche un'azione con un clic **Osserva questa scheda** (quando il tipo di scheda definisce un ruolo Osservatore) che consente a qualsiasi utente con permessi di lettura di seguire la scheda senza passare dalla scheda Stakeholder.
 
+### Logo personalizzato
+
+Le schede di un tipo che lo consente possono avere un proprio **logo** al posto
+dell'icona generica del tipo: un'Applicazione per SAP, Kafka o Jira mostra
+quindi il marchio del prodotto. I loghi riconoscibili rendono un inventario
+molto più rapido da scorrere, soprattutto per chi lo consulta senza
+mantenerlo.
+
+Passa il puntatore sull'icona in alto a sinistra della scheda e fai clic per
+**caricare**, **sostituire** o **rimuovere** l'immagine. L'icona del tipo non
+scompare: si sposta come piccolo distintivo nell'angolo del logo, così resta
+sempre chiaro a colpo d'occhio di che tipo di scheda si tratta.
+
+- **Formati accettati** — PNG, JPEG, WebP o GIF, fino a 1 MB. Il formato SVG
+  non è accettato perché può contenere script.
+- **Dove compare** — nell'intestazione della scheda e in qualsiasi portale web
+  pubblicato basato su quel tipo di scheda.
+- **Se non c'è un logo** — la scheda torna alla sua icona di tipo, come prima.
+
+I loghi sono disponibili per i tipi di scheda che un amministratore ha
+attivato; di serie sono Applicazione e Componente IT. Vedi
+[Metamodello](../admin/metamodel.md).
+
+Fai clic sul logo e scegli **Scegli un'icona di marca…** per attingere a un
+insieme integrato di diverse migliaia di marchi: cerca il prodotto per nome e
+selezionalo, non serve alcun file immagine. **Carica** consente invece di usare
+un tuo file. Un assistente IA collegato via [MCP](../admin/mcp.md) può impostare
+i logo allo stesso modo in blocco e, se un prodotto non è nell'insieme, recupera
+il marchio da sé.
+
 ### Workflow di approvazione
 
 Le card possono attraversare un ciclo di approvazione:

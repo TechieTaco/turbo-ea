@@ -16,6 +16,36 @@ The top of the card shows:
 - **Data quality ring** — Visual indicator of information completeness (0–100%)
 - **Actions menu** — Archive, delete, and approval actions. Also includes a one-click **Observe this card** toggle (when the card type defines an Observer role) so any user with view access can follow the card without going through the Stakeholders tab.
 
+### Custom Logo
+
+Cards of a type that allows it can carry their own **logo** instead of the
+generic type icon — so an Application for SAP, Kafka or Jira shows that
+product's own mark. Recognisable logos make an inventory much faster to scan,
+especially for people who are reading it rather than maintaining it.
+
+Hover the icon at the top-left of the card and click it to **upload**,
+**replace** or **remove** the image. The type icon does not disappear: it moves
+to a small badge on the corner of the logo, so you can still tell at a glance
+what kind of card you are looking at.
+
+- **Accepted formats** — PNG, JPEG, WebP or GIF, up to 1 MB. SVG is not
+  accepted, because it can carry scripts.
+- **Where it shows** — the card header and any published web portal built on
+  that card type.
+- **When there is no logo** — the card falls back to its type icon, exactly as
+  before.
+
+Logos are available on card types where an administrator has switched them on;
+out of the box that is Application and IT Component. See
+[Meta Model](../admin/metamodel.md).
+
+Click the logo and choose **Choose a brand icon…** to pick from a built-in
+pack of several thousand brand marks — search for the product by name and
+select it; no image file is needed. **Upload** takes your own file instead.
+An AI assistant connected over [MCP](../admin/mcp.md) can set logos the same
+way in bulk, and where a product is not in the pack it will fetch the mark
+itself and upload it.
+
 ### Approval Workflow
 
 Cards can go through an approval cycle:

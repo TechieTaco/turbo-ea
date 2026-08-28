@@ -16,6 +16,35 @@ A parte superior do card mostra:
 - **Anel de qualidade dos dados** — Indicador visual da completude das informações (0-100%)
 - **Menu de ações** — Arquivar, excluir e ações de aprovação. Também inclui uma ação de um clique **Observar este cartão** (quando o tipo de card define um papel de Observador), permitindo que qualquer usuário com permissão de leitura siga o card sem precisar abrir a aba Partes interessadas.
 
+### Logótipo personalizado
+
+Os cartões de um tipo que o permita podem ter o seu próprio **logótipo** em vez
+do ícone genérico do tipo — assim, uma Aplicação para SAP, Kafka ou Jira mostra
+a marca do próprio produto. Logótipos reconhecíveis tornam um inventário muito
+mais rápido de percorrer, sobretudo para quem o consulta sem o manter.
+
+Passe o rato sobre o ícone no canto superior esquerdo do cartão e clique para
+**carregar**, **substituir** ou **remover** a imagem. O ícone do tipo não
+desaparece: passa a um pequeno emblema no canto do logótipo, pelo que continua
+a perceber-se num relance de que tipo de cartão se trata.
+
+- **Formatos aceites** — PNG, JPEG, WebP ou GIF, até 1 MB. O formato SVG não é
+  aceite, porque pode conter scripts.
+- **Onde aparece** — no cabeçalho do cartão e em qualquer portal web publicado
+  sobre esse tipo de cartão.
+- **Sem logótipo** — o cartão volta ao ícone do seu tipo, tal como antes.
+
+Os logótipos estão disponíveis nos tipos de cartão que um administrador tenha
+ativado; de origem, são Aplicação e Componente de TI. Consulte
+[Metamodelo](../admin/metamodel.md).
+
+Clique no logótipo e escolha **Escolher um ícone de marca…** para selecionar de
+um conjunto integrado de vários milhares de marcas: procure o produto pelo nome e
+selecione-o; não é preciso qualquer ficheiro de imagem. **Carregar** permite usar
+o seu próprio ficheiro. Um assistente de IA ligado por [MCP](../admin/mcp.md)
+pode definir logótipos da mesma forma em massa e, se um produto não constar do
+conjunto, vai buscar a marca por si.
+
 ### Fluxo de Aprovação
 
 Os cards podem passar por um ciclo de aprovação:

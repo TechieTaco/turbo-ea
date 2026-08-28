@@ -82,7 +82,7 @@ import { APPROVAL_STATUS_COLORS } from "@/theme/tokens";
 import TagPicker from "@/components/TagPicker";
 import { useColumnFreeze } from "@/components/grid/useColumnFreeze";
 import { useColumnOrder } from "@/components/grid/useColumnOrder";
-import { colIdOf, isOrderableColumn } from "@/components/grid/columnOrder";
+import { colIdOf, isInternalColId, isOrderableColumn } from "@/components/grid/columnOrder";
 import type { ColumnOrderItem } from "@/components/grid/ColumnOrderSection";
 import {
   useCellContextMenu,
@@ -936,7 +936,7 @@ export default function InventoryPage() {
     () =>
       savedPrefsRef.current?.frozenColumns ??
       (savedPrefsRef.current?.columnState ?? [])
-        .filter((c) => c.pinned === "left" && c.colId)
+        .filter((c) => c.pinned === "left" && c.colId && !isInternalColId(c.colId))
         .map((c) => c.colId),
   );
   // colId order. Seeded from the order of a layout saved before ordering had
@@ -946,7 +946,7 @@ export default function InventoryPage() {
       savedPrefsRef.current?.columnOrder ??
       (savedPrefsRef.current?.columnState ?? [])
         .map((c) => c.colId)
-        .filter((id): id is string => !!id),
+        .filter((id): id is string => !!id && !isInternalColId(id)),
   );
   // Mirror of the latest columnState for the apply effect (which keys on
   // columnDefs, not columnState, to avoid re-applying on every capture).
@@ -973,11 +973,17 @@ export default function InventoryPage() {
     // A view carries its freezes inside the layout's `pinned`; hand them to
     // `frozenColumns`, which is what actually drives the grid.
     setFrozenColumns(
-      (layout ?? []).filter((c) => c.pinned === "left" && c.colId).map((c) => c.colId),
+      (layout ?? [])
+        .filter((c) => c.pinned === "left" && c.colId && !isInternalColId(c.colId))
+        .map((c) => c.colId),
     );
     // A view's order rides in its layout's array positions; hand it to
     // `columnOrder`, which is what actually drives the grid.
-    setColumnOrder((layout ?? []).map((c) => c.colId).filter((id): id is string => !!id));
+    setColumnOrder(
+      (layout ?? [])
+        .map((c) => c.colId)
+        .filter((id): id is string => !!id && !isInternalColId(id)),
+    );
     setLayoutNonce((n) => n + 1);
   }, []);
 

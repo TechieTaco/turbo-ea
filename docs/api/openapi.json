@@ -787,6 +787,35 @@
         "title": "Body_upload_bundle_api_v1_admin_extensions_install_post",
         "type": "object"
       },
+      "Body_upload_card_logo_api_v1_cards__card_id__logo_post": {
+        "properties": {
+          "file": {
+            "anyOf": [
+              {
+                "contentMediaType": "application/octet-stream",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "File"
+          },
+          "icon_slug": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Icon Slug"
+          }
+        },
+        "title": "Body_upload_card_logo_api_v1_cards__card_id__logo_post",
+        "type": "object"
+      },
       "Body_upload_favicon_api_v1_settings_favicon_post": {
         "properties": {
           "file": {
@@ -2640,6 +2669,18 @@
               }
             ],
             "title": "Lifecycle"
+          },
+          "logo_updated_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Logo Updated At"
           },
           "name": {
             "title": "Name",
@@ -20418,6 +20459,145 @@
         ]
       }
     },
+    "/api/v1/card-logos/brand-icons": {
+      "get": {
+        "description": "Search the bundled brand-icon pack.\n\nGated on ``inventory.view``: the payload is public CC0 metadata, so nothing\nhere needs shaping, but this would otherwise be the only authenticated read\nin the file with no permission at all \u2014 and ``inventory.view`` is the\nweakest permission anyone who could act on the result already holds.",
+        "operationId": "list_brand_icons_api_v1_card_logos_brand_icons_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "search",
+            "required": false,
+            "schema": {
+              "default": "",
+              "maxLength": 64,
+              "title": "Search",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Brand Icons",
+        "tags": [
+          "card-logos"
+        ]
+      }
+    },
+    "/api/v1/card-logos/brand-icons/resolve": {
+      "get": {
+        "description": "Say which of many icon references the packs actually carry.\n\nExists for the MCP dry run. Previewing a batch of logos has to be able to\ntell the caller that a slug is unknown *before* it commits \u2014 otherwise a\npreview says every row is fine and the commit is where it learns\notherwise, which is precisely when an agent stops rather than going to\nfetch the mark itself. Searching one slug at a time would be one request\nper row, so this answers the whole batch in one.\n\nReturns ``{known: {ref: canonical_ref}, unknown: [ref]}``; the canonical\nform is what a caller should store, since a bare slug resolves to whichever\npack carries it.",
+        "operationId": "resolve_brand_icons_api_v1_card_logos_brand_icons_resolve_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "refs",
+            "required": false,
+            "schema": {
+              "default": "",
+              "maxLength": 8192,
+              "title": "Refs",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Resolve Brand Icons",
+        "tags": [
+          "card-logos"
+        ]
+      }
+    },
+    "/api/v1/card-logos/brand-icons/{slug}.png": {
+      "get": {
+        "description": "Public endpoint \u2014 one brand icon's PNG, for the picker to render.\n\nUnauthenticated, on the same reasoning as ``GET /settings/logo`` beside it:\nan ``<img>`` is what loads this, and the bytes are public CC0 artwork that\nships inside the image. Nothing here is instance data \u2014 not a card, not a\nname, not a count \u2014 so there is nothing for a permission to protect.\n\nThe *listing* endpoint above stays gated all the same: enumerating the pack\nis a different act from rendering one icon a caller already knows the name\nof, and least privilege is free there.\n\nTakes no database session on purpose \u2014 the pack is read from disk, so this\nroute never needs a connection out of the pool.",
+        "operationId": "get_brand_icon_api_v1_card_logos_brand_icons__slug__png_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "title": "Slug",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Brand Icon",
+        "tags": [
+          "card-logos"
+        ]
+      }
+    },
     "/api/v1/cards": {
       "get": {
         "operationId": "list_cards_api_v1_cards_get",
@@ -22042,6 +22222,129 @@
         "summary": "Get History",
         "tags": [
           "cards"
+        ]
+      }
+    },
+    "/api/v1/cards/{card_id}/logo": {
+      "delete": {
+        "description": "Remove the card's logo, falling the card back to its type icon.\n\nAllowed even when the type's ``allow_card_logo`` switch is off, so turning\nthe feature off for a type never strands existing images as undeletable.",
+        "operationId": "delete_card_logo_api_v1_cards__card_id__logo_delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "card_id",
+            "required": true,
+            "schema": {
+              "title": "Card Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Card Logo",
+        "tags": [
+          "card-logos"
+        ]
+      },
+      "get": {
+        "description": "Public endpoint \u2014 returns a card's logo image bytes, or 404.\n\nUnauthenticated on purpose. An ``<img>`` tag cannot carry the bearer token\n(it lives in sessionStorage), and published web portals are viewed with no\naccount at all, so a gated route would mean either blob-fetching through\nthe API client on every surface or a second portal-scoped copy of this\nendpoint. What is returned is the artefact and nothing else \u2014 no card name,\ntype, or any other field \u2014 keyed by an unguessable UUID, the same posture\n``GET /diagrams/public/{slug}`` and ``/ext-assets`` take.\n\nA missing card, a card with no logo, and a malformed id all answer 404\nidentically, so this cannot be used to probe which card ids exist. The\nper-type ``allow_card_logo`` switch deliberately does not gate this: it\ngoverns upload and display, and enforcing it here would 404 images that\nare still on screen in a portal the moment an admin flips it off.",
+        "operationId": "get_card_logo_api_v1_cards__card_id__logo_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "card_id",
+            "required": true,
+            "schema": {
+              "title": "Card Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Card Logo",
+        "tags": [
+          "card-logos"
+        ]
+      },
+      "post": {
+        "description": "Upload or replace the card's logo, from a file or a built-in brand icon.\n\nExactly one of ``file`` and ``icon_slug`` is required. The icon path exists\nso an agent can set a product's mark without carrying the image at all \u2014\nsee ``app/services/brand_icons.py``.",
+        "operationId": "upload_card_logo_api_v1_cards__card_id__logo_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "card_id",
+            "required": true,
+            "schema": {
+              "title": "Card Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_upload_card_logo_api_v1_cards__card_id__logo_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Upload Card Logo",
+        "tags": [
+          "card-logos"
         ]
       }
     },
