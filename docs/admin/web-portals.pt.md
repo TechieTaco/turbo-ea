@@ -12,6 +12,62 @@ Portais web são úteis para compartilhar informações de arquitetura com parte
 - **Diretório de serviços** — Publique serviços de TI e seus proprietários
 - **Mapa de capacidades** — Forneça uma visualização pública das capacidades de negócio
 
+## Tipo de portal
+
+Cada portal publica uma de duas vistas, escolhida em **Tipo de portal**:
+
+| Tipo | O que os visitantes veem |
+|------|--------------------------|
+| **Lista de cartões** | Uma grelha de cartões com pesquisa e filtros — o portal clássico, configurado com as propriedades abaixo. |
+| **Painel de portfólio PPM** | O [painel de portfólio PPM](../guide/ppm.md) só de leitura — cronograma, indicadores de estado e orçamento face ao real de cada iniciativa ativa. |
+
+### Portais de portfólio PPM
+
+Escolher **Painel de portfólio PPM** transforma o portal numa vista executiva do seu
+portfólio de projetos, acessível através de uma ligação pública **sem conta, sem licença
+e sem autenticação**. Pensado para o caso comum em que a direção quer visibilidade sobre
+o portfólio mas não vai manter mais credenciais.
+
+O painel refere-se sempre a cartões de **Iniciativa**, pelo que o seletor de tipo de
+cartão fica bloqueado. Os filtros por **subtipos** e **etiquetas** continuam a aplicar-se,
+que é como se publica um único programa em vez de todo o portfólio.
+
+Os visitantes veem o mesmo painel que a sua equipa usa dentro do Turbo EA: o cronograma
+trimestral, os indicadores de prazo/custo/âmbito, as barras de CapEx e OpEx, o agrupamento
+por qualquer tipo de cartão relacionado e a vista do relatório de estado que surge ao
+passar o rato sobre a data do **Último relatório**. Clicar numa iniciativa leva ao Turbo EA
+por trás da autenticação habitual — depois de entrar, aterra na iniciativa que clicou.
+
+Três interruptores controlam o que o painel publicado revela:
+
+| Interruptor | Predefinição | Publica |
+|-------------|--------------|---------|
+| **Mostrar orçamento e gasto real** | Ligado | As barras de CapEx e OpEx e o valor do orçamento total |
+| **Mostrar comentários dos relatórios de estado** | Ligado | Resumo, realizações e próximos passos na vista sobreposta. A data do relatório e os indicadores de estado são sempre apresentados |
+| **Mostrar nomes dos gestores de projeto** | **Desligado** | Os nomes dos gestores de projeto e dos autores dos relatórios. Desligado por predefinição porque os nomes são dados pessoais |
+
+O painel abre também com um agrupamento e um subtipo à sua escolha:
+
+| Definição | Predefinição | Efeito |
+|-----------|--------------|--------|
+| **Abre agrupado por** | Organização | Que agrupamento o painel mostra primeiro |
+| **Abre a mostrar o subtipo** | Todos | Que subtipo fica selecionado primeiro |
+
+Ambos são apenas um ponto de partida: o visitante pode alterar qualquer um dos
+controlos e nada é memorizado, pelo que reabrir o portal regressa ao que aqui
+configurou. É diferente do **filtro por subtipos** acima, que decide que
+iniciativas são publicadas.
+
+!!! note
+    Há coisas que nunca são publicadas, seja qual for a sua escolha: os campos de custo
+    guardados no próprio cartão de Iniciativa, os endereços de e-mail dos utilizadores e
+    tudo o que está na página de detalhe de uma iniciativa — pacotes de trabalho, marcos,
+    riscos, tarefas e histórico de relatórios ficam por trás da autenticação.
+
+Um portal de portfólio pode ser protegido por SSO como qualquer outro portal. Desativar
+o módulo PPM em **Admin > Definições** torna todos os portais de portfólio imediatamente
+inacessíveis, sem ter de os despublicar um a um.
+
 ## Proteção de acesso
 
 Cada portal tem um **modo de acesso** que controla quem pode abri-lo:

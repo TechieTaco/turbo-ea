@@ -34,7 +34,8 @@ import {
   useFieldLabel,
   useSubtypeLabel,
 } from "@/hooks/useResolveLabel";
-import type { WebPortal, TagGroup } from "@/types";
+import { usePpmEnabled } from "@/hooks/usePpmEnabled";
+import type { WebPortal, TagGroup, PortalView, PpmGroupOption } from "@/types";
 
 interface ToggleEntry {
   card: boolean;
@@ -107,9 +108,19 @@ export default function WebPortalsAdmin() {
   const [tagGroups, setTagGroups] = useState<TagGroup[]>([]);
   const [showLogo, setShowLogo] = useState(true);
   const [accessMode, setAccessMode] = useState<"public" | "sso">("public");
+  const [view, setView] = useState<PortalView>("cards");
+  const [ppmShowCosts, setPpmShowCosts] = useState(true);
+  const [ppmShowPeople, setPpmShowPeople] = useState(false);
+  const [ppmShowNarrative, setPpmShowNarrative] = useState(true);
+  // What the published board opens on. Visitors can change both; nothing is
+  // persisted, so a reload returns to whatever is configured here.
+  const [ppmGroupBy, setPpmGroupBy] = useState("Organization");
+  const [ppmSubtype, setPpmSubtype] = useState("");
+  const [ppmGroupOptions, setPpmGroupOptions] = useState<PpmGroupOption[]>([]);
   const [allowedDomains, setAllowedDomains] = useState<string[]>([]);
   const [domainInput, setDomainInput] = useState("");
   const [ssoEnabled, setSsoEnabled] = useState(false);
+  const { ppmEnabled } = usePpmEnabled();
 
   const visibleTypes = types.filter((tp) => !tp.is_hidden);
 
@@ -128,6 +139,12 @@ export default function WebPortalsAdmin() {
       .get<TagGroup[]>("/tag-groups")
       .then(setTagGroups)
       .catch(() => setTagGroups([]));
+    // The same list the board's Group by dropdown is built from, so the admin
+    // cannot configure a grouping the board would not offer.
+    api
+      .get<PpmGroupOption[]>("/reports/ppm/group-options")
+      .then(setPpmGroupOptions)
+      .catch(() => setPpmGroupOptions([]));
     api
       .get<{ enabled: boolean }>("/auth/sso/config")
       .then((cfg) => setSsoEnabled(cfg.enabled === true))
@@ -146,6 +163,12 @@ export default function WebPortalsAdmin() {
     setFilterTagIds([]);
     setShowLogo(true);
     setAccessMode("public");
+    setView("cards");
+    setPpmShowCosts(true);
+    setPpmShowPeople(false);
+    setPpmShowNarrative(true);
+    setPpmGroupBy("Organization");
+    setPpmSubtype("");
     setAllowedDomains([]);
     setDomainInput("");
     setError("");
@@ -178,6 +201,14 @@ export default function WebPortalsAdmin() {
       ((portal.filters as Record<string, unknown>)?.tag_ids as string[]) || []
     );
     setAccessMode(portal.access_mode === "sso" ? "sso" : "public");
+    setView(portal.view === "ppm_portfolio" ? "ppm_portfolio" : "cards");
+    const ppmCfg =
+      ((portal.card_config as Record<string, unknown>)?.ppm as Record<string, unknown>) || {};
+    setPpmShowCosts(ppmCfg.show_costs !== false);
+    setPpmShowPeople(ppmCfg.show_people === true);
+    setPpmShowNarrative(ppmCfg.show_report_narrative !== false);
+    setPpmGroupBy((ppmCfg.default_group_by as string) || "Organization");
+    setPpmSubtype((ppmCfg.default_subtype as string) || "");
     setAllowedDomains(portal.allowed_email_domains || []);
     setDomainInput("");
     setError("");
@@ -235,8 +266,22 @@ export default function WebPortalsAdmin() {
 
   const handleSave = async () => {
     setError("");
-    const hasToggles = Object.keys(toggles).length > 0;
-    const hasCardConfig = hasToggles || !showLogo;
+    const isPortfolio = view === "ppm_portfolio";
+    // Per-field toggles are meaningless on the portfolio board, which has a
+    // fixed set of columns; it carries its own three exposure switches instead.
+    const hasToggles = !isPortfolio && Object.keys(toggles).length > 0;
+    const ppmConfig = isPortfolio
+      ? {
+          show_costs: ppmShowCosts,
+          show_people: ppmShowPeople,
+          show_report_narrative: ppmShowNarrative,
+          default_group_by: ppmGroupBy,
+          default_subtype: ppmSubtype,
+        }
+      : null;
+    // `card_config` collapses to null when there is nothing in it — the PPM
+    // block has to count, or the switches would silently vanish on save.
+    const hasCardConfig = hasToggles || !showLogo || ppmConfig !== null;
     // Fold any un-committed text in the domain input into the list on save.
     const effectiveDomains =
       accessMode === "sso" && domainInput.trim()
@@ -246,7 +291,10 @@ export default function WebPortalsAdmin() {
       name,
       slug,
       description: description || null,
-      card_type: cardType,
+      // The backend pins a portfolio portal to Initiative; send what the form
+      // shows so the two never disagree.
+      card_type: isPortfolio ? "Initiative" : cardType,
+      view,
       is_published: isPublished,
       access_mode: accessMode,
       allowed_email_domains:
@@ -260,7 +308,11 @@ export default function WebPortalsAdmin() {
             }
           : null,
       card_config: hasCardConfig
-        ? { ...(hasToggles ? { toggles } : {}), show_logo: showLogo }
+        ? {
+            ...(hasToggles ? { toggles } : {}),
+            ...(ppmConfig ? { ppm: ppmConfig } : {}),
+            show_logo: showLogo,
+          }
         : null,
     };
     try {
@@ -605,15 +657,63 @@ export default function WebPortalsAdmin() {
           <TextField
             fullWidth
             select
+            label={t("webPortals.portalType")}
+            value={view}
+            onChange={(e) => {
+              const next = e.target.value as PortalView;
+              setView(next);
+              // The portfolio board is always the Initiative portfolio; the
+              // per-field toggles and filters below key off the card type, so
+              // reset them whenever the target changes.
+              setToggles({});
+              setFilterSubtypes([]);
+              setFilterTagIds([]);
+              if (next === "ppm_portfolio") setCardType("Initiative");
+            }}
+            sx={{ mb: 2 }}
+            helperText={
+              view === "ppm_portfolio"
+                ? t("webPortals.portalTypePpmHelper")
+                : t("webPortals.portalTypeCardsHelper")
+            }
+          >
+            <MenuItem value="cards">
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                <MaterialSymbol icon="grid_view" size={18} />
+                {t("webPortals.portalTypeCards")}
+              </Box>
+            </MenuItem>
+            <MenuItem value="ppm_portfolio" disabled={!ppmEnabled}>
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                <MaterialSymbol icon="view_timeline" size={18} />
+                {t("webPortals.portalTypePpm")}
+                {!ppmEnabled && (
+                  <Typography variant="caption" color="text.secondary">
+                    {t("webPortals.portalTypePpmDisabled")}
+                  </Typography>
+                )}
+              </Box>
+            </MenuItem>
+          </TextField>
+          <TextField
+            fullWidth
+            select
             label={t("common:labels.type")}
             value={cardType}
+            // Pinned for a portfolio portal — kept visible but locked, because
+            // the subtype and tag pickers below still resolve against it.
+            disabled={view === "ppm_portfolio"}
             onChange={(e) => {
               setCardType(e.target.value);
               setToggles({});
               setFilterSubtypes([]);
               setFilterTagIds([]);
             }}
-            helperText={t("webPortals.cardTypeHelper")}
+            helperText={
+              view === "ppm_portfolio"
+                ? t("webPortals.cardTypePinnedHelper")
+                : t("webPortals.cardTypeHelper")
+            }
           >
             {visibleTypes.map((ct) => (
               <MenuItem key={ct.key} value={ct.key}>
@@ -670,7 +770,126 @@ export default function WebPortalsAdmin() {
             </Box>
           )}
 
-          {cardType && (
+          {view === "ppm_portfolio" && (
+            <>
+              <Divider sx={{ my: 3 }} />
+              <Typography
+                variant="overline"
+                sx={{
+                  display: "block",
+                  mb: 0.5,
+                  fontWeight: 700,
+                  color: "text.secondary",
+                  letterSpacing: 1,
+                }}
+              >
+                {t("webPortals.section.displayConfig")}
+              </Typography>
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                sx={{ display: "block", mb: 1.5 }}
+              >
+                {t("webPortals.ppm.hint")}
+              </Typography>
+
+              {/* What the board opens on. Distinct from the subtype *filter*
+                  above, which decides which initiatives are published at all —
+                  this only picks the selection the visitor first sees. */}
+              <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap", mb: 2 }}>
+                <TextField
+                  select
+                  size="small"
+                  label={t("webPortals.ppm.defaultGroupBy")}
+                  value={ppmGroupBy}
+                  onChange={(e) => setPpmGroupBy(e.target.value)}
+                  sx={{ minWidth: 220, flex: 1 }}
+                  helperText={t("webPortals.ppm.defaultGroupByHelper")}
+                >
+                  {ppmGroupOptions.map((opt) => (
+                    <MenuItem key={opt.type_key} value={opt.type_key}>
+                      {typeLabel(
+                        types.find((tp) => tp.key === opt.type_key) ?? {
+                          key: opt.type_key,
+                          label: opt.type_label,
+                        },
+                      )}
+                    </MenuItem>
+                  ))}
+                </TextField>
+                <TextField
+                  select
+                  size="small"
+                  label={t("webPortals.ppm.defaultSubtype")}
+                  value={ppmSubtype}
+                  onChange={(e) => setPpmSubtype(e.target.value)}
+                  sx={{ minWidth: 220, flex: 1 }}
+                  helperText={t("webPortals.ppm.defaultSubtypeHelper")}
+                >
+                  <MenuItem value="">{t("common:all", "All")}</MenuItem>
+                  {(selectedType?.subtypes || []).map((st) => (
+                    <MenuItem key={st.key} value={st.key}>
+                      {stLabel(st)}
+                    </MenuItem>
+                  ))}
+                </TextField>
+              </Box>
+
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={ppmShowCosts}
+                    onChange={(e) => setPpmShowCosts(e.target.checked)}
+                  />
+                }
+                label={
+                  <Box>
+                    <Typography variant="body2">{t("webPortals.ppm.showCosts")}</Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {t("webPortals.ppm.showCostsHelper")}
+                    </Typography>
+                  </Box>
+                }
+                sx={{ display: "flex", alignItems: "flex-start", mb: 1 }}
+              />
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={ppmShowNarrative}
+                    onChange={(e) => setPpmShowNarrative(e.target.checked)}
+                  />
+                }
+                label={
+                  <Box>
+                    <Typography variant="body2">{t("webPortals.ppm.showNarrative")}</Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {t("webPortals.ppm.showNarrativeHelper")}
+                    </Typography>
+                  </Box>
+                }
+                sx={{ display: "flex", alignItems: "flex-start", mb: 1 }}
+              />
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={ppmShowPeople}
+                    onChange={(e) => setPpmShowPeople(e.target.checked)}
+                  />
+                }
+                label={
+                  <Box>
+                    <Typography variant="body2">{t("webPortals.ppm.showPeople")}</Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {t("webPortals.ppm.showPeopleHelper")}
+                    </Typography>
+                  </Box>
+                }
+                sx={{ display: "flex", alignItems: "flex-start" }}
+              />
+            </>
+          )}
+
+          {cardType && view !== "ppm_portfolio" && (
             <>
             <Divider sx={{ my: 3 }} />
 
