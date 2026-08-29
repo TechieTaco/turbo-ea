@@ -44,13 +44,19 @@ import InventoryFilterSidebar, {
   CORE_COLUMN_KEYS,
   LIFECYCLE_PHASES,
   LOCKED_COLUMN_KEYS,
+  LOGO_COLUMN_KEY,
   EMPTY_VALUE,
+  logoColumnApplies,
   normalizeRelationFilterKeys,
   normalizeSelectAttributeFilters,
   valueIsEmpty,
   tagsToFilterText,
   type Filters,
 } from "./InventoryFilterSidebar";
+import CardLogoMenu from "@/components/CardLogoMenu";
+import LogoCell, {
+  INVENTORY_LOGO_ROW_HEIGHT,
+} from "./LogoCell";
 import { type GroupAxis, type GroupedRow } from "@/components/grid/rowGrouping";
 import { GroupByMenuButton, useRowGrouping } from "@/components/grid/useRowGrouping";
 import ImportDialog from "./ImportDialog";
@@ -468,16 +474,23 @@ const FILL_CONCURRENCY = 6;
  * Everything else is gated by AG Grid's own `editable`, which the hook already
  * consults — so the readonly attributes, the Parent column outside a single
  * hierarchical type, and the stakeholder columns without the manage permission
- * need no special case here. Two exclusions are ours:
+ * need no special case here. Three exclusions are ours:
  *
  *  - **Name** is the card's identity. Copying one name down a column produces
  *    duplicates that the backend rejects on sibling-name uniqueness for every
  *    hierarchical type, so the affordance would be an invitation to fail.
  *  - **Relation columns** are driven by a popover, not an AG Grid editor;
  *    they carry no `editable` and no `field` to write through.
+ *  - **Logo** is an identity, and one drag would rewrite the mark on every row
+ *    it covered with no per-cell undo — re-uploading two hundred marks by hand
+ *    is not a recovery. It is excluded here *by name* rather than left to the
+ *    `colDef.field` test below, which it happens to fail today: that is a
+ *    property of how the column is built, and an unrelated edit could take it
+ *    away silently.
  */
 export function isInventoryFillable(colId: string, colDef: { field?: string }): boolean {
   if (colId === "core_name") return false;
+  if (colId === LOGO_COLUMN_KEY) return false;
   if (colId.startsWith("rel_")) return false;
   // AG Grid's own selection / controls column, and anything with no field to
   // persist through (Path, Data Quality, …).
@@ -860,6 +873,27 @@ export default function InventoryPage() {
   // Card-detail side panel: opened from the eye icon in the Name column.
   const [previewCardId, setPreviewCardId] = useState<string | null>(null);
 
+  // Logo column: the cell the change-logo menu hangs off, and the card it acts
+  // on. The target deliberately outlives the menu closing — the file dialog is
+  // browser-modal and comes back long after.
+  const [logoMenuAnchor, setLogoMenuAnchor] = useState<HTMLElement | null>(null);
+  const [logoTarget, setLogoTarget] = useState<Card | null>(null);
+  const [logoSnack, setLogoSnack] = useState("");
+  const openLogoMenu = useCallback((anchor: HTMLElement, card: Card) => {
+    setLogoTarget(card);
+    setLogoMenuAnchor(anchor);
+  }, []);
+  // A logo write touches nothing else on the card, so refreshing the row in
+  // place beats a reload of every row in the grid.
+  const applyLogoUpdate = useCallback((cardId: string, logoUpdatedAt: string | null) => {
+    setData((prev) =>
+      prev.map((c) => (c.id === cardId ? { ...c, logo_updated_at: logoUpdatedAt } : c)),
+    );
+    setLogoTarget((prev) =>
+      prev && prev.id === cardId ? { ...prev, logo_updated_at: logoUpdatedAt } : prev,
+    );
+  }, []);
+
   // Relations data: relTypeKey → Map<cardId, relatedCards[]>
   const [relationsMap, setRelationsMap] = useState<Map<string, Map<string, RelatedCardRef[]>>>(new Map());
 
@@ -1107,6 +1141,24 @@ export default function InventoryPage() {
   // Derive the single selected type for column rendering (only when exactly one type selected)
   const selectedType = filters.types.length === 1 ? filters.types[0] : "";
   const typeConfig = types.find((t) => t.key === selectedType);
+
+  // --- Logo column -----------------------------------------------------------
+  // Offered only when a type in view can carry a logo (same rule the column
+  // picker applies, from the same helper), and shown only when the user has
+  // ticked it — every row grows taller while it is on screen.
+  const logoColumnAvailable = useMemo(
+    () => logoColumnApplies(types, filters.types),
+    [types, filters.types],
+  );
+  const logoColumnShown = logoColumnAvailable && selectedColumns.has(LOGO_COLUMN_KEY);
+  // The backend authorises each write against the card, but the affordance is
+  // gated here so a viewer is not offered an edit that can only 403.
+  const canEditLogos = !!(user?.permissions?.["*"] || user?.permissions?.["inventory.edit"]);
+  // AG Grid measures each row once; toggling the column changes `rowHeight` but
+  // leaves the rows already laid out at the old height until they are re-measured.
+  useEffect(() => {
+    gridRef.current?.api?.resetRowHeights();
+  }, [logoColumnShown, gridReady]);
 
   // URL deep-links seed attribute filters as scalar strings (the URL block
   // above runs before the metamodel loads, so it can't know which fields are
@@ -2011,9 +2063,11 @@ export default function InventoryPage() {
     // Exclude AG Grid's auto-generated columns (the row-selection / controls
     // column, colId `ag-Grid-ControlsColumn` / `ag-Grid-SelectionColumn`) — they
     // carry no data and would otherwise surface as an empty leading column.
+    // The Logo column is excluded too: a workbook cell cannot hold the image,
+    // so it would export as a column of blanks under a "Logo" header.
     const displayed = api
       .getAllDisplayedColumns()
-      .filter((c) => !c.getColId().startsWith("ag-Grid-"));
+      .filter((c) => !c.getColId().startsWith("ag-Grid-") && c.getColId() !== LOGO_COLUMN_KEY);
     const columns = displayed.map((c) => ({
       colId: c.getColId(),
       headerName: api.getDisplayNameForColumn(c, null) || c.getColId(),
@@ -2085,7 +2139,14 @@ export default function InventoryPage() {
     navigate(`/cards/${e.data.id}`);
   }, [gridEditMode, navigate]);
 
-  // Mass-editable fields for current type
+  // Mass-editable fields for current type.
+  //
+  // The Logo column is deliberately absent, and must stay absent: applying one
+  // mark to every selected card is never what someone means, and there is no
+  // undo for it. A logo is set one card at a time from its cell (or the card
+  // page), or in bulk by an agent over MCP — `set_card_logos`, which previews
+  // under a dry run first and lands in a revertible mutation batch. Drag-fill
+  // is excluded on the same reasoning, in `isInventoryFillable` above.
   type MassEditField = {
     key: string;
     label: string;
@@ -2692,6 +2753,37 @@ export default function InventoryPage() {
             },
       },
       {
+        // The card's own mark. Only built when a type in view can carry one —
+        // on a grid of types that cannot, the column would be a stripe of
+        // empty cells whose only effect was taller rows.
+        colId: LOGO_COLUMN_KEY,
+        headerName: t("columns.logo"),
+        width: 80,
+        minWidth: 60,
+        hide: !selectedColumns.has(LOGO_COLUMN_KEY),
+        // An image is neither sortable nor filterable, and it exports as
+        // nothing — the Excel writer is handed cells, not pictures.
+        sortable: false,
+        filter: false,
+        // Centres the tile in the cell; the renderer fills the cell so the
+        // type-icon placeholder lands in exactly the same place.
+        cellStyle: {
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: 0,
+        },
+        cellRenderer: (p: { data?: Card }) =>
+          p.data ? (
+            <LogoCell
+              card={p.data}
+              type={types.find((x) => x.key === p.data!.type)}
+              editable={canEditLogos && p.data.status !== "ARCHIVED"}
+              onEdit={openLogoMenu}
+            />
+          ) : null,
+      },
+      {
         colId: "core_reference",
         field: "reference",
         headerName: t("columns.id"),
@@ -3292,8 +3384,14 @@ export default function InventoryPage() {
       }
     );
 
-    return gridColumnOrder.applyOrder(columnFreeze.applyFrozen(cols));
-  }, [columnFreeze, gridColumnOrder, types, typeConfig, commonFields, gridEditMode, relevantRelTypes, relatedRefsOf, relationsLoading, selectedType, parentPaths, cardsById, parentNameOf, descendantIndex, filters.showArchived, selectedColumns, userNameMap, t, i18n.language, formatDate, formatDateTime, canViewCostsGlobally, canManageStakeholders, tagGroups, stakeholderRoles, typeLabel]);
+    // Dropped rather than never built, so the Logo column keeps its place next
+    // to Name for the types that do carry logos.
+    const applicable = logoColumnAvailable
+      ? cols
+      : cols.filter((c) => c.colId !== LOGO_COLUMN_KEY);
+
+    return gridColumnOrder.applyOrder(columnFreeze.applyFrozen(applicable));
+  }, [columnFreeze, gridColumnOrder, types, typeConfig, commonFields, gridEditMode, relevantRelTypes, relatedRefsOf, relationsLoading, selectedType, parentPaths, cardsById, parentNameOf, descendantIndex, filters.showArchived, selectedColumns, userNameMap, t, i18n.language, formatDate, formatDateTime, canViewCostsGlobally, canManageStakeholders, canEditLogos, logoColumnAvailable, openLogoMenu, tagGroups, stakeholderRoles, typeLabel]);
 
   // Feeds the Columns tab's "Column order" section: only the columns actually
   // on screen, built from the grid's own defs. On this page that matters twice
@@ -3950,6 +4048,9 @@ export default function InventoryPage() {
             ref={gridRef}
             rowData={grouping.rowData}
             columnDefs={columnDefs}
+            // Tall enough for a legible logo tile, and only while that column
+            // is on screen — every other configuration keeps the dense default.
+            rowHeight={logoColumnShown ? INVENTORY_LOGO_ROW_HEIGHT : undefined}
             // `searchPending` covers the debounce window too, so the grid never
             // looks settled while it is still showing the previous query's rows.
             loading={loading || searchPending}
@@ -3993,7 +4094,25 @@ export default function InventoryPage() {
       {cellMenu.menu}
       {dragFill.dialog}
 
-      {/* Inline-edit failures (rejected re-parent, …) */}
+      {/* Change-logo menu for the Logo column — the same one the card page uses */}
+      <CardLogoMenu
+        cardId={logoTarget?.id ?? null}
+        hasLogo={!!logoTarget?.logo_updated_at}
+        anchorEl={logoMenuAnchor}
+        onClose={() => setLogoMenuAnchor(null)}
+        onChanged={applyLogoUpdate}
+        onNotify={setLogoSnack}
+        onError={setCellEditError}
+      />
+      <Snackbar
+        open={!!logoSnack}
+        autoHideDuration={3000}
+        onClose={() => setLogoSnack("")}
+        message={logoSnack}
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+      />
+
+      {/* Inline-edit failures (rejected re-parent, refused logo upload, …) */}
       <Snackbar
         open={!!cellEditError}
         autoHideDuration={8000}
