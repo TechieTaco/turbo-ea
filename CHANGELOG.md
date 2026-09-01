@@ -5,6 +5,38 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.114.0] - 2026-09-01
+
+### Added
+
+- **You can now create several relation types between the same two card types.** An Organization that *owns* an application and one that *uses* it can be modelled as two relations with their own verbs, attributes and filters, instead of being squeezed into a single relation qualified by an attribute. Attributes are still the better fit for variants of one relationship, and the create dialog now says so — as a hint, not a refusal — when the pair you picked is already connected.
+
+### Fixed
+
+- The Landscape report listed a card twice in a group when it was related through more than one relation type.
+- The Dependencies report dropped an edge when two cards were connected by more than one relation type. Each relation now gets its own labelled line in the diagram view and on diagrams you build from it, so "owns" and "uses" are visibly two relationships. The tree view still shows the combined verbs (for example "owns / uses"), because it draws one branch per related card.
+- The TurboLens architect built its dependency graph — and the prompt derived from it — with the same collapse, silently losing one of the relationships.
+- Vendor analysis counted an application, and its annual cost, once per relation instead of once per vendor, so app counts and total spend were overstated wherever a vendor was linked through more than one relation type.
+- The End-of-Life report listed an affected application once per relation, so an item's "affected applications" count disagreed with the summary above it.
+- The JSON export used by integrations repeated a provider name per relation.
+- A card type with lineage enabled could fail to save when more than one successor relation existed for it.
+- The Process Map ignored any Process → Application, Data Object, Organization or Business Context relation beyond the built-in one.
+- A second self-referencing relation type whose key ended in "Successor" was invisible everywhere — it could not be seen, edited or deleted from the card, the metamodel tab or the relation graph.
+- The inventory relation cell could show a related card it would not let you edit or remove. The cell has always merged every relation type reaching that card type; the editor now opens a section per relation type instead of only reaching the first, and the filter sidebar offers a row per relation type rather than hiding all but one.
+- Opening the inventory from a report's relation grouping filtered by only one relation type when several connect that pair of card types; the link now means "related to this card type at all".
+- Expanding a card on a diagram drew a single line to a neighbour connected by more than one relation type, showing one verb and omitting the other relations. Each relation now gets its own labelled edge on that neighbour, and deleting one still removes the relation it stands for. The lines are held apart over the middle of the run rather than meeting again right at each card, so a pair is visible at a glance, and the separation now works for cards stacked vertically as well as side by side.
+- The Capability Map counted an application twice under a capability, and listed a related card twice in its filters, when the link existed through more than one relation type.
+- Grouping the PPM portfolio by a card type connected through more than one relation type no longer places initiatives unpredictably.
+- The vendor field and the Provider link created with a new card now pick the same relation type consistently when several connect Provider to that card type.
+- A web portal showed two identically-labelled filter dropdowns, and repeated a card's chip, when two relation types reached the same card type; its detail sections also merged two relationships that happened to share a verb in the current language.
+
+### Changed
+
+- **Reports, portals and surveys can now target a specific relationship.** The Portfolio report offers a group-by axis and a filter per relation type, the Capability Map adds a filter per relation type, portal filters and relation sections carry their verb, and a survey's "related to" filter gains a **Via relation** picker. Existing saved reports, bookmarks, portals and surveys are unaffected — they keep meaning "related through any of them".
+- **A second relation type between two card types gets a usable key.** Its suggested key now builds on the existing relation's key plus the verb you type (`relOrgToApp` + "owns" → `relOrgToAppOwns`), so a pair's keys read as one family; a numeric suffix is only the fallback when no verb has been entered. The key is what appears as an Excel column, a calculation variable and a survey field, so it has to be recognisable. The create dialog also asks for the verbs before the key, so the suggestion is meaningful the first time you see it, and a key you type by hand is no longer wiped if you change a card type afterwards.
+- **A card's Relations section groups the relation types that point at the same card type together.** Each relation type still has its own section, headed by its verb, but sections reaching the same card type are now shown side by side rather than wherever the metamodel's ordering happened to put them. A card you have linked through more than one of them is marked "Also …" in each of its sections, so the two rows read as one card rather than two.
+- The relation-type key field now says it is generated from the verb and cannot be changed after creation. It stays editable while you create the relation type — that is the only chance to choose it.
+
 ## [2.113.0] - 2026-09-01
 
 ### Added
